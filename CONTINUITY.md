@@ -12,7 +12,11 @@
 ### Completed
 
 - Flask backend is running and serving the web app on port `8080`
-- Bearer-token authentication is in place for app APIs
+- Local browser login is implemented with Flask sessions
+- Admins can now create household users from the web app
+- Admins can now edit users, reset passwords, and activate/deactivate accounts
+- Existing users can now request password help from the login screen
+- Bearer-token authentication is still in place for app APIs and integrations
 - Direct receipt upload is implemented and working for images and PDFs
 - Gemini OCR is implemented, migrated to `google-genai`, and working
 - Gemini OCR now augments PDF receipts with the PDF text layer to recover summary fields like date, subtotal, tax, total, and time
@@ -20,6 +24,7 @@
 - Docker Compose is the primary intended runtime, with restart policies already configured for backend, MQTT, and Ollama
 - Product, inventory, analytics, budget, and recommendations endpoints are implemented
 - Web app tabs are implemented for dashboard, inventory, products, upload, receipts, budget, analytics, recommendations, and settings
+- Mobile navigation now uses an off-canvas menu instead of a permanently fixed sidebar
 - Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
 - Review receipts can persist raw OCR output, be reprocessed, and be approved from the web app
 - Telegram webhook handler is implemented
@@ -32,6 +37,16 @@
 
 - `GET /health`
 - web app served at `/` and `/dashboard`
+- bootstrap auth flow:
+  `GET /auth/bootstrap-info` → `POST /auth/login` → `GET /auth/me`
+- admin household user flow:
+  `GET /auth/users` → `POST /auth/users`
+- admin account maintenance flow:
+  `PUT /auth/users/{id}` for profile updates, password resets, and activation changes
+- forgot-password flow:
+  `POST /auth/forgot-password` raises an admin-visible reset request for existing users only
+- mobile web layout:
+  iPhone-sized screens now use a top bar + slide-out menu so content is not hidden behind the sidebar
 - Products tab: list, search, create, delete
 - Inventory tab: list, add, consume, delete
 - Budget tab: set and read status
@@ -122,6 +137,10 @@ Every file in the project and what it does:
 | `__init__.py` | — | ✅ Done |
 | `initialize_database_schema.py` | Step 2 | ✅ Schema defined |
 | `create_flask_application.py` | Step 3 | ✅ App factory created |
+| `manage_authentication.py` | Phase 1 auth | ✅ Session login + bootstrap auth endpoints |
+| `manage_authentication.py` | Phase 2 auth | ✅ Admin user list/create endpoints |
+| `manage_authentication.py` | Phase 3 auth | ✅ Admin user update/reset/deactivate endpoint |
+| `manage_authentication.py` | Password recovery | ✅ Existing-user reset-request endpoint |
 | `setup_mqtt_connection.py` | Step 4 | ✅ Client singleton |
 | `handle_receipt_upload.py` | Step 5 | ✅ Upload endpoint working (images + PDFs) |
 | `configure_telegram_webhook.py` | Step 6 | ✅ Webhook registration/status helper working |
@@ -176,12 +195,18 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 1: Docker Compose stack (`docker-compose.yml`, `Dockerfile`)
 - [x] Step 2: Database schema (`initialize_database_schema.py` — models defined)
 - [x] Step 3: Flask app (`create_flask_application.py` — app factory + auth)
+- [x] Browser login for the bootstrap admin (`/auth/login`, session cookie, `/auth/me`)
+- [x] Admin can create household users from the web app
+- [x] Admin can edit users, reset passwords, and activate/deactivate accounts
+- [x] Existing users can request password resets without opening self-registration
 - [x] Step 4: MQTT connection (`setup_mqtt_connection.py` — client ready)
 - [x] Step 5: Upload endpoint (`handle_receipt_upload.py` — authenticated and working)
 - [x] PDF receipts supported through upload endpoint
 - [x] Wire blueprints into Flask app
 - [ ] Run `alembic init` and create initial migration
 - [ ] Test `docker-compose up` end-to-end
+- [ ] Link Telegram chats to local accounts
+- [ ] Add self-service password change flow for logged-in users
 
 ### Phase 2: Telegram Integration
 - [x] Step 6: Configure Telegram webhook helper

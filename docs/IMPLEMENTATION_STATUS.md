@@ -6,6 +6,11 @@
 
 - Backend is running on port `8080`
 - Web dashboard is served by Flask at `/` and `/dashboard`
+- Browser login is now available with local email/password accounts backed by Flask sessions
+- Admin-managed household user creation is available from the Settings page
+- Admins can now edit users, reset passwords, and activate/deactivate accounts
+- Existing users can request password help from the login screen, and admins can fulfill those requests
+- Mobile navigation now collapses into a menu on smaller screens instead of leaving the sidebar fixed open
 - Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
 - PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
@@ -19,6 +24,14 @@ These flows were manually verified in the current environment:
 
 - `GET /health`
 - Web dashboard loads on port `8080`
+- `GET /auth/bootstrap-info`
+- `POST /auth/login`
+- `GET /auth/me`
+- `GET /auth/users`
+- `POST /auth/users`
+- `PUT /auth/users/{id}`
+- `POST /auth/forgot-password`
+- mobile navigation on narrow screens
 - Products tab:
   list, search, create, delete
 - Inventory tab:
@@ -47,7 +60,11 @@ These flows were manually verified in the current environment:
 - Flask app factory exists and registers the main blueprints
 - `.env` is auto-loaded for local development runs
 - SQLite schema exists and is initialized through SQLAlchemy
-- Bearer-token auth is enabled for application endpoints
+- Session login is enabled for browser users
+- Phase 2 household user management is enabled for admins
+- Phase 3 admin account maintenance is enabled for admins
+- Forgot-password requests are enabled for existing users only
+- Bearer-token auth is still enabled for application endpoints and integrations
 
 ### OCR Pipeline
 
@@ -71,6 +88,7 @@ These flows were manually verified in the current environment:
 - Analytics endpoints exist
 - Recommendations endpoint exists
 - Frontend tabs for dashboard, inventory, products, upload, budget, analytics, recommendations, and settings are wired to the current backend responses
+- Mobile navigation has a working off-canvas menu for smaller screens
 
 ## Partial / In Progress
 
@@ -85,6 +103,8 @@ These areas exist but are not fully validated or fully complete:
 - Automated end-to-end test coverage
 - Real bot validation for Telegram photo receipts
 - Rich browser-level validation of the review editor UI beyond manual smoke use
+- Telegram-to-local-account linking
+- Self-service password change flow for logged-in users
 
 ## Known Gaps
 
@@ -98,10 +118,12 @@ These areas exist but are not fully validated or fully complete:
 
 1. Run a clean-machine setup using this repo plus `.env.example`
 2. Validate `docker-compose up -d` from scratch
-3. Run the receipt upload flow against Gemini on the fresh environment
-4. Validate MQTT publishing with a real broker/Home Assistant consumer
-5. Test the Telegram confirmation flow with a real photo receipt
-6. Add or refresh automated tests for products, inventory, upload, and analytics
+3. Add Telegram-to-user account linking so Telegram uploads are attributed automatically
+4. Add a self-service password change flow for logged-in users
+5. Run the receipt upload flow against Gemini on the fresh environment
+6. Validate MQTT publishing with a real broker/Home Assistant consumer
+7. Test the Telegram confirmation flow with a real photo receipt
+8. Add or refresh automated tests for products, inventory, upload, analytics, and auth
 
 ## Fresh Start Checklist
 
@@ -117,6 +139,9 @@ Set at least:
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
 INITIAL_ADMIN_TOKEN=...
+INITIAL_ADMIN_EMAIL=admin@localhost
+INITIAL_ADMIN_PASSWORD=...
+SESSION_SECRET=...
 ```
 
 Then start with one of:
@@ -150,5 +175,9 @@ python -m src.backend.create_flask_application
 
 - Do not commit `.env` or any real secrets
 - `GEMINI_MODEL` is now configurable and defaults to `gemini-2.5-flash`
+- Browser users log in with `INITIAL_ADMIN_EMAIL` + `INITIAL_ADMIN_PASSWORD`
+- If `INITIAL_ADMIN_PASSWORD` is blank, the first browser login falls back to `INITIAL_ADMIN_TOKEN`
+- Inactive users cannot log in, and the app protects the last active admin from being demoted or deactivated
+- `Forgot Password?` does not allow public sign-up; it only raises an admin-visible reset request for existing users
 - The current upload response shape includes OCR data under `data`
 - Inventory responses return an `inventory` array, not `items`

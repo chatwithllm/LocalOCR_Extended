@@ -10,8 +10,8 @@ Port: 8080 (accessed via Nginx Proxy Manager for external access)
 """
 
 import os
-import hashlib
 import logging
+from datetime import timedelta
 from functools import wraps
 
 # Auto-load .env file (works locally; in Docker env vars come from docker-compose)
@@ -21,7 +21,7 @@ try:
 except ImportError:
     pass  # python-dotenv not installed — use system env vars
 
-from flask import Flask, jsonify, request, g, send_from_directory
+from flask import Flask, jsonify, g, send_from_directory
 
 from src.backend.initialize_database_schema import (
     create_db_engine, create_session_factory, initialize_database, User
@@ -42,31 +42,14 @@ def _get_db():
     return _engine, _SessionFactory
 
 
-# ---------------------------------------------------------------------------
-# Authentication Middleware
-# ---------------------------------------------------------------------------
-
-def hash_token(token: str) -> str:
-    """Hash an API token for secure storage/comparison."""
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
 def require_auth(f):
-    """Decorator to require Bearer token authentication on endpoints."""
+    """Decorator to require session or bearer-token authentication."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return jsonify({"error": "Missing or invalid Authorization header"}), 401
-
-        token = auth_header.split("Bearer ", 1)[1]
-        token_hash = hash_token(token)
-
-        # Validate token against users table
-        session = g.db_session
-        user = session.query(User).filter_by(api_token_hash=token_hash).first()
+        from src.backend.manage_authentication import get_authenticated_user
+        user = get_authenticated_user()
         if not user:
-            return jsonify({"error": "Invalid token"}), 401
+            return jsonify({"error": "Authentication required"}), 401
         g.current_user = user
 
         return f(*args, **kwargs)
@@ -117,6 +100,7 @@ def register_error_handlers(app):
 
 def register_blueprints(app):
     """Register all API blueprints."""
+    from src.backend.manage_authentication import auth_bp
     from src.backend.handle_telegram_messages import telegram_bp
     from src.backend.manage_product_catalog import products_bp
     from src.backend.manage_inventory import inventory_bp
@@ -125,6 +109,7 @@ def register_blueprints(app):
     from src.backend.manage_household_budget import budget_bp
     from src.backend.generate_recommendations import recommendations_bp
 
+    app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(inventory_bp)
@@ -162,28 +147,63 @@ def setup_db_session_lifecycle(app):
 # ---------------------------------------------------------------------------
 
 def ensure_admin_user():
-    """Create the initial admin user from INITIAL_ADMIN_TOKEN if no users exist."""
+    """Create or backfill the initial admin user from env bootstrap values."""
+    from src.backend.manage_authentication import (
+        get_bootstrap_admin_defaults,
+        hash_password,
+        hash_token,
+    )
     _, SessionFactory = _get_db()
     session = SessionFactory()
     try:
+        admin_name, admin_email, bootstrap_password = get_bootstrap_admin_defaults()
+        admin_token = os.getenv("INITIAL_ADMIN_TOKEN", "")
         user_count = session.query(User).count()
         if user_count == 0:
-            token = os.getenv("INITIAL_ADMIN_TOKEN", "")
-            if token:
+            if bootstrap_password or admin_token:
                 admin = User(
-                    name="Admin",
-                    email="admin@localhost",
+                    name=admin_name,
+                    email=admin_email,
                     role="admin",
-                    api_token_hash=hash_token(token),
+                    is_active=True,
+                    password_hash=hash_password(bootstrap_password) if bootstrap_password else None,
+                    api_token_hash=hash_token(admin_token) if admin_token else None,
                 )
                 session.add(admin)
                 session.commit()
-                logger.info("Initial admin user created from INITIAL_ADMIN_TOKEN.")
+                logger.info("Initial admin user created from bootstrap credentials.")
             else:
                 logger.warning(
-                    "No users in database and INITIAL_ADMIN_TOKEN not set. "
+                    "No users in database and no bootstrap auth credentials are set. "
                     "API authentication will reject all requests."
                 )
+        else:
+            admin = (
+                session.query(User)
+                .filter(User.role == "admin")
+                .order_by(User.id.asc())
+                .first()
+            )
+            if admin:
+                changed = False
+                if not admin.email:
+                    admin.email = admin_email
+                    changed = True
+                if not admin.name:
+                    admin.name = admin_name
+                    changed = True
+                if admin.is_active is None:
+                    admin.is_active = True
+                    changed = True
+                if not admin.password_hash and bootstrap_password:
+                    admin.password_hash = hash_password(bootstrap_password)
+                    changed = True
+                if not admin.api_token_hash and admin_token:
+                    admin.api_token_hash = hash_token(admin_token)
+                    changed = True
+                if changed:
+                    session.commit()
+                    logger.info("Bootstrap admin user updated with local login credentials.")
     finally:
         session.close()
 
@@ -199,6 +219,15 @@ def create_app():
     # Configuration
     app.config["FLASK_ENV"] = os.getenv("FLASK_ENV", "development")
     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:////data/db/grocery.db")
+    app.config["SECRET_KEY"] = (
+        os.getenv("SESSION_SECRET")
+        or os.getenv("INITIAL_ADMIN_TOKEN")
+        or "replace-me-in-production"
+    )
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "0") == "1"
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
 
     # Logging
     logging.basicConfig(

@@ -11,6 +11,11 @@ This repo is set up to run like an app via Docker Compose, not just as a develop
 - **💡 Smart Recommendations** — Detects price deals (≥10% discount) and recurring purchase patterns.
 - **📊 Spending Analytics** — Budget tracking, price trends, savings quantification, store comparison.
 - **🏠 Home Assistant Dashboard** — Unified view with inventory, alerts, recommendations, and analytics cards.
+- **👤 Household Login** — Browser users sign in with local email/password accounts, while API tokens remain available for integrations.
+- **🏠 Household User Management** — The bootstrap admin can create separate accounts for each household member from the web app.
+- **🛡️ Admin Controls** — Admins can edit users, reset passwords, and deactivate accounts without losing the last admin login.
+- **🔐 Forgot Password Flow** — Existing users can request a reset from the login screen, and the admin can fulfill it from Settings.
+- **📱 Mobile-Friendly Navigation** — Smaller screens now use a compact top bar and slide-out menu instead of a fixed sidebar.
 - **🔒 Privacy-First** — All data stays on your local network. SQLite database, Docker deployment, full backup/restore.
 
 ## 🚀 Quick Start
@@ -22,7 +27,7 @@ cd "Inventory Management"
 
 # 2. Configure environment
 cp .env.example .env
-# Edit .env with your Gemini API key, initial admin token, Telegram bot token, etc.
+# Edit .env with your Gemini API key, bootstrap admin email/password, API token, Telegram bot token, etc.
 
 # 3. Start all services
 docker compose up -d --build
@@ -31,7 +36,13 @@ docker compose up -d --build
 curl http://localhost:8080/health     # Backend
 curl http://localhost:11434/api/tags  # Ollama
 
-# 5. Upload a test receipt
+# 5. Sign in to the web app
+# Open http://localhost:8080 and log in with:
+#   email: INITIAL_ADMIN_EMAIL
+#   password: INITIAL_ADMIN_PASSWORD
+# If INITIAL_ADMIN_PASSWORD is blank, the first browser login falls back to INITIAL_ADMIN_TOKEN.
+
+# 6. Upload a test receipt by API token
 curl -X POST http://localhost:8080/receipts/upload \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "image=@path/to/receipt.jpg"

@@ -31,6 +31,7 @@
     .sidebar {
       width: 230px; background: var(--surface); border-right: 1px solid var(--border);
       display: flex; flex-direction: column; padding: 24px 16px; position: fixed; height: 100vh;
+      top: 0; left: 0; z-index: 40;
     }
     .logo { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 32px; padding: 0 8px; }
     .logo span { color: var(--accent); }
@@ -45,6 +46,16 @@
 
     /* ---- Main ---- */
     .main { margin-left: 230px; flex: 1; padding: 32px; }
+    .mobile-header { display: none; }
+    .mobile-menu-btn {
+      background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; width: 42px; height: 42px; font-size: 1.2rem; cursor: pointer;
+    }
+    .mobile-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(5, 8, 14, 0.7); z-index: 30;
+      backdrop-filter: blur(2px);
+    }
+    .mobile-overlay.show { display: block; }
     .page { display: none; }
     .page.active { display: block; }
 
@@ -166,10 +177,10 @@
     #auth-banner {
       background: rgba(255,101,132,0.1); border: 1px solid var(--danger);
       border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;
-      display: none; align-items: center; gap: 12px;
+      display: none; gap: 12px;
     }
     #auth-banner.show { display: flex; }
-    #auth-token-input { flex: 1; }
+    #auth-email-input, #auth-password-input { flex: 1; }
 
     /* ---- Empty State ---- */
     .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
@@ -192,13 +203,87 @@
     .rec-name { font-weight: 600; font-size: 0.9rem; }
     .rec-msg { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
     .rec-conf { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .main {
+        margin-left: 0;
+        padding: 18px;
+        padding-top: 88px;
+      }
+      .mobile-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        padding: 14px 18px;
+        background: rgba(13,15,20,0.92);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+      }
+      .mobile-title {
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .mobile-title span { color: var(--accent); }
+      .page-header h1 { font-size: 1.35rem; }
+      .card { padding: 18px; }
+      #auth-banner.show {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #auth-banner > span {
+        align-self: flex-start;
+      }
+      #auth-banner > div > div:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+      }
+      .btn {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .main { padding: 14px; padding-top: 82px; }
+      .stats-grid,
+      .form-grid,
+      #page-receipts > div,
+      #page-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .page-header { margin-bottom: 20px; }
+      .upload-zone { padding: 32px 18px; }
+      #toast {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        max-width: none;
+      }
+    }
   </style>
 </head>
 <body>
 <div class="layout">
+  <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
 
   <!-- Sidebar -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="logo">🛒 <span>Grocery</span></div>
     <div class="nav-item active" onclick="nav('dashboard', this)"><span class="nav-icon">📊</span> Dashboard</div>
     <div class="nav-item" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
@@ -214,12 +299,26 @@
 
   <!-- Main -->
   <main class="main">
+    <div class="mobile-header">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Open navigation">☰</button>
+      <div class="mobile-title">🛒 <span>Grocery</span></div>
+      <div style="width:42px"></div>
+    </div>
 
     <!-- Auth Banner -->
     <div id="auth-banner">
       <span>🔑</span>
-      <input class="form-control" id="auth-token-input" type="password" placeholder="Enter your API token…" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
-      <button class="btn btn-primary" onclick="saveToken()">Save</button>
+      <div style="display:grid;gap:10px;flex:1">
+        <div style="display:flex;gap:10px;align-items:center">
+          <input class="form-control" id="auth-email-input" type="text" placeholder="Email" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
+          <input class="form-control" id="auth-password-input" type="password" placeholder="Password" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
+          <button class="btn btn-primary" onclick="login()">Login</button>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-ghost btn-sm" onclick="requestPasswordReset()">Forgot Password?</button>
+        </div>
+        <div id="auth-help" style="color:var(--muted);font-size:0.82rem">Sign in with your local account. First bootstrap login usually uses admin@localhost unless you configured a different admin email.</div>
+      </div>
     </div>
 
     <!-- Dashboard -->
@@ -383,9 +482,36 @@
     <div class="page" id="page-settings">
       <div class="page-header"><h1>Settings</h1><p>Configure your Grocery Manager</p></div>
       <div class="card">
+        <div class="card-header"><span class="card-title">👤 Session</span></div>
+        <div class="form-group">
+          <label>Current browser login</label>
+          <input id="settings-user" value="Not signed in" disabled />
+        </div>
+        <div style="margin-top:16px"><button class="btn btn-ghost" onclick="logout()">Sign Out</button></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🏠 Household Users</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄</button>
+        </div>
+        <div id="user-admin-panel" style="display:none">
+          <div class="form-grid">
+            <div class="form-group"><label>Name</label><input id="user-name" placeholder="e.g. Alex" /></div>
+            <div class="form-group"><label>Email</label><input id="user-email" type="email" placeholder="alex@example.com" /></div>
+            <div class="form-group"><label>Password</label><input id="user-password" type="password" placeholder="At least 8 characters" /></div>
+            <div class="form-group"><label>Role</label>
+              <select id="user-role"><option value="user" selected>User</option><option value="admin">Admin</option></select>
+            </div>
+          </div>
+          <div style="margin-top:16px"><button class="btn btn-primary" onclick="createUser()">Add Household User</button></div>
+        </div>
+        <div id="user-admin-note" style="color:var(--muted);font-size:0.84rem">Only admins can manage household users.</div>
+        <div class="table-wrap" style="margin-top:16px"><div id="users-table-body"></div></div>
+      </div>
+      <div class="card">
         <div class="card-header"><span class="card-title">🔑 API Token</span></div>
         <div class="form-group">
-          <label>Your bearer token (stored in browser)</label>
+          <label>Optional bearer token for integrations or direct API use</label>
           <div style="display:flex;gap:10px">
             <input type="password" id="settings-token" placeholder="Paste your token here" style="flex:1" />
             <button class="btn btn-primary" onclick="saveToken()">Save</button>
@@ -394,7 +520,7 @@
         </div>
         <div class="form-group" style="margin-top:16px">
           <label>API Base URL</label>
-          <input id="settings-url" value="http://localhost:8080" />
+          <input id="settings-url" value="" />
         </div>
         <div style="margin-top:16px"><button class="btn btn-success" onclick="saveSettings()">✅ Save Settings</button></div>
       </div>
@@ -409,9 +535,19 @@
 // ============================================================
 // Config & State
 // ============================================================
-let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8080';
+function getDefaultApiBase() {
+  if (window.location?.origin && /^https?:/i.test(window.location.origin)) {
+    return window.location.origin;
+  }
+  return 'http://localhost:8080';
+}
+
+let API_BASE = localStorage.getItem('api_base') || getDefaultApiBase();
 let TOKEN = localStorage.getItem('api_token') || '';
 let receiptImageObjectUrl = null;
+let currentUser = null;
+let bootstrapEmail = 'admin@localhost';
+let householdUsers = [];
 
 function getInventoryItems(data) {
   return data?.items || data?.inventory || [];
@@ -466,13 +602,23 @@ function prettyJson(value) {
   }
 }
 
-function getHeaders() {
-  return { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+function formatUserStatus(user) {
+  return user?.is_active === false ? 'Inactive' : 'Active';
+}
+
+function getHeaders(includeJson = true) {
+  const headers = {};
+  if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`;
+  if (includeJson) headers['Content-Type'] = 'application/json';
+  return headers;
 }
 
 async function api(path, opts = {}) {
+  const body = opts.body;
+  const includeJson = !(body instanceof FormData);
   const res = await fetch(API_BASE + path, {
-    headers: getHeaders(),
+    credentials: 'include',
+    headers: { ...getHeaders(includeJson), ...(opts.headers || {}) },
     ...opts
   });
   return res;
@@ -486,6 +632,7 @@ function nav(page, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   el?.classList.add('active');
+  closeMobileMenu();
   if (page === 'dashboard') loadDashboard();
   if (page === 'inventory') loadInventory();
   if (page === 'products') loadProducts();
@@ -496,7 +643,33 @@ function nav(page, el) {
   if (page === 'settings') {
     document.getElementById('settings-token').value = TOKEN;
     document.getElementById('settings-url').value = API_BASE;
+    document.getElementById('settings-user').value = currentUser
+      ? `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`
+      : 'Not signed in';
+    if (currentUser) loadUsers();
   }
+}
+
+function isMobileViewport() {
+  return window.innerWidth <= 900;
+}
+
+function openMobileMenu() {
+  if (!isMobileViewport()) return;
+  document.getElementById('sidebar')?.classList.add('mobile-open');
+  document.getElementById('mobile-overlay')?.classList.add('show');
+}
+
+function closeMobileMenu() {
+  document.getElementById('sidebar')?.classList.remove('mobile-open');
+  document.getElementById('mobile-overlay')?.classList.remove('show');
+}
+
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar || !isMobileViewport()) return;
+  if (sidebar.classList.contains('mobile-open')) closeMobileMenu();
+  else openMobileMenu();
 }
 
 // ============================================================
@@ -514,36 +687,308 @@ function toast(msg, type = 'info') {
 // ============================================================
 // Auth
 // ============================================================
-function checkAuth() {
+async function checkAuth() {
   const banner = document.getElementById('auth-banner');
-  if (!TOKEN) {
-    banner.classList.add('show');
-    document.getElementById('auth-token-input').value = '';
-  } else {
-    banner.classList.remove('show');
+
+  try {
+    const bootstrapRes = await fetch(API_BASE + '/auth/bootstrap-info', { credentials: 'include' });
+    if (bootstrapRes.ok) {
+      const info = await bootstrapRes.json();
+      bootstrapEmail = info.default_email || bootstrapEmail;
+      document.getElementById('auth-email-input').value ||= bootstrapEmail;
+      document.getElementById('auth-help').textContent =
+        `Sign in with your local account. First bootstrap login usually uses ${bootstrapEmail}.`;
+    }
+  } catch (e) {
+    console.error(e);
   }
+
+  try {
+    const res = await api('/auth/me');
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = data.user || null;
+      banner.classList.remove('show');
+      return true;
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  currentUser = null;
+  banner.classList.add('show');
+  return false;
+}
+
+async function login() {
+  const banner = document.getElementById('auth-banner');
+  const email = document.getElementById('auth-email-input').value.trim();
+  const password = document.getElementById('auth-password-input').value;
+  if (!email || !password) {
+    toast('Enter email and password', 'error');
+    return;
+  }
+
+  const res = await api('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Login failed', 'error');
+    return;
+  }
+
+  currentUser = data.user || null;
+  document.getElementById('auth-password-input').value = '';
+  banner.classList.remove('show');
+  toast('Signed in ✅', 'success');
+  loadDashboard();
+}
+
+async function requestPasswordReset() {
+  const email = document.getElementById('auth-email-input').value.trim();
+  if (!email) {
+    toast('Enter your email first', 'error');
+    return;
+  }
+
+  const res = await api('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not submit reset request', 'error');
+    return;
+  }
+
+  toast(data.message || 'Password reset request submitted', 'success');
 }
 
 function saveToken() {
-  const t = document.getElementById('auth-token-input').value.trim() ||
-            document.getElementById('settings-token')?.value?.trim();
+  const t = document.getElementById('settings-token')?.value?.trim();
   if (t) {
     TOKEN = t;
     localStorage.setItem('api_token', t);
+    checkAuth().then(() => loadDashboard());
+    toast('API token saved! ✅', 'success');
+  } else {
+    TOKEN = '';
+    localStorage.removeItem('api_token');
     checkAuth();
-    toast('Token saved! ✅', 'success');
-    loadDashboard();
   }
 }
 
 function saveSettings() {
   TOKEN = document.getElementById('settings-token').value.trim();
   API_BASE = document.getElementById('settings-url').value.trim();
-  localStorage.setItem('api_token', TOKEN);
+  if (TOKEN) localStorage.setItem('api_token', TOKEN);
+  else localStorage.removeItem('api_token');
   localStorage.setItem('api_base', API_BASE);
   checkAuth();
   toast('Settings saved! ✅', 'success');
 }
+
+async function logout() {
+  await api('/auth/logout', { method: 'POST' });
+  currentUser = null;
+  TOKEN = '';
+  localStorage.removeItem('api_token');
+  const tokenInput = document.getElementById('settings-token');
+  if (tokenInput) tokenInput.value = '';
+  toast('Signed out', 'success');
+  checkAuth();
+}
+
+async function loadUsers() {
+  const body = document.getElementById('users-table-body');
+  const note = document.getElementById('user-admin-note');
+  const panel = document.getElementById('user-admin-panel');
+
+  if (!currentUser) {
+    householdUsers = [];
+    panel.style.display = 'none';
+    note.textContent = 'Sign in to manage household users.';
+    body.innerHTML = '<div class="empty-state"><p>Sign in to view household users.</p></div>';
+    return;
+  }
+
+  if (currentUser.role !== 'admin') {
+    householdUsers = [];
+    panel.style.display = 'none';
+    note.textContent = 'Only admins can manage household users.';
+    body.innerHTML = '<div class="empty-state"><p>Your account can use the app, but only admins can create or view household accounts.</p></div>';
+    return;
+  }
+
+  panel.style.display = 'block';
+  note.textContent = 'Create one login per household member so uploads and decisions are tracked by person.';
+
+  const res = await api('/auth/users');
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load household users.</p></div>';
+    return;
+  }
+
+  const data = await res.json();
+  householdUsers = data.users || [];
+  if (!householdUsers.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">👤</div><p>No household users yet. Add one above.</p></div>';
+    return;
+  }
+
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>API Token</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>${householdUsers.map(user => `
+        <tr>
+          <td><strong>${escHtml(user.name)}</strong></td>
+          <td>${escHtml(user.email || '—')}</td>
+          <td><span class="badge badge-${user.role === 'admin' ? 'ok' : 'pantry'}">${escHtml(formatLabel(user.role, 'User'))}</span></td>
+          <td><span class="badge badge-${user.is_active === false ? 'low' : 'ok'}">${escHtml(formatUserStatus(user))}</span></td>
+          <td>${user.has_password ? '✅' : '—'}${user.password_reset_requested ? '<div style="color:var(--warning);font-size:0.75rem">Reset requested</div>' : ''}</td>
+          <td>${user.has_api_token ? '✅' : '—'}</td>
+          <td style="color:var(--muted);font-size:0.8rem">${user.created_at ? user.created_at.split('T')[0] : '—'}</td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
+            <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
+            <button class="btn btn-sm ${user.is_active === false ? 'btn-primary' : 'btn-danger'}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? 'Activate' : 'Deactivate'}</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function createUser() {
+  if (currentUser?.role !== 'admin') {
+    toast('Only admins can create users', 'error');
+    return;
+  }
+
+  const payload = {
+    name: document.getElementById('user-name').value.trim(),
+    email: document.getElementById('user-email').value.trim(),
+    password: document.getElementById('user-password').value,
+    role: document.getElementById('user-role').value
+  };
+
+  const res = await api('/auth/users', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not create user', 'error');
+    return;
+  }
+
+  document.getElementById('user-name').value = '';
+  document.getElementById('user-email').value = '';
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-role').value = 'user';
+  toast(`Created ${data.user?.name || 'user'} ✅`, 'success');
+  loadUsers();
+}
+
+function getHouseholdUser(userId) {
+  return householdUsers.find(user => user.id === userId);
+}
+
+async function updateUser(userId, payload, successMessage) {
+  const res = await api(`/auth/users/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not update user', 'error');
+    return null;
+  }
+  toast(successMessage, 'success');
+  if (currentUser && data.user && currentUser.id === data.user.id) {
+    currentUser = data.user;
+    document.getElementById('settings-user').value = `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`;
+  }
+  await loadUsers();
+  return data.user;
+}
+
+async function editUser(userId) {
+  const user = getHouseholdUser(userId);
+  if (!user) {
+    toast('User not found', 'error');
+    return;
+  }
+
+  const name = prompt('Update display name', user.name || '');
+  if (name === null) return;
+  const email = prompt('Update email', user.email || '');
+  if (email === null) return;
+  const role = prompt('Role: admin or user', user.role || 'user');
+  if (role === null) return;
+
+  await updateUser(userId, {
+    name: name.trim(),
+    email: email.trim(),
+    role: role.trim().toLowerCase(),
+    is_active: user.is_active !== false
+  }, 'User updated ✅');
+}
+
+async function resetUserPassword(userId) {
+  const user = getHouseholdUser(userId);
+  if (!user) {
+    toast('User not found', 'error');
+    return;
+  }
+
+  const password = prompt(`Enter a new password for ${user.name}`);
+  if (password === null) return;
+  if (!password.trim()) {
+    toast('Password cannot be blank', 'error');
+    return;
+  }
+
+  await updateUser(userId, {
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    is_active: user.is_active !== false,
+    password
+  }, 'Password reset ✅');
+}
+
+async function toggleUserActive(userId) {
+  const user = getHouseholdUser(userId);
+  if (!user) {
+    toast('User not found', 'error');
+    return;
+  }
+
+  const nextActive = user.is_active === false;
+  const confirmed = confirm(`${nextActive ? 'Activate' : 'Deactivate'} ${user.name}?`);
+  if (!confirmed) return;
+
+  await updateUser(userId, {
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    is_active: nextActive
+  }, `User ${nextActive ? 'activated' : 'deactivated'} ✅`);
+}
+
+document.getElementById('auth-password-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    login();
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (!isMobileViewport()) {
+    closeMobileMenu();
+  }
+});
 
 function toggleTokenVis() {
   const el = document.getElementById('settings-token');
@@ -554,7 +999,6 @@ function toggleTokenVis() {
 // Dashboard
 // ============================================================
 async function loadDashboard() {
-  if (!TOKEN) return;
   try {
     const [prodRes, invRes, recRes] = await Promise.all([
       api('/products'),
@@ -750,7 +1194,8 @@ async function uploadReceipt() {
   try {
     const res = await fetch(API_BASE + '/receipts/upload', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${TOKEN}` },
+      credentials: 'include',
+      headers: TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {},
       body: form
     });
     const data = await res.json();
@@ -840,7 +1285,10 @@ async function viewReceipt(id) {
 
   if (receipt.image_url) {
     try {
-      const imageRes = await fetch(API_BASE + receipt.image_url, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      const imageRes = await fetch(API_BASE + receipt.image_url, {
+        credentials: 'include',
+        headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}
+      });
       if (imageRes.ok) {
         const imageBlob = await imageRes.blob();
         receiptImageObjectUrl = URL.createObjectURL(imageBlob);
@@ -1055,8 +1503,9 @@ function escHtml(s) {
 // ============================================================
 // Init
 // ============================================================
-checkAuth();
-loadDashboard();
+checkAuth().then(authenticated => {
+  if (authenticated) loadDashboard();
+});
 </script>
 </body>
 </html>

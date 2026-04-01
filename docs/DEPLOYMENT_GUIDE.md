@@ -36,6 +36,9 @@ nano .env  # or vim, code, etc.
 GEMINI_API_KEY=your_actual_key_here
 GEMINI_MODEL=gemini-2.5-flash
 INITIAL_ADMIN_TOKEN=generate_a_secure_token
+INITIAL_ADMIN_EMAIL=admin@localhost
+INITIAL_ADMIN_PASSWORD=choose_a_strong_password
+SESSION_SECRET=generate_another_secure_secret
 ```
 
 **Useful optional `.env` values:**
@@ -107,19 +110,33 @@ docker exec -it grocery-ollama ollama pull llava:7b
 
 ---
 
-## Step 5: Generate API Token
+## Step 5: Bootstrap Browser Login
 
 ```bash
-# Generate a secure token
+# Generate secure secrets
 python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-# Test authenticated request
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/health
+Open `http://localhost:8080` and sign in with:
+
+- email: `INITIAL_ADMIN_EMAIL`
+- password: `INITIAL_ADMIN_PASSWORD`
+
+If `INITIAL_ADMIN_PASSWORD` is blank, the app falls back to `INITIAL_ADMIN_TOKEN` for the first browser login.
+
+---
+
+## Step 6: Test API Token Access
+
+`INITIAL_ADMIN_TOKEN` is still useful for direct API access and integrations.
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/auth/me
 ```
 
 ---
 
-## Step 6: Test Receipt Upload
+## Step 7: Test Receipt Upload
 
 ```bash
 # Upload a test receipt
@@ -135,7 +152,7 @@ curl -X POST http://localhost:8080/receipts/upload \
 
 ---
 
-## Step 7: Configure Home Assistant (Optional)
+## Step 8: Configure Home Assistant (Optional)
 
 1. Add MQTT integration in Home Assistant
 2. Point to the broker configured in `.env`
@@ -144,7 +161,7 @@ curl -X POST http://localhost:8080/receipts/upload \
 
 ---
 
-## Step 8: Configure Telegram (Optional)
+## Step 9: Configure Telegram (Optional)
 
 1. Expose the backend through a public HTTPS URL
 2. Set `TELEGRAM_WEBHOOK_BASE_URL` and `TELEGRAM_WEBHOOK_SECRET` in `.env`

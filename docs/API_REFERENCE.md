@@ -2,19 +2,44 @@
 
 ## Authentication
 
-All endpoints (except `/telegram/webhook` and `/health`) require a Bearer token:
+Browser users can authenticate with a local session cookie:
+
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
+- `GET /auth/bootstrap-info`
+
+App endpoints also accept a Bearer token for integrations and direct API access:
 
 ```
 Authorization: Bearer <your-api-token>
 ```
 
-Generate tokens: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+Bootstrap browser login uses:
+
+- email: `INITIAL_ADMIN_EMAIL` (defaults to `admin@localhost`)
+- password: `INITIAL_ADMIN_PASSWORD`
+
+If `INITIAL_ADMIN_PASSWORD` is blank, the first browser login falls back to `INITIAL_ADMIN_TOKEN`.
 
 Unauthorized requests receive `401 Unauthorized`.
 
 ---
 
 ## Endpoints
+
+### Authentication
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/auth/bootstrap-info` | None | Return safe bootstrap login hints for the first local admin login |
+| POST | `/auth/login` | None | Create a browser session cookie |
+| POST | `/auth/forgot-password` | None | Record a password reset request for an existing local account |
+| POST | `/auth/logout` | Session or Bearer token | End the browser session |
+| GET | `/auth/me` | Session or Bearer token | Return the current authenticated user |
+| GET | `/auth/users` | Admin session or Bearer token | List household users |
+| POST | `/auth/users` | Admin session or Bearer token | Create a household user |
+| PUT | `/auth/users/{id}` | Admin session or Bearer token | Edit a user, reset password, or activate/deactivate the account |
 
 ### Health Check
 
@@ -34,10 +59,10 @@ Unauthorized requests receive `401 Unauthorized`.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/telegram/webhook` | Telegram signature | Receive Telegram bot updates |
-| POST | `/receipts/upload` | Bearer token | Upload receipt image or PDF for OCR |
-| GET | `/receipts/{id}` | Bearer token | Retrieve receipt details |
-| POST | `/receipts/{id}/reprocess` | Bearer token | Re-run OCR for a stored receipt and refresh review data |
-| POST | `/receipts/{id}/approve` | Bearer token | Approve a review receipt and save it as a purchase |
+| POST | `/receipts/upload` | Session or Bearer token | Upload receipt image or PDF for OCR |
+| GET | `/receipts/{id}` | Session or Bearer token | Retrieve receipt details |
+| POST | `/receipts/{id}/reprocess` | Session or Bearer token | Re-run OCR for a stored receipt and refresh review data |
+| POST | `/receipts/{id}/approve` | Session or Bearer token | Approve a review receipt and save it as a purchase |
 
 #### POST `/receipts/upload`
 
@@ -104,11 +129,11 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/products` | Bearer token | List all products (paginated) |
-| GET | `/products/search?q=milk` | Bearer token | Search products |
-| POST | `/products/create` | Bearer token | Add new product |
-| PUT | `/products/{id}/update` | Bearer token | Update product |
-| DELETE | `/products/{id}` | Bearer token | Remove product |
+| GET | `/products` | Session or Bearer token | List all products (paginated) |
+| GET | `/products/search?q=milk` | Session or Bearer token | Search products |
+| POST | `/products/create` | Session or Bearer token | Add new product |
+| PUT | `/products/{id}/update` | Session or Bearer token | Update product |
+| DELETE | `/products/{id}` | Session or Bearer token | Remove product |
 
 ---
 
@@ -116,11 +141,11 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/inventory` | Bearer token | List current inventory |
-| POST | `/inventory/add-item` | Bearer token | Add item with quantity |
-| PUT | `/inventory/{id}/consume` | Bearer token | Decrease quantity by 1 |
-| PUT | `/inventory/{id}/update` | Bearer token | Set quantity directly |
-| DELETE | `/inventory/{id}` | Bearer token | Remove from inventory |
+| GET | `/inventory` | Session or Bearer token | List current inventory |
+| POST | `/inventory/add-item` | Session or Bearer token | Add item with quantity |
+| PUT | `/inventory/{id}/consume` | Session or Bearer token | Decrease quantity by 1 |
+| PUT | `/inventory/{id}/update` | Session or Bearer token | Set quantity directly |
+| DELETE | `/inventory/{id}` | Session or Bearer token | Remove from inventory |
 
 #### GET `/inventory`
 
@@ -159,11 +184,11 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/analytics/spending?period=monthly` | Bearer token | Spending by period |
-| GET | `/analytics/spending?category=dairy` | Bearer token | Spending by category |
-| GET | `/analytics/price-history?product_id=1` | Bearer token | Price trends |
-| GET | `/analytics/deals-captured?months=1` | Bearer token | Savings from deals |
-| GET | `/analytics/store-comparison` | Bearer token | Cross-store price comparison |
+| GET | `/analytics/spending?period=monthly` | Session or Bearer token | Spending by period |
+| GET | `/analytics/spending?category=dairy` | Session or Bearer token | Spending by category |
+| GET | `/analytics/price-history?product_id=1` | Session or Bearer token | Price trends |
+| GET | `/analytics/deals-captured?months=1` | Session or Bearer token | Savings from deals |
+| GET | `/analytics/store-comparison` | Session or Bearer token | Cross-store price comparison |
 
 #### GET `/analytics/spending?period=monthly`
 
@@ -194,8 +219,8 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/budget/set-monthly` | Bearer token | Set monthly budget |
-| GET | `/budget/status` | Bearer token | Budget vs actual spending |
+| POST | `/budget/set-monthly` | Session or Bearer token | Set monthly budget |
+| GET | `/budget/status` | Session or Bearer token | Budget vs actual spending |
 
 #### POST `/budget/set-monthly`
 
@@ -212,7 +237,7 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/recommendations` | Bearer token | Get current recommendations |
+| GET | `/recommendations` | Session or Bearer token | Get current recommendations |
 
 ---
 
@@ -232,7 +257,7 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 | Code | Meaning |
 |------|---------|
 | 400 | Bad request — missing or invalid parameters |
-| 401 | Unauthorized — missing or invalid Bearer token |
+| 401 | Unauthorized — missing or invalid session/token |
 | 403 | Forbidden — insufficient permissions |
 | 404 | Not found — resource doesn't exist |
 | 500 | Internal server error |

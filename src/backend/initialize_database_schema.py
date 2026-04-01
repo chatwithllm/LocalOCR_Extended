@@ -78,7 +78,10 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, nullable=True)
     role = Column(String(20), nullable=False, default="user")  # "admin" or "user"
+    is_active = Column(Boolean, nullable=False, default=True)
+    password_hash = Column(String(255), nullable=True)
     api_token_hash = Column(String(255), nullable=True)
+    password_reset_requested_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -282,6 +285,17 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE telegram_receipts ADD COLUMN receipt_type VARCHAR(30)"))
         if "raw_ocr_json" not in existing:
             conn.execute(text("ALTER TABLE telegram_receipts ADD COLUMN raw_ocr_json TEXT"))
+
+        user_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(users)"))
+        }
+        if "is_active" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+        if "password_hash" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "password_reset_requested_at" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
 
 
 # ---------------------------------------------------------------------------

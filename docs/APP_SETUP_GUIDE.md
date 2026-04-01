@@ -26,6 +26,9 @@ Open `.env` and fill in these first:
 
 ```dotenv
 INITIAL_ADMIN_TOKEN=replace_with_a_long_random_token
+INITIAL_ADMIN_EMAIL=admin@localhost
+INITIAL_ADMIN_PASSWORD=replace_with_a_strong_password
+SESSION_SECRET=replace_with_another_long_random_secret
 GEMINI_API_KEY=replace_with_your_gemini_api_key
 ```
 
@@ -93,7 +96,16 @@ Open:
 http://localhost:8080
 ```
 
-Use the `INITIAL_ADMIN_TOKEN` from `.env` in the Settings/Auth area of the web app.
+Log in with:
+
+- email: `INITIAL_ADMIN_EMAIL`
+- password: `INITIAL_ADMIN_PASSWORD`
+
+If you leave `INITIAL_ADMIN_PASSWORD` blank, the app falls back to `INITIAL_ADMIN_TOKEN` for the first browser login. Keep `INITIAL_ADMIN_TOKEN` anyway if you want direct API or integration access.
+
+After the first admin login, open `Settings` in the web app and create one account per household member under `Household Users`.
+Admins can also edit users, reset passwords, and deactivate accounts from the same screen.
+If a household user forgets their password, they can click `Forgot Password?` on the login banner. That creates an admin-visible reset request; it does not create a public self-registration path.
 
 ## 6. Optional: Telegram Setup
 
