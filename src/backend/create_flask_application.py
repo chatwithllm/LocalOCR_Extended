@@ -109,6 +109,7 @@ def register_blueprints(app):
     from src.backend.manage_household_budget import budget_bp
     from src.backend.generate_recommendations import recommendations_bp
     from src.backend.manage_shopping_list import shopping_list_bp
+    from src.backend.manage_contributions import contributions_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
@@ -119,6 +120,7 @@ def register_blueprints(app):
     app.register_blueprint(budget_bp)
     app.register_blueprint(recommendations_bp)
     app.register_blueprint(shopping_list_bp)
+    app.register_blueprint(contributions_bp)
 
     logger.info("All blueprints registered.")
 

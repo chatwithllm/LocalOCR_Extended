@@ -21,17 +21,29 @@ from datetime import datetime, timezone
 
 from flask import g
 
+from src.backend.active_inventory import rebuild_active_inventory
+from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.normalize_product_names import (
-    canonicalize_product_name,
+    canonicalize_product_identity,
     find_matching_product,
-    normalize_product_category,
 )
+from src.backend.contribution_scores import validate_low_workflow
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
 
 logger = logging.getLogger(__name__)
 
 CONFIDENCE_THRESHOLD = 0.80  # Flag for manual review below this
 MIN_CONFIDENCE = 0.40        # Reject entirely below this
+
+NON_PRODUCT_PATTERNS = (
+    "discount",
+    "coupon",
+    "savings",
+    "instant savings",
+    "promo",
+    "promotion",
+    "member savings",
+)
 
 
 def _safe_float(value, default=0.0):
@@ -42,6 +54,27 @@ def _safe_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return float(default)
+
+
+def _is_non_product_line(item_data: dict) -> bool:
+    """Return True for discounts, coupons, and other non-merchandise lines."""
+    name = str(item_data.get("name", "") or "").strip().lower()
+    if not name:
+        return True
+
+    if any(token in name for token in NON_PRODUCT_PATTERNS):
+        return True
+
+    category = str(item_data.get("category", "") or "").strip().lower()
+    if category in {"discount", "coupon", "promotion"}:
+        return True
+
+    unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
+    quantity = _safe_float(item_data.get("quantity", 1), 1.0)
+    if unit_price < 0 or quantity < 0:
+        return True
+
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +363,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
     """Save validated OCR data to purchases, receipt_items, and price_history."""
     try:
         from src.backend.initialize_database_schema import (
-            Purchase, ReceiptItem, Product, Store, PriceHistory, Inventory
+            Purchase, ReceiptItem, Product, Store, PriceHistory
         )
         session = g.db_session
 
@@ -357,16 +390,29 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         session.flush()
 
         # Process each item
+        persisted_items = []
         for item_data in ocr_data.get("items", []):
-            product_name = canonicalize_product_name(item_data.get("name", "Unknown Item"))
-            category = normalize_product_category(item_data.get("category", "other"))
+            if _is_non_product_line(item_data):
+                logger.info("Skipping non-product receipt line: %s", item_data.get("name"))
+                continue
+
+            product_name, category = canonicalize_product_identity(
+                item_data.get("name", "Unknown Item"),
+                item_data.get("category", "other"),
+            )
             quantity = _safe_float(item_data.get("quantity", 1), 1.0)
             unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
 
             # Find or create product
             product = find_matching_product(session, product_name, category)
             if not product:
-                product = Product(name=product_name, category=category)
+                product = Product(
+                    name=product_name,
+                    raw_name=item_data.get("name", product_name),
+                    display_name=product_name,
+                    review_state="pending" if should_enrich_product_name(item_data.get("name", product_name), category) else "resolved",
+                    category=category,
+                )
                 session.add(product)
                 session.flush()
 
@@ -388,10 +434,14 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 date=purchase.date,
             )
             session.add(ph)
-
-            # Grocery and retail receipts should both remain referenceable in inventory.
-            if receipt_type in {"grocery", "retail_items"}:
-                _update_inventory(session, product, quantity, user_id)
+            persisted_items.append(item_data)
+            session.flush()
+            validate_low_workflow(
+                session,
+                product_id=product.id,
+                purchase_id=purchase.id,
+                product_name=product.display_name or product.name,
+            )
 
             session.commit()
 
@@ -400,9 +450,10 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             f"{len(ocr_data.get('items', []))} items | purchase_id={purchase.id}"
         )
 
-        # Publish MQTT update for each product
         if receipt_type in {"grocery", "retail_items"}:
-            _publish_inventory_updates(session, ocr_data.get("items", []))
+            rebuild_active_inventory(session)
+            session.commit()
+            _publish_inventory_updates(session, persisted_items)
 
         return purchase.id
 
@@ -410,24 +461,6 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         logger.error(f"Failed to save receipt to database: {e}")
         session.rollback()
         raise
-
-
-def _update_inventory(session, product, quantity, user_id):
-    """Add or update inventory for a product."""
-    from src.backend.initialize_database_schema import Inventory
-
-    inv = session.query(Inventory).filter_by(product_id=product.id).first()
-    if inv:
-        inv.quantity += quantity
-        inv.updated_by = user_id
-    else:
-        inv = Inventory(
-            product_id=product.id,
-            quantity=quantity,
-            location="Pantry",  # Default location
-            updated_by=user_id,
-        )
-        session.add(inv)
 
 
 def _publish_inventory_updates(session, items):

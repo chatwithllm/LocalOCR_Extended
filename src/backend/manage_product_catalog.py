@@ -8,18 +8,28 @@ price tracking, store associations, and search/autocomplete.
 """
 
 import logging
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from src.backend.create_flask_application import require_auth
+from src.backend.contribution_scores import meaningful_text_change
+from src.backend.enrich_product_names import maybe_enrich_product, product_needs_review, should_enrich_product_name
 from src.backend.initialize_database_schema import (
-    Product, PriceHistory, ReceiptItem, Purchase, Store, TelegramReceipt
+    Inventory, InventoryAdjustment, Product, PriceHistory, ReceiptItem, Purchase, Store, TelegramReceipt
 )
-from src.backend.normalize_product_names import canonicalize_product_name, normalize_product_category
+from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 
 logger = logging.getLogger(__name__)
 
 products_bp = Blueprint("products", __name__, url_prefix="/products")
+
+
+def _require_admin():
+    current_user = getattr(g, "current_user", None)
+    if not current_user or current_user.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    return None
 
 
 def _merge_products(session, keeper: Product, duplicate: Product):
@@ -34,6 +44,10 @@ def _merge_products(session, keeper: Product, duplicate: Product):
     price_rows = session.query(PriceHistory).filter_by(product_id=duplicate.id).all()
     for row in price_rows:
         row.product_id = keeper.id
+
+    adjustments = session.query(InventoryAdjustment).filter_by(product_id=duplicate.id).all()
+    for adjustment in adjustments:
+        adjustment.product_id = keeper.id
 
     from src.backend.initialize_database_schema import Inventory
 
@@ -85,16 +99,52 @@ def _get_product_receipt_links(session, product_id: int, limit: int = 3) -> list
     return links
 
 
+def _get_latest_product_price(session, product_id: int) -> dict | None:
+    row = (
+        session.query(PriceHistory, Purchase, Store)
+        .outerjoin(Purchase, Purchase.date == PriceHistory.date)
+        .outerjoin(Store, Store.id == PriceHistory.store_id)
+        .filter(PriceHistory.product_id == product_id)
+        .order_by(PriceHistory.date.desc(), PriceHistory.id.desc())
+        .first()
+    )
+    if not row:
+        return None
+
+    price_row, purchase, store = row
+    return {
+        "price": price_row.price,
+        "date": price_row.date.strftime("%Y-%m-%d") if price_row.date else None,
+        "store": store.name if store else None,
+    }
+
+
 def _serialize_product(session, product: Product) -> dict:
     recent_receipts = _get_product_receipt_links(session, product.id)
+    latest_price = _get_latest_product_price(session, product.id)
+    inventory_item = session.query(Inventory).filter_by(product_id=product.id).first()
+    is_low = bool(inventory_item and (inventory_item.manual_low or (inventory_item.threshold and inventory_item.quantity < inventory_item.threshold)))
     return {
         "id": product.id,
-        "name": product.name,
+        "name": get_product_display_name(product),
+        "raw_name": product.raw_name or product.name,
+        "display_name": product.display_name or product.name,
+        "brand": product.brand,
+        "size": product.size,
+        "enrichment_confidence": product.enrichment_confidence,
+        "review_state": product.review_state or ("pending" if product_needs_review(product) else "resolved"),
+        "reviewed_at": product.reviewed_at.isoformat() if product.reviewed_at else None,
         "category": product.category,
         "barcode": product.barcode,
         "created_at": product.created_at.isoformat() if product.created_at else None,
         "recent_receipts": recent_receipts,
         "last_purchase_date": recent_receipts[0]["date"] if recent_receipts else None,
+        "latest_price": latest_price,
+        "inventory_item_id": inventory_item.id if inventory_item else None,
+        "inventory_quantity": inventory_item.quantity if inventory_item else None,
+        "inventory_threshold": inventory_item.threshold if inventory_item else None,
+        "manual_low": bool(inventory_item.manual_low) if inventory_item else False,
+        "is_low": is_low,
     }
 
 
@@ -112,7 +162,7 @@ def list_products():
         query = query.filter(Product.category == category)
 
     total = query.count()
-    products = query.order_by(Product.name).offset((page - 1) * per_page).limit(per_page).all()
+    products = query.order_by(func.coalesce(Product.display_name, Product.name)).offset((page - 1) * per_page).limit(per_page).all()
 
     return jsonify({
         "products": [_serialize_product(session, p) for p in products],
@@ -133,8 +183,12 @@ def search_products():
         return jsonify({"error": "Query must be at least 2 characters", "results": []}), 400
 
     results = session.query(Product).filter(
-        Product.name.ilike(f"%{q}%")
-    ).order_by(Product.name).limit(20).all()
+        or_(
+            Product.name.ilike(f"%{q}%"),
+            func.coalesce(Product.display_name, "").ilike(f"%{q}%"),
+            func.coalesce(Product.raw_name, "").ilike(f"%{q}%"),
+        )
+    ).order_by(func.coalesce(Product.display_name, Product.name)).limit(20).all()
 
     return jsonify({
         "query": q,
@@ -153,8 +207,7 @@ def create_product():
     if not data or not data.get("name"):
         return jsonify({"error": "Product name is required"}), 400
 
-    name = canonicalize_product_name(data["name"])
-    category = normalize_product_category(data.get("category", "other"))
+    name, category = canonicalize_product_identity(data["name"], data.get("category", "other"))
 
     # Check for duplicates
     existing = (
@@ -171,10 +224,14 @@ def create_product():
 
     product = Product(
         name=name,
+        raw_name=data["name"],
+        display_name=name,
+        review_state="pending" if should_enrich_product_name(data["name"], category) else "resolved",
         category=category,
         barcode=data.get("barcode"),
     )
     session.add(product)
+    session.flush()
     session.commit()
 
     return jsonify({
@@ -195,8 +252,15 @@ def update_product(product_id):
         return jsonify({"error": "Product not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    next_name = canonicalize_product_name(data["name"]) if "name" in data else product.name
-    next_category = normalize_product_category(data["category"]) if "category" in data else product.category
+    previous_name = product.display_name or product.name
+    previous_category = product.category or "other"
+    if "name" in data or "category" in data:
+        next_name, next_category = canonicalize_product_identity(
+            data.get("name", product.name),
+            data.get("category", product.category),
+        )
+    else:
+        next_name, next_category = product.name, product.category
 
     merge_target = (
         session.query(Product)
@@ -206,27 +270,154 @@ def update_product(product_id):
         .first()
     )
 
-    if "name" in data:
+    meaningful_name_update = "name" in data and meaningful_text_change(previous_name, next_name)
+    meaningful_category_update = "category" in data and meaningful_text_change(previous_category, next_category)
+
+    if meaningful_name_update:
         product.name = next_name
-    if "category" in data:
+        product.raw_name = data["name"]
+        product.display_name = next_name
+        product.review_state = "resolved"
+        product.reviewed_at = datetime.now(timezone.utc)
+        product.reviewed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+    if meaningful_category_update:
         product.category = next_category
     if "barcode" in data:
         product.barcode = data["barcode"]
 
-    if merge_target:
+    if merge_target and (meaningful_name_update or meaningful_category_update):
         if product.barcode and not merge_target.barcode:
             merge_target.barcode = product.barcode
         product = _merge_products(session, merge_target, product)
-
+        product.review_state = "resolved"
+        product.reviewed_at = datetime.now(timezone.utc)
+        product.reviewed_by_id = getattr(getattr(g, "current_user", None), "id", None)
     session.commit()
 
     return jsonify({
         "id": product.id,
-        "name": product.name,
+        "name": get_product_display_name(product),
+        "raw_name": product.raw_name or product.name,
+        "display_name": product.display_name or product.name,
         "category": product.category,
         "barcode": product.barcode,
         "merged": bool(merge_target),
     }), 200
+
+
+@products_bp.route("/review-queue", methods=["GET"])
+@require_auth
+def review_queue():
+    admin_error = _require_admin()
+    if admin_error:
+        return admin_error
+
+    session = g.db_session
+    status = (request.args.get("status") or "pending").strip().lower()
+    limit = min(max(request.args.get("limit", 50, type=int), 1), 200)
+
+    products = session.query(Product).order_by(Product.created_at.desc()).all()
+    items = []
+    for product in products:
+        derived_state = product.review_state or ("pending" if product_needs_review(product) else "resolved")
+        if status != "all" and derived_state != status:
+            continue
+        if status == "pending" and not product_needs_review(product) and product.review_state not in {None, "pending"}:
+            continue
+        serialized = _serialize_product(session, product)
+        serialized["suggested_review"] = product_needs_review(product)
+        items.append(serialized)
+        if len(items) >= limit:
+            break
+
+    return jsonify({
+        "items": items,
+        "count": len(items),
+    }), 200
+
+
+@products_bp.route("/review-queue/enhance", methods=["POST"])
+@require_auth
+def bulk_enhance_review_queue():
+    admin_error = _require_admin()
+    if admin_error:
+        return admin_error
+
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    limit = min(max(int(data.get("limit", 10) or 10), 1), 50)
+    provider = (data.get("provider") or "gemini").strip().lower()
+    if provider != "gemini":
+        return jsonify({"error": "Only Gemini is supported right now"}), 400
+
+    products = session.query(Product).order_by(Product.created_at.desc()).all()
+    updated = []
+    for product in products:
+        if not product_needs_review(product):
+            continue
+        before = product.display_name or product.name
+        maybe_enrich_product(session, product, force=True)
+        after = product.display_name or product.name
+        if after != before or product.enrichment_confidence:
+            product.review_state = "resolved" if product.enrichment_confidence else "pending"
+            product.reviewed_at = datetime.now(timezone.utc) if product.review_state == "resolved" else product.reviewed_at
+            product.reviewed_by_id = getattr(getattr(g, "current_user", None), "id", None) if product.review_state == "resolved" else product.reviewed_by_id
+            updated.append(_serialize_product(session, product))
+        if len(updated) >= limit:
+            break
+
+    session.commit()
+    return jsonify({"updated": updated, "count": len(updated)}), 200
+
+
+@products_bp.route("/<int:product_id>/enhance", methods=["POST"])
+@require_auth
+def enhance_product(product_id):
+    admin_error = _require_admin()
+    if admin_error:
+        return admin_error
+
+    session = g.db_session
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    maybe_enrich_product(session, product, force=True)
+    if product.enrichment_confidence:
+        product.review_state = "resolved"
+        product.reviewed_at = datetime.now(timezone.utc)
+        product.reviewed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+    else:
+        product.review_state = "pending"
+    session.commit()
+    return jsonify({"product": _serialize_product(session, product)}), 200
+
+
+@products_bp.route("/<int:product_id>/review-status", methods=["PUT"])
+@require_auth
+def update_review_status(product_id):
+    admin_error = _require_admin()
+    if admin_error:
+        return admin_error
+
+    session = g.db_session
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    review_state = (data.get("review_state") or "").strip().lower()
+    if review_state not in {"pending", "resolved", "dismissed"}:
+        return jsonify({"error": "review_state must be pending, resolved, or dismissed"}), 400
+
+    product.review_state = review_state
+    product.reviewed_at = datetime.now(timezone.utc)
+    if review_state == "resolved":
+        if product_needs_review(product) and not product.enrichment_confidence:
+            return jsonify({"error": "Make a meaningful fix before resolving this product"}), 400
+        product.reviewed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+    session.commit()
+    return jsonify({"product": _serialize_product(session, product)}), 200
 
 
 @products_bp.route("/<int:product_id>", methods=["DELETE"])

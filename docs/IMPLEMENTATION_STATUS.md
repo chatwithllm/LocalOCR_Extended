@@ -12,6 +12,7 @@
 - Existing users can request password help from the login screen, and admins can fulfill those requests
 - Mobile navigation now collapses into a menu on smaller screens instead of leaving the sidebar fixed open
 - Shopping List tab is now available for manually tracked buy-later items
+- Contribution tab is now available to explain scoring, show recent score history, and highlight helpful actions users can take
 - Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
 - Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
 - PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
@@ -47,6 +48,8 @@ These flows were manually verified in the current environment:
   endpoint and UI load correctly; can be empty if there is not enough history; can add items to shopping list
 - Shopping List tab:
   manual add, mark bought, reopen, delete
+- Contribution tab:
+  score summary, recent score history, scoring rules, and “ways to help right now”
 - Upload Receipt tab:
   authenticated upload works for images and PDFs and renders OCR results
 - Gemini OCR:
@@ -101,7 +104,9 @@ These flows were manually verified in the current environment:
 - Analytics endpoints exist
 - Recommendations endpoint exists
 - Shopping list endpoints exist
+- Contribution summary endpoints and scoring ledger exist
 - Frontend tabs for dashboard, inventory, products, upload, receipts, shopping list, budget, analytics, recommendations, and settings are wired to the current backend responses
+- Frontend Contribution tab is wired to the current backend scoring summary
 - Mobile navigation has a working off-canvas menu for smaller screens
 
 ## Partial / In Progress
@@ -119,6 +124,7 @@ These areas exist but are not fully validated or fully complete:
 - Telegram-to-local-account linking
 - Self-service password change flow for logged-in users
 - Smarter OCR-name cleanup for truncated labels beyond case normalization
+- Further tuning of contribution point weights after real household usage
 
 ## Known Gaps
 
@@ -128,6 +134,7 @@ These areas exist but are not fully validated or fully complete:
 - PDF conversion depends on `pdftoppm` being present; Docker now installs it, and local hosts need Poppler installed too
 - Dense PDFs may still produce imperfect product names/categories even when summary fields are now recovered correctly
 - Flask debug mode requires guarding background integrations so MQTT/schedulers do not start twice in the reloader parent process
+- Low-stock scoring is intentionally delayed: marking an item low creates a pending contribution that only gets better points after shopping activity and receipt intake validate the restock
 
 ## Recommended Next Steps
 
@@ -139,6 +146,7 @@ These areas exist but are not fully validated or fully complete:
 6. Test the Telegram confirmation flow with a real photo receipt
 7. Add or refresh automated tests for products, inventory, upload, analytics, shopping list, and auth
 8. Expand Home Assistant dashboard and automation validation beyond MQTT transport itself
+9. Tune contribution scoring weights and opportunity suggestions after real multi-user usage
 
 ## Fresh Start Checklist
 

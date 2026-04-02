@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, g, send_file
 
+from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.create_flask_application import require_auth
 
 logger = logging.getLogger(__name__)
@@ -254,7 +255,15 @@ def get_receipt(receipt_id):
 @require_auth
 def list_receipts():
     """List saved receipt records for review in the web app."""
-    from src.backend.initialize_database_schema import TelegramReceipt, Purchase, Store
+    from sqlalchemy import func
+
+    from src.backend.initialize_database_schema import (
+        TelegramReceipt,
+        Purchase,
+        ReceiptItem,
+        Product,
+        Store,
+    )
 
     session = g.db_session
     limit = request.args.get("limit", 50, type=int)
@@ -297,13 +306,68 @@ def list_receipts():
     })
 
     store_counts = {}
-    month_counts = {}
+    month_summary = {}
     for record, purchase, store in records:
         store_name = store.name if store else "Unknown"
         store_counts[store_name] = store_counts.get(store_name, 0) + 1
         if purchase and purchase.date:
             month_key = purchase.date.strftime("%Y-%m")
-            month_counts[month_key] = month_counts.get(month_key, 0) + 1
+            month_entry = month_summary.setdefault(
+                month_key,
+                {"count": 0, "total_amount": 0.0, "receipts": []},
+            )
+            month_entry["count"] += 1
+            month_entry["total_amount"] += float(purchase.total_amount or 0)
+            month_entry["receipts"].append({
+                "receipt_id": purchase.id,
+                "record_id": record.id,
+                "store": store_name,
+                "date": purchase.date.strftime("%Y-%m-%d"),
+                "total": float(purchase.total_amount or 0),
+                "source": "telegram" if not str(record.telegram_user_id).startswith("upload") else "upload",
+                "status": record.status,
+            })
+
+    purchase_ids = sorted({
+        purchase.id
+        for _record, purchase, _store in records
+        if purchase and purchase.id
+    })
+
+    total_items = 0
+    unique_items = 0
+    most_bought_items = []
+    if purchase_ids:
+        total_items = int(
+            session.query(func.coalesce(func.sum(ReceiptItem.quantity), 0))
+            .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+            .scalar()
+            or 0
+        )
+        unique_items = int(
+            session.query(func.count(func.distinct(ReceiptItem.product_id)))
+            .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+            .scalar()
+            or 0
+        )
+        most_bought_items = [
+            {
+                "product_name": product_name,
+                "quantity": float(quantity or 0),
+            }
+            for product_name, quantity in (
+                session.query(
+                    Product.name,
+                    func.coalesce(func.sum(ReceiptItem.quantity), 0).label("quantity"),
+                )
+                .join(Product, ReceiptItem.product_id == Product.id)
+                .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+                .group_by(Product.id, Product.name)
+                .order_by(func.sum(ReceiptItem.quantity).desc(), Product.name.asc())
+                .limit(5)
+                .all()
+            )
+        ]
 
     return jsonify({
         "receipts": [
@@ -337,13 +401,21 @@ def list_receipts():
         },
         "summary": {
             "total_receipts": len(records),
+            "total_items": total_items,
+            "unique_items": unique_items,
+            "most_bought_items": most_bought_items,
             "receipts_by_store": [
                 {"store": store_name, "count": count}
                 for store_name, count in sorted(store_counts.items(), key=lambda item: (-item[1], item[0]))
             ],
             "purchases_by_month": [
-                {"month": month, "count": count}
-                for month, count in sorted(month_counts.items(), reverse=True)
+                {
+                    "month": month,
+                    "count": values["count"],
+                    "total_amount": round(values["total_amount"], 2),
+                    "receipts": values["receipts"],
+                }
+                for month, values in sorted(month_summary.items(), reverse=True)
             ],
         },
     }), 200
@@ -507,18 +579,13 @@ def delete_receipt(receipt_id):
     try:
         if purchase:
             receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
-            for receipt_item in receipt_items:
-                inventory = session.query(Inventory).filter_by(product_id=receipt_item.product_id).first()
-                if inventory:
-                    inventory.quantity = max(0, inventory.quantity - (receipt_item.quantity or 0))
-                    if inventory.quantity == 0:
-                        session.delete(inventory)
+            purchase_product_ids = {receipt_item.product_id for receipt_item in receipt_items}
 
+            if purchase_product_ids:
                 session.query(PriceHistory).filter(
-                    PriceHistory.product_id == receipt_item.product_id,
+                    PriceHistory.product_id.in_(purchase_product_ids),
                     PriceHistory.store_id == purchase.store_id,
                     PriceHistory.date == purchase.date,
-                    PriceHistory.price == receipt_item.unit_price,
                 ).delete(synchronize_session=False)
 
             session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
@@ -529,6 +596,8 @@ def delete_receipt(receipt_id):
                 TelegramReceipt.id.in_(deleted_record_ids)
             ).delete(synchronize_session=False)
 
+        session.flush()
+        rebuild_active_inventory(session)
         session.commit()
     except Exception as exc:
         session.rollback()

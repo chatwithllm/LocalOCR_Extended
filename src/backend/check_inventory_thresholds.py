@@ -44,6 +44,7 @@ def check_all_thresholds():
     Publishes MQTT alert for items below threshold.
     """
     try:
+        from src.backend.active_inventory import rebuild_active_inventory
         from src.backend.initialize_database_schema import create_db_engine, create_session_factory, Inventory, Product
         from src.backend.publish_mqtt_events import publish_low_stock_alert
 
@@ -53,7 +54,10 @@ def check_all_thresholds():
         session = Session()
 
         try:
+            rebuild_active_inventory(session)
+            session.flush()
             items = session.query(Inventory).join(Product).filter(
+                Inventory.is_active_window.is_(True),
                 Inventory.threshold.isnot(None),
                 Inventory.quantity < Inventory.threshold
             ).all()

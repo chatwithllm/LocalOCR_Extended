@@ -17,7 +17,7 @@ from statistics import median
 from flask import Blueprint, g, jsonify
 
 from src.backend.create_flask_application import require_auth
-from src.backend.initialize_database_schema import Product, PriceHistory, ReceiptItem, Purchase
+from src.backend.initialize_database_schema import Inventory, Product, PriceHistory, ReceiptItem, Purchase
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,11 @@ def generate_all_recommendations() -> list:
         recommendations.extend(detect_seasonal_patterns())
     except Exception as e:
         logger.warning(f"Seasonal detection failed: {e}")
+
+    try:
+        recommendations.extend(detect_low_inventory_items())
+    except Exception as e:
+        logger.warning(f"Low inventory detection failed: {e}")
 
     # Filter by confidence threshold
     recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
@@ -163,3 +168,40 @@ def detect_seasonal_patterns() -> list:
                 })
 
     return seasonal
+
+
+def detect_low_inventory_items() -> list:
+    """Recommend items that were manually marked low or fell below threshold."""
+    session = g.db_session
+    low_items = (
+        session.query(Inventory, Product)
+        .join(Product, Inventory.product_id == Product.id)
+        .filter(
+            Inventory.is_active_window.is_(True),
+            (Inventory.manual_low.is_(True)) |
+            ((Inventory.threshold.isnot(None)) & (Inventory.quantity < Inventory.threshold))
+        )
+        .all()
+    )
+
+    recommendations = []
+    for inventory_item, product in low_items:
+        reason = "manual_low" if inventory_item.manual_low else "low_stock"
+        confidence = 0.95 if inventory_item.manual_low else 0.85
+        display_name = product.display_name or product.name
+        message = (
+            f"🛒 {display_name} was marked low and may need restocking."
+            if inventory_item.manual_low
+            else f"🛒 {display_name} is below its low-stock threshold."
+        )
+        recommendations.append({
+            "product_id": product.id,
+            "product_name": display_name,
+            "category": product.category,
+            "reason": reason,
+            "confidence": round(confidence, 2),
+            "current_quantity": inventory_item.quantity,
+            "threshold": inventory_item.threshold,
+            "message": message,
+        })
+    return recommendations

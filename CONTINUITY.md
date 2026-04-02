@@ -24,6 +24,7 @@
 - Docker Compose is the primary intended runtime, with restart policies already configured for backend, MQTT, and Ollama
 - Product, inventory, analytics, budget, and recommendations endpoints are implemented
 - Shopping list endpoints and web tab are implemented
+- Contribution scoring ledger and Contribution page are implemented
 - Web app tabs are implemented for dashboard, inventory, products, upload, receipts, shopping list, budget, analytics, recommendations, and settings
 - Mobile navigation now uses an off-canvas menu instead of a permanently fixed sidebar
 - Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
@@ -74,6 +75,9 @@
 - Home Assistant-side MQTT validation completed successfully
 - Home Assistant MQTT discovery payloads are now published for inventory, recommendation count, budget alerts, and low-stock alerts
 - Flask debug mode is now guarded so MQTT and schedulers only start in the real serving process, not the reloader parent
+- Contribution page shows scoring rules, recent scoring history, and actionable ways users can help the system
+- Contribution scoring now includes validated upkeep actions like location updates, shopping help, and low-stock workflows
+- No-op edits such as case-only renames are excluded from scoring
 
 ### Pending / Not Fully Validated
 
@@ -163,6 +167,8 @@ Every file in the project and what it does:
 | `save_receipt_images.py` | Step 12 | 🟡 Storage helper exists; not the primary reviewed path |
 | `manage_product_catalog.py` | Step 13 | ✅ CRUD working |
 | `manage_shopping_list.py` | Shopping list | ✅ Shopping list API working |
+| `manage_contributions.py` | Contribution scoring | ✅ Contribution summary + help page API working |
+| `contribution_scores.py` | Contribution scoring | ✅ Shared scoring + validation rules |
 | `manage_inventory.py` | Step 14 | ✅ CRUD working |
 | `normalize_product_names.py` | Catalog cleanup | ✅ Product name canonicalization + duplicate merge helpers |
 | `normalize_store_names.py` | Store cleanup | ✅ Store name canonicalization + duplicate merge helpers |
@@ -218,6 +224,9 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 4: MQTT connection (`setup_mqtt_connection.py` — client ready)
 - [x] Step 5: Upload endpoint (`handle_receipt_upload.py` — authenticated and working)
 - [x] PDF receipts supported through upload endpoint
+- [x] Contribution page with scoring rules, recent activity, and “ways to help”
+- [x] Contribution scoring ledger for meaningful upkeep actions
+- [x] Validated low-stock scoring flow: low → shopping → receipt confirmation
 - [x] Wire blueprints into Flask app
 - [ ] Run `alembic init` and create initial migration
 - [ ] Test `docker-compose up` end-to-end

@@ -5,12 +5,13 @@ Shopping list endpoints.
 from flask import Blueprint, jsonify, request, g
 from sqlalchemy import func
 
+from src.backend.contribution_scores import award_contribution_event
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import Product, ShoppingListItem
 from src.backend.normalize_product_names import (
-    canonicalize_product_name,
+    canonicalize_product_identity,
     find_matching_product,
-    normalize_product_category,
+    get_product_display_name,
 )
 
 shopping_list_bp = Blueprint("shopping_list", __name__, url_prefix="/shopping-list")
@@ -64,8 +65,7 @@ def add_shopping_item():
     if not raw_name:
         return jsonify({"error": "Item name is required"}), 400
 
-    name = canonicalize_product_name(raw_name)
-    category = normalize_product_category(data.get("category", "other"))
+    name, category = canonicalize_product_identity(raw_name, data.get("category", "other"))
     quantity = float(data.get("quantity") or 1)
     source = (data.get("source") or "manual").strip().lower()
     note = (data.get("note") or "").strip() or None
@@ -92,13 +92,15 @@ def add_shopping_item():
             existing.source = source
         if product and not existing.product_id:
             existing.product_id = product.id
+        if product:
+            existing.name = get_product_display_name(product)
         session.commit()
         return jsonify({"item": _serialize_item(existing), "merged": True}), 200
 
     item = ShoppingListItem(
         product_id=product.id if product else None,
         user_id=getattr(getattr(g, "current_user", None), "id", None),
-        name=name,
+        name=get_product_display_name(product) if product else name,
         category=category,
         quantity=quantity,
         status="open",
@@ -106,6 +108,17 @@ def add_shopping_item():
         note=note,
     )
     session.add(item)
+    session.flush()
+    award_contribution_event(
+        session,
+        user_id=getattr(getattr(g, "current_user", None), "id", None),
+        event_type="shopping_item_added",
+        description=f"Added {item.name} to the shopping list",
+        subject_type="shopping_item",
+        subject_id=item.id,
+        dedupe_minutes=360,
+        metadata={"source": source},
+    )
     session.commit()
     return jsonify({"item": _serialize_item(item), "merged": False}), 201
 
@@ -119,16 +132,34 @@ def update_shopping_item(item_id):
         return jsonify({"error": "Shopping list item not found"}), 404
 
     data = request.get_json(silent=True) or {}
+    previous_status = item.status
     if "name" in data:
-        item.name = canonicalize_product_name(data["name"])
-    if "category" in data:
-        item.category = normalize_product_category(data["category"])
+        next_name, next_category = canonicalize_product_identity(
+            data["name"],
+            data.get("category", item.category),
+        )
+        item.name = next_name
+        item.category = next_category
+    elif "category" in data:
+        _next_name, next_category = canonicalize_product_identity(item.name, data["category"])
+        item.category = next_category
     if "quantity" in data:
         item.quantity = float(data["quantity"])
     if "status" in data:
         item.status = str(data["status"]).strip().lower() or item.status
     if "note" in data:
         item.note = (data["note"] or "").strip() or None
+
+    if previous_status != "purchased" and item.status == "purchased":
+        award_contribution_event(
+            session,
+            user_id=getattr(getattr(g, "current_user", None), "id", None),
+            event_type="shopping_item_purchased",
+            description=f"Marked {item.name} as bought",
+            subject_type="shopping_item",
+            subject_id=item.id,
+            dedupe_minutes=360,
+        )
 
     session.commit()
     return jsonify({"item": _serialize_item(item)}), 200

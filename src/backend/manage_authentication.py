@@ -8,17 +8,21 @@ while keeping bearer-token auth available for integrations and automation.
 import os
 import hashlib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request, g, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 
-from src.backend.initialize_database_schema import User
+from src.backend.contribution_scores import sum_bonus_points
+from src.backend.initialize_database_schema import Product, Purchase, User
 
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+
+DEFAULT_AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐻", "🐨", "🦁", "🐧", "🦄"]
 
 
 def hash_token(token: str) -> str:
@@ -81,6 +85,7 @@ def serialize_user(user: User) -> dict:
         "id": user.id,
         "name": user.name,
         "email": user.email,
+        "avatar_emoji": user.avatar_emoji or pick_default_avatar(user.name or user.email or str(user.id)),
         "role": user.role,
         "is_active": bool(user.is_active),
         "has_password": bool(user.password_hash),
@@ -94,6 +99,143 @@ def serialize_user(user: User) -> dict:
     }
 
 
+def serialize_user_stats(user: User) -> dict:
+    """Return contribution stats for the current user."""
+    now = datetime.now()
+    today_start = datetime(now.year, now.month, now.day)
+    tomorrow_start = today_start + timedelta(days=1)
+    month_start = datetime(now.year, now.month, 1)
+
+    receipts_processed = (
+        g.db_session.query(Purchase)
+        .filter(Purchase.user_id == user.id)
+        .count()
+    )
+    receipts_today = (
+        g.db_session.query(Purchase)
+        .filter(Purchase.user_id == user.id)
+        .filter(Purchase.created_at >= today_start, Purchase.created_at < tomorrow_start)
+        .count()
+    )
+    ocr_corrections = (
+        g.db_session.query(Product)
+        .filter(Product.reviewed_by_id == user.id, Product.review_state == "resolved")
+        .count()
+    )
+    receipts_month = (
+        g.db_session.query(Purchase)
+        .filter(Purchase.user_id == user.id, Purchase.created_at >= month_start)
+        .count()
+    )
+    ocr_corrections_month = (
+        g.db_session.query(Product)
+        .filter(
+            Product.reviewed_by_id == user.id,
+            Product.review_state == "resolved",
+            Product.reviewed_at.isnot(None),
+            Product.reviewed_at >= month_start,
+        )
+        .count()
+    )
+    bonus_points = sum_bonus_points(g.db_session, user.id)
+    total_score = receipts_processed * 5 + ocr_corrections * 20 + bonus_points
+    return {
+        "receipts_today": receipts_today,
+        "receipts_month": receipts_month,
+        "receipts_processed": receipts_processed,
+        "ocr_corrections": ocr_corrections,
+        "ocr_corrections_month": ocr_corrections_month,
+        "bonus_points": bonus_points,
+        "score": total_score,
+    }
+
+
+def serialize_household_leaderboard(current_user_id: int | None = None) -> dict:
+    """Return monthly top contributors and current-user rank."""
+    now = datetime.now()
+    month_start = datetime(now.year, now.month, 1)
+    active_users = (
+        g.db_session.query(User)
+        .filter(User.is_active.is_(True))
+        .order_by(User.name.asc(), User.email.asc())
+        .all()
+    )
+
+    rankings = []
+    for user in active_users:
+        today_start = datetime(now.year, now.month, now.day)
+        tomorrow_start = today_start + timedelta(days=1)
+        receipts_today = (
+            g.db_session.query(Purchase)
+            .filter(
+                Purchase.user_id == user.id,
+                Purchase.created_at >= today_start,
+                Purchase.created_at < tomorrow_start,
+            )
+            .count()
+        )
+        receipts_processed = (
+            g.db_session.query(Purchase)
+            .filter(Purchase.user_id == user.id)
+            .count()
+        )
+        receipts_month = (
+            g.db_session.query(Purchase)
+            .filter(Purchase.user_id == user.id, Purchase.created_at >= month_start)
+            .count()
+        )
+        ocr_corrections = (
+            g.db_session.query(Product)
+            .filter(Product.reviewed_by_id == user.id, Product.review_state == "resolved")
+            .count()
+        )
+        ocr_corrections_month = (
+            g.db_session.query(Product)
+            .filter(
+                Product.reviewed_by_id == user.id,
+                Product.review_state == "resolved",
+                Product.reviewed_at.isnot(None),
+                Product.reviewed_at >= month_start,
+            )
+            .count()
+        )
+        bonus_points = sum_bonus_points(g.db_session, user.id)
+        score = receipts_processed * 5 + ocr_corrections * 20 + bonus_points
+        rankings.append({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "avatar_emoji": user.avatar_emoji or pick_default_avatar(user.name or user.email or str(user.id)),
+            "score": score,
+            "receipts_today": receipts_today,
+            "receipts_processed": receipts_processed,
+            "receipts_month": receipts_month,
+            "ocr_corrections": ocr_corrections,
+            "ocr_corrections_month": ocr_corrections_month,
+            "bonus_points": bonus_points,
+        })
+
+    rankings.sort(key=lambda item: (-item["score"], -item["ocr_corrections"], -item["receipts_processed"], item["name"] or item["email"] or ""))
+    previous_score = None
+    previous_rank = 0
+    for index, item in enumerate(rankings, start=1):
+        if previous_score is not None and item["score"] == previous_score:
+            item["rank"] = previous_rank
+        else:
+            item["rank"] = index
+            previous_rank = index
+            previous_score = item["score"]
+
+    current_user_rank = next((item["rank"] for item in rankings if item["id"] == current_user_id), None)
+    return {
+        "month": month_start.strftime("%Y-%m"),
+        "rankings": rankings,
+        "leaders": rankings[:3],
+        "current_user_rank": current_user_rank,
+        "total_users": len(rankings),
+    }
+
+
 def active_admin_count() -> int:
     """Return the number of active admins."""
     return (
@@ -101,6 +243,12 @@ def active_admin_count() -> int:
         .filter(User.role == "admin", User.is_active.is_(True))
         .count()
     )
+
+
+def pick_default_avatar(seed: str) -> str:
+    seed_text = str(seed or "user")
+    index = sum(ord(ch) for ch in seed_text) % len(DEFAULT_AVATARS)
+    return DEFAULT_AVATARS[index]
 
 
 def is_valid_login_email(email: str) -> bool:
@@ -160,7 +308,9 @@ def login():
     return jsonify({
         "user": {
             **serialize_user(user),
-        }
+        },
+        "stats": serialize_user_stats(user),
+        "leaderboard": serialize_household_leaderboard(user.id),
     }), 200
 
 
@@ -201,7 +351,21 @@ def me():
 
     return jsonify({
         "authenticated": True,
-        "user": serialize_user(user)
+        "user": serialize_user(user),
+        "stats": serialize_user_stats(user),
+        "leaderboard": serialize_household_leaderboard(user.id),
+    }), 200
+
+
+@auth_bp.route("/me/stats", methods=["GET"])
+def my_stats():
+    """Return contribution stats for the current authenticated user."""
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"authenticated": False}), 401
+    return jsonify({
+        "stats": serialize_user_stats(user),
+        "leaderboard": serialize_household_leaderboard(user.id),
     }), 200
 
 
@@ -265,6 +429,7 @@ def create_user():
         email=email,
         role=role,
         is_active=True,
+        avatar_emoji=(data.get("avatar_emoji") or "").strip() or pick_default_avatar(name or email),
         password_hash=hash_password(password),
     )
     g.db_session.add(created)
@@ -276,16 +441,18 @@ def create_user():
 
 @auth_bp.route("/users/<int:user_id>", methods=["PUT"])
 def update_user(user_id: int):
-    """Update an existing household user. Admin only."""
+    """Update an existing household user. Admins can edit anyone; users can update their own basic profile."""
     actor = get_authenticated_user()
     if not actor:
         return jsonify({"error": "Authentication required"}), 401
-    if not is_admin(actor):
-        return jsonify({"error": "Admin access required"}), 403
 
     target = g.db_session.query(User).filter_by(id=user_id).first()
     if not target:
         return jsonify({"error": "User not found"}), 404
+
+    acting_on_self = actor.id == target.id
+    if not is_admin(actor) and not acting_on_self:
+        return jsonify({"error": "Admin access required"}), 403
 
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or target.name).strip()
@@ -293,6 +460,11 @@ def update_user(user_id: int):
     role = (data.get("role") or target.role).strip().lower()
     password = data.get("password")
     is_active = bool(data.get("is_active", target.is_active))
+    avatar_emoji = (data.get("avatar_emoji") or target.avatar_emoji or "").strip()
+
+    if not is_admin(actor):
+        role = target.role
+        is_active = target.is_active
 
     if not name:
         return jsonify({"error": "Name is required"}), 400
@@ -331,6 +503,7 @@ def update_user(user_id: int):
     target.email = email
     target.role = role
     target.is_active = is_active
+    target.avatar_emoji = avatar_emoji or pick_default_avatar(name or email)
     if password:
         target.password_hash = hash_password(password)
         target.password_reset_requested_at = None

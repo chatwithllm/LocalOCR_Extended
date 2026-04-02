@@ -79,6 +79,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=True)
     role = Column(String(20), nullable=False, default="user")  # "admin" or "user"
     is_active = Column(Boolean, nullable=False, default=True)
+    avatar_emoji = Column(String(16), nullable=True)
     password_hash = Column(String(255), nullable=True)
     api_token_hash = Column(String(255), nullable=True)
     password_reset_requested_at = Column(DateTime, nullable=True)
@@ -95,6 +96,15 @@ class Product(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
+    raw_name = Column(String(255), nullable=True)
+    display_name = Column(String(255), nullable=True)
+    brand = Column(String(120), nullable=True)
+    size = Column(String(80), nullable=True)
+    enrichment_confidence = Column(Float, nullable=True)
+    enriched_at = Column(DateTime, nullable=True)
+    review_state = Column(String(20), nullable=True, default="pending")  # pending, resolved, dismissed
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     category = Column(String(100), nullable=True)
     barcode = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=utcnow)
@@ -134,6 +144,8 @@ class Inventory(Base):
     quantity = Column(Float, nullable=False, default=0)
     location = Column(String(50), nullable=True)  # Fridge, Pantry, Freezer, Cabinet
     threshold = Column(Float, nullable=True)  # Low-stock alert threshold
+    manual_low = Column(Boolean, nullable=False, default=False)
+    is_active_window = Column(Boolean, nullable=False, default=True)
     last_updated = Column(DateTime, default=utcnow, onupdate=utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -143,6 +155,22 @@ class Inventory(Base):
 
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
+
+
+class InventoryAdjustment(Base):
+    __tablename__ = "inventory_adjustments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity_delta = Column(Float, nullable=False, default=0)
+    reason = Column(String(50), nullable=True)  # receipt_window, manual_add, consume, update, delete
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_inventory_adjustment_product_id", "product_id"),
+        Index("ix_inventory_adjustment_created_at", "created_at"),
+    )
 
 
 class Purchase(Base):
@@ -246,6 +274,27 @@ class ShoppingListItem(Base):
     )
 
 
+class ContributionEvent(Base):
+    __tablename__ = "contribution_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    event_type = Column(String(50), nullable=False)
+    subject_type = Column(String(50), nullable=True)
+    subject_id = Column(Integer, nullable=True)
+    status = Column(String(30), nullable=False, default="finalized")
+    points = Column(Integer, nullable=False, default=0)
+    description = Column(String(500), nullable=False)
+    metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_contribution_event_user_id", "user_id"),
+        Index("ix_contribution_event_type", "event_type"),
+        Index("ix_contribution_event_created_at", "created_at"),
+    )
+
+
 class TelegramReceipt(Base):
     __tablename__ = "telegram_receipts"
 
@@ -299,6 +348,38 @@ def _ensure_runtime_columns(engine):
         if engine.dialect.name != "sqlite":
             return
 
+        inventory_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(inventory)"))
+        }
+        if "is_active_window" not in inventory_columns:
+            conn.execute(text("ALTER TABLE inventory ADD COLUMN is_active_window BOOLEAN NOT NULL DEFAULT 1"))
+        if "manual_low" not in inventory_columns:
+            conn.execute(text("ALTER TABLE inventory ADD COLUMN manual_low BOOLEAN NOT NULL DEFAULT 0"))
+
+        product_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(products)"))
+        }
+        if "raw_name" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN raw_name VARCHAR(255)"))
+        if "display_name" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN display_name VARCHAR(255)"))
+        if "brand" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN brand VARCHAR(120)"))
+        if "size" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN size VARCHAR(80)"))
+        if "enrichment_confidence" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN enrichment_confidence FLOAT"))
+        if "enriched_at" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN enriched_at DATETIME"))
+        if "review_state" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN review_state VARCHAR(20) DEFAULT 'pending'"))
+        if "reviewed_at" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN reviewed_at DATETIME"))
+        if "reviewed_by_id" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN reviewed_by_id INTEGER"))
+
         existing = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(telegram_receipts)"))
@@ -314,10 +395,42 @@ def _ensure_runtime_columns(engine):
         }
         if "is_active" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+        if "avatar_emoji" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_emoji VARCHAR(16)"))
         if "password_hash" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
         if "password_reset_requested_at" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
+
+        contribution_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(contribution_events)"))
+        } if "contribution_events" in {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        } else set()
+        if contribution_columns and "status" not in contribution_columns:
+            conn.execute(text("ALTER TABLE contribution_events ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT 'finalized'"))
+
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS inventory_adjustments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                quantity_delta FLOAT NOT NULL DEFAULT 0,
+                reason VARCHAR(50),
+                user_id INTEGER,
+                created_at DATETIME,
+                FOREIGN KEY(product_id) REFERENCES products (id),
+                FOREIGN KEY(user_id) REFERENCES users (id)
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_inventory_adjustment_product_id "
+            "ON inventory_adjustments (product_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_inventory_adjustment_created_at "
+            "ON inventory_adjustments (created_at)"
+        ))
 
 
 # ---------------------------------------------------------------------------
