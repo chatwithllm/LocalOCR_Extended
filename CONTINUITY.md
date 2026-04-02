@@ -72,6 +72,8 @@
 - MQTT broker auth is working with configured username/password credentials
 - MQTT publish smoke tests succeeded for inventory, recommendations, budget alerts, and low-stock alerts
 - Home Assistant-side MQTT validation completed successfully
+- Home Assistant MQTT discovery payloads are now published for inventory, recommendation count, budget alerts, and low-stock alerts
+- Flask debug mode is now guarded so MQTT and schedulers only start in the real serving process, not the reloader parent
 
 ### Pending / Not Fully Validated
 
@@ -345,6 +347,7 @@ Decisions made during planning — context for anyone picking this up:
 | 12 | **Receipt review in web app** | Telegram/upload flows need an inspectable history and image preview | Terminal-only review, Home Assistant-only review |
 | 13 | **Telegram webhook secret support** | Adds a simple authenticity check for webhook requests | Open webhook endpoint without shared secret |
 | 14 | **Gemini model made configurable** | Avoid hard-coded retired model names and simplify future upgrades | Hard-coded model string in code |
+| 15 | **Guard background services in Flask debug** | Prevent MQTT and schedulers from starting twice under the Werkzeug reloader | Let both processes start integrations and fight over broker/scheduler state |
 
 ---
 
