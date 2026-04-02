@@ -15,9 +15,10 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 
 from flask import Blueprint, g, jsonify
+from sqlalchemy import func
 
 from src.backend.create_flask_application import require_auth
-from src.backend.initialize_database_schema import Inventory, Product, PriceHistory, ReceiptItem, Purchase
+from src.backend.initialize_database_schema import Inventory, Product, PriceHistory, ReceiptItem, Purchase, ShoppingListItem, User
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +59,34 @@ def generate_all_recommendations() -> list:
 
     # Filter by confidence threshold
     recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
+    _annotate_shopping_status(recommendations)
 
     # Sort by confidence (highest first)
     recommendations.sort(key=lambda r: r["confidence"], reverse=True)
 
     return recommendations
+
+
+def _annotate_shopping_status(recommendations: list) -> None:
+    """Annotate recommendations with whether they are already in the shopping list."""
+    session = g.db_session
+    for rec in recommendations:
+        product_id = rec.get("product_id")
+        product_name = rec.get("product_name")
+        query = session.query(ShoppingListItem, User).outerjoin(User, User.id == ShoppingListItem.user_id).filter(ShoppingListItem.status == "open")
+        if product_id:
+            query = query.filter(ShoppingListItem.product_id == product_id)
+        elif product_name:
+            query = query.filter(func.lower(ShoppingListItem.name) == product_name.lower())
+        else:
+            rec["in_shopping_list"] = False
+            continue
+        existing = query.order_by(ShoppingListItem.created_at.desc()).first()
+        rec["in_shopping_list"] = bool(existing)
+        if existing:
+            item, user = existing
+            rec["shopping_list_item_id"] = item.id
+            rec["shopping_list_by"] = user.name if user and user.name else None
 
 
 def detect_price_deals() -> list:

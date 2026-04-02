@@ -242,6 +242,7 @@ def get_receipt(receipt_id):
             {
                 "product_id": item.product_id,
                 "product_name": product.name,
+                "category": product.category,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "extracted_by": item.extracted_by,

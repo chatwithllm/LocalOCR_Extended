@@ -19,8 +19,9 @@
 - Maintains **real-time shared inventory** across all household devices (MQTT sync)
 - Delivers **smart recommendations** (price deals + seasonal/recurring items)
 - Provides **spending analytics** (budget tracking, price trends, savings quantification)
-- Leverages **Home Assistant dashboard** for unified household view
-- Secures API endpoints with **token-based authentication** on the local network
+- Provides a full **web app** for dashboard, receipts, shopping, inventory, and household collaboration
+- Leverages **Home Assistant + MQTT** as an optional real-time integration layer
+- Secures browser access with **session-based household login** and keeps tokens for integrations
 - Ensures **100% data portability** (Docker Compose, backup/restore)
 - Maintains **zero ongoing costs** (free Gemini tier + self-hosted services)
 
@@ -105,12 +106,14 @@
 **Feature:** Real-Time Multi-User Inventory Tracking
 
 **Core Functionality:**
-- View current household inventory (products, quantities, locations)
+- View current active household inventory (recent rolling window)
 - Add items manually or auto-add from processed receipts
 - Decrease quantity when consuming items
 - Track location: Fridge, Pantry, Freezer, Cabinet
 - See which family member updated each item (audit trail)
 - Real-time sync across devices (MQTT)
+- Jump from inventory/product rows back to linked receipts for traceability
+- Clean up product names and categories inline from inventory, products, or receipt detail
 
 **Low-Stock Alerts:**
 - Per-product threshold (e.g., milk < 0.5L, eggs < 6)
@@ -123,6 +126,7 @@
 - Average price (for recommendations)
 - Store availability
 - Purchase frequency (calculated from history)
+- Human-readable display names should be preferred over raw OCR text in user-facing views
 
 ---
 
@@ -146,9 +150,15 @@
 
 **Delivery Modes:**
 - **Proactive:** Daily push at 8 AM (configurable) via MQTT → Home Assistant
-- **Reactive:** User queries recommendations on-demand from dashboard
+- **Reactive:** User reviews recommendations inside the web app shopping workflow
 
 **Confidence Threshold:** Only show recommendations ≥0.40 confidence (scaled formulas mean 0.40 ≈ a meaningful signal)
+
+**Workflow update:**
+- Recommendations are part of the Shopping page, not a separate standalone workflow
+- Users can add a recommendation to shopping
+- Other household members can confirm the recommendation
+- Scoring stays floating until later validation such as purchase completion
 
 ---
 
@@ -188,7 +198,7 @@
 
 **Feature:** Unified Household Dashboard
 
-**Dashboard Components:**
+**Dashboard / Web App Components:**
 
 1. **Inventory Card**
    - Grid/list view of all products
@@ -198,14 +208,30 @@
 2. **Recommendations Card**
    - Daily suggestions (deals + seasonal)
    - Show reason, estimated price, store
-   - Click to add to shopping list (future feature)
+   - Add to shopping list or confirm collaborative shopping actions
 
-3. **Alerts Card**
+3. **Receipts Review**
+   - Browse processed/review/failed receipts
+   - Preview image/PDF
+   - Rename or recategorize extracted items inline
+   - Reprocess or approve review receipts
+
+4. **Shopping Workspace**
+   - Current list, quick find, store grouping, estimated stops
+   - Embedded recommendations
+   - Recovery flow for accidentally bought items via `Reopen`
+
+5. **Contribution Page**
+   - Explain scoring rules
+   - Show recent contribution events
+   - Suggest ways users can help improve the system
+
+6. **Alerts Card**
    - Low-stock warnings
    - Budget status
    - System notifications
 
-4. **Analytics Card**
+7. **Analytics Card**
    - Spending trends (line chart)
    - Budget vs actual (progress bar)
    - Price history per product
@@ -234,8 +260,8 @@
 **Feature:** Household Member Management
 
 **User Roles:**
-- **Admin:** Manage settings, budgets, member permissions
-- **User:** View & update inventory, see recommendations
+- **Admin:** Manage settings, budgets, member permissions, review household/user cleanup work
+- **User:** View & update inventory, shopping, receipts, and recommendations
 
 **Collaboration Features:**
 - Shared inventory (all members see same data)
@@ -244,10 +270,11 @@
 - Optional notifications (family member actions)
 
 **Authentication:**
-- API token-based authentication (Bearer tokens per user, stored hashed in DB)
-- All Flask API endpoints require valid token (except `/telegram/webhook` which validates via Telegram signature)
-- Per-user preferences (notification settings, dashboard layout)
-- Can integrate with Home Assistant auth in future phases
+- Browser login uses Flask session auth
+- Bearer-token authentication remains available for integrations and automation
+- All Flask API endpoints require valid auth except `/telegram/webhook` and static/root serving
+- Per-user preferences include profile/avatar and collapsible workspace layout choices
+- Future-friendly for Home Assistant auth integration, but not required for current app
 
 ---
 
@@ -261,15 +288,15 @@
 - **Real-Time Sync:** MQTT Broker (Mosquitto, local)
 - **OCR:** Gemini Vision API (cloud) + Ollama (local fallback)
 - **Rate-Limit Tracking:** Gemini API usage counters persisted to SQLite (survive restarts)
-- **Frontend:** Home Assistant YAML dashboard + MQTT integration *(Note: standalone web UI is out of scope for v1; rich analytics charts are limited by HA dashboard capabilities)*
+- **Frontend:** Standalone web UI served by Flask, with optional Home Assistant + MQTT integration
 - **Reverse Proxy:** Nginx Proxy Manager (**prerequisite** — must be running with domain + SSL before deployment)
 - **Deployment:** Docker Compose (backend + DB + MQTT + Ollama) — **set up first in Phase 1** so all development happens inside containers from day one
 
 ### 4.2 Data Schema
 
 **Core Tables:**
-- `users` (id, name, email, role, api_token_hash, created_at)
-- `products` (id, name, category, barcode, created_at)
+- `users` (id, name, email, role, api_token_hash, password_hash, avatar, created_at)
+- `products` (id, name, raw_name, display_name, category, brand, size, review_state, created_at)
 - `inventory` (id, product_id, quantity, location, last_updated, updated_by)
 - `purchases` (id, store_id, total_amount, date, user_id)
 - `receipt_items` (id, purchase_id, product_id, quantity, unit_price, extracted_by)
@@ -277,6 +304,9 @@
 - `stores` (id, name, location)
 - `budget` (id, user_id, month, budget_amount)
 - `telegram_receipts` (id, telegram_user_id, message_id, status, ocr_confidence)
+- `shopping_list_items` (id, product_id, name, quantity, preferred_store, source, status)
+- `contribution_events` (id, user_id, event_type, status, points, reference_type, reference_id)
+- `access_links` (id, token_hash, scope, expires_at, redeemed_at)
 - `api_usage` (id, service_name, date, request_count, token_count)
 - `alembic_version` (version_num) — managed by Alembic migration tool
 
@@ -287,10 +317,14 @@
 | `/telegram/webhook` | POST | Receive receipt from Telegram |
 | `/receipts/upload` | POST | Upload receipt via Home Assistant |
 | `/receipts/{id}` | GET | Retrieve receipt details |
+| `/receipts/{id}/approve` | POST | Approve edited review receipt |
 | `/products` | GET, POST | List/create products |
+| `/products/{id}` | PUT | Rename / recategorize / clean up product |
 | `/inventory` | GET | View current inventory |
 | `/inventory/add-item` | POST | Add item to inventory |
 | `/inventory/{id}/consume` | PUT | Decrease quantity |
+| `/shopping-list` | GET, POST | Shopping list workspace |
+| `/shopping-list/share/{token}` | GET | Helper-mode shared shopping data |
 | `/recommendations` | GET | Get recommendations (proactive/reactive) |
 | `/analytics/spending` | GET | Get spending analytics |
 | `/analytics/budget` | GET | Get budget status |
@@ -306,7 +340,7 @@
 | **OCR Processing Latency** | <3 sec (Gemini), <15 sec (Ollama) |
 | **MQTT Sync Latency** | <2 seconds |
 | **API Response Time** | <500 ms |
-| **API Authentication** | All endpoints require valid Bearer token |
+| **API Authentication** | Browser session or valid integration token |
 | **OCR Accuracy** | 90%+ |
 | **Data Calculation Accuracy** | 100% (exact match to manual calculation) |
 | **Backup Frequency** | Daily automated |
@@ -319,8 +353,7 @@
 
 ## 6. Out of Scope (v1)
 
-- ❌ Standalone web frontend (use Home Assistant dashboard instead)
-- ❌ Mobile app (use Home Assistant mobile app instead)
+- ❌ Native mobile app
 - ❌ Cloud backup (local backup only)
 - ❌ Dietary/nutritional filtering
 - ❌ Barcode scanning (manual + OCR only)
@@ -350,11 +383,12 @@
 - ✅ Low-stock alert triggered & delivered correctly
 - ✅ Audit trail shows user & timestamp for each change
 
-**Recommendations:**
+**Recommendations / Shopping:**
 - ✅ Daily recommendations generated & pushed at 8 AM
 - ✅ Deals correctly identified (>10% discount detection)
 - ✅ Seasonal patterns recognized (recurring items detected)
-- ✅ Recommendations shown in Home Assistant dashboard
+- ✅ Recommendations available inside the Shopping workflow
+- ✅ Shared shopping helper QR can show open items and mark them bought/reopen them
 
 **Analytics:**
 - ✅ Monthly spending calculated accurately (<$1 variance)
@@ -362,11 +396,11 @@
 - ✅ Budget vs actual shows % spent accurately
 - ✅ Savings quantified correctly (vs manual calculation)
 
-**Home Assistant UI:**
+**Web UI / Household Collaboration:**
 - ✅ Dashboard loads <2 sec
-- ✅ All products visible (pagination if >50 items)
+- ✅ Inventory/products/receipts/shopping are usable from the standalone web app
 - ✅ Click actions responsive (<500 ms)
-- ✅ Mobile responsive (iOS/Android Home Assistant apps)
+- ✅ Mobile responsive, including compact shopping-helper and inventory mobile layouts
 
 **Deployment:**
 - ✅ Docker Compose stack created in Phase 1 (development runs inside containers from day one)

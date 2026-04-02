@@ -8,14 +8,18 @@ while keeping bearer-token auth available for integrations and automation.
 import os
 import hashlib
 import logging
+import secrets
+from io import BytesIO
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
-from flask import Blueprint, jsonify, request, g, session
+import qrcode
+from flask import Blueprint, jsonify, request, g, session, redirect, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 
-from src.backend.contribution_scores import sum_bonus_points
-from src.backend.initialize_database_schema import Product, Purchase, User
+from src.backend.contribution_scores import sum_bonus_points, sum_floating_points
+from src.backend.initialize_database_schema import AccessLink, Product, Purchase, User
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,59 @@ DEFAULT_AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐻", "🐨", "🦁
 def hash_token(token: str) -> str:
     """Hash an API token for secure storage/comparison."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def build_public_base_url() -> str:
+    return (
+        os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+        or request.host_url.rstrip("/")
+    )
+
+
+def create_access_link(
+    *,
+    purpose: str,
+    created_by_id: int | None = None,
+    target_user_id: int | None = None,
+    expires_in_minutes: int = 60,
+    metadata_json: str | None = None,
+):
+    token = secrets.token_urlsafe(32)
+    link = AccessLink(
+        created_by_id=created_by_id,
+        target_user_id=target_user_id,
+        purpose=purpose,
+        token_hash=hash_token(token),
+        metadata_json=metadata_json,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes),
+    )
+    g.db_session.add(link)
+    g.db_session.flush()
+    return token, link
+
+
+def get_valid_access_link(token: str, purpose: str, *, allow_used: bool = False):
+    if not token:
+        return None
+    link = (
+        g.db_session.query(AccessLink)
+        .filter(
+            AccessLink.token_hash == hash_token(token),
+            AccessLink.purpose == purpose,
+        )
+        .first()
+    )
+    if not link:
+        return None
+    now = datetime.now(timezone.utc)
+    if link.expires_at:
+        expires_at = link.expires_at
+        compare_now = now.replace(tzinfo=None) if expires_at.tzinfo is None else now
+        if expires_at < compare_now:
+            return None
+    if not allow_used and link.used_at:
+        return None
+    return link
 
 
 def hash_password(password: str) -> str:
@@ -138,6 +195,7 @@ def serialize_user_stats(user: User) -> dict:
         .count()
     )
     bonus_points = sum_bonus_points(g.db_session, user.id)
+    floating_points = sum_floating_points(g.db_session, user.id)
     total_score = receipts_processed * 5 + ocr_corrections * 20 + bonus_points
     return {
         "receipts_today": receipts_today,
@@ -146,6 +204,7 @@ def serialize_user_stats(user: User) -> dict:
         "ocr_corrections": ocr_corrections,
         "ocr_corrections_month": ocr_corrections_month,
         "bonus_points": bonus_points,
+        "floating_points": floating_points,
         "score": total_score,
     }
 
@@ -200,6 +259,7 @@ def serialize_household_leaderboard(current_user_id: int | None = None) -> dict:
             .count()
         )
         bonus_points = sum_bonus_points(g.db_session, user.id)
+        floating_points = sum_floating_points(g.db_session, user.id)
         score = receipts_processed * 5 + ocr_corrections * 20 + bonus_points
         rankings.append({
             "id": user.id,
@@ -213,6 +273,7 @@ def serialize_household_leaderboard(current_user_id: int | None = None) -> dict:
             "ocr_corrections": ocr_corrections,
             "ocr_corrections_month": ocr_corrections_month,
             "bonus_points": bonus_points,
+            "floating_points": floating_points,
         })
 
     rankings.sort(key=lambda item: (-item["score"], -item["ocr_corrections"], -item["receipts_processed"], item["name"] or item["email"] or ""))
@@ -355,6 +416,60 @@ def me():
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
     }), 200
+
+
+@auth_bp.route("/qr-login-link", methods=["POST"])
+def qr_login_link():
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    token, link = create_access_link(
+        purpose="login_qr",
+        created_by_id=user.id,
+        target_user_id=user.id,
+        expires_in_minutes=10,
+    )
+    g.db_session.commit()
+    url = f"{build_public_base_url()}/auth/qr-login/{token}"
+    return jsonify({
+        "url": url,
+        "qr_image_url": f"{build_public_base_url()}/auth/qr-image?data={quote(url, safe='')}",
+        "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+    }), 200
+
+
+@auth_bp.route("/qr-login/<token>", methods=["GET"])
+def qr_login(token: str):
+    link = get_valid_access_link(token, "login_qr")
+    if not link or not link.target_user_id:
+        return redirect("/")
+
+    user = g.db_session.query(User).filter_by(id=link.target_user_id, is_active=True).first()
+    if not user:
+        return redirect("/")
+
+    session["user_id"] = user.id
+    session.permanent = True
+    link.used_at = datetime.now(timezone.utc)
+    g.db_session.commit()
+    return redirect("/")
+
+
+@auth_bp.route("/qr-image", methods=["GET"])
+def qr_image():
+    data = (request.args.get("data") or "").strip()
+    if not data:
+        return jsonify({"error": "Missing data"}), 400
+
+    qr = qrcode.QRCode(border=2, box_size=8)
+    qr.add_data(data)
+    qr.make(fit=True)
+    image = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return send_file(buffer, mimetype="image/png", max_age=300)
 
 
 @auth_bp.route("/me/stats", methods=["GET"])

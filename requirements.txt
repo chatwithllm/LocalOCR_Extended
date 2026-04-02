@@ -32,3 +32,6 @@ Flask-SocketIO==5.4.1
 
 # Utilities
 python-dotenv==1.0.1
+
+# QR Codes
+qrcode==7.4.2

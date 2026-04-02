@@ -57,19 +57,21 @@ Primary runtime:
 Main tabs in the web app:
 - Dashboard
 - Inventory
-- Products
 - Upload Receipt
 - Receipts
 - Shopping List
 - Budget
 - Analytics
-- Recommendations
+- Contribution
 - Settings
 
 Expected behavior:
 - each tab loads data lazily when opened
 - mobile uses off-canvas navigation
 - browser auth is required for all data tabs
+- Inventory contains a toggle between `Inventory` and `Products`
+- Shopping List contains a collapsible `Recommendations` section rather than a separate Recommendations tab
+- QR utilities must be hidden from normal navigation and revealed only through the intentional brand-text long-press interaction
 
 ## 5. Data Model
 
@@ -103,10 +105,14 @@ Rules:
 - standardize case for OCR-heavy names
 - case-only variants must resolve to a single product
 - manual rename must support merge into an existing canonical product
+- savings/coupon pseudo-lines must never become products
+- human-readable display names should be preferred over raw OCR strings in normal UI views
 
 Examples:
 - `AVOCADOS` and `Avocados` must become `Avocados`
 - `AMUL MILK` and `Amul Milk` must become `Amul Milk`
+- `Org Spinach` must become `Organic Spinach`
+- `Vine Tomatoes` must become `Vine Tomato`
 
 Restrictions:
 - do not aggressively rewrite semantic abbreviations unless intentionally mapped
@@ -289,27 +295,40 @@ Required functionality:
 - consume quantity
 - delete inventory item
 - search current inventory
+- filter by multiple categories
+- jump to linked receipts for traceability
 
 Required fields:
 - product name
 - quantity
 - location
-- low-stock threshold
 - status
 
 Search rules:
-- search should filter current list by name, location, quantity, or threshold
+- search should filter current list by name, location, quantity, or readable metadata
 - no-backend-search requirement; client-side filtering is acceptable
 
 Actions:
 - consume one unit
+- rename / clean up product name
+- update category
+- update location
+- mark low / clear low
 - delete
 - add to shopping list
+
+UI rules:
+- mobile inventory rows should use a compact two-row layout
+- action buttons should live on a single horizontal action strip on phones
+- normal UI should prefer normalized/display names and not force raw OCR text as the primary label
 
 ## 14. Products Tab Specification
 
 Purpose:
 - maintain the reusable product catalog
+
+Implementation note:
+- products live inside the Inventory page as a toggle, not as a separate top-level navigation tab
 
 Required functionality:
 - list products
@@ -317,6 +336,7 @@ Required functionality:
 - create product
 - delete product
 - rename product
+- recategorize product
 - merge canonical duplicates via rename
 - show grouped variants
 - show linked receipt shortcuts
@@ -329,6 +349,8 @@ Grouping rules:
 Traceability rules:
 - each product variant can show recent linked receipts
 - linked receipt labels must use purchase date, not product creation date
+- inline cleanup actions should be consistent with the Inventory view
+- category list must include at least `apparel` and `grains`
 
 ## 15. Shopping List Tab Specification
 
@@ -337,12 +359,21 @@ Purpose:
 
 Required functionality:
 - manual add
+- quick find product search
 - list open items
 - list purchased items
 - mark bought
 - reopen
 - delete
 - merge duplicate open items by name/category
+- choose preferred store when adding from the Shopping page
+- group items by store
+- show estimated total cost
+- show estimated store stops
+- show recommendations in a collapsible section
+- show current list in a collapsible section
+- show quick find in a collapsible section
+- show store-stop summary in a collapsible section
 
 Required fields:
 - name
@@ -351,6 +382,8 @@ Required fields:
 - source
 - note
 - status
+- preferred store
+- estimated price when available
 
 Allowed sources:
 - `manual`
@@ -362,6 +395,16 @@ Cross-tab actions:
 - Recommendations -> add to shopping list
 - Inventory -> add item to shopping list
 - Products -> add item to shopping list
+
+Safety / recovery rules:
+- bought items must remain reopenable so accidental check-offs can be undone
+- logged-in users and helper-mode users should both have a recovery path for mistaken `Bought` taps
+
+Helper-share rules:
+- there must be a scoped shopping-helper share mode reachable by QR
+- helper mode can view the shopping list and mark bought/reopen only
+- helper mode must not expose settings, inventory editing, or household management
+- helper mode should use a simplified phone-first layout with compact summary stats and minimal item metadata
 
 ## 16. Budget Tab Specification
 
@@ -393,25 +436,28 @@ Rules:
 - frontend must match backend response shape exactly
 - empty states must render gracefully when no data exists
 
-## 18. Recommendations Tab Specification
+## 18. Recommendations Within Shopping Specification
 
 Purpose:
-- surface actionable buying suggestions
+- surface actionable buying suggestions inside the Shopping workflow rather than as a separate standalone page
 
 Types:
 - `deal`
 - `seasonal`
-- future `low_stock` style suggestions can also be represented visually
+- `low_stock` style suggestions may also be represented visually
 
 Required functionality:
 - show product
 - show message/reason
 - show confidence
 - add recommended item directly to shopping list
+- show when a recommendation is already in the shopping list
+- allow a second household user to confirm a recommendation
 
 Rules:
-- recommendations are read-only suggestions
+- recommendations are suggestions, not inventory mutations
 - adding to shopping list should not mutate inventory directly
+- recommendation collaboration points should remain floating until later validation such as purchase completion or equivalent downstream confirmation
 
 ## 19. Settings Tab Specification
 
@@ -430,7 +476,24 @@ Admin-only functionality:
 - reset password
 - activate/deactivate user
 
-## 20. Backend API Surface
+## 20. Contribution Specification
+
+Purpose:
+- make scoring transparent and reward helpful household/system upkeep
+
+Required functionality:
+- show score rules
+- show recent contribution history
+- show household ranking
+- show ways a user can help right now
+
+Rules:
+- no-op edits such as case-only renames must not award score
+- recommendation and low-stock collaboration should support floating or pending states before final validation
+- if a collaborative action is removed before validation, soft points must be reversible
+- meaningful cleanup such as renaming, recategorizing, setting location, and validated low-stock/shopping actions should be trackable in the contribution ledger
+
+## 21. Backend API Surface
 
 Core route groups:
 - `/auth`
@@ -449,7 +512,7 @@ Minimum required behaviors:
 - auth required everywhere except public shell routes/webhook
 - stable route shapes so the single-page frontend can rely on them
 
-## 21. Background and Integration Services
+## 22. Background and Integration Services
 
 ### MQTT
 
@@ -496,7 +559,7 @@ Restrictions:
 - requires public HTTPS webhook
 - callback queries must be enabled
 
-## 22. Deployment Requirements
+## 23. Deployment Requirements
 
 ### Docker
 
@@ -537,7 +600,7 @@ Optional:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
 
-## 23. File and Storage Rules
+## 24. File and Storage Rules
 
 Receipt file storage:
 - keep receipts on disk in a dedicated receipts directory
@@ -549,7 +612,7 @@ Database rules:
 - foreign keys enabled
 - runtime-compatible column backfills allowed for dev databases
 
-## 24. Non-Functional Requirements
+## 25. Non-Functional Requirements
 
 - mobile-friendly navigation
 - clear empty states
@@ -558,7 +621,7 @@ Database rules:
 - direct links between catalog data and original receipts
 - do not lose functionality when Telegram/MQTT are unavailable
 
-## 25. Known Current Restrictions
+## 26. Known Current Restrictions
 
 - Home Assistant dashboard and automation behavior still need broader validation beyond the confirmed MQTT transport/discovery path
 - OCR still produces some truncated product labels that need smarter cleanup than case normalization alone
@@ -566,7 +629,7 @@ Database rules:
 - automated end-to-end coverage is still lighter than manual verification
 - when running in Flask debug mode, background services must remain guarded so MQTT and schedulers do not start twice under the reloader
 
-## 26. Build Checklist
+## 27. Build Checklist
 
 An implementation should not be considered complete unless it includes:
 - session login and admin-managed users
@@ -575,19 +638,22 @@ An implementation should not be considered complete unless it includes:
 - review/approve receipt workflow
 - products with grouping, rename, and receipt traceability
 - inventory with search
-- shopping list with cross-tab add actions
+- shopping list with cross-tab add actions, store grouping, and helper-share QR flow
 - receipts filtering and summaries
-- budget, analytics, and recommendations tabs
+- budget, analytics, and contribution page
 - product/store canonical naming rules
+- inline rename and category cleanup from receipts, inventory, and products
 - continuity/restart docs
 
-## 27. Acceptance Criteria
+## 28. Acceptance Criteria
 
 The app is complete enough when:
 - a new user can log in and use every tab
 - a receipt can be uploaded or sent via Telegram and appear in Receipts
 - bad OCR names can be corrected in Products
+- bad OCR names and categories can be corrected directly from receipt detail too
 - duplicate case variants do not appear as separate products/stores
 - a user can add suggested items to Shopping List from other tabs
+- a helper device can open the shopping helper QR view and mark items bought/reopen them
 - clicking a product’s receipt shortcut opens the correct receipt
 - someone new can stand up the app from this document plus the repo
