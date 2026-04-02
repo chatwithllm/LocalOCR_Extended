@@ -82,7 +82,8 @@ def register_error_handlers(app):
 
     @app.route("/")
     @app.route("/dashboard")
-    def serve_frontend():
+    @app.route("/shopping-helper/<token>")
+    def serve_frontend(token=None):
         """Serve the web dashboard."""
         import os
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

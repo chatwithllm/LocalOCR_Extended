@@ -104,6 +104,8 @@
     .badge-dairy { background: #1a3a5c; color: #7dc4ff; }
     .badge-meat { background: #3a1a1a; color: #ff8888; }
     .badge-other { background: #2a2a3a; color: #aab; }
+    .badge-apparel { background: #2d1737; color: #f0abfc; }
+    .badge-grains { background: #3a2d14; color: #facc15; }
     .badge-fridge { background: #0d2a2a; color: #00d4aa; }
     .badge-pantry { background: #2a2a0d; color: #d4c400; }
     .badge-freezer { background: #0d1a2a; color: #6ac0ff; }
@@ -125,6 +127,16 @@
     .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
     .btn-ghost { background: var(--surface2); color: var(--text); }
     .btn-ghost:hover { background: var(--border); }
+    .inline-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 5px 10px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      min-width: 112px;
+    }
 
     /* ---- Form ---- */
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
@@ -305,6 +317,11 @@
       padding: 14px;
       display: grid;
       gap: 12px;
+      width: 100%;
+      text-align: left;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
     }
     .leaderboard-row.me {
       border-color: rgba(108, 99, 255, 0.32);
@@ -458,6 +475,289 @@
       color: var(--accent2);
       font-weight: 800;
       font-size: 0.82rem;
+    }
+    .person-modal {
+      width: min(760px, 100%);
+      max-height: min(86vh, 920px);
+      overflow: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+      display: grid;
+      gap: 16px;
+    }
+    .person-modal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .person-modal-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .person-modal-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .person-modal-stat {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .person-modal-list {
+      display: grid;
+      gap: 10px;
+    }
+    .person-modal-event {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      display: grid;
+      gap: 6px;
+    }
+    .person-modal-event-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .person-modal-pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .person-modal-pill.pending {
+      color: #ffd666;
+      border-color: rgba(255, 214, 102, 0.35);
+      background: rgba(255, 214, 102, 0.08);
+    }
+    .person-modal-pill.cancelled {
+      color: #fda4af;
+      border-color: rgba(244, 63, 94, 0.35);
+      background: rgba(244, 63, 94, 0.08);
+    }
+    .person-modal-pill.validated,
+    .person-modal-pill.finalized {
+      color: #86efac;
+      border-color: rgba(34, 197, 94, 0.35);
+      background: rgba(34, 197, 94, 0.08);
+    }
+    .helper-list {
+      display: grid;
+      gap: 14px;
+    }
+    .helper-store-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .helper-store-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .helper-store-title {
+      font-size: 0.96rem;
+      font-weight: 800;
+    }
+    .helper-item-list {
+      display: grid;
+      gap: 10px;
+    }
+    .helper-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .helper-item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      flex: 1;
+    }
+    .helper-item-name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      line-height: 1.25;
+    }
+    .helper-item-meta {
+      color: var(--muted);
+      font-size: 0.76rem;
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .helper-item-estimate {
+      font-weight: 700;
+      white-space: nowrap;
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+    .helper-item-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+      align-items: center;
+    }
+    .helper-section-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      margin: 2px 0 8px;
+    }
+    .helper-header-card {
+      border: 1px solid rgba(108, 99, 255, 0.25);
+      background: linear-gradient(180deg, rgba(108,99,255,0.12), rgba(108,99,255,0.03));
+    }
+    .helper-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .shopping-helper-mode #shopping-stats-row {
+      display: none !important;
+    }
+    .shopping-helper-mode #shopping-current-list-card {
+      padding: 16px;
+    }
+    .shopping-helper-mode #shopping-current-list-card .card-header {
+      margin-bottom: 12px;
+    }
+    .helper-summary-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .helper-summary-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: center;
+    }
+    .helper-summary-stat {
+      min-width: 0;
+    }
+    .helper-summary-label {
+      color: var(--muted);
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .helper-summary-value {
+      font-size: 1.2rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--text);
+    }
+    .helper-summary-value.accent {
+      color: var(--accent);
+    }
+    .helper-summary-value.success {
+      color: var(--success);
+    }
+    .action-strip {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .action-icon-btn {
+      min-width: 0;
+      padding-inline: 10px;
+    }
+    .action-icon-btn .icon {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    .action-icon-btn .label {
+      line-height: 1;
+    }
+    .inventory-mobile-list {
+      display: grid;
+      gap: 12px;
+    }
+    .inventory-mobile-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .inventory-mobile-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .inventory-mobile-name {
+      font-weight: 700;
+      font-size: 0.96rem;
+      line-height: 1.25;
+    }
+    .inventory-mobile-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+    .inventory-mobile-stat {
+      display: grid;
+      gap: 4px;
+      justify-items: center;
+      text-align: center;
+      min-width: 54px;
+    }
+    .inventory-mobile-stat-label {
+      color: var(--muted);
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+    .inventory-mobile-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .inventory-mobile-actions::-webkit-scrollbar {
+      height: 4px;
+    }
+    .inventory-mobile-actions::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.14);
+      border-radius: 999px;
     }
 
     /* ---- Empty State ---- */
@@ -716,6 +1016,9 @@
       .contrib-grid {
         grid-template-columns: 1fr;
       }
+      .person-modal-grid {
+        grid-template-columns: 1fr 1fr;
+      }
       .card-header {
         flex-direction: column;
         align-items: flex-start;
@@ -745,6 +1048,50 @@
       }
       .month-bars { gap: 12px; }
       .month-bar-track { width: min(44px, 100%); height: 170px; }
+      .helper-store-head,
+      .helper-item-top {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .helper-item {
+        align-items: stretch;
+      }
+      .helper-item-actions {
+        justify-content: flex-start;
+      }
+      .action-strip {
+        gap: 4px;
+      }
+      .action-icon-btn {
+        padding-inline: 8px;
+        min-width: 36px;
+      }
+      .action-icon-btn .label {
+        display: none;
+      }
+      .inventory-mobile-top {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+      .inventory-mobile-stat {
+        min-width: 0;
+        justify-items: flex-start;
+        text-align: left;
+        grid-template-columns: auto auto;
+        gap: 8px;
+      }
+      .helper-item-estimate {
+        white-space: normal;
+      }
+      .helper-summary-row {
+        gap: 8px;
+      }
+      .helper-summary-card {
+        padding: 10px 12px;
+      }
+      .helper-summary-value {
+        font-size: 1.05rem;
+      }
     }
   </style>
 </head>
@@ -754,7 +1101,7 @@
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
-    <div class="logo">🛒 <span>Grocery</span></div>
+    <div class="logo" id="brand-secret-trigger">🛒 <span>Grocery</span></div>
     <div class="nav-item active" onclick="nav('dashboard', this)"><span class="nav-icon">📊</span> Dashboard</div>
     <div class="nav-item" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
     <div class="nav-item" onclick="nav('upload', this)"><span class="nav-icon">📸</span> Upload Receipt</div>
@@ -762,7 +1109,6 @@
     <div class="nav-item" onclick="nav('shopping', this)"><span class="nav-icon">🛒</span> Shopping List</div>
     <div class="nav-item" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
     <div class="nav-item" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
-    <div class="nav-item" onclick="nav('recs', this)"><span class="nav-icon">💡</span> Recommendations</div>
     <div class="nav-item" onclick="nav('contributions', this)"><span class="nav-icon">🏅</span> Contribution</div>
     <div style="flex:1"></div>
     <div class="nav-item" onclick="nav('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
@@ -772,7 +1118,7 @@
   <main class="main">
     <div class="mobile-header">
       <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Open navigation">☰</button>
-      <div class="mobile-title">🛒 <span>Grocery</span></div>
+      <div class="mobile-title" id="mobile-brand-secret-trigger">🛒 <span>Grocery</span></div>
       <div style="width:42px"></div>
     </div>
 
@@ -806,7 +1152,7 @@
           <div id="dashboard-leaderboard-footer" class="leaderboard-footer"></div>
         </div>
       </div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="shopping-stats-row">
         <div class="stat-card accent"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
         <div class="stat-card success"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
         <div class="stat-card warning"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
@@ -878,7 +1224,7 @@
           <div class="form-grid">
             <div class="form-group"><label>Name</label><input id="prod-name" placeholder="e.g. Whole Wheat Bread" /></div>
             <div class="form-group"><label>Category</label>
-              <select id="prod-cat"><option value="dairy">Dairy</option><option value="meat">Meat</option><option value="bakery">Bakery</option><option value="produce">Produce</option><option value="frozen">Frozen</option><option value="beverages">Beverages</option><option value="snacks">Snacks</option><option value="other" selected>Other</option></select>
+              <select id="prod-cat"><option value="dairy">Dairy</option><option value="meat">Meat</option><option value="bakery">Bakery</option><option value="produce">Produce</option><option value="grains">Grains</option><option value="frozen">Frozen</option><option value="beverages">Beverages</option><option value="snacks">Snacks</option><option value="household">Household</option><option value="personal_care">Personal Care</option><option value="apparel">Apparel</option><option value="other" selected>Other</option></select>
             </div>
             <div class="form-group"><label>Barcode (optional)</label><input id="prod-barcode" placeholder="0123456789012" /></div>
           </div>
@@ -900,33 +1246,76 @@
 
     <div class="page" id="page-shopping">
       <div class="page-header"><h1>Shopping List</h1><p>Track what you plan to buy next</p></div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Add Item</span></div>
+      <div id="shopping-helper-intro"></div>
+      <div class="stats-grid" id="shopping-stats-row">
+        <div class="stat-card accent"><div class="stat-label">Open Items</div><div class="stat-value" id="shop-open-count-main">0</div><div class="stat-sub">still to buy</div></div>
+        <div class="stat-card success"><div class="stat-label">Purchased</div><div class="stat-value" id="shop-purchased-count-main">0</div><div class="stat-sub">already checked off</div></div>
+        <div class="stat-card"><div class="stat-label">Estimated Cost</div><div class="stat-value" id="shop-estimated-total-main">$0.00</div><div class="stat-sub">based on latest known prices</div></div>
+      </div>
+      <div class="card" id="shop-manual-card" style="display:none">
+        <div class="card-header">
+          <span class="card-title">Add Item Manually</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleManualShoppingForm(false)">Hide</button>
+        </div>
         <div class="form-grid">
           <div class="form-group"><label>Name</label><input id="shop-name" placeholder="e.g. Milk" /></div>
           <div class="form-group"><label>Category</label><input id="shop-category" placeholder="e.g. dairy" value="other" /></div>
+          <div class="form-group"><label>Preferred Store</label><select id="shop-manual-store"></select></div>
           <div class="form-group"><label>Quantity</label><input id="shop-qty" type="number" min="0" step="0.1" value="1" /></div>
           <div class="form-group"><label>Note</label><input id="shop-note" placeholder="optional note" /></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-primary" onclick="createShoppingItem()">➕ Add to Shopping List</button></div>
       </div>
-      <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Open Items</div><div class="stat-value" id="shop-open-count">0</div><div class="stat-sub">still to buy</div></div>
-        <div class="stat-card success"><div class="stat-label">Purchased</div><div class="stat-value" id="shop-purchased-count">0</div><div class="stat-sub">already checked off</div></div>
+      <div class="card" id="shopping-quick-find-card">
+        <div class="card-header">
+          <span class="card-title">Quick Find</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-sm" id="shopping-quick-toggle" onclick="toggleShoppingSection('quick-find')">Collapse</button>
+            <input id="shop-quick-search" placeholder="Find products to add..." style="width:260px" oninput="searchShoppingQuickFind()" />
+            <select id="shop-preferred-store" style="min-width:190px"></select>
+            <button type="button" class="btn btn-ghost btn-sm" id="shop-manual-toggle" onclick="toggleManualShoppingForm()">Manual Item</button>
+          </div>
+        </div>
+        <div id="shopping-quick-find-body">
+          <div id="shop-quick-results"><div class="empty-state"><p>Search for a product to add, mark low, or mark bought.</p></div></div>
+        </div>
       </div>
-      <div class="card">
+      <div class="card" id="shopping-store-stops-card">
+        <div class="card-header">
+          <span class="card-title">Estimated Store Stops</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="shopping-store-stops-toggle" onclick="toggleShoppingSection('store-stops')">Collapse</button>
+        </div>
+        <div id="shopping-store-stops-body">
+          <div id="shop-store-summary"><div class="empty-state"><p>No store estimate yet.</p></div></div>
+        </div>
+      </div>
+      <div class="card" id="shopping-recommendations-card">
+        <div class="card-header">
+          <span class="card-title">Recommendations</span>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-ghost btn-sm" id="shopping-recommendations-toggle" onclick="toggleShoppingSection('recommendations')">Collapse</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="loadRecs('shopping-recs-body')">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="shopping-recommendations-body">
+          <div id="shopping-recs-body"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div></div>
+        </div>
+      </div>
+      <div class="card" id="shopping-current-list-card">
         <div class="card-header">
           <span class="card-title">Current List</span>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px" id="shopping-current-list-controls">
+            <button type="button" class="btn btn-ghost btn-sm" id="shopping-current-list-toggle" onclick="toggleShoppingSection('current-list')">Collapse</button>
+            <input id="shop-search" placeholder="Search current shopping list..." style="width:220px" oninput="searchShoppingList()" />
             <select id="shop-status-filter" onchange="loadShoppingList()">
-              <option value="">All</option>
-              <option value="open" selected>Open</option>
+              <option value="" selected>All</option>
+              <option value="open">Open</option>
               <option value="purchased">Purchased</option>
             </select>
             <button class="btn btn-ghost btn-sm" onclick="loadShoppingList()">🔄 Refresh</button>
           </div>
         </div>
-        <div class="table-wrap"><div id="shopping-table-body"></div></div>
+        <div id="shopping-current-list-body" class="table-wrap"><div id="shopping-table-body"></div></div>
       </div>
     </div>
 
@@ -1036,15 +1425,6 @@
       <div class="card">
         <div class="card-header"><span class="card-title">💎 Deals Captured</span></div>
         <div id="deals-body"><div class="empty-state"><div class="icon">🏷️</div><p>No deals tracked yet.</p></div></div>
-      </div>
-    </div>
-
-    <!-- Recommendations -->
-    <div class="page" id="page-recs">
-      <div class="page-header"><h1>Recommendations</h1><p>Smart suggestions based on your history</p></div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Today's Picks</span><button class="btn btn-ghost btn-sm" onclick="loadRecs()">🔄</button></div>
-        <div id="recs-body"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div></div>
       </div>
     </div>
 
@@ -1170,6 +1550,7 @@
       </div>
     </div>
   </div>
+  <div id="secret-qr-overlay" class="confirm-overlay" aria-hidden="true"></div>
 
 <script>
 // ============================================================
@@ -1184,6 +1565,12 @@ function getDefaultApiBase() {
 
 let API_BASE = localStorage.getItem('api_base') || getDefaultApiBase();
 let TOKEN = localStorage.getItem('api_token') || '';
+const SHOPPING_HELPER_MATCH = window.location.pathname.match(/^\/shopping-helper\/([^/]+)$/);
+const SHOPPING_HELPER_TOKEN = SHOPPING_HELPER_MATCH ? decodeURIComponent(SHOPPING_HELPER_MATCH[1]) : '';
+const SHOPPING_HELPER_MODE = Boolean(SHOPPING_HELPER_TOKEN);
+if (SHOPPING_HELPER_MODE) {
+  API_BASE = getDefaultApiBase();
+}
 let receiptImageObjectUrl = null;
 let currentUser = null;
 let bootstrapEmail = 'admin@localhost';
@@ -1194,6 +1581,19 @@ let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let inventoryCategoryFilters = new Set();
 let productCategoryFilters = new Set();
+let shoppingSearchQuery = '';
+let shoppingQuickQuery = '';
+let shoppingListCache = [];
+let shoppingQuickResults = [];
+let shoppingManualVisible = false;
+let shoppingStoreOptions = [];
+let shoppingSectionCollapsed = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('shopping_section_collapsed') || '{}') || {};
+  } catch (_error) {
+    return {};
+  }
+})();
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
 let latestReceiptSummary = {};
@@ -1201,6 +1601,95 @@ let receiptBudgetRequestId = 0;
 let currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
 let householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
 let contributionSummary = null;
+let contributionDetailOverlayOpen = false;
+let shoppingShareQrCache = null;
+let loginQrCache = null;
+let secretQrHoldTimer = null;
+const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'other'];
+
+function applyShoppingHelperMode() {
+  if (!SHOPPING_HELPER_MODE) return;
+  document.body.classList.add('shopping-helper-mode');
+  document.getElementById('auth-banner')?.classList.remove('show');
+  const authBanner = document.getElementById('auth-banner');
+  if (authBanner) authBanner.style.display = 'none';
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.style.display = 'none';
+  const mobileHeader = document.querySelector('.mobile-header');
+  if (mobileHeader) mobileHeader.style.display = 'none';
+  const shareCard = document.getElementById('shopping-share-card');
+  if (shareCard) shareCard.style.display = 'none';
+  const manualCard = document.getElementById('shop-manual-card');
+  if (manualCard) manualCard.style.display = 'none';
+  const statsRow = document.getElementById('shopping-stats-row');
+  if (statsRow) statsRow.remove();
+  document.getElementById('shopping-quick-find-card')?.style.setProperty('display', 'none');
+  document.getElementById('shopping-store-stops-card')?.style.setProperty('display', 'none');
+  document.getElementById('shopping-recommendations-card')?.style.setProperty('display', 'none');
+  document.getElementById('shopping-current-list-controls')?.style.setProperty('display', 'none');
+  const statusFilter = document.getElementById('shop-status-filter');
+  if (statusFilter) statusFilter.value = 'open';
+  shoppingSectionCollapsed['current-list'] = false;
+  updateShoppingSectionVisibility('current-list');
+  const helperIntro = document.getElementById('shopping-helper-intro');
+  if (helperIntro) {
+    helperIntro.innerHTML = `
+      <div class="helper-summary-card">
+        <div class="helper-summary-row">
+          <div class="helper-summary-stat">
+            <div class="helper-summary-label">Open Items</div>
+            <div class="helper-summary-value accent" id="shop-open-count">0</div>
+          </div>
+          <div class="helper-summary-stat">
+            <div class="helper-summary-label">Estimated Cost</div>
+            <div class="helper-summary-value" id="shop-estimated-total">$0.00</div>
+          </div>
+          <div class="helper-summary-stat">
+            <div class="helper-summary-label">Purchased</div>
+            <div class="helper-summary-value success" id="shop-purchased-count">0</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-shopping')?.classList.add('active');
+  const shoppingTitle = document.querySelector('#page-shopping .page-header h1');
+  if (shoppingTitle) shoppingTitle.textContent = 'Shopping Helper';
+  const shoppingHeader = document.querySelector('#page-shopping .page-header p');
+  if (shoppingHeader) shoppingHeader.textContent = 'Shared shopping helper. Mark items bought as you pick them up.';
+  const main = document.querySelector('.main');
+  if (main) {
+    main.style.marginLeft = '0';
+    main.style.paddingTop = window.innerWidth <= 900 ? '18px' : main.style.paddingTop;
+  }
+}
+
+async function shoppingApi(path, opts = {}) {
+  if (!SHOPPING_HELPER_MODE) {
+    return api(path, opts);
+  }
+  if (path.startsWith('/shopping-list/items/')) {
+    const itemId = path.split('/').pop();
+    return fetch(`${API_BASE}/shopping-list/shared/${SHOPPING_HELPER_TOKEN}/items/${itemId}`, {
+      cache: 'no-store',
+      credentials: 'include',
+      headers: { ...getHeaders(true), ...(opts.headers || {}) },
+      ...opts,
+    });
+  }
+  if (path.startsWith('/shopping-list')) {
+    const query = path.includes('?') ? path.slice(path.indexOf('?')) : '';
+    const separator = query ? '&' : '?';
+    return fetch(`${API_BASE}/shopping-list/shared/${SHOPPING_HELPER_TOKEN}${query}${separator}_ts=${Date.now()}`, {
+      cache: 'no-store',
+      credentials: 'include',
+      headers: { ...getHeaders(false), ...(opts.headers || {}) },
+      ...opts,
+    });
+  }
+  return api(path, opts);
+}
 
 function getInventoryItems(data) {
   return data?.items || data?.inventory || [];
@@ -1225,6 +1714,167 @@ function goToPage(page) {
   nav(page, navItem || null);
 }
 
+function contributionStatusLabel(status) {
+  if (!status) return 'Finalized';
+  if (String(status).toLowerCase() === 'floating') return 'Floating';
+  return formatLabel(String(status).replace(/_/g, ' '), 'Finalized');
+}
+
+function isShoppingSectionCollapsed(sectionKey) {
+  return Boolean(shoppingSectionCollapsed?.[sectionKey]);
+}
+
+function updateShoppingSectionVisibility(sectionKey) {
+  const bodyMap = {
+    'quick-find': 'shopping-quick-find-body',
+    'store-stops': 'shopping-store-stops-body',
+    'recommendations': 'shopping-recommendations-body',
+    'current-list': 'shopping-current-list-body',
+  };
+  const toggleMap = {
+    'quick-find': 'shopping-quick-toggle',
+    'store-stops': 'shopping-store-stops-toggle',
+    'recommendations': 'shopping-recommendations-toggle',
+    'current-list': 'shopping-current-list-toggle',
+  };
+  const collapsed = isShoppingSectionCollapsed(sectionKey);
+  const body = document.getElementById(bodyMap[sectionKey]);
+  const toggle = document.getElementById(toggleMap[sectionKey]);
+  if (body) body.style.display = collapsed ? 'none' : '';
+  if (toggle) toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+}
+
+function updateAllShoppingSectionVisibility() {
+  ['quick-find', 'store-stops', 'recommendations', 'current-list'].forEach(updateShoppingSectionVisibility);
+}
+
+function toggleShoppingSection(sectionKey, forceCollapsed = null) {
+  const collapsed = forceCollapsed === null
+    ? !isShoppingSectionCollapsed(sectionKey)
+    : Boolean(forceCollapsed);
+  shoppingSectionCollapsed[sectionKey] = collapsed;
+  localStorage.setItem('shopping_section_collapsed', JSON.stringify(shoppingSectionCollapsed));
+  updateShoppingSectionVisibility(sectionKey);
+  if (sectionKey === 'recommendations' && !collapsed) {
+    loadRecs('shopping-recs-body');
+  }
+}
+
+function actionScorePill(label, tone = 'info') {
+  const toneMap = {
+    info: 'person-modal-pill finalized',
+    pending: 'person-modal-pill pending_confirmation',
+    unlock: 'person-modal-pill confirmed',
+  };
+  return `<span class="${toneMap[tone] || toneMap.info}" style="font-size:0.72rem">${escHtml(label)}</span>`;
+}
+
+function closeSecretQrPanel() {
+  const overlay = document.getElementById('secret-qr-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = '';
+}
+
+async function ensureLoginQrData() {
+  if (!currentUser || SHOPPING_HELPER_MODE) return null;
+  if (!loginQrCache) {
+    const res = await api('/auth/qr-login-link', { method: 'POST', body: JSON.stringify({}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not generate login QR');
+    loginQrCache = data;
+  }
+  return loginQrCache;
+}
+
+async function ensureShoppingShareQrData() {
+  if (!currentUser || SHOPPING_HELPER_MODE) return null;
+  if (!shoppingShareQrCache) {
+    const res = await api('/shopping-list/share-link', { method: 'POST', body: JSON.stringify({}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not generate shopping helper QR');
+    shoppingShareQrCache = data;
+  }
+  return shoppingShareQrCache;
+}
+
+async function openSecretQrPanel() {
+  if (!currentUser || SHOPPING_HELPER_MODE) {
+    toast('Sign in first to use secret QR tools', 'error');
+    return;
+  }
+  const overlay = document.getElementById('secret-qr-overlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.innerHTML = `
+    <div class="person-modal" role="dialog" aria-modal="true" aria-labelledby="secret-qr-title">
+      <div class="person-modal-head">
+        <div class="person-modal-title">
+          <span class="avatar-bubble">🧩</span>
+          <div>
+            <div id="secret-qr-title" class="confirm-title" style="margin-bottom:0">Secret QR Tools</div>
+            <div class="confirm-body" style="margin-top:4px">Hidden shortcuts for login and shared shopping.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeSecretQrPanel()">Close</button>
+      </div>
+      <div id="secret-qr-body"><div class="empty-state"><p>Generating QR codes…</p></div></div>
+    </div>
+  `;
+  try {
+    const [loginQr, shoppingQr] = await Promise.all([
+      ensureLoginQrData(),
+      ensureShoppingShareQrData(),
+    ]);
+    const body = document.getElementById('secret-qr-body');
+    if (!body) return;
+    body.innerHTML = `
+      <div class="contrib-grid">
+        <div class="card" style="padding:18px">
+          <div class="card-header"><span class="card-title">Login QR</span></div>
+          <div style="display:grid;gap:12px;justify-items:center;text-align:center">
+            <img src="${escAttr(loginQr.qr_image_url)}" alt="Login QR" style="width:190px;height:190px;border-radius:12px;border:1px solid var(--border);background:#fff;padding:10px" />
+            <div style="color:var(--muted);font-size:0.82rem">Scan to sign in on another device. Short-lived and one-time.</div>
+          </div>
+        </div>
+        <div class="card" style="padding:18px">
+          <div class="card-header"><span class="card-title">Shopping Helper QR</span></div>
+          <div style="display:grid;gap:12px;justify-items:center;text-align:center">
+            <img src="${escAttr(shoppingQr.qr_image_url)}" alt="Shopping helper QR" style="width:190px;height:190px;border-radius:12px;border:1px solid var(--border);background:#fff;padding:10px" />
+            <div style="color:var(--muted);font-size:0.82rem">Share this with a helper so they can only view the list and mark items bought.</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    const body = document.getElementById('secret-qr-body');
+    if (body) body.innerHTML = `<div class="empty-state"><p>${escHtml(error.message || 'Could not generate QR codes.')}</p></div>`;
+  }
+}
+
+function beginSecretQrHold(event) {
+  if (SHOPPING_HELPER_MODE) return;
+  clearTimeout(secretQrHoldTimer);
+  secretQrHoldTimer = setTimeout(() => {
+    openSecretQrPanel();
+  }, 700);
+}
+
+function cancelSecretQrHold() {
+  clearTimeout(secretQrHoldTimer);
+  secretQrHoldTimer = null;
+}
+
+function bindSecretQrTrigger(id) {
+  const el = document.getElementById(id);
+  if (!el || el.dataset.secretQrBound === '1') return;
+  el.dataset.secretQrBound = '1';
+  ['mousedown', 'touchstart'].forEach(evt => el.addEventListener(evt, beginSecretQrHold));
+  ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => el.addEventListener(evt, cancelSecretQrHold));
+}
+
 function renderLeaderboard() {
   const listEl = document.getElementById('dashboard-leaderboard');
   const footerEl = document.getElementById('dashboard-leaderboard-footer');
@@ -1240,7 +1890,7 @@ function renderLeaderboard() {
   const medals = { 1: 'gold', 2: 'silver', 3: 'bronze' };
   const labels = { 1: '1st', 2: '2nd', 3: '3rd' };
   listEl.innerHTML = rankings.map(person => `
-    <div class="leaderboard-row ${person.id === currentUser?.id ? 'me' : ''}">
+    <button type="button" class="leaderboard-row ${person.id === currentUser?.id ? 'me' : ''}" onclick="openContributionDetail(${person.id})">
       <div class="leaderboard-rank ${medals[person.rank] || ''}">${labels[person.rank] || `#${person.rank}`}</div>
       <div class="leaderboard-user">
         <span class="avatar-bubble">${escHtml(person.avatar_emoji || '🦊')}</span>
@@ -1253,9 +1903,128 @@ function renderLeaderboard() {
         <div class="leaderboard-score-value">${person.score || 0}</div>
         <div class="leaderboard-score-label">score</div>
       </div>
-    </div>
+    </button>
   `).join('');
   footerEl.textContent = '';
+}
+
+function closeContributionDetail() {
+  contributionDetailOverlayOpen = false;
+  const overlay = document.getElementById('confirm-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  const modal = overlay.querySelector('.confirm-modal, .person-modal');
+  if (modal) {
+    modal.className = 'confirm-modal';
+    modal.removeAttribute('style');
+  }
+  overlay.innerHTML = `
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div id="confirm-title" class="confirm-title">Confirm action</div>
+      <div id="confirm-body" class="confirm-body">Are you sure?</div>
+      <div class="confirm-actions">
+        <button type="button" id="confirm-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="confirm-ok" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('confirm-cancel')?.addEventListener('click', closeConfirmDialog);
+  document.getElementById('confirm-ok')?.addEventListener('click', confirmDialogState.onConfirm);
+}
+
+async function openContributionDetail(userId) {
+  const overlay = document.getElementById('confirm-overlay');
+  if (!overlay) return;
+  contributionDetailOverlayOpen = true;
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.innerHTML = `
+    <div class="person-modal" role="dialog" aria-modal="true" aria-labelledby="person-modal-title">
+      <div class="person-modal-head">
+        <div class="person-modal-title">
+          <span class="avatar-bubble">🦊</span>
+          <div>
+            <div id="person-modal-title" class="confirm-title" style="margin-bottom:0">Loading contribution details…</div>
+            <div class="confirm-body" id="person-modal-subtitle" style="margin-top:4px">Fetching recent contribution history.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeContributionDetail()">Close</button>
+      </div>
+      <div id="person-modal-body"><div class="empty-state"><p>Loading…</p></div></div>
+    </div>
+  `;
+
+  const res = await api(`/contributions/users/${userId}`);
+  const data = await res.json();
+  if (!res.ok) {
+    document.getElementById('person-modal-body').innerHTML = '<div class="empty-state"><p>Could not load contribution details.</p></div>';
+    return;
+  }
+
+  const person = data.user || {};
+  const summary = data.summary || {};
+  const categories = data.categories || {};
+  const events = data.recent_events || [];
+  const avatar = person.avatar_emoji || '🦊';
+  const titleWrap = overlay.querySelector('.person-modal-title .avatar-bubble');
+  if (titleWrap) titleWrap.textContent = avatar;
+  const titleEl = document.getElementById('person-modal-title');
+  const subtitleEl = document.getElementById('person-modal-subtitle');
+  if (titleEl) titleEl.textContent = person.name || person.email || 'Contribution Details';
+  if (subtitleEl) subtitleEl.textContent = `${summary.receipts_processed || 0} receipts · ${summary.ocr_fixes || 0} OCR fixes · ${summary.bonus_points || 0} system-help points · ${summary.floating_points || 0} floating`;
+
+  document.getElementById('person-modal-body').innerHTML = `
+    <div class="person-modal-grid">
+      <div class="person-modal-stat">
+        <div class="contrib-stat-label">Total Score</div>
+        <div class="contrib-stat-value">${summary.total_score || 0}</div>
+      </div>
+      <div class="person-modal-stat">
+        <div class="contrib-stat-label">Receipts</div>
+        <div class="contrib-stat-value">${summary.receipts_processed || 0}</div>
+      </div>
+      <div class="person-modal-stat">
+        <div class="contrib-stat-label">OCR Fixes</div>
+        <div class="contrib-stat-value">${summary.ocr_fixes || 0}</div>
+      </div>
+      <div class="person-modal-stat">
+        <div class="contrib-stat-label">System Help</div>
+        <div class="contrib-stat-value">${summary.bonus_points || 0}</div>
+      </div>
+      <div class="person-modal-stat">
+        <div class="contrib-stat-label">Floating</div>
+        <div class="contrib-stat-value">${summary.floating_points || 0}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div class="card-header"><span class="card-title">Score Breakdown</span></div>
+      <div class="contrib-summary-grid">
+        <div class="contrib-stat"><div class="contrib-stat-label">Receipts</div><div class="contrib-stat-value">${categories.receipts || 0}</div></div>
+        <div class="contrib-stat"><div class="contrib-stat-label">OCR Cleanup</div><div class="contrib-stat-value">${categories.ocr_cleanup || 0}</div></div>
+        <div class="contrib-stat"><div class="contrib-stat-label">System Help</div><div class="contrib-stat-value">${categories.system_help || 0}</div></div>
+        <div class="contrib-stat"><div class="contrib-stat-label">Floating</div><div class="contrib-stat-value">${categories.floating || 0}</div></div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px">
+      <div class="card-header"><span class="card-title">Recent Activity</span></div>
+      <div class="person-modal-list">
+        ${events.length ? events.map(event => `
+          <div class="person-modal-event">
+            <div class="person-modal-event-top">
+              <strong>${escHtml(event.description || 'Contribution')}</strong>
+              <span class="contrib-points">+${Number(event.points || 0)}</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <span class="person-modal-pill ${escAttr((event.status || '').toLowerCase())}">${escHtml(contributionStatusLabel(event.status))}</span>
+              <span class="person-modal-pill">${escHtml(formatLabel(event.event_type || 'contribution', 'Contribution'))}</span>
+              <span class="person-modal-pill">${escHtml(formatDateTime(event.created_at, '—'))}</span>
+            </div>
+          </div>
+        `).join('') : '<div class="empty-state"><p>No contribution history yet.</p></div>'}
+      </div>
+    </div>
+  `;
 }
 
 async function loadContributions() {
@@ -1297,6 +2066,11 @@ async function loadContributions() {
       <div class="contrib-stat-value">${summary.bonus_points || 0}</div>
       <div class="contrib-stat-meta">Bonus points from low-stock, location, and shopping upkeep</div>
     </div>
+    <div class="contrib-stat">
+      <div class="contrib-stat-label">Floating</div>
+      <div class="contrib-stat-value">${summary.floating_points || 0}</div>
+      <div class="contrib-stat-meta">Helpful actions waiting on a real-world follow-through before they count</div>
+    </div>
   `;
 
   const events = data.recent_events || [];
@@ -1306,7 +2080,7 @@ async function loadContributions() {
         <strong>${escHtml(event.description || 'Contribution')}</strong>
         <span class="contrib-points">+${Number(event.points || 0)}</span>
       </div>
-      <div class="contrib-meta">${escHtml(formatLabel(event.event_type || 'contribution', 'Contribution'))} · ${escHtml(formatDateTime(event.created_at, '—'))}</div>
+      <div class="contrib-meta">${escHtml(formatLabel(event.event_type || 'contribution', 'Contribution'))} · ${escHtml(contributionStatusLabel(event.status))} · ${escHtml(formatDateTime(event.created_at, '—'))}</div>
     </div>
   `).join('') : '<div class="empty-state"><p>No contribution history yet.</p></div>';
 
@@ -1375,7 +2149,7 @@ function renderInventoryCategoryChips(items = []) {
   const container = document.getElementById('inv-category-chips');
   if (!container) return;
 
-  const preferredOrder = ['frozen', 'produce', 'dairy', 'meat', 'seafood', 'bakery', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'other'];
+  const preferredOrder = PRODUCT_CATEGORY_OPTIONS;
   const present = new Set(items.map(item => String(item.category || '').toLowerCase()).filter(Boolean));
   const categories = preferredOrder.filter(category => present.has(category));
   const selectedCount = inventoryCategoryFilters.size;
@@ -1852,10 +2626,13 @@ function nav(page, el) {
   if (page === 'dashboard') loadDashboard();
   if (page === 'inventory') setCatalogMode(requestedPage === 'products' ? 'products' : catalogMode, { load: true });
   if (page === 'receipts') loadReceipts();
-  if (page === 'shopping') loadShoppingList();
+  if (page === 'shopping') {
+    updateAllShoppingSectionVisibility();
+    loadShoppingList();
+    if (!isShoppingSectionCollapsed('recommendations')) loadRecs('shopping-recs-body');
+  }
   if (page === 'budget') { loadBudgetStatus(); setDefaultMonth(); }
   if (page === 'analytics') loadAnalytics();
-  if (page === 'recs') loadRecs();
   if (page === 'contributions') loadContributions();
   if (page === 'settings') {
     document.getElementById('settings-token').value = TOKEN;
@@ -1957,6 +2734,11 @@ function toast(msg, type = 'info') {
 async function checkAuth() {
   const banner = document.getElementById('auth-banner');
 
+  if (SHOPPING_HELPER_MODE) {
+    currentUser = { name: 'Shopping Helper', role: 'helper' };
+    return true;
+  }
+
   try {
     const bootstrapRes = await fetch(API_BASE + '/auth/bootstrap-info', { credentials: 'include' });
     if (bootstrapRes.ok) {
@@ -2012,6 +2794,8 @@ async function login() {
   currentUser = data.user || null;
   currentUserStats = data.stats || currentUserStats;
   householdLeaderboard = data.leaderboard || householdLeaderboard;
+  loginQrCache = null;
+  shoppingShareQrCache = null;
   document.getElementById('auth-password-input').value = '';
   banner.classList.remove('show');
   toast('Signed in ✅', 'success');
@@ -2110,6 +2894,8 @@ async function logout() {
   currentUser = null;
   currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
   householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
+  loginQrCache = null;
+  shoppingShareQrCache = null;
   TOKEN = '';
   localStorage.removeItem('api_token');
   const tokenInput = document.getElementById('settings-token');
@@ -2541,6 +3327,10 @@ async function loadDashboard() {
             <div>
               <div class="rec-name">${escHtml(i.product_name)}</div>
               <div class="rec-msg">${i.manual_low ? 'Manually marked low' : `${i.quantity} left / threshold: ${i.threshold}`} · ${formatLabel(i.location, 'Unknown')}</div>
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-sm btn-ghost" onclick="handleDashboardLowAction(${i.product_id}, ${i.manual_low ? `'confirm'` : `'low'`})">${i.manual_low ? `✅ Confirm Low ${actionScorePill('+2')}` : `📝 Add Low ${actionScorePill('pending', 'pending')}`}</button>
+                <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${i.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒 Add to Shopping ${actionScorePill('helps', 'unlock')}</button>
+              </div>
             </div>
           </div>`).join('');
       }
@@ -2604,6 +3394,68 @@ async function loadInventory() {
   }
   if (!allItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
   if (!filteredItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>'; return; }
+  if (window.innerWidth <= 640) {
+    body.innerHTML = `
+      <div class="inventory-mobile-list">
+        ${filteredItems.map(i => `
+          <div class="inventory-mobile-card">
+            <div class="inventory-mobile-top">
+              <div style="min-width:0">
+                <div class="inventory-mobile-name">${escHtml(i.product_name)}</div>
+                <div class="inventory-mobile-meta">
+                  ${[
+                    i.brand,
+                    i.size,
+                    i.latest_price?.price != null ? formatMoney(i.latest_price.price) : null,
+                    formatLabel(i.category, 'Other')
+                  ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                </div>
+                ${i.recent_receipts?.length ? `
+                  <div class="mini-links">
+                    ${i.recent_receipts.map(link => `
+                      <button
+                        type="button"
+                        class="mini-link"
+                        onclick="jumpToReceipt(${link.receipt_id})"
+                        title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
+                      >
+                        ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                      </button>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+              <div class="inventory-mobile-stat">
+                <div class="inventory-mobile-stat-label">Qty</div>
+                <div>${i.quantity}</div>
+              </div>
+              <div class="inventory-mobile-stat">
+                <div class="inventory-mobile-stat-label">Location</div>
+                <div><span class="badge badge-${normalizeBadge(i.location, 'pantry')}">${formatLabel(i.location, '—')}</span></div>
+              </div>
+              <div class="inventory-mobile-stat">
+                <div class="inventory-mobile-stat-label">Stock</div>
+                <div>${i.manual_low
+                  ? '<span class="badge badge-low">Low</span>'
+                  : i.is_low
+                    ? '<span class="badge badge-low">Low</span>'
+                    : '<span class="badge badge-ok">OK</span>'}</div>
+              </div>
+            </div>
+            <div class="inventory-mobile-actions">
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Add to shopping list" aria-label="Add to shopping list" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })"><span class="icon">🛒</span><span class="label">Add</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
+              <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
+              <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
+            </div>
+          </div>
+        `).join('')}
+      </div>`;
+    return;
+  }
   body.innerHTML = `
     <table>
       <thead><tr><th>Product</th><th>Qty</th><th>Location</th><th>Stock</th><th>Actions</th></tr></thead>
@@ -2619,6 +3471,20 @@ async function loadInventory() {
                 formatLabel(i.category, 'Other')
               ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
             </div>
+            ${i.recent_receipts?.length ? `
+              <div class="mini-links">
+                ${i.recent_receipts.map(link => `
+                  <button
+                    type="button"
+                    class="mini-link"
+                    onclick="jumpToReceipt(${link.receipt_id})"
+                    title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
+                  >
+                    ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
           </td>
           <td>${i.quantity}</td>
           <td><span class="badge badge-${normalizeBadge(i.location, 'pantry')}">${formatLabel(i.location, '—')}</span></td>
@@ -2627,13 +3493,16 @@ async function loadInventory() {
             : i.is_low
               ? '<span class="badge badge-low">Low</span>'
               : '<span class="badge badge-ok">OK</span>'}</td>
-          <td style="display:flex;gap:6px;flex-wrap:wrap">
-            <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))">Rename</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))">Location</button>
-            <button type="button" class="btn btn-sm ${i.manual_low ? 'btn-ghost' : 'btn-ghost'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})">${i.manual_low ? 'Clear Low' : 'Low'}</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="consumeItem(${i.id})">−1</button>
-            <button type="button" class="btn btn-sm btn-danger" onclick="deleteInventoryItem(${i.id})">🗑</button>
+          <td>
+            <div class="action-strip">
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Add to shopping list" aria-label="Add to shopping list" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })"><span class="icon">🛒</span><span class="label">Add</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
+              <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
+              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
+              <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
+            </div>
           </td>
         </tr>`).join('')}
       </tbody>
@@ -2691,6 +3560,31 @@ function toggleProductCategoryFilter(category) {
 function clearProductCategoryFilters() {
   productCategoryFilters.clear();
   loadProducts(document.getElementById('prod-search')?.value?.trim() || '');
+}
+
+function renderProductCategoryOptionTags(selectedCategory = 'other') {
+  const normalized = String(selectedCategory || 'other').trim().toLowerCase() || 'other';
+  return PRODUCT_CATEGORY_OPTIONS.map(category => `
+    <option value="${escAttr(category)}" ${category === normalized ? 'selected' : ''}>${escHtml(formatLabel(category, category))}</option>
+  `).join('');
+}
+
+async function updateProductCategory(productId, nextCategory) {
+  const category = String(nextCategory || 'other').trim().toLowerCase() || 'other';
+  const res = await api(`/products/${productId}/update`, {
+    method: 'PUT',
+    body: JSON.stringify({ category })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not update category', 'error');
+    return;
+  }
+  toast(payload.merged ? 'Category updated and merged ✅' : 'Category updated ✅', 'success');
+  await Promise.all([
+    loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+    loadInventory()
+  ]);
 }
 
 async function addInventoryItem() {
@@ -2768,6 +3662,28 @@ async function setProductLowStatus(productId, manualLow) {
   ]);
 }
 
+async function handleDashboardLowAction(productId, action) {
+  if (!productId) return;
+  if (action === 'low') {
+    await setProductLowStatus(productId, true);
+    return;
+  }
+  const res = await api(`/inventory/products/${productId}/confirm-low`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not confirm low item', 'error');
+    return;
+  }
+  toast('Low item confirmed ✅', 'success');
+  await Promise.all([
+    loadDashboard(),
+    loadContributions()
+  ]);
+}
+
 // ============================================================
 // Products
 // ============================================================
@@ -2831,6 +3747,7 @@ async function loadProducts(query = '') {
                       <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'product' })">🛒</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? 'Clear Low' : 'Low'}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
+                      <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
                       <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
                     </div>
                   </div>`).join('')}
@@ -2948,6 +3865,32 @@ async function quickAddToShoppingList(payload) {
   if (document.getElementById('page-shopping').classList.contains('active')) {
     loadShoppingList();
   }
+  await Promise.all([
+    loadDashboard(),
+    loadContributions()
+  ]);
+}
+
+async function confirmRecommendationFromDashboard(productId) {
+  if (!productId) {
+    toast('Recommendation is missing a product link', 'error');
+    return;
+  }
+  const res = await api(`/shopping-list/products/${productId}/confirm-recommendation`, {
+    method: 'POST',
+    body: JSON.stringify({})
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not confirm recommendation', 'error');
+    return;
+  }
+  toast('Recommendation confirmed ✅', 'success');
+  await Promise.all([
+    loadDashboard(),
+    loadShoppingList(),
+    loadContributions()
+  ]);
 }
 
 async function createShoppingItem() {
@@ -2959,57 +3902,364 @@ async function createShoppingItem() {
   await quickAddToShoppingList({
     name,
     category: document.getElementById('shop-category').value.trim() || 'other',
+    preferred_store: document.getElementById('shop-manual-store')?.value || '',
     quantity: parseFloat(document.getElementById('shop-qty').value) || 1,
     note: document.getElementById('shop-note').value.trim(),
     source: 'manual',
   });
   document.getElementById('shop-name').value = '';
   document.getElementById('shop-category').value = 'other';
+  document.getElementById('shop-manual-store').value = '';
   document.getElementById('shop-qty').value = '1';
   document.getElementById('shop-note').value = '';
+  toggleManualShoppingForm(false);
 }
 
-async function loadShoppingList() {
-  const status = document.getElementById('shop-status-filter')?.value || 'open';
-  const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  const res = await api(`/shopping-list${query}`);
-  const body = document.getElementById('shopping-table-body');
-  if (!res.ok) {
-    body.innerHTML = '<div class="empty-state"><p>Could not load shopping list.</p></div>';
+function getShoppingStoreChoices() {
+  const defaults = ['Costco Wholesale', 'Kroger', 'Target', 'India Bazaar'];
+  return [...new Set([...defaults, ...shoppingStoreOptions])].sort((a, b) => a.localeCompare(b));
+}
+
+function renderShoppingStoreOptionTags(selectedValue = '') {
+  const selected = selectedValue || '';
+  return ['<option value="">Any store</option>', ...getShoppingStoreChoices().map(store => `<option value="${escHtml(store)}"${store === selected ? ' selected' : ''}>${escHtml(store)}</option>`)].join('');
+}
+
+function populateShoppingStoreSelects() {
+  const options = getShoppingStoreChoices();
+  const quick = document.getElementById('shop-preferred-store');
+  const manual = document.getElementById('shop-manual-store');
+  const quickValue = quick?.value || '';
+  const manualValue = manual?.value || '';
+  if (quick) quick.innerHTML = renderShoppingStoreOptionTags(quickValue);
+  if (manual) manual.innerHTML = renderShoppingStoreOptionTags(manualValue);
+  if (quick) quick.value = options.includes(quickValue) ? quickValue : '';
+  if (manual) manual.value = options.includes(manualValue) ? manualValue : '';
+}
+
+function toggleManualShoppingForm(forceVisible = null) {
+  shoppingManualVisible = forceVisible === null ? !shoppingManualVisible : Boolean(forceVisible);
+  const card = document.getElementById('shop-manual-card');
+  const toggle = document.getElementById('shop-manual-toggle');
+  if (card) card.style.display = shoppingManualVisible ? 'block' : 'none';
+  if (toggle) toggle.textContent = shoppingManualVisible ? 'Hide Manual' : 'Manual Item';
+  if (shoppingManualVisible) {
+    const query = document.getElementById('shop-quick-search')?.value?.trim() || '';
+    if (query && !document.getElementById('shop-name')?.value?.trim()) {
+      document.getElementById('shop-name').value = query;
+    }
+    const quickStore = document.getElementById('shop-preferred-store')?.value || '';
+    if (quickStore && document.getElementById('shop-manual-store')) {
+      document.getElementById('shop-manual-store').value = quickStore;
+    }
+    document.getElementById('shop-name')?.focus();
+  }
+}
+
+function searchShoppingList() {
+  shoppingSearchQuery = document.getElementById('shop-search')?.value?.trim().toLowerCase() || '';
+  renderShoppingListTable();
+}
+
+function getMatchingShoppingEntry(productId, name) {
+  if (productId) {
+    const byProduct = shoppingListCache.find(item => Number(item.product_id) === Number(productId) && item.status === 'open');
+    if (byProduct) return byProduct;
+  }
+  if (!name) return null;
+  return shoppingListCache.find(item => String(item.name || '').toLowerCase() === String(name).toLowerCase() && item.status === 'open') || null;
+}
+
+function renderShoppingQuickResults() {
+  const body = document.getElementById('shop-quick-results');
+  if (!body) return;
+  if (!shoppingQuickQuery || shoppingQuickQuery.length < 2) {
+    body.innerHTML = `
+      <div class="empty-state">
+        <p>Find products from your catalog to add to shopping, mark low, or mark bought.</p>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="toggleManualShoppingForm(true)">Add manual item instead</button>
+      </div>`;
     return;
   }
-  const data = await res.json();
-  document.getElementById('shop-open-count').textContent = data.open_count ?? 0;
-  document.getElementById('shop-purchased-count').textContent = data.purchased_count ?? 0;
-  const items = data.items || [];
-  if (!items.length) {
-    body.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>No shopping list items yet.</p></div>';
+  if (!shoppingQuickResults.length) {
+    body.innerHTML = `
+      <div class="empty-state">
+        <p>No matching products found.</p>
+        <button type="button" class="btn btn-primary btn-sm" style="margin-top:12px" onclick="openManualShoppingFromSearch()">Add "${escHtml(shoppingQuickQuery)}" manually</button>
+      </div>`;
     return;
   }
   body.innerHTML = `
-    <table>
-      <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${items.map(item => `
-        <tr>
-          <td>
-            <strong>${escHtml(item.name)}</strong>
-            ${item.note ? `<div style="color:var(--muted);font-size:0.78rem;margin-top:4px">${escHtml(item.note)}</div>` : ''}
-          </td>
-          <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
-          <td>${item.quantity}</td>
-          <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
-          <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
-          <td style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteShoppingItem(${item.id})">🗑</button>
-          </td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
+    <div class="contrib-list">
+      ${shoppingQuickResults.slice(0, 8).map(item => {
+        const existing = getMatchingShoppingEntry(item.id, item.name);
+        const meta = [
+          item.brand || null,
+          item.size || null,
+          item.category ? formatLabel(item.category, 'Other') : null
+        ].filter(Boolean).map(value => escHtml(value)).join(' · ');
+        return `
+          <div class="contrib-list-item">
+            <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+              <div style="min-width:0;flex:1">
+                <strong>${escHtml(item.name)}</strong>
+                <div class="contrib-meta">${meta || 'Known catalog item'}</div>
+                ${existing ? `<div class="contrib-meta" style="color:var(--success)">Already in shopping list${existing.quantity ? ` · Qty ${existing.quantity}` : ''}</div>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                ${existing
+                  ? `<button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
+                  : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || '')}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add to Shopping</button>`}
+                <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, true)">Low</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>`;
+}
+
+async function searchShoppingQuickFind() {
+  shoppingQuickQuery = document.getElementById('shop-quick-search')?.value?.trim() || '';
+  if (shoppingQuickQuery.length < 2) {
+    shoppingQuickResults = [];
+    renderShoppingQuickResults();
+    return;
+  }
+  const res = await api(`/products/search?q=${encodeURIComponent(shoppingQuickQuery)}`);
+  if (!res.ok) {
+    shoppingQuickResults = [];
+    renderShoppingQuickResults();
+    return;
+  }
+  const data = await res.json();
+  shoppingQuickResults = data.results || data.products || [];
+  renderShoppingQuickResults();
+}
+
+function openManualShoppingFromSearch() {
+  document.getElementById('shop-name').value = shoppingQuickQuery || '';
+  toggleManualShoppingForm(true);
+}
+
+async function updateShoppingPreferredStore(itemId, preferredStore) {
+  if (SHOPPING_HELPER_MODE) return;
+  const res = await api(`/shopping-list/items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ preferred_store: preferredStore || '' })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not update store preference', 'error');
+    return;
+  }
+  toast(preferredStore ? 'Store preference updated ✅' : 'Store preference cleared ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
+function renderShoppingListTable() {
+  const body = document.getElementById('shopping-table-body');
+  if (!body) return;
+  const selectedStatus = document.getElementById('shop-status-filter')?.value || '';
+  const query = shoppingSearchQuery;
+  const items = query
+    ? shoppingListCache.filter(item => [item.name, item.category, item.source, item.note, item.latest_price?.store]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(query)))
+    : shoppingListCache;
+  if (!items.length) {
+    body.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${query ? 'No shopping items match your search.' : 'No shopping list items yet.'}</p></div>`;
+    return;
+  }
+  const grouped = items.reduce((acc, item) => {
+    const key = item.preferred_store || item.effective_store || 'Unassigned';
+    acc[key] = acc[key] || [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+  const renderStoreTables = (groups, options = {}) => groups
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([storeName, storeItems]) => `
+      <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
+        <div class="card-header">
+          <span class="card-title">${escHtml(storeName)}</span>
+          <span class="badge badge-${storeName === 'Unassigned' ? 'warning' : options.badgeTone || 'info'}">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>${storeItems.map(item => `
+              <tr>
+                <td>
+                  <strong>${escHtml(item.name)}</strong>
+                  <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
+                    ${[
+                      item.latest_price?.store ? `Likely ${item.latest_price.store}` : null,
+                      item.note || null
+                    ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                  </div>
+                </td>
+                <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
+                <td>${item.quantity}</td>
+                <td>${item.latest_price?.price != null ? `${formatMoney(item.latest_price.price * item.quantity)} <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : '<span style="color:var(--muted)">—</span>'}</td>
+                <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
+                <td>
+                  <select onchange="updateShoppingPreferredStore(${item.id}, this.value)" style="min-width:160px">
+                    ${renderShoppingStoreOptionTags(item.preferred_store || '')}
+                  </select>
+                </td>
+                <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
+                <td style="display:flex;gap:6px;flex-wrap:wrap">
+                  ${item.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.product_id}, true)">Low</button>` : ''}
+                  <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingItem(${item.id})">🗑</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`).join('');
+  if (SHOPPING_HELPER_MODE) {
+    const openGroups = Object.entries(grouped)
+      .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status !== 'purchased')])
+      .filter(([, storeItems]) => storeItems.length);
+    const purchasedGroups = Object.entries(grouped)
+      .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status === 'purchased')])
+      .filter(([, storeItems]) => storeItems.length);
+    body.innerHTML = `
+      <div class="helper-list">
+        ${openGroups.length ? '<div class="helper-section-label">To Buy</div>' : ''}
+        ${openGroups
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([storeName, storeItems]) => `
+            <div class="helper-store-card">
+              <div class="helper-store-head">
+                <div class="helper-store-title">${escHtml(storeName)}</div>
+                <span class="badge badge-${storeName === 'Unassigned' ? 'warning' : 'info'}">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
+              </div>
+              <div class="helper-item-list">
+                ${storeItems.map(item => `
+                  <div class="helper-item">
+                    <div class="helper-item-top">
+                      <div style="min-width:0">
+                        <div class="helper-item-name">${escHtml(item.name)}</div>
+                        ${item.quantity && Number(item.quantity) !== 1
+                          ? `<div class="helper-item-meta">Qty ${escHtml(String(item.quantity))}</div>`
+                          : ''}
+                      </div>
+                      ${item.latest_price?.price != null ? `<div class="helper-item-estimate">${formatMoney(item.latest_price.price * item.quantity)}</div>` : ''}
+                    </div>
+                    <div class="helper-item-actions">
+                      <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, 'purchased')">Bought</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        ${purchasedGroups.length ? '<div class="helper-section-label" style="margin-top:4px">Recently Checked Off</div>' : ''}
+        ${purchasedGroups
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([storeName, storeItems]) => `
+            <div class="helper-store-card" style="opacity:0.92">
+              <div class="helper-store-head">
+                <div class="helper-store-title">${escHtml(storeName)}</div>
+                <span class="badge badge-ok">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
+              </div>
+              <div class="helper-item-list">
+                ${storeItems.map(item => `
+                  <div class="helper-item">
+                    <div class="helper-item-top">
+                      <div style="min-width:0">
+                        <div class="helper-item-name">${escHtml(item.name)}</div>
+                        ${item.quantity && Number(item.quantity) !== 1
+                          ? `<div class="helper-item-meta">Qty ${escHtml(String(item.quantity))}</div>`
+                          : ''}
+                      </div>
+                      ${item.latest_price?.price != null ? `<div class="helper-item-estimate">${formatMoney(item.latest_price.price * item.quantity)}</div>` : ''}
+                    </div>
+                    <div class="helper-item-actions">
+                      <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, 'open')">Reopen</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+      </div>
+    `;
+    return;
+  }
+  if (!selectedStatus) {
+    const openGroups = Object.entries(grouped)
+      .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status !== 'purchased')])
+      .filter(([, storeItems]) => storeItems.length);
+    const purchasedGroups = Object.entries(grouped)
+      .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status === 'purchased')])
+      .filter(([, storeItems]) => storeItems.length);
+    body.innerHTML = `
+      ${openGroups.length ? '<div class="helper-section-label" style="margin-bottom:10px">To Buy</div>' : ''}
+      ${renderStoreTables(openGroups)}
+      ${purchasedGroups.length ? '<div class="helper-section-label" style="margin:8px 0 10px">Recently Checked Off</div>' : ''}
+      ${renderStoreTables(purchasedGroups, { dimmed: true, badgeTone: 'ok' })}
+    `;
+    return;
+  }
+  body.innerHTML = renderStoreTables(Object.entries(grouped));
+}
+
+async function loadShoppingList() {
+  const status = SHOPPING_HELPER_MODE ? '' : (document.getElementById('shop-status-filter')?.value || 'open');
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await shoppingApi(`/shopping-list${query}`);
+  const body = document.getElementById('shopping-table-body');
+  const storeSummary = document.getElementById('shop-store-summary');
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load shopping list.</p></div>';
+    if (storeSummary) storeSummary.innerHTML = '<div class="empty-state"><p>Could not load store estimate.</p></div>';
+    return;
+  }
+  const data = await res.json();
+  shoppingListCache = data.items || [];
+  shoppingStoreOptions = data.available_stores || [];
+  populateShoppingStoreSelects();
+  ['shop-open-count', 'shop-open-count-main'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = data.open_count ?? 0;
+  });
+  ['shop-purchased-count', 'shop-purchased-count-main'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = data.purchased_count ?? 0;
+  });
+  ['shop-estimated-total', 'shop-estimated-total-main'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = formatMoney(data.estimated_total_cost || 0);
+  });
+  if (storeSummary) {
+    const stores = data.suggested_stores || [];
+    storeSummary.innerHTML = stores.length ? `
+      <div class="contrib-list">
+        ${stores.map(store => `
+          <div class="contrib-list-item">
+            <div class="contrib-list-top">
+              <strong>${escHtml(store.store)}</strong>
+              <span class="contrib-points">${formatMoney(store.estimated_total)}</span>
+            </div>
+            <div class="contrib-meta">${store.item_count} item${store.item_count === 1 ? '' : 's'} likely from this store</div>
+          </div>
+    `).join('')}
+      </div>
+    ` : '<div class="empty-state"><p>No store estimate yet.</p></div>';
+  }
+  renderShoppingListTable();
+  renderShoppingQuickResults();
 }
 
 async function toggleShoppingItem(id, status) {
-  const res = await api(`/shopping-list/items/${id}`, {
+  const res = await shoppingApi(`/shopping-list/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ status })
   });
@@ -3220,8 +4470,8 @@ async function viewReceipt(id, options = {}) {
         <div class="card-header" style="margin-bottom:12px"><span class="card-title">Extracted Items</span><span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span></div>
         ${items.length ? `
         <table>
-          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Engine</th></tr></thead>
-          <tbody>${items.map(i => `<tr><td>${escHtml(i.product_name || i.name || 'Unknown')}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td><td>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Engine</th><th>Actions</th></tr></thead>
+          <tbody>${items.map(i => `<tr><td>${escHtml(i.product_name || i.name || 'Unknown')}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td><td>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</td><td>${i.product_id ? `<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select></div>` : '<span style="color:var(--muted)">—</span>'}</td></tr>`).join('')}</tbody>
         </table>` : '<div class="empty-state"><p>No extracted items recorded.</p></div>'}
       </div>
       ${canReprocess ? `
@@ -3404,9 +4654,10 @@ async function loadAnalytics() {
 // ============================================================
 // Recommendations
 // ============================================================
-async function loadRecs() {
+async function loadRecs(targetId = 'shopping-recs-body') {
   const res = await api('/recommendations');
-  const body = document.getElementById('recs-body');
+  const body = document.getElementById(targetId);
+  if (!body) return;
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load recommendations.</p></div>'; return; }
   const data = await res.json();
   const list = data.recommendations || [];
@@ -3417,14 +4668,22 @@ async function loadRecs() {
 function recHtml(r) {
   const icons = { deal: '🏷️', seasonal: '📅', low_stock: '⚠️', manual_low: '📝' };
   const type = getRecommendationType(r);
+  const inShopping = !!r.in_shopping_list;
+  const shoppingLabel = r.shopping_list_by ? `🛒 In Shopping List by ${r.shopping_list_by}` : '🛒 In Shopping List';
   return `<div class="rec-item">
     <span class="rec-icon">${icons[type] || '💡'}</span>
     <div>
       <div class="rec-name">${escHtml(r.product_name)}</div>
       <div class="rec-msg">${escHtml(r.message)}</div>
       <div class="rec-conf">Confidence: ${((r.confidence||0)*100).toFixed(0)}%</div>
-      <div style="margin-top:8px">
-        <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 Add to Shopping List</button>
+      ${inShopping ? `<div style="margin-top:8px"><span class="person-modal-pill finalized">${escHtml(shoppingLabel)}</span></div>` : ''}
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        ${inShopping
+          ? `<button class="btn btn-sm btn-ghost" onclick="goToPage('shopping')">🛒 Open Shopping List</button>`
+          : `<button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 Add to Shopping ${actionScorePill('pending', 'pending')}</button>`
+        }
+        <button class="btn btn-sm btn-ghost" onclick="confirmRecommendationFromDashboard(${r.product_id ?? 'null'})">✅ Confirm ${actionScorePill('+2', 'pending')}</button>
+        ${inShopping ? `<span class="person-modal-pill confirmed">Bought ${escHtml('unlocks')}</span>` : ''}
       </div>
     </div>
   </div>`;
@@ -3445,8 +4704,23 @@ function escAttr(s) {
 // Init
 // ============================================================
 checkAuth().then(authenticated => {
+  bindSecretQrTrigger('brand-secret-trigger');
+  bindSecretQrTrigger('mobile-brand-secret-trigger');
+  if (SHOPPING_HELPER_MODE) {
+    applyShoppingHelperMode();
+    loadShoppingList();
+    return;
+  }
   if (authenticated) loadDashboard();
 });
+
+setInterval(() => {
+  if (SHOPPING_HELPER_MODE || document.getElementById('page-shopping')?.classList.contains('active')) {
+    loadShoppingList();
+  } else if (document.getElementById('page-dashboard')?.classList.contains('active') && currentUser) {
+    loadDashboard();
+  }
+}, 15000);
 </script>
 </body>
 </html>

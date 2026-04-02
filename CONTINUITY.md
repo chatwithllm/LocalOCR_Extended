@@ -30,14 +30,23 @@
 - Receipt review/history is implemented in the web app, including extracted items plus image/PDF preview
 - Review receipts can persist raw OCR output, be reprocessed, and be approved from the web app
 - Product names are now normalized on save, and obvious case-only duplicates are merged
+- Product names can now be renamed inline from receipts, inventory, and products, and meaningful category tagging is available in the same places
+- Product/category cleanup now supports `apparel` and `grains`
 - Store names are now normalized on save, and obvious case-only duplicates are merged
+- Savings/coupon pseudo-lines such as `Kroger Savings` and `Discount / 720650` are now filtered out so they do not become products or inventory
 - Products now show linked receipt shortcuts that jump directly to the selected receipt in the Receipts tab
-- Inventory tab now has live client-side search
+- Inventory tab now has live client-side search, multi-category filtering, receipt shortcuts, and a mobile-friendly two-row action layout
+- Inventory and Products are now a single combined workspace with a toggle instead of separate top-level tabs
 - Telegram webhook handler is implemented
 - Telegram confirmation step is implemented before OCR begins
 - Telegram webhook registration/status helper is implemented
 - Public HTTPS endpoint `https://inventory.npalakurla.net/telegram/webhook` is reachable
 - Telegram webhook is registered for the current bot
+- Recommendations are now embedded inside Shopping List as a collapsible section instead of remaining a standalone page
+- Shopping List now supports store preference, grouped store sections, estimated total cost, and estimated store stops
+- QR-based shopping helper mode is implemented with a scoped helper token and a separate one-time login QR flow
+- QR tools are intentionally hidden behind a long-press on the `Grocery` brand text
+- Shopping helper mode is simplified for phones and supports both `Bought` and `Reopen`
 
 ### Verified Working
 
@@ -53,16 +62,19 @@
   `POST /auth/forgot-password` raises an admin-visible reset request for existing users only
 - mobile web layout:
   iPhone-sized screens now use a top bar + slide-out menu so content is not hidden behind the sidebar
-- Products tab: list, search, create, delete
-- Products tab: grouped catalog view, rename/merge, linked receipt shortcuts
-- Inventory tab: list, add, consume, delete, search
+- combined Inventory/Products workspace:
+  toggle between active inventory and full catalog, with shared cleanup actions
+- Inventory workspace: list, add, consume, delete, search, category filters, receipt shortcuts
+- Products workspace: grouped catalog view, rename/merge, category tagging, linked receipt shortcuts
 - Budget tab: set and read status
 - Analytics tab: loads and matches backend response shape
-- Recommendations tab: loads correctly
-- Shopping List tab: manual add, open/purchased status, delete
+- Shopping List tab: manual add, quick find, open/purchased/reopen status, delete, store grouping, and cost estimates
 - Add to Shopping List actions work from recommendations, products, and inventory
+- shopping helper QR flow:
+  helper device can open a scoped shopping-only view, see live items, mark items bought, and reopen accidental check-offs
 - Upload Receipt tab: authenticated upload and OCR result rendering for images and PDFs
 - Receipts tab: receipt list, receipt detail, stored image preview, PDF viewer, review approval tools
+- Receipts tab: inline rename and category-tagging actions on extracted items
 - Gemini OCR: direct smoke test and live upload path
 - Telegram bot token: valid
 - Telegram webhook: registered successfully
@@ -78,6 +90,7 @@
 - Contribution page shows scoring rules, recent scoring history, and actionable ways users can help the system
 - Contribution scoring now includes validated upkeep actions like location updates, shopping help, and low-stock workflows
 - No-op edits such as case-only renames are excluded from scoring
+- Recommendation and low-stock collaboration now use floating/pending contribution states before score is finalized
 
 ### Pending / Not Fully Validated
 
@@ -89,6 +102,7 @@
 - Docker-first fresh-machine validation after the latest changes
 - Automated test coverage refresh
 - Alembic migration workflow
+- Additional shopping-helper UX polish and broader shared-session cross-device validation
 
 ---
 
@@ -165,8 +179,8 @@ Every file in the project and what it does:
 | `call_ollama_vision_api.py` | Step 10 | 🟡 Fallback implemented, not recently re-validated |
 | `extract_receipt_data.py` | Step 11 | ✅ Hybrid OCR pipeline working (includes PDF preprocessing + review workflow) |
 | `save_receipt_images.py` | Step 12 | 🟡 Storage helper exists; not the primary reviewed path |
-| `manage_product_catalog.py` | Step 13 | ✅ CRUD working |
-| `manage_shopping_list.py` | Shopping list | ✅ Shopping list API working |
+| `manage_product_catalog.py` | Step 13 | ✅ CRUD + rename/category cleanup working |
+| `manage_shopping_list.py` | Shopping list | ✅ Shopping list API + helper-share flow working |
 | `manage_contributions.py` | Contribution scoring | ✅ Contribution summary + help page API working |
 | `contribution_scores.py` | Contribution scoring | ✅ Shared scoring + validation rules |
 | `manage_inventory.py` | Step 14 | ✅ CRUD working |
@@ -202,7 +216,7 @@ Every file in the project and what it does:
 |------|---------|
 | `ARCHITECTURE.md` | System diagram + design decisions |
 | `API_REFERENCE.md` | All endpoints, auth, MQTT topics |
-| `COMPLETE_PRODUCT_SPEC.md` | Full rebuild-grade app spec for tabs, workflows, rules, and implementation |
+| `COMPLETE_PRODUCT_SPEC.md` | Full rebuild-grade app spec for tabs, workflows, helper QR flows, rules, and implementation |
 | `DEPLOYMENT_GUIDE.md` | Zero-to-running setup steps |
 | `IMPLEMENTATION_STATUS.md` | Current working state, restart handoff, and next steps |
 | `NGINX_PROXY_MANAGER_SETUP.md` | Telegram webhook routing |
@@ -253,6 +267,8 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Step 13: Implement product CRUD
 - [x] Step 14: Implement inventory tracking + MQTT publish
 - [x] Inventory search in the web app
+- [x] Inventory/Product cleanup actions available inline from the merged workspace
+- [x] Inventory receipt traceability links
 - [ ] Step 15: Implement low-stock alerts
 - [x] Test: Add/consume items
 - [x] Verify MQTT events in Home Assistant or broker consumer
@@ -260,6 +276,7 @@ Use this to track implementation progress. Check off items as you go.
 ### Phase 5: Smart Recommendations *(parallel OK)*
 - [x] Step 16: Implement recommendation engine
 - [x] Add direct "Add to Shopping List" action from recommendations
+- [x] Fold recommendations into Shopping List as a collapsible section
 - [ ] Step 17: Fully validate daily push scheduler
 - [ ] Test: Seed price data → verify deal detection
 
@@ -288,8 +305,11 @@ Use this to track implementation progress. Check off items as you go.
 - [x] Add Shopping List tab in web app
 - [x] Add manual shopping-list item creation
 - [x] Add direct add-to-shopping-list actions from inventory, products, and recommendations
+- [x] Add store preference and grouped store sections in Shopping List
+- [x] Add scoped QR-based shopping helper mode with bought/reopen flow
 - [x] Canonicalize product names on save and merge case-only duplicates in live data
 - [x] Canonicalize store names on save and merge case-only duplicates in live data
+- [x] Filter savings/coupon pseudo-lines out of products and inventory
 - [ ] Add richer OCR cleanup rules for truncated names like `Tbrush` / `HBO W/Almnds`
 
 ### Phase 8: Backup & Portability

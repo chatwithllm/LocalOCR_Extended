@@ -264,6 +264,7 @@ class ShoppingListItem(Base):
     status = Column(String(20), nullable=False, default="open")  # open, purchased
     source = Column(String(30), nullable=True)  # recommendation, inventory, product, manual
     note = Column(String(500), nullable=True)
+    preferred_store = Column(String(120), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -292,6 +293,25 @@ class ContributionEvent(Base):
         Index("ix_contribution_event_user_id", "user_id"),
         Index("ix_contribution_event_type", "event_type"),
         Index("ix_contribution_event_created_at", "created_at"),
+    )
+
+
+class AccessLink(Base):
+    __tablename__ = "access_links"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    purpose = Column(String(40), nullable=False)  # shopping_helper, login_qr
+    token_hash = Column(String(255), nullable=False, unique=True)
+    metadata_json = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_access_link_purpose", "purpose"),
+        Index("ix_access_link_expires_at", "expires_at"),
     )
 
 
@@ -410,6 +430,15 @@ def _ensure_runtime_columns(engine):
         } else set()
         if contribution_columns and "status" not in contribution_columns:
             conn.execute(text("ALTER TABLE contribution_events ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT 'finalized'"))
+
+        shopping_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(shopping_list_items)"))
+        } if "shopping_list_items" in {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        } else set()
+        if shopping_columns and "preferred_store" not in shopping_columns:
+            conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN preferred_store VARCHAR(120)"))
 
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS inventory_adjustments (

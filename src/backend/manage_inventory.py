@@ -17,12 +17,15 @@ from src.backend.active_inventory import get_active_inventory_cutoff, rebuild_ac
 from src.backend.contribution_scores import (
     award_contribution_event,
     cancel_pending_low_event,
+    confirm_low_peer,
     meaningful_text_change,
+    reverse_low_confirmation,
 )
 from src.backend.create_flask_application import require_auth
 from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.initialize_database_schema import Inventory, PriceHistory, Product
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
+from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,35 @@ def _get_latest_price(session, product_id: int) -> dict | None:
         "price": price_row.price,
         "date": price_row.date.strftime("%Y-%m-%d") if price_row.date else None,
     }
+
+
+def _get_product_receipt_links(session, product_id: int, limit: int = 3) -> list[dict]:
+    rows = (
+        session.query(ReceiptItem, Purchase, Store, TelegramReceipt)
+        .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .outerjoin(TelegramReceipt, TelegramReceipt.purchase_id == Purchase.id)
+        .filter(ReceiptItem.product_id == product_id)
+        .order_by(Purchase.date.desc(), ReceiptItem.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    seen_purchase_ids = set()
+    links = []
+    for _receipt_item, purchase, store, telegram_record in rows:
+        if not purchase or purchase.id in seen_purchase_ids:
+            continue
+        seen_purchase_ids.add(purchase.id)
+        links.append({
+            "receipt_id": purchase.id,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "store": store.name if store else "Unknown",
+            "source": "telegram" if telegram_record and not str(telegram_record.telegram_user_id).startswith("upload") else "upload",
+            "status": telegram_record.status if telegram_record else "processed",
+            "total": purchase.total_amount,
+        })
+    return links
 
 
 @inventory_bp.route("", methods=["GET"])
@@ -83,6 +115,7 @@ def list_inventory():
                 "brand": item.product.brand,
                 "category": item.product.category,
                 "latest_price": _get_latest_price(session, item.product_id),
+                "recent_receipts": _get_product_receipt_links(session, item.product_id),
                 "quantity": item.quantity,
                 "location": item.location,
                 "threshold": item.threshold,
@@ -323,6 +356,7 @@ def set_low_status(product_id):
             )
         else:
             cancel_pending_low_event(session, product_id=product.id)
+            reverse_low_confirmation(session, product_id=product.id)
             award_contribution_event(
                 session,
                 user_id=user_id,
@@ -348,6 +382,32 @@ def set_low_status(product_id):
         "product_name": get_product_display_name(product),
         "manual_low": bool(item.manual_low if item else manual_low),
         "is_low": _is_item_low(item) if item else manual_low,
+    }), 200
+
+
+@inventory_bp.route("/products/<int:product_id>/confirm-low", methods=["POST"])
+@require_auth
+def confirm_low_status(product_id):
+    """Allow a second household member to confirm a low-stock call."""
+    session = g.db_session
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    result = confirm_low_peer(
+        session,
+        confirmer_user_id=getattr(getattr(g, "current_user", None), "id", None),
+        product_id=product_id,
+        product_name=get_product_display_name(product),
+    )
+    if result.get("error"):
+        session.rollback()
+        return jsonify({"error": result["error"]}), 400
+    session.commit()
+    return jsonify({
+        "status": "confirmed",
+        "product_id": product_id,
+        "product_name": get_product_display_name(product),
     }), 200
 
 

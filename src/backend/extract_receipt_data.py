@@ -40,6 +40,9 @@ NON_PRODUCT_PATTERNS = (
     "coupon",
     "savings",
     "instant savings",
+    "store savings",
+    "digital coupon",
+    "manufacturer coupon",
     "promo",
     "promotion",
     "member savings",
@@ -63,6 +66,9 @@ def _is_non_product_line(item_data: dict) -> bool:
         return True
 
     if any(token in name for token in NON_PRODUCT_PATTERNS):
+        return True
+
+    if name.endswith(" savings") or name.startswith("savings "):
         return True
 
     category = str(item_data.get("category", "") or "").strip().lower()
