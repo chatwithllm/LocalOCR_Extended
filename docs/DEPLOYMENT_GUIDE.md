@@ -56,6 +56,8 @@ INITIAL_ADMIN_PASSWORD=choose_a_strong_password
 SESSION_SECRET=generate_another_secure_secret
 ```
 
+Do not leave placeholder secrets in place. Extended now treats placeholder bootstrap/session secrets as invalid and will fall back to a generated process-local secret, which is safer but will rotate on restart.
+
 ## Step 2: Keep The Port Split
 
 Extended should stay on:
@@ -99,7 +101,7 @@ Extended uses separate identifiers by default:
 MQTT_CLIENT_ID=localocr-extended
 MQTT_TOPIC_PREFIX=home/localocr_extended
 APP_SLUG=localocr_extended
-APP_DISPLAY_NAME=LocalOCR Extended
+APP_DISPLAY_NAME="LocalOCR Extended"
 HOME_ASSISTANT_DISCOVERY_PREFIX=homeassistant
 ```
 

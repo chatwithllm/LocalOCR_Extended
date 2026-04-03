@@ -27,6 +27,13 @@ CONFIDENCE_THRESHOLD = 0.40
 recommendations_bp = Blueprint("recommendations", __name__, url_prefix="/recommendations")
 
 
+def _coerce_datetime_for_comparison(value: datetime, reference_now: datetime) -> datetime:
+    """Align stored datetimes with the timezone-awareness of the comparison value."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=None)
+    return value.astimezone(reference_now.tzinfo) if reference_now.tzinfo else value.replace(tzinfo=None)
+
+
 @recommendations_bp.route("", methods=["GET"])
 @require_auth
 def get_recommendations():
@@ -172,7 +179,10 @@ def detect_seasonal_patterns() -> list:
             continue
 
         avg_frequency = median(intervals)
-        days_since_last = (datetime.now(timezone.utc) - dates[-1]).days
+        now = datetime.now(timezone.utc)
+        last_purchase = _coerce_datetime_for_comparison(dates[-1], now)
+        compare_now = now if last_purchase.tzinfo is not None else now.replace(tzinfo=None)
+        days_since_last = (compare_now - last_purchase).days
 
         if days_since_last > avg_frequency * 1.2:
             confidence = min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)

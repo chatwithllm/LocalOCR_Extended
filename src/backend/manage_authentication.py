@@ -27,6 +27,12 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
 DEFAULT_AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐻", "🐨", "🦁", "🐧", "🦄"]
+PLACEHOLDER_BOOTSTRAP_VALUES = {
+    "",
+    "replace_with_a_strong_password",
+    "replace_with_a_long_random_token",
+    "replace_with_another_long_random_secret",
+}
 
 
 def get_enabled_modules() -> dict:
@@ -349,10 +355,15 @@ def is_valid_login_email(email: str) -> bool:
 
 def get_bootstrap_admin_defaults() -> tuple[str, str, str]:
     """Return bootstrap admin display defaults from env."""
+    bootstrap_password = (
+        os.getenv("INITIAL_ADMIN_PASSWORD", "") or os.getenv("INITIAL_ADMIN_TOKEN", "")
+    ).strip()
+    if bootstrap_password in PLACEHOLDER_BOOTSTRAP_VALUES:
+        bootstrap_password = ""
     return (
         os.getenv("INITIAL_ADMIN_NAME", "Admin"),
         os.getenv("INITIAL_ADMIN_EMAIL", "admin@localhost"),
-        os.getenv("INITIAL_ADMIN_PASSWORD", "") or os.getenv("INITIAL_ADMIN_TOKEN", ""),
+        bootstrap_password,
     )
 
 

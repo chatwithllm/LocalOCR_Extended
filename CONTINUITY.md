@@ -90,6 +90,9 @@ This split gives you a clean safety net:
   - selected receipt detail
 - OCR placeholder/template echoes are now treated as invalid instead of looking like a real processed receipt
 - upload status now reflects `review` vs `processed` truthfully after upload
+- placeholder session/bootstrap secrets are now rejected instead of being trusted silently
+- seasonal recommendation date math now tolerates mixed naive/aware timestamps
+- placeholder OCR junk receipts/products copied into Extended were cleaned out without touching valid grocery history
 
 ## 5. What Still Belongs To Extended Next
 
