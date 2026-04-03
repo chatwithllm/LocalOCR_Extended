@@ -73,6 +73,10 @@ This split gives you a clean safety net:
   - rotate left/right
   - mark as restaurant
   - safer re-run OCR on already-processed receipts
+- restaurant-first OCR now runs a multi-candidate assist for hard restaurant photos
+  - compares rotated candidates
+  - scores them using restaurant signals like totals, store/date quality, and line-item quality
+  - prefills review with the strongest candidate automatically
 - processed receipts can now be rebuilt safely from corrected review data
 - first restaurant receipt was manually corrected through the new review path and now persists as `domain=restaurant`
 
@@ -90,6 +94,7 @@ Current restaurant workflow baseline:
 - restaurant receipts can now be corrected after upload instead of being accepted as bad OCR
 - corrected restaurant receipts stay out of grocery inventory logic when saved as `restaurant`
 - restaurant-specific analytics/detail views can now be built on top of corrected structured receipt data
+- restaurant OCR is now stronger for difficult phone photos before the user even opens review
 - Restaurant workspace now includes:
   - dining budget card
   - selected receipt detail panel

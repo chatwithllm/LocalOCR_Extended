@@ -48,6 +48,10 @@ Extended-specific runtime changes now in place:
   - rotate left/right
   - mark as restaurant
   - safe re-run OCR for already-processed receipts
+- restaurant-first OCR now includes multi-candidate assist for difficult phone photos:
+  - rotated candidates are compared
+  - restaurant hints are passed into OCR providers
+  - the strongest restaurant draft is selected before review is shown
 - existing processed receipts can be rebuilt from corrected structured payloads
 - first restaurant receipt has been verified as a corrected `restaurant` purchase with exact line items
 - Restaurant page now includes:
@@ -82,7 +86,6 @@ This is the repo where the following should happen next:
 
 ## Not Yet Completed
 
-- robust restaurant-first OCR extraction for difficult phone photos
 - restaurant-specific analytics/detail polish beyond the current summary, budget, and receipt-detail baseline
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
@@ -94,4 +97,4 @@ This is the repo where the following should happen next:
 2. verify it can run beside grocery on `8080`
 3. verify MQTT and Home Assistant topics do not collide
 4. continue restaurant/module architecture in this repo only
-5. improve restaurant OCR quality and review ergonomics
+5. improve restaurant line-item editing speed and restaurant analytics depth

@@ -144,15 +144,16 @@ Goals:
 Current restaurant flow:
 
 1. Upload a receipt and choose `Restaurant` when you already know it is dining-related.
-2. OCR runs with restaurant-friendly hints.
-3. If OCR is imperfect, open the receipt in `Receipts`.
-4. Use the structured editor to fix:
+2. OCR runs with restaurant-friendly hints and a multi-candidate assist for hard phone photos.
+3. For difficult receipts, Extended can compare rotated restaurant OCR candidates and prefill the editor with the strongest draft.
+4. If OCR is still imperfect, open the receipt in `Receipts`.
+5. Use the structured editor to fix:
    - restaurant name
    - date/time
    - subtotal/tax/tip/total
    - line items
-5. Save the corrected receipt.
-6. The corrected receipt appears in the `Restaurant` workspace, budget, and analytics.
+6. Save the corrected receipt.
+7. The corrected receipt appears in the `Restaurant` workspace, budget, and analytics.
 
 ## Grocery Workflow
 
@@ -182,6 +183,13 @@ This is especially important for:
 - long restaurant receipts
 - OCR-heavy abbreviations
 - mixed grocery / discount / restaurant edge cases
+
+Restaurant OCR now gets extra help from:
+
+- upload-time restaurant intent
+- restaurant-specific OCR prompt hints
+- rotated candidate comparison for hard photos
+- structured correction after upload
 
 ## MQTT / Home Assistant
 
