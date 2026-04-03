@@ -405,7 +405,7 @@ def confirm_low_status(product_id):
         return jsonify({"error": result["error"]}), 400
     session.commit()
     return jsonify({
-        "status": "confirmed",
+        "status": result.get("status", "peer_confirmed"),
         "product_id": product_id,
         "product_name": get_product_display_name(product),
     }), 200

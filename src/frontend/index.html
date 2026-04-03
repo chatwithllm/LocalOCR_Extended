@@ -24,7 +24,7 @@
       --danger: #ff6584;
     }
 
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
     /* ---- Sidebar ---- */
     .layout { display: flex; min-height: 100vh; }
@@ -45,7 +45,7 @@
     .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
 
     /* ---- Main ---- */
-    .main { margin-left: 230px; flex: 1; padding: 32px; }
+    .main { margin-left: 230px; flex: 1; padding: 32px; max-width: 100%; overflow-x: hidden; }
     .mobile-header { display: none; }
     .mobile-menu-btn {
       background: var(--surface2); color: var(--text); border: 1px solid var(--border);
@@ -85,6 +85,15 @@
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 14px; padding: 24px; margin-bottom: 20px;
     }
+    .dashboard-alert-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .dashboard-alert-grid > .card {
+      margin-bottom: 0;
+    }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .card-title { font-size: 1rem; font-weight: 600; }
 
@@ -122,6 +131,24 @@
     .btn-primary:hover { background: #7c74ff; transform: translateY(-1px); }
     .btn-success { background: var(--success); color: #003; }
     .btn-success:hover { opacity: 0.85; }
+    .btn-tonal-accent {
+      background: rgba(108,99,255,0.12);
+      color: #c9c5ff;
+      border: 1px solid rgba(108,99,255,0.24);
+    }
+    .btn-tonal-accent:hover {
+      background: rgba(108,99,255,0.18);
+      border-color: rgba(108,99,255,0.34);
+    }
+    .btn-tonal-success {
+      background: rgba(0,212,170,0.10);
+      color: #8ff3df;
+      border: 1px solid rgba(0,212,170,0.22);
+    }
+    .btn-tonal-success:hover {
+      background: rgba(0,212,170,0.16);
+      border-color: rgba(0,212,170,0.32);
+    }
     .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
     .btn-danger:hover { background: rgba(255,101,132,0.1); }
     .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
@@ -302,6 +329,108 @@
       gap: 16px;
       margin-bottom: 22px;
     }
+    .demo-hero {
+      border: 1px solid rgba(108, 99, 255, 0.28);
+      background:
+        radial-gradient(circle at top right, rgba(0, 212, 170, 0.12), transparent 38%),
+        radial-gradient(circle at bottom left, rgba(108, 99, 255, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(108,99,255,0.10), rgba(255,255,255,0.02));
+      border-radius: 18px;
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .demo-hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .demo-hero-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      line-height: 1.2;
+      max-width: 700px;
+    }
+    .demo-hero-copy {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      max-width: 620px;
+    }
+    .demo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      background: rgba(108, 99, 255, 0.10);
+      color: #ddd8ff;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .demo-hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .demo-hero-stat {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.03);
+    }
+    .demo-hero-stat .label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .demo-hero-stat .value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .demo-hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .demo-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .demo-mini-card {
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.03);
+    }
+    .demo-mini-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .demo-mini-value {
+      font-size: 0.92rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .demo-readonly-note {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
     .leaderboard-card {
       border: 1px solid var(--border);
       background: var(--surface2);
@@ -317,10 +446,84 @@
       letter-spacing: 0.06em;
       font-weight: 700;
     }
+    .leaderboard-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .leaderboard-header .leaderboard-title {
+      flex: 0 0 auto;
+    }
+    .leaderboard-collapsed-preview {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .leaderboard-preview-item {
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      text-align: left;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .leaderboard-preview-item.gold { border-color: rgba(255, 214, 102, 0.2); }
+    .leaderboard-preview-item.silver { border-color: rgba(203, 213, 225, 0.18); }
+    .leaderboard-preview-item.bronze { border-color: rgba(212, 163, 115, 0.18); }
+    .leaderboard-preview-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .leaderboard-preview-rank {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+      min-width: 28px;
+    }
+    .leaderboard-preview-rank.gold { color: #ffd666; }
+    .leaderboard-preview-rank.silver { color: #cbd5e1; }
+    .leaderboard-preview-rank.bronze { color: #d4a373; }
+    .leaderboard-preview-name {
+      font-size: 0.86rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .leaderboard-preview-score {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--text);
+      min-width: fit-content;
+    }
+    .leaderboard-header .btn {
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
     .leaderboard-list {
+      display: grid;
+      gap: 12px;
+    }
+    .leaderboard-podium {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 12px;
+    }
+    .leaderboard-rest {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
     }
     .leaderboard-row {
       position: relative;
@@ -382,6 +585,42 @@
       align-items: baseline;
       gap: 6px;
     }
+    .leaderboard-row.compact {
+      border-radius: 12px;
+      padding: 10px 12px;
+      gap: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .leaderboard-row.compact .leaderboard-rank {
+      position: static;
+      min-width: 34px;
+      font-size: 0.78rem;
+    }
+    .leaderboard-row.compact .leaderboard-user {
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .leaderboard-row.compact .avatar-bubble {
+      width: 30px;
+      height: 30px;
+      font-size: 0.95rem;
+    }
+    .leaderboard-row.compact .leaderboard-user-meta {
+      display: none;
+    }
+    .leaderboard-row.compact .leaderboard-score {
+      min-width: fit-content;
+      margin-left: 10px;
+    }
+    .leaderboard-row.compact .leaderboard-score-value {
+      font-size: 1rem;
+    }
+    .leaderboard-row.compact .leaderboard-score-label {
+      display: none;
+    }
     .leaderboard-score-value {
       font-size: 1.25rem;
       font-weight: 800;
@@ -397,6 +636,145 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .shopping-quick-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-width: 0;
+    }
+    .shopping-quick-toolbar input,
+    .shopping-quick-toolbar select {
+      min-width: 0;
+    }
+    .shopping-quick-search {
+      width: 260px;
+      max-width: 100%;
+    }
+    .shopping-quick-store {
+      min-width: 190px;
+      max-width: 100%;
+    }
+    .shopping-current-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-width: 0;
+    }
+    .shopping-current-toolbar .toolbar-primary,
+    .shopping-current-toolbar .toolbar-secondary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      min-width: 0;
+    }
+    .shopping-current-filter,
+    .shopping-current-sort {
+      min-width: 140px;
+      max-width: 100%;
+    }
+    .shopping-page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .shopping-page-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+    .shopping-header-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-width: 58px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .shopping-header-chip-count {
+      font-weight: 800;
+    }
+    .inventory-header-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .inventory-search-box {
+      width: 220px;
+      max-width: 100%;
+    }
+    .inventory-sort-chips {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .inventory-sort-chip {
+      min-width: 32px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .inventory-sort-chip.active {
+      border-color: rgba(108, 99, 255, 0.45);
+      background: rgba(108, 99, 255, 0.14);
+      color: var(--text);
+    }
+    .shopping-summary-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.55fr) minmax(0, 0.9fr);
+      gap: 10px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+    .shopping-summary-pill {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+    .shopping-summary-pill .value {
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .shopping-summary-pill .value.accent {
+      color: var(--accent);
+    }
+    .shopping-summary-pill .value.success {
+      color: var(--success);
+    }
+    .shopping-summary-pill.shopping-summary-pill-open,
+    .shopping-summary-pill.shopping-summary-pill-purchased {
+      grid-column: span 1;
+    }
+    .shopping-summary-pill.shopping-summary-pill-estimated {
+      grid-column: span 1;
+      justify-content: flex-start;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
     .table-toolbar label {
       color: var(--muted);
       font-size: 0.78rem;
@@ -409,6 +787,164 @@
     .leaderboard-footer {
       color: var(--muted);
       font-size: 0.78rem;
+    }
+    .card-header-inline-stat {
+      margin-left: auto;
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .shopping-recs-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+    #shopping-recommendations-card {
+      margin-top: 14px;
+    }
+    .shopping-recs-body-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    #shopping-current-list-card .card-header {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .shopping-current-title-btn {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-weight: 800;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      text-align: left;
+    }
+    .shopping-current-head-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+    .shopping-sort-chip {
+      min-width: 32px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .shopping-sort-chip.active {
+      border-color: rgba(108,99,255,0.45);
+      background: rgba(108,99,255,0.14);
+      color: var(--text);
+    }
+    .shopping-section-collapsed .card-header {
+      margin-bottom: 0;
+    }
+    .shopping-section-collapsed#shopping-quick-find-card .shopping-quick-toolbar {
+      width: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0;
+    }
+    .shopping-section-collapsed#shopping-quick-find-card .shopping-quick-search,
+    .shopping-section-collapsed#shopping-quick-find-card .shopping-quick-store,
+    .shopping-section-collapsed#shopping-quick-find-card #shop-manual-toggle {
+      display: none;
+    }
+    .shopping-section-collapsed#shopping-quick-find-card {
+      display: none;
+    }
+    .shopping-section-collapsed#shopping-current-list-card #shopping-current-list-controls {
+      display: none;
+    }
+    .card.compact-empty {
+      padding: 10px 14px;
+      margin-bottom: 0;
+      border-radius: 12px;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+    .card.dashboard-collapsed {
+      padding: 10px 14px;
+      margin-bottom: 0;
+      border-radius: 12px;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+    .card.compact-empty .card-header {
+      margin-bottom: 0;
+      min-height: 0;
+      width: 100%;
+    }
+    .card.dashboard-collapsed .card-header {
+      margin-bottom: 0;
+      min-height: 0;
+      width: 100%;
+    }
+    .card.compact-empty .card-title {
+      font-size: 0.9rem;
+    }
+    .card.compact-empty .card-header-inline-stat {
+      font-size: 0.9rem;
+    }
+    .card.low-stock-ok {
+      background: rgba(255,255,255,0.01);
+      border-color: rgba(0, 212, 170, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.08);
+    }
+    .card.low-stock-ok .card-header-inline-stat {
+      color: var(--success);
+    }
+    .card.low-stock-warn {
+      border-color: rgba(255, 179, 71, 0.45);
+      box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.10), 0 0 0 rgba(255, 179, 71, 0);
+      animation: lowStockPulseWarn 2.2s ease-in-out infinite;
+    }
+    .card.low-stock-warn .card-header-inline-stat {
+      color: var(--warning);
+    }
+    .card.low-stock-critical {
+      border-color: rgba(255, 101, 132, 0.5);
+      box-shadow: 0 0 0 1px rgba(255, 101, 132, 0.14), 0 0 0 rgba(255, 101, 132, 0);
+      animation: lowStockPulseCritical 1.05s ease-in-out infinite;
+    }
+    .card.low-stock-critical .card-header-inline-stat {
+      color: var(--danger);
+    }
+    #dash-recs-card .card-header-inline-stat {
+      color: var(--accent);
+    }
+    @keyframes lowStockPulseWarn {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.10), 0 0 0 rgba(255, 179, 71, 0); }
+      50% { box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.18), 0 0 0 5px rgba(255, 179, 71, 0.08); }
+    }
+    @keyframes lowStockPulseCritical {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(255, 101, 132, 0.16), 0 0 0 rgba(255, 101, 132, 0); }
+      50% { box-shadow: 0 0 0 1px rgba(255, 101, 132, 0.26), 0 0 0 6px rgba(255, 101, 132, 0.12); }
     }
     .contrib-grid {
       display: grid;
@@ -456,6 +992,36 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.02);
+    }
+    .shopping-quick-row {
+      display: grid;
+      gap: 6px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .shopping-quick-row-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .shopping-quick-row-name {
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .shopping-quick-row-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+    }
+    .shopping-quick-row-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.3;
     }
     .contrib-list-top {
       display: flex;
@@ -651,6 +1217,93 @@
       flex-wrap: nowrap;
       align-items: center;
     }
+    .shopping-mobile-store-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .shopping-mobile-store-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .shopping-mobile-store-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      min-width: 0;
+    }
+    .shopping-mobile-item-list {
+      display: grid;
+      gap: 6px;
+    }
+    .shopping-mobile-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      gap: 0;
+      overflow: hidden;
+    }
+    .shopping-mobile-item-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .shopping-mobile-item-name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      line-height: 1.25;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .shopping-mobile-item-estimate {
+      font-weight: 700;
+      white-space: nowrap;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .shopping-mobile-item-chevron {
+      color: var(--muted);
+      font-size: 0.72rem;
+      transition: transform 0.18s ease;
+    }
+    .shopping-mobile-item.expanded .shopping-mobile-item-chevron {
+      transform: rotate(180deg);
+    }
+    .shopping-mobile-item-detail {
+      display: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 8px 12px 10px;
+    }
+    .shopping-mobile-item.expanded .shopping-mobile-item-detail {
+      display: grid;
+      gap: 8px;
+    }
+    .shopping-mobile-item-meta {
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.35;
+      min-width: 0;
+    }
+    .shopping-mobile-item-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .helper-section-label {
       color: var(--muted);
       font-size: 0.68rem;
@@ -732,39 +1385,82 @@
     }
     .inventory-mobile-list {
       display: grid;
-      gap: 12px;
+      gap: 8px;
     }
     .inventory-mobile-card {
       border: 1px solid var(--border);
       border-radius: 14px;
       background: rgba(255,255,255,0.02);
-      padding: 14px;
       display: grid;
-      gap: 12px;
+      gap: 0;
+      overflow: hidden;
     }
-    .inventory-mobile-top {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto auto;
+    .inventory-mobile-summary {
+      display: flex;
+      justify-content: space-between;
       gap: 12px;
       align-items: center;
+      padding: 12px 14px;
+      cursor: pointer;
     }
     .inventory-mobile-name {
       font-weight: 700;
       font-size: 0.96rem;
       line-height: 1.25;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .inventory-mobile-meta {
       color: var(--muted);
       font-size: 0.78rem;
-      margin-top: 4px;
       line-height: 1.35;
+    }
+    .inventory-mobile-summary-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+    .inventory-mobile-summary-price {
+      font-weight: 800;
+      white-space: nowrap;
+      font-size: 0.92rem;
+    }
+    .inventory-mobile-summary-badges {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .inventory-mobile-chevron {
+      color: var(--muted);
+      font-size: 0.72rem;
+      transition: transform 0.18s ease;
+    }
+    .inventory-mobile-card.expanded .inventory-mobile-chevron {
+      transform: rotate(180deg);
+    }
+    .inventory-mobile-detail {
+      display: none;
+      padding: 0 14px 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .inventory-mobile-card.expanded .inventory-mobile-detail {
+      display: grid;
+      gap: 10px;
+    }
+    .inventory-mobile-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
     }
     .inventory-mobile-stat {
       display: grid;
       gap: 4px;
-      justify-items: center;
-      text-align: center;
-      min-width: 54px;
+      min-width: 0;
     }
     .inventory-mobile-stat-label {
       color: var(--muted);
@@ -809,6 +1505,56 @@
     .rec-name { font-weight: 600; font-size: 0.9rem; }
     .rec-msg { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
     .rec-conf { font-size: 0.75rem; color: var(--accent); font-weight: 600; margin-top: 4px; }
+    .rec-item.compact-dashboard {
+      padding: 10px 12px;
+      align-items: center;
+      gap: 10px;
+    }
+    .rec-item.compact-dashboard .rec-icon {
+      font-size: 1rem;
+      flex: 0 0 auto;
+    }
+    .rec-compact-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+    }
+    .rec-compact-title {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .rec-item.compact-dashboard .rec-name {
+      font-size: 0.88rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .rec-compact-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+    }
+    .rec-item.compact-dashboard .rec-detail {
+      display: none;
+      width: 100%;
+      padding-top: 8px;
+    }
+    .rec-item.compact-dashboard.expanded {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .rec-item.compact-dashboard.expanded .rec-detail {
+      display: block;
+    }
     .month-chart {
       min-height: 100%;
       padding: 18px 18px 14px;
@@ -1031,14 +1777,74 @@
 
     @media (max-width: 640px) {
       .main { padding: 14px; padding-top: 82px; }
-      .stats-grid,
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
       .form-grid,
       #page-receipts > .receipt-summary-grid,
       #page-receipts > .receipt-detail-grid,
-      #page-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
+      #page-dashboard > div[style*="grid-template-columns:1fr 1fr"],
+      .dashboard-alert-grid {
         grid-template-columns: 1fr !important;
       }
       .leaderboard-list {
+        grid-template-columns: 1fr;
+      }
+      .leaderboard-collapsed-preview {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        padding-bottom: 2px;
+        width: 100%;
+        flex: 0 0 100%;
+        order: 3;
+        overflow: hidden;
+      }
+      .leaderboard-preview-item {
+        min-width: 0;
+        padding: 7px 9px;
+        border-radius: 12px;
+        gap: 0;
+        justify-content: space-between;
+      }
+      .leaderboard-preview-left {
+        display: contents;
+      }
+      .leaderboard-preview-rank {
+        min-width: 20px;
+        font-size: 0.7rem;
+      }
+      .leaderboard-preview-name {
+        display: none;
+      }
+      .leaderboard-preview-score {
+        font-size: 0.82rem;
+        line-height: 1;
+      }
+      .leaderboard-preview-item .avatar-bubble {
+        width: 22px;
+        height: 22px;
+        font-size: 0.78rem;
+        margin: 0 auto;
+      }
+      .leaderboard-header {
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .leaderboard-header .leaderboard-title {
+        flex: 1 1 auto;
+        width: auto;
+      }
+      .leaderboard-header .btn {
+        margin-left: auto;
+        order: 2;
+      }
+      .demo-hero-grid {
+        grid-template-columns: 1fr;
+      }
+      .demo-mini-grid {
         grid-template-columns: 1fr;
       }
       .contrib-grid {
@@ -1052,8 +1858,148 @@
         align-items: flex-start;
         gap: 10px;
       }
+      #dash-low-stock-card .card-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #dash-recs-card .card-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
       .page-header { margin-bottom: 20px; }
       .upload-zone { padding: 32px 18px; }
+      .shopping-page-head {
+        align-items: center;
+      }
+      .shopping-page-actions .btn {
+        min-width: 38px;
+        min-height: 38px;
+        padding: 8px;
+      }
+      .shopping-quick-toolbar {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .shopping-section-collapsed#shopping-quick-find-card .shopping-quick-toolbar {
+        width: auto;
+        display: flex;
+        grid-template-columns: none;
+        gap: 0;
+      }
+      .shopping-quick-search,
+      .shopping-quick-store {
+        width: 100%;
+        min-width: 0;
+      }
+      .shopping-quick-toolbar .btn {
+        width: 100%;
+      }
+      .shopping-summary-strip {
+        grid-template-columns: 0.8fr 0.8fr 1.15fr;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .shopping-summary-pill {
+        padding: 8px 9px;
+        border-radius: 12px;
+      }
+      .shopping-summary-pill .value {
+        font-size: 0.84rem;
+        letter-spacing: -0.01em;
+      }
+      .shopping-summary-pill.shopping-summary-pill-open .value,
+      .shopping-summary-pill.shopping-summary-pill-purchased .value {
+        font-size: 0.8rem;
+      }
+      .shopping-summary-strip {
+        grid-template-columns: minmax(0, 0.62fr) minmax(0, 2.16fr) minmax(0, 0.62fr);
+        gap: 7px;
+      }
+      .shopping-current-toolbar {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+      }
+      .shopping-current-toolbar .toolbar-primary {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+        grid-column: 1 / -1;
+        justify-content: space-between;
+      }
+      .shopping-current-toolbar .toolbar-secondary {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+        grid-column: 1 / -1;
+      }
+      .shopping-current-filter,
+      .shopping-current-sort {
+        width: 100%;
+        min-width: 0;
+      }
+      .shopping-current-toolbar .btn {
+        width: auto;
+        min-width: 0;
+        white-space: nowrap;
+      }
+      .shopping-current-toolbar .toolbar-secondary .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+      .shopping-section-collapsed#shopping-current-list-card #shopping-current-list-controls {
+        width: auto;
+      }
+      .shopping-section-collapsed#shopping-current-list-card #shopping-current-list-controls .toolbar-primary {
+        width: auto;
+        display: flex;
+        gap: 0;
+      }
+      #shopping-stats-row {
+        display: flex !important;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      #shopping-stats-row .shopping-summary-pill-open,
+      #shopping-stats-row .shopping-summary-pill-purchased {
+        flex: 0 0 auto;
+        min-width: 0;
+        min-width: 78px;
+      }
+      #shopping-stats-row .shopping-summary-pill-estimated {
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: center;
+        text-align: center;
+      }
+      #shopping-stats-row .stat-card {
+        padding: 10px 10px 9px;
+        min-height: 0;
+      }
+      #shopping-stats-row .stat-label {
+        font-size: 0.58rem;
+        line-height: 1.1;
+      }
+      #shopping-stats-row .stat-value {
+        font-size: 1.15rem;
+        margin-top: 5px;
+        line-height: 1;
+      }
+      #shopping-stats-row .stat-sub {
+        font-size: 0.64rem;
+        margin-top: 3px;
+        line-height: 1.15;
+      }
       #toast {
         left: 14px;
         right: 14px;
@@ -1073,6 +2019,63 @@
       }
       .dashboard-score-item {
         padding: 8px;
+      }
+      #page-dashboard > .dashboard-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px;
+        margin-bottom: 18px;
+        width: 100%;
+      }
+      #page-dashboard > .dashboard-stats-grid .stat-card {
+        padding: 12px;
+        border-radius: 12px;
+        min-height: 0;
+      }
+      #page-dashboard > .dashboard-stats-grid .stat-label {
+        font-size: 0.64rem;
+        letter-spacing: 0.05em;
+      }
+      #page-dashboard > .dashboard-stats-grid .stat-value {
+        font-size: 1.45rem;
+        margin-top: 4px;
+        line-height: 1.05;
+      }
+      #page-dashboard > .dashboard-stats-grid .stat-sub {
+        font-size: 0.68rem;
+        margin-top: 3px;
+        line-height: 1.2;
+      }
+      .shopping-mobile-store-card {
+        margin-bottom: 12px;
+        padding: 12px;
+      }
+      .shopping-mobile-item-summary {
+        padding: 9px 10px;
+      }
+      .shopping-mobile-item-actions .btn {
+        padding: 7px 10px;
+        min-height: 0;
+      }
+      .shopping-quick-row {
+        padding: 9px 10px;
+        gap: 5px;
+      }
+      .shopping-quick-row-top {
+        gap: 8px;
+      }
+      .shopping-quick-row-name {
+        font-size: 0.92rem;
+      }
+      .shopping-quick-row-actions {
+        gap: 5px;
+      }
+      .shopping-quick-row-actions .btn {
+        padding: 6px 9px;
+        min-height: 0;
+        font-size: 0.78rem;
+      }
+      .shopping-quick-row-meta {
+        font-size: 0.74rem;
       }
       .month-bars { gap: 12px; }
       .month-bar-track { width: min(44px, 100%); height: 170px; }
@@ -1097,16 +2100,18 @@
       .action-icon-btn .label {
         display: none;
       }
-      .inventory-mobile-top {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 10px;
+      .inventory-mobile-summary {
+        padding: 11px 12px;
       }
-      .inventory-mobile-stat {
-        min-width: 0;
-        justify-items: flex-start;
-        text-align: left;
-        grid-template-columns: auto auto;
+      .inventory-mobile-summary-right {
         gap: 8px;
+      }
+      .inventory-mobile-detail {
+        padding: 0 12px 11px;
+      }
+      .inventory-mobile-detail-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
       }
       .helper-item-estimate {
         white-space: normal;
@@ -1116,6 +2121,59 @@
       }
       .helper-summary-card {
         padding: 10px 12px;
+      }
+      #catalog-panel-inventory > .card:first-child #add-inv-form,
+      #catalog-panel-inventory > .card:first-child .inventory-add-actions {
+        display: none;
+      }
+      #catalog-panel-inventory > .card:first-child.inventory-add-open #add-inv-form,
+      #catalog-panel-inventory > .card:first-child.inventory-add-open .inventory-add-actions {
+        display: grid;
+      }
+      #catalog-panel-inventory > .card:first-child .card-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+      #page-inventory .table-toolbar {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 138px);
+        gap: 8px;
+      }
+      .inventory-header-tools {
+        width: 100%;
+        display: grid;
+        grid-template-columns: auto;
+        justify-content: stretch;
+        gap: 8px;
+        margin-left: 0;
+      }
+      .inventory-search-box {
+        width: 100%;
+      }
+      .inventory-sort-chips {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      #page-inventory .inventory-tools-collapsed .inventory-search-box,
+      #page-inventory .inventory-tools-collapsed .inventory-sort-chips {
+        display: none;
+      }
+      #inv-window-note {
+        font-size: 0.8rem;
+        margin-bottom: 10px !important;
+      }
+      .filter-chip-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .filter-chip {
+        width: 100%;
+        text-align: center;
+        padding: 8px 8px;
+        font-size: 0.74rem;
       }
       .helper-summary-value {
         font-size: 1.05rem;
@@ -1173,29 +2231,61 @@
       <div class="page-header">
         <div><h1>Dashboard</h1><p id="dashboard-subtitle">Your household system at a glance</p></div>
       </div>
+      <div id="demo-hero" class="demo-hero" style="display:none">
+        <div class="demo-hero-top">
+          <div style="display:grid;gap:10px">
+            <span class="demo-chip">Read-only Demo</span>
+            <div class="demo-hero-title">Peek inside a superhero household before you sign in.</div>
+            <div class="demo-hero-copy">
+              Explore grocery, restaurant, and expense tracking with playful sample data that makes the product easier to understand at a glance.
+            </div>
+          </div>
+          <div class="demo-hero-actions">
+            <button type="button" class="btn btn-primary" onclick="focusLogin()">Sign In</button>
+            <button type="button" class="btn btn-ghost" onclick="goToPage('shopping')">Shopping Demo</button>
+            <button type="button" class="btn btn-ghost" onclick="goToPage('restaurant')">Restaurant Demo</button>
+          </div>
+        </div>
+        <div class="demo-mini-grid">
+          <div class="demo-mini-card"><div class="demo-mini-label">Grocery</div><div class="demo-mini-value">Inventory, shopping, low stock</div></div>
+          <div class="demo-mini-card"><div class="demo-mini-label">Restaurant</div><div class="demo-mini-value">Dining receipts and repeat orders</div></div>
+          <div class="demo-mini-card"><div class="demo-mini-label">Expenses</div><div class="demo-mini-value">Services, gifts, fees, and budgets</div></div>
+        </div>
+        <div class="demo-readonly-note">Read-only demo. No real household data here. Sign in to upload or edit your own.</div>
+      </div>
       <div class="dashboard-top-grid">
         <div class="leaderboard-card">
-          <div class="leaderboard-title">Household Ranking</div>
-          <div id="dashboard-leaderboard" class="leaderboard-list">
+          <div class="leaderboard-header">
+            <div class="leaderboard-title">Household Ranking</div>
+            <div id="dashboard-leaderboard-preview" class="leaderboard-collapsed-preview"></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="dashboard-leaderboard-toggle" onclick="toggleLeaderboard()">Show</button>
+          </div>
+          <div id="dashboard-leaderboard" class="leaderboard-list" style="display:none">
             <div class="empty-state" style="padding:16px 8px"><p>No ranking data yet.</p></div>
           </div>
-          <div id="dashboard-leaderboard-footer" class="leaderboard-footer"></div>
+          <div id="dashboard-leaderboard-footer" class="leaderboard-footer" style="display:none"></div>
         </div>
       </div>
-      <div class="stats-grid" id="shopping-stats-row">
+      <div class="stats-grid dashboard-stats-grid" id="dashboard-stats-row">
         <div class="stat-card accent dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('products')" onkeydown="handleDashboardStatKey(event, 'products')"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
         <div class="stat-card success dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('inventory')" onkeydown="handleDashboardStatKey(event, 'inventory')"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
         <div class="stat-card warning dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('low-stock')" onkeydown="handleDashboardStatKey(event, 'low-stock')"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
         <div class="stat-card dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')"><div class="stat-label">Budget Used</div><div class="stat-value" id="stat-budget">—</div><div class="stat-sub" id="stat-budget-sub">this month</div></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-        <div class="card">
-          <div class="card-header"><span class="card-title">⚠️ Low Stock Alerts</span></div>
+      <div class="dashboard-alert-grid">
+        <div class="card" id="dash-low-stock-card">
+          <div class="card-header">
+            <span class="card-title">⚠️ Low Stock Alerts</span>
+            <button type="button" id="dash-low-stock-header-count" class="card-header-inline-stat" style="display:none" onclick="toggleDashboardSection('low-stock')" aria-label="Toggle low stock alerts">0</button>
+          </div>
           <div id="dash-low-stock"><div class="empty-state"><div class="icon">✅</div><p>All items well-stocked!</p></div></div>
         </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">💡 Top Recommendations</span></div>
+        <div class="card" id="dash-recs-card">
+          <div class="card-header">
+            <span class="card-title">💡 Top Recommendations</span>
+            <button type="button" id="dash-recs-header-count" class="card-header-inline-stat" style="display:none" onclick="toggleDashboardSection('recommendations')" aria-label="Toggle top recommendations">0</button>
+          </div>
           <div id="dash-recs"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div></div>
         </div>
       </div>
@@ -1217,9 +2307,10 @@
       <div id="catalog-mode-note" class="muted" style="margin-bottom:16px"></div>
 
       <div id="catalog-panel-inventory">
-        <div class="card">
+        <div class="card" id="inventory-add-card">
           <div class="card-header">
             <span class="card-title">Add Item</span>
+            <button type="button" class="btn btn-ghost btn-sm" id="inventory-add-toggle" onclick="toggleInventoryAddCard()">Hide</button>
           </div>
           <div class="form-grid" id="add-inv-form">
             <div class="form-group"><label>Product Name</label><input id="inv-name" placeholder="e.g. Organic Milk" /></div>
@@ -1230,24 +2321,21 @@
             <div class="form-group" id="inv-custom-loc-wrap" style="display:none"><label>Custom Location</label><input id="inv-custom-loc" placeholder="e.g. Garage Shelf" /></div>
             <div class="form-group"><label>Low-Stock Threshold</label><input id="inv-thresh" type="number" min="0" step="0.1" value="1" /></div>
           </div>
-          <div style="margin-top:16px">
+          <div class="inventory-add-actions" style="margin-top:16px">
             <button class="btn btn-primary" onclick="addInventoryItem()">➕ Add to Inventory</button>
           </div>
         </div>
         <div class="card">
           <div class="card-header">
             <span class="card-title">Current Inventory</span>
-            <div class="table-toolbar">
-              <input id="inv-search" placeholder="🔍 Search inventory…" style="width:220px" oninput="searchInventory()" />
-              <label for="inv-sort">Sort</label>
-              <select id="inv-sort" onchange="setInventorySort(this.value)">
-                <option value="name_asc" selected>Name A-Z</option>
-                <option value="qty_desc">Qty high-low</option>
-                <option value="qty_asc">Qty low-high</option>
-                <option value="location_asc">Location</option>
-                <option value="low_first">Low first</option>
-              </select>
-              <button class="btn btn-ghost btn-sm" onclick="loadInventory()">🔄 Refresh</button>
+            <div class="inventory-header-tools" id="inventory-header-tools">
+              <button type="button" class="btn btn-ghost btn-sm" id="inventory-tools-toggle" onclick="toggleInventoryTools()">🔍</button>
+              <input id="inv-search" class="inventory-search-box" placeholder="Search inventory…" oninput="searchInventory()" />
+              <div class="inventory-sort-chips">
+                <button type="button" class="inventory-sort-chip" id="inventory-sort-name-asc" onclick="setInventorySort('name_asc')" aria-label="Sort inventory A to Z">A</button>
+                <button type="button" class="inventory-sort-chip" id="inventory-sort-name-desc" onclick="setInventorySort('name_desc')" aria-label="Sort inventory Z to A">Z</button>
+                <button type="button" class="inventory-sort-chip" id="inventory-sort-price" onclick="toggleInventoryPriceSort()" aria-label="Sort inventory by price">$</button>
+              </div>
             </div>
           </div>
           <div id="inv-window-note" class="muted" style="margin-bottom:12px"></div>
@@ -1406,12 +2494,29 @@
     </div>
 
     <div class="page" id="page-shopping">
-      <div class="page-header"><h1>Shopping List</h1><p>Track what you plan to buy next</p></div>
+      <div class="page-header">
+        <div class="shopping-page-head">
+          <div>
+            <h1>Shopping List</h1>
+            <p>Track what you plan to buy next</p>
+          </div>
+          <div class="shopping-page-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="shopping-quick-header-toggle" onclick="toggleShoppingSection('quick-find')" aria-label="Toggle Quick Find">🔍</button>
+            <button type="button" class="btn btn-ghost btn-sm shopping-header-chip" id="shopping-recommendations-toggle" onclick="toggleShoppingSection('recommendations')" aria-label="Toggle shopping recommendations"><span>✨</span><span class="shopping-header-chip-count">0</span></button>
+          </div>
+        </div>
+      </div>
       <div id="shopping-helper-intro"></div>
-      <div class="stats-grid" id="shopping-stats-row">
-        <div class="stat-card accent"><div class="stat-label">Open Items</div><div class="stat-value" id="shop-open-count-main">0</div><div class="stat-sub">still to buy</div></div>
-        <div class="stat-card success"><div class="stat-label">Purchased</div><div class="stat-value" id="shop-purchased-count-main">0</div><div class="stat-sub">already checked off</div></div>
-        <div class="stat-card"><div class="stat-label">Estimated Cost</div><div class="stat-value" id="shop-estimated-total-main">$0.00</div><div class="stat-sub">based on latest known prices</div></div>
+      <div class="shopping-summary-strip" id="shopping-stats-row">
+        <div class="shopping-summary-pill shopping-summary-pill-open">
+          <div class="value accent">Open <span id="shop-open-count-main">0</span></div>
+        </div>
+        <div class="shopping-summary-pill shopping-summary-pill-estimated">
+          <div class="value">Estimate <span id="shop-estimated-total-main">$0.00</span></div>
+        </div>
+        <div class="shopping-summary-pill shopping-summary-pill-purchased">
+          <div class="value success">Close <span id="shop-purchased-count-main">0</span></div>
+        </div>
       </div>
       <div class="card" id="shop-manual-card" style="display:none">
         <div class="card-header">
@@ -1430,10 +2535,10 @@
       <div class="card" id="shopping-quick-find-card">
         <div class="card-header">
           <span class="card-title">Quick Find</span>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="shopping-quick-toolbar">
             <button type="button" class="btn btn-ghost btn-sm" id="shopping-quick-toggle" onclick="toggleShoppingSection('quick-find')">Collapse</button>
-            <input id="shop-quick-search" placeholder="Find products to add..." style="width:260px" oninput="searchShoppingQuickFind()" />
-            <select id="shop-preferred-store" style="min-width:190px"></select>
+            <input id="shop-quick-search" class="shopping-quick-search" placeholder="Find products to add..." onfocus="handleShoppingQuickFindFocus()" onblur="handleShoppingQuickFindBlur()" oninput="searchShoppingQuickFind()" onkeydown="handleShoppingQuickFindKey(event)" />
+            <select id="shop-preferred-store" class="shopping-quick-store"></select>
             <button type="button" class="btn btn-ghost btn-sm" id="shop-manual-toggle" onclick="toggleManualShoppingForm()">Manual Item</button>
           </div>
         </div>
@@ -1441,57 +2546,25 @@
           <div id="shop-quick-results"><div class="empty-state"><p>Search for a product to add, mark low, or mark bought.</p></div></div>
         </div>
       </div>
-      <div class="card" id="shopping-store-stops-card">
-        <div class="card-header">
-          <span class="card-title">Estimated Store Stops</span>
-          <div class="table-toolbar">
-            <label for="shop-sort">Sort</label>
-            <select id="shop-sort" onchange="setShoppingSort(this.value)">
-              <option value="store_name_asc" selected>Store + name</option>
-              <option value="name_asc">Name A-Z</option>
-              <option value="category_asc">Category</option>
-              <option value="price_desc">Highest estimate</option>
-              <option value="qty_desc">Qty high-low</option>
-            </select>
-            <button type="button" class="btn btn-ghost btn-sm" id="shopping-store-stops-toggle" onclick="toggleShoppingSection('store-stops')">Collapse</button>
-          </div>
-        </div>
-        <div id="shopping-store-stops-body">
-          <div id="shop-store-summary"><div class="empty-state"><p>No store estimate yet.</p></div></div>
-        </div>
-      </div>
       <div class="card" id="shopping-recommendations-card">
-        <div class="card-header">
-          <span class="card-title">Recommendations</span>
-          <div style="display:flex;gap:8px">
-            <button type="button" class="btn btn-ghost btn-sm" id="shopping-recommendations-toggle" onclick="toggleShoppingSection('recommendations')">Collapse</button>
+        <div id="shopping-recommendations-body">
+          <div class="shopping-recs-body-head">
             <button type="button" class="btn btn-ghost btn-sm" onclick="loadRecs('shopping-recs-body')">🔄 Refresh</button>
           </div>
-        </div>
-        <div id="shopping-recommendations-body">
           <div id="shopping-recs-body"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div></div>
         </div>
       </div>
       <div class="card" id="shopping-current-list-card">
         <div class="card-header">
-          <span class="card-title">Current List</span>
-          <div class="table-toolbar" id="shopping-current-list-controls">
-            <button type="button" class="btn btn-ghost btn-sm" id="shopping-current-list-toggle" onclick="toggleShoppingSection('current-list')">Collapse</button>
-            <input id="shop-search" placeholder="Search current shopping list..." style="width:220px" oninput="searchShoppingList()" />
-            <select id="shop-status-filter" onchange="loadShoppingList()">
-              <option value="" selected>All</option>
-              <option value="open">Open</option>
-              <option value="purchased">Purchased</option>
-            </select>
-            <label for="shop-sort-main">Sort</label>
-            <select id="shop-sort-main" onchange="setShoppingSort(this.value)">
-              <option value="store_name_asc" selected>Store + name</option>
-              <option value="name_asc">Name A-Z</option>
-              <option value="category_asc">Category</option>
-              <option value="price_desc">Highest estimate</option>
-              <option value="qty_desc">Qty high-low</option>
-            </select>
-            <button class="btn btn-ghost btn-sm" onclick="loadShoppingList()">🔄 Refresh</button>
+          <button type="button" class="shopping-current-title-btn" id="shopping-current-list-toggle" onclick="toggleShoppingSection('current-list')" aria-label="Toggle current list">Current List</button>
+          <div class="shopping-current-head-actions">
+            <button type="button" class="shopping-sort-chip" id="shopping-sort-name-asc" onclick="setShoppingSort('name_asc')" aria-label="Sort current list A to Z">A</button>
+            <button type="button" class="shopping-sort-chip" id="shopping-sort-name-desc" onclick="setShoppingSort('name_desc')" aria-label="Sort current list Z to A">Z</button>
+            <button type="button" class="shopping-sort-chip" id="shopping-sort-price" onclick="toggleShoppingPriceSort()" aria-label="Sort current list by estimate">$</button>
+          </div>
+          <div class="shopping-current-toolbar" id="shopping-current-list-controls">
+            <div class="toolbar-primary"></div>
+            <div class="toolbar-secondary"></div>
           </div>
         </div>
         <div id="shopping-current-list-body" class="table-wrap"><div id="shopping-table-body"></div></div>
@@ -1788,6 +2861,19 @@
       </div>
     </div>
   </div>
+  <div id="input-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="input-title">
+      <div id="input-title" class="confirm-title">Update value</div>
+      <div id="input-body" class="confirm-body">Enter a new value.</div>
+      <div style="margin-top:14px">
+        <input id="input-modal-field" type="text" style="width:100%" />
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="input-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="input-ok" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
   <div id="secret-qr-overlay" class="confirm-overlay" aria-hidden="true"></div>
 
 <script>
@@ -1828,7 +2914,7 @@ let inventoryCategoryFilters = new Set();
 let productCategoryFilters = new Set();
 let inventorySort = 'name_asc';
 let productSort = 'name_asc';
-let shoppingSort = 'store_name_asc';
+let shoppingSort = 'name_asc';
 let receiptSort = 'date_desc';
 let receiptStoreSort = 'count_desc';
 let analyticsSort = 'period_desc';
@@ -1838,15 +2924,62 @@ let shoppingSearchQuery = '';
 let shoppingQuickQuery = '';
 let shoppingListCache = [];
 let shoppingQuickResults = [];
+let shoppingQuickSuggestions = [];
+let shoppingQuickFocused = false;
 let shoppingManualVisible = false;
 let shoppingStoreOptions = [];
-let shoppingSectionCollapsed = (() => {
+let leaderboardCollapsed = (() => {
   try {
-    return JSON.parse(localStorage.getItem('shopping_section_collapsed') || '{}') || {};
+    const stored = localStorage.getItem('dashboard_leaderboard_collapsed');
+    return stored === null ? true : stored === 'true';
+  } catch (_error) {
+    return true;
+  }
+})();
+let dashboardSectionCollapsed = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('dashboard_section_collapsed') || '{}') || {};
   } catch (_error) {
     return {};
   }
 })();
+let shoppingSectionCollapsed = (() => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('shopping_section_collapsed') || '{}') || {};
+    if (stored['quick-find'] === undefined) {
+      stored['quick-find'] = true;
+    }
+    return stored;
+  } catch (_error) {
+    return { 'quick-find': true };
+  }
+})();
+let shoppingStoreGroupCollapsed = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('shopping_store_group_collapsed') || '{}') || {};
+  } catch (_error) {
+    return {};
+  }
+})();
+let shoppingMobileItemExpanded = {};
+let inventoryMobileItemExpanded = {};
+let inventoryAddCollapsed = (() => {
+  try {
+    const stored = localStorage.getItem('inventory_add_collapsed');
+    return stored == null ? true : stored === 'true';
+  } catch (_error) {
+    return true;
+  }
+})();
+let inventoryToolsCollapsed = (() => {
+  try {
+    const stored = localStorage.getItem('inventory_tools_collapsed');
+    return stored == null ? true : stored === 'true';
+  } catch (_error) {
+    return true;
+  }
+})();
+const PAGE_STORAGE_KEY = 'extended_last_page';
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
 let selectedRestaurantReceiptId = null;
@@ -1860,7 +2993,107 @@ let contributionDetailOverlayOpen = false;
 let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
+let recommendationHoldTimer = null;
+let authCheckComplete = false;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
+const DEMO_MONTH = '2026-04';
+const DEMO_USERS = [
+  { id: 101, name: 'Iron Man', avatar_emoji: '🦾', receipts_processed: 18, ocr_corrections: 5, score: 132, rank: 1 },
+  { id: 102, name: 'Spider-Man', avatar_emoji: '🕷️', receipts_processed: 15, ocr_corrections: 4, score: 119, rank: 2 },
+  { id: 103, name: 'Thor', avatar_emoji: '⚡', receipts_processed: 11, ocr_corrections: 3, score: 88, rank: 3 },
+  { id: 104, name: 'Hulk', avatar_emoji: '💚', receipts_processed: 7, ocr_corrections: 2, score: 54, rank: 4 },
+];
+const DEMO_PRODUCTS = [
+  { id: 11, name: 'Spider Smoothie Packs', category: 'frozen', brand: 'Web Fuel', size: '8 pack', latest_price: { price: 7.49, store: 'Fresh Market' }, last_purchase_date: '2026-04-01', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9101, store: 'Fresh Market', date: '2026-04-01', total: 58.14 }] },
+  { id: 12, name: 'Iron Spark Water', category: 'beverages', brand: 'Stark Reserve', size: '24 cans', latest_price: { price: 9.99, store: 'Warehouse Club' }, last_purchase_date: '2026-04-02', manual_low: true, is_low: true, recent_receipts: [{ receipt_id: 9102, store: 'Warehouse Club', date: '2026-04-02', total: 92.76 }] },
+  { id: 13, name: 'Thor Thunder Muffins', category: 'bakery', brand: 'Asgard Oven', size: '6 ct', latest_price: { price: 5.89, store: 'Fresh Market' }, last_purchase_date: '2026-03-31', manual_low: false, is_low: true, recent_receipts: [{ receipt_id: 9103, store: 'Fresh Market', date: '2026-03-31', total: 31.85 }] },
+  { id: 14, name: 'Hulk Power Dumplings', category: 'frozen', brand: 'Gamma Kitchen', size: '32 oz', latest_price: { price: 11.49, store: 'Warehouse Club' }, last_purchase_date: '2026-03-29', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9102, store: 'Warehouse Club', date: '2026-04-02', total: 92.76 }] },
+  { id: 15, name: 'Avengers Cleanup Towels', category: 'household', brand: 'Tower Supply', size: '8 rolls', latest_price: { price: 13.29, store: 'Target' }, last_purchase_date: '2026-03-27', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9104, store: 'Target', date: '2026-03-27', total: 44.63 }] },
+  { id: 16, name: 'Captain Morning Roast', category: 'beverages', brand: 'Shield Beans', size: '2 lb', latest_price: { price: 16.79, store: 'Fresh Market' }, last_purchase_date: '2026-03-26', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9105, store: 'Fresh Market', date: '2026-03-26', total: 36.22 }] },
+];
+const DEMO_INVENTORY = [
+  { product_id: 12, product_name: 'Iron Spark Water', category: 'beverages', quantity: 1, threshold: 2, is_low: true, manual_low: true, location: 'Pantry', brand: 'Stark Reserve', size: '24 cans', latest_price: { price: 9.99, store: 'Warehouse Club' }, recent_receipts: [{ receipt_id: 9102, store: 'Warehouse Club', date: '2026-04-02', total: 92.76 }] },
+  { product_id: 13, product_name: 'Thor Thunder Muffins', category: 'bakery', quantity: 1, threshold: 2, is_low: true, manual_low: false, location: 'Counter', brand: 'Asgard Oven', size: '6 ct', latest_price: { price: 5.89, store: 'Fresh Market' }, recent_receipts: [{ receipt_id: 9103, store: 'Fresh Market', date: '2026-03-31', total: 31.85 }] },
+  { product_id: 14, product_name: 'Hulk Power Dumplings', category: 'frozen', quantity: 2, threshold: 1, is_low: false, manual_low: false, location: 'Freezer', brand: 'Gamma Kitchen', size: '32 oz', latest_price: { price: 11.49, store: 'Warehouse Club' }, recent_receipts: [{ receipt_id: 9102, store: 'Warehouse Club', date: '2026-04-02', total: 92.76 }] },
+  { product_id: 15, product_name: 'Avengers Cleanup Towels', category: 'household', quantity: 1, threshold: 1, is_low: false, manual_low: false, location: 'Closet', brand: 'Tower Supply', size: '8 rolls', latest_price: { price: 13.29, store: 'Target' }, recent_receipts: [{ receipt_id: 9104, store: 'Target', date: '2026-03-27', total: 44.63 }] },
+  { product_id: 16, product_name: 'Captain Morning Roast', category: 'beverages', quantity: 1, threshold: 1, is_low: false, manual_low: false, location: 'Pantry', brand: 'Shield Beans', size: '2 lb', latest_price: { price: 16.79, store: 'Fresh Market' }, recent_receipts: [{ receipt_id: 9105, store: 'Fresh Market', date: '2026-03-26', total: 36.22 }] },
+];
+const DEMO_SHOPPING_ITEMS = [
+  { id: 401, product_id: 12, name: 'Iron Spark Water', category: 'beverages', quantity: 1, source: 'recommendation', note: 'Tony is down to the last can.', preferred_store: 'Warehouse Club', effective_store: 'Warehouse Club', status: 'open', latest_price: { price: 9.99, store: 'Warehouse Club' } },
+  { id: 402, product_id: 13, name: 'Thor Thunder Muffins', category: 'bakery', quantity: 2, source: 'inventory', note: 'Thor requested a fresh breakfast batch.', preferred_store: 'Fresh Market', effective_store: 'Fresh Market', status: 'open', latest_price: { price: 5.89, store: 'Fresh Market' } },
+  { id: 403, product_id: null, name: 'Birthday gift wrap', category: 'gift', quantity: 1, source: 'manual', note: 'For Saturday party bag.', preferred_store: 'Target', effective_store: 'Target', status: 'purchased', latest_price: { price: 6.49, store: 'Target' } },
+];
+const DEMO_RECEIPTS = [
+  { id: 9101, purchase_id: 9101, store: 'Fresh Market', source: 'upload', status: 'processed', date: '2026-04-01', total: 58.14, confidence: 0.98, ocr_engine: 'gemini', receipt_type: 'grocery', created_at: '2026-04-01T18:12:00', file_type: 'pdf', image_url: null, items: [
+    { product_id: 11, product_name: 'Spider Smoothie Packs', quantity: 1, unit_price: 7.49, category: 'frozen', extracted_by: 'gemini' },
+    { product_id: 13, product_name: 'Thor Thunder Muffins', quantity: 1, unit_price: 5.89, category: 'bakery', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Fresh Market', date: '2026-04-01', subtotal: 53.11, tax: 5.03, tip: 0, total: 58.14, items: [
+    { name: 'Spider Smoothie Packs', quantity: 1, unit_price: 7.49, category: 'frozen' },
+    { name: 'Thor Thunder Muffins', quantity: 1, unit_price: 5.89, category: 'bakery' },
+  ] } },
+  { id: 9102, purchase_id: 9102, store: 'Warehouse Club', source: 'upload', status: 'processed', date: '2026-04-02', total: 92.76, confidence: 0.99, ocr_engine: 'gemini', receipt_type: 'grocery', created_at: '2026-04-02T12:40:00', file_type: 'pdf', image_url: null, items: [
+    { product_id: 12, product_name: 'Iron Spark Water', quantity: 1, unit_price: 9.99, category: 'beverages', extracted_by: 'gemini' },
+    { product_id: 14, product_name: 'Hulk Power Dumplings', quantity: 1, unit_price: 11.49, category: 'frozen', extracted_by: 'gemini' },
+    { product_id: 15, product_name: 'Avengers Cleanup Towels', quantity: 1, unit_price: 13.29, category: 'household', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Warehouse Club', date: '2026-04-02', subtotal: 85.92, tax: 6.84, tip: 0, total: 92.76, items: [
+    { name: 'Iron Spark Water', quantity: 1, unit_price: 9.99, category: 'beverages' },
+    { name: 'Hulk Power Dumplings', quantity: 1, unit_price: 11.49, category: 'frozen' },
+    { name: 'Avengers Cleanup Towels', quantity: 1, unit_price: 13.29, category: 'household' },
+  ] } },
+  { id: 9201, purchase_id: 9201, store: 'Harbor Noodle Bar', source: 'upload', status: 'processed', date: '2026-03-30', total: 61.28, confidence: 0.95, ocr_engine: 'gemini', receipt_type: 'restaurant', created_at: '2026-03-30T19:16:00', file_type: 'jpg', image_url: null, items: [
+    { product_name: 'Spicy Garlic Ramen', quantity: 2, unit_price: 14.95, category: 'restaurant', extracted_by: 'gemini' },
+    { product_name: 'Crispy Tofu Bites', quantity: 1, unit_price: 9.50, category: 'restaurant', extracted_by: 'gemini' },
+    { product_name: 'Yuzu Soda', quantity: 2, unit_price: 4.25, category: 'restaurant', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Harbor Noodle Bar', store_location: 'Demo District', date: '2026-03-30', time: '7:16 PM', subtotal: 56.45, tax: 4.83, tip: 0, total: 61.28, items: [
+    { name: 'Spicy Garlic Ramen', quantity: 2, unit_price: 14.95, category: 'restaurant' },
+    { name: 'Crispy Tofu Bites', quantity: 1, unit_price: 9.50, category: 'restaurant' },
+    { name: 'Yuzu Soda', quantity: 2, unit_price: 4.25, category: 'restaurant' },
+  ] } },
+  { id: 9301, purchase_id: 9301, store: 'Bright Studio', source: 'upload', status: 'processed', date: '2026-03-29', total: 48.60, confidence: 0.93, ocr_engine: 'gemini', receipt_type: 'general_expense', created_at: '2026-03-29T15:10:00', file_type: 'jpg', image_url: null, items: [
+    { product_name: 'Haircut', quantity: 1, unit_price: 34.00, category: 'service', extracted_by: 'gemini' },
+    { product_name: 'Styling Product', quantity: 1, unit_price: 11.00, category: 'beauty', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Bright Studio', date: '2026-03-29', subtotal: 45.00, tax: 3.60, tip: 0, total: 48.60, items: [
+    { name: 'Haircut', quantity: 1, unit_price: 34.00, category: 'service' },
+    { name: 'Styling Product', quantity: 1, unit_price: 11.00, category: 'beauty' },
+  ] } },
+];
+const DEMO_CONTRIBUTION_SUMMARY = {
+  totals: { total_score: 132, receipts_processed: 18, ocr_fixes: 5, bonus_points: 42, floating_points: 4 },
+  recent_events: [
+    { description: 'Validated low-stock call for Iron Spark Water', points: 6, status: 'finalized', event_type: 'inventory', created_at: '2026-04-02T09:14:00' },
+    { description: 'Corrected "Thdr Muff" to "Thor Thunder Muffins"', points: 15, status: 'finalized', event_type: 'ocr_cleanup', created_at: '2026-04-01T20:02:00' },
+    { description: 'Confirmed recommendation for Iron Spark Water', points: 2, status: 'floating', event_type: 'shopping', created_at: '2026-04-01T18:22:00' },
+  ],
+  score_rules: [
+    { title: 'Receipts processed', description: 'Each correctly processed receipt helps the household remember spending and stock.', points_label: '+5 each' },
+    { title: 'Meaningful cleanup', description: 'Correcting OCR names, categories, and locations makes future search and shopping better.', points_label: '+2 to +20' },
+    { title: 'Validated teamwork', description: 'Low-stock calls and shopping confirmations score more when later validated.', points_label: 'pending -> validated' },
+  ],
+  fairness_notes: [
+    { title: 'No-op edits do not score', description: 'Changes like milk -> MILK or repeated toggles are ignored.' },
+    { title: 'Some points float first', description: 'Recommendation and low-stock collaboration only lock after a real downstream confirmation.' },
+  ],
+  opportunities: [
+    { title: 'Review 3 OCR names', description: 'Help turn unclear receipt text into shopping-friendly product names.', count_label: '+15 each', action_label: 'Open Receipts' },
+    { title: 'Assign store preference to 2 shopping items', description: 'Routing items to a store makes the shopping trip clearer.', count_label: '+2 each', action_label: 'Open Shopping' },
+  ],
+};
+const DEMO_CONTRIBUTION_DETAILS = {
+  101: { user: DEMO_USERS[0], summary: { total_score: 132, receipts_processed: 18, ocr_fixes: 5, bonus_points: 42, floating_points: 4 }, categories: { receipts: 90, ocr_cleanup: 25, system_help: 17, floating: 4 }, recent_events: DEMO_CONTRIBUTION_SUMMARY.recent_events },
+  102: { user: DEMO_USERS[1], summary: { total_score: 119, receipts_processed: 15, ocr_fixes: 4, bonus_points: 24, floating_points: 2 }, categories: { receipts: 75, ocr_cleanup: 20, system_help: 22, floating: 2 }, recent_events: [{ description: 'Set pantry location for Avengers Cleanup Towels', points: 2, status: 'finalized', event_type: 'inventory', created_at: '2026-04-02T11:08:00' }] },
+  103: { user: DEMO_USERS[2], summary: { total_score: 88, receipts_processed: 11, ocr_fixes: 3, bonus_points: 18, floating_points: 0 }, categories: { receipts: 55, ocr_cleanup: 15, system_help: 18, floating: 0 }, recent_events: [{ description: 'Merged duplicate Iron Spark Water entries', points: 18, status: 'finalized', event_type: 'ocr_cleanup', created_at: '2026-03-31T18:44:00' }] },
+  104: { user: DEMO_USERS[3], summary: { total_score: 54, receipts_processed: 7, ocr_fixes: 2, bonus_points: 9, floating_points: 0 }, categories: { receipts: 35, ocr_cleanup: 10, system_help: 9, floating: 0 }, recent_events: [{ description: 'Marked Thor Thunder Muffins low', points: 3, status: 'validated', event_type: 'inventory', created_at: '2026-03-30T08:12:00' }] },
+};
+const DEMO_BUDGETS = {
+  grocery: { month: DEMO_MONTH, budget_amount: 720, spent: 438.55, remaining: 281.45, percentage: 61, purchase_count: 12, alert_triggered: false, domain: 'grocery' },
+  restaurant: { month: DEMO_MONTH, budget_amount: 180, spent: 61.28, remaining: 118.72, percentage: 34, purchase_count: 1, alert_triggered: false, domain: 'restaurant' },
+  general_expense: { month: DEMO_MONTH, budget_amount: 220, spent: 48.60, remaining: 171.40, percentage: 22, purchase_count: 1, alert_triggered: false, domain: 'general_expense' },
+};
+const DEMO_GUEST_STATS = { receipts_today: 3, receipts_month: 18, receipts_processed: 18, ocr_corrections: 5, ocr_corrections_month: 3, score: 132 };
+
+function isDemoMode() {
+  return authCheckComplete && !currentUser && !SHOPPING_HELPER_MODE;
+}
 
 function formatAppName(name) {
   return String(name || 'LocalOCR Extended').replace(/^LocalOCR\s*/i, '').trim() || 'Extended';
@@ -1937,9 +3170,42 @@ function compareDateValue(a, b, direction = 'asc') {
   return direction === 'desc' ? right - left : left - right;
 }
 
+function simplifyShoppingDisplayName(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return 'Unknown Item';
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\d./]+/g, ' ')
+    .replace(/\b(organic|org|fresh|large|small|medium|extra|pink|lady|red|green|yellow|whole|baby|mini|seedless|boneless|skinless|count|ct|dozen|pack|packs|pk|case|lb|lbs|oz|gal|qt|pt|ml|l|liter|liters|roll|rolls|cup|cups|bottle|bottles|can|cans|jar|jars|box|boxes|bag|bags|tray|trays|ks|amul)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tokens = normalized.match(/[a-z]+/g) || [];
+  const family = tokens[tokens.length - 1] || raw;
+  return family.charAt(0).toUpperCase() + family.slice(1);
+}
+
+function simplifyInventoryDisplayName(name) {
+  return simplifyShoppingDisplayName(name);
+}
+
 function setInventorySort(value) {
   inventorySort = value || 'name_asc';
+  updateInventorySortControls();
   loadInventory();
+}
+
+function toggleInventoryPriceSort() {
+  inventorySort = inventorySort === 'price_desc' ? 'price_asc' : 'price_desc';
+  updateInventorySortControls();
+  loadInventory();
+}
+
+function updateInventorySortControls() {
+  document.getElementById('inventory-sort-name-asc')?.classList.toggle('active', inventorySort === 'name_asc');
+  document.getElementById('inventory-sort-name-desc')?.classList.toggle('active', inventorySort === 'name_desc');
+  document.getElementById('inventory-sort-price')?.classList.toggle('active', inventorySort === 'price_desc' || inventorySort === 'price_asc');
+  const priceChip = document.getElementById('inventory-sort-price');
+  if (priceChip) priceChip.textContent = inventorySort === 'price_asc' ? '$↑' : '$';
 }
 
 function setProductSort(value) {
@@ -1948,8 +3214,23 @@ function setProductSort(value) {
 }
 
 function setShoppingSort(value) {
-  shoppingSort = value || 'store_name_asc';
+  shoppingSort = value || 'name_asc';
+  updateShoppingSortControls();
   renderShoppingListTable();
+}
+
+function toggleShoppingPriceSort() {
+  shoppingSort = shoppingSort === 'price_desc' ? 'price_asc' : 'price_desc';
+  updateShoppingSortControls();
+  renderShoppingListTable();
+}
+
+function updateShoppingSortControls() {
+  document.getElementById('shopping-sort-name-asc')?.classList.toggle('active', shoppingSort === 'name_asc');
+  document.getElementById('shopping-sort-name-desc')?.classList.toggle('active', shoppingSort === 'name_desc');
+  document.getElementById('shopping-sort-price')?.classList.toggle('active', shoppingSort === 'price_desc' || shoppingSort === 'price_asc');
+  const priceChip = document.getElementById('shopping-sort-price');
+  if (priceChip) priceChip.textContent = shoppingSort === 'price_asc' ? '$↑' : '$';
 }
 
 function setReceiptSort(value) {
@@ -1994,7 +3275,6 @@ function applyShoppingHelperMode() {
   const statsRow = document.getElementById('shopping-stats-row');
   if (statsRow) statsRow.remove();
   document.getElementById('shopping-quick-find-card')?.style.setProperty('display', 'none');
-  document.getElementById('shopping-store-stops-card')?.style.setProperty('display', 'none');
   document.getElementById('shopping-recommendations-card')?.style.setProperty('display', 'none');
   document.getElementById('shopping-current-list-controls')?.style.setProperty('display', 'none');
   const statusFilter = document.getElementById('shop-status-filter');
@@ -2084,6 +3364,20 @@ function goToPage(page) {
   nav(page, navItem || null);
 }
 
+function normalizeStoredPage(page) {
+  const allowed = new Set(['dashboard', 'inventory', 'products', 'receipts', 'shopping', 'restaurant', 'expenses', 'budget', 'analytics', 'contributions', 'settings']);
+  return allowed.has(page) ? page : 'dashboard';
+}
+
+function saveLastPage(page) {
+  if (SHOPPING_HELPER_MODE) return;
+  localStorage.setItem(PAGE_STORAGE_KEY, normalizeStoredPage(page));
+}
+
+function getLastPage() {
+  return normalizeStoredPage(localStorage.getItem(PAGE_STORAGE_KEY) || 'dashboard');
+}
+
 function contributionStatusLabel(status) {
   if (!status) return 'Finalized';
   if (String(status).toLowerCase() === 'floating') return 'Floating';
@@ -2097,25 +3391,48 @@ function isShoppingSectionCollapsed(sectionKey) {
 function updateShoppingSectionVisibility(sectionKey) {
   const bodyMap = {
     'quick-find': 'shopping-quick-find-body',
-    'store-stops': 'shopping-store-stops-body',
     'recommendations': 'shopping-recommendations-body',
     'current-list': 'shopping-current-list-body',
   };
   const toggleMap = {
     'quick-find': 'shopping-quick-toggle',
-    'store-stops': 'shopping-store-stops-toggle',
     'recommendations': 'shopping-recommendations-toggle',
     'current-list': 'shopping-current-list-toggle',
+  };
+  const headerToggleMap = {
+    'quick-find': 'shopping-quick-header-toggle',
+    'recommendations': 'shopping-recommendations-toggle',
+  };
+  const cardMap = {
+    'quick-find': 'shopping-quick-find-card',
+    'recommendations': 'shopping-recommendations-card',
+    'current-list': 'shopping-current-list-card',
   };
   const collapsed = isShoppingSectionCollapsed(sectionKey);
   const body = document.getElementById(bodyMap[sectionKey]);
   const toggle = document.getElementById(toggleMap[sectionKey]);
+  const headerToggle = document.getElementById(headerToggleMap[sectionKey]);
+  const card = document.getElementById(cardMap[sectionKey]);
   if (body) body.style.display = collapsed ? 'none' : '';
-  if (toggle) toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+  if (card) card.classList.toggle('shopping-section-collapsed', collapsed);
+  if (card && sectionKey === 'recommendations') {
+    card.style.display = collapsed ? 'none' : '';
+  }
+  if (toggle && sectionKey !== 'recommendations') toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+  if (headerToggle && sectionKey === 'quick-find') {
+    headerToggle.setAttribute('aria-label', collapsed ? 'Show Quick Find' : 'Hide Quick Find');
+    headerToggle.classList.toggle('btn-primary', !collapsed);
+    headerToggle.classList.toggle('btn-ghost', collapsed);
+  }
+  if (headerToggle && sectionKey === 'recommendations') {
+    headerToggle.setAttribute('aria-label', collapsed ? 'Show shopping recommendations' : 'Hide shopping recommendations');
+    headerToggle.classList.toggle('btn-primary', !collapsed);
+    headerToggle.classList.toggle('btn-ghost', collapsed);
+  }
 }
 
 function updateAllShoppingSectionVisibility() {
-  ['quick-find', 'store-stops', 'recommendations', 'current-list'].forEach(updateShoppingSectionVisibility);
+  ['quick-find', 'recommendations', 'current-list'].forEach(updateShoppingSectionVisibility);
 }
 
 function toggleShoppingSection(sectionKey, forceCollapsed = null) {
@@ -2125,8 +3442,72 @@ function toggleShoppingSection(sectionKey, forceCollapsed = null) {
   shoppingSectionCollapsed[sectionKey] = collapsed;
   localStorage.setItem('shopping_section_collapsed', JSON.stringify(shoppingSectionCollapsed));
   updateShoppingSectionVisibility(sectionKey);
+  if (sectionKey === 'quick-find' && !collapsed) {
+    setTimeout(() => document.getElementById('shop-quick-search')?.focus(), 30);
+  }
   if (sectionKey === 'recommendations' && !collapsed) {
     loadRecs('shopping-recs-body');
+  }
+}
+
+function shoppingStoreGroupKey(sectionKey, storeName) {
+  return `${sectionKey || 'current'}::${storeName || 'Unassigned'}`;
+}
+
+function isShoppingStoreGroupCollapsed(sectionKey, storeName) {
+  return Boolean(shoppingStoreGroupCollapsed?.[shoppingStoreGroupKey(sectionKey, storeName)]);
+}
+
+function toggleShoppingStoreGroup(sectionKey, storeName) {
+  const key = shoppingStoreGroupKey(sectionKey, storeName);
+  shoppingStoreGroupCollapsed[key] = !shoppingStoreGroupCollapsed[key];
+  localStorage.setItem('shopping_store_group_collapsed', JSON.stringify(shoppingStoreGroupCollapsed));
+  renderShoppingListTable();
+}
+
+function toggleShoppingMobileItem(itemId) {
+  shoppingMobileItemExpanded[itemId] = !shoppingMobileItemExpanded[itemId];
+  renderShoppingListTable();
+}
+
+function toggleInventoryMobileItem(itemId) {
+  inventoryMobileItemExpanded[itemId] = !inventoryMobileItemExpanded[itemId];
+  loadInventory();
+}
+
+function updateInventoryAddCardVisibility() {
+  const card = document.getElementById('inventory-add-card');
+  const toggle = document.getElementById('inventory-add-toggle');
+  if (!card || !toggle) return;
+  const collapsed = window.innerWidth <= 640 ? inventoryAddCollapsed : false;
+  card.classList.toggle('inventory-add-open', !collapsed);
+  toggle.textContent = collapsed ? 'Expand' : 'Hide';
+  toggle.setAttribute('aria-label', collapsed ? 'Show add inventory form' : 'Hide add inventory form');
+}
+
+function toggleInventoryAddCard() {
+  inventoryAddCollapsed = !inventoryAddCollapsed;
+  localStorage.setItem('inventory_add_collapsed', String(inventoryAddCollapsed));
+  updateInventoryAddCardVisibility();
+}
+
+function updateInventoryToolsVisibility() {
+  const tools = document.getElementById('inventory-header-tools');
+  const toggle = document.getElementById('inventory-tools-toggle');
+  if (!tools || !toggle) return;
+  const collapsed = window.innerWidth <= 640 ? inventoryToolsCollapsed : false;
+  tools.classList.toggle('inventory-tools-collapsed', collapsed);
+  toggle.classList.toggle('btn-primary', !collapsed);
+  toggle.classList.toggle('btn-ghost', collapsed);
+  toggle.setAttribute('aria-label', collapsed ? 'Show inventory search and sort tools' : 'Hide inventory search and sort tools');
+}
+
+function toggleInventoryTools() {
+  inventoryToolsCollapsed = !inventoryToolsCollapsed;
+  localStorage.setItem('inventory_tools_collapsed', String(inventoryToolsCollapsed));
+  updateInventoryToolsVisibility();
+  if (!inventoryToolsCollapsed) {
+    setTimeout(() => document.getElementById('inv-search')?.focus(), 30);
   }
 }
 
@@ -2237,6 +3618,19 @@ function cancelSecretQrHold() {
   secretQrHoldTimer = null;
 }
 
+function beginRecommendationHold(id) {
+  clearTimeout(recommendationHoldTimer);
+  recommendationHoldTimer = setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('expanded');
+  }, 380);
+}
+
+function cancelRecommendationHold() {
+  clearTimeout(recommendationHoldTimer);
+  recommendationHoldTimer = null;
+}
+
 function bindSecretQrTrigger(id) {
   const el = document.getElementById(id);
   if (!el || el.dataset.secretQrBound === '1') return;
@@ -2248,10 +3642,18 @@ function bindSecretQrTrigger(id) {
 function renderLeaderboard() {
   const listEl = document.getElementById('dashboard-leaderboard');
   const footerEl = document.getElementById('dashboard-leaderboard-footer');
-  if (!listEl || !footerEl) return;
+  const toggleEl = document.getElementById('dashboard-leaderboard-toggle');
+  const previewEl = document.getElementById('dashboard-leaderboard-preview');
+  if (!listEl || !footerEl || !toggleEl || !previewEl) return;
+
+  listEl.style.display = leaderboardCollapsed ? 'none' : '';
+  footerEl.style.display = leaderboardCollapsed ? 'none' : '';
+  previewEl.style.display = leaderboardCollapsed ? '' : 'none';
+  toggleEl.textContent = leaderboardCollapsed ? 'Show' : 'Hide';
 
   const rankings = householdLeaderboard?.rankings || householdLeaderboard?.leaders || [];
   if (!rankings.length) {
+    previewEl.innerHTML = '';
     listEl.innerHTML = '<div class="empty-state" style="padding:16px 8px"><p>No ranking data yet.</p></div>';
     footerEl.textContent = '';
     return;
@@ -2259,8 +3661,20 @@ function renderLeaderboard() {
 
   const medals = { 1: 'gold', 2: 'silver', 3: 'bronze' };
   const labels = { 1: '1st', 2: '2nd', 3: '3rd' };
-  listEl.innerHTML = rankings.map(person => `
-    <button type="button" class="leaderboard-row ${person.id === currentUser?.id ? 'me' : ''}" onclick="openContributionDetail(${person.id})">
+  const topThree = rankings.slice(0, 3);
+  const others = rankings.slice(3);
+  previewEl.innerHTML = topThree.map(person => `
+    <button type="button" class="leaderboard-preview-item ${medals[person.rank] || ''}" onclick="openContributionDetail(${person.id})">
+      <div class="leaderboard-preview-left">
+        <div class="leaderboard-preview-rank ${medals[person.rank] || ''}">${labels[person.rank] || `#${person.rank}`}</div>
+        <span class="avatar-bubble">${escHtml(person.avatar_emoji || '🦊')}</span>
+        <div class="leaderboard-preview-name">${escHtml(person.name || person.email || 'Unknown')}</div>
+      </div>
+      <div class="leaderboard-preview-score">${person.score || 0}</div>
+    </button>
+  `).join('');
+  const renderPerson = (person, compact = false) => `
+    <button type="button" class="leaderboard-row ${compact ? 'compact ' : ''}${person.id === currentUser?.id ? 'me' : ''}" onclick="openContributionDetail(${person.id})">
       <div class="leaderboard-rank ${medals[person.rank] || ''}">${labels[person.rank] || `#${person.rank}`}</div>
       <div class="leaderboard-user">
         <span class="avatar-bubble">${escHtml(person.avatar_emoji || '🦊')}</span>
@@ -2274,8 +3688,59 @@ function renderLeaderboard() {
         <div class="leaderboard-score-label">score</div>
       </div>
     </button>
-  `).join('');
+  `;
+
+  listEl.innerHTML = `
+    <div class="leaderboard-podium">
+      ${topThree.map(person => renderPerson(person)).join('')}
+    </div>
+    ${others.length ? `
+      <div class="leaderboard-rest">
+        ${others.map(person => renderPerson(person, true)).join('')}
+      </div>
+    ` : ''}
+  `;
   footerEl.textContent = '';
+}
+
+function toggleLeaderboard(forceCollapsed = null) {
+  leaderboardCollapsed = forceCollapsed === null ? !leaderboardCollapsed : Boolean(forceCollapsed);
+  try {
+    localStorage.setItem('dashboard_leaderboard_collapsed', String(leaderboardCollapsed));
+  } catch (_error) {}
+  renderLeaderboard();
+}
+
+function isDashboardSectionCollapsed(sectionKey) {
+  return Boolean(dashboardSectionCollapsed?.[sectionKey]);
+}
+
+function updateDashboardSectionVisibility(sectionKey) {
+  const bodyMap = {
+    'low-stock': 'dash-low-stock',
+    'recommendations': 'dash-recs',
+  };
+  const cardMap = {
+    'low-stock': 'dash-low-stock-card',
+    'recommendations': 'dash-recs-card',
+  };
+  const body = document.getElementById(bodyMap[sectionKey]);
+  const card = document.getElementById(cardMap[sectionKey]);
+  const collapsed = isDashboardSectionCollapsed(sectionKey);
+  const empty = body?.dataset?.empty === 'true';
+  if (body) body.style.display = (collapsed || empty) ? 'none' : '';
+  if (card) card.classList.toggle('dashboard-collapsed', collapsed || empty);
+}
+
+function toggleDashboardSection(sectionKey, forceCollapsed = null) {
+  const collapsed = forceCollapsed === null
+    ? !isDashboardSectionCollapsed(sectionKey)
+    : Boolean(forceCollapsed);
+  dashboardSectionCollapsed[sectionKey] = collapsed;
+  try {
+    localStorage.setItem('dashboard_section_collapsed', JSON.stringify(dashboardSectionCollapsed));
+  } catch (_error) {}
+  updateDashboardSectionVisibility(sectionKey);
 }
 
 function closeContributionDetail() {
@@ -2592,6 +4057,56 @@ function askForConfirmation(message, title = 'Confirm action') {
     document.onkeydown = (event) => {
       if (event.key === 'Escape') finish(false);
     };
+  });
+}
+
+function askForTextInput(message, title = 'Update value', initialValue = '', options = {}) {
+  const overlay = document.getElementById('input-overlay');
+  const titleEl = document.getElementById('input-title');
+  const bodyEl = document.getElementById('input-body');
+  const fieldEl = document.getElementById('input-modal-field');
+  const okBtn = document.getElementById('input-ok');
+  const cancelBtn = document.getElementById('input-cancel');
+
+  if (!overlay || !titleEl || !bodyEl || !fieldEl || !okBtn || !cancelBtn) {
+    return Promise.resolve(window.prompt(title, initialValue));
+  }
+
+  titleEl.textContent = title;
+  bodyEl.textContent = message;
+  fieldEl.value = initialValue || '';
+  fieldEl.type = options.type || 'text';
+  fieldEl.placeholder = options.placeholder || '';
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+
+  return new Promise(resolve => {
+    const finish = (result) => {
+      overlay.classList.remove('show');
+      overlay.setAttribute('aria-hidden', 'true');
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      overlay.onclick = null;
+      document.onkeydown = null;
+      resolve(result);
+    };
+
+    okBtn.onclick = () => finish(fieldEl.value);
+    cancelBtn.onclick = () => finish(null);
+    overlay.onclick = (event) => {
+      if (event.target === overlay) finish(null);
+    };
+    document.onkeydown = (event) => {
+      if (event.key === 'Escape') finish(null);
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        finish(fieldEl.value);
+      }
+    };
+    setTimeout(() => {
+      fieldEl.focus();
+      fieldEl.select?.();
+    }, 10);
   });
 }
 
@@ -2979,7 +4494,270 @@ function getHeaders(includeJson = true) {
   return headers;
 }
 
+function demoResponse(payload, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async json() { return payload; },
+    async text() { return JSON.stringify(payload); },
+  };
+}
+
+function demoSpendRows(domain) {
+  const rows = {
+    grocery: {
+      '2026-04': { total: 742.58, count: 18 },
+      '2026-03': { total: 681.23, count: 16 },
+      '2026-02': { total: 704.11, count: 17 },
+    },
+    restaurant: {
+      '2026-04': { total: 39.21, count: 1 },
+      '2026-03': { total: 78.43, count: 1 },
+    },
+    general_expense: {
+      '2026-04': { total: 83.19, count: 1 },
+      '2026-03': { total: 64.99, count: 1 },
+    }
+  };
+  if (!domain) {
+    const merged = {};
+    Object.values(rows).forEach(domainRows => {
+      Object.entries(domainRows).forEach(([period, values]) => {
+        merged[period] = merged[period] || { total: 0, count: 0 };
+        merged[period].total += values.total;
+        merged[period].count += values.count;
+      });
+    });
+    return merged;
+  }
+  return rows[domain] || {};
+}
+
+function demoReceiptsByType(receiptType = '') {
+  return DEMO_RECEIPTS.filter(receipt => !receiptType || receipt.receipt_type === receiptType);
+}
+
+function buildDemoReceiptsResponse(receiptType = '') {
+  const receipts = demoReceiptsByType(receiptType).map(receipt => ({
+    id: receipt.id,
+    purchase_id: receipt.purchase_id,
+    store: receipt.store,
+    total: receipt.total,
+    date: receipt.date,
+    source: receipt.source,
+    status: receipt.status,
+    receipt_type: receipt.receipt_type,
+  }));
+  const receiptTypes = [...new Set(DEMO_RECEIPTS.map(r => r.receipt_type))];
+  const summaryReceipts = receipts;
+  const storeCounts = summaryReceipts.reduce((acc, receipt) => {
+    acc[receipt.store] = acc[receipt.store] || { count: 0, total_amount: 0, receipts: [] };
+    acc[receipt.store].count += 1;
+    acc[receipt.store].total_amount += receipt.total || 0;
+    acc[receipt.store].receipts.push(receipt.purchase_id || receipt.id);
+    return acc;
+  }, {});
+  const monthCounts = summaryReceipts.reduce((acc, receipt) => {
+    const month = String(receipt.date || '').slice(0, 7);
+    acc[month] = acc[month] || { count: 0, total_amount: 0, receipts: [] };
+    acc[month].count += 1;
+    acc[month].total_amount += receipt.total || 0;
+    acc[month].receipts.push(receipt.purchase_id || receipt.id);
+    return acc;
+  }, {});
+  const allItems = summaryReceipts.flatMap(receipt => (DEMO_RECEIPTS.find(r => r.id === receipt.id)?.items || []));
+  const totalItems = allItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+  const uniqueNames = new Set(allItems.map(item => item.product_name || item.name));
+  const mostBoughtMap = allItems.reduce((acc, item) => {
+    const key = item.product_name || item.name;
+    acc[key] = (acc[key] || 0) + Number(item.quantity || 1);
+    return acc;
+  }, {});
+  const mostBoughtItems = Object.entries(mostBoughtMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, quantity]) => ({ name, quantity }));
+  return {
+    count: receipts.length,
+    receipts,
+    filters: {
+      stores: [...new Set(DEMO_RECEIPTS.map(r => r.store))],
+      sources: ['upload'],
+      statuses: ['processed'],
+      receipt_types: receiptTypes,
+    },
+    summary: {
+      total_receipts: receipts.length,
+      total_items: totalItems,
+      unique_items: uniqueNames.size,
+      most_bought_items: mostBoughtItems,
+      by_store: Object.entries(storeCounts).map(([store, values]) => ({ store, ...values })),
+      by_month: Object.entries(monthCounts).map(([month, values]) => ({ month, ...values })),
+    }
+  };
+}
+
+function buildDemoShoppingResponse(status = '') {
+  const items = DEMO_SHOPPING_ITEMS.filter(item => !status || item.status === status);
+  const openItems = DEMO_SHOPPING_ITEMS.filter(item => item.status !== 'purchased');
+  const purchasedItems = DEMO_SHOPPING_ITEMS.filter(item => item.status === 'purchased');
+  const stores = {};
+  DEMO_SHOPPING_ITEMS.forEach(item => {
+    const store = item.preferred_store || item.effective_store || 'Unassigned';
+    stores[store] = stores[store] || { store, estimated_total: 0, item_count: 0 };
+    stores[store].estimated_total += Number(item.latest_price?.price || 0) * Number(item.quantity || 1);
+    stores[store].item_count += 1;
+  });
+  return {
+    items,
+    count: items.length,
+    open_count: openItems.length,
+    purchased_count: purchasedItems.length,
+    estimated_total_cost: openItems.reduce((sum, item) => sum + (Number(item.latest_price?.price || 0) * Number(item.quantity || 1)), 0),
+    available_stores: [...new Set(DEMO_SHOPPING_ITEMS.map(item => item.preferred_store || item.effective_store).filter(Boolean))],
+    helper_mode: false,
+  };
+}
+
+function buildDemoRestaurantSummary() {
+  const receipts = demoReceiptsByType('restaurant');
+  const totalSpend = receipts.reduce((sum, receipt) => sum + Number(receipt.total || 0), 0);
+  const topRestaurants = receipts.map(receipt => ({
+    store: receipt.store,
+    visits: 1,
+    total: receipt.total,
+    average_ticket: receipt.total,
+  }));
+  const topItemsMap = {};
+  receipts.forEach(receipt => (receipt.editable_data?.items || []).forEach(item => {
+    const key = item.name;
+    topItemsMap[key] = topItemsMap[key] || { name: key, quantity: 0, total: 0 };
+    topItemsMap[key].quantity += Number(item.quantity || 1);
+    topItemsMap[key].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+  }));
+  return {
+    visit_count: receipts.length,
+    total_spend: totalSpend,
+    average_ticket: receipts.length ? totalSpend / receipts.length : 0,
+    top_restaurants: topRestaurants,
+    top_items: Object.values(topItemsMap).map(item => ({ ...item, average_price: item.quantity ? item.total / item.quantity : 0 })),
+    recent_receipts: receipts,
+  };
+}
+
+function buildDemoExpenseSummary() {
+  const receipts = demoReceiptsByType('general_expense');
+  const totalSpend = receipts.reduce((sum, receipt) => sum + Number(receipt.total || 0), 0);
+  const topMerchants = receipts.map(receipt => ({
+    store: receipt.store,
+    visits: 1,
+    total: receipt.total,
+    average_ticket: receipt.total,
+  }));
+  const topItemsMap = {};
+  const categoryMap = {};
+  receipts.forEach(receipt => (receipt.editable_data?.items || []).forEach(item => {
+    const key = item.name;
+    topItemsMap[key] = topItemsMap[key] || { name: key, quantity: 0, total: 0 };
+    topItemsMap[key].quantity += Number(item.quantity || 1);
+    topItemsMap[key].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+    const category = item.category || 'other';
+    categoryMap[category] = categoryMap[category] || { category, total: 0, count: 0 };
+    categoryMap[category].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+    categoryMap[category].count += 1;
+  }));
+  return {
+    receipt_count: receipts.length,
+    total_spend: totalSpend,
+    average_ticket: receipts.length ? totalSpend / receipts.length : 0,
+    top_merchants: topMerchants,
+    top_items: Object.values(topItemsMap).map(item => ({ ...item, average_price: item.quantity ? item.total / item.quantity : 0 })),
+    category_breakdown: Object.values(categoryMap),
+    recent_receipts: receipts.map(receipt => ({ ...receipt, item_count: receipt.editable_data?.items?.length || 0 })),
+  };
+}
+
+function buildDemoContributionSummary() {
+  return DEMO_CONTRIBUTION_SUMMARY;
+}
+
+function buildDemoContributionUser(userId) {
+  return DEMO_CONTRIBUTION_DETAILS[userId] || DEMO_CONTRIBUTION_DETAILS[101];
+}
+
+async function demoApi(path, opts = {}) {
+  const method = String(opts.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    return demoResponse({ error: 'Sign in to edit or upload live data.' }, 401);
+  }
+  const url = new URL(path, 'https://demo.local');
+  const pathname = url.pathname;
+  if (pathname === '/products') {
+    return demoResponse({ total: DEMO_PRODUCTS.length, products: DEMO_PRODUCTS });
+  }
+  if (pathname === '/products/search') {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    return demoResponse({ results: DEMO_PRODUCTS.filter(item => JSON.stringify(item).toLowerCase().includes(q)) });
+  }
+  if (pathname === '/inventory') {
+    return demoResponse({ count: DEMO_INVENTORY.length, window_start: '2026-03-01', items: DEMO_INVENTORY });
+  }
+  if (pathname === '/recommendations') {
+    return demoResponse({
+      count: 3,
+      recommendations: [
+        { product_id: 12, product_name: 'Iron Spark Water', category: 'beverages', reason: 'deal', confidence: 0.91, message: 'Iron Man is down to the last arc-reactor fizz pack, and Warehouse Club has the best price this week.', in_shopping_list: true, shopping_list_by: 'Spider-Man' },
+        { product_id: 13, product_name: 'Thor Thunder Muffins', category: 'bakery', reason: 'manual_low', confidence: 0.95, message: 'Thor marked breakfast low again. A fresh muffin batch would keep the tower calm.', in_shopping_list: true, shopping_list_by: 'Hulk' },
+        { product_id: 11, product_name: 'Spider Smoothie Packs', category: 'frozen', reason: 'seasonal', confidence: 0.72, message: 'Spider-Man usually grabs smoothie packs every 10 days before patrol-heavy weekends.', in_shopping_list: false },
+      ]
+    });
+  }
+  if (pathname === '/shopping-list') {
+    return demoResponse(buildDemoShoppingResponse(url.searchParams.get('status') || ''));
+  }
+  if (pathname === '/receipts') {
+    return demoResponse(buildDemoReceiptsResponse(url.searchParams.get('receipt_type') || ''));
+  }
+  if (/^\/receipts\/\d+$/.test(pathname)) {
+    const id = Number(pathname.split('/').pop());
+    const receipt = DEMO_RECEIPTS.find(item => Number(item.id) === id || Number(item.purchase_id) === id);
+    return receipt ? demoResponse(receipt) : demoResponse({ error: 'Receipt not found' }, 404);
+  }
+  if (pathname === '/analytics/spending') {
+    const domain = url.searchParams.get('domain') || '';
+    const spending_by_period = demoSpendRows(domain);
+    return demoResponse({
+      domain: domain || 'all',
+      period: url.searchParams.get('period') || 'monthly',
+      months_back: Number(url.searchParams.get('months') || 6),
+      grand_total: Object.values(spending_by_period).reduce((sum, row) => sum + Number(row.total || 0), 0),
+      category_breakdown: domain === 'general_expense' ? buildDemoExpenseSummary().category_breakdown : [],
+      spending_by_period,
+    });
+  }
+  if (pathname === '/analytics/restaurant-summary') {
+    return demoResponse(buildDemoRestaurantSummary());
+  }
+  if (pathname === '/analytics/expense-summary') {
+    return demoResponse(buildDemoExpenseSummary());
+  }
+  if (pathname === '/analytics/deals-captured') {
+    return demoResponse({ total_saved: 42.18, deal_count: 7 });
+  }
+  if (pathname === '/budget/status') {
+    const domain = url.searchParams.get('domain') || 'grocery';
+    return demoResponse(DEMO_BUDGETS[domain] || DEMO_BUDGETS.grocery);
+  }
+  if (pathname === '/contributions/summary') {
+    return demoResponse(buildDemoContributionSummary());
+  }
+  if (/^\/contributions\/users\/\d+$/.test(pathname)) {
+    return demoResponse(buildDemoContributionUser(Number(pathname.split('/').pop())));
+  }
+  return demoResponse({ error: 'Demo route not available' }, 404);
+}
+
 async function api(path, opts = {}) {
+  if (isDemoMode() && !String(path).startsWith('/auth/')) {
+    return demoApi(path, opts);
+  }
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
   const res = await fetch(API_BASE + path, {
@@ -2990,6 +4768,16 @@ async function api(path, opts = {}) {
   return res;
 }
 
+async function sessionOnlyFetch(path, opts = {}) {
+  const body = opts.body;
+  const includeJson = !(body instanceof FormData);
+  return fetch(API_BASE + path, {
+    credentials: 'include',
+    headers: { ...(includeJson ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) },
+    ...opts,
+  });
+}
+
 // ============================================================
 // Navigation
 // ============================================================
@@ -2998,6 +4786,7 @@ function nav(page, el) {
   if (page === 'products') {
     page = 'inventory';
   }
+  saveLastPage(requestedPage);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -3050,6 +4839,9 @@ function openDashboardStat(target) {
     const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
     nav('inventory', inventoryNav);
     setCatalogMode('inventory', { load: true });
+    inventoryToolsCollapsed = false;
+    localStorage.setItem('inventory_tools_collapsed', 'false');
+    updateInventoryToolsVisibility();
     document.getElementById('inv-search')?.focus();
     return;
   }
@@ -3058,7 +4850,10 @@ function openDashboardStat(target) {
     inventorySort = 'low_first';
     nav('inventory', inventoryNav);
     setCatalogMode('inventory', { load: true });
-    document.getElementById('inv-sort').value = 'low_first';
+    inventoryToolsCollapsed = false;
+    localStorage.setItem('inventory_tools_collapsed', 'false');
+    updateInventoryToolsVisibility();
+    updateInventorySortControls();
     return;
   }
   if (target === 'budget') {
@@ -3152,14 +4947,16 @@ function toast(msg, type = 'info') {
 // ============================================================
 async function checkAuth() {
   const banner = document.getElementById('auth-banner');
+  authCheckComplete = false;
 
   if (SHOPPING_HELPER_MODE) {
     currentUser = { name: 'Shopping Helper', role: 'helper' };
+    authCheckComplete = true;
     return true;
   }
 
   try {
-    const configRes = await fetch(API_BASE + '/auth/app-config', { credentials: 'include' });
+    const configRes = await sessionOnlyFetch('/auth/app-config');
     if (configRes.ok) {
       const config = await configRes.json();
       applyAppConfig(config);
@@ -3169,7 +4966,7 @@ async function checkAuth() {
   }
 
   try {
-    const bootstrapRes = await fetch(API_BASE + '/auth/bootstrap-info', { credentials: 'include' });
+    const bootstrapRes = await sessionOnlyFetch('/auth/bootstrap-info');
     if (bootstrapRes.ok) {
       const info = await bootstrapRes.json();
       bootstrapEmail = info.default_email || bootstrapEmail;
@@ -3182,7 +4979,7 @@ async function checkAuth() {
   }
 
   try {
-    const res = await api('/auth/me');
+    const res = await sessionOnlyFetch('/auth/me');
     if (res.ok) {
       const data = await res.json();
       currentUser = data.user || null;
@@ -3190,6 +4987,8 @@ async function checkAuth() {
       householdLeaderboard = data.leaderboard || householdLeaderboard;
       if (data.app_config) applyAppConfig(data.app_config);
       banner.classList.remove('show');
+      authCheckComplete = true;
+      updateDemoModeUi();
       return true;
     }
   } catch (e) {
@@ -3197,10 +4996,42 @@ async function checkAuth() {
   }
 
   currentUser = null;
-  currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
-  householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
+  currentUserStats = { ...DEMO_GUEST_STATS };
+  householdLeaderboard = { month: DEMO_MONTH, rankings: DEMO_USERS, current_user_rank: null, total_users: DEMO_USERS.length };
   banner.classList.add('show');
+  authCheckComplete = true;
+  const help = document.getElementById('auth-help');
+  if (help) {
+    help.textContent = 'You are browsing demo data in read-only mode. Sign in to upload receipts, edit products, and save real household changes.';
+  }
+  updateDemoModeUi();
   return false;
+}
+
+function focusLogin() {
+  const email = document.getElementById('auth-email-input');
+  if (email) email.focus();
+  document.getElementById('auth-banner')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function updateDemoModeUi() {
+  const demo = isDemoMode();
+  const hero = document.getElementById('demo-hero');
+  if (hero) hero.style.display = demo ? 'grid' : 'none';
+  const subtitle = document.getElementById('dashboard-subtitle');
+  if (subtitle) {
+    subtitle.textContent = demo
+      ? 'Explore a read-only sample household workspace before you sign in.'
+      : (appConfig.modules?.restaurant
+          ? 'Track groceries, dining out, and household expenses in one place'
+          : 'Your household system at a glance');
+  }
+  const uploadButton = document.getElementById('upload-btn');
+  const fileInput = document.getElementById('file-input');
+  const uploadStatus = document.getElementById('upload-status');
+  if (uploadButton) uploadButton.disabled = demo || !document.getElementById('file-input')?.files?.length;
+  if (fileInput) fileInput.disabled = demo;
+  if (uploadStatus && demo) uploadStatus.textContent = 'Demo mode is read-only. Sign in to upload a real receipt.';
 }
 
 async function login() {
@@ -3231,6 +5062,7 @@ async function login() {
   document.getElementById('auth-password-input').value = '';
   banner.classList.remove('show');
   toast('Signed in ✅', 'success');
+  updateDemoModeUi();
   loadDashboard();
 }
 
@@ -3332,8 +5164,9 @@ async function logout() {
   localStorage.removeItem('api_token');
   const tokenInput = document.getElementById('settings-token');
   if (tokenInput) tokenInput.value = '';
+  saveLastPage('dashboard');
   toast('Signed out', 'success');
-  checkAuth();
+  checkAuth().then(() => loadDashboard());
 }
 
 async function loadUsers() {
@@ -3723,6 +5556,7 @@ function toggleTokenVis() {
 // ============================================================
 async function loadDashboard() {
   try {
+    const demo = isDemoMode();
     const userChip = document.getElementById('dashboard-user-chip');
     const userAvatar = document.getElementById('dashboard-user-avatar');
     const userLabel = document.getElementById('dashboard-user-label');
@@ -3732,9 +5566,9 @@ async function loadDashboard() {
     if (userChip && userLabel && userAvatar) {
       const label = currentUser
         ? `${currentUser.name || currentUser.email || 'Unknown'}`
-        : 'Guest';
+        : (demo ? 'Demo Household' : 'Guest');
       userLabel.textContent = label;
-      userAvatar.textContent = currentUser ? getUserAvatar(currentUser) : '🦊';
+      userAvatar.textContent = currentUser ? getUserAvatar(currentUser) : (demo ? '✨' : '🦊');
       userChip.className = `dashboard-score-card spotlight ${currentUser?.role === 'admin' ? 'admin' : ''}`.trim();
       userLabel.className = `dashboard-user-name ${currentUser?.role === 'admin' ? 'admin' : ''}`.trim();
     }
@@ -3758,28 +5592,69 @@ async function loadDashboard() {
       const low = getInventoryItems(inv).filter(i => i.is_low);
       document.getElementById('stat-low').textContent = low.length;
       const lowEl = document.getElementById('dash-low-stock');
+      const lowCard = document.getElementById('dash-low-stock-card');
+      const lowHeaderCount = document.getElementById('dash-low-stock-header-count');
+      if (lowCard) {
+        lowCard.classList.remove('compact-empty', 'dashboard-collapsed', 'low-stock-ok', 'low-stock-warn', 'low-stock-critical');
+      }
+      if (lowHeaderCount) {
+        lowHeaderCount.textContent = String(low.length);
+        lowHeaderCount.style.display = '';
+      }
       if (low.length === 0) {
-        lowEl.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>All items well-stocked!</p></div>';
+        if (lowEl) lowEl.dataset.empty = 'true';
+        if (lowCard) lowCard.classList.add('compact-empty', 'low-stock-ok');
       } else {
+        if (lowEl) lowEl.dataset.empty = 'false';
+        if (lowCard) lowCard.classList.add(low.length < 10 ? 'low-stock-warn' : 'low-stock-critical');
         lowEl.innerHTML = low.map(i => `
-          <div class="rec-item">
+          <div id="low-${i.product_id}" class="rec-item compact-dashboard"
+            onmousedown="beginRecommendationHold('low-${i.product_id}')"
+            onmouseup="cancelRecommendationHold()"
+            onmouseleave="cancelRecommendationHold()"
+            ontouchstart="beginRecommendationHold('low-${i.product_id}')"
+            ontouchend="cancelRecommendationHold()"
+            ontouchcancel="cancelRecommendationHold()">
             <span class="rec-icon">⚠️</span>
-            <div>
-              <div class="rec-name">${escHtml(i.product_name)}</div>
+            <div class="rec-compact-main">
+              <div class="rec-compact-title">
+                <span class="rec-name">${escHtml(simplifyShoppingDisplayName(i.product_name))}</span>
+                <span class="person-modal-pill ${i.manual_low ? 'validated' : 'pending'}">${i.manual_low ? 'Low' : 'Watch'}</span>
+              </div>
+              <div class="rec-compact-actions">
+                <button class="btn btn-sm btn-ghost" title="${i.manual_low ? 'Confirm that this low-stock call is correct. Confirmation can earn points when later validated.' : 'Manually mark this item low when quantity alone does not tell the full story. This starts a pending low-stock signal.'}" aria-label="${i.manual_low ? 'Confirm low stock for this item' : 'Mark this item low'}" onclick="event.stopPropagation();handleDashboardLowAction(${i.product_id}, ${i.manual_low ? `'confirm'` : `'low'`})">${i.manual_low ? '✅ Confirm' : '📝 Add Low'}</button>
+                <button class="btn btn-sm btn-ghost" title="Add this low-stock item to the shopping list so the household can restock it." aria-label="Add this low stock item to shopping list" onclick="event.stopPropagation();quickAddToShoppingList({ product_id: ${i.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒 Cart</button>
+              </div>
+            </div>
+            <div class="rec-detail">
               <div class="rec-msg">${i.manual_low ? 'Manually marked low' : `${i.quantity} left / threshold: ${i.threshold}`} · ${formatLabel(i.location, 'Unknown')}</div>
               <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-sm btn-ghost" onclick="handleDashboardLowAction(${i.product_id}, ${i.manual_low ? `'confirm'` : `'low'`})">${i.manual_low ? `✅ Confirm Low ${actionScorePill('+2')}` : `📝 Add Low ${actionScorePill('pending', 'pending')}`}</button>
-                <button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${i.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒 Add to Shopping ${actionScorePill('helps', 'unlock')}</button>
+                <span class="person-modal-pill ${i.manual_low ? 'validated' : 'pending'}">${i.manual_low ? `Confirm Low ${actionScorePill('+2')}` : `Add Low ${actionScorePill('pending', 'pending')}`}</span>
+                <span class="person-modal-pill confirmed">Add to Shopping ${actionScorePill('helps', 'unlock')}</span>
               </div>
             </div>
           </div>`).join('');
       }
+      updateDashboardSectionVisibility('low-stock');
     }
     if (recs) {
       const recsEl = document.getElementById('dash-recs');
+      const recsCard = document.getElementById('dash-recs-card');
+      const recsHeaderCount = document.getElementById('dash-recs-header-count');
       const list = recs.recommendations?.slice(0, 3) || [];
-      recsEl.innerHTML = list.length ? list.map(r => recHtml(r)).join('') :
-        '<div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div>';
+      if (recsCard) recsCard.classList.remove('compact-empty', 'dashboard-collapsed');
+      if (recsHeaderCount) {
+        recsHeaderCount.textContent = String(list.length);
+        recsHeaderCount.style.display = '';
+      }
+      if (list.length) {
+        if (recsEl) recsEl.dataset.empty = 'false';
+        recsEl.innerHTML = list.map(r => recHtml(r, { compact: true })).join('');
+      } else {
+        if (recsEl) recsEl.dataset.empty = 'true';
+        if (recsCard) recsCard.classList.add('compact-empty');
+      }
+      updateDashboardSectionVisibility('recommendations');
     }
 
     // Budget stat
@@ -3814,7 +5689,10 @@ async function loadInventory() {
   const items = query
     ? allItems.filter(i => {
         const haystack = [
+          simplifyInventoryDisplayName(i.product_name),
           i.product_name,
+          i.brand,
+          i.size,
           i.category,
           i.location,
           i.quantity != null ? String(i.quantity) : '',
@@ -3828,105 +5706,179 @@ async function loadInventory() {
     ? items.filter(i => inventoryCategoryFilters.has(String(i.category || '').toLowerCase()))
     : items;
   filteredItems.sort((a, b) => {
-    if (inventorySort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.product_name, b.product_name, 'asc');
-    if (inventorySort === 'qty_asc') return compareNumber(a.quantity, b.quantity, 'asc') || compareText(a.product_name, b.product_name, 'asc');
-    if (inventorySort === 'location_asc') return compareText(a.location, b.location, 'asc') || compareText(a.product_name, b.product_name, 'asc');
+    const leftName = simplifyInventoryDisplayName(a.product_name);
+    const rightName = simplifyInventoryDisplayName(b.product_name);
+    if (inventorySort === 'name_desc') return compareText(leftName, rightName, 'desc');
+    if (inventorySort === 'price_desc') return compareNumber(a.latest_price?.price || 0, b.latest_price?.price || 0, 'desc') || compareText(leftName, rightName, 'asc');
+    if (inventorySort === 'price_asc') return compareNumber(a.latest_price?.price || 0, b.latest_price?.price || 0, 'asc') || compareText(leftName, rightName, 'asc');
+    if (inventorySort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(leftName, rightName, 'asc');
+    if (inventorySort === 'qty_asc') return compareNumber(a.quantity, b.quantity, 'asc') || compareText(leftName, rightName, 'asc');
+    if (inventorySort === 'location_asc') return compareText(a.location, b.location, 'asc') || compareText(leftName, rightName, 'asc');
     if (inventorySort === 'low_first') {
       const left = (a.manual_low || a.is_low) ? 1 : 0;
       const right = (b.manual_low || b.is_low) ? 1 : 0;
-      return compareNumber(left, right, 'desc') || compareText(a.product_name, b.product_name, 'asc');
+      return compareNumber(left, right, 'desc') || compareText(leftName, rightName, 'asc');
     }
-    return compareText(a.product_name, b.product_name, 'asc');
+    return compareText(leftName, rightName, 'asc');
+  });
+  const displayGroups = [];
+  const displayGroupMap = new Map();
+  filteredItems.forEach(item => {
+    const displayName = simplifyInventoryDisplayName(item.product_name);
+    const key = displayName.toLowerCase();
+    let group = displayGroupMap.get(key);
+    if (!group) {
+      group = {
+        key,
+        display_name: displayName,
+        items: [],
+        primaryItem: item,
+        quantity: 0,
+        manual_low: false,
+        is_low: false,
+        locations: new Set(),
+        categories: new Set(),
+        receipts: [],
+        receiptIds: new Set(),
+      };
+      displayGroupMap.set(key, group);
+      displayGroups.push(group);
+    }
+    group.items.push(item);
+    group.quantity += Number(item.quantity || 0);
+    group.manual_low = group.manual_low || Boolean(item.manual_low);
+    group.is_low = group.is_low || Boolean(item.is_low);
+    if (item.location) group.locations.add(formatLabel(item.location, '—'));
+    if (item.category) group.categories.add(formatLabel(item.category, 'Other'));
+    (item.recent_receipts || []).forEach(link => {
+      if (!link?.receipt_id || group.receiptIds.has(link.receipt_id)) return;
+      group.receiptIds.add(link.receipt_id);
+      group.receipts.push(link);
+    });
+    const currentPrimary = group.primaryItem || item;
+    const currentScore = Number(currentPrimary.manual_low || currentPrimary.is_low) * 1000 + Number(currentPrimary.quantity || 0);
+    const nextScore = Number(item.manual_low || item.is_low) * 1000 + Number(item.quantity || 0);
+    if (nextScore > currentScore) group.primaryItem = item;
   });
 
   const searchInput = document.getElementById('inv-search');
   if (searchInput && searchInput.value !== inventorySearchQuery) {
     searchInput.value = inventorySearchQuery;
   }
-  const inventorySortEl = document.getElementById('inv-sort');
-  if (inventorySortEl && inventorySortEl.value !== inventorySort) inventorySortEl.value = inventorySort;
+  updateInventoryAddCardVisibility();
+  updateInventoryToolsVisibility();
+  updateInventorySortControls();
   if (!allItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
-  if (!filteredItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>'; return; }
+  if (!displayGroups.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>'; return; }
   if (window.innerWidth <= 640) {
     body.innerHTML = `
       <div class="inventory-mobile-list">
-        ${filteredItems.map(i => `
-          <div class="inventory-mobile-card">
-            <div class="inventory-mobile-top">
+        ${displayGroups.map(group => {
+          const i = group.primaryItem;
+          const locationLabel = group.locations.size <= 1 ? [...group.locations][0] || '—' : 'Mixed';
+          const categoryLabel = group.categories.size <= 1 ? [...group.categories][0] || '' : `${group.categories.size} categories`;
+          const variantNote = group.items.length > 1 ? `${group.items.length} entries` : null;
+          return `
+          <div class="inventory-mobile-card ${inventoryMobileItemExpanded[group.key] ? 'expanded' : ''}">
+            <div class="inventory-mobile-summary" role="button" tabindex="0" onclick="toggleInventoryMobileItem('${group.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleInventoryMobileItem('${group.key}');}">
               <div style="min-width:0">
-                <div class="inventory-mobile-name">${escHtml(i.product_name)}</div>
+                <div class="inventory-mobile-name">${escHtml(group.display_name)}</div>
+                <div class="inventory-mobile-meta">${[
+                  `Qty ${escHtml(String(group.quantity))}`,
+                  locationLabel,
+                  variantNote
+                ].join(' · ')}</div>
+              </div>
+              <div class="inventory-mobile-summary-right">
+                <div class="inventory-mobile-summary-badges">
+                  ${group.manual_low
+                    ? '<span class="badge badge-low">Low</span>'
+                    : group.is_low
+                      ? '<span class="badge badge-low">Low</span>'
+                      : '<span class="badge badge-ok">OK</span>'}
+                </div>
+                ${i.latest_price?.price != null ? `<div class="inventory-mobile-summary-price">${formatMoney(i.latest_price.price)}</div>` : ''}
+                <span class="inventory-mobile-chevron">▾</span>
+              </div>
+            </div>
+              <div class="inventory-mobile-detail">
                 <div class="inventory-mobile-meta">
                   ${[
                     i.brand,
                     i.size,
-                    i.latest_price?.price != null ? formatMoney(i.latest_price.price) : null,
-                    formatLabel(i.category, 'Other')
+                    categoryLabel
                   ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                 </div>
-                ${i.recent_receipts?.length ? `
-                  <div class="mini-links">
-                    ${i.recent_receipts.map(link => `
-                      <button
-                        type="button"
-                        class="mini-link"
-                        onclick="jumpToReceipt(${link.receipt_id})"
-                        title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
-                      >
-                        ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
-                      </button>
-                    `).join('')}
+                <div class="inventory-mobile-detail-grid">
+                  <div class="inventory-mobile-stat">
+                    <div class="inventory-mobile-stat-label">Qty</div>
+                    <div>${group.quantity}</div>
                   </div>
-                ` : ''}
-              </div>
-              <div class="inventory-mobile-stat">
-                <div class="inventory-mobile-stat-label">Qty</div>
-                <div>${i.quantity}</div>
-              </div>
-              <div class="inventory-mobile-stat">
-                <div class="inventory-mobile-stat-label">Location</div>
-                <div><span class="badge badge-${normalizeBadge(i.location, 'pantry')}">${formatLabel(i.location, '—')}</span></div>
-              </div>
-              <div class="inventory-mobile-stat">
-                <div class="inventory-mobile-stat-label">Stock</div>
-                <div>${i.manual_low
-                  ? '<span class="badge badge-low">Low</span>'
-                  : i.is_low
-                    ? '<span class="badge badge-low">Low</span>'
-                    : '<span class="badge badge-ok">OK</span>'}</div>
-              </div>
-            </div>
-            <div class="inventory-mobile-actions">
+                  <div class="inventory-mobile-stat">
+                    <div class="inventory-mobile-stat-label">Location</div>
+                    <div><span class="badge badge-${normalizeBadge(locationLabel, 'pantry')}">${locationLabel}</span></div>
+                  </div>
+                  <div class="inventory-mobile-stat">
+                    <div class="inventory-mobile-stat-label">Stock</div>
+                    <div>${group.manual_low
+                      ? '<span class="badge badge-low">Low</span>'
+                      : group.is_low
+                        ? '<span class="badge badge-low">Low</span>'
+                        : '<span class="badge badge-ok">OK</span>'}</div>
+                  </div>
+                </div>
+              ${group.receipts.length ? `
+                <div class="mini-links">
+                  ${group.receipts.slice(0, 3).map(link => `
+                    <button
+                      type="button"
+                      class="mini-link"
+                      onclick="event.stopPropagation();jumpToReceipt(${link.receipt_id})"
+                      title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
+                    >
+                      ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                    </button>
+                  `).join('')}
+                </div>
+              ` : ''}
+              <div class="inventory-mobile-actions">
               <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Add to shopping list" aria-label="Add to shopping list" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })"><span class="icon">🛒</span><span class="label">Add</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
-              <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
-              <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
+                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
+                <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
+                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
+                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
+                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
+                <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
+              </div>
             </div>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>`;
     return;
   }
   body.innerHTML = `
     <table>
       <thead><tr><th>Product</th><th>Qty</th><th>Location</th><th>Stock</th><th>Actions</th></tr></thead>
-      <tbody>${filteredItems.map(i => `
+      <tbody>${displayGroups.map(group => {
+        const i = group.primaryItem;
+        const locationLabel = group.locations.size <= 1 ? [...group.locations][0] || '—' : 'Mixed';
+        const categoryLabel = group.categories.size <= 1 ? [...group.categories][0] || '' : `${group.categories.size} categories`;
+        return `
         <tr>
           <td>
-            <strong>${escHtml(i.product_name)}</strong>
+            <strong>${escHtml(group.display_name)}</strong>
             <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
               ${[
+                group.items.length > 1 ? `${group.items.length} entries` : null,
                 i.brand,
                 i.size,
                 i.latest_price?.price != null ? `${formatMoney(i.latest_price.price)}${i.size ? ` · ${i.size}` : ''}` : null,
-                formatLabel(i.category, 'Other')
+                categoryLabel
               ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
             </div>
-            ${i.recent_receipts?.length ? `
+            ${group.receipts.length ? `
               <div class="mini-links">
-                ${i.recent_receipts.map(link => `
+                ${group.receipts.slice(0, 3).map(link => `
                   <button
                     type="button"
                     class="mini-link"
@@ -3939,11 +5891,11 @@ async function loadInventory() {
               </div>
             ` : ''}
           </td>
-          <td>${i.quantity}</td>
-          <td><span class="badge badge-${normalizeBadge(i.location, 'pantry')}">${formatLabel(i.location, '—')}</span></td>
-          <td>${i.manual_low
+          <td>${group.quantity}</td>
+          <td><span class="badge badge-${normalizeBadge(locationLabel, 'pantry')}">${locationLabel}</span></td>
+          <td>${group.manual_low
             ? '<span class="badge badge-low">Low</span>'
-            : i.is_low
+            : group.is_low
               ? '<span class="badge badge-low">Low</span>'
               : '<span class="badge badge-ok">OK</span>'}</td>
           <td>
@@ -3957,7 +5909,7 @@ async function loadInventory() {
               <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
             </div>
           </td>
-        </tr>`).join('')}
+        </tr>`;}).join('')}
       </tbody>
     </table>`;
 }
@@ -4130,7 +6082,7 @@ async function handleDashboardLowAction(productId, action) {
     toast(data.error || 'Could not confirm low item', 'error');
     return;
   }
-  toast('Low item confirmed ✅', 'success');
+  toast(data.status === 'self_confirmed' ? 'Low item self-confirmed ✅' : 'Low item confirmed ✅', 'success');
   await Promise.all([
     loadDashboard(),
     loadContributions()
@@ -4269,7 +6221,12 @@ async function deleteProduct(id) {
 }
 
 async function renameProduct(id, currentName) {
-  const name = prompt('Rename product', currentName || '');
+  const name = await askForTextInput(
+    'Enter the product name you want to use going forward.',
+    'Rename product',
+    currentName || '',
+    { placeholder: 'e.g. Milk' }
+  );
   if (name === null) return;
   if (!name.trim()) {
     toast('Product name cannot be blank', 'error');
@@ -4351,7 +6308,7 @@ async function confirmRecommendationFromDashboard(productId) {
     toast(data.error || 'Could not confirm recommendation', 'error');
     return;
   }
-  toast('Recommendation confirmed ✅', 'success');
+  toast(data.status === 'self_confirmed' ? 'Recommendation self-confirmed ✅' : 'Recommendation confirmed ✅', 'success');
   await Promise.all([
     loadDashboard(),
     loadShoppingList(),
@@ -4427,6 +6384,25 @@ function searchShoppingList() {
   renderShoppingListTable();
 }
 
+async function increaseShoppingQuantity(itemId, currentQuantity = 1) {
+  const nextQuantity = Math.max(1, Number(currentQuantity || 1) + 1);
+  const res = await api(`/shopping-list/items/${itemId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ quantity: nextQuantity })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not increase quantity', 'error');
+    return;
+  }
+  toast('Shopping quantity increased ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadDashboard(),
+    loadContributions()
+  ]);
+}
+
 function getMatchingShoppingEntry(productId, name) {
   if (productId) {
     const byProduct = shoppingListCache.find(item => Number(item.product_id) === Number(productId) && item.status === 'open');
@@ -4439,6 +6415,38 @@ function getMatchingShoppingEntry(productId, name) {
 function renderShoppingQuickResults() {
   const body = document.getElementById('shop-quick-results');
   if (!body) return;
+  if ((!shoppingQuickQuery || shoppingQuickQuery.length < 2) && shoppingQuickFocused && shoppingQuickSuggestions.length) {
+    body.innerHTML = `
+      <div class="contrib-list">
+        ${shoppingQuickSuggestions.slice(0, 5).map(item => {
+          const existing = getMatchingShoppingEntry(item.id, item.name);
+          const meta = [
+            item.brand || null,
+            item.size || null,
+            item.category ? formatLabel(item.category, 'Other') : null,
+            item.last_purchase_date ? `Recent ${item.last_purchase_date}` : null
+          ].filter(Boolean).map(value => escHtml(value)).join(' · ');
+          return `
+            <div class="shopping-quick-row">
+              <div class="shopping-quick-row-top">
+                <div style="min-width:0;flex:1">
+                  <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
+                  <div class="shopping-quick-row-meta">${meta || 'Suggested item'}</div>
+                  ${existing ? `<div class="shopping-quick-row-meta" style="color:var(--success)">In list${existing.quantity ? ` · Qty ${existing.quantity}` : ''}</div>` : ''}
+                </div>
+                <div class="shopping-quick-row-actions">
+                  ${existing
+                    ? `<button type="button" class="btn btn-sm btn-ghost" onclick="increaseShoppingQuantity(${existing.id}, ${existing.quantity || 1})">+1</button><button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
+                    : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || '')}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add to Shopping</button>`}
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, true)">Low</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>`;
+    return;
+  }
   if (!shoppingQuickQuery || shoppingQuickQuery.length < 2) {
     body.innerHTML = `
       <div class="empty-state">
@@ -4457,7 +6465,7 @@ function renderShoppingQuickResults() {
   }
   body.innerHTML = `
     <div class="contrib-list">
-      ${shoppingQuickResults.slice(0, 8).map(item => {
+      ${shoppingQuickResults.slice(0, 5).map(item => {
         const existing = getMatchingShoppingEntry(item.id, item.name);
         const meta = [
           item.brand || null,
@@ -4465,16 +6473,16 @@ function renderShoppingQuickResults() {
           item.category ? formatLabel(item.category, 'Other') : null
         ].filter(Boolean).map(value => escHtml(value)).join(' · ');
         return `
-          <div class="contrib-list-item">
-            <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div class="shopping-quick-row">
+            <div class="shopping-quick-row-top">
               <div style="min-width:0;flex:1">
-                <strong>${escHtml(item.name)}</strong>
-                <div class="contrib-meta">${meta || 'Known catalog item'}</div>
-                ${existing ? `<div class="contrib-meta" style="color:var(--success)">Already in shopping list${existing.quantity ? ` · Qty ${existing.quantity}` : ''}</div>` : ''}
+                <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
+                <div class="shopping-quick-row-meta">${meta || 'Known catalog item'}</div>
+                ${existing ? `<div class="shopping-quick-row-meta" style="color:var(--success)">In list${existing.quantity ? ` · Qty ${existing.quantity}` : ''}</div>` : ''}
               </div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              <div class="shopping-quick-row-actions">
                 ${existing
-                  ? `<button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
+                  ? `<button type="button" class="btn btn-sm btn-ghost" onclick="increaseShoppingQuantity(${existing.id}, ${existing.quantity || 1})">+1</button><button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
                   : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || '')}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add to Shopping</button>`}
                 <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, true)">Low</button>
               </div>
@@ -4485,11 +6493,92 @@ function renderShoppingQuickResults() {
     </div>`;
 }
 
-async function searchShoppingQuickFind() {
+function handleShoppingQuickFindKey(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  searchShoppingQuickFind(true);
+}
+
+async function ensureShoppingQuickSuggestions() {
+  if (shoppingQuickSuggestions.length) return;
+  const res = await api('/products');
+  if (!res.ok) return;
+  const data = await res.json();
+  const products = data.products || data.results || [];
+  const scoreSuggestion = item => {
+    let score = 0;
+    if (item.manual_low || item.is_low) score += 120;
+    if (getMatchingShoppingEntry(item.id, item.name)) score += 90;
+    if (item.last_purchase_date) {
+      const daysAgo = Math.max(0, Math.floor((Date.now() - new Date(item.last_purchase_date).getTime()) / 86400000));
+      score += Math.max(0, 60 - Math.min(daysAgo, 60));
+    }
+    if (item.latest_price?.store) score += 8;
+    if (item.brand) score += 4;
+    return score;
+  };
+  shoppingQuickSuggestions = products
+    .map(item => ({ ...item, _suggestionScore: scoreSuggestion(item) }))
+    .sort((a, b) => compareNumber(a._suggestionScore, b._suggestionScore, 'desc') || compareText(a.name, b.name, 'asc'))
+    .slice(0, 5);
+}
+
+async function handleShoppingQuickFindFocus() {
+  shoppingQuickFocused = true;
+  if (!shoppingQuickQuery || shoppingQuickQuery.length < 2) {
+    await ensureShoppingQuickSuggestions();
+    renderShoppingQuickResults();
+  }
+}
+
+function handleShoppingQuickFindBlur() {
+  setTimeout(() => {
+    shoppingQuickFocused = false;
+    if (!shoppingQuickQuery || shoppingQuickQuery.length < 2) {
+      renderShoppingQuickResults();
+    }
+  }, 120);
+}
+
+function scoreShoppingQuickFindResult(item, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return 0;
+  const name = String(item?.name || '').toLowerCase();
+  const brand = String(item?.brand || '').toLowerCase();
+  const category = String(item?.category || '').toLowerCase();
+  const size = String(item?.size || '').toLowerCase();
+  let score = 0;
+  if (name === q) score += 300;
+  if (name.startsWith(q)) score += 180;
+  if (name.includes(q)) score += 100;
+  if (brand.startsWith(q)) score += 60;
+  if (brand.includes(q)) score += 35;
+  if (category === q) score += 25;
+  if (category.includes(q)) score += 10;
+  if (size.includes(q)) score += 8;
+  const words = q.split(/\s+/).filter(Boolean);
+  for (const word of words) {
+    if (name.startsWith(word)) score += 35;
+    else if (name.includes(word)) score += 18;
+    if (brand.includes(word)) score += 8;
+  }
+  score += Math.min(12, Number(item?.last_purchase_date ? 12 : 0));
+  return score;
+}
+
+async function searchShoppingQuickFind(forceImmediate = false) {
   shoppingQuickQuery = document.getElementById('shop-quick-search')?.value?.trim() || '';
   if (shoppingQuickQuery.length < 2) {
     shoppingQuickResults = [];
+    if (shoppingQuickFocused) {
+      await ensureShoppingQuickSuggestions();
+    }
     renderShoppingQuickResults();
+    return;
+  }
+  if (!forceImmediate) {
+    clearTimeout(window._shoppingQuickTimer);
+    window._shoppingQuickTimer = setTimeout(() => searchShoppingQuickFind(true), 180);
     return;
   }
   const res = await api(`/products/search?q=${encodeURIComponent(shoppingQuickQuery)}`);
@@ -4499,7 +6588,12 @@ async function searchShoppingQuickFind() {
     return;
   }
   const data = await res.json();
-  shoppingQuickResults = data.results || data.products || [];
+  shoppingQuickResults = (data.results || data.products || [])
+    .map(item => ({ ...item, _quickScore: scoreShoppingQuickFindResult(item, shoppingQuickQuery) }))
+    .sort((a, b) =>
+      compareNumber(a._quickScore, b._quickScore, 'desc') ||
+      compareText(a.name, b.name, 'asc')
+    );
   renderShoppingQuickResults();
 }
 
@@ -4529,7 +6623,7 @@ async function updateShoppingPreferredStore(itemId, preferredStore) {
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
-  const selectedStatus = document.getElementById('shop-status-filter')?.value || '';
+  const selectedStatus = SHOPPING_HELPER_MODE ? '' : 'open';
   const query = shoppingSearchQuery;
   const items = query
     ? shoppingListCache.filter(item => [item.name, item.category, item.source, item.note, item.latest_price?.store]
@@ -4548,34 +6642,96 @@ function renderShoppingListTable() {
   }, {});
   const sortShoppingItems = list => [...list].sort((a, b) => {
     if (shoppingSort === 'name_asc') return compareText(a.name, b.name, 'asc');
+    if (shoppingSort === 'name_desc') return compareText(a.name, b.name, 'desc');
     if (shoppingSort === 'category_asc') return compareText(a.category, b.category, 'asc') || compareText(a.name, b.name, 'asc');
     if (shoppingSort === 'price_desc') return compareNumber((a.latest_price?.price || 0) * (a.quantity || 1), (b.latest_price?.price || 0) * (b.quantity || 1), 'desc') || compareText(a.name, b.name, 'asc');
+    if (shoppingSort === 'price_asc') return compareNumber((a.latest_price?.price || 0) * (a.quantity || 1), (b.latest_price?.price || 0) * (b.quantity || 1), 'asc') || compareText(a.name, b.name, 'asc');
     if (shoppingSort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.name, b.name, 'asc');
     return compareText(a.name, b.name, 'asc');
   });
   const sortShoppingGroups = groups => [...groups].sort(([a, aItems], [b, bItems]) => {
-    if (shoppingSort === 'store_name_asc') return compareText(a, b, 'asc');
     if (shoppingSort === 'price_desc') {
       const left = aItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
       const right = bItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
       return compareNumber(left, right, 'desc') || compareText(a, b, 'asc');
     }
+    if (shoppingSort === 'price_asc') {
+      const left = aItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
+      const right = bItems.reduce((sum, item) => sum + ((item.latest_price?.price || 0) * (item.quantity || 1)), 0);
+      return compareNumber(left, right, 'asc') || compareText(a, b, 'asc');
+    }
     return compareText(a, b, 'asc');
   });
+  const isMobileShoppingList = () => !SHOPPING_HELPER_MODE && window.innerWidth <= 640;
+  const renderMobileStoreCards = (groups, options = {}) => sortShoppingGroups(groups)
+    .map(([storeName, storeItems]) => {
+      const sectionKey = options.sectionKey || selectedStatus || 'current';
+      const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
+      return `
+      <div class="shopping-mobile-store-card" style="${options.dimmed ? 'opacity:0.92;' : ''}">
+        <div class="shopping-mobile-store-head">
+          <div class="shopping-mobile-store-title">${escHtml(storeName)}</div>
+          <button
+            type="button"
+            class="card-header-inline-stat"
+            onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+            aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+            title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+          >${storeItems.length}</button>
+        </div>
+        <div class="shopping-mobile-item-list" style="display:${collapsed ? 'none' : ''}">
+          ${sortShoppingItems(storeItems).map(item => `
+            <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.id] ? 'expanded' : ''}">
+              <div class="shopping-mobile-item-summary" role="button" tabindex="0" onclick="toggleShoppingMobileItem(${item.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(${item.id});}">
+                  <div class="shopping-mobile-item-name">${escHtml(simplifyShoppingDisplayName(item.name))}</div>
+                <div class="shopping-mobile-item-estimate">
+                  ${item.latest_price?.price != null ? formatMoney(item.latest_price.price * item.quantity) : '<span style="color:var(--muted)">—</span>'}
+                  <span class="shopping-mobile-item-chevron">▾</span>
+                </div>
+              </div>
+              <div class="shopping-mobile-item-detail">
+                <div class="shopping-mobile-item-meta">
+                  ${[
+                    item.quantity && Number(item.quantity) !== 1 ? `Qty ${escHtml(String(item.quantity))}` : null,
+                    item.category ? formatLabel(item.category, 'Other') : null,
+                    item.latest_price?.store ? `Likely ${item.latest_price.store}` : null,
+                    item.note || null
+                  ].filter(Boolean).map(value => escHtml(value)).join(' · ') || 'Tap Bought when you pick this up.'}
+                </div>
+                <div class="shopping-mobile-item-actions">
+                  ${item.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.product_id}, true)">Low</button>` : ''}
+                  <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingItem(${item.id})">🗑</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }).join('');
   const renderStoreTables = (groups, options = {}) => sortShoppingGroups(groups)
-    .map(([storeName, storeItems]) => `
+    .map(([storeName, storeItems]) => {
+      const sectionKey = options.sectionKey || selectedStatus || 'current';
+      const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
+      return `
       <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
         <div class="card-header">
           <span class="card-title">${escHtml(storeName)}</span>
-          <span class="badge badge-${storeName === 'Unassigned' ? 'warning' : options.badgeTone || 'info'}">${storeItems.length} item${storeItems.length === 1 ? '' : 's'}</span>
+          <button
+            type="button"
+            class="card-header-inline-stat"
+            onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+            aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+            title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+          >${storeItems.length}</button>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table>
             <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td>
-                  <strong>${escHtml(item.name)}</strong>
+                  <strong>${escHtml(simplifyShoppingDisplayName(item.name))}</strong>
                   <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
                     ${[
                       item.latest_price?.store ? `Likely ${item.latest_price.store}` : null,
@@ -4602,7 +6758,8 @@ function renderShoppingListTable() {
             </tbody>
           </table>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   if (SHOPPING_HELPER_MODE) {
     const openGroups = Object.entries(grouped)
       .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status !== 'purchased')])
@@ -4679,36 +6836,44 @@ function renderShoppingListTable() {
     const purchasedGroups = Object.entries(grouped)
       .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status === 'purchased')])
       .filter(([, storeItems]) => storeItems.length);
+    if (isMobileShoppingList()) {
+      body.innerHTML = `
+        ${openGroups.length ? '<div class="helper-section-label" style="margin-bottom:10px">To Buy</div>' : ''}
+        ${renderMobileStoreCards(openGroups, { sectionKey: 'open-groups' })}
+        ${purchasedGroups.length ? '<div class="helper-section-label" style="margin:8px 0 10px">Recently Checked Off</div>' : ''}
+        ${renderMobileStoreCards(purchasedGroups, { dimmed: true, sectionKey: 'purchased-groups' })}
+      `;
+      return;
+    }
     body.innerHTML = `
       ${openGroups.length ? '<div class="helper-section-label" style="margin-bottom:10px">To Buy</div>' : ''}
-      ${renderStoreTables(openGroups)}
+      ${renderStoreTables(openGroups, { sectionKey: 'open-groups' })}
       ${purchasedGroups.length ? '<div class="helper-section-label" style="margin:8px 0 10px">Recently Checked Off</div>' : ''}
-      ${renderStoreTables(purchasedGroups, { dimmed: true, badgeTone: 'ok' })}
+      ${renderStoreTables(purchasedGroups, { dimmed: true, badgeTone: 'ok', sectionKey: 'purchased-groups' })}
     `;
     return;
   }
-  body.innerHTML = renderStoreTables(Object.entries(grouped));
+  if (isMobileShoppingList()) {
+    body.innerHTML = renderMobileStoreCards(Object.entries(grouped), { sectionKey: selectedStatus || 'current' });
+    return;
+  }
+  body.innerHTML = renderStoreTables(Object.entries(grouped), { sectionKey: selectedStatus || 'current' });
 }
 
 async function loadShoppingList() {
-  const status = SHOPPING_HELPER_MODE ? '' : (document.getElementById('shop-status-filter')?.value || 'open');
+  const status = SHOPPING_HELPER_MODE ? '' : 'open';
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   const res = await shoppingApi(`/shopping-list${query}`);
   const body = document.getElementById('shopping-table-body');
-  const storeSummary = document.getElementById('shop-store-summary');
   if (!res.ok) {
     body.innerHTML = '<div class="empty-state"><p>Could not load shopping list.</p></div>';
-    if (storeSummary) storeSummary.innerHTML = '<div class="empty-state"><p>Could not load store estimate.</p></div>';
     return;
   }
   const data = await res.json();
   shoppingListCache = data.items || [];
-  const shoppingSortMainEl = document.getElementById('shop-sort-main');
-  if (shoppingSortMainEl && shoppingSortMainEl.value !== shoppingSort) shoppingSortMainEl.value = shoppingSort;
-  const shoppingSortEl = document.getElementById('shop-sort');
-  if (shoppingSortEl && shoppingSortEl.value !== shoppingSort) shoppingSortEl.value = shoppingSort;
   shoppingStoreOptions = data.available_stores || [];
   populateShoppingStoreSelects();
+  updateShoppingSortControls();
   ['shop-open-count', 'shop-open-count-main'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = data.open_count ?? 0;
@@ -4721,26 +6886,6 @@ async function loadShoppingList() {
     const el = document.getElementById(id);
     if (el) el.textContent = formatMoney(data.estimated_total_cost || 0);
   });
-  if (storeSummary) {
-    const stores = [...(data.suggested_stores || [])];
-    stores.sort((a, b) => {
-      if (shoppingSort === 'price_desc') return compareNumber(a.estimated_total, b.estimated_total, 'desc') || compareText(a.store, b.store, 'asc');
-      return compareText(a.store, b.store, 'asc');
-    });
-    storeSummary.innerHTML = stores.length ? `
-      <div class="contrib-list">
-        ${stores.map(store => `
-          <div class="contrib-list-item">
-            <div class="contrib-list-top">
-              <strong>${escHtml(store.store)}</strong>
-              <span class="contrib-points">${formatMoney(store.estimated_total)}</span>
-            </div>
-            <div class="contrib-meta">${store.item_count} item${store.item_count === 1 ? '' : 's'} likely from this store</div>
-          </div>
-    `).join('')}
-      </div>
-    ` : '<div class="empty-state"><p>No store estimate yet.</p></div>';
-  }
   renderShoppingListTable();
   renderShoppingQuickResults();
 }
@@ -4821,6 +6966,10 @@ function setUploadIntent(intent, button) {
 }
 
 async function uploadReceipt() {
+  if (isDemoMode()) {
+    toast('Sign in to upload a real receipt', 'error');
+    return;
+  }
   const file = document.getElementById('file-input').files[0];
   if (!file) { toast('Select a receipt file first', 'error'); return; }
   const receiptIntent = document.getElementById('upload-receipt-intent')?.value || 'auto';
@@ -5784,19 +7933,59 @@ async function viewExpenseReceiptDetail(id) {
 async function loadRecs(targetId = 'shopping-recs-body') {
   const res = await api('/recommendations');
   const body = document.getElementById(targetId);
+  const countEl = targetId === 'shopping-recs-body'
+    ? document.querySelector('#shopping-recommendations-toggle .shopping-header-chip-count')
+    : null;
   if (!body) return;
-  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load recommendations.</p></div>'; return; }
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load recommendations.</p></div>';
+    if (countEl) countEl.textContent = '0';
+    return;
+  }
   const data = await res.json();
   const list = data.recommendations || [];
-  body.innerHTML = list.length ? list.map(recHtml).join('') :
+  if (countEl) countEl.textContent = String(list.length);
+  const compactShopping = targetId === 'shopping-recs-body' && window.innerWidth <= 640;
+  body.innerHTML = list.length ? list.map(item => recHtml(item, compactShopping ? { compact: true, shoppingCompact: true } : {})).join('') :
     '<div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div>';
 }
 
-function recHtml(r) {
+function recHtml(r, options = {}) {
   const icons = { deal: '🏷️', seasonal: '📅', low_stock: '⚠️', manual_low: '📝' };
   const type = getRecommendationType(r);
   const inShopping = !!r.in_shopping_list;
   const shoppingLabel = r.shopping_list_by ? `🛒 In Shopping List by ${r.shopping_list_by}` : '🛒 In Shopping List';
+  if (options.compact) {
+    const recId = `rec-${String(r.product_id ?? r.product_name ?? Math.random()).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+    const actionLabel = inShopping ? 'Cart' : 'Add';
+    const confirmLabel = 'Confirm';
+    return `<div id="${recId}" class="rec-item compact-dashboard"
+      onmousedown="beginRecommendationHold('${recId}')"
+      onmouseup="cancelRecommendationHold()"
+      onmouseleave="cancelRecommendationHold()"
+      ontouchstart="beginRecommendationHold('${recId}')"
+      ontouchend="cancelRecommendationHold()"
+      ontouchcancel="cancelRecommendationHold()">
+      <span class="rec-icon">${icons[type] || '💡'}</span>
+      <div class="rec-compact-main">
+        <div class="rec-compact-title">
+          <span class="rec-name">${escHtml(r.product_name)}</span>
+        </div>
+        <div class="rec-compact-actions">
+          ${inShopping
+            ? `<button class="btn btn-sm btn-tonal-success" title="Open the shopping list and jump into the shared cart flow for this item." aria-label="Open shopping cart for this recommendation" onclick="event.stopPropagation();goToPage('shopping')">🛒 ${actionLabel}</button>`
+            : `<button class="btn btn-sm btn-tonal-accent" title="Add this recommendation to the shopping list. This starts a pending shopping action." aria-label="Add this recommendation to shopping list" onclick="event.stopPropagation();quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 ${actionLabel}</button>`
+          }
+          <button class="btn btn-sm btn-ghost" title="Confirm that this recommendation looks right for the household. Confirmations can earn points when later validated." aria-label="Confirm this recommendation" onclick="event.stopPropagation();confirmRecommendationFromDashboard(${r.product_id ?? 'null'})">✅ ${confirmLabel}</button>
+        </div>
+      </div>
+      <div class="rec-detail">
+        <div class="rec-msg">${escHtml(r.message)}</div>
+        <div class="rec-conf">Confidence: ${((r.confidence||0)*100).toFixed(0)}%</div>
+        ${inShopping ? `<div style="margin-top:8px"><span class="person-modal-pill finalized">${escHtml(shoppingLabel)}</span> <span class="person-modal-pill confirmed">Bought unlocks</span></div>` : ''}
+      </div>
+    </div>`;
+  }
   return `<div class="rec-item">
     <span class="rec-icon">${icons[type] || '💡'}</span>
     <div>
@@ -5806,8 +7995,8 @@ function recHtml(r) {
       ${inShopping ? `<div style="margin-top:8px"><span class="person-modal-pill finalized">${escHtml(shoppingLabel)}</span></div>` : ''}
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
         ${inShopping
-          ? `<button class="btn btn-sm btn-ghost" onclick="goToPage('shopping')">🛒 Open Shopping List</button>`
-          : `<button class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 Add to Shopping ${actionScorePill('pending', 'pending')}</button>`
+          ? `<button class="btn btn-sm btn-tonal-success" onclick="goToPage('shopping')">🛒 Open Shopping List</button>`
+          : `<button class="btn btn-sm btn-tonal-accent" onclick="quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 Add to Shopping ${actionScorePill('pending', 'pending')}</button>`
         }
         <button class="btn btn-sm btn-ghost" onclick="confirmRecommendationFromDashboard(${r.product_id ?? 'null'})">✅ Confirm ${actionScorePill('+2', 'pending')}</button>
         ${inShopping ? `<span class="person-modal-pill confirmed">Bought ${escHtml('unlocks')}</span>` : ''}
@@ -5838,7 +8027,10 @@ checkAuth().then(authenticated => {
     loadShoppingList();
     return;
   }
-  if (authenticated) loadDashboard();
+  const preferredPage = getLastPage();
+  const navItem = [...document.querySelectorAll('.nav-item')]
+    .find(item => (item.getAttribute('onclick') || '').includes(`'${preferredPage}'`));
+  nav(preferredPage, navItem || null);
 });
 
 setInterval(() => {

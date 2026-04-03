@@ -22,6 +22,8 @@ Extended-specific runtime changes now in place:
 - compose defaults are now designed for side-by-side local deployment
 - restaurant receipt review/update flow is now available in receipt detail
 - general-expense receipts now persist as their own spend domain
+- signed-out users now land in a read-only demo mode with seeded sample data across the main workspaces
+- shopping and inventory mobile surfaces have been significantly compacted for phone-first use
 
 ## Verified Working In Code/Config
 
@@ -77,6 +79,19 @@ Extended-specific runtime changes now in place:
 - placeholder bootstrap/session secrets are now treated as invalid and no longer silently trusted in production-like configs
 - seasonal recommendation date math now handles mixed timezone-aware and naive purchase timestamps correctly
 - known placeholder OCR junk rows copied into Extended were removed without touching valid grocery-history imports
+- demo mode now uses clearly fictional sample household data and compact dashboard previews
+- recommendation, shopping, low-stock, and inventory surfaces now use simplified household-style item names
+- shopping page now has:
+  - compact `Open / Estimate / Close` summary chips
+  - header toggles for Quick Find and Recommendations
+  - a lighter Current List with inline sort chips
+  - compact expandable mobile rows
+- inventory page now has:
+  - mobile-collapsible add form
+  - magnifier-driven search/sort tools
+  - compact expandable mobile rows
+  - grouped display rows for duplicate household items
+- rename flows now use an in-app text modal instead of browser-native prompt dialogs
 
 ## Intended Parallel Deployment Shape
 
@@ -107,6 +122,7 @@ This is the repo where the following should happen next:
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
+- optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 
 ## Resume Priority
 
@@ -115,3 +131,4 @@ This is the repo where the following should happen next:
 3. verify MQTT and Home Assistant topics do not collide
 4. continue restaurant/module architecture in this repo only
 5. improve category autofill for general expenses and restaurant line-item editing speed
+6. decide whether grouped inventory rows should remain display-only or evolve into true backend merge behavior

@@ -70,6 +70,12 @@ SCORE_RULES = [
         "description": "Earned by both the suggester and confirmer when another household member agrees an item is low.",
     },
     {
+        "key": "low_self_confirmed",
+        "title": "Self-confirm a low-stock call",
+        "points": 1,
+        "description": "Earned when the same household member confirms their own low-stock call. This is weaker than peer confirmation.",
+    },
+    {
         "key": "recommendation_accepted",
         "title": "Accept a recommendation",
         "points": 0,
@@ -80,6 +86,12 @@ SCORE_RULES = [
         "title": "Confirm a recommendation",
         "points": 2,
         "description": "Earned by both the suggester and confirmer when another household member agrees with a recommendation.",
+    },
+    {
+        "key": "recommendation_self_confirmed",
+        "title": "Self-confirm a recommendation",
+        "points": 1,
+        "description": "Creates a weaker self-confirmation path for single-user or solo-shopping households. It finalizes only after purchase.",
     },
     {
         "key": "shopping_item_validated",
@@ -265,7 +277,7 @@ def validate_low_workflow(session, *, product_id: int, purchase_id: int, product
 
 
 def confirm_low_peer(session, *, confirmer_user_id: int | None, product_id: int | None, product_name: str):
-    """Let another user confirm that a low-stock call was valid."""
+    """Confirm that a low-stock call was valid, with weaker self-confirm support."""
     if not confirmer_user_id or not product_id:
         return {"error": "Missing confirmer or product"}
 
@@ -282,13 +294,12 @@ def confirm_low_peer(session, *, confirmer_user_id: int | None, product_id: int 
     )
     if not pending:
         return {"error": "No pending low-stock contribution to confirm"}
-    if pending.user_id == confirmer_user_id:
-        return {"error": "You cannot confirm your own low-stock action"}
+    is_self_confirm = pending.user_id == confirmer_user_id
 
     existing = (
         session.query(ContributionEvent)
         .filter(
-            ContributionEvent.event_type == "low_peer_confirmed",
+            ContributionEvent.event_type.in_(["low_peer_confirmed", "low_self_confirmed"]),
             ContributionEvent.subject_type == "product",
             ContributionEvent.subject_id == product_id,
             ContributionEvent.user_id == confirmer_user_id,
@@ -300,6 +311,18 @@ def confirm_low_peer(session, *, confirmer_user_id: int | None, product_id: int 
         return {"error": "This low-stock action is already confirmed"}
 
     pending.status = "confirmed"
+    if is_self_confirm:
+        award_contribution_event(
+            session,
+            user_id=pending.user_id,
+            event_type="low_self_confirmed",
+            description=f"Self-confirmed that {product_name} is low",
+            subject_type="product",
+            subject_id=product_id,
+            metadata={"role": "self_confirmer"},
+        )
+        return {"ok": True, "suggested_by": pending.user_id, "status": "self_confirmed"}
+
     award_contribution_event(
         session,
         user_id=pending.user_id,
@@ -318,7 +341,7 @@ def confirm_low_peer(session, *, confirmer_user_id: int | None, product_id: int 
         subject_id=product_id,
         metadata={"role": "confirmer", "suggested_by": pending.user_id},
     )
-    return {"ok": True, "suggested_by": pending.user_id}
+    return {"ok": True, "suggested_by": pending.user_id, "status": "peer_confirmed"}
 
 
 def reverse_low_confirmation(session, *, product_id: int | None):
@@ -328,7 +351,7 @@ def reverse_low_confirmation(session, *, product_id: int | None):
     events = (
         session.query(ContributionEvent)
         .filter(
-            ContributionEvent.event_type == "low_peer_confirmed",
+            ContributionEvent.event_type.in_(["low_peer_confirmed", "low_self_confirmed"]),
             ContributionEvent.subject_type == "product",
             ContributionEvent.subject_id == product_id,
             ContributionEvent.status == "finalized",
@@ -341,7 +364,7 @@ def reverse_low_confirmation(session, *, product_id: int | None):
 
 
 def confirm_recommendation_peer(session, *, confirmer_user_id: int | None, shopping_item_id: int | None, item_name: str):
-    """Let another user confirm a recommendation-based shopping action."""
+    """Confirm a recommendation-based shopping action, with weaker self-confirm support."""
     if not confirmer_user_id or not shopping_item_id:
         return {"error": "Missing confirmer or shopping item"}
 
@@ -358,17 +381,16 @@ def confirm_recommendation_peer(session, *, confirmer_user_id: int | None, shopp
     )
     if not pending:
         return {"error": "No pending recommendation to confirm"}
-    if pending.user_id == confirmer_user_id:
-        return {"error": "You cannot confirm your own recommendation action"}
+    is_self_confirm = pending.user_id == confirmer_user_id
 
     existing = (
         session.query(ContributionEvent)
         .filter(
-            ContributionEvent.event_type == "recommendation_peer_confirmed",
+            ContributionEvent.event_type.in_(["recommendation_peer_confirmed", "recommendation_self_confirmed"]),
             ContributionEvent.subject_type == "shopping_item",
             ContributionEvent.subject_id == shopping_item_id,
             ContributionEvent.user_id == confirmer_user_id,
-            ContributionEvent.status == "finalized",
+            ContributionEvent.status.in_(["finalized", "floating"]),
         )
         .first()
     )
@@ -376,6 +398,19 @@ def confirm_recommendation_peer(session, *, confirmer_user_id: int | None, shopp
         return {"error": "This recommendation is already confirmed"}
 
     pending.status = "confirmed"
+    if is_self_confirm:
+        award_contribution_event(
+            session,
+            user_id=pending.user_id,
+            event_type="recommendation_self_confirmed",
+            description=f"Self-confirmed recommendation for {item_name}",
+            subject_type="shopping_item",
+            subject_id=shopping_item_id,
+            status="floating",
+            metadata={"role": "self_confirmer"},
+        )
+        return {"ok": True, "suggested_by": pending.user_id, "status": "self_confirmed"}
+
     award_contribution_event(
         session,
         user_id=pending.user_id,
@@ -396,7 +431,7 @@ def confirm_recommendation_peer(session, *, confirmer_user_id: int | None, shopp
         status="floating",
         metadata={"role": "confirmer", "suggested_by": pending.user_id},
     )
-    return {"ok": True, "suggested_by": pending.user_id}
+    return {"ok": True, "suggested_by": pending.user_id, "status": "peer_confirmed"}
 
 
 def finalize_recommendation_confirmation(session, *, shopping_item_id: int | None):
@@ -408,7 +443,7 @@ def finalize_recommendation_confirmation(session, *, shopping_item_id: int | Non
         .filter(
             ContributionEvent.subject_type == "shopping_item",
             ContributionEvent.subject_id == shopping_item_id,
-            ContributionEvent.event_type == "recommendation_peer_confirmed",
+            ContributionEvent.event_type.in_(["recommendation_peer_confirmed", "recommendation_self_confirmed"]),
             ContributionEvent.status == "floating",
         )
         .all()
@@ -440,7 +475,7 @@ def unfinalize_recommendation_confirmation(session, *, shopping_item_id: int | N
         .filter(
             ContributionEvent.subject_type == "shopping_item",
             ContributionEvent.subject_id == shopping_item_id,
-            ContributionEvent.event_type == "recommendation_peer_confirmed",
+            ContributionEvent.event_type.in_(["recommendation_peer_confirmed", "recommendation_self_confirmed"]),
             ContributionEvent.status == "finalized",
         )
         .all()
@@ -478,6 +513,7 @@ def reverse_shopping_item_contributions(session, *, shopping_item_id: int | None
                 "shopping_item_validated",
                 "recommendation_accepted",
                 "recommendation_peer_confirmed",
+                "recommendation_self_confirmed",
             ]),
             ContributionEvent.status.in_(["finalized", "pending_confirmation", "confirmed", "validated", "floating"]),
         )
