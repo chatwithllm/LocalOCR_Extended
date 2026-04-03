@@ -458,7 +458,7 @@ def confirm_recommendation_for_product(product_id):
         return jsonify({"error": result["error"]}), 400
     session.commit()
     return jsonify({
-        "status": "confirmed",
+        "status": result.get("status", "peer_confirmed"),
         "shopping_item_id": item.id,
         "name": item.name,
     }), 200

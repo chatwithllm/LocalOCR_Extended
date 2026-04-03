@@ -11,18 +11,27 @@ Seasonal: min((days_since_last / avg_frequency - 1.0) * 2.5, 1.0)
 """
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from statistics import median
 
 from flask import Blueprint, g, jsonify
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import Inventory, Product, PriceHistory, ReceiptItem, Purchase, ShoppingListItem, User
+from src.backend.normalize_product_names import canonicalize_product_name
 
 logger = logging.getLogger(__name__)
 
 CONFIDENCE_THRESHOLD = 0.40
+FAMILY_TOKEN_STOPWORDS = {
+    "organic", "org", "fresh", "large", "small", "medium", "extra", "pink", "lady",
+    "red", "green", "yellow", "whole", "baby", "mini", "seedless", "boneless", "skinless",
+    "count", "ct", "dozen", "pack", "packs", "pk", "case", "lb", "lbs", "oz", "gal",
+    "qt", "pt", "ml", "l", "liter", "liters", "roll", "rolls", "cup", "cups", "bottle",
+    "bottles", "can", "cans", "jar", "jars", "box", "boxes", "bag", "bags", "tray", "trays",
+}
 
 recommendations_bp = Blueprint("recommendations", __name__, url_prefix="/recommendations")
 
@@ -66,6 +75,7 @@ def generate_all_recommendations() -> list:
 
     # Filter by confidence threshold
     recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
+    recommendations = _group_recommendations_by_family(recommendations)
     _annotate_shopping_status(recommendations)
 
     # Sort by confidence (highest first)
@@ -74,17 +84,103 @@ def generate_all_recommendations() -> list:
     return recommendations
 
 
+def _recommendation_family_name(product_name: str | None) -> str:
+    text = canonicalize_product_name(product_name or "")
+    tokens = re.findall(r"[a-z]+", text.lower())
+    meaningful = [token for token in tokens if token not in FAMILY_TOKEN_STOPWORDS]
+    if not meaningful:
+      meaningful = tokens
+    if not meaningful:
+        return canonicalize_product_name(product_name or "Unknown Item")
+    family = meaningful[-1]
+    if family.endswith("ies") and len(family) > 3:
+        display = family[:-3] + "ies"
+    elif family.endswith("s"):
+        display = family
+    else:
+        display = family
+    return display[:1].upper() + display[1:]
+
+
+def _group_recommendations_by_family(recommendations: list[dict]) -> list[dict]:
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for rec in recommendations:
+        family_name = _recommendation_family_name(rec.get("product_name"))
+        grouped.setdefault((str(rec.get("category") or "other"), family_name.lower()), []).append({**rec, "family_name": family_name})
+
+    merged: list[dict] = []
+    for (_category, _family_key), recs in grouped.items():
+        if len(recs) == 1:
+            single = recs[0]
+            family_name = single.get("family_name") or _recommendation_family_name(single.get("product_name"))
+            original_name = single.get("product_name")
+            single["family_name"] = family_name
+            single["product_name"] = family_name
+            if original_name:
+                single["variant_names"] = [original_name]
+                if single.get("message"):
+                    single["message"] = f"{family_name} may be worth restocking."
+            merged.append(single)
+            continue
+
+        primary = max(recs, key=lambda item: (float(item.get("confidence") or 0), float(item.get("discount_pct") or 0), -(item.get("current_quantity") or 9999)))
+        family_name = primary.get("family_name") or _recommendation_family_name(primary.get("product_name"))
+        variant_names = []
+        variant_ids = []
+        reasons = set()
+        for rec in recs:
+            name = rec.get("product_name")
+            if name and name not in variant_names:
+                variant_names.append(name)
+            product_id = rec.get("product_id")
+            if product_id is not None and product_id not in variant_ids:
+                variant_ids.append(product_id)
+            if rec.get("reason"):
+                reasons.add(str(rec["reason"]))
+
+        grouped_rec = dict(primary)
+        grouped_rec["product_name"] = family_name
+        grouped_rec["variant_names"] = variant_names
+        grouped_rec["product_ids"] = variant_ids
+        grouped_rec["grouped_variant_count"] = len(variant_names)
+        grouped_rec["message"] = (
+            f"{family_name} may be worth restocking. "
+            f"Usually bought as {', '.join(variant_names[:2])}"
+            + ("…" if len(variant_names) > 2 else "")
+        )
+        if "manual_low" in reasons:
+            grouped_rec["reason"] = "manual_low"
+        elif "low_stock" in reasons:
+            grouped_rec["reason"] = "low_stock"
+        elif "deal" in reasons:
+            grouped_rec["reason"] = "deal"
+        elif "seasonal" in reasons:
+            grouped_rec["reason"] = "seasonal"
+        merged.append(grouped_rec)
+
+    return merged
+
+
 def _annotate_shopping_status(recommendations: list) -> None:
     """Annotate recommendations with whether they are already in the shopping list."""
     session = g.db_session
     for rec in recommendations:
         product_id = rec.get("product_id")
+        product_ids = [pid for pid in (rec.get("product_ids") or []) if pid is not None]
         product_name = rec.get("product_name")
         query = session.query(ShoppingListItem, User).outerjoin(User, User.id == ShoppingListItem.user_id).filter(ShoppingListItem.status == "open")
-        if product_id:
+        if product_ids:
+            query = query.filter(ShoppingListItem.product_id.in_(product_ids))
+        elif product_id:
             query = query.filter(ShoppingListItem.product_id == product_id)
         elif product_name:
-            query = query.filter(func.lower(ShoppingListItem.name) == product_name.lower())
+            family_lower = product_name.lower()
+            query = query.filter(
+                or_(
+                    func.lower(ShoppingListItem.name) == family_lower,
+                    func.lower(ShoppingListItem.name).like(f"%{family_lower}%")
+                )
+            )
         else:
             rec["in_shopping_list"] = False
             continue

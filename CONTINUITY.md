@@ -94,6 +94,15 @@ This split gives you a clean safety net:
 - seasonal recommendation date math now tolerates mixed naive/aware timestamps
 - placeholder OCR junk receipts/products copied into Extended were cleaned out without touching valid grocery history
 - signed-out visitors now get a meaningful read-only demo mode with realistic sample data across dashboard, grocery, restaurant, expenses, receipts, and contribution views
+- shopping and inventory mobile surfaces were then compacted further:
+  - shopping summary strip now uses `Open / Estimate / Close`
+  - Quick Find and Recommendations moved behind header toggles
+  - Current List now uses lighter inline controls and compact expandable rows
+  - inventory add/search/sort clutter was reduced on phones
+  - inventory mobile rows now expand on demand instead of showing every action at once
+- household-style display names are now used across recommendations, low-stock, shopping, and inventory
+- duplicate household items in inventory are now grouped in the display layer so the list reads as unique household needs instead of repeated package variants
+- product rename now uses an in-app text modal instead of browser-native prompt
 
 ## 5. What Still Belongs To Extended Next
 
