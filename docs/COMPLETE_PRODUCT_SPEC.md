@@ -71,6 +71,11 @@ Implemented baseline in this repo:
   - rotate image
   - mark as restaurant
   - safe OCR rerun
+- restaurant OCR assist for hard phone photos:
+  - upload-time restaurant intent
+  - restaurant-specific OCR prompt hints
+  - rotated candidate comparison
+  - strongest candidate chosen before review
 - restaurant workspace budget/status card
 - selected restaurant receipt detail panel
 - repeat-order estimate from a selected receipt
@@ -82,6 +87,7 @@ Restaurant items must never affect grocery inventory.
 Current expectation:
 
 - difficult restaurant OCR should be fixable in the UI after upload
+- difficult restaurant OCR should start from the best available candidate, not always the first OCR pass
 - restaurant correction should not require raw JSON editing
 - corrected receipts should rebuild their purchase cleanly and preserve receipt image linkage
 
@@ -126,5 +132,5 @@ Extended docs and setup must clearly explain:
 2. preserve inherited grocery behavior
 3. add modular runtime scaffolding
 4. add restaurant receipt workflows
-5. improve restaurant OCR + correction ergonomics
+5. improve restaurant line-item editing and restaurant planning ergonomics
 6. add combined/separate user presentation options

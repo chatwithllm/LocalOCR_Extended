@@ -18,6 +18,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Any
 
 from flask import g
 from PIL import Image, ImageOps
@@ -119,47 +120,28 @@ def process_receipt(image_path: str, source: str = "upload",
 
     try:
         ocr_input_path = _prepare_ocr_input(image_path)
-
-        # --- Step 1: Try Gemini ---
         try:
-            from src.backend.call_gemini_vision_api import extract_receipt_via_gemini
-            ocr_data = extract_receipt_via_gemini(ocr_input_path, source_file_path=image_path)
-            engine_used = "gemini"
-            logger.info("Gemini OCR succeeded.")
-        except Exception as e:
-            logger.warning(f"Gemini OCR failed: {e}. Falling back to OpenAI.")
+            ocr_data, engine_used = _extract_best_receipt_candidate(
+                ocr_input_path=ocr_input_path,
+                source_file_path=image_path,
+                receipt_type_hint=receipt_type_hint,
+            )
+        except Exception as exc:
+            logger.error("All OCR engines failed: %s", exc)
+            result["status"] = "failed"
+            result["error"] = str(exc)
 
-            # --- Step 2: Fallback to OpenAI ---
-            try:
-                from src.backend.call_openai_vision_api import extract_receipt_via_openai
-                ocr_data = extract_receipt_via_openai(ocr_input_path)
-                engine_used = "openai"
-                logger.info("OpenAI OCR fallback succeeded.")
-            except Exception as e2:
-                logger.warning(f"OpenAI OCR failed: {e2}. Falling back to Ollama.")
+            if source == "telegram" and chat_id:
+                _send_telegram_error(chat_id)
 
-                # --- Step 3: Fallback to Ollama ---
-                try:
-                    from src.backend.call_ollama_vision_api import extract_receipt_via_ollama
-                    ocr_data = extract_receipt_via_ollama(ocr_input_path)
-                    engine_used = "ollama"
-                    logger.info("Ollama OCR fallback succeeded.")
-                except Exception as e3:
-                    logger.error(f"All OCR engines failed. Gemini: {e}; OpenAI: {e2}; Ollama: {e3}")
-                    result["status"] = "failed"
-                    result["error"] = f"All OCR engines failed. Gemini: {e}; OpenAI: {e2}; Ollama: {e3}"
-
-                    if source == "telegram" and chat_id:
-                        _send_telegram_error(chat_id)
-
-                    _save_receipt_record(
-                        image_path, None, None, "failed", 0.0,
-                        _get_receipt_actor_id(source, chat_id, user_id),
-                        receipt_record_id=receipt_record_id,
-                        receipt_type=result.get("receipt_type"),
-                        raw_ocr_data=None,
-                    )
-                    return result
+            _save_receipt_record(
+                image_path, None, None, "failed", 0.0,
+                _get_receipt_actor_id(source, chat_id, user_id),
+                receipt_record_id=receipt_record_id,
+                receipt_type=result.get("receipt_type"),
+                raw_ocr_data=None,
+            )
+            return result
     finally:
         if ocr_input_path != image_path:
             _cleanup_ocr_input(ocr_input_path)
@@ -225,6 +207,220 @@ def process_receipt(image_path: str, source: str = "upload",
                 _send_telegram_warning(chat_id)
 
     return result
+
+
+def _extract_best_receipt_candidate(
+    ocr_input_path: str,
+    source_file_path: str,
+    receipt_type_hint: str | None = None,
+) -> tuple[dict, str]:
+    """Run OCR, optionally trying multiple rotated restaurant candidates and selecting the best one."""
+    mode_hint = _normalize_receipt_type_hint(receipt_type_hint)
+    ocr_data, engine_used = _run_ocr_with_fallback(
+        image_path=ocr_input_path,
+        source_file_path=source_file_path,
+        mode_hint=mode_hint,
+    )
+
+    if not _should_run_restaurant_candidate_assist(ocr_data, mode_hint):
+        return ocr_data, engine_used
+
+    candidate_specs = [{"label": "base", "rotation": 0, "path": ocr_input_path}]
+    candidate_specs.extend(_build_rotated_restaurant_candidates(ocr_input_path))
+
+    best_data = ocr_data
+    best_engine = engine_used
+    best_score = _score_restaurant_candidate(ocr_data)
+    best_label = "base"
+
+    for candidate in candidate_specs[1:]:
+        try:
+            candidate_data, candidate_engine = _run_ocr_with_fallback(
+                image_path=candidate["path"],
+                source_file_path=source_file_path,
+                mode_hint="restaurant",
+            )
+        except Exception as exc:
+            logger.info("Restaurant OCR candidate %s failed: %s", candidate["label"], exc)
+            continue
+
+        candidate_score = _score_restaurant_candidate(candidate_data)
+        logger.info(
+            "Restaurant OCR candidate %s scored %.2f (%s, total=%s, items=%s)",
+            candidate["label"],
+            candidate_score,
+            classify_receipt_data(candidate_data),
+            candidate_data.get("total"),
+            len(candidate_data.get("items", []) or []),
+        )
+        if candidate_score > best_score:
+            best_data = candidate_data
+            best_engine = candidate_engine
+            best_score = candidate_score
+            best_label = candidate["label"]
+
+    if best_label != "base":
+        logger.info(
+            "Restaurant OCR assist selected candidate %s over base result (score %.2f).",
+            best_label,
+            best_score,
+        )
+
+    for candidate in candidate_specs[1:]:
+        _cleanup_ocr_input(candidate["path"])
+
+    return best_data, best_engine
+
+
+def _run_ocr_with_fallback(image_path: str, source_file_path: str, mode_hint: str | None = None) -> tuple[dict, str]:
+    """Run the OCR provider chain and return the first successful result."""
+    errors: list[str] = []
+
+    try:
+        from src.backend.call_gemini_vision_api import extract_receipt_via_gemini
+
+        data = extract_receipt_via_gemini(
+            image_path,
+            source_file_path=source_file_path,
+            mode_hint=mode_hint,
+        )
+        logger.info("Gemini OCR succeeded.")
+        return data, "gemini"
+    except Exception as exc:
+        errors.append(f"Gemini: {exc}")
+        logger.warning("Gemini OCR failed: %s. Falling back to OpenAI.", exc)
+
+    try:
+        from src.backend.call_openai_vision_api import extract_receipt_via_openai
+
+        data = extract_receipt_via_openai(image_path, mode_hint=mode_hint)
+        logger.info("OpenAI OCR fallback succeeded.")
+        return data, "openai"
+    except Exception as exc:
+        errors.append(f"OpenAI: {exc}")
+        logger.warning("OpenAI OCR failed: %s. Falling back to Ollama.", exc)
+
+    try:
+        from src.backend.call_ollama_vision_api import extract_receipt_via_ollama
+
+        data = extract_receipt_via_ollama(image_path, mode_hint=mode_hint)
+        logger.info("Ollama OCR fallback succeeded.")
+        return data, "ollama"
+    except Exception as exc:
+        errors.append(f"Ollama: {exc}")
+        raise RuntimeError("; ".join(errors)) from exc
+
+
+def _should_run_restaurant_candidate_assist(ocr_data: dict, receipt_type_hint: str | None) -> bool:
+    """Decide whether restaurant-specific multi-pass OCR is worth the extra work."""
+    if receipt_type_hint == "restaurant":
+        return True
+    if classify_receipt_data(ocr_data) != "restaurant":
+        return False
+    return _score_restaurant_candidate(ocr_data) < 70
+
+
+def _build_rotated_restaurant_candidates(image_path: str) -> list[dict[str, Any]]:
+    """Generate rotated OCR candidates for hard restaurant photos."""
+    candidates: list[dict[str, Any]] = []
+    source_path = Path(image_path)
+    if source_path.suffix.lower() == ".pdf":
+        return candidates
+
+    try:
+        with Image.open(source_path) as image:
+            normalized = ImageOps.exif_transpose(image)
+            for degrees in (90, 180, 270):
+                output_dir = tempfile.mkdtemp(prefix=f"receipt-restaurant-{degrees}-")
+                rotated_path = Path(output_dir) / source_path.name
+                normalized.rotate(degrees, expand=True).save(rotated_path)
+                candidates.append(
+                    {
+                        "label": f"rotate-{degrees}",
+                        "rotation": degrees,
+                        "path": str(rotated_path),
+                    }
+                )
+    except Exception as exc:
+        logger.warning("Failed to create restaurant OCR candidates for %s: %s", image_path, exc)
+    return candidates
+
+
+def _score_restaurant_candidate(data: dict) -> float:
+    """Heuristic score for restaurant OCR candidates so the editor starts with the best draft."""
+    if not isinstance(data, dict):
+        return -100.0
+
+    score = 0.0
+    receipt_type = classify_receipt_data(data)
+    if receipt_type == "restaurant":
+        score += 35
+
+    confidence = _safe_float(data.get("confidence", 0.0), 0.0)
+    score += min(confidence, 1.0) * 12
+
+    total = _safe_float(data.get("total", 0.0), 0.0)
+    subtotal = _safe_float(data.get("subtotal", 0.0), 0.0)
+    tax = _safe_float(data.get("tax", 0.0), 0.0)
+    tip = _safe_float(data.get("tip", 0.0), 0.0)
+
+    if total > 0:
+        score += 18
+    if subtotal > 0:
+        score += 8
+    if tax > 0:
+        score += 5
+    if tip > 0:
+        score += 4
+    if total > 0 and subtotal > 0 and total >= subtotal:
+        score += 5
+
+    store = str(data.get("store", "") or "").strip()
+    store_lower = store.lower()
+    if store and store_lower not in {"unknown", "unknown store", "store name", "restaurant"}:
+        score += 12
+    if any(term in store_lower for term in ("restaurant", "cafe", "grill", "kitchen", "toast", "biryani", "kabob", "kebab")):
+        score += 4
+
+    if data.get("date"):
+        score += 8
+    if data.get("time"):
+        score += 4
+
+    items = data.get("items", []) or []
+    meaningful_items = 0
+    for item in items:
+        name = str((item or {}).get("name", "") or "").strip()
+        lower_name = name.lower()
+        if not name:
+            score -= 4
+            continue
+        if lower_name in {"product name", "item", "food", "bread"}:
+            score -= 5
+            continue
+        if any(token in lower_name for token in ("subtotal", "tax", "tip", "amount due", "credit")):
+            score -= 3
+            continue
+        meaningful_items += 1
+        score += 2
+        if str((item or {}).get("category", "") or "").lower() == "restaurant":
+            score += 2
+
+    score += min(meaningful_items, 6) * 2
+
+    item_blob = " ".join(str((item or {}).get("name", "") or "").lower() for item in items)
+    restaurant_terms = (
+        "combo", "burger", "fries", "wrap", "rice", "naan", "biryani",
+        "kebab", "kabob", "tikka", "chai", "tea", "coffee", "soda",
+        "dessert", "pani puri", "haleem", "idli", "dosa", "vada",
+    )
+    term_hits = sum(1 for term in restaurant_terms if term in item_blob)
+    score += min(term_hits, 6) * 2
+
+    if meaningful_items == 0:
+        score -= 15
+
+    return score
 
 
 # ---------------------------------------------------------------------------

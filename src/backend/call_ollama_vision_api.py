@@ -75,7 +75,7 @@ def _safe_float(value, default=0.0):
         return float(default)
 
 
-def extract_receipt_via_ollama(image_path: str) -> dict:
+def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) -> dict:
     """Extract receipt data from an image using Ollama LLaVA.
 
     Args:
@@ -91,9 +91,19 @@ def extract_receipt_via_ollama(image_path: str) -> dict:
     with open(image_path, "rb") as f:
         image_base64 = base64.b64encode(f.read()).decode("utf-8")
 
+    prompt = RECEIPT_EXTRACTION_PROMPT
+    if mode_hint == "restaurant":
+        prompt += (
+            "\n\nRestaurant-specific guidance:\n"
+            "- This upload is intentionally marked as a restaurant receipt.\n"
+            "- Prioritize restaurant name, date/time, subtotal, tax, tip, credits, total, and amount due.\n"
+            "- Preserve menu item names exactly.\n"
+            "- Avoid generic grocery-style fallback names unless clearly visible."
+        )
+
     payload = {
         "model": OLLAMA_MODEL,
-        "prompt": RECEIPT_EXTRACTION_PROMPT,
+        "prompt": prompt,
         "images": [image_base64],
         "stream": False,
         "options": {

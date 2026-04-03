@@ -68,6 +68,10 @@ Initial Extended capability now started:
 - exact restaurant line items preserved for repeat-order planning
 - subtotal, tax, tip, and total tracking
 - structured post-OCR correction flow in receipt detail
+- restaurant-first OCR assist for difficult phone photos:
+  - restaurant-specific OCR hints
+  - rotated candidate comparison
+  - strongest candidate prefills review
 - ability to fix store/date/time/totals/items after upload
 - restaurant workspace with:
   - dining budget card
@@ -81,6 +85,7 @@ Initial Extended capability now started:
 Restaurant workflow requirement:
 
 - users must be able to bias upload toward restaurant before OCR when they already know the receipt type
+- restaurant uploads should start from the strongest available OCR draft instead of always trusting the first pass
 - if OCR is inaccurate, users must be able to correct the restaurant receipt without editing raw JSON
 - corrected restaurant receipts must rebuild the saved purchase cleanly
 - corrected restaurant receipts must remain isolated from grocery inventory behavior

@@ -107,7 +107,11 @@ def _safe_float(value, default=0.0):
         return float(default)
 
 
-def extract_receipt_via_gemini(image_path: str, source_file_path: str | None = None) -> dict:
+def extract_receipt_via_gemini(
+    image_path: str,
+    source_file_path: str | None = None,
+    mode_hint: str | None = None,
+) -> dict:
     """Extract receipt data from an image using Google Gemini Vision API.
 
     Args:
@@ -132,7 +136,7 @@ def extract_receipt_via_gemini(image_path: str, source_file_path: str | None = N
         client=client,
         image_bytes=image_bytes,
         mime_type=mime_type,
-        prompt=_build_prompt(RECEIPT_EXTRACTION_PROMPT, supplemental_text),
+        prompt=_build_prompt(RECEIPT_EXTRACTION_PROMPT, supplemental_text, mode_hint=mode_hint),
         max_output_tokens=8192,
     )
     result = _merge_summary_fields(result, _extract_summary_from_pdf_text(supplemental_text))
@@ -149,6 +153,7 @@ def extract_receipt_via_gemini(image_path: str, source_file_path: str | None = N
             image_bytes=image_bytes,
             mime_type=mime_type,
             supplemental_text=supplemental_text,
+            mode_hint=mode_hint,
         )
         result = _merge_summary_fields(result, summary)
 
@@ -169,6 +174,7 @@ def extract_receipt_summary_via_gemini(
     image_bytes: bytes | None = None,
     mime_type: str | None = None,
     supplemental_text: str | None = None,
+    mode_hint: str | None = None,
 ) -> dict:
     """Run a focused Gemini pass for summary/header/footer fields."""
     if not GEMINI_API_KEY:
@@ -182,7 +188,7 @@ def extract_receipt_summary_via_gemini(
         client=client,
         image_bytes=image_bytes,
         mime_type=mime_type,
-        prompt=_build_prompt(RECEIPT_SUMMARY_PROMPT, supplemental_text),
+        prompt=_build_prompt(RECEIPT_SUMMARY_PROMPT, supplemental_text, mode_hint=mode_hint),
         max_output_tokens=1024,
     )
     result.setdefault("confidence", 0.85)
@@ -222,12 +228,21 @@ def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: st
         raise ValueError(f"Gemini OCR returned invalid JSON: {e}")
 
 
-def _build_prompt(base_prompt: str, supplemental_text: str | None) -> str:
+def _build_prompt(base_prompt: str, supplemental_text: str | None, mode_hint: str | None = None) -> str:
     """Augment the OCR prompt with extracted PDF text when available."""
+    prompt = base_prompt
+    if mode_hint == "restaurant":
+        prompt += (
+            "\n\nRestaurant-specific guidance:\n"
+            "- This upload is intentionally marked as a restaurant receipt.\n"
+            "- Prioritize restaurant name, visit date/time, subtotal, tax, tip, credits, total, and amount due.\n"
+            "- Preserve menu item names exactly as printed.\n"
+            "- Avoid grocery-style generic names unless the receipt clearly shows them."
+        )
     if not supplemental_text:
-        return base_prompt
+        return prompt
     return (
-        f"{base_prompt}\n\n"
+        f"{prompt}\n\n"
         "Additional extracted receipt text is provided below. Use it as a strong hint for summary fields "
         "like store, address, purchase date, subtotal, tax, and total when it is clearer than the image.\n"
         "Do not invent values. Prefer visible receipt evidence.\n\n"

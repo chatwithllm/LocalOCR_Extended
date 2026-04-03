@@ -64,7 +64,7 @@ def _safe_float(value, default=0.0):
         return float(default)
 
 
-def extract_receipt_via_openai(image_path: str) -> dict:
+def extract_receipt_via_openai(image_path: str, mode_hint: str | None = None) -> dict:
     """Extract receipt data from an image using OpenAI vision."""
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not configured")
@@ -76,13 +76,23 @@ def extract_receipt_via_openai(image_path: str) -> dict:
 
     logger.info("Sending receipt to OpenAI Vision for OCR...")
 
+    prompt = RECEIPT_EXTRACTION_PROMPT
+    if mode_hint == "restaurant":
+        prompt += (
+            "\n\nRestaurant-specific guidance:\n"
+            "- This upload is intentionally marked as a restaurant receipt.\n"
+            "- Prioritize restaurant name, date/time, subtotal, tax, tip, credits, total, and amount due.\n"
+            "- Preserve menu item names exactly.\n"
+            "- Avoid grocery-style fallback names unless the receipt clearly shows them."
+        )
+
     response = client.responses.create(
         model=OPENAI_OCR_MODEL,
         input=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": RECEIPT_EXTRACTION_PROMPT},
+                    {"type": "input_text", "text": prompt},
                     {
                         "type": "input_image",
                         "image_url": f"data:image/png;base64,{image_b64}",
