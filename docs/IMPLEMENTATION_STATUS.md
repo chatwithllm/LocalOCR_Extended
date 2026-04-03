@@ -42,6 +42,12 @@ Extended-specific runtime changes now in place:
   - line items
 - existing processed receipts can be rebuilt from corrected structured payloads
 - first restaurant receipt has been verified as a corrected `restaurant` purchase with exact line items
+- Restaurant page now includes:
+  - monthly dining budget card
+  - selected receipt breakdown
+  - repeat-order estimate
+  - inspect action from recent restaurant receipts
+  - top ordered items with average price
 
 ## Intended Parallel Deployment Shape
 
@@ -69,7 +75,7 @@ This is the repo where the following should happen next:
 ## Not Yet Completed
 
 - robust restaurant-first OCR extraction for difficult phone photos
-- restaurant-specific analytics/detail polish beyond the initial summary + corrected receipt support
+- restaurant-specific analytics/detail polish beyond the current summary, budget, and receipt-detail baseline
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files

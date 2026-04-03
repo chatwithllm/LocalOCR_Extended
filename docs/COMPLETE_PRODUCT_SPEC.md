@@ -66,6 +66,9 @@ Implemented baseline in this repo:
 - subtotal/tax/tip/total tracking
 - structured restaurant receipt correction in receipt detail
 - ability to resave corrected receipt type, store, date/time, totals, and items
+- restaurant workspace budget/status card
+- selected restaurant receipt detail panel
+- repeat-order estimate from a selected receipt
 - dining analytics
 - dining budget
 

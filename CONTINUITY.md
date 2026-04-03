@@ -82,6 +82,12 @@ Current restaurant workflow baseline:
 - restaurant receipts can now be corrected after upload instead of being accepted as bad OCR
 - corrected restaurant receipts stay out of grocery inventory logic when saved as `restaurant`
 - restaurant-specific analytics/detail views can now be built on top of corrected structured receipt data
+- Restaurant workspace now includes:
+  - dining budget card
+  - selected receipt detail panel
+  - repeat-order estimate from the chosen receipt
+  - recent receipt inspect action
+  - stronger top-ordered-item reporting
 
 Current rule:
 

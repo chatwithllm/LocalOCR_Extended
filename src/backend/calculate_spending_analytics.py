@@ -95,6 +95,7 @@ def get_restaurant_summary():
                 "name": name,
                 "quantity": round(values["quantity"], 2),
                 "total": round(values["total"], 2),
+                "average_price": round(values["total"] / values["quantity"], 2) if values["quantity"] else 0,
                 "category": values["category"],
             }
             for name, values in item_summary.items()

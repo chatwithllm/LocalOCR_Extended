@@ -1301,6 +1301,23 @@
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="restaurant-average-ticket">$0.00</div><div class="stat-sub">per visit</div></div>
         <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
       </div>
+      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(0,2fr);gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Dining Budget</span>
+            <input type="month" id="restaurant-budget-month" onchange="loadRestaurantBudget()" style="width:160px" />
+          </div>
+          <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
+            <div class="form-group"><label>Monthly Target</label><input id="restaurant-budget-amount" type="number" step="0.01" placeholder="e.g. 300" /></div>
+            <div><button class="btn btn-primary" type="button" onclick="saveRestaurantBudget()">Save</button></div>
+          </div>
+          <div id="restaurant-budget-status" style="margin-top:14px"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Selected Receipt</span></div>
+          <div id="restaurant-detail-body"><div class="empty-state"><p>Select a restaurant receipt to inspect totals and line items.</p></div></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-header">
           <span class="card-title">Restaurant Receipts</span>
@@ -1759,6 +1776,7 @@ let shoppingSectionCollapsed = (() => {
 })();
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
+let selectedRestaurantReceiptId = null;
 let latestReceiptSummary = {};
 let receiptBudgetRequestId = 0;
 let currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
@@ -1768,7 +1786,7 @@ let contributionDetailOverlayOpen = false;
 let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
-const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'other'];
+const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'other'];
 
 function formatAppName(name) {
   return String(name || 'LocalOCR Extended').replace(/^LocalOCR\s*/i, '').trim() || 'Extended';
@@ -5194,6 +5212,7 @@ async function loadRestaurant() {
   const body = document.getElementById('restaurant-body');
   if (!body) return;
   const months = document.getElementById('restaurant-period')?.value || '6';
+  ensureRestaurantBudgetMonth();
   const [summaryRes, spendRes] = await Promise.all([
     api(`/analytics/restaurant-summary?months=${encodeURIComponent(months)}`),
     api(`/analytics/spending?period=monthly&domain=restaurant&months=${encodeURIComponent(months)}`)
@@ -5245,8 +5264,8 @@ async function loadRestaurant() {
     const topItems = summaryData.top_items || [];
     topItemsEl.innerHTML = topItems.length ? `
       <table>
-        <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
-        <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td></tr>`).join('')}</tbody>
+        <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Avg</th></tr></thead>
+        <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td><td>${formatMoney(item.average_price || 0)}</td></tr>`).join('')}</tbody>
       </table>` : '<div class="empty-state"><p>No restaurant line items yet.</p></div>';
   }
   body.innerHTML = receipts.length ? `
@@ -5270,6 +5289,7 @@ async function loadRestaurant() {
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                   <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="viewRestaurantReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
                 </div>
               </div>
@@ -5279,6 +5299,127 @@ async function loadRestaurant() {
       </div>
     </div>
   ` : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>';
+
+  await loadRestaurantBudget();
+  const candidateReceiptId = receipts.find(r => Number(r.purchase_id || r.id) === Number(selectedRestaurantReceiptId))
+    ? selectedRestaurantReceiptId
+    : receipts[0]?.purchase_id || receipts[0]?.id;
+  if (candidateReceiptId) {
+    await viewRestaurantReceiptDetail(candidateReceiptId);
+  } else {
+    renderRestaurantReceiptDetail(null);
+  }
+}
+
+function ensureRestaurantBudgetMonth() {
+  const el = document.getElementById('restaurant-budget-month');
+  if (!el || el.value) return;
+  const now = new Date();
+  el.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function loadRestaurantBudget() {
+  const month = document.getElementById('restaurant-budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const body = document.getElementById('restaurant-budget-status');
+  if (!body) return;
+  const res = await api(`/budget/status?month=${encodeURIComponent(month)}&domain=restaurant`);
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>No restaurant budget set for this month yet.</p></div>';
+    return;
+  }
+  const b = await res.json();
+  const pct = b.percentage ?? 0;
+  const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const amountInput = document.getElementById('restaurant-budget-amount');
+  if (amountInput) amountInput.value = b.budget_amount || '';
+  body.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:600">${escHtml(b.month || month)}</span>
+        <span style="color:var(--muted)">${formatMoney(b.spent || 0)} / ${formatMoney(b.budget_amount || 0)}</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
+        <span>${pct}% used</span>
+        <span>${formatMoney(b.remaining || 0)} remaining</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+    </div>`;
+}
+
+async function saveRestaurantBudget() {
+  const month = document.getElementById('restaurant-budget-month')?.value;
+  const amt = parseFloat(document.getElementById('restaurant-budget-amount')?.value);
+  if (!month || Number.isNaN(amt)) {
+    toast('Enter a month and restaurant budget amount', 'error');
+    return;
+  }
+  const res = await api('/budget/set-monthly', {
+    method: 'POST',
+    body: JSON.stringify({ month, domain: 'restaurant', budget_amount: amt })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not save restaurant budget', 'error');
+    return;
+  }
+  toast('Restaurant budget saved ✅', 'success');
+  await loadRestaurantBudget();
+}
+
+function renderRestaurantReceiptDetail(receipt) {
+  const body = document.getElementById('restaurant-detail-body');
+  if (!body) return;
+  if (!receipt) {
+    body.innerHTML = '<div class="empty-state"><p>Select a restaurant receipt to inspect totals and line items.</p></div>';
+    return;
+  }
+  const data = receipt.editable_data || receipt.raw_ocr_data || {};
+  const items = (data.items || []).filter(Boolean);
+  const repeatTotal = Number(data.total || receipt.total || 0);
+  body.innerHTML = `
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Restaurant')}</div>
+          <div class="contrib-meta">${escHtml(data.store_location || 'Address not captured')}</div>
+          <div class="contrib-meta">${escHtml(data.date || receipt.date || '—')}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
+        <div class="stat-card success" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(repeatTotal)}</div></div>
+      </div>
+      <div class="card" style="margin-bottom:0;background:var(--surface2)">
+        <div class="card-header" style="margin-bottom:10px">
+          <span class="card-title" style="font-size:0.95rem">Repeat Order Estimate</span>
+          <span class="contrib-points">${formatMoney(repeatTotal)}</span>
+        </div>
+        <div class="contrib-meta">If you order the same items again, this receipt suggests a rough bill around ${formatMoney(repeatTotal)} before future price changes.</div>
+      </div>
+      ${items.length ? `<table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+        <tbody>${items.map(item => `<tr><td>${escHtml(item.name || item.product_name || 'Unknown')}</td><td>${escHtml(String(item.quantity ?? 1))}</td><td>${formatMoney(item.unit_price || 0)}</td><td>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || 0) || 0))}</td></tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><p>No restaurant line items saved yet.</p></div>'}
+    </div>`;
+}
+
+async function viewRestaurantReceiptDetail(id) {
+  selectedRestaurantReceiptId = Number(id);
+  const res = await api(`/receipts/${id}`);
+  if (!res.ok) {
+    renderRestaurantReceiptDetail(null);
+    return;
+  }
+  const receipt = await res.json();
+  renderRestaurantReceiptDetail(receipt);
 }
 
 // ============================================================

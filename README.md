@@ -21,6 +21,7 @@ The important operational rule is simple:
 - restaurant summary view is live
 - restaurant receipts can now be corrected from receipt detail with structured fields
 - corrected restaurant receipts can rebuild store, totals, and line items without raw JSON editing
+- Restaurant workspace now also includes dining budget status, selected receipt detail, and repeat-order estimate support
 
 ## Current Extended Runtime Defaults
 

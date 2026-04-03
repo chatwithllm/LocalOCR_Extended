@@ -65,6 +65,11 @@ Initial Extended capability now started:
 - subtotal, tax, tip, and total tracking
 - structured post-OCR correction flow in receipt detail
 - ability to fix store/date/time/totals/items after upload
+- restaurant workspace with:
+  - dining budget card
+  - selected receipt detail
+  - repeat-order estimate
+  - recent receipt inspection
 - dining-out analytics
 - separate dining budget
 - no inventory side effects from restaurant receipts
