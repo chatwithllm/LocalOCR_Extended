@@ -373,6 +373,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         )
         session = g.db_session
 
+        purchase_domain = "restaurant" if receipt_type == "restaurant" else "grocery"
+
         # Find or create store
         store_name = canonicalize_store_name(ocr_data.get("store", "Unknown Store"))
         store = find_matching_store(session, store_name)
@@ -390,6 +392,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             store_id=store.id,
             total_amount=_safe_float(ocr_data.get("total", 0.0)),
             date=datetime.strptime(str(purchase_date), "%Y-%m-%d"),
+            domain=purchase_domain,
             user_id=user_id,
         )
         session.add(purchase)

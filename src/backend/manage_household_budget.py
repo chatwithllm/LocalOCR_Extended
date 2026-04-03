@@ -35,19 +35,21 @@ def set_monthly_budget():
         return jsonify({"error": "budget_amount is required"}), 400
 
     month = data.get("month", datetime.now().strftime("%Y-%m"))
+    domain = (data.get("domain") or "grocery").strip().lower()
     budget_amount = float(data["budget_amount"])
 
     user_id = getattr(g, "current_user", None)
     user_id = user_id.id if user_id else None
 
     # Upsert budget
-    existing = session.query(Budget).filter_by(user_id=user_id, month=month).first()
+    existing = session.query(Budget).filter_by(user_id=user_id, month=month, domain=domain).first()
     if existing:
         existing.budget_amount = budget_amount
     else:
         budget = Budget(
             user_id=user_id,
             month=month,
+            domain=domain,
             budget_amount=budget_amount,
         )
         session.add(budget)
@@ -56,8 +58,9 @@ def set_monthly_budget():
 
     return jsonify({
         "month": month,
+        "domain": domain,
         "budget_amount": budget_amount,
-        "message": f"Budget set to ${budget_amount:.2f} for {month}",
+        "message": f"{domain.title()} budget set to ${budget_amount:.2f} for {month}",
     }), 200
 
 
@@ -67,15 +70,16 @@ def get_budget_status():
     """Get current month's budget vs actual spending."""
     session = g.db_session
     month = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    domain = (request.args.get("domain") or "grocery").strip().lower()
 
     user_id = getattr(g, "current_user", None)
     user_id = user_id.id if user_id else None
 
     # Get budget
-    budget = session.query(Budget).filter_by(user_id=user_id, month=month).first()
+    budget = session.query(Budget).filter_by(user_id=user_id, month=month, domain=domain).first()
     if not budget:
         # Try household-wide budget (user_id=None)
-        budget = session.query(Budget).filter_by(user_id=None, month=month).first()
+        budget = session.query(Budget).filter_by(user_id=None, month=month, domain=domain).first()
 
     budget_amount = budget.budget_amount if budget else 0
 
@@ -90,6 +94,7 @@ def get_budget_status():
     purchases = session.query(Purchase).filter(
         Purchase.date >= start_date,
         Purchase.date < end_date,
+        Purchase.domain == domain,
     ).all()
 
     spent = sum(p.total_amount or 0 for p in purchases)
@@ -108,6 +113,7 @@ def get_budget_status():
 
     return jsonify({
         "month": month,
+        "domain": domain,
         "budget_amount": round(budget_amount, 2),
         "spent": round(spent, 2),
         "remaining": round(remaining, 2),

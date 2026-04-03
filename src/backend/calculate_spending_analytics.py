@@ -31,11 +31,14 @@ def get_spending():
     period = request.args.get("period", "monthly")
     category = request.args.get("category")
     store_name = request.args.get("store")
+    domain = (request.args.get("domain") or "").strip().lower()
     months_back = request.args.get("months", 6, type=int)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
 
     query = session.query(Purchase).filter(Purchase.date >= cutoff)
+    if domain:
+        query = query.filter(Purchase.domain == domain)
 
     if store_name:
         query = query.join(Store).filter(Store.name.ilike(f"%{store_name}%"))
@@ -69,6 +72,8 @@ def get_spending():
             .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
             .filter(Purchase.date >= cutoff)
         )
+        if domain:
+            items = items.filter(Purchase.domain == domain)
         if category:
             items = items.filter(Product.category == category)
 
@@ -83,6 +88,7 @@ def get_spending():
 
     return jsonify({
         "period": period,
+        "domain": domain or "all",
         "months_back": months_back,
         "grand_total": round(grand_total, 2),
         "spending_by_period": {

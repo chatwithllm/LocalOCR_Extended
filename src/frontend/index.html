@@ -1129,14 +1129,15 @@
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
-    <div class="logo" id="brand-secret-trigger">🛒 <span>Grocery</span></div>
-    <div class="nav-item active" onclick="nav('dashboard', this)"><span class="nav-icon">📊</span> Dashboard</div>
-    <div class="nav-item" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="logo" id="brand-secret-trigger">🛒 <span id="brand-title">Extended</span></div>
+    <div class="nav-item active" id="nav-dashboard" onclick="nav('dashboard', this)"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" id="nav-inventory" onclick="nav('inventory', this)"><span class="nav-icon">📦</span> Inventory</div>
     <div class="nav-item" onclick="nav('upload', this)"><span class="nav-icon">📸</span> Upload Receipt</div>
     <div class="nav-item" onclick="nav('receipts', this)"><span class="nav-icon">🧾</span> Receipts</div>
-    <div class="nav-item" onclick="nav('shopping', this)"><span class="nav-icon">🛒</span> Shopping List</div>
-    <div class="nav-item" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
-    <div class="nav-item" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item" id="nav-shopping" onclick="nav('shopping', this)"><span class="nav-icon">🛒</span> Shopping List</div>
+    <div class="nav-item" id="nav-restaurant" style="display:none" onclick="nav('restaurant', this)"><span class="nav-icon">🍽️</span> Restaurant</div>
+    <div class="nav-item" id="nav-budget" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
+    <div class="nav-item" id="nav-analytics" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
     <div class="nav-item" onclick="nav('contributions', this)"><span class="nav-icon">🏅</span> Contribution</div>
     <div style="flex:1"></div>
     <div class="nav-item" onclick="nav('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
@@ -1146,7 +1147,7 @@
   <main class="main">
     <div class="mobile-header">
       <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Open navigation">☰</button>
-      <div class="mobile-title" id="mobile-brand-secret-trigger">🛒 <span>Grocery</span></div>
+      <div class="mobile-title" id="mobile-brand-secret-trigger">🛒 <span id="mobile-brand-title">Extended</span></div>
       <div style="width:42px"></div>
     </div>
 
@@ -1169,7 +1170,7 @@
     <!-- Dashboard -->
     <div class="page active" id="page-dashboard">
       <div class="page-header">
-        <div><h1>Dashboard</h1><p>Your grocery inventory at a glance</p></div>
+        <div><h1>Dashboard</h1><p id="dashboard-subtitle">Your household system at a glance</p></div>
       </div>
       <div class="dashboard-top-grid">
         <div class="leaderboard-card">
@@ -1204,7 +1205,7 @@
       <div class="page-header">
         <div>
           <h1>Inventory</h1>
-          <p>Switch between active inventory and your full product catalog</p>
+          <p id="inventory-subtitle">Switch between active inventory and your full product catalog</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button type="button" id="catalog-toggle-inventory" class="btn btn-primary" onclick="setCatalogMode('inventory', { load: true })">Inventory</button>
@@ -1284,6 +1285,34 @@
           <div id="prod-category-chips" class="filter-chip-row" style="margin-bottom:12px"></div>
           <div class="table-wrap"><div id="prod-table-body"></div></div>
         </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-restaurant">
+      <div class="page-header">
+        <div>
+          <h1>Restaurant</h1>
+          <p>Track dining-out receipts, repeat orders, and restaurant spend without touching grocery inventory.</p>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub">restaurant receipts</div></div>
+        <div class="stat-card success"><div class="stat-label">Dining Spend</div><div class="stat-value" id="restaurant-total-spend">$0.00</div><div class="stat-sub">current window</div></div>
+        <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Restaurant Receipts</span>
+          <div class="table-toolbar">
+            <select id="restaurant-period" onchange="loadRestaurant()">
+              <option value="3">Last 3 months</option>
+              <option value="6" selected>Last 6 months</option>
+              <option value="12">Last 12 months</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadRestaurant()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="restaurant-body"><div class="empty-state"><p>No restaurant receipts yet.</p></div></div>
       </div>
     </div>
 
@@ -1418,6 +1447,7 @@
         <div class="form-grid">
           <div class="form-group"><label>Store</label><select id="receipt-filter-store"><option value="">All stores</option></select></div>
           <div class="form-group"><label>Source</label><select id="receipt-filter-source"><option value="">All sources</option><option value="upload">Upload</option><option value="telegram">Telegram</option></select></div>
+          <div class="form-group"><label>Receipt Type</label><select id="receipt-filter-type"><option value="">All types</option></select></div>
           <div class="form-group"><label>Status</label><select id="receipt-filter-status"><option value="">All statuses</option></select></div>
           <div class="form-group"><label>Purchase Date From</label><input id="receipt-filter-purchase-from" type="date" /></div>
           <div class="form-group"><label>Purchase Date To</label><input id="receipt-filter-purchase-to" type="date" /></div>
@@ -1477,11 +1507,12 @@
 
     <!-- Budget -->
     <div class="page" id="page-budget">
-      <div class="page-header"><h1>Budget</h1><p>Track your monthly grocery spending</p></div>
+      <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by module.</p></div>
       <div class="card">
         <div class="card-header"><span class="card-title">Set Monthly Budget</span></div>
         <div class="form-grid">
           <div class="form-group"><label>Month</label><input type="month" id="budget-month" /></div>
+          <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option></select></div>
           <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-primary" onclick="setBudget()">💾 Save Budget</button></div>
@@ -1494,7 +1525,7 @@
 
     <!-- Analytics -->
     <div class="page" id="page-analytics">
-      <div class="page-header"><h1>Analytics</h1><p>Understand your spending patterns</p></div>
+      <div class="page-header"><h1>Analytics</h1><p>Understand spending patterns by module.</p></div>
       <div class="card">
         <div class="card-header">
           <span class="card-title">Spending Overview</span>
@@ -1502,6 +1533,11 @@
             <select id="analytics-period" onchange="loadAnalytics()" style="width:150px">
               <option value="monthly">Monthly</option>
               <option value="weekly">Weekly</option>
+            </select>
+            <select id="analytics-domain" onchange="loadAnalytics()" style="width:160px">
+              <option value="grocery">Grocery</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="">All Modules</option>
             </select>
             <label for="analytics-sort">Sort</label>
             <select id="analytics-sort" onchange="setAnalyticsSort(this.value)">
@@ -1675,9 +1711,16 @@ if (SHOPPING_HELPER_MODE) {
 let receiptImageObjectUrl = null;
 let currentUser = null;
 let bootstrapEmail = 'admin@localhost';
+let appConfig = {
+  app_name: 'LocalOCR Extended',
+  app_slug: 'localocr_extended',
+  service_name: 'localocr-extended-backend',
+  modules: { grocery: true, restaurant: true },
+  module_view_mode: 'separate',
+};
 let householdUsers = [];
 let reviewQueueItems = [];
-let receiptFilterOptions = { stores: [], sources: [], statuses: [] };
+let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [] };
 let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let inventoryCategoryFilters = new Set();
@@ -1715,6 +1758,59 @@ let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'other'];
+
+function formatAppName(name) {
+  return String(name || 'LocalOCR Extended').replace(/^LocalOCR\s*/i, '').trim() || 'Extended';
+}
+
+function applyAppConfig(config = {}) {
+  appConfig = {
+    ...appConfig,
+    ...(config || {}),
+    modules: {
+      ...appConfig.modules,
+      ...((config || {}).modules || {}),
+    }
+  };
+  const brandText = formatAppName(appConfig.app_name);
+  const brand = document.getElementById('brand-title');
+  const mobileBrand = document.getElementById('mobile-brand-title');
+  if (brand) brand.textContent = brandText;
+  if (mobileBrand) mobileBrand.textContent = brandText;
+  const dashboardSubtitle = document.getElementById('dashboard-subtitle');
+  if (dashboardSubtitle) {
+    dashboardSubtitle.textContent = appConfig.modules?.restaurant
+      ? 'Your household grocery and restaurant system at a glance'
+      : 'Your household system at a glance';
+  }
+
+  const groceryEnabled = appConfig.modules?.grocery !== false;
+  const restaurantEnabled = appConfig.modules?.restaurant !== false;
+  const restaurantNav = document.getElementById('nav-restaurant');
+  if (restaurantNav) restaurantNav.style.display = restaurantEnabled ? '' : 'none';
+  ['nav-inventory', 'nav-shopping'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = groceryEnabled ? '' : 'none';
+  });
+
+  const budgetDomain = document.getElementById('budget-domain');
+  const analyticsDomain = document.getElementById('analytics-domain');
+  const availableDomains = [
+    groceryEnabled ? { value: 'grocery', label: 'Grocery' } : null,
+    restaurantEnabled ? { value: 'restaurant', label: 'Restaurant' } : null,
+  ].filter(Boolean);
+  if (budgetDomain) {
+    const current = budgetDomain.value || availableDomains[0]?.value || 'grocery';
+    budgetDomain.innerHTML = availableDomains.map(option => `<option value="${option.value}">${option.label}</option>`).join('');
+    if (availableDomains.some(option => option.value === current)) budgetDomain.value = current;
+  }
+  if (analyticsDomain) {
+    const current = analyticsDomain.value || (groceryEnabled ? 'grocery' : availableDomains[0]?.value || '');
+    analyticsDomain.innerHTML = availableDomains.map(option => `<option value="${option.value}">${option.label}</option>`).join('') +
+      (availableDomains.length > 1 ? '<option value="">All Modules</option>' : '');
+    if ([...analyticsDomain.options].some(option => option.value === current)) analyticsDomain.value = current;
+  }
+}
 
 function compareText(a, b, direction = 'asc') {
   const left = String(a ?? '').toLowerCase();
@@ -2572,6 +2668,7 @@ function getReceiptFilterParams() {
   const mappings = [
     ['store', 'receipt-filter-store'],
     ['source', 'receipt-filter-source'],
+    ['receipt_type', 'receipt-filter-type'],
     ['status', 'receipt-filter-status'],
     ['purchase_date_from', 'receipt-filter-purchase-from'],
     ['purchase_date_to', 'receipt-filter-purchase-to'],
@@ -2590,6 +2687,7 @@ function populateReceiptFilterOptions(filters = {}) {
     stores: filters.stores || [],
     sources: filters.sources || ['upload', 'telegram'],
     statuses: filters.statuses || [],
+    receipt_types: filters.receipt_types || [],
   };
 
   const populate = (id, values, placeholder) => {
@@ -2603,6 +2701,7 @@ function populateReceiptFilterOptions(filters = {}) {
 
   populate('receipt-filter-store', receiptFilterOptions.stores, 'All stores');
   populate('receipt-filter-source', receiptFilterOptions.sources, 'All sources');
+  populate('receipt-filter-type', receiptFilterOptions.receipt_types, 'All types');
   populate('receipt-filter-status', receiptFilterOptions.statuses, 'All statuses');
 }
 
@@ -2805,7 +2904,8 @@ function nav(page, el) {
     loadShoppingList();
     if (!isShoppingSectionCollapsed('recommendations')) loadRecs('shopping-recs-body');
   }
-  if (page === 'budget') { loadBudgetStatus(); setDefaultMonth(); }
+  if (page === 'restaurant') loadRestaurant();
+  if (page === 'budget') { setDefaultMonth(); loadBudgetStatus(); }
   if (page === 'analytics') loadAnalytics();
   if (page === 'contributions') loadContributions();
   if (page === 'settings') {
@@ -2951,10 +3051,21 @@ async function checkAuth() {
   }
 
   try {
+    const configRes = await fetch(API_BASE + '/auth/app-config', { credentials: 'include' });
+    if (configRes.ok) {
+      const config = await configRes.json();
+      applyAppConfig(config);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  try {
     const bootstrapRes = await fetch(API_BASE + '/auth/bootstrap-info', { credentials: 'include' });
     if (bootstrapRes.ok) {
       const info = await bootstrapRes.json();
       bootstrapEmail = info.default_email || bootstrapEmail;
+      if (info.app_config) applyAppConfig(info.app_config);
       document.getElementById('auth-help').textContent =
         'Sign in with your household account. If you do not have access yet, ask an admin to create your login or reset your password.';
     }
@@ -2969,6 +3080,7 @@ async function checkAuth() {
       currentUser = data.user || null;
       currentUserStats = data.stats || currentUserStats;
       householdLeaderboard = data.leaderboard || householdLeaderboard;
+      if (data.app_config) applyAppConfig(data.app_config);
       banner.classList.remove('show');
       return true;
     }
@@ -3005,6 +3117,7 @@ async function login() {
   currentUser = data.user || null;
   currentUserStats = data.stats || currentUserStats;
   householdLeaderboard = data.leaderboard || householdLeaderboard;
+  if (data.app_config) applyAppConfig(data.app_config);
   loginQrCache = null;
   shoppingShareQrCache = null;
   document.getElementById('auth-password-input').value = '';
@@ -3564,7 +3677,7 @@ async function loadDashboard() {
     // Budget stat
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const bRes = await api(`/budget/status?month=${month}`);
+    const bRes = await api(`/budget/status?month=${month}&domain=grocery`);
     if (bRes.ok) {
       const b = await bRes.json();
       const pct = b.percentage ?? 0;
@@ -4077,6 +4190,7 @@ async function jumpToReceipt(id) {
   [
     'receipt-filter-store',
     'receipt-filter-source',
+    'receipt-filter-type',
     'receipt-filter-status',
     'receipt-filter-purchase-from',
     'receipt-filter-purchase-to',
@@ -4882,19 +4996,24 @@ function setDefaultMonth() {
   document.getElementById('budget-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
+function getSelectedBudgetDomain() {
+  return document.getElementById('budget-domain')?.value || 'grocery';
+}
+
 async function setBudget() {
   const month = document.getElementById('budget-month').value;
   const amt = parseFloat(document.getElementById('budget-amt').value);
+  const domain = getSelectedBudgetDomain();
   if (!month || !amt) { toast('Enter month and amount', 'error'); return; }
-  const res = await api('/budget/set-monthly', { method: 'POST', body: JSON.stringify({ month, budget_amount: amt }) });
-  if (res.ok) { toast('Budget saved ✅', 'success'); loadBudgetStatus(); }
+  const res = await api('/budget/set-monthly', { method: 'POST', body: JSON.stringify({ month, domain, budget_amount: amt }) });
+  if (res.ok) { toast(`${formatLabel(domain, domain)} budget saved ✅`, 'success'); loadBudgetStatus(); }
   else { const e = await res.json(); toast(e.error || 'Failed', 'error'); }
 }
 
 async function loadBudgetStatus() {
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const res = await api(`/budget/status?month=${month}`);
+  const month = document.getElementById('budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const domain = getSelectedBudgetDomain();
+  const res = await api(`/budget/status?month=${encodeURIComponent(month)}&domain=${encodeURIComponent(domain)}`);
   const body = document.getElementById('budget-status-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>No budget set for this month.</p></div>'; return; }
   const b = await res.json();
@@ -4903,7 +5022,7 @@ async function loadBudgetStatus() {
   body.innerHTML = `
     <div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:600">${b.month}</span>
+        <span style="font-weight:600">${b.month} · ${formatLabel(b.domain, 'Grocery')}</span>
         <span style="color:var(--muted)">$${b.spent ?? 0} / $${b.budget_amount ?? 0}</span>
       </div>
       <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
@@ -4920,9 +5039,10 @@ async function loadBudgetStatus() {
 // ============================================================
 async function loadAnalytics() {
   const period = document.getElementById('analytics-period').value;
+  const domain = document.getElementById('analytics-domain')?.value || 'grocery';
   const [spendRes, dealsRes] = await Promise.all([
-    api(`/analytics/spending?period=${period}`),
-    api('/analytics/deals-captured?months=1')
+    api(`/analytics/spending?period=${encodeURIComponent(period)}&domain=${encodeURIComponent(domain)}`),
+    domain === 'restaurant' ? Promise.resolve(null) : api('/analytics/deals-captured?months=1')
   ]);
   const body = document.getElementById('analytics-body');
   if (spendRes.ok) {
@@ -4944,11 +5064,85 @@ async function loadAnalytics() {
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
   }
   const dealsBody = document.getElementById('deals-body');
-  if (dealsRes.ok) {
+  if (domain === 'restaurant') {
+    dealsBody.innerHTML = '<div class="empty-state"><p>Restaurant spend is tracked separately from grocery deal detection.</p></div>';
+  } else if (dealsRes && dealsRes.ok) {
     const d = await dealsRes.json();
     dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">${formatMoney(d.total_saved)} saved</div>
       <div style="color:var(--muted);font-size:0.85rem;margin-top:4px">in the last month from ${d.deal_count ?? d.deals_count ?? 0} deals</div>`;
   }
+}
+
+// ============================================================
+// Restaurant
+// ============================================================
+async function loadRestaurant() {
+  const body = document.getElementById('restaurant-body');
+  if (!body) return;
+  const months = document.getElementById('restaurant-period')?.value || '6';
+  const [receiptRes, spendRes] = await Promise.all([
+    api(`/receipts?receipt_type=restaurant&limit=50`),
+    api(`/analytics/spending?period=monthly&domain=restaurant&months=${encodeURIComponent(months)}`)
+  ]);
+  if (!receiptRes.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load restaurant receipts.</p></div>';
+    return;
+  }
+
+  const receiptData = await receiptRes.json();
+  const receipts = receiptData.receipts || [];
+  const storeCounts = new Map();
+  receipts.forEach(receipt => {
+    const key = receipt.store || 'Unknown';
+    storeCounts.set(key, (storeCounts.get(key) || 0) + 1);
+  });
+  const topStore = [...storeCounts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))[0];
+
+  let spendData = { grand_total: 0, spending_by_period: {} };
+  if (spendRes.ok) {
+    spendData = await spendRes.json();
+  }
+
+  const visitEl = document.getElementById('restaurant-visit-count');
+  const spendEl = document.getElementById('restaurant-total-spend');
+  const topStoreEl = document.getElementById('restaurant-top-store');
+  const topStoreSubEl = document.getElementById('restaurant-top-store-sub');
+  if (visitEl) visitEl.textContent = receipts.length;
+  if (spendEl) spendEl.textContent = formatMoney(spendData.grand_total || 0);
+  if (topStoreEl) topStoreEl.textContent = topStore?.[0] || '—';
+  if (topStoreSubEl) topStoreSubEl.textContent = topStore ? `${topStore[1]} visit${topStore[1] === 1 ? '' : 's'}` : 'No visits yet';
+
+  const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));
+  body.innerHTML = receipts.length ? `
+    <div style="display:grid;gap:16px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Monthly Dining Spend</span></div>
+        ${periodRows.length ? `<table>
+          <thead><tr><th>Month</th><th>Total</th><th>Visits</th></tr></thead>
+          <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.count ?? 0}</td></tr>`).join('')}</tbody>
+        </table>` : '<div class="empty-state"><p>No restaurant spending data yet.</p></div>'}
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Recent Restaurant Receipts</span></div>
+        <div class="contrib-list">
+          ${receipts.slice(0, 12).map(receipt => `
+            <div class="contrib-list-item">
+              <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+                <div style="min-width:0;flex:1">
+                  <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                  <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  ` : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>';
 }
 
 // ============================================================

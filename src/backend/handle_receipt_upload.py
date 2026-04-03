@@ -271,6 +271,7 @@ def list_receipts():
     store_filter = request.args.get("store", "").strip()
     status_filter = request.args.get("status", "").strip().lower()
     source_filter = request.args.get("source", "").strip().lower()
+    receipt_type_filter = request.args.get("receipt_type", "").strip().lower()
     purchase_date_from = _parse_filter_date(request.args.get("purchase_date_from"))
     purchase_date_to = _parse_filter_date(request.args.get("purchase_date_to"))
     upload_date_from = _parse_filter_date(request.args.get("upload_date_from"))
@@ -286,6 +287,8 @@ def list_receipts():
         query = query.filter(Store.name == store_filter)
     if status_filter:
         query = query.filter(TelegramReceipt.status == status_filter)
+    if receipt_type_filter:
+        query = query.filter(TelegramReceipt.receipt_type == receipt_type_filter)
     if source_filter == "telegram":
         query = query.filter(~TelegramReceipt.telegram_user_id.startswith("upload"))
     elif source_filter == "upload":
@@ -397,6 +400,11 @@ def list_receipts():
             "statuses": sorted({
                 row[0]
                 for row in session.query(TelegramReceipt.status).distinct().all()
+                if row[0]
+            }),
+            "receipt_types": sorted({
+                row[0]
+                for row in session.query(TelegramReceipt.receipt_type).distinct().all()
                 if row[0]
             }),
         },

@@ -29,6 +29,32 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 DEFAULT_AVATARS = ["🦊", "🐼", "🦉", "🐸", "🐯", "🐻", "🐨", "🦁", "🐧", "🦄"]
 
 
+def get_enabled_modules() -> dict:
+    """Return deploy-time module flags for the Extended app."""
+    grocery_enabled = os.getenv("ENABLE_GROCERY", "1").strip().lower() not in {"0", "false", "no"}
+    restaurant_enabled = os.getenv("ENABLE_RESTAURANT", "1").strip().lower() not in {"0", "false", "no"}
+    if not grocery_enabled and not restaurant_enabled:
+        grocery_enabled = True
+    return {
+        "grocery": grocery_enabled,
+        "restaurant": restaurant_enabled,
+    }
+
+
+def build_app_config() -> dict:
+    modules = get_enabled_modules()
+    return {
+        "app_name": os.getenv("APP_DISPLAY_NAME", "LocalOCR Extended"),
+        "app_slug": os.getenv("APP_SLUG", "localocr_extended"),
+        "service_name": os.getenv("APP_SERVICE_NAME", "localocr-extended-backend"),
+        "modules": modules,
+        "module_view_mode": "separate",
+        "ports": {
+            "default_backend": int(os.getenv("FLASK_PORT", "8090")),
+        },
+    }
+
+
 def hash_token(token: str) -> str:
     """Hash an API token for secure storage/comparison."""
     return hashlib.sha256(token.encode()).hexdigest()
@@ -342,7 +368,14 @@ def bootstrap_info():
     return jsonify({
         "default_email": (admin.email if admin and admin.email else admin_email),
         "has_users": g.db_session.query(User).count() > 0,
+        "app_config": build_app_config(),
     }), 200
+
+
+@auth_bp.route("/app-config", methods=["GET"])
+def app_config():
+    """Return public frontend config such as enabled modules and branding."""
+    return jsonify(build_app_config()), 200
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -372,6 +405,7 @@ def login():
         },
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
+        "app_config": build_app_config(),
     }), 200
 
 
@@ -415,6 +449,7 @@ def me():
         "user": serialize_user(user),
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
+        "app_config": build_app_config(),
     }), 200
 
 
@@ -481,6 +516,7 @@ def my_stats():
     return jsonify({
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
+        "app_config": build_app_config(),
     }), 200
 
 

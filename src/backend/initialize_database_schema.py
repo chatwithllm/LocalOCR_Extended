@@ -180,6 +180,7 @@ class Purchase(Base):
     store_id = Column(Integer, ForeignKey("stores.id"), nullable=True)
     total_amount = Column(Float, nullable=True)
     date = Column(DateTime, nullable=False)
+    domain = Column(String(30), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
@@ -240,12 +241,13 @@ class Budget(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     month = Column(String(7), nullable=False)  # Format: "2026-04"
+    domain = Column(String(30), nullable=False, default="grocery")
     budget_amount = Column(Float, nullable=False)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
-        UniqueConstraint("user_id", "month", name="uq_budget_user_month"),
+        UniqueConstraint("user_id", "month", "domain", name="uq_budget_user_month_domain"),
     )
 
     # Relationships
@@ -419,6 +421,19 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE users ADD COLUMN avatar_emoji VARCHAR(16)"))
         if "password_hash" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        purchase_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(purchases)"))
+        }
+        if "domain" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
+
+        budget_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(budget)"))
+        }
+        if "domain" not in budget_columns:
+            conn.execute(text("ALTER TABLE budget ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
         if "password_reset_requested_at" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
 
