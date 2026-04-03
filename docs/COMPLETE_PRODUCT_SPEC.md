@@ -12,6 +12,7 @@ It must support:
 - a shared receipt/OCR/auth core
 - a working Grocery module inherited from the current baseline
 - a future Restaurant module built in this repo
+- a General Expense domain for non-grocery, non-restaurant receipts
 
 Primary runtime defaults:
 
@@ -82,7 +83,24 @@ Implemented baseline in this repo:
 - dining analytics
 - dining budget
 
+### General Expense Domain
+
+Implemented baseline in this repo:
+
+- upload-time `general_expense` intent
+- auto-classification of retail/service-style receipts into `general_expense`
+- purchase totals saved under `domain=general_expense`
+- reference line items preserved in receipt review/detail
+- no grocery inventory or catalog side effects
+- `Expenses` workspace with:
+  - spend summary
+  - top merchants
+  - top reference items
+  - budget card
+  - selected receipt detail
+
 Restaurant items must never affect grocery inventory.
+General-expense receipts must never affect grocery inventory.
 
 Current expectation:
 
@@ -90,6 +108,7 @@ Current expectation:
 - difficult restaurant OCR should start from the best available candidate, not always the first OCR pass
 - restaurant correction should not require raw JSON editing
 - corrected receipts should rebuild their purchase cleanly and preserve receipt image linkage
+- general-expense receipts should be tracked without being forced into grocery or dining flows
 
 ## 4. Deployment Modes
 
@@ -132,5 +151,5 @@ Extended docs and setup must clearly explain:
 2. preserve inherited grocery behavior
 3. add modular runtime scaffolding
 4. add restaurant receipt workflows
-5. improve restaurant line-item editing and restaurant planning ergonomics
+5. deepen general-expense categorization and restaurant planning ergonomics
 6. add combined/separate user presentation options

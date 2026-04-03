@@ -38,6 +38,7 @@ def get_enabled_modules() -> dict:
     return {
         "grocery": grocery_enabled,
         "restaurant": restaurant_enabled,
+        "general_expense": True,
     }
 
 

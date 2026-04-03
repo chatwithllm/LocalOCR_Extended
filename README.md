@@ -13,7 +13,7 @@ It is designed to help a household:
 
 ## What The Product Does
 
-`LocalOCR Extended` has two main domains:
+`LocalOCR Extended` has three main domains:
 
 - `Grocery`
   - receipt OCR
@@ -30,6 +30,13 @@ It is designed to help a household:
   - dining budget
   - dining analytics
   - repeat-order estimate from prior receipts
+
+- `General Expense`
+  - one-off spend tracking
+  - services, gifts, fees, and miscellaneous retail
+  - reference-only line items
+  - separate expense budget
+  - expense analytics and merchant history
 
 The app also includes a shared collaboration layer:
 
@@ -118,6 +125,15 @@ The app also includes a shared collaboration layer:
 - selected receipt detail
 - repeat-order estimate
 
+### Expenses
+
+- general expense receipt history
+- total spend and average ticket
+- top merchants
+- reference line items from receipts
+- separate general-expense budget
+- selected receipt detail without grocery inventory side effects
+
 ### Contribution
 
 - how scoring works
@@ -154,6 +170,26 @@ Current restaurant flow:
    - line items
 6. Save the corrected receipt.
 7. The corrected receipt appears in the `Restaurant` workspace, budget, and analytics.
+
+## General Expense Workflow
+
+General expenses are for real spending that should not become inventory or dining history.
+
+Examples:
+
+- Claire's ear piercing
+- salon/spa
+- gifts
+- service fees
+- misc retail
+
+Current general-expense flow:
+
+1. Upload a receipt and choose `General Expense` when it is not grocery or dining.
+2. OCR extracts merchant, date/time, totals, and reference line items.
+3. The receipt is saved under the `Expenses` workspace.
+4. The receipt contributes to general-expense budget and analytics.
+5. It does not create inventory, shopping recommendations, or grocery products.
 
 ## Grocery Workflow
 

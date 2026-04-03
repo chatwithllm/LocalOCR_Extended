@@ -23,6 +23,105 @@ logger = logging.getLogger(__name__)
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
 
 
+@analytics_bp.route("/expense-summary", methods=["GET"])
+@require_auth
+def get_general_expense_summary():
+    """Return general-expense spend and merchant/item history."""
+    from src.backend.initialize_database_schema import TelegramReceipt
+    import json
+
+    session = g.db_session
+    months_back = request.args.get("months", 6, type=int)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
+
+    purchases = (
+        session.query(Purchase, Store, TelegramReceipt)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .outerjoin(TelegramReceipt, TelegramReceipt.purchase_id == Purchase.id)
+        .filter(Purchase.domain == "general_expense", Purchase.date >= cutoff)
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+
+    total_spend = 0.0
+    merchant_summary = defaultdict(lambda: {"visits": 0, "total": 0.0, "latest_date": None})
+    item_summary = defaultdict(lambda: {"quantity": 0.0, "total": 0.0})
+    recent_receipts = []
+
+    for purchase, store, record in purchases:
+        total = float(purchase.total_amount or 0.0)
+        total_spend += total
+        merchant = store.name if store and store.name else "Unknown"
+        merchant_info = merchant_summary[merchant]
+        merchant_info["visits"] += 1
+        merchant_info["total"] += total
+        if not merchant_info["latest_date"] or (purchase.date and purchase.date > merchant_info["latest_date"]):
+            merchant_info["latest_date"] = purchase.date
+
+        raw = {}
+        if record and record.raw_ocr_json:
+            try:
+                raw = json.loads(record.raw_ocr_json)
+            except json.JSONDecodeError:
+                raw = {}
+        items = raw.get("items", []) if isinstance(raw, dict) else []
+        for item in items or []:
+            name = str((item or {}).get("name", "") or "").strip()
+            if not name:
+                continue
+            quantity = float((item or {}).get("quantity") or 1)
+            unit_price = float((item or {}).get("unit_price") or 0)
+            info = item_summary[name]
+            info["quantity"] += quantity
+            info["total"] += quantity * unit_price
+
+        recent_receipts.append({
+            "purchase_id": purchase.id,
+            "store": merchant,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "total": round(total, 2),
+            "item_count": len(items or []),
+        })
+
+    top_merchants = sorted(
+        (
+            {
+                "store": merchant,
+                "visits": values["visits"],
+                "total": round(values["total"], 2),
+                "average_ticket": round(values["total"] / values["visits"], 2) if values["visits"] else 0,
+                "latest_date": values["latest_date"].strftime("%Y-%m-%d") if values["latest_date"] else None,
+            }
+            for merchant, values in merchant_summary.items()
+        ),
+        key=lambda item: (-item["total"], -item["visits"], item["store"]),
+    )
+
+    top_items = sorted(
+        (
+            {
+                "name": name,
+                "quantity": round(values["quantity"], 2),
+                "total": round(values["total"], 2),
+                "average_price": round(values["total"] / values["quantity"], 2) if values["quantity"] else 0,
+            }
+            for name, values in item_summary.items()
+        ),
+        key=lambda item: (-item["total"], -item["quantity"], item["name"]),
+    )[:10]
+
+    receipt_count = len(recent_receipts)
+    return jsonify({
+        "months_back": months_back,
+        "receipt_count": receipt_count,
+        "total_spend": round(total_spend, 2),
+        "average_ticket": round(total_spend / receipt_count, 2) if receipt_count else 0,
+        "top_merchants": top_merchants[:8],
+        "top_items": top_items,
+        "recent_receipts": recent_receipts[:12],
+    }), 200
+
+
 @analytics_bp.route("/restaurant-summary", methods=["GET"])
 @require_auth
 def get_restaurant_summary():
