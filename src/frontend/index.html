@@ -1136,6 +1136,7 @@
     <div class="nav-item" onclick="nav('receipts', this)"><span class="nav-icon">🧾</span> Receipts</div>
     <div class="nav-item" id="nav-shopping" onclick="nav('shopping', this)"><span class="nav-icon">🛒</span> Shopping List</div>
     <div class="nav-item" id="nav-restaurant" style="display:none" onclick="nav('restaurant', this)"><span class="nav-icon">🍽️</span> Restaurant</div>
+    <div class="nav-item" id="nav-expenses" onclick="nav('expenses', this)"><span class="nav-icon">🧾</span> Expenses</div>
     <div class="nav-item" id="nav-budget" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
     <div class="nav-item" id="nav-analytics" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
     <div class="nav-item" onclick="nav('contributions', this)"><span class="nav-icon">🏅</span> Contribution</div>
@@ -1344,6 +1345,62 @@
       </div>
     </div>
 
+    <div class="page" id="page-expenses">
+      <div class="page-header">
+        <div>
+          <h1>Expenses</h1>
+          <p>Track one-off spending like services, gifts, fees, and retail receipts without affecting grocery inventory.</p>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Expense Receipts</div><div class="stat-value" id="expense-receipt-count">0</div><div class="stat-sub">current window</div></div>
+        <div class="stat-card success"><div class="stat-label">Total Spend</div><div class="stat-value" id="expense-total-spend">$0.00</div><div class="stat-sub">general expenses</div></div>
+        <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="expense-average-ticket">$0.00</div><div class="stat-sub">per receipt</div></div>
+        <div class="stat-card"><div class="stat-label">Top Merchant</div><div class="stat-value" id="expense-top-store">—</div><div class="stat-sub" id="expense-top-store-sub">No expenses yet</div></div>
+      </div>
+      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(0,2fr);gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Expense Budget</span>
+            <input type="month" id="expense-budget-month" onchange="loadExpenseBudget()" style="width:160px" />
+          </div>
+          <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
+            <div class="form-group"><label>Monthly Target</label><input id="expense-budget-amount" type="number" step="0.01" placeholder="e.g. 250" /></div>
+            <div><button class="btn btn-primary" type="button" onclick="saveExpenseBudget()">Save</button></div>
+          </div>
+          <div id="expense-budget-status" style="margin-top:14px"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Selected Receipt</span></div>
+          <div id="expense-detail-body"><div class="empty-state"><p>Select an expense receipt to inspect totals and reference line items.</p></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Expense Receipts</span>
+          <div class="table-toolbar">
+            <select id="expense-period" onchange="loadExpenses()">
+              <option value="3">Last 3 months</option>
+              <option value="6" selected>Last 6 months</option>
+              <option value="12">Last 12 months</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadExpenses()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="expenses-body"><div class="empty-state"><p>No general expense receipts yet.</p></div></div>
+      </div>
+      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top Merchants</span></div>
+          <div id="expense-top-merchants"><div class="empty-state"><p>No merchant history yet.</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top Reference Items</span></div>
+          <div id="expense-top-items"><div class="empty-state"><p>No saved expense line items yet.</p></div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="page" id="page-shopping">
       <div class="page-header"><h1>Shopping List</h1><p>Track what you plan to buy next</p></div>
       <div id="shopping-helper-intro"></div>
@@ -1439,7 +1496,7 @@
 
     <!-- Upload -->
     <div class="page" id="page-upload">
-      <div class="page-header"><h1>Upload Receipt</h1><p>Choose Auto, Grocery, or Restaurant so OCR starts in the right mode.</p></div>
+      <div class="page-header"><h1>Upload Receipt</h1><p>Choose Auto, Grocery, Restaurant, or General Expense so OCR starts in the right mode.</p></div>
       <div class="card">
         <div class="upload-zone" id="drop-zone">
           <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" onchange="previewFile(this)" />
@@ -1455,8 +1512,9 @@
             <option value="auto">Auto detect</option>
             <option value="grocery">Grocery</option>
             <option value="restaurant">Restaurant</option>
+            <option value="general_expense">General Expense</option>
           </select>
-          <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant` when the image is a dining receipt so review starts closer to the right result.</span>
+          <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant` or `General Expense` when you already know the receipt type so review starts closer to the right result.</span>
         </div>
         <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
           <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Process Receipt</button>
@@ -1544,12 +1602,12 @@
 
     <!-- Budget -->
     <div class="page" id="page-budget">
-      <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by module.</p></div>
+      <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by domain.</p></div>
       <div class="card">
         <div class="card-header"><span class="card-title">Set Monthly Budget</span></div>
         <div class="form-grid">
           <div class="form-group"><label>Month</label><input type="month" id="budget-month" /></div>
-          <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option></select></div>
+          <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
           <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-primary" onclick="setBudget()">💾 Save Budget</button></div>
@@ -1574,6 +1632,7 @@
             <select id="analytics-domain" onchange="loadAnalytics()" style="width:160px">
               <option value="grocery">Grocery</option>
               <option value="restaurant">Restaurant</option>
+              <option value="general_expense">General Expense</option>
               <option value="">All Modules</option>
             </select>
             <label for="analytics-sort">Sort</label>
@@ -1752,7 +1811,7 @@ let appConfig = {
   app_name: 'LocalOCR Extended',
   app_slug: 'localocr_extended',
   service_name: 'localocr-extended-backend',
-  modules: { grocery: true, restaurant: true },
+  modules: { grocery: true, restaurant: true, general_expense: true },
   module_view_mode: 'separate',
 };
 let householdUsers = [];
@@ -1786,6 +1845,7 @@ let shoppingSectionCollapsed = (() => {
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
 let selectedRestaurantReceiptId = null;
+let selectedExpenseReceiptId = null;
 let latestReceiptSummary = {};
 let receiptBudgetRequestId = 0;
 let currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
@@ -1824,8 +1884,11 @@ function applyAppConfig(config = {}) {
 
   const groceryEnabled = appConfig.modules?.grocery !== false;
   const restaurantEnabled = appConfig.modules?.restaurant !== false;
+  const expenseEnabled = appConfig.modules?.general_expense !== false;
   const restaurantNav = document.getElementById('nav-restaurant');
   if (restaurantNav) restaurantNav.style.display = restaurantEnabled ? '' : 'none';
+  const expenseNav = document.getElementById('nav-expenses');
+  if (expenseNav) expenseNav.style.display = expenseEnabled ? '' : 'none';
   ['nav-inventory', 'nav-shopping'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = groceryEnabled ? '' : 'none';
@@ -1836,6 +1899,7 @@ function applyAppConfig(config = {}) {
   const availableDomains = [
     groceryEnabled ? { value: 'grocery', label: 'Grocery' } : null,
     restaurantEnabled ? { value: 'restaurant', label: 'Restaurant' } : null,
+    expenseEnabled ? { value: 'general_expense', label: 'General Expense' } : null,
   ].filter(Boolean);
   if (budgetDomain) {
     const current = budgetDomain.value || availableDomains[0]?.value || 'grocery';
@@ -2943,6 +3007,7 @@ function nav(page, el) {
     if (!isShoppingSectionCollapsed('recommendations')) loadRecs('shopping-recs-body');
   }
   if (page === 'restaurant') loadRestaurant();
+  if (page === 'expenses') loadExpenses();
   if (page === 'budget') { setDefaultMonth(); loadBudgetStatus(); }
   if (page === 'analytics') loadAnalytics();
   if (page === 'contributions') loadContributions();
@@ -4946,7 +5011,7 @@ async function viewReceipt(id, options = {}) {
         </div>
         <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px">
-          <div><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="retail_items">Retail</option><option value="unknown">Unknown</option></select></div>
+          <div><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="unknown">Unknown</option></select></div>
           <div><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
           <div><label>Date</label><input id="receipt-date-${receipt.id}" type="date" /></div>
           <div><label>Time</label><input id="receipt-time-${receipt.id}" placeholder="7:16 PM" /></div>
@@ -5217,7 +5282,7 @@ async function loadAnalytics() {
   const domain = document.getElementById('analytics-domain')?.value || 'grocery';
   const [spendRes, dealsRes] = await Promise.all([
     api(`/analytics/spending?period=${encodeURIComponent(period)}&domain=${encodeURIComponent(domain)}`),
-    domain === 'restaurant' ? Promise.resolve(null) : api('/analytics/deals-captured?months=1')
+    ['restaurant', 'general_expense'].includes(domain) ? Promise.resolve(null) : api('/analytics/deals-captured?months=1')
   ]);
   const body = document.getElementById('analytics-body');
   if (spendRes.ok) {
@@ -5239,8 +5304,8 @@ async function loadAnalytics() {
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
   }
   const dealsBody = document.getElementById('deals-body');
-  if (domain === 'restaurant') {
-    dealsBody.innerHTML = '<div class="empty-state"><p>Restaurant spend is tracked separately from grocery deal detection.</p></div>';
+  if (domain === 'restaurant' || domain === 'general_expense') {
+    dealsBody.innerHTML = `<div class="empty-state"><p>${domain === 'restaurant' ? 'Restaurant' : 'General expense'} spend is tracked separately from grocery deal detection.</p></div>`;
   } else if (dealsRes && dealsRes.ok) {
     const d = await dealsRes.json();
     dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">${formatMoney(d.total_saved)} saved</div>
@@ -5463,6 +5528,210 @@ async function viewRestaurantReceiptDetail(id) {
   }
   const receipt = await res.json();
   renderRestaurantReceiptDetail(receipt);
+}
+
+// ============================================================
+// Expenses
+// ============================================================
+async function loadExpenses() {
+  const body = document.getElementById('expenses-body');
+  if (!body) return;
+  const months = document.getElementById('expense-period')?.value || '6';
+  ensureExpenseBudgetMonth();
+  const [summaryRes, spendRes] = await Promise.all([
+    api(`/analytics/expense-summary?months=${encodeURIComponent(months)}`),
+    api(`/analytics/spending?period=monthly&domain=general_expense&months=${encodeURIComponent(months)}`)
+  ]);
+  if (!summaryRes.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load general expenses.</p></div>';
+    return;
+  }
+
+  const summaryData = await summaryRes.json();
+  const receipts = summaryData.recent_receipts || [];
+  const topStore = (summaryData.top_merchants || [])[0];
+  let spendData = { grand_total: 0, spending_by_period: {} };
+  if (spendRes.ok) spendData = await spendRes.json();
+
+  document.getElementById('expense-receipt-count').textContent = summaryData.receipt_count || 0;
+  document.getElementById('expense-total-spend').textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
+  document.getElementById('expense-average-ticket').textContent = formatMoney(summaryData.average_ticket || 0);
+  document.getElementById('expense-top-store').textContent = topStore?.store || '—';
+  document.getElementById('expense-top-store-sub').textContent = topStore ? `${topStore.visits} receipt${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No expenses yet';
+
+  const topMerchantsEl = document.getElementById('expense-top-merchants');
+  if (topMerchantsEl) {
+    const merchants = summaryData.top_merchants || [];
+    topMerchantsEl.innerHTML = merchants.length ? `
+      <div class="contrib-list">
+        ${merchants.map(item => `
+          <div class="contrib-list-item">
+            <div class="contrib-list-top">
+              <strong>${escHtml(item.store)}</strong>
+              <span class="contrib-points">${formatMoney(item.total)}</span>
+            </div>
+            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+          </div>
+        `).join('')}
+      </div>` : '<div class="empty-state"><p>No merchant history yet.</p></div>';
+  }
+
+  const topItemsEl = document.getElementById('expense-top-items');
+  if (topItemsEl) {
+    const topItems = summaryData.top_items || [];
+    topItemsEl.innerHTML = topItems.length ? `
+      <table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Avg</th></tr></thead>
+        <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td><td>${formatMoney(item.average_price || 0)}</td></tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><p>No saved expense line items yet.</p></div>';
+  }
+
+  const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));
+  body.innerHTML = receipts.length ? `
+    <div style="display:grid;gap:16px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Monthly Expense Spend</span></div>
+        ${periodRows.length ? `<table>
+          <thead><tr><th>Month</th><th>Total</th><th>Receipts</th></tr></thead>
+          <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.count ?? 0}</td></tr>`).join('')}</tbody>
+        </table>` : '<div class="empty-state"><p>No expense spending data yet.</p></div>'}
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Recent General Expenses</span></div>
+        <div class="contrib-list">
+          ${receipts.slice(0, 12).map(receipt => `
+            <div class="contrib-list-item">
+              <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+                <div style="min-width:0;flex:1">
+                  <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                  <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="viewExpenseReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  ` : '<div class="empty-state"><p>No general expense receipts yet. Upload one with the `General Expense` intent to start tracking them here.</p></div>';
+
+  await loadExpenseBudget();
+  const candidateReceiptId = receipts.find(r => Number(r.purchase_id || r.id) === Number(selectedExpenseReceiptId))
+    ? selectedExpenseReceiptId
+    : receipts[0]?.purchase_id || receipts[0]?.id;
+  if (candidateReceiptId) {
+    await viewExpenseReceiptDetail(candidateReceiptId);
+  } else {
+    renderExpenseReceiptDetail(null);
+  }
+}
+
+function ensureExpenseBudgetMonth() {
+  const el = document.getElementById('expense-budget-month');
+  if (!el || el.value) return;
+  const now = new Date();
+  el.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function loadExpenseBudget() {
+  const month = document.getElementById('expense-budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const body = document.getElementById('expense-budget-status');
+  if (!body) return;
+  const res = await api(`/budget/status?month=${encodeURIComponent(month)}&domain=general_expense`);
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>No general expense budget set for this month yet.</p></div>';
+    return;
+  }
+  const b = await res.json();
+  const pct = b.percentage ?? 0;
+  const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const amountInput = document.getElementById('expense-budget-amount');
+  if (amountInput) amountInput.value = b.budget_amount || '';
+  body.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:600">${escHtml(b.month || month)}</span>
+        <span style="color:var(--muted)">${formatMoney(b.spent || 0)} / ${formatMoney(b.budget_amount || 0)}</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
+        <span>${pct}% used</span>
+        <span>${formatMoney(b.remaining || 0)} remaining</span>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+    </div>`;
+}
+
+async function saveExpenseBudget() {
+  const month = document.getElementById('expense-budget-month')?.value;
+  const amt = parseFloat(document.getElementById('expense-budget-amount')?.value);
+  if (!month || Number.isNaN(amt)) {
+    toast('Enter a month and general expense budget amount', 'error');
+    return;
+  }
+  const res = await api('/budget/set-monthly', {
+    method: 'POST',
+    body: JSON.stringify({ month, domain: 'general_expense', budget_amount: amt })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not save general expense budget', 'error');
+    return;
+  }
+  toast('General expense budget saved ✅', 'success');
+  await loadExpenseBudget();
+}
+
+function renderExpenseReceiptDetail(receipt) {
+  const body = document.getElementById('expense-detail-body');
+  if (!body) return;
+  if (!receipt) {
+    body.innerHTML = '<div class="empty-state"><p>Select an expense receipt to inspect totals and reference line items.</p></div>';
+    return;
+  }
+  const data = receipt.editable_data || receipt.raw_ocr_data || {};
+  const items = (data.items || []).filter(Boolean);
+  const total = Number(data.total || receipt.total || 0);
+  body.innerHTML = `
+    <div style="display:grid;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Merchant')}</div>
+          <div class="contrib-meta">${escHtml(data.store_location || 'Location not captured')}</div>
+          <div class="contrib-meta">${escHtml(data.date || receipt.date || '—')}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
+        <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
+        <div class="stat-card success" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
+      </div>
+      ${items.length ? `<table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+        <tbody>${items.map(item => `<tr><td>${escHtml(item.name || item.product_name || 'Unknown')}</td><td>${escHtml(String(item.quantity ?? 1))}</td><td>${formatMoney(item.unit_price || 0)}</td><td>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || 0) || 0))}</td></tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><p>No reference line items saved yet.</p></div>'}
+    </div>`;
+}
+
+async function viewExpenseReceiptDetail(id) {
+  selectedExpenseReceiptId = Number(id);
+  const res = await api(`/receipts/${id}`);
+  if (!res.ok) {
+    renderExpenseReceiptDetail(null);
+    return;
+  }
+  const receipt = await res.json();
+  renderExpenseReceiptDetail(receipt);
 }
 
 // ============================================================

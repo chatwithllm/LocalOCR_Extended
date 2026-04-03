@@ -21,6 +21,7 @@ Extended-specific runtime changes now in place:
 - Home Assistant discovery identifiers are separated from the grocery app
 - compose defaults are now designed for side-by-side local deployment
 - restaurant receipt review/update flow is now available in receipt detail
+- general-expense receipts now persist as their own spend domain
 
 ## Verified Working In Code/Config
 
@@ -54,12 +55,21 @@ Extended-specific runtime changes now in place:
   - the strongest restaurant draft is selected before review is shown
 - existing processed receipts can be rebuilt from corrected structured payloads
 - first restaurant receipt has been verified as a corrected `restaurant` purchase with exact line items
+- general-expense receipts now:
+  - save purchase totals without inventory side effects
+  - keep reference line items in receipt review/detail
+  - appear in a new `Expenses` workspace
 - Restaurant page now includes:
   - monthly dining budget card
   - selected receipt breakdown
   - repeat-order estimate
   - inspect action from recent restaurant receipts
   - top ordered items with average price
+- Expenses page now includes:
+  - general-expense budget card
+  - merchant summary
+  - recent expense receipts
+  - selected receipt detail
 
 ## Intended Parallel Deployment Shape
 
@@ -87,6 +97,7 @@ This is the repo where the following should happen next:
 ## Not Yet Completed
 
 - restaurant-specific analytics/detail polish beyond the current summary, budget, and receipt-detail baseline
+- richer general-expense categorization like beauty, health, gift, fees
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
@@ -97,4 +108,4 @@ This is the repo where the following should happen next:
 2. verify it can run beside grocery on `8080`
 3. verify MQTT and Home Assistant topics do not collide
 4. continue restaurant/module architecture in this repo only
-5. improve restaurant line-item editing speed and restaurant analytics depth
+5. improve expense categorization and restaurant line-item editing speed

@@ -452,7 +452,7 @@ def _validate_receipt_data(data: dict) -> bool:
 
 
 def classify_receipt_data(data: dict) -> str:
-    """Classify receipt into grocery, retail_items, restaurant, or unknown."""
+    """Classify receipt into grocery, restaurant, general_expense, or unknown."""
     store = str(data.get("store", "")).lower()
     items = data.get("items", []) or []
     item_names = " ".join(str(item.get("name", "")).lower() for item in items)
@@ -471,13 +471,18 @@ def classify_receipt_data(data: dict) -> str:
     }
     retail_store_keywords = {
         "best buy", "home depot", "lowe", "ikea", "walgreens", "cvs",
-        "macys", "kohls", "tj maxx", "marshall", "office depot"
+        "macys", "kohls", "tj maxx", "marshall", "office depot", "claire", "ulta",
+        "sephora", "great clips", "supercuts", "sport clips", "pearle vision"
     }
     grocery_categories = {
         "dairy", "produce", "meat", "seafood", "bakery", "beverages",
         "snacks", "frozen", "canned", "condiments", "household", "personal_care"
     }
     retail_categories = {"electronics", "apparel", "hardware", "office", "pharmacy", "home"}
+    expense_terms = {
+        "ear piercing", "piercing", "service", "fee", "fees", "gift", "accessory",
+        "beauty", "salon", "spa", "membership", "repair", "repair service"
+    }
     restaurant_terms = {
         "burger", "fries", "drink", "combo", "sandwich", "pizza", "salad",
         "soda", "coffee", "latte", "tip", "gratuity", "server", "table",
@@ -495,7 +500,9 @@ def classify_receipt_data(data: dict) -> str:
     if any(keyword in store for keyword in grocery_store_keywords) or category_set.intersection(grocery_categories):
         return "grocery"
     if any(keyword in store for keyword in retail_store_keywords) or category_set.intersection(retail_categories):
-        return "retail_items"
+        return "general_expense"
+    if any(term in item_names for term in expense_terms) or any(term in store for term in expense_terms):
+        return "general_expense"
     if any(keyword in store for keyword in restaurant_store_keywords) or any(term in item_names for term in restaurant_terms):
         return "restaurant"
 
@@ -513,7 +520,7 @@ def classify_receipt_data(data: dict) -> str:
 
 def _normalize_receipt_type_hint(receipt_type_hint: str | None) -> str | None:
     hint = str(receipt_type_hint or "").strip().lower()
-    return hint if hint in {"grocery", "restaurant", "retail_items"} else None
+    return hint if hint in {"grocery", "restaurant", "general_expense", "retail_items"} else None
 
 
 def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
@@ -528,6 +535,8 @@ def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
         normalized_item = dict(item or {})
         if hint == "restaurant":
             normalized_item["category"] = "restaurant"
+        elif hint == "general_expense":
+            normalized_item["category"] = "general_expense"
         items.append(normalized_item)
     hinted["items"] = items
     return hinted
@@ -628,7 +637,12 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         )
         session = g.db_session
 
-        purchase_domain = "restaurant" if receipt_type == "restaurant" else "grocery"
+        if receipt_type == "restaurant":
+            purchase_domain = "restaurant"
+        elif receipt_type in {"general_expense", "retail_items"}:
+            purchase_domain = "general_expense"
+        else:
+            purchase_domain = "grocery"
 
         # Find or create store
         store_name = canonicalize_store_name(ocr_data.get("store", "Unknown Store"))
@@ -652,6 +666,17 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         )
         session.add(purchase)
         session.flush()
+
+        if purchase_domain == "general_expense":
+            session.commit()
+            logger.info(
+                "Saved general expense receipt: %s | $%.2f | %s reference items | purchase_id=%s",
+                store_name,
+                _safe_float(ocr_data.get("total", 0)),
+                len(ocr_data.get("items", []) or []),
+                purchase.id,
+            )
+            return purchase.id
 
         # Process each item
         persisted_items = []
@@ -714,7 +739,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             f"{len(ocr_data.get('items', []))} items | purchase_id={purchase.id}"
         )
 
-        if receipt_type in {"grocery", "retail_items"}:
+        if receipt_type == "grocery":
             rebuild_active_inventory(session)
             session.commit()
             _publish_inventory_updates(session, persisted_items)
@@ -819,8 +844,8 @@ def _send_telegram_success(chat_id: str, data: dict):
         receipt_type = classify_receipt_data(data)
         inventory_note = (
             "Added to inventory."
-            if receipt_type in {"grocery", "retail_items"}
-            else "Saved for reference only."
+            if receipt_type == "grocery"
+            else "Saved for expense/reference tracking only."
         )
         msg = (
             f"✅ Processed: ${total:.2f} at {store} | {item_count} items\n"

@@ -22,6 +22,7 @@ Extended is a modular household receipt platform with:
 - a shared core
 - a Grocery module
 - a Restaurant module
+- a General Expense domain
 
 Deployers should eventually be able to choose:
 
@@ -90,7 +91,27 @@ Restaurant workflow requirement:
 - corrected restaurant receipts must rebuild the saved purchase cleanly
 - corrected restaurant receipts must remain isolated from grocery inventory behavior
 
-## 6. Deployment Requirements
+## 6. General Expense Domain
+
+Initial Extended capability now started:
+
+- upload-time receipt intent selection includes `General Expense`
+- general-expense receipts classify into their own spend domain
+- totals and reference line items are retained
+- general expenses never create inventory or grocery products
+- `Expenses` workspace provides:
+  - spend summary
+  - merchant history
+  - separate budget
+  - selected receipt detail
+
+General-expense workflow requirement:
+
+- one-off/service receipts must not be forced into grocery or restaurant
+- general-expense receipts must remain searchable and correctable
+- line items should remain reference-only, not operational inventory data
+
+## 7. Deployment Requirements
 
 Extended must support safe side-by-side testing with the grocery app:
 
@@ -100,7 +121,7 @@ Extended must support safe side-by-side testing with the grocery app:
 - Extended may share MQTT and Ollama with the grocery stack
 - Extended must use different MQTT identifiers and namespaces so Home Assistant entities do not collide
 
-## 7. Success Criteria
+## 8. Success Criteria
 
 - Extended can run on `8090` while grocery keeps running on `8080`
 - Extended can be abandoned later without damaging grocery data or deployment

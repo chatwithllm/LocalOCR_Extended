@@ -279,8 +279,8 @@ def upload_receipt():
         user_id = current_user.id
 
     receipt_intent = (request.form.get("receipt_intent") or "auto").strip().lower()
-    if receipt_intent not in {"auto", "grocery", "restaurant"}:
-        return jsonify({"error": "receipt_intent must be auto, grocery, or restaurant"}), 400
+    if receipt_intent not in {"auto", "grocery", "restaurant", "general_expense"}:
+        return jsonify({"error": "receipt_intent must be auto, grocery, restaurant, or general_expense"}), 400
     receipt_type_hint = None if receipt_intent == "auto" else receipt_intent
 
     # Route to hybrid OCR processor

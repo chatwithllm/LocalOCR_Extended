@@ -63,6 +63,7 @@ This split gives you a clean safety net:
   - auto
   - grocery
   - restaurant
+  - general expense
 - receipt detail now supports structured editing for:
   - receipt type
   - store
@@ -79,12 +80,20 @@ This split gives you a clean safety net:
   - prefills review with the strongest candidate automatically
 - processed receipts can now be rebuilt safely from corrected review data
 - first restaurant receipt was manually corrected through the new review path and now persists as `domain=restaurant`
+- general-expense receipts now persist as `domain=general_expense`
+- general-expense receipts do not create inventory or catalog side effects
+- Extended now includes an `Expenses` workspace with:
+  - expense budget card
+  - merchant summary
+  - recent expense receipts
+  - selected receipt detail
 
 ## 5. What Still Belongs To Extended Next
 
 Primary product direction:
 
 - modular Grocery / Restaurant deployment choices
+- general expense tracking for non-grocery, non-restaurant receipts
 - restaurant receipt tracking with exact line items
 - restaurant budget and analytics
 - user-selectable combined vs separate presentation when multiple modules are enabled
@@ -95,6 +104,7 @@ Current restaurant workflow baseline:
 - corrected restaurant receipts stay out of grocery inventory logic when saved as `restaurant`
 - restaurant-specific analytics/detail views can now be built on top of corrected structured receipt data
 - restaurant OCR is now stronger for difficult phone photos before the user even opens review
+- non-grocery, non-restaurant receipts now have a clean third lane instead of polluting grocery or restaurant
 - Restaurant workspace now includes:
   - dining budget card
   - selected receipt detail panel
