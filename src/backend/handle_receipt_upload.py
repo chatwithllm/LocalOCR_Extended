@@ -13,6 +13,7 @@ Auth: Bearer token required
 import os
 import logging
 import json
+import copy
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -84,6 +85,102 @@ def _parse_raw_ocr_json(raw_value: str | None) -> dict | None:
     except json.JSONDecodeError:
         logger.warning("Failed to parse stored OCR JSON for receipt review.")
         return None
+
+
+def _receipt_payload_from_purchase(receipt: dict) -> dict:
+    """Build a stable editable payload from persisted receipt fields."""
+    items = []
+    for item in receipt.get("items", []) or []:
+        items.append({
+            "name": item.get("product_name") or item.get("name") or "",
+            "quantity": item.get("quantity") or 1,
+            "unit_price": item.get("unit_price") or 0,
+            "category": item.get("category") or "other",
+        })
+    return {
+        "store": receipt.get("store") or "",
+        "store_location": None,
+        "date": receipt.get("date") or "",
+        "time": None,
+        "items": items,
+        "subtotal": receipt.get("total") or 0,
+        "tax": 0,
+        "tip": 0,
+        "total": receipt.get("total") or 0,
+        "confidence": receipt.get("confidence") or 1,
+    }
+
+
+def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | None, items: list[dict]) -> dict:
+    """Return the best editable structured payload for the review UI."""
+    payload = _parse_raw_ocr_json(receipt_record.raw_ocr_json if receipt_record else None)
+    if isinstance(payload, dict):
+        payload = copy.deepcopy(payload)
+        payload.setdefault("store", store_name or "")
+        payload.setdefault("date", purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None)
+        payload.setdefault("items", [])
+        payload.setdefault("total", purchase.total_amount if purchase else 0)
+        payload.setdefault("subtotal", payload.get("total", 0))
+        payload.setdefault("tax", 0)
+        payload.setdefault("tip", 0)
+        return payload
+
+    return _receipt_payload_from_purchase({
+        "store": store_name or "",
+        "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
+        "total": purchase.total_amount if purchase else 0,
+        "confidence": receipt_record.ocr_confidence if receipt_record else 1,
+        "items": items,
+    })
+
+
+def _sanitize_receipt_payload(payload: dict) -> dict:
+    """Normalize user-edited receipt payloads for persistence."""
+    sanitized = {
+        "store": str(payload.get("store", "") or "").strip(),
+        "store_location": (str(payload.get("store_location", "") or "").strip() or None),
+        "date": str(payload.get("date", "") or "").strip(),
+        "time": (str(payload.get("time", "") or "").strip() or None),
+        "subtotal": float(payload.get("subtotal") or 0),
+        "tax": float(payload.get("tax") or 0),
+        "tip": float(payload.get("tip") or 0),
+        "total": float(payload.get("total") or 0),
+        "confidence": float(payload.get("confidence") or 1),
+        "items": [],
+    }
+
+    for item in payload.get("items", []) or []:
+        name = str(item.get("name", "") or "").strip()
+        if not name:
+            continue
+        sanitized["items"].append({
+            "name": name,
+            "quantity": float(item.get("quantity") or 1),
+            "unit_price": float(item.get("unit_price") or 0),
+            "category": str(item.get("category", "other") or "other").strip().lower(),
+        })
+    return sanitized
+
+
+def _delete_purchase_data(session, purchase):
+    """Remove purchase-linked rows so a corrected receipt can be rebuilt cleanly."""
+    from src.backend.initialize_database_schema import ReceiptItem, PriceHistory, TelegramReceipt, Purchase
+
+    receipt_records = session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).all()
+    for record in receipt_records:
+        record.purchase_id = None
+
+    receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
+    product_ids = {item.product_id for item in receipt_items if item.product_id}
+    if product_ids:
+        session.query(PriceHistory).filter(
+            PriceHistory.product_id.in_(product_ids),
+            PriceHistory.store_id == purchase.store_id,
+            PriceHistory.date == purchase.date,
+        ).delete(synchronize_session=False)
+
+    session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
 
 
 def _cleanup_receipt_files(image_paths: list[str]):
@@ -223,6 +320,22 @@ def get_receipt(receipt_id):
             .all()
         )
     raw_ocr_data = _parse_raw_ocr_json(receipt_record.raw_ocr_json if receipt_record else None)
+    editable_data = _build_editable_receipt_payload(
+        receipt_record,
+        purchase,
+        store.name if store else None,
+        [
+            {
+                "product_id": item.product_id,
+                "product_name": product.name,
+                "category": product.category,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "extracted_by": item.extracted_by,
+            }
+            for item, product in items
+        ],
+    )
 
     return jsonify({
         "id": purchase.id if purchase else receipt_record.id,
@@ -238,6 +351,7 @@ def get_receipt(receipt_id):
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
         "file_type": _detect_receipt_file_type(receipt_record.image_path if receipt_record else None),
         "raw_ocr_data": raw_ocr_data,
+        "editable_data": editable_data,
         "items": [
             {
                 "product_id": item.product_id,
@@ -504,6 +618,69 @@ def approve_receipt(receipt_id):
     record.status = "processed"
     record.receipt_type = receipt_type
     record.raw_ocr_json = json.dumps(ocr_data)
+    session.commit()
+
+    return jsonify({
+        "status": "processed",
+        "purchase_id": purchase_id,
+        "receipt_id": record.id,
+        "receipt_type": receipt_type,
+    }), 200
+
+
+@receipts_bp.route("/<int:receipt_id>/update", methods=["PUT"])
+@require_auth
+def update_receipt(receipt_id):
+    """Update an existing receipt using edited structured payload."""
+    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
+    from src.backend.extract_receipt_data import _save_to_database, classify_receipt_data
+
+    session = g.db_session
+    record = (
+        session.query(TelegramReceipt)
+        .filter(
+            (TelegramReceipt.purchase_id == receipt_id) |
+            (TelegramReceipt.id == receipt_id)
+        )
+        .order_by(TelegramReceipt.created_at.desc())
+        .first()
+    )
+    if not record:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    ocr_data = payload.get("data") or {}
+    if not isinstance(ocr_data, dict):
+        return jsonify({"error": "Edited receipt data is required"}), 400
+
+    sanitized = _sanitize_receipt_payload(ocr_data)
+    missing = [field for field in ("store", "date", "items", "total") if not sanitized.get(field)]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+    if not sanitized["items"]:
+        return jsonify({"error": "At least one receipt item is required"}), 400
+
+    current_user = getattr(g, "current_user", None)
+    user_id = current_user.id if current_user else None
+    purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
+    if purchase:
+        _delete_purchase_data(session, purchase)
+        session.flush()
+
+    receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
+    purchase_id = _save_to_database(
+        sanitized,
+        record.ocr_engine or "manual_review",
+        record.image_path,
+        user_id,
+        receipt_type,
+    )
+    record.purchase_id = purchase_id
+    record.status = "processed"
+    record.receipt_type = receipt_type
+    record.raw_ocr_json = json.dumps(sanitized)
+    record.ocr_engine = record.ocr_engine or "manual_review"
+    record.ocr_confidence = sanitized.get("confidence") or record.ocr_confidence or 1.0
     session.commit()
 
     return jsonify({

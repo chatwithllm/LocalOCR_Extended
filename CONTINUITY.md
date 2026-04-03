@@ -57,6 +57,16 @@ This split gives you a clean safety net:
 - receipt image storage helper now respects `RECEIPTS_DIR`
 - backup and restore scripts now use env-driven DB path, receipts path, and backup prefix
 - operator docs now describe parallel local deployment explicitly
+- receipt OCR fallback no longer incorrectly marks successful Ollama runs as failed
+- image orientation is normalized before OCR for landscape phone photos
+- receipt detail now supports structured editing for:
+  - receipt type
+  - store
+  - date/time
+  - subtotal/tax/tip/total
+  - line items
+- processed receipts can now be rebuilt safely from corrected review data
+- first restaurant receipt was manually corrected through the new review path and now persists as `domain=restaurant`
 
 ## 5. What Still Belongs To Extended Next
 
@@ -66,6 +76,12 @@ Primary product direction:
 - restaurant receipt tracking with exact line items
 - restaurant budget and analytics
 - user-selectable combined vs separate presentation when multiple modules are enabled
+
+Current restaurant workflow baseline:
+
+- restaurant receipts can now be corrected after upload instead of being accepted as bad OCR
+- corrected restaurant receipts stay out of grocery inventory logic when saved as `restaurant`
+- restaurant-specific analytics/detail views can now be built on top of corrected structured receipt data
 
 Current rule:
 

@@ -15,6 +15,13 @@ The important operational rule is simple:
 - let you explore restaurant and modular household-expense features without risking the stable grocery install
 - keep full git ancestry so useful work can be cherry-picked back later if needed
 
+## Current Product Baseline
+
+- inherited grocery workflows remain available
+- restaurant summary view is live
+- restaurant receipts can now be corrected from receipt detail with structured fields
+- corrected restaurant receipts can rebuild store, totals, and line items without raw JSON editing
+
 ## Current Extended Runtime Defaults
 
 - Flask backend: `8090`

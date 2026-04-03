@@ -20,6 +20,7 @@ Extended-specific runtime changes now in place:
 - Extended uses a distinct MQTT client id and topic namespace
 - Home Assistant discovery identifiers are separated from the grocery app
 - compose defaults are now designed for side-by-side local deployment
+- restaurant receipt review/update flow is now available in receipt detail
 
 ## Verified Working In Code/Config
 
@@ -31,6 +32,16 @@ Extended-specific runtime changes now in place:
 - MQTT topics now derive from `MQTT_TOPIC_PREFIX`
 - MQTT discovery identity now derives from `APP_SLUG`
 - setup docs now describe running Extended beside the grocery app
+- successful Ollama fallback is no longer overwritten as failed
+- landscape receipt photos are normalized before OCR
+- receipt detail can now edit and resave:
+  - receipt type
+  - store
+  - date/time
+  - totals
+  - line items
+- existing processed receipts can be rebuilt from corrected structured payloads
+- first restaurant receipt has been verified as a corrected `restaurant` purchase with exact line items
 
 ## Intended Parallel Deployment Shape
 
@@ -57,7 +68,8 @@ This is the repo where the following should happen next:
 
 ## Not Yet Completed
 
-- end-to-end restaurant workflow implementation
+- robust restaurant-first OCR extraction for difficult phone photos
+- restaurant-specific analytics/detail polish beyond the initial summary + corrected receipt support
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
@@ -67,4 +79,5 @@ This is the repo where the following should happen next:
 1. verify Extended boots on `8090`
 2. verify it can run beside grocery on `8080`
 3. verify MQTT and Home Assistant topics do not collide
-4. start restaurant/module architecture in this repo only
+4. continue restaurant/module architecture in this repo only
+5. improve restaurant OCR quality and review ergonomics

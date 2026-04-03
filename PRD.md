@@ -58,14 +58,22 @@ This module already works and should remain stable while Extended evolves.
 
 ## 5. Restaurant Module
 
-Planned Extended capability:
+Initial Extended capability now started:
 
 - restaurant receipt classification and storage
 - exact restaurant line items preserved for repeat-order planning
 - subtotal, tax, tip, and total tracking
+- structured post-OCR correction flow in receipt detail
+- ability to fix store/date/time/totals/items after upload
 - dining-out analytics
 - separate dining budget
 - no inventory side effects from restaurant receipts
+
+Restaurant workflow requirement:
+
+- if OCR is inaccurate, users must be able to correct the restaurant receipt without editing raw JSON
+- corrected restaurant receipts must rebuild the saved purchase cleanly
+- corrected restaurant receipts must remain isolated from grocery inventory behavior
 
 ## 6. Deployment Requirements
 

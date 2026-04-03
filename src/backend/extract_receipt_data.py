@@ -20,6 +20,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from flask import g
+from PIL import Image, ImageOps
 
 from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.enrich_product_names import should_enrich_product_name
@@ -150,14 +151,14 @@ def process_receipt(image_path: str, source: str = "upload",
                     if source == "telegram" and chat_id:
                         _send_telegram_error(chat_id)
 
-                _save_receipt_record(
-                    image_path, None, None, "failed", 0.0,
-                    _get_receipt_actor_id(source, chat_id, user_id),
-                    receipt_record_id=receipt_record_id,
-                    receipt_type=result.get("receipt_type"),
-                    raw_ocr_data=None,
-                )
-                return result
+                    _save_receipt_record(
+                        image_path, None, None, "failed", 0.0,
+                        _get_receipt_actor_id(source, chat_id, user_id),
+                        receipt_record_id=receipt_record_id,
+                        receipt_type=result.get("receipt_type"),
+                        raw_ocr_data=None,
+                    )
+                    return result
     finally:
         if ocr_input_path != image_path:
             _cleanup_ocr_input(ocr_input_path)
@@ -303,7 +304,22 @@ def classify_receipt_data(data: dict) -> str:
 
 def _prepare_ocr_input(file_path: str) -> str:
     """Render PDFs to a temporary PNG so the OCR engines can process them."""
-    if Path(file_path).suffix.lower() != ".pdf":
+    source_path = Path(file_path)
+    if source_path.suffix.lower() != ".pdf":
+        try:
+            with Image.open(source_path) as image:
+                normalized = ImageOps.exif_transpose(image)
+                width, height = normalized.size
+                if width <= height:
+                    return file_path
+
+                output_dir = tempfile.mkdtemp(prefix="receipt-image-")
+                rotated_path = Path(output_dir) / source_path.name
+                normalized.rotate(90, expand=True).save(rotated_path)
+                logger.info("Rotated landscape receipt for OCR: %s -> %s", file_path, rotated_path)
+                return str(rotated_path)
+        except Exception as exc:
+            logger.warning("Failed to normalize receipt image orientation for %s: %s", file_path, exc)
         return file_path
 
     output_dir = tempfile.mkdtemp(prefix="receipt-pdf-")
@@ -344,7 +360,7 @@ def _cleanup_ocr_input(ocr_input_path: str):
     """Remove temporary OCR artifacts created from PDF receipts."""
     try:
         temp_dir = Path(ocr_input_path).parent
-        if temp_dir.name.startswith("receipt-pdf-") and temp_dir.is_dir():
+        if temp_dir.name.startswith(("receipt-pdf-", "receipt-image-")) and temp_dir.is_dir():
             _cleanup_temp_dir(temp_dir)
     except Exception as exc:
         logger.warning("Failed to clean temporary OCR input %s: %s", ocr_input_path, exc)

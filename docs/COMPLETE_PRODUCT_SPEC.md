@@ -59,15 +59,23 @@ If Extended is abandoned later, the grocery deployment must remain unaffected.
 
 ### Restaurant Module
 
-Planned in this repo:
+Implemented baseline in this repo:
 
 - restaurant receipt history
 - exact restaurant line-item retention
 - subtotal/tax/tip/total tracking
+- structured restaurant receipt correction in receipt detail
+- ability to resave corrected receipt type, store, date/time, totals, and items
 - dining analytics
 - dining budget
 
 Restaurant items must never affect grocery inventory.
+
+Current expectation:
+
+- difficult restaurant OCR should be fixable in the UI after upload
+- restaurant correction should not require raw JSON editing
+- corrected receipts should rebuild their purchase cleanly and preserve receipt image linkage
 
 ## 4. Deployment Modes
 
@@ -110,4 +118,5 @@ Extended docs and setup must clearly explain:
 2. preserve inherited grocery behavior
 3. add modular runtime scaffolding
 4. add restaurant receipt workflows
-5. add combined/separate user presentation options
+5. improve restaurant OCR + correction ergonomics
+6. add combined/separate user presentation options
