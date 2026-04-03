@@ -37,6 +37,7 @@ When multiple modules are enabled, users should eventually be able to choose sep
 The shared core includes:
 
 - household auth
+- guest demo mode with realistic sample data for pre-login exploration
 - receipts upload and OCR
 - receipt review
 - local file storage
@@ -90,6 +91,26 @@ Restaurant workflow requirement:
 - if OCR is inaccurate, users must be able to correct the restaurant receipt without editing raw JSON
 - corrected restaurant receipts must rebuild the saved purchase cleanly
 - corrected restaurant receipts must remain isolated from grocery inventory behavior
+
+## 5A. Guest Demo Requirement
+
+Before login, a visitor should still understand the product.
+
+Required behavior:
+
+- landing on the app while signed out should show a meaningful, read-only dashboard instead of an empty/auth-only wall
+- demo mode should expose realistic sample data across the main workspaces:
+  - dashboard
+  - inventory/products
+  - shopping
+  - receipts
+  - budget
+  - analytics
+  - restaurant
+  - expenses
+  - contribution
+- sample data must never expose real household records
+- upload and edit actions must stay gated behind sign-in
 
 ## 6. General Expense Domain
 

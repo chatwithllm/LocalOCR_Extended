@@ -93,6 +93,7 @@ This split gives you a clean safety net:
 - placeholder session/bootstrap secrets are now rejected instead of being trusted silently
 - seasonal recommendation date math now tolerates mixed naive/aware timestamps
 - placeholder OCR junk receipts/products copied into Extended were cleaned out without touching valid grocery history
+- signed-out visitors now get a meaningful read-only demo mode with realistic sample data across dashboard, grocery, restaurant, expenses, receipts, and contribution views
 
 ## 5. What Still Belongs To Extended Next
 

@@ -42,6 +42,7 @@ If Extended is abandoned later, the grocery deployment must remain unaffected.
 ### Shared Core
 
 - browser auth and household users
+- read-only guest demo mode with seeded sample data before login
 - receipt upload and OCR
 - upload-time receipt intent selection
 - review queue
@@ -111,6 +112,7 @@ Current expectation:
 - corrected receipts should rebuild their purchase cleanly and preserve receipt image linkage
 - general-expense receipts should be tracked without being forced into grocery or dining flows
 - general-expense line items should support human-meaningful categories for analysis without turning them into operational product inventory
+- signed-out visitors should be able to explore realistic demo data across the main workspaces without touching real household state
 
 ## 4. Deployment Modes
 

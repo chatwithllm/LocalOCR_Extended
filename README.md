@@ -11,6 +11,8 @@ It is designed to help a household:
 - keep budgets, analytics, and collaboration visible across users
 - publish live updates to MQTT / Home Assistant when configured
 
+It also supports a read-only guest demo experience for non-logged-in visitors, so the product can be explored with realistic sample data before a household account is created or used.
+
 ## What The Product Does
 
 `LocalOCR Extended` has three main domains:
@@ -54,6 +56,7 @@ The app also includes a shared collaboration layer:
 - household ranking and contribution scorecards
 - grocery status cards
 - low-stock and recommendation surfaces
+- guest demo hero for non-logged-in users
 - hidden QR access tools
 
 ### Inventory
@@ -77,7 +80,9 @@ The app also includes a shared collaboration layer:
   - `Auto`
   - `Grocery`
   - `Restaurant`
+  - `General Expense`
 - OCR preview/result feedback
+- guest/demo mode keeps upload read-only until sign-in
 
 ### Receipts
 

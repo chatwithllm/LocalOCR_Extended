@@ -302,6 +302,84 @@
       gap: 16px;
       margin-bottom: 22px;
     }
+    .demo-hero {
+      border: 1px solid rgba(108, 99, 255, 0.28);
+      background:
+        radial-gradient(circle at top right, rgba(0, 212, 170, 0.12), transparent 38%),
+        radial-gradient(circle at bottom left, rgba(108, 99, 255, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(108,99,255,0.10), rgba(255,255,255,0.02));
+      border-radius: 18px;
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .demo-hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .demo-hero-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      line-height: 1.2;
+      max-width: 700px;
+    }
+    .demo-hero-copy {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+    .demo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      background: rgba(108, 99, 255, 0.10);
+      color: #ddd8ff;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .demo-hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .demo-hero-stat {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.03);
+    }
+    .demo-hero-stat .label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .demo-hero-stat .value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .demo-hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .demo-readonly-note {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
     .leaderboard-card {
       border: 1px solid var(--border);
       background: var(--surface2);
@@ -1041,6 +1119,9 @@
       .leaderboard-list {
         grid-template-columns: 1fr;
       }
+      .demo-hero-grid {
+        grid-template-columns: 1fr;
+      }
       .contrib-grid {
         grid-template-columns: 1fr;
       }
@@ -1172,6 +1253,28 @@
     <div class="page active" id="page-dashboard">
       <div class="page-header">
         <div><h1>Dashboard</h1><p id="dashboard-subtitle">Your household system at a glance</p></div>
+      </div>
+      <div id="demo-hero" class="demo-hero" style="display:none">
+        <div class="demo-hero-top">
+          <div style="display:grid;gap:10px">
+            <span class="demo-chip">Read-only Demo</span>
+            <div class="demo-hero-title">See grocery, restaurant, and general expense tracking before you sign in.</div>
+            <div class="demo-hero-copy">
+              Browse a realistic household workspace with sample scores, budgets, receipts, shopping plans, restaurant visits, and general expenses. Nothing you click here changes real data.
+            </div>
+          </div>
+          <div class="demo-hero-actions">
+            <button type="button" class="btn btn-primary" onclick="focusLogin()">Sign In</button>
+            <button type="button" class="btn btn-ghost" onclick="goToPage('shopping')">Explore Shopping Demo</button>
+            <button type="button" class="btn btn-ghost" onclick="goToPage('restaurant')">Explore Restaurant Demo</button>
+          </div>
+        </div>
+        <div class="demo-hero-grid">
+          <div class="demo-hero-stat"><div class="label">What You'll See</div><div class="value">Scores, budgets, receipts, inventory, shopping</div></div>
+          <div class="demo-hero-stat"><div class="label">Domains</div><div class="value">Grocery, Restaurant, General Expense</div></div>
+          <div class="demo-hero-stat"><div class="label">Mode</div><div class="value">Read-only sample household data</div></div>
+        </div>
+        <div class="demo-readonly-note">Uploads, edits, deletes, and low-stock actions require sign-in.</div>
       </div>
       <div class="dashboard-top-grid">
         <div class="leaderboard-card">
@@ -1860,7 +1963,106 @@ let contributionDetailOverlayOpen = false;
 let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
+let authCheckComplete = false;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
+const DEMO_MONTH = '2026-04';
+const DEMO_USERS = [
+  { id: 101, name: 'Narshima', avatar_emoji: '🦄', receipts_processed: 26, ocr_corrections: 8, score: 184, rank: 1 },
+  { id: 102, name: 'Chamu', avatar_emoji: '🐯', receipts_processed: 14, ocr_corrections: 6, score: 126, rank: 2 },
+  { id: 103, name: 'Admin', avatar_emoji: '🐼', receipts_processed: 10, ocr_corrections: 5, score: 104, rank: 3 },
+  { id: 104, name: 'Nagesh', avatar_emoji: '🐧', receipts_processed: 8, ocr_corrections: 2, score: 61, rank: 4 },
+];
+const DEMO_PRODUCTS = [
+  { id: 11, name: 'Organic Pasta', category: 'grains', brand: 'Simple Truth', size: '16 oz', latest_price: { price: 2.99, store: 'Kroger' }, last_purchase_date: '2026-04-01', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9101, store: 'Kroger', date: '2026-04-01', total: 64.32 }] },
+  { id: 12, name: 'Red Onions', category: 'produce', brand: '', size: '3 lb', latest_price: { price: 3.99, store: 'Costco Wholesale' }, last_purchase_date: '2026-04-02', manual_low: true, is_low: true, recent_receipts: [{ receipt_id: 9102, store: 'Costco Wholesale', date: '2026-04-02', total: 96.44 }] },
+  { id: 13, name: 'Amul Milk', category: 'dairy', brand: 'Amul', size: '1 gal', latest_price: { price: 8.58, store: 'Kroger' }, last_purchase_date: '2026-03-31', manual_low: false, is_low: true, recent_receipts: [{ receipt_id: 9103, store: 'Kroger', date: '2026-03-31', total: 54.18 }] },
+  { id: 14, name: 'Heritage Farm Chicken Thighs', category: 'meat', brand: 'Heritage Farm', size: '4 lb', latest_price: { price: 11.92, store: 'Kroger' }, last_purchase_date: '2026-03-30', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9104, store: 'Kroger', date: '2026-03-30', total: 52.45 }] },
+  { id: 15, name: 'Laundry Detergent', category: 'household', brand: 'Arm & Hammer', size: '200 loads', latest_price: { price: 18.49, store: 'Costco Wholesale' }, last_purchase_date: '2026-03-28', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9105, store: 'Costco Wholesale', date: '2026-03-28', total: 84.12 }] },
+  { id: 16, name: 'Just Bare Chicken Breast Chunks', category: 'frozen', brand: 'Just Bare', size: '4 lb', latest_price: { price: 14.99, store: 'Costco Wholesale' }, last_purchase_date: '2026-03-27', manual_low: false, is_low: false, recent_receipts: [{ receipt_id: 9106, store: 'Costco Wholesale', date: '2026-03-27', total: 78.33 }] },
+];
+const DEMO_INVENTORY = [
+  { product_id: 12, product_name: 'Red Onions', category: 'produce', quantity: 1, threshold: 2, is_low: true, manual_low: true, location: 'Pantry', brand: '', size: '3 lb', latest_price: { price: 3.99, store: 'Costco Wholesale' }, recent_receipts: [{ receipt_id: 9102, store: 'Costco Wholesale', date: '2026-04-02', total: 96.44 }] },
+  { product_id: 13, product_name: 'Amul Milk', category: 'dairy', quantity: 1, threshold: 2, is_low: true, manual_low: false, location: 'Fridge', brand: 'Amul', size: '1 gal', latest_price: { price: 8.58, store: 'Kroger' }, recent_receipts: [{ receipt_id: 9103, store: 'Kroger', date: '2026-03-31', total: 54.18 }] },
+  { product_id: 14, product_name: 'Heritage Farm Chicken Thighs', category: 'meat', quantity: 2, threshold: 1, is_low: false, manual_low: false, location: 'Freezer', brand: 'Heritage Farm', size: '4 lb', latest_price: { price: 11.92, store: 'Kroger' }, recent_receipts: [{ receipt_id: 9104, store: 'Kroger', date: '2026-03-30', total: 52.45 }] },
+  { product_id: 15, product_name: 'Laundry Detergent', category: 'household', quantity: 1, threshold: 1, is_low: false, manual_low: false, location: 'Laundry Room', brand: 'Arm & Hammer', size: '200 loads', latest_price: { price: 18.49, store: 'Costco Wholesale' }, recent_receipts: [{ receipt_id: 9105, store: 'Costco Wholesale', date: '2026-03-28', total: 84.12 }] },
+  { product_id: 16, product_name: 'Just Bare Chicken Breast Chunks', category: 'frozen', quantity: 1, threshold: 1, is_low: false, manual_low: false, location: 'Freezer', brand: 'Just Bare', size: '4 lb', latest_price: { price: 14.99, store: 'Costco Wholesale' }, recent_receipts: [{ receipt_id: 9106, store: 'Costco Wholesale', date: '2026-03-27', total: 78.33 }] },
+];
+const DEMO_SHOPPING_ITEMS = [
+  { id: 401, product_id: 12, name: 'Red Onions', category: 'produce', quantity: 1, source: 'recommendation', note: 'Great price at Costco this week.', preferred_store: 'Costco Wholesale', effective_store: 'Costco Wholesale', status: 'open', latest_price: { price: 3.99, store: 'Costco Wholesale' } },
+  { id: 402, product_id: 13, name: 'Amul Milk', category: 'dairy', quantity: 2, source: 'inventory', note: 'Restock for breakfast and chai.', preferred_store: 'Kroger', effective_store: 'Kroger', status: 'open', latest_price: { price: 8.58, store: 'Kroger' } },
+  { id: 403, product_id: null, name: 'Claire’s ear care solution', category: 'beauty', quantity: 1, source: 'manual', note: 'Pair with ear piercing follow-up.', preferred_store: 'Target', effective_store: 'Target', status: 'purchased', latest_price: { price: 7.49, store: 'Target' } },
+];
+const DEMO_RECEIPTS = [
+  { id: 9101, purchase_id: 9101, store: 'Kroger', source: 'upload', status: 'processed', date: '2026-04-01', total: 64.32, confidence: 0.98, ocr_engine: 'gemini', receipt_type: 'grocery', created_at: '2026-04-01T18:12:00', file_type: 'pdf', image_url: null, items: [
+    { product_id: 11, product_name: 'Organic Pasta', quantity: 2, unit_price: 2.99, category: 'grains', extracted_by: 'gemini' },
+    { product_id: 13, product_name: 'Amul Milk', quantity: 1, unit_price: 8.58, category: 'dairy', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Kroger', date: '2026-04-01', subtotal: 59.42, tax: 4.90, tip: 0, total: 64.32, items: [
+    { name: 'Organic Pasta', quantity: 2, unit_price: 2.99, category: 'grains' },
+    { name: 'Amul Milk', quantity: 1, unit_price: 8.58, category: 'dairy' },
+  ] } },
+  { id: 9102, purchase_id: 9102, store: 'Costco Wholesale', source: 'upload', status: 'processed', date: '2026-04-02', total: 96.44, confidence: 0.99, ocr_engine: 'gemini', receipt_type: 'grocery', created_at: '2026-04-02T12:40:00', file_type: 'pdf', image_url: null, items: [
+    { product_id: 12, product_name: 'Red Onions', quantity: 1, unit_price: 3.99, category: 'produce', extracted_by: 'gemini' },
+    { product_id: 16, product_name: 'Just Bare Chicken Breast Chunks', quantity: 1, unit_price: 14.99, category: 'frozen', extracted_by: 'gemini' },
+    { product_id: 15, product_name: 'Laundry Detergent', quantity: 1, unit_price: 18.49, category: 'household', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Costco Wholesale', date: '2026-04-02', subtotal: 89.33, tax: 7.11, tip: 0, total: 96.44, items: [
+    { name: 'Red Onions', quantity: 1, unit_price: 3.99, category: 'produce' },
+    { name: 'Just Bare Chicken Breast Chunks', quantity: 1, unit_price: 14.99, category: 'frozen' },
+    { name: 'Laundry Detergent', quantity: 1, unit_price: 18.49, category: 'household' },
+  ] } },
+  { id: 9201, purchase_id: 9201, store: 'Chowrastha', source: 'upload', status: 'processed', date: '2026-03-30', total: 78.43, confidence: 0.95, ocr_engine: 'gemini', receipt_type: 'restaurant', created_at: '2026-03-30T19:16:00', file_type: 'jpg', image_url: null, items: [
+    { product_name: 'Chicken Dum Biryani', quantity: 2, unit_price: 17.95, category: 'restaurant', extracted_by: 'gemini' },
+    { product_name: 'Apollo Fish', quantity: 1, unit_price: 15.95, category: 'restaurant', extracted_by: 'gemini' },
+    { product_name: 'Mango Lassi', quantity: 2, unit_price: 4.95, category: 'restaurant', extracted_by: 'gemini' },
+  ], editable_data: { store: 'Chowrastha', store_location: 'Indianapolis', date: '2026-03-30', time: '7:16 PM', subtotal: 71.95, tax: 6.48, tip: 0, total: 78.43, items: [
+    { name: 'Chicken Dum Biryani', quantity: 2, unit_price: 17.95, category: 'restaurant' },
+    { name: 'Apollo Fish', quantity: 1, unit_price: 15.95, category: 'restaurant' },
+    { name: 'Mango Lassi', quantity: 2, unit_price: 4.95, category: 'restaurant' },
+  ] } },
+  { id: 9301, purchase_id: 9301, store: "Claire's", source: 'upload', status: 'processed', date: '2026-03-29', total: 64.99, confidence: 0.93, ocr_engine: 'gemini', receipt_type: 'general_expense', created_at: '2026-03-29T15:10:00', file_type: 'jpg', image_url: null, items: [
+    { product_name: 'Ear Piercing', quantity: 1, unit_price: 49.99, category: 'beauty', extracted_by: 'gemini' },
+    { product_name: 'Aftercare Solution', quantity: 1, unit_price: 9.99, category: 'beauty', extracted_by: 'gemini' },
+  ], editable_data: { store: "Claire's", date: '2026-03-29', subtotal: 59.98, tax: 5.01, tip: 0, total: 64.99, items: [
+    { name: 'Ear Piercing', quantity: 1, unit_price: 49.99, category: 'beauty' },
+    { name: 'Aftercare Solution', quantity: 1, unit_price: 9.99, category: 'beauty' },
+  ] } },
+];
+const DEMO_CONTRIBUTION_SUMMARY = {
+  totals: { total_score: 184, receipts_processed: 26, ocr_fixes: 8, bonus_points: 54, floating_points: 6 },
+  recent_events: [
+    { description: 'Validated low-stock call for Amul Milk', points: 6, status: 'finalized', event_type: 'inventory', created_at: '2026-04-02T09:14:00' },
+    { description: 'Corrected "Org Psta" to "Organic Pasta"', points: 15, status: 'finalized', event_type: 'ocr_cleanup', created_at: '2026-04-01T20:02:00' },
+    { description: 'Confirmed recommendation for Red Onions', points: 2, status: 'floating', event_type: 'shopping', created_at: '2026-04-01T18:22:00' },
+  ],
+  score_rules: [
+    { title: 'Receipts processed', description: 'Each correctly processed receipt helps the household remember spending and stock.', points_label: '+5 each' },
+    { title: 'Meaningful cleanup', description: 'Correcting OCR names, categories, and locations makes future search and shopping better.', points_label: '+2 to +20' },
+    { title: 'Validated teamwork', description: 'Low-stock calls and shopping confirmations score more when later validated.', points_label: 'pending -> validated' },
+  ],
+  fairness_notes: [
+    { title: 'No-op edits do not score', description: 'Changes like milk -> MILK or repeated toggles are ignored.' },
+    { title: 'Some points float first', description: 'Recommendation and low-stock collaboration only lock after a real downstream confirmation.' },
+  ],
+  opportunities: [
+    { title: 'Review 3 OCR names', description: 'Help turn unclear receipt text into shopping-friendly product names.', count_label: '+15 each', action_label: 'Open Receipts' },
+    { title: 'Assign store preference to 2 shopping items', description: 'Routing items to a store makes the shopping trip clearer.', count_label: '+2 each', action_label: 'Open Shopping' },
+  ],
+};
+const DEMO_CONTRIBUTION_DETAILS = {
+  101: { user: DEMO_USERS[0], summary: { total_score: 184, receipts_processed: 26, ocr_fixes: 8, bonus_points: 54, floating_points: 6 }, categories: { receipts: 130, ocr_cleanup: 40, system_help: 54, floating: 6 }, recent_events: DEMO_CONTRIBUTION_SUMMARY.recent_events },
+  102: { user: DEMO_USERS[1], summary: { total_score: 126, receipts_processed: 14, ocr_fixes: 6, bonus_points: 36, floating_points: 2 }, categories: { receipts: 70, ocr_cleanup: 30, system_help: 26, floating: 2 }, recent_events: [{ description: 'Set pantry location for Laundry Detergent', points: 2, status: 'finalized', event_type: 'inventory', created_at: '2026-04-02T11:08:00' }] },
+  103: { user: DEMO_USERS[2], summary: { total_score: 104, receipts_processed: 10, ocr_fixes: 5, bonus_points: 29, floating_points: 0 }, categories: { receipts: 50, ocr_cleanup: 25, system_help: 29, floating: 0 }, recent_events: [{ description: 'Merged Vine Tomato duplicates', points: 18, status: 'finalized', event_type: 'ocr_cleanup', created_at: '2026-03-31T18:44:00' }] },
+  104: { user: DEMO_USERS[3], summary: { total_score: 61, receipts_processed: 8, ocr_fixes: 2, bonus_points: 21, floating_points: 0 }, categories: { receipts: 40, ocr_cleanup: 10, system_help: 11, floating: 0 }, recent_events: [{ description: 'Marked Amul Milk low', points: 3, status: 'validated', event_type: 'inventory', created_at: '2026-03-30T08:12:00' }] },
+};
+const DEMO_BUDGETS = {
+  grocery: { month: DEMO_MONTH, budget_amount: 900, spent: 742.58, remaining: 157.42, percentage: 82, purchase_count: 18, alert_triggered: true, domain: 'grocery' },
+  restaurant: { month: DEMO_MONTH, budget_amount: 220, spent: 117.64, remaining: 102.36, percentage: 53, purchase_count: 2, alert_triggered: false, domain: 'restaurant' },
+  general_expense: { month: DEMO_MONTH, budget_amount: 300, spent: 148.18, remaining: 151.82, percentage: 49, purchase_count: 2, alert_triggered: false, domain: 'general_expense' },
+};
+const DEMO_GUEST_STATS = { receipts_today: 5, receipts_month: 26, receipts_processed: 26, ocr_corrections: 8, ocr_corrections_month: 5, score: 184 };
+
+function isDemoMode() {
+  return authCheckComplete && !currentUser && !SHOPPING_HELPER_MODE;
+}
 
 function formatAppName(name) {
   return String(name || 'LocalOCR Extended').replace(/^LocalOCR\s*/i, '').trim() || 'Extended';
@@ -2979,7 +3181,271 @@ function getHeaders(includeJson = true) {
   return headers;
 }
 
+function demoResponse(payload, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async json() { return payload; },
+    async text() { return JSON.stringify(payload); },
+  };
+}
+
+function demoSpendRows(domain) {
+  const rows = {
+    grocery: {
+      '2026-04': { total: 742.58, count: 18 },
+      '2026-03': { total: 681.23, count: 16 },
+      '2026-02': { total: 704.11, count: 17 },
+    },
+    restaurant: {
+      '2026-04': { total: 39.21, count: 1 },
+      '2026-03': { total: 78.43, count: 1 },
+    },
+    general_expense: {
+      '2026-04': { total: 83.19, count: 1 },
+      '2026-03': { total: 64.99, count: 1 },
+    }
+  };
+  if (!domain) {
+    const merged = {};
+    Object.values(rows).forEach(domainRows => {
+      Object.entries(domainRows).forEach(([period, values]) => {
+        merged[period] = merged[period] || { total: 0, count: 0 };
+        merged[period].total += values.total;
+        merged[period].count += values.count;
+      });
+    });
+    return merged;
+  }
+  return rows[domain] || {};
+}
+
+function demoReceiptsByType(receiptType = '') {
+  return DEMO_RECEIPTS.filter(receipt => !receiptType || receipt.receipt_type === receiptType);
+}
+
+function buildDemoReceiptsResponse(receiptType = '') {
+  const receipts = demoReceiptsByType(receiptType).map(receipt => ({
+    id: receipt.id,
+    purchase_id: receipt.purchase_id,
+    store: receipt.store,
+    total: receipt.total,
+    date: receipt.date,
+    source: receipt.source,
+    status: receipt.status,
+    receipt_type: receipt.receipt_type,
+  }));
+  const receiptTypes = [...new Set(DEMO_RECEIPTS.map(r => r.receipt_type))];
+  const summaryReceipts = receipts;
+  const storeCounts = summaryReceipts.reduce((acc, receipt) => {
+    acc[receipt.store] = acc[receipt.store] || { count: 0, total_amount: 0, receipts: [] };
+    acc[receipt.store].count += 1;
+    acc[receipt.store].total_amount += receipt.total || 0;
+    acc[receipt.store].receipts.push(receipt.purchase_id || receipt.id);
+    return acc;
+  }, {});
+  const monthCounts = summaryReceipts.reduce((acc, receipt) => {
+    const month = String(receipt.date || '').slice(0, 7);
+    acc[month] = acc[month] || { count: 0, total_amount: 0, receipts: [] };
+    acc[month].count += 1;
+    acc[month].total_amount += receipt.total || 0;
+    acc[month].receipts.push(receipt.purchase_id || receipt.id);
+    return acc;
+  }, {});
+  const allItems = summaryReceipts.flatMap(receipt => (DEMO_RECEIPTS.find(r => r.id === receipt.id)?.items || []));
+  const totalItems = allItems.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
+  const uniqueNames = new Set(allItems.map(item => item.product_name || item.name));
+  const mostBoughtMap = allItems.reduce((acc, item) => {
+    const key = item.product_name || item.name;
+    acc[key] = (acc[key] || 0) + Number(item.quantity || 1);
+    return acc;
+  }, {});
+  const mostBoughtItems = Object.entries(mostBoughtMap).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, quantity]) => ({ name, quantity }));
+  return {
+    count: receipts.length,
+    receipts,
+    filters: {
+      stores: [...new Set(DEMO_RECEIPTS.map(r => r.store))],
+      sources: ['upload'],
+      statuses: ['processed'],
+      receipt_types: receiptTypes,
+    },
+    summary: {
+      total_receipts: receipts.length,
+      total_items: totalItems,
+      unique_items: uniqueNames.size,
+      most_bought_items: mostBoughtItems,
+      by_store: Object.entries(storeCounts).map(([store, values]) => ({ store, ...values })),
+      by_month: Object.entries(monthCounts).map(([month, values]) => ({ month, ...values })),
+    }
+  };
+}
+
+function buildDemoShoppingResponse(status = '') {
+  const items = DEMO_SHOPPING_ITEMS.filter(item => !status || item.status === status);
+  const openItems = DEMO_SHOPPING_ITEMS.filter(item => item.status !== 'purchased');
+  const purchasedItems = DEMO_SHOPPING_ITEMS.filter(item => item.status === 'purchased');
+  const stores = {};
+  DEMO_SHOPPING_ITEMS.forEach(item => {
+    const store = item.preferred_store || item.effective_store || 'Unassigned';
+    stores[store] = stores[store] || { store, estimated_total: 0, item_count: 0 };
+    stores[store].estimated_total += Number(item.latest_price?.price || 0) * Number(item.quantity || 1);
+    stores[store].item_count += 1;
+  });
+  return {
+    items,
+    count: items.length,
+    open_count: openItems.length,
+    purchased_count: purchasedItems.length,
+    estimated_total_cost: openItems.reduce((sum, item) => sum + (Number(item.latest_price?.price || 0) * Number(item.quantity || 1)), 0),
+    suggested_stores: Object.values(stores),
+    available_stores: [...new Set(DEMO_SHOPPING_ITEMS.map(item => item.preferred_store || item.effective_store).filter(Boolean))],
+    helper_mode: false,
+  };
+}
+
+function buildDemoRestaurantSummary() {
+  const receipts = demoReceiptsByType('restaurant');
+  const totalSpend = receipts.reduce((sum, receipt) => sum + Number(receipt.total || 0), 0);
+  const topRestaurants = receipts.map(receipt => ({
+    store: receipt.store,
+    visits: 1,
+    total: receipt.total,
+    average_ticket: receipt.total,
+  }));
+  const topItemsMap = {};
+  receipts.forEach(receipt => (receipt.editable_data?.items || []).forEach(item => {
+    const key = item.name;
+    topItemsMap[key] = topItemsMap[key] || { name: key, quantity: 0, total: 0 };
+    topItemsMap[key].quantity += Number(item.quantity || 1);
+    topItemsMap[key].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+  }));
+  return {
+    visit_count: receipts.length,
+    total_spend: totalSpend,
+    average_ticket: receipts.length ? totalSpend / receipts.length : 0,
+    top_restaurants: topRestaurants,
+    top_items: Object.values(topItemsMap).map(item => ({ ...item, average_price: item.quantity ? item.total / item.quantity : 0 })),
+    recent_receipts: receipts,
+  };
+}
+
+function buildDemoExpenseSummary() {
+  const receipts = demoReceiptsByType('general_expense');
+  const totalSpend = receipts.reduce((sum, receipt) => sum + Number(receipt.total || 0), 0);
+  const topMerchants = receipts.map(receipt => ({
+    store: receipt.store,
+    visits: 1,
+    total: receipt.total,
+    average_ticket: receipt.total,
+  }));
+  const topItemsMap = {};
+  const categoryMap = {};
+  receipts.forEach(receipt => (receipt.editable_data?.items || []).forEach(item => {
+    const key = item.name;
+    topItemsMap[key] = topItemsMap[key] || { name: key, quantity: 0, total: 0 };
+    topItemsMap[key].quantity += Number(item.quantity || 1);
+    topItemsMap[key].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+    const category = item.category || 'other';
+    categoryMap[category] = categoryMap[category] || { category, total: 0, count: 0 };
+    categoryMap[category].total += Number(item.unit_price || 0) * Number(item.quantity || 1);
+    categoryMap[category].count += 1;
+  }));
+  return {
+    receipt_count: receipts.length,
+    total_spend: totalSpend,
+    average_ticket: receipts.length ? totalSpend / receipts.length : 0,
+    top_merchants: topMerchants,
+    top_items: Object.values(topItemsMap).map(item => ({ ...item, average_price: item.quantity ? item.total / item.quantity : 0 })),
+    category_breakdown: Object.values(categoryMap),
+    recent_receipts: receipts.map(receipt => ({ ...receipt, item_count: receipt.editable_data?.items?.length || 0 })),
+  };
+}
+
+function buildDemoContributionSummary() {
+  return DEMO_CONTRIBUTION_SUMMARY;
+}
+
+function buildDemoContributionUser(userId) {
+  return DEMO_CONTRIBUTION_DETAILS[userId] || DEMO_CONTRIBUTION_DETAILS[101];
+}
+
+async function demoApi(path, opts = {}) {
+  const method = String(opts.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    return demoResponse({ error: 'Sign in to edit or upload live data.' }, 401);
+  }
+  const url = new URL(path, 'https://demo.local');
+  const pathname = url.pathname;
+  if (pathname === '/products') {
+    return demoResponse({ total: DEMO_PRODUCTS.length, products: DEMO_PRODUCTS });
+  }
+  if (pathname === '/products/search') {
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    return demoResponse({ results: DEMO_PRODUCTS.filter(item => JSON.stringify(item).toLowerCase().includes(q)) });
+  }
+  if (pathname === '/inventory') {
+    return demoResponse({ count: DEMO_INVENTORY.length, window_start: '2026-03-01', items: DEMO_INVENTORY });
+  }
+  if (pathname === '/recommendations') {
+    return demoResponse({
+      count: 3,
+      recommendations: [
+        { product_id: 12, product_name: 'Red Onions', category: 'produce', reason: 'deal', confidence: 0.91, message: 'Costco has Red Onions below your usual price this week.', in_shopping_list: true, shopping_list_by: 'Narshima' },
+        { product_id: 13, product_name: 'Amul Milk', category: 'dairy', reason: 'manual_low', confidence: 0.95, message: 'Amul Milk was marked low and should be restocked soon.', in_shopping_list: true, shopping_list_by: 'Chamu' },
+        { product_id: 11, product_name: 'Organic Pasta', category: 'grains', reason: 'seasonal', confidence: 0.72, message: 'You usually buy Organic Pasta every 12 days. It may be time to restock.', in_shopping_list: false },
+      ]
+    });
+  }
+  if (pathname === '/shopping-list') {
+    return demoResponse(buildDemoShoppingResponse(url.searchParams.get('status') || ''));
+  }
+  if (pathname === '/receipts') {
+    return demoResponse(buildDemoReceiptsResponse(url.searchParams.get('receipt_type') || ''));
+  }
+  if (/^\/receipts\/\d+$/.test(pathname)) {
+    const id = Number(pathname.split('/').pop());
+    const receipt = DEMO_RECEIPTS.find(item => Number(item.id) === id || Number(item.purchase_id) === id);
+    return receipt ? demoResponse(receipt) : demoResponse({ error: 'Receipt not found' }, 404);
+  }
+  if (pathname === '/analytics/spending') {
+    const domain = url.searchParams.get('domain') || '';
+    const spending_by_period = demoSpendRows(domain);
+    return demoResponse({
+      domain: domain || 'all',
+      period: url.searchParams.get('period') || 'monthly',
+      months_back: Number(url.searchParams.get('months') || 6),
+      grand_total: Object.values(spending_by_period).reduce((sum, row) => sum + Number(row.total || 0), 0),
+      category_breakdown: domain === 'general_expense' ? buildDemoExpenseSummary().category_breakdown : [],
+      spending_by_period,
+    });
+  }
+  if (pathname === '/analytics/restaurant-summary') {
+    return demoResponse(buildDemoRestaurantSummary());
+  }
+  if (pathname === '/analytics/expense-summary') {
+    return demoResponse(buildDemoExpenseSummary());
+  }
+  if (pathname === '/analytics/deals-captured') {
+    return demoResponse({ total_saved: 42.18, deal_count: 7 });
+  }
+  if (pathname === '/budget/status') {
+    const domain = url.searchParams.get('domain') || 'grocery';
+    return demoResponse(DEMO_BUDGETS[domain] || DEMO_BUDGETS.grocery);
+  }
+  if (pathname === '/contributions/summary') {
+    return demoResponse(buildDemoContributionSummary());
+  }
+  if (/^\/contributions\/users\/\d+$/.test(pathname)) {
+    return demoResponse(buildDemoContributionUser(Number(pathname.split('/').pop())));
+  }
+  return demoResponse({ error: 'Demo route not available' }, 404);
+}
+
 async function api(path, opts = {}) {
+  if (isDemoMode() && !String(path).startsWith('/auth/')) {
+    return demoApi(path, opts);
+  }
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
   const res = await fetch(API_BASE + path, {
@@ -3152,9 +3618,11 @@ function toast(msg, type = 'info') {
 // ============================================================
 async function checkAuth() {
   const banner = document.getElementById('auth-banner');
+  authCheckComplete = false;
 
   if (SHOPPING_HELPER_MODE) {
     currentUser = { name: 'Shopping Helper', role: 'helper' };
+    authCheckComplete = true;
     return true;
   }
 
@@ -3190,6 +3658,8 @@ async function checkAuth() {
       householdLeaderboard = data.leaderboard || householdLeaderboard;
       if (data.app_config) applyAppConfig(data.app_config);
       banner.classList.remove('show');
+      authCheckComplete = true;
+      updateDemoModeUi();
       return true;
     }
   } catch (e) {
@@ -3197,10 +3667,42 @@ async function checkAuth() {
   }
 
   currentUser = null;
-  currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
-  householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
+  currentUserStats = { ...DEMO_GUEST_STATS };
+  householdLeaderboard = { month: DEMO_MONTH, rankings: DEMO_USERS, current_user_rank: null, total_users: DEMO_USERS.length };
   banner.classList.add('show');
+  authCheckComplete = true;
+  const help = document.getElementById('auth-help');
+  if (help) {
+    help.textContent = 'You are browsing demo data in read-only mode. Sign in to upload receipts, edit products, and save real household changes.';
+  }
+  updateDemoModeUi();
   return false;
+}
+
+function focusLogin() {
+  const email = document.getElementById('auth-email-input');
+  if (email) email.focus();
+  document.getElementById('auth-banner')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function updateDemoModeUi() {
+  const demo = isDemoMode();
+  const hero = document.getElementById('demo-hero');
+  if (hero) hero.style.display = demo ? 'grid' : 'none';
+  const subtitle = document.getElementById('dashboard-subtitle');
+  if (subtitle) {
+    subtitle.textContent = demo
+      ? 'Explore a read-only sample household workspace before you sign in.'
+      : (appConfig.modules?.restaurant
+          ? 'Track groceries, dining out, and household expenses in one place'
+          : 'Your household system at a glance');
+  }
+  const uploadButton = document.getElementById('upload-btn');
+  const fileInput = document.getElementById('file-input');
+  const uploadStatus = document.getElementById('upload-status');
+  if (uploadButton) uploadButton.disabled = demo || !document.getElementById('file-input')?.files?.length;
+  if (fileInput) fileInput.disabled = demo;
+  if (uploadStatus && demo) uploadStatus.textContent = 'Demo mode is read-only. Sign in to upload a real receipt.';
 }
 
 async function login() {
@@ -3231,6 +3733,7 @@ async function login() {
   document.getElementById('auth-password-input').value = '';
   banner.classList.remove('show');
   toast('Signed in ✅', 'success');
+  updateDemoModeUi();
   loadDashboard();
 }
 
@@ -3333,7 +3836,7 @@ async function logout() {
   const tokenInput = document.getElementById('settings-token');
   if (tokenInput) tokenInput.value = '';
   toast('Signed out', 'success');
-  checkAuth();
+  checkAuth().then(() => loadDashboard());
 }
 
 async function loadUsers() {
@@ -3723,6 +4226,7 @@ function toggleTokenVis() {
 // ============================================================
 async function loadDashboard() {
   try {
+    const demo = isDemoMode();
     const userChip = document.getElementById('dashboard-user-chip');
     const userAvatar = document.getElementById('dashboard-user-avatar');
     const userLabel = document.getElementById('dashboard-user-label');
@@ -3732,9 +4236,9 @@ async function loadDashboard() {
     if (userChip && userLabel && userAvatar) {
       const label = currentUser
         ? `${currentUser.name || currentUser.email || 'Unknown'}`
-        : 'Guest';
+        : (demo ? 'Demo Household' : 'Guest');
       userLabel.textContent = label;
-      userAvatar.textContent = currentUser ? getUserAvatar(currentUser) : '🦊';
+      userAvatar.textContent = currentUser ? getUserAvatar(currentUser) : (demo ? '✨' : '🦊');
       userChip.className = `dashboard-score-card spotlight ${currentUser?.role === 'admin' ? 'admin' : ''}`.trim();
       userLabel.className = `dashboard-user-name ${currentUser?.role === 'admin' ? 'admin' : ''}`.trim();
     }
@@ -4821,6 +5325,10 @@ function setUploadIntent(intent, button) {
 }
 
 async function uploadReceipt() {
+  if (isDemoMode()) {
+    toast('Sign in to upload a real receipt', 'error');
+    return;
+  }
   const file = document.getElementById('file-input').files[0];
   if (!file) { toast('Select a receipt file first', 'error'); return; }
   const receiptIntent = document.getElementById('upload-receipt-intent')?.value || 'auto';
@@ -5838,7 +6346,7 @@ checkAuth().then(authenticated => {
     loadShoppingList();
     return;
   }
-  if (authenticated) loadDashboard();
+  loadDashboard();
 });
 
 setInterval(() => {

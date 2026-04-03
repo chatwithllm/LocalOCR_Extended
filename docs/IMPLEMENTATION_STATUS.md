@@ -22,6 +22,7 @@ Extended-specific runtime changes now in place:
 - compose defaults are now designed for side-by-side local deployment
 - restaurant receipt review/update flow is now available in receipt detail
 - general-expense receipts now persist as their own spend domain
+- signed-out users now land in a read-only demo mode with seeded sample data across the main workspaces
 
 ## Verified Working In Code/Config
 
