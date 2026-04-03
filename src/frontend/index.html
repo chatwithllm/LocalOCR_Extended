@@ -1399,6 +1399,10 @@
           <div id="expense-top-items"><div class="empty-state"><p>No saved expense line items yet.</p></div></div>
         </div>
       </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Expense Categories</span></div>
+        <div id="expense-category-breakdown"><div class="empty-state"><p>No expense categories yet.</p></div></div>
+      </div>
     </div>
 
     <div class="page" id="page-shopping">
@@ -1855,7 +1859,7 @@ let contributionDetailOverlayOpen = false;
 let shoppingShareQrCache = null;
 let loginQrCache = null;
 let secretQrHoldTimer = null;
-const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'other'];
+const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
 
 function formatAppName(name) {
   return String(name || 'LocalOCR Extended').replace(/^LocalOCR\s*/i, '').trim() || 'Extended';
@@ -4816,8 +4820,9 @@ async function uploadReceipt() {
       const store = summary?.store ? ` · ${summary.store}` : '';
       const total = summary?.total != null ? ` · ${formatMoney(summary.total)}` : '';
       const intentLabel = receiptIntent === 'auto' ? 'Auto' : formatLabel(receiptIntent, receiptIntent);
-      document.getElementById('upload-status').textContent = `✅ Processed · ${intentLabel}${store}${total}`;
-      toast('Receipt processed! ✅', 'success');
+      const statusLabel = formatLabel(data.status || 'processed', 'Processed');
+      document.getElementById('upload-status').textContent = `✅ ${statusLabel} · ${intentLabel}${store}${total}`;
+      toast(data.status === 'review' ? 'Receipt saved for review ⚠️' : 'Receipt processed! ✅', data.status === 'review' ? 'info' : 'success');
       const card = document.getElementById('ocr-result-card');
       card.style.display = 'block';
       document.getElementById('ocr-result').innerHTML = items.length ?
@@ -5584,6 +5589,15 @@ async function loadExpenses() {
         <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Avg</th></tr></thead>
         <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td><td>${formatMoney(item.average_price || 0)}</td></tr>`).join('')}</tbody>
       </table>` : '<div class="empty-state"><p>No saved expense line items yet.</p></div>';
+  }
+  const categoryEl = document.getElementById('expense-category-breakdown');
+  if (categoryEl) {
+    const categories = summaryData.category_breakdown || [];
+    categoryEl.innerHTML = categories.length ? `
+      <table>
+        <thead><tr><th>Category</th><th>Total</th><th>Lines</th></tr></thead>
+        <tbody>${categories.map(item => `<tr><td>${escHtml(formatLabel(item.category, 'Other'))}</td><td>${formatMoney(item.total)}</td><td>${item.count ?? 0}</td></tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><p>No expense categories yet.</p></div>';
   }
 
   const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));

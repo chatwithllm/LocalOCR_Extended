@@ -59,6 +59,7 @@ Extended-specific runtime changes now in place:
   - save purchase totals without inventory side effects
   - keep reference line items in receipt review/detail
   - appear in a new `Expenses` workspace
+  - support category tagging for richer expense analytics
 - Restaurant page now includes:
   - monthly dining budget card
   - selected receipt breakdown
@@ -68,8 +69,11 @@ Extended-specific runtime changes now in place:
 - Expenses page now includes:
   - general-expense budget card
   - merchant summary
+  - category breakdown
   - recent expense receipts
   - selected receipt detail
+- upload flow now shows the real backend status (`review` vs `processed`) instead of treating every 200 response as processed
+- Ollama prompt-template echo responses are now rejected as invalid OCR
 
 ## Intended Parallel Deployment Shape
 
@@ -97,7 +101,6 @@ This is the repo where the following should happen next:
 ## Not Yet Completed
 
 - restaurant-specific analytics/detail polish beyond the current summary, budget, and receipt-detail baseline
-- richer general-expense categorization like beauty, health, gift, fees
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
@@ -108,4 +111,4 @@ This is the repo where the following should happen next:
 2. verify it can run beside grocery on `8080`
 3. verify MQTT and Home Assistant topics do not collide
 4. continue restaurant/module architecture in this repo only
-5. improve expense categorization and restaurant line-item editing speed
+5. improve category autofill for general expenses and restaurant line-item editing speed

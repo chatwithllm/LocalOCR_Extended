@@ -95,6 +95,7 @@ Implemented baseline in this repo:
 - `Expenses` workspace with:
   - spend summary
   - top merchants
+  - category breakdown
   - top reference items
   - budget card
   - selected receipt detail
@@ -109,6 +110,7 @@ Current expectation:
 - restaurant correction should not require raw JSON editing
 - corrected receipts should rebuild their purchase cleanly and preserve receipt image linkage
 - general-expense receipts should be tracked without being forced into grocery or dining flows
+- general-expense line items should support human-meaningful categories for analysis without turning them into operational product inventory
 
 ## 4. Deployment Modes
 

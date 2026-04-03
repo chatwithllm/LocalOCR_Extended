@@ -85,8 +85,11 @@ This split gives you a clean safety net:
 - Extended now includes an `Expenses` workspace with:
   - expense budget card
   - merchant summary
+  - category breakdown
   - recent expense receipts
   - selected receipt detail
+- OCR placeholder/template echoes are now treated as invalid instead of looking like a real processed receipt
+- upload status now reflects `review` vs `processed` truthfully after upload
 
 ## 5. What Still Belongs To Extended Next
 
@@ -105,6 +108,7 @@ Current restaurant workflow baseline:
 - restaurant-specific analytics/detail views can now be built on top of corrected structured receipt data
 - restaurant OCR is now stronger for difficult phone photos before the user even opens review
 - non-grocery, non-restaurant receipts now have a clean third lane instead of polluting grocery or restaurant
+- general-expense line items can now be categorized for better spending analytics
 - Restaurant workspace now includes:
   - dining budget card
   - selected receipt detail panel
