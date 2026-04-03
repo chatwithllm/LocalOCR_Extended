@@ -1,45 +1,44 @@
 services:
-  # Flask Backend API (PROMPT Step 1 + Step 3)
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: grocery-backend
+    container_name: localocr-extended-backend
     ports:
-      - "8080:8080"
+      - "8090:8090"
     volumes:
-      - grocery-db:/data/db
-      - grocery-receipts:/data/receipts
-      - grocery-backups:/data/backups
+      - extended-db:/data/db
+      - extended-receipts:/data/receipts
+      - extended-backups:/data/backups
     env_file:
       - .env
-    depends_on:
-      mqtt:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
-      - grocery-internal
-      - grocery-external
+      - extended-internal
+      - extended-external
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
 
-  # Mosquitto MQTT Broker (PROMPT Step 4)
   mqtt:
     image: eclipse-mosquitto:2
-    container_name: grocery-mqtt
+    container_name: localocr-extended-mqtt
     ports:
       - "1883:1883"
     volumes:
       - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mosquitto-data:/mosquitto/data
-      - mosquitto-log:/mosquitto/log
+      - extended-mosquitto-data:/mosquitto/data
+      - extended-mosquitto-log:/mosquitto/log
     networks:
-      - grocery-internal
+      - extended-internal
     restart: unless-stopped
+    profiles:
+      - local-infra
     healthcheck:
       test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3 || exit 1"]
       interval: 30s
@@ -47,17 +46,18 @@ services:
       retries: 3
       start_period: 10s
 
-  # Ollama LLM Runtime (PROMPT Step 10)
   ollama:
     image: ollama/ollama:latest
-    container_name: grocery-ollama
+    container_name: localocr-extended-ollama
     ports:
       - "11434:11434"
     volumes:
-      - grocery-ollama:/root/.ollama
+      - extended-ollama:/root/.ollama
     networks:
-      - grocery-internal
+      - extended-internal
     restart: unless-stopped
+    profiles:
+      - local-infra
     # Resource limits — Ollama is memory-intensive
     deploy:
       resources:
@@ -73,22 +73,22 @@ services:
       start_period: 30s
 
 volumes:
-  grocery-db:
+  extended-db:
     driver: local
-  grocery-receipts:
+  extended-receipts:
     driver: local
-  grocery-ollama:
+  extended-ollama:
     driver: local
-  grocery-backups:
+  extended-backups:
     driver: local
-  mosquitto-data:
+  extended-mosquitto-data:
     driver: local
-  mosquitto-log:
+  extended-mosquitto-log:
     driver: local
 
 networks:
-  grocery-internal:
+  extended-internal:
     driver: bridge
     internal: true
-  grocery-external:
+  extended-external:
     driver: bridge

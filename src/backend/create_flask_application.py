@@ -6,7 +6,7 @@ PROMPT Reference: Phase 1, Step 3
 Initializes the Flask application with blueprint structure, authentication
 middleware (Bearer token), error handling, logging, and CORS configuration.
 
-Port: 8080 (accessed via Nginx Proxy Manager for external access)
+Port: 8090 by default for the Extended runtime
 """
 
 import os
@@ -223,7 +223,7 @@ def create_app():
 
     # Configuration
     app.config["FLASK_ENV"] = os.getenv("FLASK_ENV", "development")
-    app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:////data/db/grocery.db")
+    app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:////data/db/localocr_extended.db")
     app.config["SECRET_KEY"] = (
         os.getenv("SESSION_SECRET")
         or os.getenv("INITIAL_ADMIN_TOKEN")
@@ -258,7 +258,10 @@ def create_app():
     # Health check endpoint (used by Docker healthcheck)
     @app.route("/health")
     def health():
-        return jsonify({"status": "healthy", "service": "grocery-backend"}), 200
+        return jsonify({
+            "status": "healthy",
+            "service": os.getenv("APP_SERVICE_NAME", "localocr-extended-backend"),
+        }), 200
 
     should_start_background_services = (
         os.getenv("FLASK_DEBUG", "0") != "1"
@@ -292,6 +295,6 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    port = int(os.getenv("FLASK_PORT", 8080))
+    port = int(os.getenv("FLASK_PORT", 8090))
     debug = os.getenv("FLASK_DEBUG", "0") == "1"
     app.run(host="0.0.0.0", port=port, debug=debug)

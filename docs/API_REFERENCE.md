@@ -49,7 +49,7 @@ Unauthorized requests receive `401 Unauthorized`.
 
 **Response:**
 ```json
-{"status": "healthy", "service": "grocery-backend"}
+{"status": "healthy", "service": "localocr-extended-backend"}
 ```
 
 ---

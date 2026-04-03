@@ -20,7 +20,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-RECEIPTS_DIR = "/data/receipts"
+RECEIPTS_DIR = os.getenv("RECEIPTS_DIR", "/data/receipts")
 RETENTION_MONTHS = int(os.getenv("RECEIPT_RETENTION_MONTHS", "12"))
 
 # In-memory hash cache for duplicate detection

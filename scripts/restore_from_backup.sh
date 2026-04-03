@@ -6,18 +6,22 @@
 # Restores the SQLite database and receipt images from a backup archive.
 # Can restore on a different machine — fully portable.
 #
-# Usage: ./scripts/restore_from_backup.sh /path/to/grocery_backup_YYYYMMDD.tar.gz
+# Usage: ./scripts/restore_from_backup.sh /path/to/<BACKUP_PREFIX>_backup_YYYYMMDD.tar.gz
 # =============================================================================
 
 set -euo pipefail
 
 BACKUP_FILE="${1:-}"
+BACKUP_DIR="${BACKUP_DIR:-/data/backups}"
+DB_PATH="${DB_PATH:-/data/db/localocr_extended.db}"
+RECEIPTS_DIR="${RECEIPTS_DIR:-/data/receipts}"
+BACKUP_PREFIX="${BACKUP_PREFIX:-localocr_extended}"
 
 if [ -z "${BACKUP_FILE}" ]; then
     echo "Usage: $0 <backup_file.tar.gz>"
     echo ""
     echo "Available backups:"
-    ls -lh /data/backups/grocery_backup_*.tar.gz 2>/dev/null || echo "  No backups found in /data/backups/"
+    ls -lh "${BACKUP_DIR}/${BACKUP_PREFIX}_backup_"*.tar.gz 2>/dev/null || echo "  No backups found in ${BACKUP_DIR}/"
     exit 1
 fi
 
@@ -27,7 +31,7 @@ if [ ! -f "${BACKUP_FILE}" ]; then
 fi
 
 echo "═══════════════════════════════════════════"
-echo "🔄 Grocery Restore — $(date)"
+echo "🔄 ${BACKUP_PREFIX} Restore — $(date)"
 echo "   Source: ${BACKUP_FILE}"
 echo "═══════════════════════════════════════════"
 
@@ -41,23 +45,32 @@ fi
 
 # Step 1: Stop the backend (if running in Docker)
 echo "🛑 Stopping backend service..."
-docker-compose stop backend 2>/dev/null || true
+docker compose stop backend 2>/dev/null || true
 
 # Step 2: Extract backup
 echo "📦 Extracting backup..."
-tar -xzf "${BACKUP_FILE}" -C /data
+RESTORE_DIR=$(mktemp -d)
+trap 'rm -rf "${RESTORE_DIR}"' EXIT
+tar -xzf "${BACKUP_FILE}" -C "${RESTORE_DIR}"
 
 # Step 3: Restore database
-BACKUP_DB=$(find /data/backups -name "grocery_*.db" -newer "${BACKUP_FILE}" -maxdepth 1 | head -1)
-if [ -n "${BACKUP_DB}" ]; then
+BACKUP_DB="${RESTORE_DIR}/database.db"
+if [ -f "${BACKUP_DB}" ]; then
     echo "🗄️  Restoring database..."
-    cp "${BACKUP_DB}" /data/db/grocery.db
-    rm -f "${BACKUP_DB}"
+    mkdir -p "$(dirname "${DB_PATH}")"
+    cp "${BACKUP_DB}" "${DB_PATH}"
+fi
+
+echo "🧾 Restoring receipt storage..."
+mkdir -p "${RECEIPTS_DIR}"
+find "${RECEIPTS_DIR}" -mindepth 1 -exec rm -rf {} +
+if [ -d "${RESTORE_DIR}/receipts" ]; then
+    cp -R "${RESTORE_DIR}/receipts/." "${RECEIPTS_DIR}/"
 fi
 
 # Step 4: Restart backend
 echo "🚀 Restarting backend service..."
-docker-compose start backend 2>/dev/null || true
+docker compose start backend 2>/dev/null || true
 
 echo "═══════════════════════════════════════════"
 echo "✅ Restore complete!"

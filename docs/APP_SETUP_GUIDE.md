@@ -1,28 +1,27 @@
 # App Setup Guide
 
-Use this guide when setting up the project as an actual household app, not as a development environment.
+Use this guide when setting up `LocalOCR Extended` as an actual app, not just a development workspace.
 
-## What You Need
+## What This Repo Assumes
 
-- Docker Desktop or Docker Engine with Compose support
-- A Gemini API key
-- Optional:
-  - Telegram bot token
-  - public HTTPS URL for Telegram
-  - Home Assistant
-  - external Ollama server if you do not want the bundled container
+This repo is meant to run beside the stable grocery deployment:
 
-## 1. Clone The App
+- stable grocery app: `http://localhost:8080`
+- Extended app: `http://localhost:8090`
+
+Extended uses separate app state so it is safe to test in parallel.
+
+## 1. Clone Extended
 
 ```bash
-git clone https://github.com/chatwithllm/LocalOCR.git
-cd LocalOCR
+git clone https://github.com/chatwithllm/LocalOCR_Extended.git
+cd LocalOCR_Extended
 cp .env.example .env
 ```
 
 ## 2. Fill In `.env`
 
-Open `.env` and fill in these first:
+Start with these:
 
 ```dotenv
 INITIAL_ADMIN_TOKEN=replace_with_a_long_random_token
@@ -32,127 +31,105 @@ SESSION_SECRET=replace_with_another_long_random_secret
 GEMINI_API_KEY=replace_with_your_gemini_api_key
 ```
 
-Recommended defaults that usually do not need changing:
+Recommended Extended runtime defaults:
 
 ```dotenv
-FLASK_ENV=production
-FLASK_PORT=8080
-FLASK_DEBUG=0
-MQTT_BROKER=mqtt
+FLASK_PORT=8090
+APP_SERVICE_NAME=localocr-extended-backend
+APP_DISPLAY_NAME=LocalOCR Extended
+APP_SLUG=localocr_extended
+DATABASE_URL=sqlite:////data/db/localocr_extended.db
+RECEIPTS_DIR=/data/receipts
+BACKUP_DIR=/data/backups
+BACKUP_PREFIX=localocr_extended
+MQTT_CLIENT_ID=localocr-extended
+MQTT_TOPIC_PREFIX=home/localocr_extended
+```
+
+## 3. Shared Service Defaults
+
+Extended is configured to reuse the stable grocery app's support services by default:
+
+```dotenv
+MQTT_BROKER=host.docker.internal
 MQTT_PORT=1883
-OLLAMA_ENDPOINT=http://ollama:11434
-OLLAMA_MODEL=llava:7b
+OLLAMA_ENDPOINT=http://host.docker.internal:11434
 ```
 
-If you run Ollama on another machine, update:
+That is the right setup when the grocery stack is already running and publishing:
 
-```dotenv
-OLLAMA_ENDPOINT=http://192.168.1.50:11434
-```
+- MQTT on `1883`
+- Ollama on `11434`
 
-If you use Telegram, also fill in:
+If your machine does not support `host.docker.internal`, replace those with your host LAN IP.
 
-```dotenv
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_WEBHOOK_BASE_URL=https://inventory.yourdomain.com
-TELEGRAM_WEBHOOK_SECRET=
-```
-
-If you use an external MQTT broker instead of the bundled one:
-
-```dotenv
-MQTT_BROKER=192.168.1.20
-MQTT_PORT=1883
-MQTT_USERNAME=
-MQTT_PASSWORD=
-```
-
-## 3. Start The App
+## 4. Start Extended
 
 ```bash
 docker compose up -d --build
 ```
 
-Check health:
+Verify:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8090/health
 docker compose ps
 ```
 
-## 4. Pull The Ollama Model
-
-Only needed if you are using the bundled Ollama container.
-
-```bash
-docker exec -it grocery-ollama ollama pull llava:7b
-```
-
-## 5. Open The App
-
 Open:
 
-```text
-http://localhost:8080
+- [http://localhost:8090](http://localhost:8090)
+
+## 5. Optional: Run Dedicated MQTT + Ollama For Extended
+
+If you do not want to share the grocery stack's MQTT and Ollama, start the optional infra profile:
+
+```bash
+docker compose --profile local-infra up -d --build
 ```
+
+Then set:
+
+```dotenv
+MQTT_BROKER=mqtt
+OLLAMA_ENDPOINT=http://ollama:11434
+```
+
+Use this mode only if you intentionally want Extended to have its own local support services. For parallel day-to-day testing, shared services are the simpler choice.
+
+## 6. Open The App
 
 Log in with:
 
 - email: `INITIAL_ADMIN_EMAIL`
 - password: `INITIAL_ADMIN_PASSWORD`
 
-If you leave `INITIAL_ADMIN_PASSWORD` blank, the app falls back to `INITIAL_ADMIN_TOKEN` for the first browser login. Keep `INITIAL_ADMIN_TOKEN` anyway if you want direct API or integration access.
+If `INITIAL_ADMIN_PASSWORD` is blank, the first browser login falls back to `INITIAL_ADMIN_TOKEN`.
 
-After the first admin login, open `Settings` in the web app and create one account per household member under `Household Users`.
-Admins can also edit users, reset passwords, and deactivate accounts from the same screen.
-If a household user forgets their password, they can click `Forgot Password?` on the login banner. That creates an admin-visible reset request; it does not create a public self-registration path.
+## 7. Parallel Deployment Notes
 
-## 6. Optional: Telegram Setup
+The stable grocery repo remains independent:
 
-Telegram only works if your app is exposed through public HTTPS.
+- grocery backend stays on `8080`
+- Extended stays on `8090`
+- grocery DB and volumes remain untouched
+- Extended writes to its own DB, receipts volume, and backup archives
 
-After your reverse proxy/domain is working:
+This is intentional so the Extended idea can be abandoned later with no rollback required on the grocery app.
 
-```bash
-docker compose exec backend python -m src.backend.configure_telegram_webhook set
-docker compose exec backend python -m src.backend.configure_telegram_webhook status
-```
-
-## 7. Optional: Home Assistant Setup
-
-1. Add the MQTT integration in Home Assistant.
-2. Point it to the broker you configured in `.env`.
-3. Import:
-   - `config/home_assistant_dashboard_config.yaml`
-   - `config/home_assistant_automations.yaml`
-
-## 8. Auto-Start On Machine Boot
-
-This app is already configured for Docker restarts:
-
-- `backend`: `restart: unless-stopped`
-- `mqtt`: `restart: unless-stopped`
-- `ollama`: `restart: unless-stopped`
-
-To make it start automatically after the machine reboots:
-
-1. Make sure Docker itself starts automatically on login/boot.
-2. Leave the stack running once with:
-
-```bash
-docker compose up -d
-```
-
-After that, Docker will restart the containers automatically.
-
-## 9. Day-To-Day Operations
+## 8. Day-To-Day Operations
 
 View logs:
 
 ```bash
 docker compose logs -f backend
-docker compose logs -f ollama
-docker compose logs -f mqtt
+```
+
+Update:
+
+```bash
+git pull
+docker compose up -d --build
 ```
 
 Stop:
@@ -161,15 +138,16 @@ Stop:
 docker compose down
 ```
 
-Update the app:
+## 9. Backup And Restore
+
+Manual backup:
 
 ```bash
-git pull
-docker compose up -d --build
+docker exec localocr-extended-backend /app/scripts/backup_database_and_volumes.sh
 ```
 
-## Notes
+Restore:
 
-- PDF receipt support requires Poppler tools. The Docker image already installs what the app needs.
-- Telegram PDF receipt processing is verified working.
-- Dense receipts may still need manual review for some product names/categories, but date and total extraction is now much stronger for PDFs.
+```bash
+docker exec -it localocr-extended-backend /app/scripts/restore_from_backup.sh /data/backups/localocr_extended_backup_YYYYMMDD.tar.gz
+```

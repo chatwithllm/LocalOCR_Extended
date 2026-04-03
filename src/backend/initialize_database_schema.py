@@ -6,7 +6,7 @@ PROMPT Reference: Phase 1, Step 2
 Creates and configures the SQLite database with WAL mode, defines all tables
 via SQLAlchemy ORM, and sets up Alembic for schema migrations.
 
-Database: /data/db/grocery.db (Docker volume)
+Database: /data/db/localocr_extended.db (Docker volume)
 
 Key Features:
     - WAL mode enabled on every connection for concurrent read safety
@@ -34,7 +34,7 @@ Base = declarative_base()
 # Database Configuration
 # ---------------------------------------------------------------------------
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/db/grocery.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/db/localocr_extended.db")
 
 
 def _set_wal_mode(dbapi_connection, connection_record):

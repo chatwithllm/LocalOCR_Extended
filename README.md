@@ -1,124 +1,125 @@
-# 🛒 Grocery Inventory & Savings Management System
+# LocalOCR Extended
 
-A **privacy-first, local-first** grocery management system for households. Upload receipts, track inventory across devices, get smart recommendations, and monitor spending — all self-hosted with zero ongoing costs.
+`LocalOCR Extended` is the experimental successor to the stable grocery app. It starts from the working grocery baseline, runs safely beside it, and is the place where restaurant and future module work will happen.
 
-This repo is set up to run like an app via Docker Compose, not just as a developer sandbox.
+The important operational rule is simple:
 
-## ✨ Features
+- stable grocery app stays on `http://localhost:8080`
+- Extended runs on `http://localhost:8090`
+- they use separate app state
+- they can share infrastructure like MQTT and Ollama
 
-- **📸 Receipt OCR** — Send a photo or PDF via Telegram or upload directly. Hybrid OCR (Gemini + Ollama fallback) extracts items automatically.
-- **📦 Real-Time Inventory** — Shared household inventory synced across all devices via MQTT in <2 seconds.
-- **💡 Smart Recommendations** — Detects price deals (≥10% discount) and recurring purchase patterns.
-- **📊 Spending Analytics** — Budget tracking, price trends, savings quantification, store comparison.
-- **🏠 Home Assistant Dashboard** — Unified view with inventory, alerts, recommendations, and analytics cards.
-- **👤 Household Login** — Browser users sign in with local email/password accounts, while API tokens remain available for integrations.
-- **🏠 Household User Management** — The bootstrap admin can create separate accounts for each household member from the web app.
-- **🛡️ Admin Controls** — Admins can edit users, reset passwords, and deactivate accounts without losing the last admin login.
-- **🔐 Forgot Password Flow** — Existing users can request a reset from the login screen, and the admin can fulfill it from Settings.
-- **📱 Mobile-Friendly Navigation** — Smaller screens now use a compact top bar and slide-out menu instead of a fixed sidebar.
-- **🔒 Privacy-First** — All data stays on your local network. SQLite database, Docker deployment, full backup/restore.
+## What Extended Is For
 
-## 🚀 Quick Start
+- preserve the current grocery repo as the clean fallback deployment
+- let you explore restaurant and modular household-expense features without risking the stable grocery install
+- keep full git ancestry so useful work can be cherry-picked back later if needed
+
+## Current Extended Runtime Defaults
+
+- Flask backend: `8090`
+- database: `sqlite:////data/db/localocr_extended.db`
+- receipt storage: `/data/receipts`
+- backups: `/data/backups`
+- MQTT client id: `localocr-extended`
+- MQTT topic prefix: `home/localocr_extended`
+- Home Assistant discovery device id: `localocr_extended`
+
+These defaults intentionally avoid collisions with the stable grocery stack.
+
+## Parallel Local Deployment
+
+Extended is configured to run beside the stable grocery project.
+
+- grocery repo remains the stable baseline on `8080`
+- Extended uses `8090`
+- both can reuse the same Ollama endpoint
+- both can reuse the same MQTT broker
+- Extended uses its own MQTT client id, topic namespace, and Home Assistant discovery identifiers so HA entities do not stomp each other
+- Extended uses its own DB, receipts volume, and backup naming so abandoning it later does not damage grocery data
+
+This means you can test Extended freely, and if you lose interest, the grocery deployment remains untouched.
+
+## Quick Start
 
 ```bash
-# 1. Clone the repository
-git clone <your-repo-url>
-cd "Inventory Management"
-
-# 2. Configure environment
+git clone https://github.com/chatwithllm/LocalOCR_Extended.git
+cd LocalOCR_Extended
 cp .env.example .env
-# Edit .env with your Gemini API key, bootstrap admin email/password, API token, Telegram bot token, etc.
+```
 
-# 3. Start all services
+Edit `.env` with at least:
+
+```dotenv
+GEMINI_API_KEY=replace_with_your_gemini_api_key
+INITIAL_ADMIN_TOKEN=replace_with_a_long_random_token
+INITIAL_ADMIN_EMAIL=admin@localhost
+INITIAL_ADMIN_PASSWORD=replace_with_a_strong_password
+SESSION_SECRET=replace_with_another_long_random_secret
+```
+
+Then start Extended:
+
+```bash
 docker compose up -d --build
-
-# 4. Verify services are running
-curl http://localhost:8080/health     # Backend
-curl http://localhost:11434/api/tags  # Ollama
-
-# 5. Sign in to the web app
-# Open http://localhost:8080 and log in with:
-#   email: INITIAL_ADMIN_EMAIL
-#   password: INITIAL_ADMIN_PASSWORD
-# If INITIAL_ADMIN_PASSWORD is blank, the first browser login falls back to INITIAL_ADMIN_TOKEN.
-
-# 6. Upload a test receipt by API token
-curl -X POST http://localhost:8080/receipts/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "image=@path/to/receipt.jpg"
-
-# PDF receipts work too
-curl -X POST http://localhost:8080/receipts/upload \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "image=@path/to/receipt.pdf"
+curl http://localhost:8090/health
 ```
 
-For a guided "fill in the placeholders and launch the app" setup, read [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md).
+Open:
 
-For a current handoff snapshot of what is finished and what still needs work, see [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+- [http://localhost:8090](http://localhost:8090)
 
-For a single, build-grade product document that describes every tab, workflow, rule, and implementation contract, read [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md).
+The stable grocery app can keep running separately on:
 
-## 📁 Project Structure
+- [http://localhost:8080](http://localhost:8080)
 
-```
-├── PRD.md                    # Product requirements
-├── PROMPT.md                 # Implementation guide (24 steps)
-├── CONTINUITY.md             # Restart & resume documentation
-├── docker-compose.yml        # Service orchestration
-├── Dockerfile                # Backend container
-├── requirements.txt          # Python dependencies
-├── .env.example              # Environment variable template
-├── src/backend/              # Flask API (18 modules)
-├── config/                   # MQTT, Home Assistant configs
-├── scripts/                  # Backup & restore scripts
-├── tests/                    # End-to-end tests
-├── docs/                     # Architecture, API, deployment guides
-└── alembic/                  # Database migrations
+## Shared Services
+
+By default, Extended expects to reuse the stable grocery stack's shared services:
+
+- `OLLAMA_ENDPOINT=http://host.docker.internal:11434`
+- `MQTT_BROKER=host.docker.internal`
+
+If you want Extended to run with its own local MQTT and Ollama instead, you can start the optional profile:
+
+```bash
+docker compose --profile local-infra up -d --build
 ```
 
-## 🏗️ Architecture
+Then point `.env` to:
 
-```
-📱 Telegram / Upload ──→ Flask API (port 8080) ──→ Gemini / Ollama OCR
-                              │
-                    ┌─────────┼─────────┐
-                    ▼         ▼         ▼
-               Inventory  Analytics  Recommendations
-                    │         │         │
-                    └─────────┼─────────┘
-                              ▼
-                    MQTT (port 1883) ──→ Home Assistant
+```dotenv
+MQTT_BROKER=mqtt
+OLLAMA_ENDPOINT=http://ollama:11434
 ```
 
-## 📚 Documentation
+## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [PRD.md](PRD.md) | Product requirements & acceptance criteria |
-| [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md) | Full rebuild-grade product spec for tabs, workflows, rules, and implementation |
-| [PROMPT.md](PROMPT.md) | 24-step implementation guide |
-| [CONTINUITY.md](CONTINUITY.md) | Restart/resume project from any point |
-| [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md) | App-style first-run setup guide |
-| [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) | Current working status + restart handoff |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture details |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | API endpoint documentation |
-| [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Step-by-step deployment |
+- [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md): operator-friendly first-run setup
+- [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md): deeper deployment details and parallel-runtime guidance
+- [CONTINUITY.md](CONTINUITY.md): restart and handoff context for Extended
+- [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md): inherited working baseline vs planned Extended work
+- [PRD.md](PRD.md): product direction for the Extended repo
+- [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md): detailed rebuild-grade product spec
 
-## 🔧 Tech Stack
+## Current Product Direction
 
-- **Backend:** Python 3.11 + Flask
-- **Database:** SQLite (WAL mode) + Alembic migrations
-- **OCR:** Google Gemini Vision API + Ollama LLaVA (fallback)
-- **Real-Time:** MQTT (Mosquitto)
-- **Frontend:** Home Assistant YAML dashboard
-- **Deployment:** Docker Compose
-- **Cost:** $0/month (free Gemini tier + self-hosted)
+What is already inherited and working:
 
-## Auto-Start
+- grocery receipt OCR
+- web auth and household users
+- inventory and product cleanup tools
+- shopping list and shopping helper QR
+- contribution ledger and collaborative scoring
+- MQTT and Home Assistant integration
 
-The Docker services use `restart: unless-stopped`, so once the stack has been started successfully and Docker itself is configured to launch on boot, the app comes back automatically after a machine restart.
+What Extended is for next:
 
-## 📄 License
+- modular deployment choices
+- restaurant receipts and restaurant expense tracking
+- combined vs separate grocery/restaurant user views
+- safe experimentation without destabilizing the grocery repo
+
+## License
 
 Private project. All rights reserved.

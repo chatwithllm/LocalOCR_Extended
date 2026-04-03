@@ -6,7 +6,7 @@ PROMPT Reference: Phase 1, Step 4
 Initializes and manages the MQTT client connection to the Mosquitto broker.
 Provides publish/subscribe helpers used by all modules that need real-time sync.
 
-Broker: mosquitto:1883 (Docker service name)
+Broker: configurable via MQTT_BROKER / MQTT_PORT
 QoS: 1 (at least once delivery)
 Retain: True for inventory state
 """
@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 # MQTT Topics
 # ---------------------------------------------------------------------------
 
+MQTT_TOPIC_PREFIX = os.getenv("MQTT_TOPIC_PREFIX", "home/localocr_extended").strip().rstrip("/")
 TOPICS = {
-    "inventory": "home/grocery/inventory/{product_id}",
-    "low_stock": "home/grocery/alerts/low_stock",
-    "recommendations": "home/grocery/recommendations/daily",
-    "budget_alert": "home/grocery/alerts/budget",
+    "inventory": f"{MQTT_TOPIC_PREFIX}/inventory" + "/{product_id}",
+    "low_stock": f"{MQTT_TOPIC_PREFIX}/alerts/low_stock",
+    "recommendations": f"{MQTT_TOPIC_PREFIX}/recommendations/daily",
+    "budget_alert": f"{MQTT_TOPIC_PREFIX}/alerts/budget",
 }
 
 # ---------------------------------------------------------------------------
@@ -101,7 +102,7 @@ def setup_mqtt_connection():
     port = int(os.getenv("MQTT_PORT", 1883))
     username = os.getenv("MQTT_USERNAME", "").strip()
     password = os.getenv("MQTT_PASSWORD", "")
-    client_id = os.getenv("MQTT_CLIENT_ID", "grocery-backend")
+    client_id = os.getenv("MQTT_CLIENT_ID", "localocr-extended")
 
     callback_api = getattr(mqtt, "CallbackAPIVersion", None)
     if callback_api:
@@ -186,7 +187,7 @@ def disconnect_mqtt():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     client = setup_mqtt_connection()
-    publish_message("home/grocery/test", {"message": "MQTT connection test"})
+    publish_message(f"{MQTT_TOPIC_PREFIX}/test", {"message": "MQTT connection test"})
     logger.info("Test message published. Press Ctrl+C to exit.")
     try:
         import time

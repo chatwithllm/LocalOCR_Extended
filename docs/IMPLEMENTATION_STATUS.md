@@ -1,208 +1,70 @@
 # Implementation Status
 
-> Use this file as the current restart point for the project. It summarizes what is done, what is verified working, what is partial, and what should happen next on a new machine.
-
 ## Current Snapshot
 
-- Backend is running on port `8080`
-- Web dashboard is served by Flask at `/` and `/dashboard`
-- Browser login is now available with local email/password accounts backed by Flask sessions
-- Admin-managed household user creation is available from the Settings page
-- Admins can now edit users, reset passwords, and activate/deactivate accounts
-- Existing users can request password help from the login screen, and admins can fulfill those requests
-- Mobile navigation now collapses into a menu on smaller screens instead of leaving the sidebar fixed open
-- Shopping List tab is now available for manually tracked buy-later items
-- Contribution tab is now available to explain scoring, show recent score history, and highlight helpful actions users can take
-- Main table-like views now have sort controls so users can reorder receipts, inventory, products, shopping items, analytics, and household users
-- Dashboard summary cards now act like shortcuts into the relevant working pages instead of passive stats
-- Receipt upload works through the authenticated `/receipts/upload` endpoint for images and PDFs
-- Gemini OCR is working with the current `google-genai` SDK and `gemini-2.5-flash`
-- PDF receipts now use both image rendering and PDF text-layer extraction so summary fields like date and total can be recovered more reliably
-- Docker Compose is configured as the primary app runtime with restart policies for backend, MQTT, and Ollama
-- SQLite is being used locally with WAL mode enabled
-- Product names are normalized on save, and the catalog has been cleaned of case-only duplicates
-- Store names are normalized on save, and the store list has been cleaned of case-only duplicates
-- The repo is not production-finished yet, but it is in a usable development state
+This repo now represents `LocalOCR Extended`, not the stable grocery deployment.
 
-## Verified Working
+Inherited from the working grocery baseline:
 
-These flows were manually verified in the current environment:
+- household login and admin user management
+- receipt upload and OCR pipeline
+- inventory and product cleanup tooling
+- shopping list, helper QR flow, and contribution ledger
+- MQTT/Home Assistant integration
 
-- `GET /health`
-- Web dashboard loads on port `8080`
-- `GET /auth/bootstrap-info`
-- `POST /auth/login`
-- `GET /auth/me`
-- `GET /auth/users`
-- `POST /auth/users`
-- `PUT /auth/users/{id}`
-- `POST /auth/forgot-password`
-- mobile navigation on narrow screens
-- Products tab:
-  grouped list, search, create, delete, rename/merge, receipt shortcuts
-- Inventory tab:
-  list, add, consume, delete, search, sort, receipt shortcuts
-- Budget tab:
-  set monthly budget, read budget status
-- Analytics tab:
-  frontend now matches the backend response shape and supports client-side sort options
-- Recommendations tab:
-  endpoint and UI load correctly; can be empty if there is not enough history; can add items to shopping list
-- Shopping List tab:
-  manual add, mark bought, reopen, delete, sort
-- Contribution tab:
-  score summary, recent score history, scoring rules, and “ways to help right now”
-- Upload Receipt tab:
-  authenticated upload works for images and PDFs and renders OCR results
-- Gemini OCR:
-  verified directly and through the live upload path
-- Receipts tab:
-  supports image preview, PDF viewing, OCR re-run, review approval, and sort controls
-- Product → Receipt jump:
-  linked receipt pills now open the clicked receipt instead of the newest receipt
-- Telegram PDF flow:
-  verified end to end from the real bot chat, including confirm-before-process
-- Verified real PDF extraction result:
-  `COSTCO WHOLESALE`, `2026-03-30`, total `478.42`, `36` items, classified as `grocery`
-- MQTT broker auth:
-  verified with configured username/password on the live broker
-- MQTT publish flow:
-  verified for inventory updates, recommendations, budget alerts, and low-stock alerts
-- Home Assistant MQTT side:
-  validated successfully with the current broker setup
+Extended-specific runtime changes now in place:
 
-## Completed Implementation Areas
+- backend default port is `8090`
+- health endpoint reports `localocr-extended-backend` by default
+- Extended uses its own DB path, receipt storage path, and backup prefix
+- Extended uses a distinct MQTT client id and topic namespace
+- Home Assistant discovery identifiers are separated from the grocery app
+- compose defaults are now designed for side-by-side local deployment
 
-### Foundation
+## Verified Working In Code/Config
 
-- Flask app factory exists and registers the main blueprints
-- `.env` is auto-loaded for local development runs
-- SQLite schema exists and is initialized through SQLAlchemy
-- Session login is enabled for browser users
-- Phase 2 household user management is enabled for admins
-- Phase 3 admin account maintenance is enabled for admins
-- Forgot-password requests are enabled for existing users only
-- Bearer-token auth is still enabled for application endpoints and integrations
+- Dockerfile now exposes and health-checks `8090`
+- compose backend binds `8090:8090`
+- backend defaults no longer point at `grocery.db`
+- receipt storage helper respects `RECEIPTS_DIR`
+- backup/restore scripts no longer use grocery-specific names by default
+- MQTT topics now derive from `MQTT_TOPIC_PREFIX`
+- MQTT discovery identity now derives from `APP_SLUG`
+- setup docs now describe running Extended beside the grocery app
 
-### OCR Pipeline
+## Intended Parallel Deployment Shape
 
-- Direct receipt upload endpoint is implemented
-- Gemini OCR is implemented and migrated to `google-genai`
-- OpenAI OCR fallback code exists
-- Ollama OCR fallback code exists
-- Hybrid receipt processing persists purchases, items, price history, and inventory updates
-- PDF summary extraction can be recovered from the PDF text layer when Gemini misses header/footer fields
-- Telegram webhook handler is implemented
-- Telegram confirmation flow is implemented before OCR begins
-- Telegram webhook registration/status helper is implemented
-- Review receipts now persist raw OCR data and can be approved from the web app
-- Operator-focused Docker setup guide exists for non-developer deployment
+- stable grocery app:
+  - port `8080`
+  - existing data untouched
+- Extended:
+  - port `8090`
+  - `sqlite:////data/db/localocr_extended.db`
+  - separate receipts and backups
+  - shared MQTT and Ollama by default
 
-### Core App Features
+## Planned Next Work
 
-- Product catalog CRUD endpoints exist
-- Inventory CRUD endpoints exist
-- Budget endpoints exist
-- Analytics endpoints exist
-- Recommendations endpoint exists
-- Shopping list endpoints exist
-- Contribution summary endpoints and scoring ledger exist
-- Frontend tabs for dashboard, inventory, products, upload, receipts, shopping list, budget, analytics, recommendations, and settings are wired to the current backend responses
-- Frontend Contribution tab is wired to the current backend scoring summary
-- Mobile navigation has a working off-canvas menu for smaller screens
+This is the repo where the following should happen next:
 
-## Partial / In Progress
+- restaurant receipt handling
+- restaurant line-item expense history
+- modular deployment options:
+  - grocery only
+  - restaurant only
+  - all
+- user-selectable combined vs separate grocery/restaurant presentation
 
-These areas exist but are not fully validated or fully complete:
+## Not Yet Completed
 
-- Nginx Proxy Manager / public webhook routing
-- Home Assistant dashboard and automations
-- Daily recommendation scheduler validation
-- Backup and restore validation on a clean machine
-- Alembic migration workflow
-- Automated end-to-end test coverage
-- Real bot validation for Telegram photo receipts
-- Rich browser-level validation of the review editor UI beyond manual smoke use
-- Telegram-to-local-account linking
-- Self-service password change flow for logged-in users
-- Smarter OCR-name cleanup for truncated labels beyond case normalization
-- Further tuning of contribution point weights after real household usage
+- end-to-end restaurant workflow implementation
+- module selection UI/runtime behavior
+- clean-machine validation of the full Extended stack
+- broader docs refresh beyond the core operator/handoff/product files
 
-## Known Gaps
+## Resume Priority
 
-- The app has working manual smoke coverage, but not a recent full automated verification run
-- Some modules are still more “implemented enough for use” than “fully polished”
-- The Home Assistant configuration files are present, but the YAML/dashboard layer still needs broader validation
-- PDF conversion depends on `pdftoppm` being present; Docker now installs it, and local hosts need Poppler installed too
-- Dense PDFs may still produce imperfect product names/categories even when summary fields are now recovered correctly
-- Flask debug mode requires guarding background integrations so MQTT/schedulers do not start twice in the reloader parent process
-- Low-stock scoring is intentionally delayed: marking an item low creates a pending contribution that only gets better points after shopping activity and receipt intake validate the restock
-
-## Recommended Next Steps
-
-1. Run a clean-machine setup using this repo plus `.env.example`
-2. Validate `docker-compose up -d` from scratch
-3. Add Telegram-to-user account linking so Telegram uploads are attributed automatically
-4. Add a self-service password change flow for logged-in users
-5. Run the receipt upload flow against Gemini on the fresh environment
-6. Test the Telegram confirmation flow with a real photo receipt
-7. Add or refresh automated tests for products, inventory, upload, analytics, shopping list, and auth
-8. Expand Home Assistant dashboard and automation validation beyond MQTT transport itself
-9. Tune contribution scoring weights and opportunity suggestions after real multi-user usage
-
-## Fresh Start Checklist
-
-```bash
-git clone <your-repo-url>
-cd "Inventory Management"
-cp .env.example .env
-```
-
-Set at least:
-
-```bash
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash
-INITIAL_ADMIN_TOKEN=...
-INITIAL_ADMIN_EMAIL=admin@localhost
-INITIAL_ADMIN_PASSWORD=...
-SESSION_SECRET=...
-```
-
-Then start with one of:
-
-### Docker
-
-```bash
-docker-compose up -d
-curl http://localhost:8080/health
-```
-
-### Local Python
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m src.backend.create_flask_application
-```
-
-## Files To Read First On Resume
-
-- `README.md`
-- `CONTINUITY.md`
-- `docs/IMPLEMENTATION_STATUS.md`
-- `docs/API_REFERENCE.md`
-- `src/backend/create_flask_application.py`
-- `src/frontend/index.html`
-
-## Important Notes
-
-- Do not commit `.env` or any real secrets
-- `GEMINI_MODEL` is now configurable and defaults to `gemini-2.5-flash`
-- Browser users log in with `INITIAL_ADMIN_EMAIL` + `INITIAL_ADMIN_PASSWORD`
-- If `INITIAL_ADMIN_PASSWORD` is blank, the first browser login falls back to `INITIAL_ADMIN_TOKEN`
-- Inactive users cannot log in, and the app protects the last active admin from being demoted or deactivated
-- `Forgot Password?` does not allow public sign-up; it only raises an admin-visible reset request for existing users
-- The current upload response shape includes OCR data under `data`
-- Inventory responses return an `inventory` array, not `items`
+1. verify Extended boots on `8090`
+2. verify it can run beside grocery on `8080`
+3. verify MQTT and Home Assistant topics do not collide
+4. start restaurant/module architecture in this repo only

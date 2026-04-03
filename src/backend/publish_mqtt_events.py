@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
 
 DISCOVERY_PREFIX = os.getenv("HOME_ASSISTANT_DISCOVERY_PREFIX", "homeassistant").strip() or "homeassistant"
 DISCOVERY_ENABLED = os.getenv("MQTT_DISCOVERY_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+APP_SLUG = os.getenv("APP_SLUG", "localocr_extended").strip() or "localocr_extended"
+APP_DISPLAY_NAME = os.getenv("APP_DISPLAY_NAME", "LocalOCR Extended").strip() or "LocalOCR Extended"
 DEVICE = {
-    "identifiers": ["grocery_manager"],
-    "name": "Grocery Manager",
+    "identifiers": [APP_SLUG],
+    "name": APP_DISPLAY_NAME,
     "manufacturer": "LocalOCR",
-    "model": "Household Inventory App",
+    "model": "Household Inventory Platform",
     "sw_version": "current",
 }
 
@@ -47,7 +49,7 @@ def publish_inventory_update(product_id: int, name: str, quantity: float,
                               location: str, updated_by: str):
     """Publish an inventory state change."""
     topic = TOPICS["inventory"].format(product_id=product_id)
-    object_id = f"grocery_inventory_{product_id}"
+    object_id = f"{APP_SLUG}_inventory_{product_id}"
     _publish_discovery("sensor", object_id, {
         "name": f"{name} Quantity",
         "unique_id": object_id,
@@ -72,9 +74,10 @@ def publish_low_stock_alert(product_id: int, product_name: str,
                              current_qty: float, threshold: float):
     """Publish a low-stock alert."""
     topic = TOPICS["low_stock"]
-    _publish_discovery("sensor", "grocery_low_stock_alert", {
-        "name": "Grocery Low Stock Alert",
-        "unique_id": "grocery_low_stock_alert",
+    object_id = f"{APP_SLUG}_low_stock_alert"
+    _publish_discovery("sensor", object_id, {
+        "name": f"{APP_DISPLAY_NAME} Low Stock Alert",
+        "unique_id": object_id,
         "state_topic": topic,
         "value_template": "{{ value_json.name }}",
         "json_attributes_topic": topic,
@@ -95,9 +98,10 @@ def publish_low_stock_alert(product_id: int, product_name: str,
 def publish_budget_alert(budget_amount: float, spent: float, percentage: float):
     """Publish a budget threshold alert."""
     topic = TOPICS["budget_alert"]
-    _publish_discovery("sensor", "grocery_budget_alert", {
-        "name": "Grocery Budget Alert",
-        "unique_id": "grocery_budget_alert",
+    object_id = f"{APP_SLUG}_budget_alert"
+    _publish_discovery("sensor", object_id, {
+        "name": f"{APP_DISPLAY_NAME} Budget Alert",
+        "unique_id": object_id,
         "state_topic": topic,
         "value_template": "{{ value_json.percentage }}",
         "unit_of_measurement": "%",
@@ -118,9 +122,10 @@ def publish_budget_alert(budget_amount: float, spent: float, percentage: float):
 def publish_recommendations(recommendations: list):
     """Publish daily recommendations."""
     topic = TOPICS["recommendations"]
-    _publish_discovery("sensor", "grocery_recommendations_count", {
-        "name": "Grocery Recommendations",
-        "unique_id": "grocery_recommendations_count",
+    object_id = f"{APP_SLUG}_recommendations_count"
+    _publish_discovery("sensor", object_id, {
+        "name": f"{APP_DISPLAY_NAME} Recommendations",
+        "unique_id": object_id,
         "state_topic": topic,
         "value_template": "{{ value_json.count }}",
         "json_attributes_topic": topic,
