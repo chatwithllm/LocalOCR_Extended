@@ -11,6 +11,7 @@ Port: 8090 by default for the Extended runtime
 
 import os
 import logging
+import secrets
 from datetime import timedelta
 from functools import wraps
 
@@ -32,6 +33,38 @@ logger = logging.getLogger(__name__)
 # Module-level engine and session factory (initialized once)
 _engine = None
 _SessionFactory = None
+
+_PLACEHOLDER_CONFIG_VALUES = {
+    "",
+    "replace-me-in-production",
+    "replace_with_a_long_random_token",
+    "replace_with_another_long_random_secret",
+    "replace_with_a_strong_password",
+}
+
+
+def _is_placeholder_config_value(value: str | None) -> bool:
+    """Return True when a config value is missing or still a shipped placeholder."""
+    return (value or "").strip() in _PLACEHOLDER_CONFIG_VALUES
+
+
+def _resolve_secret_key() -> str:
+    """Return a production-safe secret key, falling back to a random process-local value."""
+    session_secret = (os.getenv("SESSION_SECRET") or "").strip()
+    admin_token = (os.getenv("INITIAL_ADMIN_TOKEN") or "").strip()
+
+    if not _is_placeholder_config_value(session_secret):
+        return session_secret
+    if not _is_placeholder_config_value(admin_token):
+        logger.warning("SESSION_SECRET missing; falling back to INITIAL_ADMIN_TOKEN for session signing.")
+        return admin_token
+
+    generated = secrets.token_urlsafe(64)
+    logger.critical(
+        "SESSION_SECRET and INITIAL_ADMIN_TOKEN are missing or placeholder values. "
+        "Using a generated process-local secret; rotate deployment secrets immediately."
+    )
+    return generated
 
 
 def _get_db():
@@ -162,7 +195,9 @@ def ensure_admin_user():
     session = SessionFactory()
     try:
         admin_name, admin_email, bootstrap_password = get_bootstrap_admin_defaults()
-        admin_token = os.getenv("INITIAL_ADMIN_TOKEN", "")
+        admin_token = (os.getenv("INITIAL_ADMIN_TOKEN") or "").strip()
+        if _is_placeholder_config_value(admin_token):
+            admin_token = ""
         user_count = session.query(User).count()
         if user_count == 0:
             if bootstrap_password or admin_token:
@@ -224,11 +259,7 @@ def create_app():
     # Configuration
     app.config["FLASK_ENV"] = os.getenv("FLASK_ENV", "development")
     app.config["DATABASE_URL"] = os.getenv("DATABASE_URL", "sqlite:////data/db/localocr_extended.db")
-    app.config["SECRET_KEY"] = (
-        os.getenv("SESSION_SECRET")
-        or os.getenv("INITIAL_ADMIN_TOKEN")
-        or "replace-me-in-production"
-    )
+    app.config["SECRET_KEY"] = _resolve_secret_key()
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["SESSION_COOKIE_SECURE"] = os.getenv("SESSION_COOKIE_SECURE", "0") == "1"

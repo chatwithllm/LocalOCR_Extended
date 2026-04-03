@@ -74,6 +74,9 @@ Extended-specific runtime changes now in place:
   - selected receipt detail
 - upload flow now shows the real backend status (`review` vs `processed`) instead of treating every 200 response as processed
 - Ollama prompt-template echo responses are now rejected as invalid OCR
+- placeholder bootstrap/session secrets are now treated as invalid and no longer silently trusted in production-like configs
+- seasonal recommendation date math now handles mixed timezone-aware and naive purchase timestamps correctly
+- known placeholder OCR junk rows copied into Extended were removed without touching valid grocery-history imports
 
 ## Intended Parallel Deployment Shape
 

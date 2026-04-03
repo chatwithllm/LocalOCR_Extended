@@ -36,7 +36,9 @@ Recommended Extended runtime defaults:
 ```dotenv
 FLASK_PORT=8090
 APP_SERVICE_NAME=localocr-extended-backend
-APP_DISPLAY_NAME=LocalOCR Extended
+APP_DISPLAY_NAME="LocalOCR Extended"
+
+Use real secrets here. The app now treats shipped placeholder secrets as invalid and falls back to an ephemeral process-local secret instead of trusting them in production.
 APP_SLUG=localocr_extended
 DATABASE_URL=sqlite:////data/db/localocr_extended.db
 RECEIPTS_DIR=/data/receipts

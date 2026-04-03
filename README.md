@@ -285,7 +285,7 @@ Recommended defaults:
 ```dotenv
 FLASK_PORT=8090
 APP_SERVICE_NAME=localocr-extended-backend
-APP_DISPLAY_NAME=LocalOCR Extended
+APP_DISPLAY_NAME="LocalOCR Extended"
 APP_SLUG=localocr_extended
 DATABASE_URL=sqlite:////data/db/localocr_extended.db
 RECEIPTS_DIR=/data/receipts
