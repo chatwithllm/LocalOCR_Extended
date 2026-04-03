@@ -75,6 +75,31 @@ def _safe_float(value, default=0.0):
         return float(default)
 
 
+def _looks_like_prompt_echo(result: dict) -> bool:
+    """Detect when the model simply echoes the schema/template instead of reading the receipt."""
+    if not isinstance(result, dict):
+        return False
+
+    store = str(result.get("store", "") or "").strip().lower()
+    date = str(result.get("date", "") or "").strip().lower()
+    items = result.get("items", []) or []
+    first_item = items[0] if items else {}
+    item_name = str((first_item or {}).get("name", "") or "").strip().lower()
+    category = str((first_item or {}).get("category", "") or "").strip().lower()
+
+    echo_hits = 0
+    if store in {"store name", "unknown store"}:
+        echo_hits += 1
+    if date in {"yyyy-mm-dd", "2023-03-15", "2023-03-25"}:
+        echo_hits += 1
+    if item_name in {"product name", "unknown item"}:
+        echo_hits += 1
+    if category.startswith("one of:"):
+        echo_hits += 1
+
+    return echo_hits >= 2
+
+
 def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) -> dict:
     """Extract receipt data from an image using Ollama LLaVA.
 
@@ -137,6 +162,10 @@ def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) ->
     except json.JSONDecodeError as e:
         logger.error(f"Ollama returned invalid JSON: {e}\nRaw: {text[:500]}")
         raise ValueError(f"Ollama OCR returned invalid JSON: {e}")
+
+    if _looks_like_prompt_echo(result):
+        logger.error("Ollama returned prompt-template echo instead of receipt data: %s", text[:500])
+        raise ValueError("Ollama OCR returned template placeholder data")
 
     # Defaults
     result.setdefault("confidence", 0.75)

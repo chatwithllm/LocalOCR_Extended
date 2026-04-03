@@ -50,6 +50,17 @@ NON_PRODUCT_PATTERNS = (
     "member savings",
 )
 
+PLACEHOLDER_TEXT_VALUES = {
+    "",
+    "store name",
+    "product name",
+    "unknown store",
+    "unknown item",
+    "yyyy-mm-dd",
+    "hh:mm",
+    "null",
+}
+
 
 def _safe_float(value, default=0.0):
     """Return a float for persistence/logging even when OCR returns null/string values."""
@@ -83,6 +94,23 @@ def _is_non_product_line(item_data: dict) -> bool:
         return True
 
     return False
+
+
+def _is_placeholder_text(value: object) -> bool:
+    """Return True for OCR scaffolding values that should not be treated as real data."""
+    normalized = str(value or "").strip().lower()
+    return normalized in PLACEHOLDER_TEXT_VALUES
+
+
+def _is_valid_receipt_date(value: object) -> bool:
+    """Validate receipt dates while tolerating OCR failures without crashing persistence."""
+    if _is_placeholder_text(value):
+        return False
+    try:
+        datetime.strptime(str(value), "%Y-%m-%d")
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +463,14 @@ def _validate_receipt_data(data: dict) -> bool:
             logger.warning(f"Validation failed: missing field '{field}'")
             return False
 
+    if _is_placeholder_text(data.get("store")):
+        logger.warning("Validation failed: OCR returned a placeholder store name")
+        return False
+
+    if not _is_valid_receipt_date(data.get("date")):
+        logger.warning("Validation failed: OCR returned an invalid receipt date: %s", data.get("date"))
+        return False
+
     if not isinstance(data["items"], list) or len(data["items"]) == 0:
         logger.warning("Validation failed: items must be a non-empty list")
         return False
@@ -656,7 +692,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             session.flush()
 
         # Create purchase record
-        purchase_date = ocr_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+        purchase_date = _normalize_purchase_date(ocr_data.get("date"))
         purchase = Purchase(
             store_id=store.id,
             total_amount=_safe_float(ocr_data.get("total", 0.0)),
@@ -750,6 +786,15 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         logger.error(f"Failed to save receipt to database: {e}")
         session.rollback()
         raise
+
+
+def _normalize_purchase_date(value: object) -> str:
+    """Return a safe YYYY-MM-DD value so OCR placeholders cannot crash receipt persistence."""
+    if _is_valid_receipt_date(value):
+        return str(value)
+    fallback = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    logger.warning("Falling back to current date because OCR returned invalid date: %s", value)
+    return fallback
 
 
 def _publish_inventory_updates(session, items):

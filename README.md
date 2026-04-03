@@ -35,6 +35,7 @@ It is designed to help a household:
   - one-off spend tracking
   - services, gifts, fees, and miscellaneous retail
   - reference-only line items
+  - expense categories like beauty, health, fees, service, gift, and retail
   - separate expense budget
   - expense analytics and merchant history
 
@@ -130,6 +131,7 @@ The app also includes a shared collaboration layer:
 - general expense receipt history
 - total spend and average ticket
 - top merchants
+- category breakdown
 - reference line items from receipts
 - separate general-expense budget
 - selected receipt detail without grocery inventory side effects
@@ -189,7 +191,8 @@ Current general-expense flow:
 2. OCR extracts merchant, date/time, totals, and reference line items.
 3. The receipt is saved under the `Expenses` workspace.
 4. The receipt contributes to general-expense budget and analytics.
-5. It does not create inventory, shopping recommendations, or grocery products.
+5. Tag line items with categories like `Beauty`, `Gift`, or `Fees` when needed.
+6. It does not create inventory, shopping recommendations, or grocery products.
 
 ## Grocery Workflow
 

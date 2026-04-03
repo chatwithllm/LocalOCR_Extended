@@ -46,6 +46,7 @@ def get_general_expense_summary():
     total_spend = 0.0
     merchant_summary = defaultdict(lambda: {"visits": 0, "total": 0.0, "latest_date": None})
     item_summary = defaultdict(lambda: {"quantity": 0.0, "total": 0.0})
+    category_summary = defaultdict(lambda: {"total": 0.0, "count": 0})
     recent_receipts = []
 
     for purchase, store, record in purchases:
@@ -71,9 +72,12 @@ def get_general_expense_summary():
                 continue
             quantity = float((item or {}).get("quantity") or 1)
             unit_price = float((item or {}).get("unit_price") or 0)
+            category = str((item or {}).get("category", "") or "other").strip().lower() or "other"
             info = item_summary[name]
             info["quantity"] += quantity
             info["total"] += quantity * unit_price
+            category_summary[category]["total"] += quantity * unit_price
+            category_summary[category]["count"] += 1
 
         recent_receipts.append({
             "purchase_id": purchase.id,
@@ -110,6 +114,18 @@ def get_general_expense_summary():
         key=lambda item: (-item["total"], -item["quantity"], item["name"]),
     )[:10]
 
+    category_breakdown = sorted(
+        (
+            {
+                "category": category,
+                "total": round(values["total"], 2),
+                "count": values["count"],
+            }
+            for category, values in category_summary.items()
+        ),
+        key=lambda item: (-item["total"], -item["count"], item["category"]),
+    )
+
     receipt_count = len(recent_receipts)
     return jsonify({
         "months_back": months_back,
@@ -118,6 +134,7 @@ def get_general_expense_summary():
         "average_ticket": round(total_spend / receipt_count, 2) if receipt_count else 0,
         "top_merchants": top_merchants[:8],
         "top_items": top_items,
+        "category_breakdown": category_breakdown,
         "recent_receipts": recent_receipts[:12],
     }), 200
 

@@ -102,6 +102,7 @@ Initial Extended capability now started:
 - `Expenses` workspace provides:
   - spend summary
   - merchant history
+  - category breakdown
   - separate budget
   - selected receipt detail
 
@@ -110,6 +111,7 @@ General-expense workflow requirement:
 - one-off/service receipts must not be forced into grocery or restaurant
 - general-expense receipts must remain searchable and correctable
 - line items should remain reference-only, not operational inventory data
+- users should be able to tag general-expense lines with useful categories such as beauty, health, gift, fees, service, and retail
 
 ## 7. Deployment Requirements
 
