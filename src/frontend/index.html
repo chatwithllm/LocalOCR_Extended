@@ -1511,17 +1511,18 @@
           <p id="preview-meta" style="margin-top:12px;font-size:0.82rem;color:var(--muted);display:none"></p>
         </div>
         <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <label for="upload-receipt-intent" style="font-size:0.85rem;color:var(--muted)">Receipt Type</label>
-          <select id="upload-receipt-intent" style="min-width:180px">
-            <option value="auto">Auto detect</option>
-            <option value="grocery">Grocery</option>
-            <option value="restaurant">Restaurant</option>
-            <option value="general_expense">General Expense</option>
-          </select>
+          <div style="font-size:0.85rem;color:var(--muted);width:100%">Receipt Type</div>
+          <div id="upload-intent-buttons" style="display:flex;gap:10px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost upload-intent-btn active" data-intent="auto" onclick="setUploadIntent('auto', this)">Auto</button>
+            <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="grocery" onclick="setUploadIntent('grocery', this)">Grocery</button>
+            <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="restaurant" onclick="setUploadIntent('restaurant', this)">Restaurant</button>
+            <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="general_expense" onclick="setUploadIntent('general_expense', this)">General Expense</button>
+          </div>
+          <input type="hidden" id="upload-receipt-intent" value="auto" />
           <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant` or `General Expense` when you already know the receipt type so review starts closer to the right result.</span>
         </div>
         <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
-          <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Process Receipt</button>
+          <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Auto Detect Receipt</button>
           <div id="upload-spinner" style="display:none"><div class="spinner"></div></div>
           <span id="upload-status" style="color:var(--muted);font-size:0.88rem"></span>
         </div>
@@ -4788,6 +4789,35 @@ function previewFile(input) {
     img.style.display = 'block';
   }
   document.getElementById('upload-btn').disabled = false;
+  updateUploadIntentUI();
+}
+
+function getUploadIntentButtonLabel(intent) {
+  if (intent === 'grocery') return 'Process Grocery Receipt';
+  if (intent === 'restaurant') return 'Process Restaurant Receipt';
+  if (intent === 'general_expense') return 'Process General Expense';
+  return 'Auto Detect Receipt';
+}
+
+function updateUploadIntentUI() {
+  const receiptIntent = document.getElementById('upload-receipt-intent')?.value || 'auto';
+  document.querySelectorAll('.upload-intent-btn').forEach(button => {
+    const active = button.dataset.intent === receiptIntent;
+    button.classList.toggle('active', active);
+    button.classList.toggle('btn-primary', active);
+    button.classList.toggle('btn-ghost', !active);
+  });
+  const uploadButton = document.getElementById('upload-btn');
+  if (uploadButton) {
+    uploadButton.textContent = `🚀 ${getUploadIntentButtonLabel(receiptIntent)}`;
+  }
+}
+
+function setUploadIntent(intent, button) {
+  const input = document.getElementById('upload-receipt-intent');
+  if (!input) return;
+  input.value = intent || 'auto';
+  updateUploadIntentUI();
 }
 
 async function uploadReceipt() {
