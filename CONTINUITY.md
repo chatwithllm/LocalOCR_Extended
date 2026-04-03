@@ -59,12 +59,20 @@ This split gives you a clean safety net:
 - operator docs now describe parallel local deployment explicitly
 - receipt OCR fallback no longer incorrectly marks successful Ollama runs as failed
 - image orientation is normalized before OCR for landscape phone photos
+- upload now supports explicit receipt intent:
+  - auto
+  - grocery
+  - restaurant
 - receipt detail now supports structured editing for:
   - receipt type
   - store
   - date/time
   - subtotal/tax/tip/total
   - line items
+- receipt detail now also supports:
+  - rotate left/right
+  - mark as restaurant
+  - safer re-run OCR on already-processed receipts
 - processed receipts can now be rebuilt safely from corrected review data
 - first restaurant receipt was manually corrected through the new review path and now persists as `domain=restaurant`
 

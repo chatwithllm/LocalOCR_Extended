@@ -90,7 +90,8 @@ def _is_non_product_line(item_data: dict) -> bool:
 
 def process_receipt(image_path: str, source: str = "upload",
                     chat_id: str = None, user_id: int = None,
-                    receipt_record_id: int | None = None) -> dict:
+                    receipt_record_id: int | None = None,
+                    receipt_type_hint: str | None = None) -> dict:
     """Process a receipt image through the hybrid OCR pipeline.
 
     Args:
@@ -165,10 +166,11 @@ def process_receipt(image_path: str, source: str = "upload",
 
     # --- Step 3: Validate & Route ---
     if ocr_data:
+        ocr_data = _apply_receipt_type_hint(ocr_data, receipt_type_hint)
         result["data"] = ocr_data
         result["ocr_engine"] = engine_used
         result["confidence"] = _safe_float(ocr_data.get("confidence", 0.0))
-        result["receipt_type"] = classify_receipt_data(ocr_data)
+        result["receipt_type"] = _resolve_receipt_type(ocr_data, receipt_type_hint)
 
         is_valid = _validate_receipt_data(ocr_data)
 
@@ -260,6 +262,7 @@ def classify_receipt_data(data: dict) -> str:
     item_names = " ".join(str(item.get("name", "")).lower() for item in items)
     categories = [str(item.get("category", "")).lower() for item in items if item.get("category")]
     category_set = set(categories)
+    store_location = str(data.get("store_location", "")).lower()
 
     grocery_store_keywords = {
         "kroger", "walmart", "aldi", "meijer", "costco", "safeway",
@@ -267,7 +270,8 @@ def classify_receipt_data(data: dict) -> str:
     }
     restaurant_store_keywords = {
         "mcdonald", "burger king", "taco bell", "chipotle", "starbucks",
-        "subway", "pizza", "restaurant", "cafe", "bar", "grill"
+        "subway", "pizza", "restaurant", "cafe", "bar", "grill",
+        "desi", "biryani", "kabob", "kebab", "chowrastha", "toast"
     }
     retail_store_keywords = {
         "best buy", "home depot", "lowe", "ikea", "walgreens", "cvs",
@@ -280,9 +284,18 @@ def classify_receipt_data(data: dict) -> str:
     retail_categories = {"electronics", "apparel", "hardware", "office", "pharmacy", "home"}
     restaurant_terms = {
         "burger", "fries", "drink", "combo", "sandwich", "pizza", "salad",
-        "soda", "coffee", "latte", "tip", "gratuity", "server", "table"
+        "soda", "coffee", "latte", "tip", "gratuity", "server", "table",
+        "guest count", "ordered", "amount due", "credit", "pani puri",
+        "haleem", "idli", "vada", "kebab", "toasttab", "toast"
     }
 
+    restaurant_signal_count = sum(
+        1 for term in restaurant_terms
+        if term in item_names or term in store or term in store_location
+    )
+
+    if "restaurant" in category_set or restaurant_signal_count >= 2:
+        return "restaurant"
     if any(keyword in store for keyword in grocery_store_keywords) or category_set.intersection(grocery_categories):
         return "grocery"
     if any(keyword in store for keyword in retail_store_keywords) or category_set.intersection(retail_categories):
@@ -300,6 +313,36 @@ def classify_receipt_data(data: dict) -> str:
             return "grocery"
 
     return "unknown"
+
+
+def _normalize_receipt_type_hint(receipt_type_hint: str | None) -> str | None:
+    hint = str(receipt_type_hint or "").strip().lower()
+    return hint if hint in {"grocery", "restaurant", "retail_items"} else None
+
+
+def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
+    """Apply upload-time intent so OCR output starts closer to the right domain."""
+    hint = _normalize_receipt_type_hint(receipt_type_hint)
+    if not hint:
+        return data
+
+    hinted = dict(data or {})
+    items = []
+    for item in hinted.get("items", []) or []:
+        normalized_item = dict(item or {})
+        if hint == "restaurant":
+            normalized_item["category"] = "restaurant"
+        items.append(normalized_item)
+    hinted["items"] = items
+    return hinted
+
+
+def _resolve_receipt_type(data: dict, receipt_type_hint: str | None) -> str:
+    """Choose the final receipt type, respecting explicit user intent first."""
+    hint = _normalize_receipt_type_hint(receipt_type_hint)
+    if hint:
+        return hint
+    return classify_receipt_data(data)
 
 
 def _prepare_ocr_input(file_path: str) -> str:

@@ -19,6 +19,7 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, g, send_file
+from PIL import Image, ImageOps
 
 from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.create_flask_application import require_auth
@@ -203,6 +204,22 @@ def _cleanup_receipt_files(image_paths: list[str]):
             logger.warning("Failed to remove stored receipt file %s: %s", resolved, exc)
 
 
+def _rotate_receipt_file(image_path: str, direction: str) -> bool:
+    """Rotate a stored receipt image in place."""
+    resolved = _resolve_receipt_path(image_path)
+    if not resolved:
+        return False
+    if resolved.suffix.lower() == ".pdf":
+        raise ValueError("PDF receipts cannot be rotated in-app")
+
+    degrees = 90 if direction == "left" else -90
+    with Image.open(resolved) as image:
+        normalized = ImageOps.exif_transpose(image)
+        rotated = normalized.rotate(degrees, expand=True)
+        rotated.save(resolved)
+    return True
+
+
 def _parse_filter_date(value: str | None):
     """Parse YYYY-MM-DD filter values safely."""
     if not value:
@@ -261,6 +278,11 @@ def upload_receipt():
     if current_user:
         user_id = current_user.id
 
+    receipt_intent = (request.form.get("receipt_intent") or "auto").strip().lower()
+    if receipt_intent not in {"auto", "grocery", "restaurant"}:
+        return jsonify({"error": "receipt_intent must be auto, grocery, or restaurant"}), 400
+    receipt_type_hint = None if receipt_intent == "auto" else receipt_intent
+
     # Route to hybrid OCR processor
     try:
         from src.backend.extract_receipt_data import process_receipt
@@ -268,6 +290,7 @@ def upload_receipt():
             image_path=save_path,
             source="upload",
             user_id=user_id,
+            receipt_type_hint=receipt_type_hint,
         )
 
         status_code = {
@@ -713,6 +736,12 @@ def reprocess_receipt(receipt_id):
 
     current_user = getattr(g, "current_user", None)
     user_id = current_user.id if current_user else None
+    existing_purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
+    if existing_purchase:
+        _delete_purchase_data(session, existing_purchase)
+        record.status = "review"
+        record.purchase_id = None
+        session.flush()
     result = process_receipt(
         image_path=record.image_path,
         source="review",
@@ -721,6 +750,41 @@ def reprocess_receipt(receipt_id):
     )
 
     return jsonify(result), 200
+
+
+@receipts_bp.route("/<int:receipt_id>/rotate", methods=["PUT"])
+@require_auth
+def rotate_receipt(receipt_id):
+    """Rotate a stored receipt image in place for easier OCR and review."""
+    from src.backend.initialize_database_schema import TelegramReceipt
+
+    session = g.db_session
+    record = (
+        session.query(TelegramReceipt)
+        .filter(
+            (TelegramReceipt.purchase_id == receipt_id) |
+            (TelegramReceipt.id == receipt_id)
+        )
+        .order_by(TelegramReceipt.created_at.desc())
+        .first()
+    )
+    if not record or not record.image_path:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    direction = (data.get("direction") or "right").strip().lower()
+    if direction not in {"left", "right"}:
+        return jsonify({"error": "direction must be left or right"}), 400
+
+    try:
+        _rotate_receipt_file(record.image_path, direction)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.error("Failed to rotate receipt %s: %s", receipt_id, exc)
+        return jsonify({"error": "Could not rotate receipt"}), 500
+
+    return jsonify({"status": "rotated", "receipt_id": record.id, "direction": direction}), 200
 
 
 @receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])

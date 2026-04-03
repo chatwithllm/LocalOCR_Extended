@@ -34,12 +34,20 @@ Extended-specific runtime changes now in place:
 - setup docs now describe running Extended beside the grocery app
 - successful Ollama fallback is no longer overwritten as failed
 - landscape receipt photos are normalized before OCR
+- upload page now supports explicit receipt intent:
+  - auto
+  - grocery
+  - restaurant
 - receipt detail can now edit and resave:
   - receipt type
   - store
   - date/time
   - totals
   - line items
+- receipt detail also includes fast restaurant review actions:
+  - rotate left/right
+  - mark as restaurant
+  - safe re-run OCR for already-processed receipts
 - existing processed receipts can be rebuilt from corrected structured payloads
 - first restaurant receipt has been verified as a corrected `restaurant` purchase with exact line items
 - Restaurant page now includes:

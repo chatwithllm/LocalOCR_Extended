@@ -22,6 +22,7 @@ The important operational rule is simple:
 - restaurant receipts can now be corrected from receipt detail with structured fields
 - corrected restaurant receipts can rebuild store, totals, and line items without raw JSON editing
 - Restaurant workspace now also includes dining budget status, selected receipt detail, and repeat-order estimate support
+- upload now supports `Auto / Grocery / Restaurant` so dining receipts can start in the right mode
 
 ## Current Extended Runtime Defaults
 
