@@ -60,6 +60,10 @@ This module already works and should remain stable while Extended evolves.
 
 Initial Extended capability now started:
 
+- upload-time receipt intent selection:
+  - Auto
+  - Grocery
+  - Restaurant
 - restaurant receipt classification and storage
 - exact restaurant line items preserved for repeat-order planning
 - subtotal, tax, tip, and total tracking
@@ -76,6 +80,7 @@ Initial Extended capability now started:
 
 Restaurant workflow requirement:
 
+- users must be able to bias upload toward restaurant before OCR when they already know the receipt type
 - if OCR is inaccurate, users must be able to correct the restaurant receipt without editing raw JSON
 - corrected restaurant receipts must rebuild the saved purchase cleanly
 - corrected restaurant receipts must remain isolated from grocery inventory behavior

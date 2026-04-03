@@ -42,6 +42,7 @@ If Extended is abandoned later, the grocery deployment must remain unaffected.
 
 - browser auth and household users
 - receipt upload and OCR
+- upload-time receipt intent selection
 - review queue
 - local file storage
 - Telegram intake
@@ -66,6 +67,10 @@ Implemented baseline in this repo:
 - subtotal/tax/tip/total tracking
 - structured restaurant receipt correction in receipt detail
 - ability to resave corrected receipt type, store, date/time, totals, and items
+- quick restaurant review actions:
+  - rotate image
+  - mark as restaurant
+  - safe OCR rerun
 - restaurant workspace budget/status card
 - selected restaurant receipt detail panel
 - repeat-order estimate from a selected receipt

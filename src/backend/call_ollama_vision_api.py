@@ -39,11 +39,12 @@ Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
             "name": "Product name",
             "quantity": 1,
             "unit_price": 0.00,
-            "category": "one of: dairy, produce, meat, seafood, bakery, beverages, snacks, frozen, canned, condiments, household, personal_care, other"
+            "category": "one of: dairy, produce, meat, seafood, bakery, beverages, snacks, frozen, canned, condiments, household, personal_care, restaurant, other"
         }
     ],
     "subtotal": 0.00,
     "tax": 0.00,
+    "tip": 0.00,
     "total": 0.00,
     "confidence": 0.85
 }
@@ -51,6 +52,8 @@ Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
 Rules:
 - Extract ALL line items visible on the receipt
 - Use the most specific product name visible
+- For restaurant receipts, keep menu item names exact and use category = restaurant
+- Capture subtotal, tax, tip, credits, and amount due when visible
 - If quantity is not clear, default to 1
 - Confidence should reflect receipt readability (0.0 to 1.0)
 - If you cannot read a field, set it to null

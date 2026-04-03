@@ -1439,7 +1439,7 @@
 
     <!-- Upload -->
     <div class="page" id="page-upload">
-      <div class="page-header"><h1>Upload Receipt</h1><p>AI will extract items and update your inventory</p></div>
+      <div class="page-header"><h1>Upload Receipt</h1><p>Choose Auto, Grocery, or Restaurant so OCR starts in the right mode.</p></div>
       <div class="card">
         <div class="upload-zone" id="drop-zone">
           <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" onchange="previewFile(this)" />
@@ -1448,6 +1448,15 @@
           <p style="margin-top:6px;font-size:0.8rem">JPG, PNG, WEBP, PDF — max 10MB</p>
           <img id="preview-img" />
           <p id="preview-meta" style="margin-top:12px;font-size:0.82rem;color:var(--muted);display:none"></p>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label for="upload-receipt-intent" style="font-size:0.85rem;color:var(--muted)">Receipt Type</label>
+          <select id="upload-receipt-intent" style="min-width:180px">
+            <option value="auto">Auto detect</option>
+            <option value="grocery">Grocery</option>
+            <option value="restaurant">Restaurant</option>
+          </select>
+          <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant` when the image is a dining receipt so review starts closer to the right result.</span>
         </div>
         <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
           <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Process Receipt</button>
@@ -4715,6 +4724,7 @@ function previewFile(input) {
 async function uploadReceipt() {
   const file = document.getElementById('file-input').files[0];
   if (!file) { toast('Select a receipt file first', 'error'); return; }
+  const receiptIntent = document.getElementById('upload-receipt-intent')?.value || 'auto';
 
   document.getElementById('upload-btn').disabled = true;
   document.getElementById('upload-spinner').style.display = 'block';
@@ -4722,6 +4732,7 @@ async function uploadReceipt() {
 
   const form = new FormData();
   form.append('image', file);
+  form.append('receipt_intent', receiptIntent);
 
   try {
     const res = await fetch(API_BASE + '/receipts/upload', {
@@ -4739,7 +4750,8 @@ async function uploadReceipt() {
       const summary = data?.data;
       const store = summary?.store ? ` · ${summary.store}` : '';
       const total = summary?.total != null ? ` · ${formatMoney(summary.total)}` : '';
-      document.getElementById('upload-status').textContent = `✅ Processed · ${items.length} items${store}${total}`;
+      const intentLabel = receiptIntent === 'auto' ? 'Auto' : formatLabel(receiptIntent, receiptIntent);
+      document.getElementById('upload-status').textContent = `✅ Processed · ${intentLabel}${store}${total}`;
       toast('Receipt processed! ✅', 'success');
       const card = document.getElementById('ocr-result-card');
       card.style.display = 'block';
@@ -4891,6 +4903,14 @@ async function viewReceipt(id, options = {}) {
         <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
       </div>
       <div>${imageHtml}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${receipt.file_type !== 'pdf' ? `
+          <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'left')">↺ Rotate Left</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'right')">↻ Rotate Right</button>
+        ` : ''}
+        <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
+        ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ''}
+      </div>
       <div>
         <div class="card-header" style="margin-bottom:12px">
           <span class="card-title">Extracted Items</span>
@@ -5002,6 +5022,29 @@ function removeReceiptEditorRow(button) {
   if (!tbody.children.length) {
     tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }]);
   }
+}
+
+function markReceiptEditorAsRestaurant(receiptId) {
+  const typeEl = document.getElementById(`receipt-type-${receiptId}`);
+  if (typeEl) typeEl.value = 'restaurant';
+  document.querySelectorAll(`#receipt-editor-items-${receiptId} [data-field="category"]`).forEach(select => {
+    select.value = 'restaurant';
+  });
+  toast('Receipt marked as restaurant 🍽️', 'success');
+}
+
+async function rotateReceipt(id, direction) {
+  const res = await api(`/receipts/${id}/rotate`, {
+    method: 'PUT',
+    body: JSON.stringify({ direction })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not rotate receipt', 'error');
+    return;
+  }
+  toast(`Receipt rotated ${direction} ✅`, 'success');
+  await viewReceipt(id, { scroll: false });
 }
 
 function collectReceiptEditorData(receiptId) {
