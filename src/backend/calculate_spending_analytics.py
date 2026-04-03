@@ -23,6 +23,97 @@ logger = logging.getLogger(__name__)
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
 
 
+@analytics_bp.route("/restaurant-summary", methods=["GET"])
+@require_auth
+def get_restaurant_summary():
+    """Return restaurant-focused spend and item history for the Restaurant workspace."""
+    session = g.db_session
+    months_back = request.args.get("months", 6, type=int)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
+
+    purchases = (
+        session.query(Purchase, Store)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .filter(Purchase.domain == "restaurant", Purchase.date >= cutoff)
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+
+    total_spend = 0.0
+    store_summary = defaultdict(lambda: {"visits": 0, "total": 0.0, "latest_date": None})
+    purchase_ids = []
+    recent_receipts = []
+
+    for purchase, store in purchases:
+        purchase_ids.append(purchase.id)
+        total = float(purchase.total_amount or 0.0)
+        total_spend += total
+        store_name = store.name if store and store.name else "Unknown"
+        info = store_summary[store_name]
+        info["visits"] += 1
+        info["total"] += total
+        if not info["latest_date"] or (purchase.date and purchase.date > info["latest_date"]):
+            info["latest_date"] = purchase.date
+        recent_receipts.append({
+            "purchase_id": purchase.id,
+            "store": store_name,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "total": round(total, 2),
+        })
+
+    item_summary = defaultdict(lambda: {"quantity": 0.0, "total": 0.0, "category": None})
+    if purchase_ids:
+        rows = (
+            session.query(ReceiptItem, Product)
+            .join(Product, ReceiptItem.product_id == Product.id)
+            .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+            .all()
+        )
+        for receipt_item, product in rows:
+            name = product.display_name or product.name
+            item_summary[name]["quantity"] += float(receipt_item.quantity or 0)
+            item_summary[name]["total"] += float((receipt_item.unit_price or 0) * (receipt_item.quantity or 1))
+            item_summary[name]["category"] = product.category
+
+    top_restaurants = sorted(
+        (
+            {
+                "store": store_name,
+                "visits": values["visits"],
+                "total": round(values["total"], 2),
+                "average_ticket": round(values["total"] / values["visits"], 2) if values["visits"] else 0,
+                "latest_date": values["latest_date"].strftime("%Y-%m-%d") if values["latest_date"] else None,
+            }
+            for store_name, values in store_summary.items()
+        ),
+        key=lambda item: (-item["visits"], -item["total"], item["store"]),
+    )
+
+    top_items = sorted(
+        (
+            {
+                "name": name,
+                "quantity": round(values["quantity"], 2),
+                "total": round(values["total"], 2),
+                "category": values["category"],
+            }
+            for name, values in item_summary.items()
+        ),
+        key=lambda item: (-item["quantity"], -item["total"], item["name"]),
+    )[:10]
+
+    visit_count = len(recent_receipts)
+    return jsonify({
+        "months_back": months_back,
+        "visit_count": visit_count,
+        "total_spend": round(total_spend, 2),
+        "average_ticket": round(total_spend / visit_count, 2) if visit_count else 0,
+        "top_restaurants": top_restaurants[:8],
+        "top_items": top_items,
+        "recent_receipts": recent_receipts[:12],
+    }), 200
+
+
 @analytics_bp.route("/spending", methods=["GET"])
 @require_auth
 def get_spending():

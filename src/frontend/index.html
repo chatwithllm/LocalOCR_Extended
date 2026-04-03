@@ -1298,6 +1298,7 @@
       <div class="stats-grid">
         <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub">restaurant receipts</div></div>
         <div class="stat-card success"><div class="stat-label">Dining Spend</div><div class="stat-value" id="restaurant-total-spend">$0.00</div><div class="stat-sub">current window</div></div>
+        <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="restaurant-average-ticket">$0.00</div><div class="stat-sub">per visit</div></div>
         <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
       </div>
       <div class="card">
@@ -1313,6 +1314,16 @@
           </div>
         </div>
         <div id="restaurant-body"><div class="empty-state"><p>No restaurant receipts yet.</p></div></div>
+      </div>
+      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:16px;align-items:start">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top Restaurants</span></div>
+          <div id="restaurant-top-restaurants"><div class="empty-state"><p>No restaurant history yet.</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Top Ordered Items</span></div>
+          <div id="restaurant-top-items"><div class="empty-state"><p>No restaurant line items yet.</p></div></div>
+        </div>
       </div>
     </div>
 
@@ -5080,23 +5091,18 @@ async function loadRestaurant() {
   const body = document.getElementById('restaurant-body');
   if (!body) return;
   const months = document.getElementById('restaurant-period')?.value || '6';
-  const [receiptRes, spendRes] = await Promise.all([
-    api(`/receipts?receipt_type=restaurant&limit=50`),
+  const [summaryRes, spendRes] = await Promise.all([
+    api(`/analytics/restaurant-summary?months=${encodeURIComponent(months)}`),
     api(`/analytics/spending?period=monthly&domain=restaurant&months=${encodeURIComponent(months)}`)
   ]);
-  if (!receiptRes.ok) {
+  if (!summaryRes.ok) {
     body.innerHTML = '<div class="empty-state"><p>Could not load restaurant receipts.</p></div>';
     return;
   }
 
-  const receiptData = await receiptRes.json();
-  const receipts = receiptData.receipts || [];
-  const storeCounts = new Map();
-  receipts.forEach(receipt => {
-    const key = receipt.store || 'Unknown';
-    storeCounts.set(key, (storeCounts.get(key) || 0) + 1);
-  });
-  const topStore = [...storeCounts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))[0];
+  const summaryData = await summaryRes.json();
+  const receipts = summaryData.recent_receipts || [];
+  const topStore = (summaryData.top_restaurants || [])[0];
 
   let spendData = { grand_total: 0, spending_by_period: {} };
   if (spendRes.ok) {
@@ -5105,14 +5111,41 @@ async function loadRestaurant() {
 
   const visitEl = document.getElementById('restaurant-visit-count');
   const spendEl = document.getElementById('restaurant-total-spend');
+  const averageTicketEl = document.getElementById('restaurant-average-ticket');
   const topStoreEl = document.getElementById('restaurant-top-store');
   const topStoreSubEl = document.getElementById('restaurant-top-store-sub');
-  if (visitEl) visitEl.textContent = receipts.length;
-  if (spendEl) spendEl.textContent = formatMoney(spendData.grand_total || 0);
-  if (topStoreEl) topStoreEl.textContent = topStore?.[0] || '—';
-  if (topStoreSubEl) topStoreSubEl.textContent = topStore ? `${topStore[1]} visit${topStore[1] === 1 ? '' : 's'}` : 'No visits yet';
+  if (visitEl) visitEl.textContent = summaryData.visit_count || 0;
+  if (spendEl) spendEl.textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
+  if (averageTicketEl) averageTicketEl.textContent = formatMoney(summaryData.average_ticket || 0);
+  if (topStoreEl) topStoreEl.textContent = topStore?.store || '—';
+  if (topStoreSubEl) topStoreSubEl.textContent = topStore ? `${topStore.visits} visit${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No visits yet';
 
   const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));
+  const topRestaurantsEl = document.getElementById('restaurant-top-restaurants');
+  if (topRestaurantsEl) {
+    const topRestaurants = summaryData.top_restaurants || [];
+    topRestaurantsEl.innerHTML = topRestaurants.length ? `
+      <div class="contrib-list">
+        ${topRestaurants.map(item => `
+          <div class="contrib-list-item">
+            <div class="contrib-list-top">
+              <strong>${escHtml(item.store)}</strong>
+              <span class="contrib-points">${formatMoney(item.total)}</span>
+            </div>
+            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+          </div>
+        `).join('')}
+      </div>` : '<div class="empty-state"><p>No restaurant history yet.</p></div>';
+  }
+  const topItemsEl = document.getElementById('restaurant-top-items');
+  if (topItemsEl) {
+    const topItems = summaryData.top_items || [];
+    topItemsEl.innerHTML = topItems.length ? `
+      <table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead>
+        <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td></tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state"><p>No restaurant line items yet.</p></div>';
+  }
   body.innerHTML = receipts.length ? `
     <div style="display:grid;gap:16px">
       <div class="card" style="margin-bottom:0">
