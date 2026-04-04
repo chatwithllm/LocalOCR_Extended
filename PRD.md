@@ -46,6 +46,13 @@ The shared core includes:
 - optional MQTT/Home Assistant integration
 - optional QR helper/login flows
 
+Shared-core UX requirements:
+
+- login password fields should support temporary visibility via an eye toggle
+- successful login should clear and re-hide the password field
+- browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
+- desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
+
 ## 4. Grocery Module
 
 Inherited working capability:
@@ -57,6 +64,13 @@ Inherited working capability:
 - recommendation workflow
 
 This module already works and should remain stable while Extended evolves.
+
+Grocery UX requirements now in place:
+
+- shopping summary should stay compact and glanceable
+- `Open` and `Close` chips should be able to filter the current shopping list view
+- bought grocery shopping items should remain recoverable through `Reopen`
+- inventory and shopping mobile layouts should prefer compact rows over dense card stacks
 
 ## 5. Restaurant Module
 
@@ -133,6 +147,13 @@ General-expense workflow requirement:
 - general-expense receipts must remain searchable and correctable
 - line items should remain reference-only, not operational inventory data
 - users should be able to tag general-expense lines with useful categories such as beauty, health, gift, fees, service, and retail
+
+Manual-entry requirement:
+
+- when a receipt image is unavailable, the user must still be able to create a manual purchase entry
+- manual entries must support grocery, restaurant, and general expense domains
+- manual entries must create real purchase/receipt history so budget and analytics remain accurate
+- manual entries must be deletable later so the amount can be removed cleanly
 
 ## 7. Deployment Requirements
 

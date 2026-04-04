@@ -103,8 +103,8 @@ The app also includes a shared collaboration layer:
 ### Shopping List
 
 - current list, quick find, recommendations, store grouping
-- estimated total cost
-- estimated store stops
+- compact `Open / Estimate / Close` summary strip
+- remembered `Open` / `Close` list view pills
 - shopping helper QR for shared trip execution
 - bought / reopen handling
 
@@ -112,6 +112,7 @@ The app also includes a shared collaboration layer:
 
 - grocery monthly budget
 - restaurant monthly budget
+- manual entry support when a receipt image is lost
 - budget status and progress
 
 ### Analytics
@@ -152,6 +153,13 @@ The app also includes a shared collaboration layer:
 - user profile and avatar
 - admin user management
 - catalog review queue for OCR-heavy products
+- in-app edit/reset-password modals instead of browser popups
+
+## Workspace UX Notes
+
+- signed-in users can hide the left sidebar on larger screens and the app remembers that choice
+- login password fields support an eye toggle and reset to hidden after successful login
+- mobile shopping and inventory surfaces favor compact rows first, with detail shown only when expanded
 
 ## Restaurant Workflow
 
@@ -198,6 +206,24 @@ Current general-expense flow:
 4. The receipt contributes to general-expense budget and analytics.
 5. Tag line items with categories like `Beauty`, `Gift`, or `Fees` when needed.
 6. It does not create inventory, shopping recommendations, or grocery products.
+
+## Manual Entry Workflow
+
+If a receipt image is lost, the app can still record the spend accurately.
+
+Current manual-entry flow:
+
+1. Open `Budget`.
+2. Choose `✍️ Manual Entry`.
+3. Pick the domain:
+   - `Grocery`
+   - `Restaurant`
+   - `General Expense`
+4. Enter store, date, total, and optional line items.
+5. Save the entry.
+6. The entry appears in `Receipts` as a `manual` source record and counts toward budget and analytics.
+
+This keeps month totals honest even when the paper/digital receipt image is missing.
 
 ## Grocery Workflow
 

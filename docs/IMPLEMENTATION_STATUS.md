@@ -84,6 +84,7 @@ Extended-specific runtime changes now in place:
 - shopping page now has:
   - compact `Open / Estimate / Close` summary chips
   - header toggles for Quick Find and Recommendations
+  - clickable `Open` / `Close` pills that now filter the current list and remember the selected view
   - a lighter Current List with inline sort chips
   - compact expandable mobile rows
 - inventory page now has:
@@ -92,6 +93,17 @@ Extended-specific runtime changes now in place:
   - compact expandable mobile rows
   - grouped display rows for duplicate household items
 - rename flows now use an in-app text modal instead of browser-native prompt dialogs
+- settings user edit and password reset now also use in-app modals instead of browser-native prompt dialogs
+- login now supports a password eye toggle and always resets back to hidden after successful sign-in
+- desktop users can now hide the left sidebar and keep that preference after refresh
+- Budget page now supports manual entry creation for missing receipts:
+  - grocery
+  - restaurant
+  - general expense
+- manual entries now persist as real purchases plus `manual` receipt records, so:
+  - budget totals stay accurate
+  - analytics include the spend
+  - receipts history can later delete the entry to remove the amount
 
 ## Intended Parallel Deployment Shape
 
@@ -123,6 +135,7 @@ This is the repo where the following should happen next:
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
+- stronger receipt/source affordances around manual entries versus uploaded receipts
 
 ## Resume Priority
 
@@ -132,3 +145,4 @@ This is the repo where the following should happen next:
 4. continue restaurant/module architecture in this repo only
 5. improve category autofill for general expenses and restaurant line-item editing speed
 6. decide whether grouped inventory rows should remain display-only or evolve into true backend merge behavior
+7. replace any remaining browser-native edit flows with the same in-app modal/sheet pattern

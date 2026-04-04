@@ -88,6 +88,15 @@ def _parse_raw_ocr_json(raw_value: str | None) -> dict | None:
         return None
 
 
+def _receipt_source_label(receipt_record) -> str:
+    telegram_user_id = str(getattr(receipt_record, "telegram_user_id", "") or "")
+    if telegram_user_id.startswith("manual:"):
+        return "manual"
+    if telegram_user_id.startswith("upload"):
+        return "upload"
+    return "telegram"
+
+
 def _receipt_payload_from_purchase(receipt: dict) -> dict:
     """Build a stable editable payload from persisted receipt fields."""
     items = []
@@ -182,6 +191,113 @@ def _delete_purchase_data(session, purchase):
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
     session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
+
+
+def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user_id: int | None):
+    """Create a manual purchase + receipt record so budgets stay accurate without an image."""
+    from src.backend.active_inventory import rebuild_active_inventory
+    from src.backend.contribution_scores import validate_low_workflow
+    from src.backend.initialize_database_schema import (
+        Purchase,
+        ReceiptItem,
+        Product,
+        Store,
+        PriceHistory,
+        TelegramReceipt,
+    )
+    from src.backend.normalize_product_names import canonicalize_product_identity, find_matching_product
+    from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
+
+    sanitized = _sanitize_receipt_payload(payload)
+    store_name = canonicalize_store_name(sanitized.get("store") or "Manual Entry")
+    store = find_matching_store(session, store_name)
+    if not store:
+        store = Store(name=store_name, location=sanitized.get("store_location"))
+        session.add(store)
+        session.flush()
+
+    purchase_date = datetime.strptime(sanitized["date"], "%Y-%m-%d")
+    purchase_domain = "grocery"
+    if receipt_type == "restaurant":
+        purchase_domain = "restaurant"
+    elif receipt_type in {"general_expense", "retail_items"}:
+        purchase_domain = "general_expense"
+
+    purchase = Purchase(
+        store_id=store.id,
+        total_amount=float(sanitized.get("total") or 0),
+        date=purchase_date,
+        domain=purchase_domain,
+        user_id=user_id,
+    )
+    session.add(purchase)
+    session.flush()
+
+    persisted_items = []
+    for item_data in sanitized.get("items", []) or []:
+        name, category = canonicalize_product_identity(item_data.get("name", ""), item_data.get("category", "other"))
+        if not name:
+            continue
+        product = find_matching_product(session, name, category)
+        if not product:
+            product = Product(
+                name=name,
+                raw_name=item_data.get("name", name),
+                display_name=name,
+                review_state="resolved",
+                category=category,
+            )
+            session.add(product)
+            session.flush()
+
+        quantity = float(item_data.get("quantity") or 1)
+        unit_price = float(item_data.get("unit_price") or 0)
+        session.add(
+            ReceiptItem(
+                purchase_id=purchase.id,
+                product_id=product.id,
+                quantity=quantity,
+                unit_price=unit_price,
+                extracted_by="manual",
+            )
+        )
+        if unit_price > 0:
+            session.add(
+                PriceHistory(
+                    product_id=product.id,
+                    store_id=store.id,
+                    price=unit_price,
+                    date=purchase.date,
+                )
+            )
+        if purchase_domain == "grocery":
+            validate_low_workflow(
+                session,
+                product_id=product.id,
+                purchase_id=purchase.id,
+                product_name=product.display_name or product.name,
+            )
+        persisted_items.append(item_data)
+
+    receipt_record = TelegramReceipt(
+        telegram_user_id=f"manual:{user_id or 'web'}",
+        message_id=None,
+        image_path=None,
+        status="processed",
+        ocr_confidence=float(sanitized.get("confidence") or 1),
+        ocr_engine="manual",
+        receipt_type=receipt_type,
+        raw_ocr_json=json.dumps(sanitized),
+        purchase_id=purchase.id,
+    )
+    session.add(receipt_record)
+    session.commit()
+
+    if purchase_domain == "grocery" and persisted_items:
+        rebuild_active_inventory(session)
+        session.commit()
+
+    return receipt_record, purchase
 
 
 def _cleanup_receipt_files(image_paths: list[str]):
@@ -369,7 +485,7 @@ def get_receipt(receipt_id):
         "ocr_engine": receipt_record.ocr_engine if receipt_record else None,
         "confidence": receipt_record.ocr_confidence if receipt_record else None,
         "receipt_type": receipt_record.receipt_type if receipt_record else None,
-        "source": "telegram" if receipt_record and not str(receipt_record.telegram_user_id).startswith("upload") else "upload",
+        "source": _receipt_source_label(receipt_record) if receipt_record else "upload",
         "created_at": receipt_record.created_at.isoformat() if receipt_record and receipt_record.created_at else None,
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
         "file_type": _detect_receipt_file_type(receipt_record.image_path if receipt_record else None),
@@ -426,8 +542,11 @@ def list_receipts():
         query = query.filter(TelegramReceipt.status == status_filter)
     if receipt_type_filter:
         query = query.filter(TelegramReceipt.receipt_type == receipt_type_filter)
-    if source_filter == "telegram":
+    if source_filter == "manual":
+        query = query.filter(TelegramReceipt.telegram_user_id.startswith("manual:"))
+    elif source_filter == "telegram":
         query = query.filter(~TelegramReceipt.telegram_user_id.startswith("upload"))
+        query = query.filter(~TelegramReceipt.telegram_user_id.startswith("manual:"))
     elif source_filter == "upload":
         query = query.filter(TelegramReceipt.telegram_user_id.startswith("upload"))
     if purchase_date_from:
@@ -465,7 +584,7 @@ def list_receipts():
                 "store": store_name,
                 "date": purchase.date.strftime("%Y-%m-%d"),
                 "total": float(purchase.total_amount or 0),
-                "source": "telegram" if not str(record.telegram_user_id).startswith("upload") else "upload",
+                "source": _receipt_source_label(record),
                 "status": record.status,
             })
 
@@ -524,7 +643,7 @@ def list_receipts():
                 "confidence": record.ocr_confidence,
                 "receipt_type": record.receipt_type,
                 "created_at": record.created_at.isoformat() if record.created_at else None,
-                "source": "telegram" if not str(record.telegram_user_id).startswith("upload") else "upload",
+                "source": _receipt_source_label(record),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
                 "file_type": _detect_receipt_file_type(record.image_path),
             }
@@ -533,7 +652,7 @@ def list_receipts():
         "count": len(records),
         "filters": {
             "stores": stores,
-            "sources": ["upload", "telegram"],
+            "sources": ["manual", "upload", "telegram"],
             "statuses": sorted({
                 row[0]
                 for row in session.query(TelegramReceipt.status).distinct().all()
@@ -565,6 +684,38 @@ def list_receipts():
             ],
         },
     }), 200
+
+
+@receipts_bp.route("/manual", methods=["POST"])
+@require_auth
+def create_manual_receipt():
+    """Create a manual purchase/receipt entry when the image is unavailable."""
+    payload = request.get_json(silent=True) or {}
+    data = payload.get("data") or payload
+    if not isinstance(data, dict):
+        return jsonify({"error": "Manual receipt data is required"}), 400
+
+    receipt_type = str(payload.get("receipt_type") or data.get("receipt_type") or "grocery").strip().lower()
+    if receipt_type not in {"grocery", "restaurant", "general_expense"}:
+        return jsonify({"error": "Receipt type must be grocery, restaurant, or general_expense"}), 400
+
+    sanitized = _sanitize_receipt_payload(data)
+    missing = [field for field in ("store", "date", "total") if not sanitized.get(field)]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+    if receipt_type in {"grocery", "restaurant"} and not sanitized.get("items"):
+        return jsonify({"error": "Add at least one line item for grocery or restaurant manual entries"}), 400
+
+    current_user = getattr(g, "current_user", None)
+    user_id = current_user.id if current_user else None
+    record, purchase = _create_manual_receipt_entry(g.db_session, sanitized, receipt_type, user_id)
+    return jsonify({
+        "status": "processed",
+        "manual": True,
+        "receipt_id": record.id,
+        "purchase_id": purchase.id,
+        "receipt_type": receipt_type,
+    }), 201
 
 
 @receipts_bp.route("/<int:receipt_id>/image", methods=["GET"])

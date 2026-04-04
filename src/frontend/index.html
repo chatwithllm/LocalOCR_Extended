@@ -31,7 +31,7 @@
     .sidebar {
       width: 230px; background: var(--surface); border-right: 1px solid var(--border);
       display: flex; flex-direction: column; padding: 24px 16px; position: fixed; height: 100vh;
-      top: 0; left: 0; z-index: 40;
+      top: 0; left: 0; z-index: 40; transition: transform 0.22s ease, opacity 0.22s ease;
     }
     .logo { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 32px; padding: 0 8px; }
     .logo span { color: var(--accent); }
@@ -45,7 +45,38 @@
     .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
 
     /* ---- Main ---- */
-    .main { margin-left: 230px; flex: 1; padding: 32px; max-width: 100%; overflow-x: hidden; }
+    .main { margin-left: 230px; flex: 1; padding: 32px; max-width: 100%; overflow-x: hidden; transition: margin-left 0.22s ease; }
+    body.sidebar-collapsed .sidebar {
+      transform: translateX(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    body.sidebar-collapsed .main { margin-left: 0; }
+    body.sidebar-collapsed .page-header {
+      padding-left: 56px;
+    }
+    .desktop-sidebar-toggle {
+      position: fixed;
+      top: 18px;
+      left: 246px;
+      z-index: 55;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: left 0.22s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+    .desktop-sidebar-toggle:hover {
+      background: var(--border);
+      border-color: rgba(108, 99, 255, 0.35);
+    }
+    body.sidebar-collapsed .desktop-sidebar-toggle { left: 18px; }
     .mobile-header { display: none; }
     .mobile-menu-btn {
       background: var(--surface2); color: var(--text); border: 1px solid var(--border);
@@ -743,6 +774,7 @@
       align-items: stretch;
     }
     .shopping-summary-pill {
+      appearance: none;
       border: 1px solid var(--border);
       border-radius: 14px;
       background: rgba(255,255,255,0.02);
@@ -751,6 +783,16 @@
       align-items: center;
       justify-content: center;
       min-width: 0;
+      cursor: default;
+    }
+    button.shopping-summary-pill { cursor: pointer; }
+    button.shopping-summary-pill:hover {
+      border-color: rgba(108, 99, 255, 0.35);
+      background: rgba(255,255,255,0.035);
+    }
+    .shopping-summary-pill.is-active {
+      border-color: rgba(108, 99, 255, 0.55);
+      box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.16) inset;
     }
     .shopping-summary-pill .value {
       font-size: 1rem;
@@ -1726,6 +1768,8 @@
     }
 
     @media (max-width: 900px) {
+      .desktop-sidebar-toggle { display: none; }
+      body.sidebar-collapsed .page-header { padding-left: 0; }
       .sidebar {
         transform: translateX(-100%);
         transition: transform 0.25s ease;
@@ -2179,11 +2223,12 @@
         font-size: 1.05rem;
       }
     }
-  </style>
+</style>
 </head>
 <body>
 <div class="layout">
   <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
+  <button type="button" class="desktop-sidebar-toggle" id="desktop-sidebar-toggle" onclick="toggleDesktopSidebar()" aria-label="Hide sidebar" title="Hide sidebar">☰</button>
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
@@ -2216,7 +2261,10 @@
       <div style="display:grid;gap:10px;flex:1">
         <div style="display:flex;gap:10px;align-items:center">
           <input class="form-control" id="auth-email-input" type="text" placeholder="Email" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
-          <input class="form-control" id="auth-password-input" type="password" placeholder="Password" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:Inter,sans-serif;" />
+          <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:0 8px;">
+            <input class="form-control" id="auth-password-input" type="password" placeholder="Password" style="flex:1;background:transparent;border:none;padding:8px 6px;color:var(--text);font-family:Inter,sans-serif;" />
+            <button type="button" class="btn btn-ghost btn-sm" id="auth-password-toggle" onclick="toggleLoginPasswordVisibility()" aria-label="Show password" aria-pressed="false" title="Show password" style="padding:6px 10px;min-width:40px;justify-content:center;">👁️</button>
+          </div>
           <button class="btn btn-primary" onclick="login()">Login</button>
         </div>
         <div style="display:flex;justify-content:flex-end">
@@ -2508,15 +2556,15 @@
       </div>
       <div id="shopping-helper-intro"></div>
       <div class="shopping-summary-strip" id="shopping-stats-row">
-        <div class="shopping-summary-pill shopping-summary-pill-open">
+        <button type="button" class="shopping-summary-pill shopping-summary-pill-open" id="shopping-pill-open" onclick="setShoppingListView('open')" aria-label="Show open shopping items">
           <div class="value accent">Open <span id="shop-open-count-main">0</span></div>
-        </div>
+        </button>
         <div class="shopping-summary-pill shopping-summary-pill-estimated">
           <div class="value">Estimate <span id="shop-estimated-total-main">$0.00</span></div>
         </div>
-        <div class="shopping-summary-pill shopping-summary-pill-purchased">
+        <button type="button" class="shopping-summary-pill shopping-summary-pill-purchased" id="shopping-pill-purchased" onclick="setShoppingListView('purchased')" aria-label="Show closed shopping items">
           <div class="value success">Close <span id="shop-purchased-count-main">0</span></div>
-        </div>
+        </button>
       </div>
       <div class="card" id="shop-manual-card" style="display:none">
         <div class="card-header">
@@ -2682,13 +2730,14 @@
     <div class="page" id="page-budget">
       <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by domain.</p></div>
       <div class="card">
-        <div class="card-header"><span class="card-title">Set Monthly Budget</span></div>
+        <div class="card-header"><span class="card-title">Set Monthly Budget</span><button type="button" class="btn btn-ghost btn-sm" onclick="openManualEntryModal()">✍️ Manual Entry</button></div>
         <div class="form-grid">
           <div class="form-group"><label>Month</label><input type="month" id="budget-month" /></div>
           <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
           <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
         </div>
         <div style="margin-top:16px"><button class="btn btn-primary" onclick="setBudget()">💾 Save Budget</button></div>
+        <div style="margin-top:12px;color:var(--muted);font-size:0.82rem">Lost a receipt? Use <strong style="color:var(--text)">Manual Entry</strong> so the month stays accurate. If a test purchase affected spend, delete that receipt entry later to remove the amount.</div>
       </div>
       <div class="card" id="budget-status-card">
         <div class="card-header"><span class="card-title">This Month</span><button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">🔄</button></div>
@@ -2874,6 +2923,35 @@
       </div>
     </div>
   </div>
+  <div id="manual-entry-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="manual-entry-title" style="width:min(860px,100%);max-height:min(90vh,920px);overflow:auto">
+      <div id="manual-entry-title" class="confirm-title">Manual Entry</div>
+      <div class="confirm-body">Add a purchase manually when the receipt image is missing. It will count in budget and receipts history. For grocery and restaurant entries, add at least one line item.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px">
+        <div><label>Type</label><select id="manual-entry-type"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
+        <div><label>Store</label><input id="manual-entry-store" placeholder="Store or merchant" /></div>
+        <div><label>Date</label><input id="manual-entry-date" type="date" /></div>
+        <div><label>Subtotal</label><input id="manual-entry-subtotal" type="number" step="0.01" value="0" /></div>
+        <div><label>Tax</label><input id="manual-entry-tax" type="number" step="0.01" value="0" /></div>
+        <div><label>Total</label><input id="manual-entry-total" type="number" step="0.01" value="0" /></div>
+        <div><label>Tip</label><input id="manual-entry-tip" type="number" step="0.01" value="0" /></div>
+      </div>
+      <div class="card-header" style="margin:16px 0 10px">
+        <span class="card-title" style="font-size:0.95rem">Line Items</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addManualEntryRow()">Add Item</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Category</th><th></th></tr></thead>
+          <tbody id="manual-entry-items"></tbody>
+        </table>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="manual-entry-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="button" id="manual-entry-save" class="btn btn-primary" onclick="saveManualEntry()">Save Entry</button>
+      </div>
+    </div>
+  </div>
   <div id="secret-qr-overlay" class="confirm-overlay" aria-hidden="true"></div>
 
 <script>
@@ -2928,6 +3006,14 @@ let shoppingQuickSuggestions = [];
 let shoppingQuickFocused = false;
 let shoppingManualVisible = false;
 let shoppingStoreOptions = [];
+let shoppingListView = (() => {
+  try {
+    const stored = localStorage.getItem('shopping_list_view');
+    return ['open', 'purchased', 'all'].includes(stored) ? stored : 'open';
+  } catch (_error) {
+    return 'open';
+  }
+})();
 let leaderboardCollapsed = (() => {
   try {
     const stored = localStorage.getItem('dashboard_leaderboard_collapsed');
@@ -2980,6 +3066,7 @@ let inventoryToolsCollapsed = (() => {
   }
 })();
 const PAGE_STORAGE_KEY = 'extended_last_page';
+const SIDEBAR_COLLAPSED_KEY = 'extended_sidebar_collapsed';
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
 let selectedRestaurantReceiptId = null;
@@ -3261,6 +3348,7 @@ function setReceiptItemSort(value) {
 function applyShoppingHelperMode() {
   if (!SHOPPING_HELPER_MODE) return;
   document.body.classList.add('shopping-helper-mode');
+  document.body.classList.add('sidebar-collapsed');
   document.getElementById('auth-banner')?.classList.remove('show');
   const authBanner = document.getElementById('auth-banner');
   if (authBanner) authBanner.style.display = 'none';
@@ -3268,6 +3356,8 @@ function applyShoppingHelperMode() {
   if (sidebar) sidebar.style.display = 'none';
   const mobileHeader = document.querySelector('.mobile-header');
   if (mobileHeader) mobileHeader.style.display = 'none';
+  const desktopToggle = document.getElementById('desktop-sidebar-toggle');
+  if (desktopToggle) desktopToggle.style.display = 'none';
   const shareCard = document.getElementById('shopping-share-card');
   if (shareCard) shareCard.style.display = 'none';
   const manualCard = document.getElementById('shop-manual-card');
@@ -3376,6 +3466,66 @@ function saveLastPage(page) {
 
 function getLastPage() {
   return normalizeStoredPage(localStorage.getItem(PAGE_STORAGE_KEY) || 'dashboard');
+}
+
+function setShoppingListView(view) {
+  shoppingListView = ['open', 'purchased', 'all'].includes(view) ? view : 'open';
+  try {
+    localStorage.setItem('shopping_list_view', shoppingListView);
+  } catch (_error) {}
+  updateShoppingListViewPills();
+  renderShoppingListTable();
+}
+
+function updateShoppingListViewPills() {
+  const openPill = document.getElementById('shopping-pill-open');
+  const purchasedPill = document.getElementById('shopping-pill-purchased');
+  if (openPill) openPill.classList.toggle('is-active', shoppingListView === 'open');
+  if (purchasedPill) purchasedPill.classList.toggle('is-active', shoppingListView === 'purchased');
+}
+
+function isDesktopSidebarCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch (_error) {
+    return false;
+  }
+}
+
+function updateDesktopSidebarToggle() {
+  const toggle = document.getElementById('desktop-sidebar-toggle');
+  if (!toggle) return;
+  const collapsed = document.body.classList.contains('sidebar-collapsed');
+  toggle.textContent = collapsed ? '☰' : '✕';
+  toggle.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
+  toggle.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+}
+
+function applyDesktopSidebarPreference() {
+  const toggle = document.getElementById('desktop-sidebar-toggle');
+  if (!toggle) return;
+  if (SHOPPING_HELPER_MODE) {
+    toggle.style.display = 'none';
+    document.body.classList.add('sidebar-collapsed');
+    return;
+  }
+  if (isMobileViewport()) {
+    toggle.style.display = 'none';
+    return;
+  }
+  toggle.style.display = 'inline-flex';
+  document.body.classList.toggle('sidebar-collapsed', isDesktopSidebarCollapsed());
+  updateDesktopSidebarToggle();
+}
+
+function toggleDesktopSidebar() {
+  if (isMobileViewport()) return;
+  const nextCollapsed = !document.body.classList.contains('sidebar-collapsed');
+  document.body.classList.toggle('sidebar-collapsed', nextCollapsed);
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, nextCollapsed ? 'true' : 'false');
+  } catch (_error) {}
+  updateDesktopSidebarToggle();
 }
 
 function contributionStatusLabel(status) {
@@ -5036,8 +5186,9 @@ function updateDemoModeUi() {
 
 async function login() {
   const banner = document.getElementById('auth-banner');
+  const passwordInput = document.getElementById('auth-password-input');
   const email = document.getElementById('auth-email-input').value.trim();
-  const password = document.getElementById('auth-password-input').value;
+  const password = passwordInput.value;
   if (!email || !password) {
     toast('Enter email and password', 'error');
     return;
@@ -5059,7 +5210,8 @@ async function login() {
   if (data.app_config) applyAppConfig(data.app_config);
   loginQrCache = null;
   shoppingShareQrCache = null;
-  document.getElementById('auth-password-input').value = '';
+  passwordInput.value = '';
+  resetLoginPasswordVisibility();
   banner.classList.remove('show');
   toast('Signed in ✅', 'success');
   updateDemoModeUi();
@@ -5471,20 +5623,45 @@ async function editUser(userId) {
     return;
   }
 
-  const name = prompt('Update display name', user.name || '');
+  const name = await askForTextInput(
+    'Update the display name for this household user.',
+    'Edit user name',
+    user.name || '',
+    { placeholder: 'Display name' }
+  );
   if (name === null) return;
-  const email = prompt('Update email', user.email || '');
+  const email = await askForTextInput(
+    'Update the login email for this household user.',
+    'Edit user email',
+    user.email || '',
+    { placeholder: 'Email address', type: 'email' }
+  );
   if (email === null) return;
-  const avatar = prompt('Avatar emoji', user.avatar_emoji || getUserAvatar(user));
+  const avatar = await askForTextInput(
+    'Choose an avatar emoji for this user.',
+    'Edit avatar',
+    user.avatar_emoji || getUserAvatar(user),
+    { placeholder: 'Emoji' }
+  );
   if (avatar === null) return;
-  const role = prompt('Role: admin or user', user.role || 'user');
+  const role = await askForTextInput(
+    'Set the role for this user. Use admin or user.',
+    'Edit role',
+    user.role || 'user',
+    { placeholder: 'admin or user' }
+  );
   if (role === null) return;
+  const normalizedRole = role.trim().toLowerCase();
+  if (!['admin', 'user'].includes(normalizedRole)) {
+    toast('Role must be admin or user', 'error');
+    return;
+  }
 
   await updateUser(userId, {
     name: name.trim(),
     email: email.trim(),
     avatar_emoji: avatar.trim(),
-    role: role.trim().toLowerCase(),
+    role: normalizedRole,
     is_active: user.is_active !== false
   }, 'User updated ✅');
 }
@@ -5496,7 +5673,12 @@ async function resetUserPassword(userId) {
     return;
   }
 
-  const password = prompt(`Enter a new password for ${user.name}`);
+  const password = await askForTextInput(
+    `Enter a new password for ${user.name}.`,
+    'Reset password',
+    '',
+    { placeholder: 'New password', type: 'password' }
+  );
   if (password === null) return;
   if (!password.trim()) {
     toast('Password cannot be blank', 'error');
@@ -5544,11 +5726,35 @@ window.addEventListener('resize', () => {
   if (!isMobileViewport()) {
     closeMobileMenu();
   }
+  applyDesktopSidebarPreference();
 });
 
 function toggleTokenVis() {
   const el = document.getElementById('settings-token');
   el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function resetLoginPasswordVisibility() {
+  const input = document.getElementById('auth-password-input');
+  const toggle = document.getElementById('auth-password-toggle');
+  if (!input || !toggle) return;
+  input.type = 'password';
+  toggle.textContent = '👁️';
+  toggle.setAttribute('aria-label', 'Show password');
+  toggle.setAttribute('title', 'Show password');
+  toggle.setAttribute('aria-pressed', 'false');
+}
+
+function toggleLoginPasswordVisibility() {
+  const input = document.getElementById('auth-password-input');
+  const toggle = document.getElementById('auth-password-toggle');
+  if (!input || !toggle) return;
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  toggle.textContent = showing ? '👁️' : '🙈';
+  toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+  toggle.setAttribute('title', showing ? 'Show password' : 'Hide password');
+  toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
 }
 
 // ============================================================
@@ -6623,15 +6829,21 @@ async function updateShoppingPreferredStore(itemId, preferredStore) {
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
-  const selectedStatus = SHOPPING_HELPER_MODE ? '' : 'open';
+  const selectedStatus = SHOPPING_HELPER_MODE ? '' : shoppingListView;
   const query = shoppingSearchQuery;
+  const baseItems = shoppingListCache.filter(item => {
+    if (selectedStatus === 'open') return item.status !== 'purchased';
+    if (selectedStatus === 'purchased') return item.status === 'purchased';
+    return true;
+  });
   const items = query
-    ? shoppingListCache.filter(item => [item.name, item.category, item.source, item.note, item.latest_price?.store]
+    ? baseItems.filter(item => [item.name, item.category, item.source, item.note, item.latest_price?.store]
       .filter(Boolean)
       .some(value => String(value).toLowerCase().includes(query)))
-    : shoppingListCache;
+    : baseItems;
   if (!items.length) {
-    body.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${query ? 'No shopping items match your search.' : 'No shopping list items yet.'}</p></div>`;
+    const emptyLabel = selectedStatus === 'purchased' ? 'closed' : 'open';
+    body.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${query ? 'No shopping items match your search.' : `No ${emptyLabel} shopping items right now.`}</p></div>`;
     return;
   }
   const grouped = items.reduce((acc, item) => {
@@ -6829,7 +7041,7 @@ function renderShoppingListTable() {
     `;
     return;
   }
-  if (!selectedStatus) {
+  if (!selectedStatus || selectedStatus === 'all') {
     const openGroups = Object.entries(grouped)
       .map(([storeName, storeItems]) => [storeName, storeItems.filter(item => item.status !== 'purchased')])
       .filter(([, storeItems]) => storeItems.length);
@@ -6861,7 +7073,7 @@ function renderShoppingListTable() {
 }
 
 async function loadShoppingList() {
-  const status = SHOPPING_HELPER_MODE ? '' : 'open';
+  const status = '';
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   const res = await shoppingApi(`/shopping-list${query}`);
   const body = document.getElementById('shopping-table-body');
@@ -6886,6 +7098,7 @@ async function loadShoppingList() {
     const el = document.getElementById(id);
     if (el) el.textContent = formatMoney(data.estimated_total_cost || 0);
   });
+  updateShoppingListViewPills();
   renderShoppingListTable();
   renderShoppingQuickResults();
 }
@@ -7271,6 +7484,96 @@ function removeReceiptEditorRow(button) {
   if (!tbody.children.length) {
     tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }]);
   }
+}
+
+function openManualEntryModal() {
+  const overlay = document.getElementById('manual-entry-overlay');
+  if (!overlay) return;
+  const selectedDomain = getSelectedBudgetDomain();
+  const today = new Date();
+  document.getElementById('manual-entry-type').value = selectedDomain || 'grocery';
+  document.getElementById('manual-entry-store').value = '';
+  document.getElementById('manual-entry-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  document.getElementById('manual-entry-subtotal').value = '0';
+  document.getElementById('manual-entry-tax').value = '0';
+  document.getElementById('manual-entry-tip').value = '0';
+  document.getElementById('manual-entry-total').value = '0';
+  document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }]);
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
+  overlay.onclick = (event) => {
+    if (event.target === overlay) closeManualEntryModal();
+  };
+  setTimeout(() => document.getElementById('manual-entry-store')?.focus(), 20);
+}
+
+function closeManualEntryModal() {
+  const overlay = document.getElementById('manual-entry-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.onclick = null;
+}
+
+function addManualEntryRow() {
+  const body = document.getElementById('manual-entry-items');
+  if (!body) return;
+  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }]));
+}
+
+function collectManualEntryData() {
+  const rows = [...document.querySelectorAll('#manual-entry-items tr')];
+  return {
+    store: document.getElementById('manual-entry-store')?.value?.trim() || '',
+    date: document.getElementById('manual-entry-date')?.value || '',
+    subtotal: Number(document.getElementById('manual-entry-subtotal')?.value || 0),
+    tax: Number(document.getElementById('manual-entry-tax')?.value || 0),
+    tip: Number(document.getElementById('manual-entry-tip')?.value || 0),
+    total: Number(document.getElementById('manual-entry-total')?.value || 0),
+    confidence: 1,
+    items: rows.map(row => ({
+      name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
+      quantity: Number(row.querySelector('[data-field="quantity"]')?.value || 1),
+      unit_price: Number(row.querySelector('[data-field="unit_price"]')?.value || 0),
+      category: row.querySelector('[data-field="category"]')?.value || 'other',
+    })).filter(item => item.name),
+  };
+}
+
+async function saveManualEntry() {
+  const receiptType = document.getElementById('manual-entry-type')?.value || 'grocery';
+  const data = collectManualEntryData();
+  if (!data.store || !data.date || !data.total) {
+    toast('Enter store, date, and total', 'error');
+    return;
+  }
+  if (['grocery', 'restaurant'].includes(receiptType) && !data.items.length) {
+    toast('Add at least one line item for grocery or restaurant', 'error');
+    return;
+  }
+
+  const res = await api('/receipts/manual', {
+    method: 'POST',
+    body: JSON.stringify({ receipt_type: receiptType, data })
+  });
+  const payload = await res.json();
+  if (!res.ok) {
+    toast(payload.error || 'Could not save manual entry', 'error');
+    return;
+  }
+
+  closeManualEntryModal();
+  toast('Manual entry saved ✅', 'success');
+  await Promise.allSettled([
+    loadBudgetStatus(),
+    loadReceipts(),
+    loadDashboard(),
+    loadInventory(),
+    loadAnalytics(),
+    loadRestaurant(),
+    loadExpenses(),
+  ]);
 }
 
 function markReceiptEditorAsRestaurant(receiptId) {
@@ -8027,6 +8330,7 @@ checkAuth().then(authenticated => {
     loadShoppingList();
     return;
   }
+  applyDesktopSidebarPreference();
   const preferredPage = getLastPage();
   const navItem = [...document.querySelectorAll('.nav-item')]
     .find(item => (item.getAttribute('onclick') || '').includes(`'${preferredPage}'`));
