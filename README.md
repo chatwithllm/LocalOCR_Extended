@@ -44,7 +44,7 @@ It also supports a read-only guest demo experience for non-logged-in visitors, s
 The app also includes a shared collaboration layer:
 
 - household login and user roles
-- trusted-device QR pairing for shared household screens
+- trusted-device QR pairing for shared household screens, with token-based persistence for fridge/tablet devices
 - contribution tracking and scoring
 - QR helper access for shopping
 - OCR correction and review workflows

@@ -2676,6 +2676,50 @@
       </div>
     </div>
 
+    <div id="device-approval-notice" class="card" style="display:none;margin-bottom:18px;border-color:rgba(124,92,255,.4);box-shadow:0 0 0 1px rgba(124,92,255,.12) inset;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:grid;gap:6px;flex:1;min-width:220px">
+          <div id="device-approval-inline-title" style="font-size:1rem;font-weight:800">Approve Device Pairing</div>
+          <div id="device-approval-inline-summary" style="color:var(--muted);font-size:.92rem">Review this pairing request.</div>
+        </div>
+        <div id="device-approval-inline-status" class="person-modal-pill confirmed" style="display:none"></div>
+      </div>
+      <div id="device-approval-inline-auth-note" style="display:none;margin-top:12px;color:var(--muted);font-size:.9rem"></div>
+      <div id="device-approval-inline-form" style="display:none;margin-top:14px">
+        <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end">
+          <label style="display:grid;gap:6px">
+            <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Device Name</span>
+            <input id="device-approval-inline-name" placeholder="Kitchen Fridge" />
+          </label>
+          <label style="display:grid;gap:6px">
+            <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Scope</span>
+            <select id="device-approval-inline-scope">
+              <option value="shared_household">Shared Household</option>
+              <option value="kitchen_display">Kitchen Display</option>
+              <option value="read_only">Read Only</option>
+            </select>
+          </label>
+        </div>
+        <div id="device-approval-inline-reauth" style="display:none;margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+          <div style="font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Admin Re-auth</div>
+          <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end">
+            <label style="display:grid;gap:6px">
+              <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Admin Email</span>
+              <input id="device-approval-inline-email" placeholder="admin@localhost" />
+            </label>
+            <label style="display:grid;gap:6px">
+              <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Password</span>
+              <input id="device-approval-inline-password" type="password" placeholder="Admin password" />
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px">
+          <button type="button" class="btn btn-danger" onclick="rejectPendingDevicePairing()">Reject</button>
+          <button type="button" class="btn btn-primary" onclick="approvePendingDevicePairing()">Approve Device</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Dashboard -->
     <div class="page active" id="page-dashboard">
       <div class="page-header">
@@ -3518,6 +3562,7 @@ let inventorySearchQuery = '';
 let activeDevicePairing = null;
 let devicePairingPollTimer = null;
 let pendingApprovalPairingToken = '';
+let lastSuccessfulAdminAuth = { email: '', password: '' };
 let inventoryCategoryFilters = new Set();
 let inventoryAllItemsCache = [];
 let inventorySearchAssistResults = [];
@@ -3740,6 +3785,24 @@ const DEMO_BUDGETS = {
   general_expense: { month: DEMO_MONTH, budget_amount: 220, spent: 48.60, remaining: 171.40, percentage: 22, purchase_count: 1, alert_triggered: false, domain: 'general_expense' },
 };
 const DEMO_GUEST_STATS = { receipts_today: 3, receipts_month: 18, receipts_processed: 18, ocr_corrections: 5, ocr_corrections_month: 3, score: 132 };
+
+function getStoredBrowserLogin() {
+  return {
+    email: sessionStorage.getItem('browser_login_email') || '',
+    password: sessionStorage.getItem('browser_login_password') || '',
+  };
+}
+
+function storeBrowserLogin(email, password) {
+  if (!email || !password) return;
+  sessionStorage.setItem('browser_login_email', email);
+  sessionStorage.setItem('browser_login_password', password);
+}
+
+function clearStoredBrowserLogin() {
+  sessionStorage.removeItem('browser_login_email');
+  sessionStorage.removeItem('browser_login_password');
+}
 
 function isDemoMode() {
   return authCheckComplete && !currentUser && !SHOPPING_HELPER_MODE;
@@ -6127,9 +6190,14 @@ async function api(path, opts = {}) {
   }
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
+  const trustedDeviceToken = getTrustedDevicePairingToken();
   const res = await fetch(API_BASE + path, {
     credentials: 'include',
-    headers: { ...getHeaders(includeJson), ...(opts.headers || {}) },
+    headers: {
+      ...getHeaders(includeJson),
+      ...(trustedDeviceToken ? { 'X-Trusted-Device-Token': trustedDeviceToken } : {}),
+      ...(opts.headers || {})
+    },
     ...opts
   });
   return res;
@@ -6138,9 +6206,14 @@ async function api(path, opts = {}) {
 async function sessionOnlyFetch(path, opts = {}) {
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
+  const trustedDeviceToken = getTrustedDevicePairingToken();
   return fetch(API_BASE + path, {
     credentials: 'include',
-    headers: { ...(includeJson ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) },
+    headers: {
+      ...(includeJson ? { 'Content-Type': 'application/json' } : {}),
+      ...(trustedDeviceToken ? { 'X-Trusted-Device-Token': trustedDeviceToken } : {}),
+      ...(opts.headers || {})
+    },
     ...opts,
   });
 }
@@ -6416,11 +6489,41 @@ async function checkAuth() {
       banner.classList.remove('show');
       authCheckComplete = true;
       updateDemoModeUi();
+      maybeHandlePairingClaimResult();
       maybeHandleDeviceApprovalLink();
       return true;
     }
   } catch (e) {
     console.error(e);
+  }
+
+  const storedLogin = getStoredBrowserLogin();
+  if (storedLogin.email && storedLogin.password) {
+    try {
+      const loginRes = await sessionOnlyFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: storedLogin.email, password: storedLogin.password })
+      });
+      const loginData = await loginRes.json().catch(() => ({}));
+      if (loginRes.ok) {
+        currentUser = loginData.user || null;
+        currentUserStats = loginData.stats || currentUserStats;
+        householdLeaderboard = loginData.leaderboard || householdLeaderboard;
+        if (loginData.app_config) applyAppConfig(loginData.app_config);
+        if (currentUser?.role === 'admin') {
+          lastSuccessfulAdminAuth = { email: storedLogin.email, password: storedLogin.password };
+        }
+        banner.classList.remove('show');
+        authCheckComplete = true;
+        updateDemoModeUi();
+        maybeHandlePairingClaimResult();
+        maybeHandleDeviceApprovalLink();
+        return true;
+      }
+      clearStoredBrowserLogin();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   currentUser = null;
@@ -6433,6 +6536,7 @@ async function checkAuth() {
     help.textContent = 'You are browsing demo data in read-only mode. Sign in to upload receipts, edit products, and save real household changes.';
   }
   updateDemoModeUi();
+  maybeHandlePairingClaimResult();
   maybeHandleDeviceApprovalLink();
   return false;
 }
@@ -6464,10 +6568,41 @@ function updateDemoModeUi() {
   updateBudgetEditorAccess();
 }
 
+function maybeHandlePairingClaimResult() {
+  const url = new URL(window.location.href);
+  const claim = url.searchParams.get('pairing_claim');
+  if (!claim) return;
+  trustedDeviceReclaimInFlight = false;
+  const help = document.getElementById('auth-help');
+  if (claim === 'ok') {
+    toast('Trusted device signed in ✅', 'success');
+  } else if (claim === 'pending') {
+    toast('Pairing is still waiting for admin approval', 'info');
+  } else if (claim === 'rejected') {
+    localStorage.removeItem('trusted_device_pairing_token');
+    toast('Device pairing was rejected', 'error');
+  } else if (claim === 'expired') {
+    localStorage.removeItem('trusted_device_pairing_token');
+    toast('Device pairing expired. Generate a new QR code.', 'error');
+  } else {
+    if (claim === 'unavailable') localStorage.removeItem('trusted_device_pairing_token');
+    toast('Trusted device could not be claimed', 'error');
+  }
+  if (help && claim !== 'ok') {
+    help.textContent = 'Device pairing needs attention. Generate a new QR code or ask an admin to approve the request again.';
+  }
+  url.searchParams.delete('pairing_claim');
+  window.history.replaceState({}, '', url.toString());
+}
+
 function defaultDeviceName() {
   const saved = localStorage.getItem('trusted_device_name');
   if (saved) return saved;
   return 'Kitchen Fridge';
+}
+
+function getTrustedDevicePairingToken() {
+  return localStorage.getItem('trusted_device_pairing_token') || '';
 }
 
 function stopDevicePairingPolling() {
@@ -6519,6 +6654,7 @@ async function startDevicePairing() {
       return;
     }
     localStorage.setItem('trusted_device_name', data.device_name || name);
+    if (data.pairing_token) localStorage.setItem('trusted_device_pairing_token', data.pairing_token);
     activeDevicePairing = data;
     document.getElementById('device-pairing-qr-wrap').style.display = 'block';
     document.getElementById('device-pairing-qr').src = data.qr_image_url;
@@ -6542,16 +6678,14 @@ async function pollDevicePairingStatus() {
       return;
     }
     if (data.status === 'approved' || data.status === 'claimed') {
-      currentUser = data.user || currentUser;
-      if (data.app_config) applyAppConfig(data.app_config);
-      document.getElementById('auth-banner')?.classList.remove('show');
+      await checkAuth();
       closeDevicePairingModal();
-      updateDemoModeUi();
-      toast('Device paired successfully ✅', 'success');
+      toast('Trusted device signed in ✅', 'success');
       loadDashboard();
       return;
     }
     if (data.status === 'rejected' || data.status === 'expired') {
+      localStorage.removeItem('trusted_device_pairing_token');
       document.getElementById('device-pairing-status').textContent = data.status === 'rejected'
         ? 'Pairing was rejected by an admin.'
         : 'Pairing expired. Generate a new QR code.';
@@ -6565,9 +6699,10 @@ async function pollDevicePairingStatus() {
   }
 }
 
-function closeDeviceApprovalModal(clearQuery = false) {
+function closeDeviceApprovalModal(clearQuery = false, clearNotice = true) {
   const overlay = document.getElementById('device-approval-overlay');
   if (overlay) overlay.classList.remove('show');
+  if (clearNotice) setDeviceApprovalNotice();
   if (clearQuery) {
     const url = new URL(window.location.href);
     url.searchParams.delete('pair_device');
@@ -6576,13 +6711,107 @@ function closeDeviceApprovalModal(clearQuery = false) {
   }
 }
 
+function setDeviceApprovalNotice(state = '', data = {}) {
+  const card = document.getElementById('device-approval-notice');
+  const title = document.getElementById('device-approval-inline-title');
+  const summary = document.getElementById('device-approval-inline-summary');
+  const status = document.getElementById('device-approval-inline-status');
+  const authNote = document.getElementById('device-approval-inline-auth-note');
+  const form = document.getElementById('device-approval-inline-form');
+  const reauth = document.getElementById('device-approval-inline-reauth');
+  const name = document.getElementById('device-approval-inline-name');
+  const scope = document.getElementById('device-approval-inline-scope');
+  const reauthEmail = document.getElementById('device-approval-inline-email');
+  if (!card || !title || !summary || !status || !authNote || !form || !reauth) return;
+  if (!state) {
+    card.style.display = 'none';
+    status.style.display = 'none';
+    authNote.style.display = 'none';
+    form.style.display = 'none';
+    reauth.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  title.textContent = data.title || 'Approve Device Pairing';
+  summary.textContent = data.summary || 'Review this pairing request.';
+  status.style.display = data.status ? 'inline-flex' : 'none';
+  status.textContent = data.status || '';
+  authNote.style.display = data.authNote ? 'block' : 'none';
+  authNote.textContent = data.authNote || '';
+  form.style.display = data.showForm ? 'block' : 'none';
+  reauth.style.display = data.showReauth ? 'block' : 'none';
+  if (name && data.deviceName != null) name.value = data.deviceName;
+  if (scope && data.scope != null) scope.value = data.scope;
+  if (reauthEmail && data.adminEmail != null) reauthEmail.value = data.adminEmail;
+}
+
+function getPendingDeviceApprovalValues() {
+  const inlineVisible = document.getElementById('device-approval-inline-form')?.style.display !== 'none';
+  if (inlineVisible) {
+    return {
+      name: document.getElementById('device-approval-inline-name')?.value?.trim() || defaultDeviceName(),
+      scope: document.getElementById('device-approval-inline-scope')?.value || 'shared_household',
+      adminEmail: document.getElementById('device-approval-inline-email')?.value?.trim() || lastSuccessfulAdminAuth.email || '',
+      adminPassword: document.getElementById('device-approval-inline-password')?.value || lastSuccessfulAdminAuth.password || '',
+    };
+  }
+  return {
+    name: document.getElementById('device-approval-name')?.value?.trim() || defaultDeviceName(),
+    scope: document.getElementById('device-approval-scope')?.value || 'shared_household',
+    adminEmail: lastSuccessfulAdminAuth.email || '',
+    adminPassword: lastSuccessfulAdminAuth.password || '',
+  };
+}
+
 async function maybeHandleDeviceApprovalLink() {
   const url = new URL(window.location.href);
   const pairingToken = url.searchParams.get('pair_device');
-  if (!pairingToken) return;
+  if (!pairingToken) {
+    setDeviceApprovalNotice();
+    return;
+  }
   pendingApprovalPairingToken = pairingToken;
-  if (!currentUser) return;
+  if (!currentUser) {
+    const banner = document.getElementById('auth-banner');
+    const help = document.getElementById('auth-help');
+    if (banner) banner.classList.add('show');
+    if (help) {
+      help.textContent = 'Admin sign-in required to approve this device pairing. Sign in on this screen, then the approval prompt will open automatically.';
+    }
+    try {
+      nav('dashboard', document.getElementById('nav-dashboard'));
+    } catch (e) {
+      console.error(e);
+    }
+    setDeviceApprovalNotice('signin', {
+      title: 'Admin Approval Needed',
+      summary: 'This scanned link belongs to a trusted-device pairing request.',
+      authNote: 'Sign in with an admin account on this same browser, then the approval controls will appear automatically.',
+      showForm: true,
+      showReauth: true,
+      deviceName: defaultDeviceName(),
+      scope: 'shared_household',
+      adminEmail: lastSuccessfulAdminAuth.email || document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
+    focusLogin();
+    return;
+  }
   if (currentUser.role !== 'admin') {
+    const help = document.getElementById('auth-help');
+    if (help) {
+      help.textContent = 'This pairing link must be approved by an admin account. Sign out and sign in with an admin on this device to continue.';
+    }
+    setDeviceApprovalNotice('nonadmin', {
+      title: 'Admin Account Required',
+      summary: 'This pairing request can only be approved by an admin account.',
+      authNote: 'Sign out here, then sign back in as an admin to continue.',
+      status: 'Needs admin',
+      showForm: true,
+      showReauth: true,
+      deviceName: defaultDeviceName(),
+      scope: 'shared_household',
+      adminEmail: lastSuccessfulAdminAuth.email || document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
     toast('Only admins can approve trusted devices', 'error');
     return;
   }
@@ -6590,59 +6819,185 @@ async function maybeHandleDeviceApprovalLink() {
     const res = await api(`/auth/device-pairing/status/${encodeURIComponent(pairingToken)}`);
     const data = await res.json();
     if (!res.ok) {
+      setDeviceApprovalNotice('error', {
+        title: 'Pairing Could Not Be Loaded',
+        summary: data.error || 'Could not load this pairing request.',
+        status: 'Unavailable',
+      });
       toast(data.error || 'Could not load pairing request', 'error');
       return;
     }
     if (data.status !== 'pending') {
+      setDeviceApprovalNotice('complete', {
+        title: 'Pairing Already Closed',
+        summary: `This pairing request is already ${data.status}.`,
+        status: data.status,
+      });
       toast(`Pairing is already ${data.status}`, data.status === 'approved' || data.status === 'claimed' ? 'success' : 'info');
-      closeDeviceApprovalModal(true);
+      closeDeviceApprovalModal(true, false);
       return;
     }
     document.getElementById('device-approval-name').value = data.device_name || defaultDeviceName();
     document.getElementById('device-approval-scope').value = data.scope || 'shared_household';
     document.getElementById('device-approval-body').textContent = `Approve persistent access for ${data.device_name || 'this device'}?`;
+    setDeviceApprovalNotice('pending', {
+      title: 'Approve Device Pairing',
+      summary: `Approve persistent access for ${data.device_name || 'this device'}?`,
+      deviceName: data.device_name || defaultDeviceName(),
+      scope: data.scope || 'shared_household',
+      status: 'Pending',
+      showForm: true,
+      showReauth: !currentUser || currentUser.role !== 'admin',
+      adminEmail: lastSuccessfulAdminAuth.email || document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
     document.getElementById('device-approval-overlay').classList.add('show');
   } catch (e) {
     console.error(e);
+    setDeviceApprovalNotice('error', {
+      title: 'Pairing Could Not Be Opened',
+      summary: 'The approval request could not be opened right now.',
+      status: 'Error',
+    });
     toast('Could not open device approval', 'error');
   }
 }
 
 async function approvePendingDevicePairing() {
   if (!pendingApprovalPairingToken) return;
-  const name = document.getElementById('device-approval-name')?.value?.trim() || defaultDeviceName();
-  const scope = document.getElementById('device-approval-scope')?.value || 'shared_household';
+  if (!currentUser || currentUser.role !== 'admin') {
+    const banner = document.getElementById('auth-banner');
+    const help = document.getElementById('auth-help');
+    if (banner) banner.classList.add('show');
+    if (help) {
+      help.textContent = 'Sign in as an admin on this same host to approve the trusted device pairing.';
+    }
+    setDeviceApprovalNotice('signin', {
+      title: 'Admin Sign-In Required',
+      summary: 'This browser is not currently authenticated as an admin on the pairing host.',
+      authNote: 'Sign in here, or enter admin credentials below to approve the device directly.',
+      showForm: true,
+      showReauth: true,
+      adminEmail: document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
+  }
+  const { name, scope, adminEmail, adminPassword } = getPendingDeviceApprovalValues();
   const res = await api('/auth/device-pairing/approve', {
     method: 'POST',
     body: JSON.stringify({
       pairing_token: pendingApprovalPairingToken,
       device_name: name,
       scope,
-      linked_user_id: currentUser?.id
+      linked_user_id: currentUser?.id,
+      admin_email: adminEmail,
+      admin_password: adminPassword,
     })
   });
   const data = await res.json();
+  if (res.status === 401 || res.status === 403) {
+    const overlay = document.getElementById('device-approval-overlay');
+    if (overlay) overlay.classList.remove('show');
+    const banner = document.getElementById('auth-banner');
+    const help = document.getElementById('auth-help');
+    if (banner) banner.classList.add('show');
+    if (help) {
+      help.textContent = 'Your admin session on this host is missing or expired. Sign in here and try approving again.';
+    }
+    setDeviceApprovalNotice('signin', {
+      title: 'Admin Session Required',
+      summary: 'The approval request reached the server, but this browser does not have an active admin session on the pairing host.',
+      authNote: 'Sign in on this browser, or enter admin credentials below and click Approve Device again.',
+      showForm: true,
+      showReauth: true,
+      deviceName: name,
+      scope,
+      adminEmail: adminEmail || document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
+    focusLogin();
+    toast('Admin session required on this host', 'error');
+    return;
+  }
   if (!res.ok) {
+    setDeviceApprovalNotice('pending', {
+      title: 'Approve Device Pairing',
+      summary: data.error || 'Could not approve this device.',
+      deviceName: name,
+      scope,
+      status: 'Pending',
+      showForm: true,
+      showReauth: true,
+    });
     toast(data.error || 'Could not approve device', 'error');
     return;
   }
-  closeDeviceApprovalModal(true);
+  setDeviceApprovalNotice('complete', {
+    title: 'Device Approved',
+    summary: `${data.trusted_device?.name || name} can now sign in on the paired device.`,
+    status: 'Approved',
+  });
+  closeDeviceApprovalModal(true, false);
   toast(`Approved ${data.trusted_device?.name || 'device'} ✅`, 'success');
   if (document.getElementById('page-settings')?.classList.contains('active')) loadTrustedDevices();
 }
 
 async function rejectPendingDevicePairing() {
   if (!pendingApprovalPairingToken) return;
+  if (!currentUser || currentUser.role !== 'admin') {
+    const banner = document.getElementById('auth-banner');
+    const help = document.getElementById('auth-help');
+    if (banner) banner.classList.add('show');
+    if (help) {
+      help.textContent = 'Sign in as an admin on this same host to reject the trusted device pairing.';
+    }
+    setDeviceApprovalNotice('signin', {
+      title: 'Admin Sign-In Required',
+      summary: 'This browser is not currently authenticated as an admin on the pairing host.',
+      authNote: 'Sign in here, or enter admin credentials below to reject the device directly.',
+      showForm: true,
+      showReauth: true,
+      adminEmail: document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
+  }
+  const { adminEmail, adminPassword } = getPendingDeviceApprovalValues();
   const res = await api('/auth/device-pairing/reject', {
     method: 'POST',
-    body: JSON.stringify({ pairing_token: pendingApprovalPairingToken })
+    body: JSON.stringify({
+      pairing_token: pendingApprovalPairingToken,
+      admin_email: adminEmail,
+      admin_password: adminPassword,
+    })
   });
   const data = await res.json();
+  if (res.status === 401 || res.status === 403) {
+    const overlay = document.getElementById('device-approval-overlay');
+    if (overlay) overlay.classList.remove('show');
+    const banner = document.getElementById('auth-banner');
+    const help = document.getElementById('auth-help');
+    if (banner) banner.classList.add('show');
+    if (help) {
+      help.textContent = 'Your admin session on this host is missing or expired. Sign in here and try rejecting again.';
+    }
+    setDeviceApprovalNotice('signin', {
+      title: 'Admin Session Required',
+      summary: 'The rejection request reached the server, but this browser does not have an active admin session on the pairing host.',
+      authNote: 'Sign in on this browser, or enter admin credentials below and click Reject again.',
+      showForm: true,
+      showReauth: true,
+      adminEmail: adminEmail || document.getElementById('auth-email-input')?.value?.trim() || '',
+    });
+    focusLogin();
+    toast('Admin session required on this host', 'error');
+    return;
+  }
   if (!res.ok) {
     toast(data.error || 'Could not reject device', 'error');
     return;
   }
-  closeDeviceApprovalModal(true);
+  setDeviceApprovalNotice('complete', {
+    title: 'Pairing Rejected',
+    summary: 'This device pairing request has been rejected.',
+    status: 'Rejected',
+  });
+  closeDeviceApprovalModal(true, false);
   toast('Device pairing rejected', 'success');
 }
 
@@ -6725,6 +7080,10 @@ async function login() {
   currentUserStats = data.stats || currentUserStats;
   householdLeaderboard = data.leaderboard || householdLeaderboard;
   if (data.app_config) applyAppConfig(data.app_config);
+  storeBrowserLogin(email, password);
+  if (currentUser?.role === 'admin') {
+    lastSuccessfulAdminAuth = { email, password };
+  }
   loginQrCache = null;
   shoppingShareQrCache = null;
   passwordInput.value = '';
@@ -6828,6 +7187,8 @@ async function logout() {
   currentUser = null;
   currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
   householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
+  clearStoredBrowserLogin();
+  localStorage.removeItem('trusted_device_pairing_token');
   loginQrCache = null;
   shoppingShareQrCache = null;
   TOKEN = '';

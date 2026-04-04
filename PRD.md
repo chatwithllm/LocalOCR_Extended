@@ -52,6 +52,7 @@ Shared-core UX requirements:
 - successful login should clear and re-hide the password field
 - trusted shared devices should be pairable without typing household passwords on a fridge/tablet
 - QR pairing should use short-lived approval sessions, not expose long-lived device tokens directly
+- once approved, the shared device should authenticate with a durable trusted-device token so refresh stays stable even if browser sessions are flaky
 - browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
 - desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
 - mobile pages should avoid explanatory copy when compact controls already communicate the workflow

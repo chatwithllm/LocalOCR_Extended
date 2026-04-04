@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 import qrcode
-from flask import Blueprint, jsonify, request, g, session, redirect, send_file
+from flask import Blueprint, jsonify, request, g, session, redirect, send_file, render_template_string
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 
@@ -152,6 +152,16 @@ def verify_password(user: User, password: str) -> bool:
 
 def get_authenticated_user():
     """Resolve current user from session or bearer token."""
+    trusted_device_token = (request.headers.get("X-Trusted-Device-Token") or "").strip()
+    if trusted_device_token:
+        token_hash = hash_token(trusted_device_token)
+        device = g.db_session.query(TrustedDevice).filter_by(token_hash=token_hash).first()
+        if device and device.status == "active":
+            user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+            if user and user.is_active:
+                device.last_seen_at = datetime.now(timezone.utc)
+                return user
+
     trusted_device_id = session.get("trusted_device_id")
     if trusted_device_id:
         device = g.db_session.query(TrustedDevice).filter_by(id=trusted_device_id).first()
@@ -258,6 +268,30 @@ def _get_valid_pairing_session(token: str, *, allow_claimed: bool = False) -> De
     if not allow_claimed and pairing.status not in {"pending", "approved"}:
         return None
     return pairing
+
+
+def _get_admin_actor_from_request_payload(data: dict | None = None) -> User | None:
+    actor = get_authenticated_user()
+    if actor and is_admin(actor):
+        return actor
+
+    payload = data or request.get_json(silent=True) or {}
+    identifier = (payload.get("admin_email") or payload.get("admin_identifier") or "").strip()
+    password = payload.get("admin_password") or ""
+    if not identifier or not password:
+        return None
+
+    user = (
+        g.db_session.query(User)
+        .filter(
+            User.is_active.is_(True),
+            or_(User.email == identifier, User.name == identifier),
+        )
+        .first()
+    )
+    if not user or not is_admin(user) or not verify_password(user, password):
+        return None
+    return user
 
 
 def serialize_user_stats(user: User) -> dict:
@@ -607,7 +641,7 @@ def device_pairing_start():
     )
     g.db_session.add(pairing)
     g.db_session.commit()
-    pairing_url = f"{build_public_base_url()}/?pair_device={quote(pairing_token, safe='')}"
+    pairing_url = f"{build_public_base_url()}/auth/pair-device/{quote(pairing_token, safe='')}"
     return jsonify({
         "pairing_token": pairing_token,
         "pairing_url": pairing_url,
@@ -617,6 +651,100 @@ def device_pairing_start():
         "scope": pairing.scope,
         "status": pairing.status,
     }), 201
+
+
+@auth_bp.route("/pair-device/<token>", methods=["GET"])
+def device_pairing_handoff(token: str):
+    """Render a simple handoff page so QR scans never land on a blank SPA boot."""
+    approve_url = f"{build_public_base_url()}/?pair_device={quote(token, safe='')}"
+    app_name = os.getenv("APP_DISPLAY_NAME", "Extended")
+    return render_template_string(
+        """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_name }} Device Pairing</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0f1117;
+      color: #f5f7ff;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    .card {
+      width: min(560px, 100%);
+      background: #171b26;
+      border: 1px solid rgba(124, 92, 255, 0.28);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+      display: grid;
+      gap: 14px;
+    }
+    .brand { color: #8a76ff; font-size: .92rem; font-weight: 700; }
+    h1 { margin: 0; font-size: 1.55rem; line-height: 1.15; }
+    p { margin: 0; color: #b0b8cb; line-height: 1.55; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(124, 92, 255, 0.35);
+      background: #7c5cff;
+      color: white;
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn.secondary {
+      background: transparent;
+      color: #d9def0;
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .hint {
+      margin-top: 4px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      font-size: .92rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .85rem;
+      color: #d8c8ff;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">{{ app_name }}</div>
+    <h1>Approve this trusted device</h1>
+    <p>Open this on a browser where an admin can sign in. After sign-in, approve the request to pair your fridge or shared screen.</p>
+    <div class="actions">
+      <a class="btn" href="{{ approve_url }}">Continue to approval</a>
+      <a class="btn secondary" href="{{ base_url }}">Open app home</a>
+    </div>
+    <div class="hint">
+      If the approval page still feels empty, sign in first on this same browser and then reopen this link.
+    </div>
+    <code>{{ approve_url }}</code>
+  </div>
+</body>
+</html>""",
+        app_name=app_name,
+        approve_url=approve_url,
+        base_url=build_public_base_url(),
+    )
 
 
 @auth_bp.route("/device-pairing/status/<token>", methods=["GET"])
@@ -674,16 +802,44 @@ def device_pairing_status(token: str):
     }), 200
 
 
+@auth_bp.route("/device-pairing/claim/<token>", methods=["GET"])
+def claim_device_pairing(token: str):
+    """Claim an approved pairing via a top-level navigation so the session persists reliably."""
+    pairing = _get_valid_pairing_session(token, allow_claimed=True)
+    if not pairing:
+        return redirect("/?pairing_claim=expired")
+
+    if pairing.status == "rejected":
+        return redirect("/?pairing_claim=rejected")
+
+    if pairing.status not in {"approved", "claimed"}:
+        return redirect("/?pairing_claim=pending")
+
+    device = g.db_session.query(TrustedDevice).filter_by(id=pairing.trusted_device_id).first()
+    if not device or device.status != "active":
+        return redirect("/?pairing_claim=unavailable")
+
+    if not pairing.claimed_at:
+        pairing.claimed_at = datetime.now(timezone.utc)
+        pairing.status = "claimed"
+    device.last_seen_at = datetime.now(timezone.utc)
+    session["user_id"] = device.linked_user_id
+    session["trusted_device_id"] = device.id
+    session.permanent = True
+    g.db_session.commit()
+    return redirect("/?pairing_claim=ok")
+
+
 @auth_bp.route("/device-pairing/approve", methods=["POST"])
 def approve_device_pairing():
     """Approve a pending pairing request and mint a managed trusted device."""
-    actor = get_authenticated_user()
+    data = request.get_json(silent=True) or {}
+    actor = _get_admin_actor_from_request_payload(data)
     if not actor:
         return jsonify({"error": "Authentication required"}), 401
     if not is_admin(actor):
         return jsonify({"error": "Admin access required"}), 403
 
-    data = request.get_json(silent=True) or {}
     pairing_token = (data.get("pairing_token") or "").strip()
     pairing = _get_valid_pairing_session(pairing_token)
     if not pairing:
@@ -698,12 +854,11 @@ def approve_device_pairing():
 
     device_name = (data.get("device_name") or pairing.device_name or "Trusted Device").strip()[:120] or "Trusted Device"
     scope = _normalize_device_scope(data.get("scope") or pairing.scope)
-    device_token = secrets.token_urlsafe(48)
     trusted_device = TrustedDevice(
         name=device_name,
         scope=scope,
         status="active",
-        token_hash=hash_token(device_token),
+        token_hash=hash_token(pairing_token),
         linked_user_id=linked_user.id,
         created_by_id=actor.id,
         last_seen_at=None,
@@ -728,13 +883,13 @@ def approve_device_pairing():
 
 @auth_bp.route("/device-pairing/reject", methods=["POST"])
 def reject_device_pairing():
-    actor = get_authenticated_user()
+    data = request.get_json(silent=True) or {}
+    actor = _get_admin_actor_from_request_payload(data)
     if not actor:
         return jsonify({"error": "Authentication required"}), 401
     if not is_admin(actor):
         return jsonify({"error": "Admin access required"}), 403
 
-    data = request.get_json(silent=True) or {}
     pairing_token = (data.get("pairing_token") or "").strip()
     pairing = _get_valid_pairing_session(pairing_token)
     if not pairing:
