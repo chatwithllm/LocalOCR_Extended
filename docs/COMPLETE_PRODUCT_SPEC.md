@@ -174,6 +174,8 @@ Authentication UX requirements:
 
 - login password fields may expose an eye toggle for temporary visibility
 - after successful login, password fields must clear and reset to hidden mode
+- shared devices like a fridge tablet should support QR-based pairing without typing account credentials
+- QR pairing must use a short-lived pairing session and require explicit admin approval before persistent access is granted
 - user-edit and password-reset flows should use in-app modal patterns instead of browser-native prompts where browser popups are unreliable
 - compact mobile views should prefer action-first controls over explanatory text blocks
 
@@ -606,12 +608,18 @@ Current QR behaviors:
 - hidden QR access triggered by long-press on brand text
 - login QR for same-user device sign-in
 - shopping helper QR for scoped shopping access
+- trusted-device pairing Phase 1:
+  - device can request a short-lived pairing QR
+  - logged-in admin can approve or reject the pending pairing
+  - approved device can claim a persistent trusted-device session
+  - trusted devices can be listed and revoked in Settings
 
 QR safety requirements:
 
 - helper links must be scoped
 - helper links must not expose full app capabilities
 - login links should be short-lived and safer than password sharing
+- trusted-device pairing QR must carry only a short-lived pairing session, never the persistent device credential itself
 
 ## 18. Operational Hardening
 

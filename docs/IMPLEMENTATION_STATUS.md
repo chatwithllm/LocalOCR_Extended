@@ -111,6 +111,12 @@ Extended-specific runtime changes now in place:
 - settings user edit and password reset now also use in-app modals instead of browser-native prompt dialogs
 - login now supports a password eye toggle and always resets back to hidden after successful sign-in
 - desktop users can now hide the left sidebar and keep that preference after refresh
+- trusted-device pairing Phase 1 is now in progress:
+  - anonymous device can start a short-lived pairing session
+  - pairing QR can be scanned by a logged-in admin
+  - admin can approve or reject the pending device
+  - approved device can claim a persistent trusted-device session
+  - admins can list and revoke trusted devices from Settings
 - Budget page now supports manual entry creation for missing receipts:
   - grocery
   - restaurant

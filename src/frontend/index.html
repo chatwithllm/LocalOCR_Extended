@@ -2667,7 +2667,10 @@
           <button class="btn btn-primary" onclick="login()">Login</button>
         </div>
         <div style="display:flex;justify-content:flex-end">
-          <button class="btn btn-ghost btn-sm" onclick="requestPasswordReset()">Forgot Password?</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openDevicePairingModal()">Pair This Device</button>
+            <button class="btn btn-ghost btn-sm" onclick="requestPasswordReset()">Forgot Password?</button>
+          </div>
         </div>
         <div id="auth-help" style="color:var(--muted);font-size:0.82rem">Sign in with your household account. If you do not have access yet, ask an admin to create your login or reset your password.</div>
       </div>
@@ -3318,6 +3321,17 @@
       </div>
       <div class="card">
         <div class="card-header">
+          <span class="card-title">📱 Trusted Devices</span>
+          <div class="table-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="openDevicePairingModal()">Pair New Device</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadTrustedDevices()">🔄</button>
+          </div>
+        </div>
+        <div id="trusted-devices-note" style="color:var(--muted);font-size:0.84rem">Only admins can view or revoke trusted household devices.</div>
+        <div class="table-wrap" style="margin-top:16px"><div id="trusted-devices-body"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
           <span class="card-title">🧠 Catalog Review</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="review-status-filter" onchange="loadReviewQueue()">
@@ -3413,6 +3427,59 @@
     </div>
   </div>
   <div id="secret-qr-overlay" class="confirm-overlay" aria-hidden="true"></div>
+  <div id="device-pairing-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="device-pairing-title" style="width:min(560px,100%);max-height:min(90vh,920px);overflow:auto">
+      <div id="device-pairing-title" class="confirm-title">Pair This Device</div>
+      <div class="confirm-body">Use this on a fridge or household tablet. Scan the QR code with an admin account that is already signed in.</div>
+      <div style="display:grid;gap:12px;margin-top:14px">
+        <div class="form-group">
+          <label>Device Name</label>
+          <input id="device-pairing-name" placeholder="e.g. Kitchen Fridge" />
+        </div>
+        <div class="form-group">
+          <label>Scope</label>
+          <select id="device-pairing-scope">
+            <option value="shared_household" selected>Shared Household</option>
+            <option value="kitchen_display">Kitchen Display</option>
+            <option value="read_only">Read Only</option>
+          </select>
+        </div>
+        <div id="device-pairing-qr-wrap" style="display:none;text-align:center">
+          <img id="device-pairing-qr" alt="Device pairing QR code" style="width:min(260px,100%);border-radius:14px;background:white;padding:10px" />
+          <div id="device-pairing-status" style="margin-top:10px;color:var(--muted);font-size:0.84rem">Waiting for admin approval…</div>
+          <div id="device-pairing-link" style="margin-top:8px;word-break:break-all;font-size:0.78rem;color:var(--muted)"></div>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="device-pairing-cancel" class="btn btn-ghost" onclick="closeDevicePairingModal()">Close</button>
+        <button type="button" id="device-pairing-start" class="btn btn-primary" onclick="startDevicePairing()">Show QR Code</button>
+      </div>
+    </div>
+  </div>
+  <div id="device-approval-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="device-approval-title" style="width:min(560px,100%);max-height:min(90vh,920px);overflow:auto">
+      <div id="device-approval-title" class="confirm-title">Approve Device Pairing</div>
+      <div id="device-approval-body" class="confirm-body">Review this device before granting persistent household access.</div>
+      <div style="display:grid;gap:12px;margin-top:14px">
+        <div class="form-group">
+          <label>Device Name</label>
+          <input id="device-approval-name" placeholder="Kitchen Fridge" />
+        </div>
+        <div class="form-group">
+          <label>Scope</label>
+          <select id="device-approval-scope">
+            <option value="shared_household" selected>Shared Household</option>
+            <option value="kitchen_display">Kitchen Display</option>
+            <option value="read_only">Read Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" id="device-approval-reject" class="btn btn-danger" onclick="rejectPendingDevicePairing()">Reject</button>
+        <button type="button" id="device-approval-approve" class="btn btn-primary" onclick="approvePendingDevicePairing()">Approve Device</button>
+      </div>
+    </div>
+  </div>
 
 <script>
 // ============================================================
@@ -3448,6 +3515,9 @@ let reviewQueueItems = [];
 let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [] };
 let selectedReceiptId = null;
 let inventorySearchQuery = '';
+let activeDevicePairing = null;
+let devicePairingPollTimer = null;
+let pendingApprovalPairingToken = '';
 let inventoryCategoryFilters = new Set();
 let inventoryAllItemsCache = [];
 let inventorySearchAssistResults = [];
@@ -6113,6 +6183,7 @@ function nav(page, el) {
     document.getElementById('settings-avatar-preview').textContent = currentUser ? getUserAvatar(currentUser) : '🦊';
     if (currentUser) {
       loadUsers();
+      loadTrustedDevices();
       loadReviewQueue();
     }
   }
@@ -6345,6 +6416,7 @@ async function checkAuth() {
       banner.classList.remove('show');
       authCheckComplete = true;
       updateDemoModeUi();
+      maybeHandleDeviceApprovalLink();
       return true;
     }
   } catch (e) {
@@ -6361,6 +6433,7 @@ async function checkAuth() {
     help.textContent = 'You are browsing demo data in read-only mode. Sign in to upload receipts, edit products, and save real household changes.';
   }
   updateDemoModeUi();
+  maybeHandleDeviceApprovalLink();
   return false;
 }
 
@@ -6389,6 +6462,243 @@ function updateDemoModeUi() {
   if (fileInput) fileInput.disabled = demo;
   if (uploadStatus && demo) uploadStatus.textContent = 'Demo mode is read-only. Sign in to upload a real receipt.';
   updateBudgetEditorAccess();
+}
+
+function defaultDeviceName() {
+  const saved = localStorage.getItem('trusted_device_name');
+  if (saved) return saved;
+  return 'Kitchen Fridge';
+}
+
+function stopDevicePairingPolling() {
+  if (devicePairingPollTimer) {
+    clearTimeout(devicePairingPollTimer);
+    devicePairingPollTimer = null;
+  }
+}
+
+function closeDevicePairingModal() {
+  stopDevicePairingPolling();
+  activeDevicePairing = null;
+  const overlay = document.getElementById('device-pairing-overlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+function openDevicePairingModal() {
+  const overlay = document.getElementById('device-pairing-overlay');
+  const nameInput = document.getElementById('device-pairing-name');
+  const scopeInput = document.getElementById('device-pairing-scope');
+  const qrWrap = document.getElementById('device-pairing-qr-wrap');
+  const qrImg = document.getElementById('device-pairing-qr');
+  const status = document.getElementById('device-pairing-status');
+  const link = document.getElementById('device-pairing-link');
+  const startBtn = document.getElementById('device-pairing-start');
+  if (nameInput) nameInput.value = defaultDeviceName();
+  if (scopeInput) scopeInput.value = 'shared_household';
+  if (qrWrap) qrWrap.style.display = 'none';
+  if (qrImg) qrImg.removeAttribute('src');
+  if (status) status.textContent = 'Waiting for admin approval…';
+  if (link) link.textContent = '';
+  if (startBtn) startBtn.textContent = 'Show QR Code';
+  if (overlay) overlay.classList.add('show');
+}
+
+async function startDevicePairing() {
+  const name = document.getElementById('device-pairing-name')?.value?.trim() || defaultDeviceName();
+  const scope = document.getElementById('device-pairing-scope')?.value || 'shared_household';
+  const startBtn = document.getElementById('device-pairing-start');
+  if (startBtn) startBtn.disabled = true;
+  try {
+    const res = await api('/auth/device-pairing/start', {
+      method: 'POST',
+      body: JSON.stringify({ device_name: name, scope })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Could not start device pairing', 'error');
+      return;
+    }
+    localStorage.setItem('trusted_device_name', data.device_name || name);
+    activeDevicePairing = data;
+    document.getElementById('device-pairing-qr-wrap').style.display = 'block';
+    document.getElementById('device-pairing-qr').src = data.qr_image_url;
+    document.getElementById('device-pairing-status').textContent = 'Waiting for admin approval…';
+    document.getElementById('device-pairing-link').textContent = data.pairing_url || '';
+    if (startBtn) startBtn.textContent = 'Refresh QR Code';
+    pollDevicePairingStatus();
+  } finally {
+    if (startBtn) startBtn.disabled = false;
+  }
+}
+
+async function pollDevicePairingStatus() {
+  stopDevicePairingPolling();
+  if (!activeDevicePairing?.pairing_token) return;
+  try {
+    const res = await api(`/auth/device-pairing/status/${encodeURIComponent(activeDevicePairing.pairing_token)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok && res.status !== 404) {
+      document.getElementById('device-pairing-status').textContent = data.error || 'Pairing check failed';
+      return;
+    }
+    if (data.status === 'approved' || data.status === 'claimed') {
+      currentUser = data.user || currentUser;
+      if (data.app_config) applyAppConfig(data.app_config);
+      document.getElementById('auth-banner')?.classList.remove('show');
+      closeDevicePairingModal();
+      updateDemoModeUi();
+      toast('Device paired successfully ✅', 'success');
+      loadDashboard();
+      return;
+    }
+    if (data.status === 'rejected' || data.status === 'expired') {
+      document.getElementById('device-pairing-status').textContent = data.status === 'rejected'
+        ? 'Pairing was rejected by an admin.'
+        : 'Pairing expired. Generate a new QR code.';
+      return;
+    }
+    document.getElementById('device-pairing-status').textContent = 'Waiting for admin approval…';
+    devicePairingPollTimer = setTimeout(pollDevicePairingStatus, 2500);
+  } catch (e) {
+    console.error(e);
+    document.getElementById('device-pairing-status').textContent = 'Could not check pairing status.';
+  }
+}
+
+function closeDeviceApprovalModal(clearQuery = false) {
+  const overlay = document.getElementById('device-approval-overlay');
+  if (overlay) overlay.classList.remove('show');
+  if (clearQuery) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('pair_device');
+    window.history.replaceState({}, '', url.toString());
+    pendingApprovalPairingToken = '';
+  }
+}
+
+async function maybeHandleDeviceApprovalLink() {
+  const url = new URL(window.location.href);
+  const pairingToken = url.searchParams.get('pair_device');
+  if (!pairingToken) return;
+  pendingApprovalPairingToken = pairingToken;
+  if (!currentUser) return;
+  if (currentUser.role !== 'admin') {
+    toast('Only admins can approve trusted devices', 'error');
+    return;
+  }
+  try {
+    const res = await api(`/auth/device-pairing/status/${encodeURIComponent(pairingToken)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Could not load pairing request', 'error');
+      return;
+    }
+    if (data.status !== 'pending') {
+      toast(`Pairing is already ${data.status}`, data.status === 'approved' || data.status === 'claimed' ? 'success' : 'info');
+      closeDeviceApprovalModal(true);
+      return;
+    }
+    document.getElementById('device-approval-name').value = data.device_name || defaultDeviceName();
+    document.getElementById('device-approval-scope').value = data.scope || 'shared_household';
+    document.getElementById('device-approval-body').textContent = `Approve persistent access for ${data.device_name || 'this device'}?`;
+    document.getElementById('device-approval-overlay').classList.add('show');
+  } catch (e) {
+    console.error(e);
+    toast('Could not open device approval', 'error');
+  }
+}
+
+async function approvePendingDevicePairing() {
+  if (!pendingApprovalPairingToken) return;
+  const name = document.getElementById('device-approval-name')?.value?.trim() || defaultDeviceName();
+  const scope = document.getElementById('device-approval-scope')?.value || 'shared_household';
+  const res = await api('/auth/device-pairing/approve', {
+    method: 'POST',
+    body: JSON.stringify({
+      pairing_token: pendingApprovalPairingToken,
+      device_name: name,
+      scope,
+      linked_user_id: currentUser?.id
+    })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not approve device', 'error');
+    return;
+  }
+  closeDeviceApprovalModal(true);
+  toast(`Approved ${data.trusted_device?.name || 'device'} ✅`, 'success');
+  if (document.getElementById('page-settings')?.classList.contains('active')) loadTrustedDevices();
+}
+
+async function rejectPendingDevicePairing() {
+  if (!pendingApprovalPairingToken) return;
+  const res = await api('/auth/device-pairing/reject', {
+    method: 'POST',
+    body: JSON.stringify({ pairing_token: pendingApprovalPairingToken })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not reject device', 'error');
+    return;
+  }
+  closeDeviceApprovalModal(true);
+  toast('Device pairing rejected', 'success');
+}
+
+async function loadTrustedDevices() {
+  const body = document.getElementById('trusted-devices-body');
+  const note = document.getElementById('trusted-devices-note');
+  if (!body || !note) return;
+  if (!currentUser) {
+    note.textContent = 'Sign in to manage trusted household devices.';
+    body.innerHTML = '<div class="empty-state"><p>Sign in to view trusted devices.</p></div>';
+    return;
+  }
+  if (currentUser.role !== 'admin') {
+    note.textContent = 'Only admins can view or revoke trusted household devices.';
+    body.innerHTML = '<div class="empty-state"><p>Your account can use trusted devices, but only admins can manage them.</p></div>';
+    return;
+  }
+  note.textContent = 'Trusted devices stay signed in for shared screens like a fridge tablet. Revoke a device here at any time.';
+  const res = await api('/auth/trusted-devices');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load trusted devices.</p></div>';
+    return;
+  }
+  const devices = data.devices || [];
+  if (!devices.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>No trusted devices yet. Pair one from the login screen or with the button above.</p></div>';
+    return;
+  }
+  body.innerHTML = `
+    <table>
+      <thead><tr><th>Name</th><th>Scope</th><th>User</th><th>Status</th><th>Last Seen</th><th>Actions</th></tr></thead>
+      <tbody>${devices.map(device => `
+        <tr>
+          <td><strong>${escHtml(device.name || 'Trusted Device')}</strong></td>
+          <td>${escHtml(formatLabel(device.scope, 'Shared Household'))}</td>
+          <td>${escHtml(device.linked_user_name || '—')}</td>
+          <td><span class="badge badge-${device.status === 'active' ? 'ok' : 'low'}">${escHtml(formatLabel(device.status, 'Unknown'))}</span></td>
+          <td style="color:var(--muted);font-size:0.8rem">${escHtml(device.last_seen_at ? device.last_seen_at.replace('T', ' ').slice(0, 16) : 'Never')}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="revokeTrustedDevice(${device.id})">Revoke</button></td>
+        </tr>
+      `).join('')}</tbody>
+    </table>`;
+}
+
+async function revokeTrustedDevice(deviceId) {
+  const confirmed = await askConfirm('Revoke trusted device', 'This device will be signed out and must be paired again to regain access.', { okLabel: 'Revoke', danger: true });
+  if (!confirmed) return;
+  const res = await api(`/auth/trusted-devices/${deviceId}/revoke`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) {
+    toast(data.error || 'Could not revoke trusted device', 'error');
+    return;
+  }
+  toast('Trusted device revoked', 'success');
+  loadTrustedDevices();
 }
 
 async function login() {
@@ -6422,6 +6732,7 @@ async function login() {
   banner.classList.remove('show');
   toast('Signed in ✅', 'success');
   updateDemoModeUi();
+  maybeHandleDeviceApprovalLink();
   loadDashboard();
 }
 

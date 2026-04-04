@@ -19,7 +19,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 
 from src.backend.contribution_scores import sum_bonus_points, sum_floating_points
-from src.backend.initialize_database_schema import AccessLink, Product, Purchase, User
+from src.backend.initialize_database_schema import (
+    AccessLink,
+    DevicePairingSession,
+    Product,
+    Purchase,
+    TrustedDevice,
+    User,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +152,18 @@ def verify_password(user: User, password: str) -> bool:
 
 def get_authenticated_user():
     """Resolve current user from session or bearer token."""
+    trusted_device_id = session.get("trusted_device_id")
+    if trusted_device_id:
+        device = g.db_session.query(TrustedDevice).filter_by(id=trusted_device_id).first()
+        if device and device.status == "active":
+            user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+            if user and user.is_active:
+                session["user_id"] = user.id
+                device.last_seen_at = datetime.now(timezone.utc)
+                return user
+        session.pop("trusted_device_id", None)
+        session.pop("user_id", None)
+
     session_user_id = session.get("user_id")
     if session_user_id:
         user = g.db_session.query(User).filter_by(id=session_user_id).first()
@@ -187,6 +206,58 @@ def serialize_user(user: User) -> dict:
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     }
+
+
+def serialize_trusted_device(device: TrustedDevice) -> dict:
+    linked_user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+    creator = g.db_session.query(User).filter_by(id=device.created_by_id).first() if device.created_by_id else None
+    return {
+        "id": device.id,
+        "name": device.name,
+        "scope": device.scope,
+        "status": device.status,
+        "linked_user_id": device.linked_user_id,
+        "linked_user_name": linked_user.name if linked_user else None,
+        "created_by_id": device.created_by_id,
+        "created_by_name": creator.name if creator else None,
+        "last_seen_at": device.last_seen_at.isoformat() if device.last_seen_at else None,
+        "revoked_at": device.revoked_at.isoformat() if device.revoked_at else None,
+        "created_at": device.created_at.isoformat() if device.created_at else None,
+        "updated_at": device.updated_at.isoformat() if device.updated_at else None,
+    }
+
+
+def _normalize_device_scope(value: str | None) -> str:
+    scope = (value or "shared_household").strip().lower()
+    if scope not in {"shared_household", "kitchen_display", "read_only"}:
+        return "shared_household"
+    return scope
+
+
+def _device_pairing_expired(pairing: DevicePairingSession) -> bool:
+    now = datetime.now(timezone.utc)
+    expires_at = pairing.expires_at
+    compare_now = now.replace(tzinfo=None) if expires_at and expires_at.tzinfo is None else now
+    return bool(expires_at and expires_at < compare_now)
+
+
+def _get_valid_pairing_session(token: str, *, allow_claimed: bool = False) -> DevicePairingSession | None:
+    if not token:
+        return None
+    pairing = (
+        g.db_session.query(DevicePairingSession)
+        .filter(DevicePairingSession.pairing_token_hash == hash_token(token))
+        .first()
+    )
+    if not pairing:
+        return None
+    if _device_pairing_expired(pairing):
+        if pairing.status not in {"claimed", "rejected"}:
+            pairing.status = "expired"
+        return None
+    if not allow_claimed and pairing.status not in {"pending", "approved"}:
+        return None
+    return pairing
 
 
 def serialize_user_stats(user: User) -> dict:
@@ -517,6 +588,200 @@ def qr_image():
     image.save(buffer, format="PNG")
     buffer.seek(0)
     return send_file(buffer, mimetype="image/png", max_age=300)
+
+
+@auth_bp.route("/device-pairing/start", methods=["POST"])
+def device_pairing_start():
+    """Start a short-lived trusted-device pairing session."""
+    data = request.get_json(silent=True) or {}
+    device_name = (data.get("device_name") or "Kitchen Fridge").strip()
+    scope = _normalize_device_scope(data.get("scope"))
+    pairing_token = secrets.token_urlsafe(32)
+    pairing = DevicePairingSession(
+        pairing_token_hash=hash_token(pairing_token),
+        device_name=device_name[:120] or "Kitchen Fridge",
+        scope=scope,
+        status="pending",
+        created_by_device=(request.headers.get("User-Agent") or "")[:255] or None,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+    )
+    g.db_session.add(pairing)
+    g.db_session.commit()
+    pairing_url = f"{build_public_base_url()}/?pair_device={quote(pairing_token, safe='')}"
+    return jsonify({
+        "pairing_token": pairing_token,
+        "pairing_url": pairing_url,
+        "qr_image_url": f"{build_public_base_url()}/auth/qr-image?data={quote(pairing_url, safe='')}",
+        "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
+        "device_name": pairing.device_name,
+        "scope": pairing.scope,
+        "status": pairing.status,
+    }), 201
+
+
+@auth_bp.route("/device-pairing/status/<token>", methods=["GET"])
+def device_pairing_status(token: str):
+    """Poll pairing state and claim a trusted-device session after admin approval."""
+    pairing = _get_valid_pairing_session(token, allow_claimed=True)
+    if not pairing:
+        return jsonify({"status": "expired"}), 404
+
+    if pairing.status == "rejected":
+        return jsonify({"status": "rejected"}), 200
+
+    if pairing.status == "approved":
+        device = g.db_session.query(TrustedDevice).filter_by(id=pairing.trusted_device_id).first()
+        if not device or device.status != "active":
+            return jsonify({"status": "error", "error": "Trusted device not available"}), 409
+
+        if not pairing.claimed_at:
+            pairing.claimed_at = datetime.now(timezone.utc)
+            pairing.status = "claimed"
+        device.last_seen_at = datetime.now(timezone.utc)
+        session["user_id"] = device.linked_user_id
+        session["trusted_device_id"] = device.id
+        session.permanent = True
+        g.db_session.commit()
+
+        user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+        return jsonify({
+            "status": "approved",
+            "authenticated": True,
+            "user": serialize_user(user) if user else None,
+            "trusted_device": serialize_trusted_device(device),
+            "app_config": build_app_config(),
+        }), 200
+
+    if pairing.status == "claimed":
+        trusted_device_id = session.get("trusted_device_id")
+        if trusted_device_id == pairing.trusted_device_id:
+            device = g.db_session.query(TrustedDevice).filter_by(id=pairing.trusted_device_id).first()
+            user = g.db_session.query(User).filter_by(id=device.linked_user_id).first() if device else None
+            return jsonify({
+                "status": "claimed",
+                "authenticated": True,
+                "user": serialize_user(user) if user else None,
+                "trusted_device": serialize_trusted_device(device) if device else None,
+                "app_config": build_app_config(),
+            }), 200
+        return jsonify({"status": "claimed"}), 200
+
+    return jsonify({
+        "status": pairing.status,
+        "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
+        "device_name": pairing.device_name,
+        "scope": pairing.scope,
+    }), 200
+
+
+@auth_bp.route("/device-pairing/approve", methods=["POST"])
+def approve_device_pairing():
+    """Approve a pending pairing request and mint a managed trusted device."""
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    pairing_token = (data.get("pairing_token") or "").strip()
+    pairing = _get_valid_pairing_session(pairing_token)
+    if not pairing:
+        return jsonify({"error": "Pairing session not found or expired"}), 404
+    if pairing.status != "pending":
+        return jsonify({"error": f"Pairing session is already {pairing.status}"}), 409
+
+    linked_user_id = int(data.get("linked_user_id") or actor.id)
+    linked_user = g.db_session.query(User).filter_by(id=linked_user_id, is_active=True).first()
+    if not linked_user:
+        return jsonify({"error": "Linked user not found"}), 404
+
+    device_name = (data.get("device_name") or pairing.device_name or "Trusted Device").strip()[:120] or "Trusted Device"
+    scope = _normalize_device_scope(data.get("scope") or pairing.scope)
+    device_token = secrets.token_urlsafe(48)
+    trusted_device = TrustedDevice(
+        name=device_name,
+        scope=scope,
+        status="active",
+        token_hash=hash_token(device_token),
+        linked_user_id=linked_user.id,
+        created_by_id=actor.id,
+        last_seen_at=None,
+    )
+    g.db_session.add(trusted_device)
+    g.db_session.flush()
+
+    pairing.scope = scope
+    pairing.device_name = device_name
+    pairing.status = "approved"
+    pairing.approved_by_user_id = actor.id
+    pairing.trusted_device_id = trusted_device.id
+    pairing.approved_at = datetime.now(timezone.utc)
+    g.db_session.commit()
+
+    return jsonify({
+        "status": "approved",
+        "trusted_device": serialize_trusted_device(trusted_device),
+        "linked_user": serialize_user(linked_user),
+    }), 200
+
+
+@auth_bp.route("/device-pairing/reject", methods=["POST"])
+def reject_device_pairing():
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    pairing_token = (data.get("pairing_token") or "").strip()
+    pairing = _get_valid_pairing_session(pairing_token)
+    if not pairing:
+        return jsonify({"error": "Pairing session not found or expired"}), 404
+
+    pairing.status = "rejected"
+    pairing.approved_by_user_id = actor.id
+    pairing.approved_at = datetime.now(timezone.utc)
+    g.db_session.commit()
+    return jsonify({"status": "rejected"}), 200
+
+
+@auth_bp.route("/trusted-devices", methods=["GET"])
+def list_trusted_devices():
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    devices = (
+        g.db_session.query(TrustedDevice)
+        .order_by(TrustedDevice.status.asc(), TrustedDevice.created_at.desc())
+        .all()
+    )
+    return jsonify({
+        "devices": [serialize_trusted_device(device) for device in devices],
+        "count": len(devices),
+    }), 200
+
+
+@auth_bp.route("/trusted-devices/<int:device_id>/revoke", methods=["POST"])
+def revoke_trusted_device(device_id: int):
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    device = g.db_session.query(TrustedDevice).filter_by(id=device_id).first()
+    if not device:
+        return jsonify({"error": "Trusted device not found"}), 404
+
+    device.status = "revoked"
+    device.revoked_at = datetime.now(timezone.utc)
+    g.db_session.commit()
+    return jsonify({"status": "revoked", "trusted_device": serialize_trusted_device(device)}), 200
 
 
 @auth_bp.route("/me/stats", methods=["GET"])
