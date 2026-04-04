@@ -45,10 +45,28 @@ The app also includes a shared collaboration layer:
 
 - household login and user roles
 - trusted-device QR pairing for shared household screens, with token-based persistence for fridge/tablet devices
+- trusted-device management in Settings:
+  - rename
+  - scope update
+  - revoke
 - contribution tracking and scoring
 - QR helper access for shopping
 - OCR correction and review workflows
 - optional MQTT / Home Assistant integration
+
+Trusted-device scopes:
+
+- `Shared Household`
+  - normal shared-screen access for a fridge or family tablet
+- `Kitchen Display`
+  - lighter shared-screen mode meant for glanceable household use
+- `Read Only`
+  - passive viewing mode for dashboards and lists
+
+Operational note:
+
+- trusted-device pairing and revoke only affect the host/environment that owns the device record
+- a LAN dev host and a production domain will not share trusted-device state unless they point to the same backend and database
 
 ## Main Workspaces
 

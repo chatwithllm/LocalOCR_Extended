@@ -114,11 +114,18 @@ This split gives you a clean safety net:
 - product rename now uses an in-app text modal instead of browser-native prompt
 - login password now supports an eye toggle and resets to hidden after successful sign-in
 - trusted-device pairing Phase 1 is now stable on the feature branch:
+- trusted-device pairing Phase 2 polish is now layered on top:
   - device can start a short-lived pairing QR session
   - admin can approve or reject from the scanned link flow
   - approved shared screens now authenticate with a trusted-device token instead of relying only on fragile browser sessions
   - paired fridge/tablet screens stay signed in across refresh
-  - trusted devices can be listed and revoked in Settings
+  - trusted devices can be listed, renamed, rescoped, and revoked in Settings
+  - Settings now shows:
+    - linked user
+    - created by
+    - relative last seen
+    - clearer scope descriptions
+  - duplicate same-name pairings for the same linked user are consolidated on future approvals and revoked together
 - Settings user edit/reset password flows now use in-app modals instead of browser-native prompts
 - Budget now supports manual entry creation for:
   - grocery
@@ -126,6 +133,7 @@ This split gives you a clean safety net:
   - general expense
 - manual entries create real purchase + manual receipt history so budget and analytics stay accurate even when the image is missing
 - budget updates are now enforced as admin-only on the backend and disabled in the frontend for non-admin users
+- trusted-device management remains environment-specific unless multiple hosts share the same backend/database
 
 ## 5. What Still Belongs To Extended Next
 

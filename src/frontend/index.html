@@ -3474,7 +3474,7 @@
   <div id="device-pairing-overlay" class="confirm-overlay" aria-hidden="true">
     <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="device-pairing-title" style="width:min(560px,100%);max-height:min(90vh,920px);overflow:auto">
       <div id="device-pairing-title" class="confirm-title">Pair This Device</div>
-      <div class="confirm-body">Use this on a fridge or household tablet. Scan the QR code with an admin account that is already signed in.</div>
+      <div class="confirm-body">Set up a trusted household screen like a fridge tablet. Scan the QR code from an admin account to approve it.</div>
       <div style="display:grid;gap:12px;margin-top:14px">
         <div class="form-group">
           <label>Device Name</label>
@@ -3482,11 +3482,12 @@
         </div>
         <div class="form-group">
           <label>Scope</label>
-          <select id="device-pairing-scope">
+          <select id="device-pairing-scope" onchange="updateDeviceScopeHelp('device-pairing-scope', 'device-pairing-scope-help')">
             <option value="shared_household" selected>Shared Household</option>
             <option value="kitchen_display">Kitchen Display</option>
             <option value="read_only">Read Only</option>
           </select>
+          <div id="device-pairing-scope-help" style="margin-top:8px;color:var(--muted);font-size:0.82rem">Best for a fridge or shared household tablet with normal day-to-day access.</div>
         </div>
         <div id="device-pairing-qr-wrap" style="display:none;text-align:center">
           <img id="device-pairing-qr" alt="Device pairing QR code" style="width:min(260px,100%);border-radius:14px;background:white;padding:10px" />
@@ -3511,11 +3512,12 @@
         </div>
         <div class="form-group">
           <label>Scope</label>
-          <select id="device-approval-scope">
+          <select id="device-approval-scope" onchange="updateDeviceScopeHelp('device-approval-scope', 'device-approval-scope-help')">
             <option value="shared_household" selected>Shared Household</option>
             <option value="kitchen_display">Kitchen Display</option>
             <option value="read_only">Read Only</option>
           </select>
+          <div id="device-approval-scope-help" style="margin-top:8px;color:var(--muted);font-size:0.82rem">Best for a fridge or shared household tablet with normal day-to-day access.</div>
         </div>
       </div>
       <div class="confirm-actions">
@@ -5294,6 +5296,30 @@ function formatDateTime(value, fallback = '—') {
   return date.toLocaleString();
 }
 
+function formatRelativeTime(value, fallback = 'Never') {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  const diffMs = Date.now() - date.getTime();
+  const future = diffMs < 0;
+  const absSeconds = Math.round(Math.abs(diffMs) / 1000);
+  if (absSeconds < 45) return future ? 'In a few seconds' : 'Just now';
+  const units = [
+    ['year', 31536000],
+    ['month', 2592000],
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+  ];
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+  for (const [unit, seconds] of units) {
+    if (absSeconds >= seconds) {
+      return formatter.format(future ? Math.ceil(absSeconds / seconds) : -Math.floor(absSeconds / seconds), unit);
+    }
+  }
+  return future ? 'Soon' : 'Just now';
+}
+
 function getRecommendationType(rec) {
   return rec?.type || rec?.reason || 'other';
 }
@@ -5317,6 +5343,30 @@ function formatMoney(value) {
 
 function formatMoneyCompactOneDecimal(value) {
   return `$${Number(value || 0).toFixed(1)}`;
+}
+
+function formatTrustedDeviceScope(scope) {
+  const normalized = String(scope || 'shared_household').trim().toLowerCase();
+  const labelMap = {
+    shared_household: 'Shared Household',
+    kitchen_display: 'Kitchen Display',
+    read_only: 'Read Only',
+  };
+  return labelMap[normalized] || formatLabel(normalized, 'Shared Household');
+}
+
+function describeTrustedDeviceScope(scope) {
+  const normalized = String(scope || 'shared_household').trim().toLowerCase();
+  if (normalized === 'kitchen_display') return 'Best for a fridge or wall tablet with glanceable household access.';
+  if (normalized === 'read_only') return 'Keeps the device in view-only mode for dashboards and lists.';
+  return 'Best for a fridge or shared household tablet with normal day-to-day access.';
+}
+
+function formatTrustedDeviceStatus(status) {
+  const normalized = String(status || 'unknown').trim().toLowerCase();
+  if (normalized === 'active') return 'Active';
+  if (normalized === 'revoked') return 'Revoked';
+  return formatLabel(normalized, 'Unknown');
 }
 
 function formatDateInputValue(date) {
@@ -6601,6 +6651,13 @@ function defaultDeviceName() {
   return 'Kitchen Fridge';
 }
 
+function updateDeviceScopeHelp(selectId, helpId) {
+  const select = document.getElementById(selectId);
+  const help = document.getElementById(helpId);
+  if (!select || !help) return;
+  help.textContent = describeTrustedDeviceScope(select.value);
+}
+
 function getTrustedDevicePairingToken() {
   return localStorage.getItem('trusted_device_pairing_token') || '';
 }
@@ -6630,6 +6687,7 @@ function openDevicePairingModal() {
   const startBtn = document.getElementById('device-pairing-start');
   if (nameInput) nameInput.value = defaultDeviceName();
   if (scopeInput) scopeInput.value = 'shared_household';
+  updateDeviceScopeHelp('device-pairing-scope', 'device-pairing-scope-help');
   if (qrWrap) qrWrap.style.display = 'none';
   if (qrImg) qrImg.removeAttribute('src');
   if (status) status.textContent = 'Waiting for admin approval…';
@@ -6839,6 +6897,7 @@ async function maybeHandleDeviceApprovalLink() {
     }
     document.getElementById('device-approval-name').value = data.device_name || defaultDeviceName();
     document.getElementById('device-approval-scope').value = data.scope || 'shared_household';
+    updateDeviceScopeHelp('device-approval-scope', 'device-approval-scope-help');
     document.getElementById('device-approval-body').textContent = `Approve persistent access for ${data.device_name || 'this device'}?`;
     setDeviceApprovalNotice('pending', {
       title: 'Approve Device Pairing',
@@ -7027,20 +7086,89 @@ async function loadTrustedDevices() {
     body.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>No trusted devices yet. Pair one from the login screen or with the button above.</p></div>';
     return;
   }
-  body.innerHTML = `
-    <table>
-      <thead><tr><th>Name</th><th>Scope</th><th>User</th><th>Status</th><th>Last Seen</th><th>Actions</th></tr></thead>
-      <tbody>${devices.map(device => `
-        <tr>
-          <td><strong>${escHtml(device.name || 'Trusted Device')}</strong></td>
-          <td>${escHtml(formatLabel(device.scope, 'Shared Household'))}</td>
-          <td>${escHtml(device.linked_user_name || '—')}</td>
-          <td><span class="badge badge-${device.status === 'active' ? 'ok' : 'low'}">${escHtml(formatLabel(device.status, 'Unknown'))}</span></td>
-          <td style="color:var(--muted);font-size:0.8rem">${escHtml(device.last_seen_at ? device.last_seen_at.replace('T', ' ').slice(0, 16) : 'Never')}</td>
-          <td><button class="btn btn-sm btn-danger" onclick="revokeTrustedDevice(${device.id})">Revoke</button></td>
-        </tr>
-      `).join('')}</tbody>
-    </table>`;
+  body.innerHTML = devices.map(device => {
+    const scopeLabel = formatTrustedDeviceScope(device.scope);
+    const statusLabel = formatTrustedDeviceStatus(device.status);
+    const lastSeen = formatRelativeTime(device.last_seen_at, 'Never seen');
+    const lastSeenExact = formatDateTime(device.last_seen_at, 'Never');
+    const linkedUser = device.linked_user_name || '—';
+    const createdBy = device.created_by_name || '—';
+    return `
+      <div class="card" style="margin-bottom:12px;padding:16px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:220px;flex:1">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <strong style="font-size:1rem">${escHtml(device.name || 'Trusted Device')}</strong>
+              <span class="badge badge-${device.status === 'active' ? 'ok' : 'low'}">${escHtml(statusLabel)}</span>
+            </div>
+            <div style="margin-top:6px;color:var(--muted);font-size:0.86rem">${escHtml(scopeLabel)} · ${escHtml(describeTrustedDeviceScope(device.scope))}</div>
+            <div style="margin-top:8px;color:var(--muted);font-size:0.82rem">Linked to ${escHtml(linkedUser)} · Added by ${escHtml(createdBy)}</div>
+            <div style="margin-top:4px;color:var(--muted);font-size:0.8rem" title="${escAttr(lastSeenExact)}">Last seen ${escHtml(lastSeen)}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <button class="btn btn-sm btn-ghost" onclick="renameTrustedDevice(${device.id}, decodeURIComponent('${encodeURIComponent(device.name || 'Trusted Device')}'))">Rename</button>
+            <button class="btn btn-sm btn-ghost" onclick="changeTrustedDeviceScope(${device.id}, '${escAttr(device.scope || 'shared_household')}')">Scope</button>
+            <button class="btn btn-sm btn-danger" onclick="revokeTrustedDevice(${device.id})">Revoke</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function renameTrustedDevice(deviceId, currentName) {
+  const nextName = await askForTextInput(
+    'Give this trusted device a clearer household name.',
+    'Rename trusted device',
+    currentName || 'Trusted Device',
+    {
+      placeholder: 'Kitchen Fridge',
+      helpText: 'Use something easy to recognize later, like Kitchen Fridge or Hallway iPad.'
+    }
+  );
+  if (nextName == null) return;
+  const trimmed = String(nextName || '').trim();
+  if (!trimmed) {
+    toast('Device name is required', 'error');
+    return;
+  }
+  const res = await api(`/auth/trusted-devices/${deviceId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name: trimmed })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not rename trusted device', 'error');
+    return;
+  }
+  toast('Trusted device renamed ✅', 'success');
+  loadTrustedDevices();
+}
+
+async function changeTrustedDeviceScope(deviceId, currentScope) {
+  const nextScope = await askForTextInput(
+    'Choose how this trusted device should behave.',
+    'Update device scope',
+    currentScope || 'shared_household',
+    {
+      suggestions: ['shared_household', 'kitchen_display', 'read_only'],
+      useSelectSuggestions: true,
+      helpText: 'Shared Household is best for a fridge tablet. Kitchen Display is lighter. Read Only is safest for passive screens.'
+    }
+  );
+  if (nextScope == null) return;
+  const normalizedScope = String(nextScope || '').trim() || 'shared_household';
+  const res = await api(`/auth/trusted-devices/${deviceId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ scope: normalizedScope })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not update trusted device scope', 'error');
+    return;
+  }
+  toast('Trusted device scope updated ✅', 'success');
+  loadTrustedDevices();
 }
 
 async function revokeTrustedDevice(deviceId) {
@@ -7052,7 +7180,8 @@ async function revokeTrustedDevice(deviceId) {
     toast(data.error || 'Could not revoke trusted device', 'error');
     return;
   }
-  toast('Trusted device revoked', 'success');
+  const revokedCount = Number(data.revoked_count || 0);
+  toast(revokedCount > 1 ? `Revoked ${revokedCount} matching trusted devices` : 'Trusted device revoked', 'success');
   loadTrustedDevices();
 }
 

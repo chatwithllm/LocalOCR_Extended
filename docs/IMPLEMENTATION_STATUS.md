@@ -111,13 +111,15 @@ Extended-specific runtime changes now in place:
 - settings user edit and password reset now also use in-app modals instead of browser-native prompt dialogs
 - login now supports a password eye toggle and always resets back to hidden after successful sign-in
 - desktop users can now hide the left sidebar and keep that preference after refresh
-- trusted-device pairing Phase 1 is now working on the branch:
+- trusted-device pairing is now working with Phase 2 management polish:
   - anonymous device can start a short-lived pairing session
   - pairing QR can be scanned by an admin
   - admin can approve or reject the pending device
   - approved device now authenticates with a trusted-device token on every request
   - paired shared screens stay signed in across refresh
-  - admins can list and revoke trusted devices from Settings
+  - admins can list, rename, rescope, and revoke trusted devices from Settings
+  - Settings now shows relative last-seen state plus linked-user and created-by metadata
+  - same-name duplicate pairings for the same linked user are consolidated on future approvals and revoked together
 - Budget page now supports manual entry creation for missing receipts:
   - grocery
   - restaurant

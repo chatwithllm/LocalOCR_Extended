@@ -854,17 +854,40 @@ def approve_device_pairing():
 
     device_name = (data.get("device_name") or pairing.device_name or "Trusted Device").strip()[:120] or "Trusted Device"
     scope = _normalize_device_scope(data.get("scope") or pairing.scope)
-    trusted_device = TrustedDevice(
-        name=device_name,
-        scope=scope,
-        status="active",
-        token_hash=hash_token(pairing_token),
-        linked_user_id=linked_user.id,
-        created_by_id=actor.id,
-        last_seen_at=None,
+    matching_devices = (
+        g.db_session.query(TrustedDevice)
+        .filter(
+            TrustedDevice.linked_user_id == linked_user.id,
+            TrustedDevice.name == device_name,
+        )
+        .order_by(TrustedDevice.created_at.desc(), TrustedDevice.id.desc())
+        .all()
     )
-    g.db_session.add(trusted_device)
-    g.db_session.flush()
+
+    trusted_device = matching_devices[0] if matching_devices else None
+    if trusted_device:
+        trusted_device.scope = scope
+        trusted_device.status = "active"
+        trusted_device.token_hash = hash_token(pairing_token)
+        trusted_device.created_by_id = actor.id
+        trusted_device.revoked_at = None
+        trusted_device.last_seen_at = None
+    else:
+        trusted_device = TrustedDevice(
+            name=device_name,
+            scope=scope,
+            status="active",
+            token_hash=hash_token(pairing_token),
+            linked_user_id=linked_user.id,
+            created_by_id=actor.id,
+            last_seen_at=None,
+        )
+        g.db_session.add(trusted_device)
+        g.db_session.flush()
+
+    for duplicate in matching_devices[1:]:
+        duplicate.status = "revoked"
+        duplicate.revoked_at = datetime.now(timezone.utc)
 
     pairing.scope = scope
     pairing.device_name = device_name
@@ -910,15 +933,39 @@ def list_trusted_devices():
     if not is_admin(actor):
         return jsonify({"error": "Admin access required"}), 403
 
-    devices = (
-        g.db_session.query(TrustedDevice)
-        .order_by(TrustedDevice.status.asc(), TrustedDevice.created_at.desc())
-        .all()
-    )
+    include_revoked = str(request.args.get("include_revoked") or "").strip().lower() in {"1", "true", "yes"}
+    query = g.db_session.query(TrustedDevice)
+    if not include_revoked:
+        query = query.filter(TrustedDevice.status == "active")
+    devices = query.order_by(TrustedDevice.status.asc(), TrustedDevice.created_at.desc()).all()
     return jsonify({
         "devices": [serialize_trusted_device(device) for device in devices],
         "count": len(devices),
     }), 200
+
+
+@auth_bp.route("/trusted-devices/<int:device_id>", methods=["PUT"])
+def update_trusted_device(device_id: int):
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    device = g.db_session.query(TrustedDevice).filter_by(id=device_id).first()
+    if not device:
+        return jsonify({"error": "Trusted device not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or device.name or "").strip()
+    scope = _normalize_device_scope(data.get("scope") or device.scope)
+    if not name:
+        return jsonify({"error": "Device name is required"}), 400
+
+    device.name = name[:120]
+    device.scope = scope
+    g.db_session.commit()
+    return jsonify({"trusted_device": serialize_trusted_device(device)}), 200
 
 
 @auth_bp.route("/trusted-devices/<int:device_id>/revoke", methods=["POST"])
@@ -933,10 +980,25 @@ def revoke_trusted_device(device_id: int):
     if not device:
         return jsonify({"error": "Trusted device not found"}), 404
 
-    device.status = "revoked"
-    device.revoked_at = datetime.now(timezone.utc)
+    matching_devices = (
+        g.db_session.query(TrustedDevice)
+        .filter(
+            TrustedDevice.linked_user_id == device.linked_user_id,
+            TrustedDevice.name == device.name,
+            TrustedDevice.status == "active",
+        )
+        .all()
+    )
+    revoked_at = datetime.now(timezone.utc)
+    for matching_device in matching_devices:
+        matching_device.status = "revoked"
+        matching_device.revoked_at = revoked_at
     g.db_session.commit()
-    return jsonify({"status": "revoked", "trusted_device": serialize_trusted_device(device)}), 200
+    return jsonify({
+        "status": "revoked",
+        "trusted_device": serialize_trusted_device(device),
+        "revoked_count": len(matching_devices) or 1,
+    }), 200
 
 
 @auth_bp.route("/me/stats", methods=["GET"])

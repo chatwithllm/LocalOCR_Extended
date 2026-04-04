@@ -609,11 +609,18 @@ Current QR behaviors:
 - hidden QR access triggered by long-press on brand text
 - login QR for same-user device sign-in
 - shopping helper QR for scoped shopping access
-- trusted-device pairing Phase 1:
+- trusted-device pairing and management now support:
   - device can request a short-lived pairing QR
   - admin can approve or reject the pending pairing from the scanned-link flow
   - approved device now keeps a trusted-device token locally and authenticates through that token on future requests
-  - trusted devices can be listed and revoked in Settings
+  - trusted devices can be listed, renamed, rescoped, and revoked in Settings
+  - Settings should surface:
+    - device name
+    - scope
+    - linked user
+    - created by
+    - relative last seen
+  - duplicate same-name pairings for the same linked user should be consolidated instead of growing indefinitely
 
 QR safety requirements:
 
@@ -639,6 +646,7 @@ Operational expectation:
 - code changes are versioned in git
 - live data cleanup may happen in runtime DB when needed
 - local secrets remain uncommitted
+- trusted-device state is host/environment specific unless multiple hosts share the same backend/database
 
 ## 19. Current Branch Workflow
 
