@@ -71,6 +71,9 @@ Grocery UX requirements now in place:
 - `Open` and `Close` chips should be able to filter the current shopping list view
 - bought grocery shopping items should remain recoverable through `Reopen`
 - inventory and shopping mobile layouts should prefer compact rows over dense card stacks
+- inventory and products should behave like two modes of one shared workspace, not two separately designed pages
+- inventory search/category tools should be collapsible so they do not dominate the screen when unused
+- location editing should always reflect the item’s current known location and still allow preset or custom updates
 
 ## 5. Restaurant Module
 

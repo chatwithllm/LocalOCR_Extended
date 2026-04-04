@@ -101,6 +101,11 @@ This split gives you a clean safety net:
   - Current List now uses lighter inline controls and compact expandable rows
   - inventory add/search/sort clutter was reduced on phones
   - inventory mobile rows now expand on demand instead of showing every action at once
+- inventory and products now share the same workspace shell instead of feeling like separate pages
+- inventory/product search and category toggles now work on larger screens too, not just mobile
+- grouped inventory rows now prefer the current primary location in the summary instead of falling back to `Mixed`
+- inventory location actions now display the actual current place, for example `📍 Pantry`, and the picker supports both preset and custom locations
+- inventory manual-add now supports smart no-result fallback from search plus optional progressive details
 - desktop sidebar can now be hidden on larger screens and remembered across refreshes
 - household-style display names are now used across recommendations, low-stock, shopping, and inventory
 - duplicate household items in inventory are now grouped in the display layer so the list reads as unique household needs instead of repeated package variants

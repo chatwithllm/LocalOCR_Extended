@@ -62,9 +62,12 @@ The app also includes a shared collaboration layer:
 ### Inventory
 
 - current active grocery inventory
-- search, category chips, sorting
+- shared workspace shell with Products via top toggle
+- search-first tools with `🔍` and `🏷 Categories` toggles
+- manual add from no-result search, with smart prefill when a strong existing match exists
 - rename, recategorize, low/clear-low, location, shopping add
 - receipt traceability for confusing items
+- grouped household rows with current location shown directly in the action strip
 
 ### Products
 

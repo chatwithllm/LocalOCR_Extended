@@ -320,6 +320,8 @@ Grocery operations include:
 
 - merged Inventory / Products workspace
 - toggle between inventory and products view
+- shared search-first shell
+- collapsible search and category controls
 - category filters
 - sort controls
 - receipt traceability from inventory rows
@@ -334,12 +336,22 @@ Inventory behavior:
 - storage locations
 - quantity decrement
 - receipt source lookup
+- grouped household rows
+- current location shown directly in row actions and summary snapshots
+- no-result search path can open manual add instead of keeping add clutter always visible
+- manual add supports progressive optional details:
+  - category
+  - unit
+  - preferred store
+  - add to shopping
+- strong known-item matches may prefill manual-add defaults, but weak or ambiguous names should stay neutral
 
 Products behavior:
 
 - catalog-style cleanup
 - direct rename/category tagging
 - latest price/unit context where known
+- uses the same shared workspace shell and mobile/desktop interaction model as Inventory
 
 Category system currently includes examples like:
 

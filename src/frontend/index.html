@@ -740,6 +740,9 @@
       flex-wrap: wrap;
       margin-left: auto;
     }
+    .inventory-category-toggle {
+      white-space: nowrap;
+    }
     .inventory-search-box {
       width: 220px;
       max-width: 100%;
@@ -748,6 +751,13 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+    }
+    #page-inventory .inventory-tools-collapsed .inventory-search-box,
+    #page-inventory .inventory-tools-collapsed .inventory-sort-chips {
+      display: none;
+    }
+    #page-inventory .inventory-categories-collapsed {
+      display: none;
     }
     .inventory-sort-chip {
       min-width: 32px;
@@ -765,6 +775,113 @@
       border-color: rgba(108, 99, 255, 0.45);
       background: rgba(108, 99, 255, 0.14);
       color: var(--text);
+    }
+    #inventory-add-card {
+      display: none;
+    }
+    #inventory-add-card.inventory-add-open {
+      display: block;
+    }
+    .inventory-search-assist {
+      display: none;
+      margin: 0 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 10px;
+      gap: 8px;
+    }
+    .inventory-search-assist.show {
+      display: grid;
+    }
+    .inventory-search-assist-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .inventory-search-assist-main {
+      min-width: 0;
+    }
+    .inventory-search-assist-name {
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .inventory-search-assist-meta {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+    .inventory-search-assist-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+    }
+    .inventory-search-empty {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px dashed rgba(255,255,255,0.12);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .inventory-search-empty strong {
+      color: var(--text);
+    }
+    .inventory-add-details-toggle {
+      margin-top: 10px;
+      align-self: flex-start;
+    }
+    .inventory-add-details {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(255,255,255,0.08);
+    }
+    .inventory-add-details.show {
+      display: grid;
+    }
+    .inventory-unit-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .inventory-unit-chip-row.single-row {
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .inventory-unit-chip {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      padding: 7px 10px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .inventory-unit-chip.active {
+      border-color: rgba(108, 99, 255, 0.45);
+      background: rgba(108, 99, 255, 0.16);
+      color: var(--text);
+    }
+    .inventory-unit-chip.more-chip {
+      margin-left: auto;
     }
     .shopping-summary-strip {
       display: grid;
@@ -2188,21 +2305,39 @@
       .inventory-header-tools {
         width: 100%;
         display: grid;
-        grid-template-columns: auto;
+        grid-template-columns: auto auto;
         justify-content: stretch;
         gap: 8px;
         margin-left: 0;
       }
+      #inventory-tools-toggle,
+      #inventory-category-toggle {
+        width: 100%;
+      }
       .inventory-search-box {
+        grid-column: 1 / -1;
         width: 100%;
       }
       .inventory-sort-chips {
+        grid-column: 1 / -1;
         width: 100%;
         justify-content: flex-start;
       }
       #page-inventory .inventory-tools-collapsed .inventory-search-box,
       #page-inventory .inventory-tools-collapsed .inventory-sort-chips {
         display: none;
+      }
+      #page-inventory .inventory-categories-collapsed {
+        display: none;
+      }
+      .inventory-search-assist-row,
+      .inventory-search-empty {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .inventory-search-assist-actions {
+        width: 100%;
+        justify-content: flex-start;
       }
       #inv-window-note {
         font-size: 0.8rem;
@@ -2357,27 +2492,52 @@
       <div id="catalog-panel-inventory">
         <div class="card" id="inventory-add-card">
           <div class="card-header">
-            <span class="card-title">Add Item</span>
+            <span class="card-title" id="catalog-add-title">Add Item</span>
             <button type="button" class="btn btn-ghost btn-sm" id="inventory-add-toggle" onclick="toggleInventoryAddCard()">Hide</button>
           </div>
           <div class="form-grid" id="add-inv-form">
-            <div class="form-group"><label>Product Name</label><input id="inv-name" placeholder="e.g. Organic Milk" /></div>
+            <div class="form-group"><label>Product Name</label><input id="inv-name" placeholder="e.g. Organic Milk" oninput="handleInventoryAddNameInput()" /></div>
             <div class="form-group"><label>Quantity</label><input id="inv-qty" type="number" min="0" step="0.1" value="1" /></div>
             <div class="form-group"><label>Location</label>
-              <select id="inv-loc" onchange="handleInventoryLocationChange()"><option>Fridge</option><option>Pantry</option><option>Freezer</option><option>Cabinet</option><option>Laundry Room</option><option value="__custom__">Custom…</option></select>
+              <select id="inv-loc" onchange="handleInventoryLocationChange()"><option>Pantry</option><option>Fridge</option><option>Freezer</option><option>Cabinet</option><option>Laundry Room</option><option value="__custom__">Custom…</option></select>
             </div>
             <div class="form-group" id="inv-custom-loc-wrap" style="display:none"><label>Custom Location</label><input id="inv-custom-loc" placeholder="e.g. Garage Shelf" /></div>
             <div class="form-group"><label>Low-Stock Threshold</label><input id="inv-thresh" type="number" min="0" step="0.1" value="1" /></div>
           </div>
+          <button type="button" class="btn btn-ghost btn-sm inventory-add-details-toggle" id="inventory-add-details-toggle" onclick="toggleInventoryAddDetails()">More details</button>
+          <div class="form-grid inventory-add-details" id="inventory-add-details">
+            <div class="form-group"><label>Category</label><select id="inv-category"></select></div>
+            <div class="form-group">
+              <label>Unit</label>
+              <input id="inv-unit" type="hidden" value="" />
+              <div id="inv-unit-chip-row" class="inventory-unit-chip-row"></div>
+            </div>
+            <div class="form-group"><label>Preferred Store</label><select id="inv-preferred-store"></select></div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <label style="display:flex;align-items:center;gap:8px;margin:0">
+                <input id="inv-add-to-shopping" type="checkbox" />
+                <span>Add to shopping too</span>
+              </label>
+            </div>
+          </div>
           <div class="inventory-add-actions" style="margin-top:16px">
             <button class="btn btn-primary" onclick="addInventoryItem()">➕ Add to Inventory</button>
+          </div>
+          <div id="add-prod-form-shared" style="display:none">
+            <div class="form-grid">
+              <div class="form-group"><label>Name</label><input id="prod-name-shared" placeholder="e.g. Whole Wheat Bread" /></div>
+              <div class="form-group"><label>Category</label><select id="prod-cat-shared">${renderProductCategoryOptionTags('other')}</select></div>
+              <div class="form-group"><label>Barcode (optional)</label><input id="prod-barcode-shared" placeholder="0123456789012" /></div>
+            </div>
+            <div style="margin-top:16px"><button class="btn btn-primary" onclick="createProduct()">➕ Add Product</button></div>
           </div>
         </div>
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Current Inventory</span>
+            <span class="card-title" id="catalog-list-title">Current Inventory</span>
             <div class="inventory-header-tools" id="inventory-header-tools">
               <button type="button" class="btn btn-ghost btn-sm" id="inventory-tools-toggle" onclick="toggleInventoryTools()">🔍</button>
+              <button type="button" class="btn btn-ghost btn-sm inventory-category-toggle" id="inventory-category-toggle" onclick="toggleInventoryCategories()">🏷 Categories</button>
               <input id="inv-search" class="inventory-search-box" placeholder="Search inventory…" oninput="searchInventory()" />
               <div class="inventory-sort-chips">
                 <button type="button" class="inventory-sort-chip" id="inventory-sort-name-asc" onclick="setInventorySort('name_asc')" aria-label="Sort inventory A to Z">A</button>
@@ -2386,6 +2546,7 @@
               </div>
             </div>
           </div>
+          <div id="inventory-search-assist" class="inventory-search-assist"></div>
           <div id="inv-window-note" class="muted" style="margin-bottom:12px"></div>
           <div id="inv-category-chips" class="filter-chip-row"></div>
           <div class="table-wrap"><div id="inv-table-body"></div></div>
@@ -2916,6 +3077,11 @@
       <div id="input-body" class="confirm-body">Enter a new value.</div>
       <div style="margin-top:14px">
         <input id="input-modal-field" type="text" style="width:100%" />
+        <datalist id="input-modal-suggestions"></datalist>
+        <div id="input-modal-help" style="display:none;margin-top:8px;color:var(--muted);font-size:0.82rem"></div>
+      </div>
+      <div id="input-modal-select-wrap" style="display:none;margin-top:14px">
+        <select id="input-modal-select" style="width:100%"></select>
       </div>
       <div class="confirm-actions">
         <button type="button" id="input-cancel" class="btn btn-ghost">Cancel</button>
@@ -2989,6 +3155,10 @@ let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_type
 let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let inventoryCategoryFilters = new Set();
+let inventoryAllItemsCache = [];
+let inventorySearchAssistResults = [];
+let inventorySearchAssistLoading = false;
+let inventorySearchAssistToken = 0;
 let productCategoryFilters = new Set();
 let inventorySort = 'name_asc';
 let productSort = 'name_asc';
@@ -3057,9 +3227,23 @@ let inventoryAddCollapsed = (() => {
     return true;
   }
 })();
+let inventoryAddDetailsVisible = false;
+const INVENTORY_UNIT_USAGE_KEY = 'inventory_unit_usage';
+const INVENTORY_UNIT_OPTIONS = ['gal', 'lb', 'L', 'ct', 'oz', 'kg', 'ml', 'g', 'dozen', 'pack'];
+const INVENTORY_MANUAL_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'condiments', 'household', 'personal_care', 'other'].sort((a, b) => a.localeCompare(b));
+let inventorySelectedUnit = '';
+let inventoryUnitExpanded = false;
 let inventoryToolsCollapsed = (() => {
   try {
     const stored = localStorage.getItem('inventory_tools_collapsed');
+    return stored == null ? true : stored === 'true';
+  } catch (_error) {
+    return true;
+  }
+})();
+let inventoryCategoriesCollapsed = (() => {
+  try {
+    const stored = localStorage.getItem('inventory_categories_collapsed');
     return stored == null ? true : stored === 'true';
   } catch (_error) {
     return true;
@@ -3275,6 +3459,197 @@ function simplifyInventoryDisplayName(name) {
   return simplifyShoppingDisplayName(name);
 }
 
+function titleCaseWord(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+}
+
+function canonicalizeSearchHouseholdName(displayName, query = '') {
+  const normalizedDisplay = String(displayName || '').trim().toLowerCase();
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedDisplay) return '';
+  if (!normalizedQuery) return normalizedDisplay;
+  if (normalizedDisplay === normalizedQuery) return normalizedQuery;
+  if (normalizedDisplay === `${normalizedQuery}s`) return normalizedQuery;
+  if (normalizedDisplay === `${normalizedQuery}es`) return normalizedQuery;
+  if (normalizedQuery.endsWith('o') && normalizedDisplay === `${normalizedQuery}es`) return normalizedQuery;
+  return normalizedDisplay;
+}
+
+function inventoryQueryMatches(item, query) {
+  const haystack = [
+    simplifyInventoryDisplayName(item.product_name || item.name || ''),
+    item.product_name,
+    item.name,
+    item.raw_name,
+    item.display_name,
+    item.brand,
+    item.size,
+    item.category,
+    item.location,
+    item.quantity != null ? String(item.quantity) : '',
+    item.threshold != null ? String(item.threshold) : '',
+  ].join(' ').toLowerCase();
+  return haystack.includes(String(query || '').trim().toLowerCase());
+}
+
+function rankInventorySearchGroup(group, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return 0;
+  const name = String(group.display_name || '').toLowerCase();
+  const rawNames = [...(group.rawNames || [])].join(' ').toLowerCase();
+  let score = 0;
+  if (name === q) score += 300;
+  else if (name.startsWith(q)) score += 180;
+  else if (name.includes(q)) score += 120;
+  if (rawNames.includes(q)) score += 40;
+  if (group.inInventory) score += 25;
+  if (group.isLow) score += 10;
+  return score;
+}
+
+async function loadInventorySearchAssist() {
+  const assistEl = document.getElementById('inventory-search-assist');
+  const query = inventorySearchQuery.trim();
+  if (!assistEl) return;
+  if (!query) {
+    inventorySearchAssistResults = [];
+    inventorySearchAssistLoading = false;
+    assistEl.classList.remove('show');
+    assistEl.innerHTML = '';
+    return;
+  }
+
+  const token = ++inventorySearchAssistToken;
+  inventorySearchAssistLoading = true;
+  renderInventorySearchAssist();
+
+  const groups = new Map();
+  const upsertCandidate = (item, source = 'inventory') => {
+    const rawName = String(item.product_name || item.name || item.raw_name || item.display_name || '').trim();
+    if (!rawName || rawName.length < 2) return;
+    let displayName = simplifyInventoryDisplayName(rawName);
+    if (!displayName || displayName.trim().length < 2) return;
+    if (query && !String(displayName).toLowerCase().includes(query.toLowerCase()) && rawName.toLowerCase().includes(query.toLowerCase())) {
+      displayName = titleCaseWord(query);
+    }
+    const key = canonicalizeSearchHouseholdName(displayName, query);
+    if (!key || key.length < 2) return;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        display_name: titleCaseWord(key),
+        rawNames: new Set(),
+        category: item.category || 'other',
+        brand: item.brand || '',
+        size: item.size || '',
+        inInventory: false,
+        quantity: 0,
+        location: '',
+        latest_price: null,
+        isLow: false,
+        manualLow: false,
+        productId: null,
+        inventoryItemId: null,
+        primaryRawName: rawName,
+      };
+      groups.set(key, group);
+    }
+    group.rawNames.add(rawName);
+    if (!group.productId) group.productId = Number(item.product_id || item.id) || null;
+    if (!group.inventoryItemId && item.id && source === 'inventory') group.inventoryItemId = Number(item.id) || null;
+    if (!group.brand && item.brand) group.brand = item.brand;
+    if (!group.size && item.size) group.size = item.size;
+    if (!group.latest_price?.price && item.latest_price?.price != null) group.latest_price = item.latest_price;
+    if (!group.location && item.location) group.location = item.location;
+    if (source === 'inventory') {
+      group.inInventory = true;
+      group.quantity += Number(item.quantity || 0);
+      group.isLow = group.isLow || Boolean(item.is_low);
+      group.manualLow = group.manualLow || Boolean(item.manual_low);
+      group.display_name = titleCaseWord(key);
+      if (!group.primaryRawName || rankInventorySearchGroup(group, query) < 1) {
+        group.primaryRawName = rawName;
+      }
+    }
+  };
+
+  inventoryAllItemsCache
+    .filter(item => inventoryQueryMatches(item, query))
+    .forEach(item => upsertCandidate(item, 'inventory'));
+
+  if (query.length >= 2) {
+    try {
+      const res = await api(`/products/search?q=${encodeURIComponent(query)}`);
+      if (token !== inventorySearchAssistToken) return;
+      if (res.ok) {
+        const data = await res.json();
+        (data.results || []).forEach(item => upsertCandidate(item, 'product'));
+      }
+    } catch (_error) {
+      // Keep inventory-side matches even if catalog search fails.
+    }
+  }
+
+  if (token !== inventorySearchAssistToken) return;
+  inventorySearchAssistResults = [...groups.values()]
+    .sort((a, b) => rankInventorySearchGroup(b, query) - rankInventorySearchGroup(a, query) || compareText(a.display_name, b.display_name, 'asc'))
+    .slice(0, 6);
+  inventorySearchAssistLoading = false;
+  renderInventorySearchAssist();
+}
+
+function renderInventorySearchAssist() {
+  const assistEl = document.getElementById('inventory-search-assist');
+  const query = inventorySearchQuery.trim();
+  if (!assistEl) return;
+  if (!query) {
+    assistEl.classList.remove('show');
+    assistEl.innerHTML = '';
+    return;
+  }
+  assistEl.classList.add('show');
+  if (inventorySearchAssistLoading) {
+    assistEl.innerHTML = `<div class="inventory-search-empty"><span>Looking for <strong>${escHtml(query)}</strong>…</span></div>`;
+    return;
+  }
+  if (!inventorySearchAssistResults.length) {
+    assistEl.innerHTML = `
+      <div class="inventory-search-empty">
+        <span>No product matched <strong>${escHtml(query)}</strong>.</span>
+        <button type="button" class="btn btn-sm btn-primary" onclick="openInventoryManualAdd(decodeURIComponent('${encodeURIComponent(query)}'))">Add manually</button>
+      </div>
+    `;
+    return;
+  }
+  assistEl.innerHTML = inventorySearchAssistResults.map(item => {
+    const lowLabel = item.manualLow || item.isLow ? 'Clear Low' : 'Low';
+    return `
+      <div class="inventory-search-assist-row">
+        <div class="inventory-search-assist-main">
+          <div class="inventory-search-assist-name">${escHtml(item.display_name)}</div>
+          <div class="inventory-search-assist-meta">${[
+            item.inInventory ? `In inventory${item.quantity ? ` · Qty ${escHtml(String(item.quantity))}` : ''}` : 'Catalog match',
+            item.location || '',
+            item.latest_price?.price != null ? formatMoney(item.latest_price.price) : '',
+          ].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="inventory-search-assist-actions">
+          <button type="button" class="btn btn-sm btn-ghost" onclick="inventorySearchAddBought(${item.productId || 'null'}, decodeURIComponent('${encodeURIComponent(item.primaryRawName)}'), decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), decodeURIComponent('${encodeURIComponent(item.location || 'Pantry')}'))">Bought</button>
+          ${item.productId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.productId}, ${!(item.manualLow || item.isLow)})">${lowLabel}</button>` : ''}
+          <button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.productId || 'null'}, name: decodeURIComponent('${encodeURIComponent(item.primaryRawName)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'inventory_search' })">Cart</button>
+        </div>
+      </div>
+    `;
+  }).join('') + `
+    <div class="inventory-search-empty" style="padding-top:8px;padding-bottom:8px">
+      <span>Not what you need?</span>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="openInventoryManualAdd(decodeURIComponent('${encodeURIComponent(query)}'))">Add manually</button>
+    </div>
+  `;
+}
+
 function mergeShoppingDisplayItems(items = []) {
   const groups = new Map();
   for (const item of items) {
@@ -3336,13 +3711,15 @@ function mergeShoppingDisplayItems(items = []) {
 function setInventorySort(value) {
   inventorySort = value || 'name_asc';
   updateInventorySortControls();
-  loadInventory();
+  if (catalogMode === 'products') loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
+  else loadInventory();
 }
 
 function toggleInventoryPriceSort() {
   inventorySort = inventorySort === 'price_desc' ? 'price_asc' : 'price_desc';
   updateInventorySortControls();
-  loadInventory();
+  if (catalogMode === 'products') loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
+  else loadInventory();
 }
 
 function updateInventorySortControls() {
@@ -3687,23 +4064,240 @@ function updateInventoryAddCardVisibility() {
   const card = document.getElementById('inventory-add-card');
   const toggle = document.getElementById('inventory-add-toggle');
   if (!card || !toggle) return;
-  const collapsed = window.innerWidth <= 640 ? inventoryAddCollapsed : false;
+  const collapsed = inventoryAddCollapsed;
   card.classList.toggle('inventory-add-open', !collapsed);
   toggle.textContent = collapsed ? 'Expand' : 'Hide';
   toggle.setAttribute('aria-label', collapsed ? 'Show add inventory form' : 'Hide add inventory form');
 }
 
-function toggleInventoryAddCard() {
-  inventoryAddCollapsed = !inventoryAddCollapsed;
+function toggleInventoryAddCard(nextOpen = null) {
+  inventoryAddCollapsed = typeof nextOpen === 'boolean' ? !nextOpen : !inventoryAddCollapsed;
   localStorage.setItem('inventory_add_collapsed', String(inventoryAddCollapsed));
   updateInventoryAddCardVisibility();
+  if (!inventoryAddCollapsed) {
+    setTimeout(() => document.getElementById('inv-name')?.focus(), 30);
+  }
+}
+
+function getInventoryUnitUsage() {
+  try {
+    return JSON.parse(localStorage.getItem(INVENTORY_UNIT_USAGE_KEY) || '{}') || {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function rememberInventoryUnitUsage(unit) {
+  const normalized = String(unit || '').trim();
+  if (!normalized) return;
+  const usage = getInventoryUnitUsage();
+  usage[normalized] = Number(usage[normalized] || 0) + 1;
+  try {
+    localStorage.setItem(INVENTORY_UNIT_USAGE_KEY, JSON.stringify(usage));
+  } catch (_error) {}
+}
+
+function getInventoryUnitOptionsOrdered() {
+  const usage = getInventoryUnitUsage();
+  return [...INVENTORY_UNIT_OPTIONS].sort((a, b) => {
+    const diff = Number(usage[b] || 0) - Number(usage[a] || 0);
+    if (diff !== 0) return diff;
+    return INVENTORY_UNIT_OPTIONS.indexOf(a) - INVENTORY_UNIT_OPTIONS.indexOf(b);
+  });
+}
+
+function renderInventoryUnitChips() {
+  const row = document.getElementById('inv-unit-chip-row');
+  const field = document.getElementById('inv-unit');
+  if (!row || !field) return;
+  field.value = inventorySelectedUnit || '';
+  const options = [''].concat(getInventoryUnitOptionsOrdered());
+  const visibleCount = inventoryUnitExpanded ? options.length : Math.min(options.length, 7);
+  const visible = options.slice(0, visibleCount);
+  const hiddenCount = Math.max(options.length - visible.length, 0);
+  row.classList.toggle('single-row', !inventoryUnitExpanded);
+  row.innerHTML = visible.map(unit => {
+    const active = (inventorySelectedUnit || '') === unit;
+    const label = unit || 'None';
+    return `<button type="button" class="inventory-unit-chip ${active ? 'active' : ''}" onclick="setInventoryUnit(${JSON.stringify(unit)})">${escHtml(label)}</button>`;
+  }).join('') + (hiddenCount > 0
+    ? `<button type="button" class="inventory-unit-chip more-chip" onclick="toggleInventoryUnitExpanded()">${inventoryUnitExpanded ? 'Less' : `More +${hiddenCount}`}</button>`
+    : '');
+}
+
+function setInventoryUnit(unit) {
+  inventorySelectedUnit = String(unit || '');
+  const field = document.getElementById('inv-unit');
+  if (field) field.value = inventorySelectedUnit;
+  renderInventoryUnitChips();
+}
+
+function toggleInventoryUnitExpanded() {
+  inventoryUnitExpanded = !inventoryUnitExpanded;
+  renderInventoryUnitChips();
+}
+
+function inferInventoryUnitFromSize(size) {
+  const normalized = String(size || '').toLowerCase();
+  if (!normalized) return '';
+  return INVENTORY_UNIT_OPTIONS.find(unit => new RegExp(`(^|\\b)${unit.toLowerCase()}(\\b|$)`, 'i').test(normalized)) || '';
+}
+
+function tokenizeInventorySearchText(value) {
+  return String(value || '').toLowerCase().match(/[a-z]+/g) || [];
+}
+
+function findBestInventoryPrefillMatch(query) {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  if (!normalizedQuery) return null;
+  const queryTokens = tokenizeInventorySearchText(normalizedQuery);
+  if (!queryTokens.length) return null;
+  const candidates = (inventoryAllItemsCache || []).filter(item => inventoryQueryMatches(item, normalizedQuery));
+  if (!candidates.length) return null;
+  const scored = candidates.map(item => {
+    const displayName = simplifyInventoryDisplayName(item.product_name || item.name || '');
+    const displayLower = displayName.toLowerCase();
+    const rawLower = String(item.product_name || item.name || '').toLowerCase();
+    const displayTokens = tokenizeInventorySearchText(displayLower);
+    const rawTokens = tokenizeInventorySearchText(rawLower);
+    const sharedDisplayTokens = queryTokens.filter(token => displayTokens.includes(token));
+    const sharedRawTokens = queryTokens.filter(token => rawTokens.includes(token));
+    let score = 0;
+    if (displayLower === normalizedQuery) score += 300;
+    else if (displayLower === `${normalizedQuery}s` || displayLower === `${normalizedQuery}es`) score += 260;
+    else if (displayLower.startsWith(normalizedQuery)) score += 180;
+    else if (displayLower.includes(normalizedQuery)) score += 120;
+    if (queryTokens.length === 1) {
+      if (sharedDisplayTokens.length) score += 120;
+      if (sharedRawTokens.length) score += 40;
+    } else {
+      const displayCoverage = sharedDisplayTokens.length / queryTokens.length;
+      const rawCoverage = sharedRawTokens.length / queryTokens.length;
+      score += Math.round(displayCoverage * 140);
+      score += Math.round(rawCoverage * 40);
+      if (displayCoverage === 1) score += 80;
+    }
+    score += Number(item.quantity || 0);
+    if (item.latest_price?.store) score += 5;
+    return {
+      item,
+      score,
+      sharedDisplayTokens,
+      sharedRawTokens,
+      displayLower,
+      rawLower,
+    };
+  }).sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  if (!best) return null;
+  const strongExact = best.displayLower === normalizedQuery || best.displayLower === `${normalizedQuery}s` || best.displayLower === `${normalizedQuery}es`;
+  const singleTokenStrong = queryTokens.length === 1 && best.sharedDisplayTokens.length === 1;
+  const multiTokenStrong = queryTokens.length > 1 && best.sharedDisplayTokens.length >= Math.max(2, queryTokens.length - 1);
+  if (!(strongExact || singleTokenStrong || multiTokenStrong)) return null;
+  return best.item;
+}
+
+function isInventoryAddFormUntouched() {
+  const thresholdValue = String(document.getElementById('inv-thresh')?.value || '1').trim();
+  return (document.getElementById('inv-category')?.value || 'other') === 'other'
+    && !String(document.getElementById('inv-preferred-store')?.value || '').trim()
+    && !String(document.getElementById('inv-unit')?.value || '').trim()
+    && !document.getElementById('inv-add-to-shopping')?.checked
+    && (thresholdValue === '' || thresholdValue === '1');
+}
+
+function applyInventoryAddPrefill(item, { preserveName = true } = {}) {
+  if (!item) return;
+  const nameField = document.getElementById('inv-name');
+  if (nameField && !preserveName) {
+    nameField.value = simplifyInventoryDisplayName(item.product_name || item.name || '');
+  }
+  if (item.location && document.getElementById('inv-loc')) {
+    const locationSelect = document.getElementById('inv-loc');
+    const locationOptions = [...locationSelect.options].map(option => option.value);
+    if (locationOptions.includes(item.location)) {
+      locationSelect.value = item.location;
+      handleInventoryLocationChange();
+    }
+  }
+  if (item.threshold != null && document.getElementById('inv-thresh')) {
+    document.getElementById('inv-thresh').value = String(item.threshold);
+  }
+  if (item.category && document.getElementById('inv-category')) {
+    document.getElementById('inv-category').value = item.category;
+  }
+  if (item.latest_price?.store && document.getElementById('inv-preferred-store')) {
+    document.getElementById('inv-preferred-store').value = item.latest_price.store;
+  }
+  const inferredUnit = inferInventoryUnitFromSize(item.size);
+  if (inferredUnit) {
+    inventorySelectedUnit = inferredUnit;
+    document.getElementById('inv-unit').value = inferredUnit;
+    renderInventoryUnitChips();
+  }
+  if (item.category || inferredUnit || item.latest_price?.store) {
+    inventoryAddDetailsVisible = true;
+    updateInventoryAddDetailsVisibility();
+  }
+}
+
+function maybeAutofillInventoryAddForm(query, options = {}) {
+  if (!query || !isInventoryAddFormUntouched()) return;
+  const match = findBestInventoryPrefillMatch(query);
+  if (!match) return;
+  applyInventoryAddPrefill(match, options);
+}
+
+function handleInventoryAddNameInput() {
+  const query = document.getElementById('inv-name')?.value?.trim() || '';
+  maybeAutofillInventoryAddForm(query, { preserveName: true });
+}
+
+function getInventoryStoreChoices() {
+  const defaults = ['Costco Wholesale', 'Kroger', 'Target', 'India Bazaar'];
+  return [...new Set([...defaults, ...shoppingStoreOptions])].sort((a, b) => a.localeCompare(b));
+}
+
+function renderInventoryStoreOptionTags(selectedValue = '') {
+  const selected = selectedValue || '';
+  return ['<option value="">Any store</option>', ...getInventoryStoreChoices().map(store => `<option value="${escHtml(store)}"${store === selected ? ' selected' : ''}>${escHtml(store)}</option>`)].join('');
+}
+
+function populateInventoryStoreSelect() {
+  const select = document.getElementById('inv-preferred-store');
+  if (!select) return;
+  const currentValue = select.value || '';
+  const options = getInventoryStoreChoices();
+  select.innerHTML = renderInventoryStoreOptionTags(currentValue);
+  select.value = options.includes(currentValue) ? currentValue : '';
+}
+
+function populateInventoryManualCategorySelect() {
+  const select = document.getElementById('inv-category');
+  if (!select) return;
+  const currentValue = select.value || 'other';
+  select.innerHTML = renderInventoryManualCategoryOptionTags(currentValue);
+  select.value = INVENTORY_MANUAL_CATEGORY_OPTIONS.includes(currentValue) ? currentValue : 'other';
+}
+
+function updateInventoryAddDetailsVisibility() {
+  const details = document.getElementById('inventory-add-details');
+  const toggle = document.getElementById('inventory-add-details-toggle');
+  if (!details || !toggle) return;
+  details.classList.toggle('show', inventoryAddDetailsVisible);
+  toggle.textContent = inventoryAddDetailsVisible ? 'Hide details' : 'More details';
+}
+
+function toggleInventoryAddDetails(forceVisible = null) {
+  inventoryAddDetailsVisible = forceVisible === null ? !inventoryAddDetailsVisible : Boolean(forceVisible);
+  updateInventoryAddDetailsVisibility();
 }
 
 function updateInventoryToolsVisibility() {
   const tools = document.getElementById('inventory-header-tools');
   const toggle = document.getElementById('inventory-tools-toggle');
   if (!tools || !toggle) return;
-  const collapsed = window.innerWidth <= 640 ? inventoryToolsCollapsed : false;
+  const collapsed = inventoryToolsCollapsed;
   tools.classList.toggle('inventory-tools-collapsed', collapsed);
   toggle.classList.toggle('btn-primary', !collapsed);
   toggle.classList.toggle('btn-ghost', collapsed);
@@ -3717,6 +4311,23 @@ function toggleInventoryTools() {
   if (!inventoryToolsCollapsed) {
     setTimeout(() => document.getElementById('inv-search')?.focus(), 30);
   }
+}
+
+function updateInventoryCategoryVisibility() {
+  const container = document.getElementById('inv-category-chips');
+  const toggle = document.getElementById('inventory-category-toggle');
+  if (!container || !toggle) return;
+  const collapsed = inventoryCategoriesCollapsed;
+  container.classList.toggle('inventory-categories-collapsed', collapsed);
+  toggle.classList.toggle('btn-primary', !collapsed || inventoryCategoryFilters.size > 0);
+  toggle.classList.toggle('btn-ghost', collapsed && inventoryCategoryFilters.size === 0);
+  toggle.setAttribute('aria-label', collapsed ? 'Show category filters' : 'Hide category filters');
+}
+
+function toggleInventoryCategories() {
+  inventoryCategoriesCollapsed = !inventoryCategoriesCollapsed;
+  localStorage.setItem('inventory_categories_collapsed', String(inventoryCategoriesCollapsed));
+  updateInventoryCategoryVisibility();
 }
 
 function actionScorePill(label, tone = 'info') {
@@ -4207,6 +4818,7 @@ function renderInventoryCategoryChips(items = []) {
       >${escHtml(formatLabel(category, category))}</button>
     `)
   ].join('');
+  updateInventoryCategoryVisibility();
 }
 
 function ensureDefaultReceiptFilters(force = false) {
@@ -4273,6 +4885,10 @@ function askForTextInput(message, title = 'Update value', initialValue = '', opt
   const titleEl = document.getElementById('input-title');
   const bodyEl = document.getElementById('input-body');
   const fieldEl = document.getElementById('input-modal-field');
+  const suggestionsEl = document.getElementById('input-modal-suggestions');
+  const helpEl = document.getElementById('input-modal-help');
+  const selectWrapEl = document.getElementById('input-modal-select-wrap');
+  const selectEl = document.getElementById('input-modal-select');
   const okBtn = document.getElementById('input-ok');
   const cancelBtn = document.getElementById('input-cancel');
 
@@ -4285,6 +4901,59 @@ function askForTextInput(message, title = 'Update value', initialValue = '', opt
   fieldEl.value = initialValue || '';
   fieldEl.type = options.type || 'text';
   fieldEl.placeholder = options.placeholder || '';
+  const suggestions = (options.suggestions || []).filter(Boolean);
+  const useSelectSuggestions = Boolean(options.useSelectSuggestions && suggestions.length && selectWrapEl && selectEl);
+  if (useSelectSuggestions) {
+    const customLabel = options.customOptionLabel || 'Custom…';
+    const initial = String(initialValue || '').trim();
+    const hasInitial = initial && suggestions.includes(initial);
+    const needsCustom = initial && !hasInitial;
+    selectWrapEl.style.display = 'block';
+    selectEl.innerHTML = [
+      ...suggestions.map(value => `<option value="${escAttr(value)}"${value === initial ? ' selected' : ''}>${escHtml(value)}</option>`),
+      `<option value="__custom__"${needsCustom ? ' selected' : ''}>${escHtml(customLabel)}</option>`
+    ].join('');
+    fieldEl.style.display = needsCustom ? '' : 'none';
+    fieldEl.value = needsCustom ? initial : '';
+    fieldEl.removeAttribute('list');
+    if (suggestionsEl) suggestionsEl.innerHTML = '';
+    selectEl.onchange = () => {
+      const isCustom = selectEl.value === '__custom__';
+      fieldEl.style.display = isCustom ? '' : 'none';
+      if (!isCustom) {
+        fieldEl.value = '';
+      } else if (!fieldEl.value && initial && !suggestions.includes(initial)) {
+        fieldEl.value = initial;
+      }
+    };
+    if (helpEl) {
+      helpEl.style.display = 'block';
+      helpEl.textContent = options.helpText || 'Choose a common option or switch to Custom…';
+    }
+  } else {
+    if (selectWrapEl) selectWrapEl.style.display = 'none';
+    if (selectEl) {
+      selectEl.innerHTML = '';
+      selectEl.onchange = null;
+    }
+    if (suggestionsEl) {
+      suggestionsEl.innerHTML = suggestions.map(value => `<option value="${escAttr(value)}"></option>`).join('');
+    }
+    if (suggestions.length) {
+      fieldEl.setAttribute('list', 'input-modal-suggestions');
+      if (helpEl) {
+        helpEl.style.display = 'block';
+        helpEl.textContent = options.helpText || 'Pick a common option or type your own custom value.';
+      }
+    } else {
+      fieldEl.removeAttribute('list');
+      if (helpEl) {
+        helpEl.style.display = 'none';
+        helpEl.textContent = '';
+      }
+    }
+    fieldEl.style.display = '';
+  }
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
 
@@ -4296,10 +4965,28 @@ function askForTextInput(message, title = 'Update value', initialValue = '', opt
       cancelBtn.onclick = null;
       overlay.onclick = null;
       document.onkeydown = null;
+      fieldEl.removeAttribute('list');
+      fieldEl.style.display = '';
+      if (suggestionsEl) suggestionsEl.innerHTML = '';
+      if (selectWrapEl) selectWrapEl.style.display = 'none';
+      if (selectEl) {
+        selectEl.innerHTML = '';
+        selectEl.onchange = null;
+      }
+      if (helpEl) {
+        helpEl.style.display = 'none';
+        helpEl.textContent = '';
+      }
       resolve(result);
     };
 
-    okBtn.onclick = () => finish(fieldEl.value);
+    okBtn.onclick = () => {
+      if (useSelectSuggestions && selectEl && selectEl.value !== '__custom__') {
+        finish(selectEl.value);
+      } else {
+        finish(fieldEl.value);
+      }
+    };
     cancelBtn.onclick = () => finish(null);
     overlay.onclick = (event) => {
       if (event.target === overlay) finish(null);
@@ -4312,10 +4999,21 @@ function askForTextInput(message, title = 'Update value', initialValue = '', opt
       }
     };
     setTimeout(() => {
-      fieldEl.focus();
-      fieldEl.select?.();
+      if (useSelectSuggestions && selectEl) {
+        selectEl.focus();
+      } else {
+        fieldEl.focus();
+        fieldEl.select?.();
+      }
     }, 10);
   });
+}
+
+function getInventoryGroupLocationLabel(group) {
+  const primaryLocation = formatLabel(group?.primaryItem?.location || '', '');
+  if (primaryLocation) return primaryLocation;
+  if (group?.locations?.size) return [...group.locations][0] || '—';
+  return '—';
 }
 
 function formatUserStatus(user) {
@@ -5101,20 +5799,41 @@ function setCatalogMode(mode, options = {}) {
   const inventoryPanel = document.getElementById('catalog-panel-inventory');
   const productsPanel = document.getElementById('catalog-panel-products');
   const note = document.getElementById('catalog-mode-note');
+  const addTitle = document.getElementById('catalog-add-title');
+  const listTitle = document.getElementById('catalog-list-title');
+  const invAddForm = document.getElementById('add-inv-form');
+  const invAddDetails = document.getElementById('inventory-add-details');
+  const invAddDetailsToggle = document.getElementById('inventory-add-details-toggle');
+  const invAddActions = document.querySelector('#inventory-add-card .inventory-add-actions');
+  const prodAddShared = document.getElementById('add-prod-form-shared');
+  const searchInput = document.getElementById('inv-search');
+  const searchAssist = document.getElementById('inventory-search-assist');
 
   if (inventoryBtn) inventoryBtn.className = `btn ${showingInventory ? 'btn-primary' : 'btn-ghost'}`;
   if (productsBtn) productsBtn.className = `btn ${showingInventory ? 'btn-ghost' : 'btn-primary'}`;
-  if (inventoryPanel) inventoryPanel.style.display = showingInventory ? 'block' : 'none';
-  if (productsPanel) productsPanel.style.display = showingInventory ? 'none' : 'block';
+  if (inventoryPanel) inventoryPanel.style.display = 'block';
+  if (productsPanel) productsPanel.style.display = 'none';
   if (note) {
     note.textContent = showingInventory
       ? 'Inventory shows active household stock from the current and previous month.'
       : 'Products shows the full normalized catalog, including OCR names and receipt links.';
   }
+  if (addTitle) addTitle.textContent = showingInventory ? 'Add Item' : 'Add Product';
+  if (listTitle) listTitle.textContent = showingInventory ? 'Current Inventory' : 'Catalog';
+  if (invAddForm) invAddForm.style.display = showingInventory ? '' : 'none';
+  if (invAddDetails) invAddDetails.style.display = showingInventory && inventoryAddDetailsVisible ? '' : 'none';
+  if (invAddDetailsToggle) invAddDetailsToggle.style.display = showingInventory ? '' : 'none';
+  if (invAddActions) invAddActions.style.display = showingInventory ? '' : 'none';
+  if (prodAddShared) prodAddShared.style.display = showingInventory ? 'none' : 'block';
+  if (searchInput) {
+    searchInput.placeholder = showingInventory ? 'Search inventory…' : 'Search catalog…';
+    searchInput.value = showingInventory ? inventorySearchQuery : (document.getElementById('prod-search')?.value || '');
+  }
+  if (searchAssist) searchAssist.style.display = showingInventory ? '' : 'none';
 
   if (options.load) {
     if (showingInventory) loadInventory();
-    else loadProducts(document.getElementById('prod-search')?.value?.trim() || '');
+    else loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
   }
 }
 
@@ -5943,6 +6662,7 @@ async function loadInventory() {
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load inventory.</p></div>'; return; }
   const data = await res.json();
   const allItems = getInventoryItems(data);
+  inventoryAllItemsCache = allItems;
   const note = document.getElementById('inv-window-note');
   if (note) {
     note.textContent = data.window_start
@@ -6029,17 +6749,28 @@ async function loadInventory() {
   if (searchInput && searchInput.value !== inventorySearchQuery) {
     searchInput.value = inventorySearchQuery;
   }
+  await loadInventorySearchAssist();
+  populateInventoryManualCategorySelect();
+  populateInventoryStoreSelect();
+  renderInventoryUnitChips();
   updateInventoryAddCardVisibility();
+  updateInventoryAddDetailsVisibility();
   updateInventoryToolsVisibility();
+  updateInventoryCategoryVisibility();
   updateInventorySortControls();
   if (!allItems.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📦</div><p>No inventory yet. Add items above!</p></div>'; return; }
-  if (!displayGroups.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>'; return; }
+  if (!displayGroups.length) {
+    body.innerHTML = inventorySearchAssistResults.length
+      ? '<div class="empty-state"><div class="icon">🧭</div><p>No active inventory rows match. Use the search result above to mark low, add to cart, or record a purchase.</p></div>'
+      : '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>';
+    return;
+  }
   if (window.innerWidth <= 640) {
     body.innerHTML = `
       <div class="inventory-mobile-list">
         ${displayGroups.map(group => {
           const i = group.primaryItem;
-          const locationLabel = group.locations.size <= 1 ? [...group.locations][0] || '—' : 'Mixed';
+          const locationLabel = getInventoryGroupLocationLabel(group);
           const categoryLabel = group.categories.size <= 1 ? [...group.categories][0] || '' : `${group.categories.size} categories`;
           const variantNote = group.items.length > 1 ? `${group.items.length} entries` : null;
           return `
@@ -6109,7 +6840,7 @@ async function loadInventory() {
               <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Add to shopping list" aria-label="Add to shopping list" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })"><span class="icon">🛒</span><span class="label">Add</span></button>
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
                 <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
-                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
+                <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">${escHtml(formatLabel(i.location, 'Pantry'))}</span></button>
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
                 <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
@@ -6122,55 +6853,75 @@ async function loadInventory() {
   }
   body.innerHTML = `
     <table>
-      <thead><tr><th>Product</th><th>Qty</th><th>Location</th><th>Stock</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Product</th><th>Category</th><th>Entries</th><th>Snapshot</th><th>Actions</th></tr></thead>
       <tbody>${displayGroups.map(group => {
         const i = group.primaryItem;
-        const locationLabel = group.locations.size <= 1 ? [...group.locations][0] || '—' : 'Mixed';
+        const locationLabel = getInventoryGroupLocationLabel(group);
         const categoryLabel = group.categories.size <= 1 ? [...group.categories][0] || '' : `${group.categories.size} categories`;
         return `
         <tr>
+          <td><strong>${escHtml(group.display_name)}</strong></td>
+          <td>${escHtml(categoryLabel || 'Other')}</td>
           <td>
-            <strong>${escHtml(group.display_name)}</strong>
-            <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
-              ${[
-                group.items.length > 1 ? `${group.items.length} entries` : null,
-                i.brand,
-                i.size,
-                i.latest_price?.price != null ? `${formatMoney(i.latest_price.price)}${i.size ? ` · ${i.size}` : ''}` : null,
-                categoryLabel
-              ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
-            </div>
-            ${group.receipts.length ? `
-              <div class="mini-links">
-                ${group.receipts.slice(0, 3).map(link => `
-                  <button
-                    type="button"
-                    class="mini-link"
-                    onclick="jumpToReceipt(${link.receipt_id})"
-                    title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
-                  >
-                    ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
-                  </button>
+            <details>
+              <summary style="cursor:pointer;color:var(--text)">${group.items.length} ${group.items.length === 1 ? 'item' : 'items'}</summary>
+              <div style="display:grid;gap:8px;margin-top:10px">
+                ${group.items.map(item => `
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+                    <div style="min-width:0;flex:1">
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <div style="font-weight:600">${escHtml(simplifyInventoryDisplayName(item.product_name || 'Unknown'))}</div>
+                        ${item.manual_low || item.is_low ? '<span class="badge badge-low">Low</span>' : '<span class="badge badge-ok">OK</span>'}
+                      </div>
+                      <div style="color:var(--muted);font-size:0.78rem">
+                        ${[
+                          `Qty ${item.quantity ?? 0}`,
+                          item.location,
+                          item.brand,
+                          item.size,
+                          item.latest_price?.price != null ? formatMoney(item.latest_price.price) : null
+                        ].filter(Boolean).map(value => escHtml(String(value))).join(' · ')}
+                      </div>
+                      ${item.recent_receipts?.length ? `
+                        <div class="mini-links">
+                          ${item.recent_receipts.slice(0, 3).map(link => `
+                            <button
+                              type="button"
+                              class="mini-link"
+                              onclick="jumpToReceipt(${link.receipt_id})"
+                              title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}"
+                            >
+                              ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                            </button>
+                          `).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(item.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒 Add</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.product_id}, decodeURIComponent('${encodeURIComponent(item.product_name || '')}'))">Rename</button>
+                      <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.product_id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="updateInventoryLocation(${item.id}, decodeURIComponent('${encodeURIComponent(item.location || 'Pantry')}'))">📍 ${escHtml(formatLabel(item.location, 'Pantry'))}</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.product_id}, ${!item.manual_low})">${item.manual_low ? 'Clear Low' : 'Low'}</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="consumeItem(${item.id})">−1 Consume</button>
+                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteInventoryItem(${item.id})">🗑 Delete</button>
+                    </div>
+                  </div>
                 `).join('')}
               </div>
-            ` : ''}
+            </details>
           </td>
-          <td>${group.quantity}</td>
-          <td><span class="badge badge-${normalizeBadge(locationLabel, 'pantry')}">${locationLabel}</span></td>
-          <td>${group.manual_low
-            ? '<span class="badge badge-low">Low</span>'
-            : group.is_low
-              ? '<span class="badge badge-low">Low</span>'
-              : '<span class="badge badge-ok">OK</span>'}</td>
+          <td style="color:var(--muted);font-size:0.82rem">
+            ${[
+              `Qty ${group.quantity}`,
+              locationLabel,
+              i.latest_price?.price != null ? formatMoney(i.latest_price.price) : null
+            ].filter(Boolean).map(value => escHtml(String(value))).join(' · ')}
+          </td>
           <td>
             <div class="action-strip">
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Add to shopping list" aria-label="Add to shopping list" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })"><span class="icon">🛒</span><span class="label">Add</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Rename item" aria-label="Rename item" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || '')}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
-              <select class="inline-select" title="Change category" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || 'Pantry')}'))"><span class="icon">📍</span><span class="label">Location</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? 'Clear low flag' : 'Mark low'}" aria-label="${i.manual_low ? 'Clear low flag' : 'Mark low'}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? '🟢' : '🟡'}</span><span class="label">${i.manual_low ? 'Clear Low' : 'Low'}</span></button>
-              <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
-              <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ name: decodeURIComponent('${encodeURIComponent(i.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(i.category || 'other')}'), quantity: 1, source: 'inventory' })">🛒 Add</button>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})">${i.manual_low || i.is_low ? 'Clear Low' : 'Low'}</button>
             </div>
           </td>
         </tr>`;}).join('')}
@@ -6180,18 +6931,25 @@ async function loadInventory() {
 
 function searchInventory() {
   inventorySearchQuery = document.getElementById('inv-search')?.value || '';
+  if (catalogMode === 'products') {
+    clearTimeout(window._searchTimer);
+    window._searchTimer = setTimeout(() => loadProducts(inventorySearchQuery), 250);
+    return;
+  }
   loadInventory();
 }
 
 function toggleInventoryCategoryFilter(category) {
   if (inventoryCategoryFilters.has(category)) inventoryCategoryFilters.delete(category);
   else inventoryCategoryFilters.add(category);
-  loadInventory();
+  if (catalogMode === 'products') loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
+  else loadInventory();
 }
 
 function clearInventoryCategoryFilters() {
   inventoryCategoryFilters.clear();
-  loadInventory();
+  if (catalogMode === 'products') loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
+  else loadInventory();
 }
 
 function renderProductCategoryChips(items) {
@@ -6238,6 +6996,13 @@ function renderProductCategoryOptionTags(selectedCategory = 'other') {
   `).join('');
 }
 
+function renderInventoryManualCategoryOptionTags(selectedCategory = 'other') {
+  const normalized = String(selectedCategory || 'other').trim().toLowerCase() || 'other';
+  return INVENTORY_MANUAL_CATEGORY_OPTIONS.map(category => `
+    <option value="${escAttr(category)}" ${category === normalized ? 'selected' : ''}>${escHtml(formatLabel(category, category))}</option>
+  `).join('');
+}
+
 async function updateProductCategory(productId, nextCategory) {
   const category = String(nextCategory || 'other').trim().toLowerCase() || 'other';
   const res = await api(`/products/${productId}/update`, {
@@ -6261,6 +7026,10 @@ async function addInventoryItem() {
   if (!name) { toast('Enter a product name', 'error'); return; }
   const location = getSelectedInventoryLocation();
   if (!location) { toast('Enter a location', 'error'); return; }
+  const category = document.getElementById('inv-category')?.value || 'other';
+  const size = document.getElementById('inv-unit')?.value || '';
+  const preferredStore = document.getElementById('inv-preferred-store')?.value || '';
+  const addToShoppingToo = Boolean(document.getElementById('inv-add-to-shopping')?.checked);
   const res = await api('/inventory/add-item', {
     method: 'POST',
     body: JSON.stringify({
@@ -6268,16 +7037,67 @@ async function addInventoryItem() {
       quantity: parseFloat(document.getElementById('inv-qty').value) || 1,
       location,
       threshold: parseFloat(document.getElementById('inv-thresh').value) || 1,
+      category,
+      size,
     })
   });
   if (res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    if (addToShoppingToo) {
+      await quickAddToShoppingList({
+        product_id: payload.product_id || null,
+        name,
+        category,
+        quantity: 1,
+        preferred_store: preferredStore,
+        source: 'inventory_manual_add',
+      });
+    }
     toast(`${name} added to inventory ✅`, 'success');
+    rememberInventoryUnitUsage(size);
     document.getElementById('inv-name').value = '';
     document.getElementById('inv-loc').value = 'Pantry';
+    document.getElementById('inv-category').value = 'other';
+    inventoryUnitExpanded = false;
+    inventorySelectedUnit = '';
+    document.getElementById('inv-unit').value = '';
+    renderInventoryUnitChips();
+    document.getElementById('inv-preferred-store').value = '';
+    document.getElementById('inv-add-to-shopping').checked = false;
+    inventoryAddDetailsVisible = false;
+    updateInventoryAddDetailsVisibility();
     handleInventoryLocationChange();
     loadInventory();
   }
   else { const e = await res.json(); toast(e.error || 'Failed to add item', 'error'); }
+}
+
+function openInventoryManualAdd(prefill = '') {
+  toggleInventoryAddCard(true);
+  const nameField = document.getElementById('inv-name');
+  if (nameField) {
+    nameField.value = String(prefill || '').trim();
+    nameField.focus();
+    nameField.select?.();
+  }
+  maybeAutofillInventoryAddForm(prefill, { preserveName: true });
+}
+
+async function inventorySearchAddBought(productId, productName, category = 'other', location = 'Pantry') {
+  const payload = productId
+    ? { product_id: productId, quantity: 1, location: location || 'Pantry' }
+    : { product_name: productName, category, quantity: 1, location: location || 'Pantry' };
+  const res = await api('/inventory/add-item', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not add this item to inventory', 'error');
+    return;
+  }
+  toast(`${simplifyInventoryDisplayName(productName)} added to inventory ✅`, 'success');
+  await Promise.all([loadInventory(), loadDashboard()]);
 }
 
 async function consumeItem(id) {
@@ -6292,7 +7112,18 @@ async function deleteInventoryItem(id) {
 }
 
 async function updateInventoryLocation(itemId, currentLocation) {
-  const nextLocation = prompt('Update storage location', currentLocation || 'Pantry');
+  const nextLocation = await askForTextInput(
+    'Update the storage location for this inventory item.',
+    'Update location',
+    currentLocation || 'Pantry',
+    {
+      placeholder: 'Pantry, Fridge, Cabinet…',
+      suggestions: ['Pantry', 'Fridge', 'Freezer', 'Cabinet', 'Laundry Room', 'Closet', 'Garage Shelf'],
+      helpText: 'Choose a common location or switch to Custom… to type your own.',
+      useSelectSuggestions: true,
+      customOptionLabel: 'Custom…'
+    }
+  );
   if (nextLocation === null) return;
   if (!nextLocation.trim()) {
     toast('Location cannot be blank', 'error');
@@ -6359,29 +7190,110 @@ async function handleDashboardLowAction(productId, action) {
 async function loadProducts(query = '') {
   const url = query ? `/products/search?q=${encodeURIComponent(query)}` : '/products';
   const res = await api(url);
-  const body = document.getElementById('prod-table-body');
+  const body = catalogMode === 'products'
+    ? document.getElementById('inv-table-body')
+    : document.getElementById('prod-table-body');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load products.</p></div>'; return; }
   const data = await res.json();
   const allItems = data.products || data.results || [];
-  renderProductCategoryChips(allItems);
-  const items = productCategoryFilters.size
-    ? allItems.filter(item => productCategoryFilters.has(String(item.category || '').toLowerCase()))
+  if (catalogMode === 'products') renderInventoryCategoryChips(allItems);
+  else renderProductCategoryChips(allItems);
+  const activeCategoryFilters = catalogMode === 'products' ? inventoryCategoryFilters : productCategoryFilters;
+  const items = activeCategoryFilters.size
+    ? allItems.filter(item => activeCategoryFilters.has(String(item.category || '').toLowerCase()))
     : allItems;
-  const productSortEl = document.getElementById('prod-sort');
-  if (productSortEl && productSortEl.value !== productSort) productSortEl.value = productSort;
   const groups = groupProducts(items);
   groups.sort((a, b) => {
-    if (productSort === 'variants_desc') return compareNumber(a.count, b.count, 'desc') || compareText(a.family, b.family, 'asc');
-    if (productSort === 'category_asc') return compareText(a.displayCategory, b.displayCategory, 'asc') || compareText(a.family, b.family, 'asc');
-    if (productSort === 'recent_desc') {
+    const effectiveSort = catalogMode === 'products'
+      ? (inventorySort === 'name_desc' ? 'name_desc' : inventorySort === 'price_desc' || inventorySort === 'price_asc' ? 'recent_desc' : 'name_asc')
+      : productSort;
+    if (effectiveSort === 'variants_desc') return compareNumber(a.count, b.count, 'desc') || compareText(a.family, b.family, 'asc');
+    if (effectiveSort === 'category_asc') return compareText(a.displayCategory, b.displayCategory, 'asc') || compareText(a.family, b.family, 'asc');
+    if (effectiveSort === 'name_desc') return compareText(a.family, b.family, 'desc');
+    if (effectiveSort === 'recent_desc') {
       const left = a.items.reduce((latest, item) => item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest, '');
       const right = b.items.reduce((latest, item) => item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest, '');
       return compareDateValue(left, right, 'desc') || compareText(a.family, b.family, 'asc');
     }
     return compareText(a.family, b.family, 'asc');
   });
-  document.getElementById('prod-count').textContent = `${groups.length} groups / ${items.length} items`;
+  if (catalogMode !== 'products') {
+    document.getElementById('prod-count').textContent = `${groups.length} groups / ${items.length} items`;
+  } else {
+    const listTitle = document.getElementById('catalog-list-title');
+    if (listTitle) listTitle.textContent = `Catalog (${groups.length} groups / ${items.length} items)`;
+    const note = document.getElementById('inv-window-note');
+    if (note) note.textContent = 'Catalog shows grouped product families, OCR-normalized names, and receipt history.';
+  }
   if (!items.length) { body.innerHTML = '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>'; return; }
+  if (catalogMode === 'products' && window.innerWidth <= 640) {
+    body.innerHTML = `
+      <div class="inventory-mobile-list">
+        ${groups.map(group => {
+          const key = `product:${group.key}`;
+          const primary = group.primaryItem;
+          const latestPurchase = group.items.reduce((latest, item) => item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest, '');
+          return `
+            <div class="inventory-mobile-card ${inventoryMobileItemExpanded[key] ? 'expanded' : ''}">
+              <div class="inventory-mobile-summary" role="button" tabindex="0" onclick="toggleInventoryMobileItem('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleInventoryMobileItem('${key}');}">
+                <div style="min-width:0">
+                  <div class="inventory-mobile-name">${escHtml(group.family)}</div>
+                  <div class="inventory-mobile-meta">${[
+                    formatLabel(group.displayCategory, 'Other'),
+                    `${group.count} ${group.count === 1 ? 'item' : 'items'}`,
+                    latestPurchase ? `Recent ${latestPurchase}` : null
+                  ].filter(Boolean).join(' · ')}</div>
+                </div>
+                <div class="inventory-mobile-summary-right">
+                  <div class="inventory-mobile-summary-badges">
+                    <span class="badge badge-${normalizeBadge(group.displayCategory, 'other')}">${escHtml(formatLabel(group.displayCategory, 'Other'))}</span>
+                  </div>
+                  <span class="inventory-mobile-chevron">▾</span>
+                </div>
+              </div>
+              <div class="inventory-mobile-detail">
+                <div class="inventory-mobile-meta">${group.examples.map(example => escHtml(example)).join(', ')}</div>
+                <div class="inventory-mobile-actions">
+                  <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="quickAddToShoppingList({ product_id: ${primary.id}, name: decodeURIComponent('${encodeURIComponent(primary.name)}'), category: decodeURIComponent('${encodeURIComponent(primary.category || 'other')}'), quantity: 1, source: 'product' })"><span class="icon">🛒</span><span class="label">Add</span></button>
+                  <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="setProductLowStatus(${primary.id}, ${!primary.manual_low})"><span class="icon">${primary.manual_low ? '🟢' : '🟡'}</span><span class="label">${primary.manual_low ? 'Clear Low' : 'Low'}</span></button>
+                </div>
+                <div style="display:grid;gap:8px">
+                  ${group.items.map(item => `
+                    <div style="display:grid;gap:6px;padding:8px 10px;border:1px solid rgba(255,255,255,0.05);border-radius:10px;background:rgba(255,255,255,0.02)">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <strong>${escHtml(item.name)}</strong>
+                        ${item.manual_low || item.is_low ? '<span class="badge badge-low">Low</span>' : ''}
+                      </div>
+                      <div class="inventory-mobile-meta">${[
+                        item.brand,
+                        item.size,
+                        item.latest_price?.price != null ? formatMoney(item.latest_price.price) : null,
+                        item.last_purchase_date ? `Purchased ${item.last_purchase_date}` : null
+                      ].filter(Boolean).map(value => escHtml(String(value))).join(' · ')}</div>
+                      ${item.recent_receipts?.length ? `
+                        <div class="mini-links">
+                          ${item.recent_receipts.map(link => `
+                            <button type="button" class="mini-link" onclick="jumpToReceipt(${link.receipt_id})" title="${escHtml(`${link.store || 'Unknown'} · ${link.date || '—'} · ${formatMoney(link.total || 0)}`)}">
+                              ${escHtml(link.store || 'Receipt')} · ${escHtml(link.date || '—')}
+                            </button>
+                          `).join('')}
+                        </div>
+                      ` : ''}
+                      <div class="inventory-mobile-actions">
+                        <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'product' })"><span class="icon">🛒</span><span class="label">Add</span></button>
+                        <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
+                        <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>`;
+    return;
+  }
   body.innerHTML = `
     <table>
       <thead><tr><th>Type</th><th>Category</th><th>Variants</th><th>Examples</th><th>Actions</th></tr></thead>
@@ -6458,23 +7370,29 @@ async function loadProducts(query = '') {
 }
 
 function searchProducts() {
-  const q = document.getElementById('prod-search').value;
+  const q = catalogMode === 'products'
+    ? (document.getElementById('inv-search')?.value || '')
+    : document.getElementById('prod-search').value;
   clearTimeout(window._searchTimer);
   window._searchTimer = setTimeout(() => loadProducts(q), 300);
 }
 
 async function createProduct() {
-  const name = document.getElementById('prod-name').value.trim();
+  const nameField = catalogMode === 'products' ? document.getElementById('prod-name-shared') : document.getElementById('prod-name');
+  const categoryField = catalogMode === 'products' ? document.getElementById('prod-cat-shared') : document.getElementById('prod-cat');
+  const barcodeField = catalogMode === 'products' ? document.getElementById('prod-barcode-shared') : document.getElementById('prod-barcode');
+  const name = nameField.value.trim();
   if (!name) { toast('Enter a product name', 'error'); return; }
   const res = await api('/products/create', {
     method: 'POST',
-    body: JSON.stringify({ name, category: document.getElementById('prod-cat').value, barcode: document.getElementById('prod-barcode').value || null })
+    body: JSON.stringify({ name, category: categoryField.value, barcode: barcodeField.value || null })
   });
   if (res.ok) {
     toast(`${name} created ✅`, 'success');
-    document.getElementById('prod-name').value = '';
-    document.getElementById('prod-barcode').value = '';
-    loadProducts();
+    nameField.value = '';
+    barcodeField.value = '';
+    if (catalogMode === 'products') loadProducts(document.getElementById('inv-search')?.value?.trim() || '');
+    else loadProducts();
   } else { const e = await res.json(); toast(e.error || 'Failed', 'error'); }
 }
 
