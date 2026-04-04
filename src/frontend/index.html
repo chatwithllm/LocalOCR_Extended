@@ -92,6 +92,16 @@
 
     /* ---- Header ---- */
     .page-header { margin-bottom: 28px; }
+    .page-header::before {
+      content: attr(data-brand);
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
     .page-header h1 { font-size: 1.6rem; font-weight: 700; }
     .page-header p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
     .inventory-page-controls {
@@ -121,24 +131,35 @@
     .stat-card.danger .stat-value { color: var(--danger); }
     .dashboard-combo-stat {
       display: grid;
-      gap: 10px;
-    }
-    .dashboard-combo-stat .stat-label {
-      margin-bottom: 0;
+      gap: 8px;
     }
     .dashboard-combo-grid {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 18px;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      align-items: start;
     }
     .dashboard-combo-item {
       min-width: 0;
+      text-align: center;
+      padding: 0 8px;
+    }
+    .dashboard-combo-item + .dashboard-combo-item {
+      border-left: 1px solid rgba(255,255,255,0.08);
     }
     .dashboard-combo-value {
       font-size: 2rem;
       font-weight: 700;
       line-height: 1.05;
+    }
+    .dashboard-combo-meta {
+      margin-bottom: 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      line-height: 1.1;
     }
     .dashboard-combo-item.low .dashboard-combo-value {
       color: var(--warning);
@@ -149,16 +170,52 @@
     .dashboard-combo-item.inventory .dashboard-combo-value {
       color: var(--success);
     }
-    .dashboard-budget-card .stat-value {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 8px;
+    .dashboard-budget-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      align-items: start;
+    }
+    .dashboard-budget-item {
+      min-width: 0;
+      text-align: center;
+      padding: 0 8px;
+    }
+    .dashboard-budget-item + .dashboard-budget-item {
+      border-left: 1px solid rgba(255,255,255,0.08);
+    }
+    .dashboard-budget-meta {
+      margin-bottom: 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      line-height: 1.1;
       white-space: nowrap;
     }
-    .dashboard-budget-percent {
-      font-size: 1.05rem;
+    .dashboard-budget-meta-percent {
+      font-size: 0.86em;
+      color: var(--muted);
+      opacity: 0.9;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+    .dashboard-budget-main {
+      font-size: 1.55rem;
+      font-weight: 800;
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+    .dashboard-budget-sub {
+      margin-top: 4px;
+      font-size: 0.78rem;
       color: var(--muted);
       font-weight: 700;
+      white-space: nowrap;
+    }
+    .dashboard-budget-sub:empty {
+      display: none;
     }
 
     /* ---- Cards ---- */
@@ -560,6 +617,16 @@
     .leaderboard-preview-item.gold { border-color: rgba(255, 214, 102, 0.2); }
     .leaderboard-preview-item.silver { border-color: rgba(203, 213, 225, 0.18); }
     .leaderboard-preview-item.bronze { border-color: rgba(212, 163, 115, 0.18); }
+    .leaderboard-preview-item.me {
+      border-color: rgba(110, 89, 255, 0.55);
+      box-shadow: 0 0 0 1px rgba(110, 89, 255, 0.22), 0 0 18px rgba(110, 89, 255, 0.12);
+      animation: leaderboardGlow 3.2s ease-in-out infinite;
+    }
+    .leaderboard-preview-item.you-tile {
+      border-style: dashed;
+      border-color: rgba(110, 89, 255, 0.4);
+      background: rgba(110, 89, 255, 0.06);
+    }
     .leaderboard-preview-left {
       display: flex;
       align-items: center;
@@ -587,6 +654,16 @@
       font-weight: 800;
       color: var(--text);
       min-width: fit-content;
+    }
+    @keyframes leaderboardGlow {
+      0%, 100% {
+        border-color: rgba(110, 89, 255, 0.45);
+        box-shadow: 0 0 0 1px rgba(110, 89, 255, 0.2), 0 0 10px rgba(110, 89, 255, 0.08);
+      }
+      50% {
+        border-color: rgba(110, 89, 255, 0.72);
+        box-shadow: 0 0 0 1px rgba(110, 89, 255, 0.26), 0 0 18px rgba(110, 89, 255, 0.18);
+      }
     }
     .leaderboard-header .btn {
       flex: 0 0 auto;
@@ -2042,6 +2119,9 @@
         gap: 0;
         justify-content: space-between;
       }
+      .leaderboard-collapsed-preview.has-you-tile {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
       .leaderboard-preview-left {
         display: contents;
       }
@@ -2062,6 +2142,13 @@
         font-size: 0.78rem;
         margin: 0 auto;
       }
+      .leaderboard-preview-item.me {
+        animation-duration: 2.8s;
+      }
+      .leaderboard-preview-item.you-tile .leaderboard-preview-rank {
+        min-width: 0;
+        text-align: left;
+      }
       .leaderboard-header {
         flex-wrap: wrap;
         align-items: flex-start;
@@ -2069,8 +2156,22 @@
       #dashboard-subtitle {
         display: none;
       }
+      .page-header {
+        margin-bottom: 12px;
+      }
+      .page-header::before,
+      .page-header h1 {
+        display: none;
+      }
+      .page-header p {
+        display: none !important;
+      }
       .leaderboard-card.mobile-top-three-only {
-        gap: 10px;
+        gap: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+        margin-bottom: 10px;
       }
       .leaderboard-card.mobile-top-three-only .leaderboard-title,
       .leaderboard-card.mobile-top-three-only .leaderboard-header .btn,
@@ -2079,6 +2180,9 @@
       }
       .leaderboard-card.mobile-top-three-only .leaderboard-header {
         display: block;
+      }
+      .leaderboard-card.mobile-top-three-only .leaderboard-collapsed-preview {
+        padding: 0;
       }
       .leaderboard-header .leaderboard-title {
         flex: 1 1 auto;
@@ -2296,22 +2400,27 @@
         display: grid;
         gap: 6px;
       }
-      .dashboard-combo-stat .stat-label {
-        margin-bottom: 0;
-      }
       .dashboard-combo-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
+        gap: 0;
         align-items: start;
+        border-radius: 10px;
+        overflow: hidden;
       }
       .dashboard-combo-item {
         min-width: 0;
+        text-align: center;
+        padding: 2px 4px;
+      }
+      .dashboard-combo-item + .dashboard-combo-item {
+        border-left: 1px solid rgba(255,255,255,0.06);
       }
       .dashboard-combo-value {
         font-size: 1.05rem;
         font-weight: 800;
-        line-height: 1.05;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
       }
       .dashboard-combo-item.low .dashboard-combo-value {
         color: var(--warning);
@@ -2323,24 +2432,34 @@
         color: var(--success);
       }
       .dashboard-combo-meta {
-        margin-top: 2px;
+        margin-bottom: 6px;
         font-size: 0.56rem;
         color: var(--muted);
         text-transform: uppercase;
         letter-spacing: 0.04em;
         line-height: 1.15;
       }
-      .dashboard-budget-card .stat-value {
-        font-size: 1rem !important;
-        display: inline-flex;
-        align-items: baseline;
-        gap: 4px;
-        white-space: nowrap;
+      .dashboard-budget-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .dashboard-budget-percent {
-        font-size: 0.72rem;
-        color: var(--muted);
-        font-weight: 700;
+      .dashboard-budget-item {
+        padding: 0 4px;
+      }
+      .dashboard-budget-meta {
+        margin-bottom: 6px;
+        font-size: 0.54rem;
+        letter-spacing: 0.04em;
+      }
+      .dashboard-budget-meta-percent {
+        margin-left: 3px;
+      }
+      .dashboard-budget-main {
+        font-size: 0.96rem;
+        line-height: 1.08;
+      }
+      .dashboard-budget-sub {
+        margin-top: 3px;
+        font-size: 0.6rem;
       }
       .shopping-mobile-store-card {
         margin-bottom: 12px;
@@ -2596,20 +2715,38 @@
       </div>
       <div class="stats-grid dashboard-stats-grid" id="dashboard-stats-row">
         <div class="stat-card dashboard-stat-link dashboard-combo-stat" role="button" tabindex="0" onclick="openDashboardStat('inventory-products')" onkeydown="handleDashboardStatKey(event, 'inventory-products')">
-          <div class="stat-label">Low / Inv / Prod</div>
           <div class="dashboard-combo-grid">
             <div class="dashboard-combo-item low">
+              <div class="dashboard-combo-meta">Low</div>
               <div class="dashboard-combo-value" id="stat-low-inline">—</div>
             </div>
             <div class="dashboard-combo-item inventory">
+              <div class="dashboard-combo-meta">Inv</div>
               <div class="dashboard-combo-value" id="stat-inv-inline">—</div>
             </div>
             <div class="dashboard-combo-item products">
+              <div class="dashboard-combo-meta">Prod</div>
               <div class="dashboard-combo-value" id="stat-products-inline">—</div>
             </div>
           </div>
         </div>
-        <div class="stat-card dashboard-stat-link dashboard-budget-card" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')"><div class="stat-label" id="stat-budget-label">Budget</div><div class="stat-value" id="stat-budget">—</div></div>
+        <div class="stat-card dashboard-stat-link dashboard-budget-card" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')">
+          <div class="dashboard-budget-grid" id="stat-budget">
+            <div class="dashboard-budget-item">
+              <div class="dashboard-budget-meta" id="stat-budget-grocery-label">🛒 <span class="dashboard-budget-meta-percent" id="stat-budget-grocery-percent">0%</span></div>
+              <div class="dashboard-budget-main" id="stat-budget-grocery-main">—</div>
+            </div>
+            <div class="dashboard-budget-item">
+              <div class="dashboard-budget-meta" id="stat-budget-restaurant-label">🍽 <span class="dashboard-budget-meta-percent" id="stat-budget-restaurant-percent">0%</span></div>
+              <div class="dashboard-budget-main" id="stat-budget-restaurant-main">—</div>
+            </div>
+            <div class="dashboard-budget-item">
+              <div class="dashboard-budget-meta" id="stat-budget-total-label">💰 Total</div>
+              <div class="dashboard-budget-main" id="stat-budget-total-main">—</div>
+              <div class="dashboard-budget-sub" id="stat-budget-total-sub"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="dashboard-alert-grid">
@@ -3333,6 +3470,20 @@ let shoppingQuickSuggestions = [];
 let shoppingQuickFocused = false;
 let shoppingManualVisible = false;
 let shoppingStoreOptions = [];
+const PAGE_TITLES = {
+  dashboard: 'Dashboard',
+  inventory: 'Inventory',
+  products: 'Products',
+  shopping: 'Shopping List',
+  restaurant: 'Restaurant',
+  expenses: 'Expenses',
+  budget: 'Budget',
+  analytics: 'Analytics',
+  contributions: 'Contribution',
+  settings: 'Settings',
+  upload: 'Upload Receipt',
+  receipts: 'Receipts',
+};
 let shoppingListView = (() => {
   try {
     const stored = localStorage.getItem('shopping_list_view');
@@ -3548,6 +3699,7 @@ function applyAppConfig(config = {}) {
       ? 'Your household grocery and restaurant system at a glance'
       : 'Your household system at a glance';
   }
+  updatePageHeaderBranding();
 
   const groceryEnabled = appConfig.modules?.grocery !== false;
   const restaurantEnabled = appConfig.modules?.restaurant !== false;
@@ -3579,6 +3731,23 @@ function applyAppConfig(config = {}) {
       (availableDomains.length > 1 ? '<option value="">All Modules</option>' : '');
     if ([...analyticsDomain.options].some(option => option.value === current)) analyticsDomain.value = current;
   }
+}
+
+function getCurrentBrandText() {
+  return formatAppName(appConfig.app_name);
+}
+
+function updatePageHeaderBranding(page = null) {
+  const brandText = getCurrentBrandText();
+  const activePage = page === 'products' ? 'products' : (page || document.querySelector('.page.active')?.id?.replace(/^page-/, '') || 'dashboard');
+  const mobileBrand = document.getElementById('mobile-brand-title');
+  if (mobileBrand) {
+    const title = PAGE_TITLES[activePage] || 'Dashboard';
+    mobileBrand.textContent = `${brandText} - ${title}`;
+  }
+  document.querySelectorAll('.page-header').forEach(header => {
+    header.setAttribute('data-brand', brandText);
+  });
 }
 
 function compareText(a, b, direction = 'asc') {
@@ -4686,16 +4855,24 @@ function renderLeaderboard() {
   const labels = { 1: '1st', 2: '2nd', 3: '3rd' };
   const topThree = rankings.slice(0, 3);
   const others = rankings.slice(3);
-  previewEl.innerHTML = topThree.map(person => `
-    <button type="button" class="leaderboard-preview-item ${medals[person.rank] || ''}" onclick="openContributionDetail(${person.id})">
+  const currentUserRank = rankings.find(person => person.id === currentUser?.id);
+  const currentUserInTopThree = topThree.some(person => person.id === currentUser?.id);
+  const renderPreviewPerson = (person, extraClasses = '', scoreOverride = null) => `
+    <button type="button" class="leaderboard-preview-item ${medals[person.rank] || ''} ${person.id === currentUser?.id ? 'me' : ''} ${extraClasses}".trim() onclick="openContributionDetail(${person.id})">
       <div class="leaderboard-preview-left">
         <div class="leaderboard-preview-rank ${medals[person.rank] || ''}">${labels[person.rank] || `#${person.rank}`}</div>
         <span class="avatar-bubble">${escHtml(person.avatar_emoji || '🦊')}</span>
         <div class="leaderboard-preview-name">${escHtml(person.name || person.email || 'Unknown')}</div>
       </div>
-      <div class="leaderboard-preview-score">${person.score || 0}</div>
+      <div class="leaderboard-preview-score">${scoreOverride ?? (person.score || 0)}</div>
     </button>
-  `).join('');
+  `;
+  const previewCards = topThree.map(person => renderPreviewPerson(person));
+  if (isMobile && currentUserRank && !currentUserInTopThree) {
+    previewCards.push(renderPreviewPerson(currentUserRank, 'you-tile', `#${currentUserRank.rank}`));
+  }
+  previewEl.classList.toggle('has-you-tile', Boolean(isMobile && currentUserRank && !currentUserInTopThree));
+  previewEl.innerHTML = previewCards.join('');
   const renderPerson = (person, compact = false) => `
     <button type="button" class="leaderboard-row ${compact ? 'compact ' : ''}${person.id === currentUser?.id ? 'me' : ''}" onclick="openContributionDetail(${person.id})">
       <div class="leaderboard-rank ${medals[person.rank] || ''}">${labels[person.rank] || `#${person.rank}`}</div>
@@ -5003,6 +5180,10 @@ function formatLabel(value, fallback = 'Other') {
 
 function formatMoney(value) {
   return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function formatMoneyCompactOneDecimal(value) {
+  return `$${Number(value || 0).toFixed(1)}`;
 }
 
 function formatDateInputValue(date) {
@@ -5907,6 +6088,7 @@ function nav(page, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   el?.classList.add('active');
+  updatePageHeaderBranding(requestedPage);
   closeMobileMenu();
   if (page === 'dashboard') loadDashboard();
   if (page === 'inventory') setCatalogMode(requestedPage === 'products' ? 'products' : catalogMode, { load: true });
@@ -6855,7 +7037,6 @@ async function loadDashboard() {
             <div class="rec-compact-main">
               <div class="rec-compact-title">
                 <span class="rec-name">${escHtml(simplifyShoppingDisplayName(i.product_name))}</span>
-                <span class="person-modal-pill ${i.manual_low ? 'validated' : 'pending'}">${i.manual_low ? 'Low' : 'Watch'}</span>
               </div>
               <div class="rec-compact-actions">
                 <button class="btn btn-sm btn-ghost" title="${i.manual_low ? 'Confirm that this low-stock call is correct. Confirmation can earn points when later validated.' : 'Manually mark this item low when quantity alone does not tell the full story. This starts a pending low-stock signal.'}" aria-label="${i.manual_low ? 'Confirm low stock for this item' : 'Mark this item low'}" onclick="event.stopPropagation();handleDashboardLowAction(${i.product_id}, ${i.manual_low ? `'confirm'` : `'low'`})">${i.manual_low ? '✅ Confirm' : '📝 Add Low'}</button>
@@ -6902,14 +7083,38 @@ async function loadDashboard() {
     // Budget stat
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const bRes = await api(`/budget/status?month=${month}&domain=grocery`);
-    if (bRes.ok) {
-      const b = await bRes.json();
-      const budgetLabel = document.getElementById('stat-budget-label');
-      const budgetValue = document.getElementById('stat-budget');
-      if (budgetLabel) budgetLabel.textContent = `Budget ${formatCompactBudgetAmount(b.budget_amount ?? 0)}`;
-      if (budgetValue) budgetValue.innerHTML = `${escHtml(formatMoney(b.spent ?? 0))} <span class="dashboard-budget-percent">${escHtml(String(b.percentage ?? 0))}%</span>`;
-    }
+    const [groceryBudgetRes, restaurantBudgetRes, expenseBudgetRes] = await Promise.all([
+      api(`/budget/status?month=${month}&domain=grocery`),
+      api(`/budget/status?month=${month}&domain=restaurant`),
+      api(`/budget/status?month=${month}&domain=general_expense`)
+    ]);
+    const safeBudgetJson = async (res) => {
+      if (!res?.ok) return null;
+      try { return await res.json(); } catch { return null; }
+    };
+    const groceryBudget = await safeBudgetJson(groceryBudgetRes);
+    const restaurantBudget = await safeBudgetJson(restaurantBudgetRes);
+    const expenseBudget = await safeBudgetJson(expenseBudgetRes);
+    const totalBudgetAmount = (groceryBudget?.budget_amount ?? 0) + (restaurantBudget?.budget_amount ?? 0) + (expenseBudget?.budget_amount ?? 0);
+    const totalSpentAmount = (groceryBudget?.spent ?? 0) + (restaurantBudget?.spent ?? 0) + (expenseBudget?.spent ?? 0);
+    const totalRemainingAmount = Math.max(0, totalBudgetAmount - totalSpentAmount);
+    const totalPercentage = totalBudgetAmount > 0 ? Math.round((totalSpentAmount / totalBudgetAmount) * 100) : 0;
+
+    const groceryMain = document.getElementById('stat-budget-grocery-main');
+    const restaurantMain = document.getElementById('stat-budget-restaurant-main');
+    const groceryPercent = document.getElementById('stat-budget-grocery-percent');
+    const restaurantPercent = document.getElementById('stat-budget-restaurant-percent');
+    const totalLabel = document.getElementById('stat-budget-total-label');
+    const totalMain = document.getElementById('stat-budget-total-main');
+    const totalSub = document.getElementById('stat-budget-total-sub');
+
+    if (groceryMain) groceryMain.textContent = formatMoneyCompactOneDecimal(groceryBudget?.spent ?? 0);
+    if (groceryPercent) groceryPercent.textContent = `${groceryBudget?.percentage ?? 0}%`;
+    if (restaurantMain) restaurantMain.textContent = formatMoneyCompactOneDecimal(restaurantBudget?.spent ?? 0);
+    if (restaurantPercent) restaurantPercent.textContent = `${restaurantBudget?.percentage ?? 0}%`;
+    if (totalLabel) totalLabel.textContent = `💰 ${formatCompactBudgetAmount(totalBudgetAmount)} · ${totalPercentage}%`;
+    if (totalMain) totalMain.textContent = formatMoneyCompactOneDecimal(totalRemainingAmount);
+    if (totalSub) totalSub.textContent = '';
   } catch(e) { console.error(e); }
 }
 
