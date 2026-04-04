@@ -406,6 +406,8 @@ Shopping page behavior:
   - compact rows first
   - extra actions/details only when expanded
   - inline sort chips instead of heavier form controls
+  - duplicate household items within a store should collapse into one display row with summed quantity and estimate
+  - mobile expanded rows should allow store-preference updates without requiring the desktop table view
 - closed items remain available in the Close view so `Reopen` can safely undo shopping-only test actions
 
 ## 11. Recommendations and Low-Stock
