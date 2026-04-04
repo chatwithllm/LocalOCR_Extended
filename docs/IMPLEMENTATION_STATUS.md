@@ -87,6 +87,8 @@ Extended-specific runtime changes now in place:
   - clickable `Open` / `Close` pills that now filter the current list and remember the selected view
   - a lighter Current List with inline sort chips
   - compact expandable mobile rows
+  - duplicate household items in Current List now collapse into one row with summed quantity and estimate
+  - mobile expanded shopping rows now allow store updates directly from the phone view
 - inventory page now has:
   - mobile-collapsible add form
   - magnifier-driven search/sort tools

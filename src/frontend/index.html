@@ -3275,6 +3275,64 @@ function simplifyInventoryDisplayName(name) {
   return simplifyShoppingDisplayName(name);
 }
 
+function mergeShoppingDisplayItems(items = []) {
+  const groups = new Map();
+  for (const item of items) {
+    const displayName = simplifyShoppingDisplayName(item.name);
+    const key = `${String(displayName).toLowerCase()}|${String(item.status || 'open').toLowerCase()}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        ids: [],
+        items: [],
+        name: displayName,
+        rawNames: new Set(),
+        quantity: 0,
+        mergedCount: 0,
+        estimateTotal: 0,
+        latest_price: null,
+        category: item.category,
+        status: item.status,
+        note: item.note || null,
+        preferred_store: item.preferred_store || '',
+        effective_store: item.effective_store || item.latest_price?.store || '',
+        productIds: new Set(),
+        primaryItem: item,
+        source: item.source,
+      });
+    }
+    const group = groups.get(key);
+    group.ids.push(item.id);
+    group.items.push(item);
+    group.rawNames.add(item.name);
+    group.quantity += Number(item.quantity || 0);
+    group.mergedCount += 1;
+    group.estimateTotal += Number(item.latest_price?.price || 0) * Number(item.quantity || 1);
+    if (item.product_id) group.productIds.add(item.product_id);
+    if (!group.latest_price && item.latest_price?.price != null) group.latest_price = item.latest_price;
+    if (!group.note && item.note) group.note = item.note;
+    if (!group.preferred_store && item.preferred_store) group.preferred_store = item.preferred_store;
+    if (!group.effective_store && (item.effective_store || item.latest_price?.store)) {
+      group.effective_store = item.effective_store || item.latest_price?.store || '';
+    }
+    const currentPrice = Number(group.primaryItem?.latest_price?.price || 0);
+    const nextPrice = Number(item.latest_price?.price || 0);
+    const currentQty = Number(group.primaryItem?.quantity || 0);
+    const nextQty = Number(item.quantity || 0);
+    if (nextPrice > currentPrice || (nextPrice === currentPrice && nextQty >= currentQty)) {
+      group.primaryItem = item;
+    }
+  }
+  return [...groups.values()].map(group => ({
+    ...group,
+    quantity: group.quantity || group.mergedCount || 1,
+    mergedCount: group.mergedCount || 1,
+    estimateTotal: group.estimateTotal || 0,
+    primaryProductId: group.productIds.size === 1 ? [...group.productIds][0] : null,
+    rawNames: [...group.rawNames],
+  }));
+}
+
 function setInventorySort(value) {
   inventorySort = value || 'name_asc';
   updateInventorySortControls();
@@ -6826,6 +6884,32 @@ async function updateShoppingPreferredStore(itemId, preferredStore) {
   ]);
 }
 
+async function updateShoppingPreferredStoreGroup(itemIds, preferredStore) {
+  if (SHOPPING_HELPER_MODE) return;
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ preferred_store: preferredStore || '' })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not update store preference');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast(preferredStore ? 'Store preference updated ✅' : 'Store preference cleared ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -6853,13 +6937,17 @@ function renderShoppingListTable() {
     return acc;
   }, {});
   const sortShoppingItems = list => [...list].sort((a, b) => {
-    if (shoppingSort === 'name_asc') return compareText(a.name, b.name, 'asc');
-    if (shoppingSort === 'name_desc') return compareText(a.name, b.name, 'desc');
-    if (shoppingSort === 'category_asc') return compareText(a.category, b.category, 'asc') || compareText(a.name, b.name, 'asc');
-    if (shoppingSort === 'price_desc') return compareNumber((a.latest_price?.price || 0) * (a.quantity || 1), (b.latest_price?.price || 0) * (b.quantity || 1), 'desc') || compareText(a.name, b.name, 'asc');
-    if (shoppingSort === 'price_asc') return compareNumber((a.latest_price?.price || 0) * (a.quantity || 1), (b.latest_price?.price || 0) * (b.quantity || 1), 'asc') || compareText(a.name, b.name, 'asc');
-    if (shoppingSort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.name, b.name, 'asc');
-    return compareText(a.name, b.name, 'asc');
+    const leftName = a.name || simplifyShoppingDisplayName(a.primaryItem?.name || '');
+    const rightName = b.name || simplifyShoppingDisplayName(b.primaryItem?.name || '');
+    const leftEstimate = a.estimateTotal != null ? a.estimateTotal : (Number(a.latest_price?.price || 0) * Number(a.quantity || 1));
+    const rightEstimate = b.estimateTotal != null ? b.estimateTotal : (Number(b.latest_price?.price || 0) * Number(b.quantity || 1));
+    if (shoppingSort === 'name_asc') return compareText(leftName, rightName, 'asc');
+    if (shoppingSort === 'name_desc') return compareText(leftName, rightName, 'desc');
+    if (shoppingSort === 'category_asc') return compareText(a.category, b.category, 'asc') || compareText(leftName, rightName, 'asc');
+    if (shoppingSort === 'price_desc') return compareNumber(leftEstimate, rightEstimate, 'desc') || compareText(leftName, rightName, 'asc');
+    if (shoppingSort === 'price_asc') return compareNumber(leftEstimate, rightEstimate, 'asc') || compareText(leftName, rightName, 'asc');
+    if (shoppingSort === 'qty_desc') return compareNumber(a.quantity, b.quantity, 'desc') || compareText(leftName, rightName, 'asc');
+    return compareText(leftName, rightName, 'asc');
   });
   const sortShoppingGroups = groups => [...groups].sort(([a, aItems], [b, bItems]) => {
     if (shoppingSort === 'price_desc') {
@@ -6876,7 +6964,8 @@ function renderShoppingListTable() {
   });
   const isMobileShoppingList = () => !SHOPPING_HELPER_MODE && window.innerWidth <= 640;
   const renderMobileStoreCards = (groups, options = {}) => sortShoppingGroups(groups)
-    .map(([storeName, storeItems]) => {
+    .map(([storeName, rawStoreItems]) => {
+      const storeItems = mergeShoppingDisplayItems(rawStoreItems);
       const sectionKey = options.sectionKey || selectedStatus || 'current';
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
@@ -6893,27 +6982,32 @@ function renderShoppingListTable() {
         </div>
         <div class="shopping-mobile-item-list" style="display:${collapsed ? 'none' : ''}">
           ${sortShoppingItems(storeItems).map(item => `
-            <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.id] ? 'expanded' : ''}">
-              <div class="shopping-mobile-item-summary" role="button" tabindex="0" onclick="toggleShoppingMobileItem(${item.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(${item.id});}">
-                  <div class="shopping-mobile-item-name">${escHtml(simplifyShoppingDisplayName(item.name))}</div>
+            <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.key] ? 'expanded' : ''}">
+              <div class="shopping-mobile-item-summary" role="button" tabindex="0" onclick="toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}">
+                  <div class="shopping-mobile-item-name">${escHtml(item.name)}${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}</div>
                 <div class="shopping-mobile-item-estimate">
-                  ${item.latest_price?.price != null ? formatMoney(item.latest_price.price * item.quantity) : '<span style="color:var(--muted)">—</span>'}
+                  ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
                   <span class="shopping-mobile-item-chevron">▾</span>
                 </div>
               </div>
               <div class="shopping-mobile-item-detail">
                 <div class="shopping-mobile-item-meta">
                   ${[
-                    item.quantity && Number(item.quantity) !== 1 ? `Qty ${escHtml(String(item.quantity))}` : null,
+                    item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
                     item.category ? formatLabel(item.category, 'Other') : null,
-                    item.latest_price?.store ? `Likely ${item.latest_price.store}` : null,
+                    item.effective_store ? `Likely ${item.effective_store}` : null,
                     item.note || null
                   ].filter(Boolean).map(value => escHtml(value)).join(' · ') || 'Tap Bought when you pick this up.'}
                 </div>
+                <div style="margin-top:10px">
+                  <select onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)" style="width:100%">
+                    ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
+                  </select>
+                </div>
                 <div class="shopping-mobile-item-actions">
-                  ${item.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.product_id}, true)">Low</button>` : ''}
-                  <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingItem(${item.id})">🗑</button>
+                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : ''}
+                  <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingGroupItems([${item.ids.join(',')}])">🗑</button>
                 </div>
               </div>
             </div>
@@ -6922,7 +7016,8 @@ function renderShoppingListTable() {
       </div>`;
     }).join('');
   const renderStoreTables = (groups, options = {}) => sortShoppingGroups(groups)
-    .map(([storeName, storeItems]) => {
+    .map(([storeName, rawStoreItems]) => {
+      const storeItems = mergeShoppingDisplayItems(rawStoreItems);
       const sectionKey = options.sectionKey || selectedStatus || 'current';
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
@@ -6943,28 +7038,29 @@ function renderShoppingListTable() {
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td>
-                  <strong>${escHtml(simplifyShoppingDisplayName(item.name))}</strong>
+                  <strong>${escHtml(item.name)}</strong>${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}
                   <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
                     ${[
-                      item.latest_price?.store ? `Likely ${item.latest_price.store}` : null,
+                      item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                      item.effective_store ? `Likely ${item.effective_store}` : null,
                       item.note || null
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
                 <td>${item.quantity}</td>
-                <td>${item.latest_price?.price != null ? `${formatMoney(item.latest_price.price * item.quantity)} <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : '<span style="color:var(--muted)">—</span>'}</td>
+                <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
                 <td>
-                  <select onchange="updateShoppingPreferredStore(${item.id}, this.value)" style="min-width:160px">
+                  <select onchange="updateShoppingPreferredStore(${item.primaryItem.id}, this.value)" style="min-width:160px">
                     ${renderShoppingStoreOptionTags(item.preferred_store || '')}
                   </select>
                 </td>
                 <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
                 <td style="display:flex;gap:6px;flex-wrap:wrap">
-                  ${item.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.product_id}, true)">Low</button>` : ''}
-                  <button class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${item.id}, '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingItem(${item.id})">🗑</button>
+                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : ''}
+                  <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingGroupItems([${item.ids.join(',')}])">🗑</button>
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -7117,12 +7213,57 @@ async function toggleShoppingItem(id, status) {
   loadShoppingList();
 }
 
+async function toggleShoppingGroupItems(ids, status) {
+  const validIds = (ids || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  const results = await Promise.all(validIds.map(id => shoppingApi(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not update shopping list item');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
+  loadShoppingList();
+}
+
 async function deleteShoppingItem(id) {
   if (!await askForConfirmation('Delete this shopping list item?', 'Delete shopping list item')) return;
   const res = await api(`/shopping-list/items/${id}`, { method: 'DELETE' });
   const data = await res.json();
   if (!res.ok) {
     toast(data.error || 'Could not delete shopping list item', 'error');
+    return;
+  }
+  toast('Shopping list item deleted ✅', 'success');
+  loadShoppingList();
+}
+
+async function deleteShoppingGroupItems(ids) {
+  const validIds = (ids || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  if (!await askForConfirmation(
+    validIds.length > 1 ? 'Delete all merged shopping entries for this item?' : 'Delete this shopping list item?',
+    validIds.length > 1 ? 'Delete merged shopping item' : 'Delete shopping list item'
+  )) return;
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, { method: 'DELETE' })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not delete shopping list item');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
     return;
   }
   toast('Shopping list item deleted ✅', 'success');
