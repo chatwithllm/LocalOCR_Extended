@@ -175,6 +175,7 @@ Authentication UX requirements:
 - login password fields may expose an eye toggle for temporary visibility
 - after successful login, password fields must clear and reset to hidden mode
 - user-edit and password-reset flows should use in-app modal patterns instead of browser-native prompts where browser popups are unreliable
+- compact mobile views should prefer action-first controls over explanatory text blocks
 
 Identity presentation rules:
 
@@ -339,6 +340,7 @@ Inventory behavior:
 - grouped household rows
 - current location shown directly in row actions and summary snapshots
 - no-result search path can open manual add instead of keeping add clutter always visible
+- mobile inventory should keep search/category tools behind a single page-header magnifier until requested
 - manual add supports progressive optional details:
   - category
   - unit
@@ -437,10 +439,16 @@ Current recommendation/low-stock behavior includes:
 Dashboard behavior:
 
 - low-stock and recommendations show action hints
+- mobile dashboard should compress grocery overview into compact summary cards rather than repeating long explanatory text
 - score implications use honest labels like:
   - pending
   - unlocks
   - +2
+
+Budget behavior:
+
+- dashboard budget cards should show the saved target amount in the label and current usage in the value
+- only admins may change budget targets
 
 Empty-state requirement:
 

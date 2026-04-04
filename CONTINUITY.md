@@ -106,6 +106,8 @@ This split gives you a clean safety net:
 - grouped inventory rows now prefer the current primary location in the summary instead of falling back to `Mixed`
 - inventory location actions now display the actual current place, for example `📍 Pantry`, and the picker supports both preset and custom locations
 - inventory manual-add now supports smart no-result fallback from search plus optional progressive details
+- mobile inventory now hides helper copy and keeps search/categories behind a page-header magnifier until needed
+- mobile dashboard now trims explanatory copy, compresses grocery stats into two compact cards, and uses a long-press top-three ranking reveal
 - desktop sidebar can now be hidden on larger screens and remembered across refreshes
 - household-style display names are now used across recommendations, low-stock, shopping, and inventory
 - duplicate household items in inventory are now grouped in the display layer so the list reads as unique household needs instead of repeated package variants
@@ -117,6 +119,7 @@ This split gives you a clean safety net:
   - restaurant
   - general expense
 - manual entries create real purchase + manual receipt history so budget and analytics stay accurate even when the image is missing
+- budget updates are now enforced as admin-only on the backend and disabled in the frontend for non-admin users
 
 ## 5. What Still Belongs To Extended Next
 

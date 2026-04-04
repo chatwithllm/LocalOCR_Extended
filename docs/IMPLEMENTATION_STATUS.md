@@ -80,6 +80,7 @@ Extended-specific runtime changes now in place:
 - seasonal recommendation date math now handles mixed timezone-aware and naive purchase timestamps correctly
 - known placeholder OCR junk rows copied into Extended were removed without touching valid grocery-history imports
 - demo mode now uses clearly fictional sample household data and compact dashboard previews
+- dashboard mobile now trims explanatory copy, uses a top-three ranking surface with long-press reveal, and compresses grocery stats into compact summary cards
 - recommendation, shopping, low-stock, and inventory surfaces now use simplified household-style item names
 - shopping page now has:
   - compact `Open / Estimate / Close` summary chips
@@ -93,6 +94,7 @@ Extended-specific runtime changes now in place:
   - a shared Inventory / Products workspace shell
   - magnifier-driven search/sort tools that can now be collapsed on both desktop and mobile
   - category chips hidden behind a dedicated toggle on both desktop and mobile
+  - a mobile page-header magnifier that reveals search/category tools only when needed
   - search-assist actions that let the user mark bought, flag low, add to cart, or fall back to manual add
   - manual add with optional progressive details:
     - category
@@ -117,6 +119,7 @@ Extended-specific runtime changes now in place:
   - budget totals stay accurate
   - analytics include the spend
   - receipts history can later delete the entry to remove the amount
+- budget target changes are now admin-only in both backend enforcement and frontend controls
 
 ## Intended Parallel Deployment Shape
 

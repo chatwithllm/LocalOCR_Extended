@@ -55,6 +55,7 @@ The app also includes a shared collaboration layer:
 
 - household ranking and contribution scorecards
 - grocery status cards
+- mobile dashboard now favors compact two-card grocery stats plus a long-press ranking reveal
 - low-stock and recommendation surfaces
 - guest demo hero for non-logged-in users
 - hidden QR access tools
@@ -64,10 +65,16 @@ The app also includes a shared collaboration layer:
 - current active grocery inventory
 - shared workspace shell with Products via top toggle
 - search-first tools with `🔍` and `🏷 Categories` toggles
+- mobile inventory keeps search and categories hidden behind a page-header magnifier until needed
 - manual add from no-result search, with smart prefill when a strong existing match exists
 - rename, recategorize, low/clear-low, location, shopping add
 - receipt traceability for confusing items
 - grouped household rows with current location shown directly in the action strip
+
+### Budget
+
+- dashboard budget cards now show the saved target in the label and current spend usage in the value
+- only admins can change budget targets
 
 ### Products
 
