@@ -113,6 +113,12 @@ This split gives you a clean safety net:
 - duplicate household items in inventory are now grouped in the display layer so the list reads as unique household needs instead of repeated package variants
 - product rename now uses an in-app text modal instead of browser-native prompt
 - login password now supports an eye toggle and resets to hidden after successful sign-in
+- trusted-device pairing Phase 1 is now stable on the feature branch:
+  - device can start a short-lived pairing QR session
+  - admin can approve or reject from the scanned link flow
+  - approved shared screens now authenticate with a trusted-device token instead of relying only on fragile browser sessions
+  - paired fridge/tablet screens stay signed in across refresh
+  - trusted devices can be listed and revoked in Settings
 - Settings user edit/reset password flows now use in-app modals instead of browser-native prompts
 - Budget now supports manual entry creation for:
   - grocery

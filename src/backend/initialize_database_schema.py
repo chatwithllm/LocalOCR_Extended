@@ -317,6 +317,50 @@ class AccessLink(Base):
     )
 
 
+class TrustedDevice(Base):
+    __tablename__ = "trusted_devices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(120), nullable=False)
+    scope = Column(String(30), nullable=False, default="shared_household")
+    status = Column(String(20), nullable=False, default="active")  # active, revoked
+    token_hash = Column(String(255), nullable=False, unique=True)
+    linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    last_seen_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_trusted_device_status", "status"),
+        Index("ix_trusted_device_linked_user_id", "linked_user_id"),
+    )
+
+
+class DevicePairingSession(Base):
+    __tablename__ = "device_pairing_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pairing_token_hash = Column(String(255), nullable=False, unique=True)
+    device_name = Column(String(120), nullable=False)
+    scope = Column(String(30), nullable=False, default="shared_household")
+    status = Column(String(20), nullable=False, default="pending")  # pending, approved, rejected, claimed
+    created_by_device = Column(String(255), nullable=True)
+    approved_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    trusted_device_id = Column(Integer, ForeignKey("trusted_devices.id"), nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    approved_at = Column(DateTime, nullable=True)
+    claimed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_device_pairing_status", "status"),
+        Index("ix_device_pairing_expires_at", "expires_at"),
+    )
+
+
 class TelegramReceipt(Base):
     __tablename__ = "telegram_receipts"
 
