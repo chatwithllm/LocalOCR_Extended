@@ -90,8 +90,19 @@ Extended-specific runtime changes now in place:
   - duplicate household items in Current List now collapse into one row with summed quantity and estimate
   - mobile expanded shopping rows now allow store updates directly from the phone view
 - inventory page now has:
+  - a shared Inventory / Products workspace shell
+  - magnifier-driven search/sort tools that can now be collapsed on both desktop and mobile
+  - category chips hidden behind a dedicated toggle on both desktop and mobile
+  - search-assist actions that let the user mark bought, flag low, add to cart, or fall back to manual add
+  - manual add with optional progressive details:
+    - category
+    - unit chips
+    - preferred store
+    - add-to-shopping
+  - smart add-form prefill for strong known-item matches
+  - grouped household rows that now show the current primary location instead of generic `Mixed`
+  - location edit actions that now display the current location directly and open a preset-or-custom picker
   - mobile-collapsible add form
-  - magnifier-driven search/sort tools
   - compact expandable mobile rows
   - grouped display rows for duplicate household items
 - rename flows now use an in-app text modal instead of browser-native prompt dialogs

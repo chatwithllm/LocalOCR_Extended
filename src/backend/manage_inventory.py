@@ -148,6 +148,8 @@ def add_item():
     quantity = data.get("quantity", 1)
     location = data.get("location", "Pantry")
     threshold = data.get("threshold")
+    category_hint = data.get("category", "other")
+    size_hint = (data.get("size") or "").strip() or None
 
     if not product_id and not product_name:
         return jsonify({"error": "product_id or product_name required"}), 400
@@ -157,10 +159,15 @@ def add_item():
         product = session.query(Product).filter_by(id=product_id).first()
         if not product:
             return jsonify({"error": f"Product {product_id} not found"}), 404
+        if size_hint and meaningful_text_change(product.size, size_hint):
+            product.size = size_hint
+        normalized_category = (category_hint or "").strip().lower()
+        if normalized_category and meaningful_text_change(product.category, normalized_category):
+            product.category = normalized_category
     else:
         product_name, category = canonicalize_product_identity(
             product_name,
-            data.get("category", "other"),
+            category_hint,
         )
         product = (
             session.query(Product)
@@ -169,10 +176,18 @@ def add_item():
             .first()
         )
         if not product:
-            product = Product(name=product_name, raw_name=data.get("product_name"), display_name=product_name, category=category)
+            product = Product(
+                name=product_name,
+                raw_name=data.get("product_name"),
+                display_name=product_name,
+                category=category,
+                size=size_hint,
+            )
             product.review_state = "pending" if should_enrich_product_name(data.get("product_name"), category) else "resolved"
             session.add(product)
             session.flush()
+        elif size_hint and meaningful_text_change(product.size, size_hint):
+            product.size = size_hint
 
     user_id = getattr(g, "current_user", None)
     user_id = user_id.id if user_id else None
