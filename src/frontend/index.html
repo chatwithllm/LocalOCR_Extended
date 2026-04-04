@@ -94,6 +94,15 @@
     .page-header { margin-bottom: 28px; }
     .page-header h1 { font-size: 1.6rem; font-weight: 700; }
     .page-header p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+    .inventory-page-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #inventory-page-tools-toggle {
+      display: none;
+    }
 
     /* ---- Stat Cards ---- */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
@@ -110,6 +119,47 @@
     .stat-card.success .stat-value { color: var(--success); }
     .stat-card.warning .stat-value { color: var(--warning); }
     .stat-card.danger .stat-value { color: var(--danger); }
+    .dashboard-combo-stat {
+      display: grid;
+      gap: 10px;
+    }
+    .dashboard-combo-stat .stat-label {
+      margin-bottom: 0;
+    }
+    .dashboard-combo-grid {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .dashboard-combo-item {
+      min-width: 0;
+    }
+    .dashboard-combo-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+    .dashboard-combo-item.low .dashboard-combo-value {
+      color: var(--warning);
+    }
+    .dashboard-combo-item.products .dashboard-combo-value {
+      color: var(--accent);
+    }
+    .dashboard-combo-item.inventory .dashboard-combo-value {
+      color: var(--success);
+    }
+    .dashboard-budget-card .stat-value {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .dashboard-budget-percent {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
 
     /* ---- Cards ---- */
     .card {
@@ -541,6 +591,11 @@
     .leaderboard-header .btn {
       flex: 0 0 auto;
       margin-left: auto;
+    }
+    .leaderboard-mobile-surface {
+      cursor: default;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .leaderboard-list {
       display: grid;
@@ -1943,6 +1998,23 @@
       textarea {
         font-size: 16px !important;
       }
+      #inventory-subtitle,
+      #catalog-mode-note,
+      #inv-window-note {
+        display: none !important;
+      }
+      .inventory-page-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+      #inventory-page-tools-toggle {
+        display: inline-flex;
+        min-width: 42px;
+        padding-inline: 12px;
+      }
+      #inventory-tools-toggle {
+        display: none !important;
+      }
       .form-grid,
       #page-receipts > .receipt-summary-grid,
       #page-receipts > .receipt-detail-grid,
@@ -1993,6 +2065,20 @@
       .leaderboard-header {
         flex-wrap: wrap;
         align-items: flex-start;
+      }
+      #dashboard-subtitle {
+        display: none;
+      }
+      .leaderboard-card.mobile-top-three-only {
+        gap: 10px;
+      }
+      .leaderboard-card.mobile-top-three-only .leaderboard-title,
+      .leaderboard-card.mobile-top-three-only .leaderboard-header .btn,
+      .leaderboard-card.mobile-top-three-only .leaderboard-footer {
+        display: none !important;
+      }
+      .leaderboard-card.mobile-top-three-only .leaderboard-header {
+        display: block;
       }
       .leaderboard-header .leaderboard-title {
         flex: 1 1 auto;
@@ -2188,23 +2274,73 @@
         width: 100%;
       }
       #page-dashboard > .dashboard-stats-grid .stat-card {
-        padding: 12px;
+        padding: 10px;
         border-radius: 12px;
         min-height: 0;
       }
       #page-dashboard > .dashboard-stats-grid .stat-label {
-        font-size: 0.64rem;
+        font-size: 0.6rem;
         letter-spacing: 0.05em;
       }
       #page-dashboard > .dashboard-stats-grid .stat-value {
-        font-size: 1.45rem;
-        margin-top: 4px;
+        font-size: 1.2rem;
+        margin-top: 3px;
         line-height: 1.05;
       }
       #page-dashboard > .dashboard-stats-grid .stat-sub {
-        font-size: 0.68rem;
-        margin-top: 3px;
+        font-size: 0.62rem;
+        margin-top: 2px;
         line-height: 1.2;
+      }
+      .dashboard-combo-stat {
+        display: grid;
+        gap: 6px;
+      }
+      .dashboard-combo-stat .stat-label {
+        margin-bottom: 0;
+      }
+      .dashboard-combo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        align-items: start;
+      }
+      .dashboard-combo-item {
+        min-width: 0;
+      }
+      .dashboard-combo-value {
+        font-size: 1.05rem;
+        font-weight: 800;
+        line-height: 1.05;
+      }
+      .dashboard-combo-item.low .dashboard-combo-value {
+        color: var(--warning);
+      }
+      .dashboard-combo-item.products .dashboard-combo-value {
+        color: var(--accent);
+      }
+      .dashboard-combo-item.inventory .dashboard-combo-value {
+        color: var(--success);
+      }
+      .dashboard-combo-meta {
+        margin-top: 2px;
+        font-size: 0.56rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        line-height: 1.15;
+      }
+      .dashboard-budget-card .stat-value {
+        font-size: 1rem !important;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .dashboard-budget-percent {
+        font-size: 0.72rem;
+        color: var(--muted);
+        font-weight: 700;
       }
       .shopping-mobile-store-card {
         margin-bottom: 12px;
@@ -2305,27 +2441,36 @@
       .inventory-header-tools {
         width: 100%;
         display: grid;
-        grid-template-columns: auto auto;
+        grid-template-columns: minmax(0, 1fr) auto;
         justify-content: stretch;
         gap: 8px;
         margin-left: 0;
       }
-      #inventory-tools-toggle,
       #inventory-category-toggle {
         width: 100%;
+        grid-column: 1;
+        grid-row: 1;
       }
       .inventory-search-box {
         grid-column: 1 / -1;
+        grid-row: 2;
         width: 100%;
       }
       .inventory-sort-chips {
-        grid-column: 1 / -1;
-        width: 100%;
-        justify-content: flex-start;
+        grid-column: 2;
+        grid-row: 1;
+        width: auto;
+        justify-content: flex-end;
+        align-self: center;
       }
       #page-inventory .inventory-tools-collapsed .inventory-search-box,
-      #page-inventory .inventory-tools-collapsed .inventory-sort-chips {
+      #page-inventory .inventory-tools-collapsed .inventory-sort-chips,
+      #page-inventory .inventory-tools-collapsed #inventory-category-toggle {
         display: none;
+      }
+      #page-inventory .inventory-tools-collapsed ~ #inventory-search-assist,
+      #page-inventory .inventory-tools-collapsed ~ #inv-category-chips {
+        display: none !important;
       }
       #page-inventory .inventory-categories-collapsed {
         display: none;
@@ -2439,21 +2584,32 @@
       <div class="dashboard-top-grid">
         <div class="leaderboard-card">
           <div class="leaderboard-header">
-            <div class="leaderboard-title">Household Ranking</div>
-            <div id="dashboard-leaderboard-preview" class="leaderboard-collapsed-preview"></div>
+            <div class="leaderboard-title" id="dashboard-leaderboard-title">Household Ranking</div>
+            <div id="dashboard-leaderboard-preview" class="leaderboard-collapsed-preview" onclick="handleLeaderboardSurfaceTap(event)"></div>
             <button type="button" class="btn btn-ghost btn-sm" id="dashboard-leaderboard-toggle" onclick="toggleLeaderboard()">Show</button>
           </div>
-          <div id="dashboard-leaderboard" class="leaderboard-list" style="display:none">
+          <div id="dashboard-leaderboard" class="leaderboard-list" style="display:none" onclick="handleLeaderboardSurfaceTap(event)">
             <div class="empty-state" style="padding:16px 8px"><p>No ranking data yet.</p></div>
           </div>
           <div id="dashboard-leaderboard-footer" class="leaderboard-footer" style="display:none"></div>
         </div>
       </div>
       <div class="stats-grid dashboard-stats-grid" id="dashboard-stats-row">
-        <div class="stat-card accent dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('products')" onkeydown="handleDashboardStatKey(event, 'products')"><div class="stat-label">Total Products</div><div class="stat-value" id="stat-products">—</div><div class="stat-sub">in catalog</div></div>
-        <div class="stat-card success dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('inventory')" onkeydown="handleDashboardStatKey(event, 'inventory')"><div class="stat-label">Inventory Items</div><div class="stat-value" id="stat-inv">—</div><div class="stat-sub">tracked</div></div>
-        <div class="stat-card warning dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('low-stock')" onkeydown="handleDashboardStatKey(event, 'low-stock')"><div class="stat-label">Low Stock</div><div class="stat-value" id="stat-low">—</div><div class="stat-sub">need restocking</div></div>
-        <div class="stat-card dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')"><div class="stat-label">Budget Used</div><div class="stat-value" id="stat-budget">—</div><div class="stat-sub" id="stat-budget-sub">this month</div></div>
+        <div class="stat-card dashboard-stat-link dashboard-combo-stat" role="button" tabindex="0" onclick="openDashboardStat('inventory-products')" onkeydown="handleDashboardStatKey(event, 'inventory-products')">
+          <div class="stat-label">Low / Inv / Prod</div>
+          <div class="dashboard-combo-grid">
+            <div class="dashboard-combo-item low">
+              <div class="dashboard-combo-value" id="stat-low-inline">—</div>
+            </div>
+            <div class="dashboard-combo-item inventory">
+              <div class="dashboard-combo-value" id="stat-inv-inline">—</div>
+            </div>
+            <div class="dashboard-combo-item products">
+              <div class="dashboard-combo-value" id="stat-products-inline">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card dashboard-stat-link dashboard-budget-card" role="button" tabindex="0" onclick="openDashboardStat('budget')" onkeydown="handleDashboardStatKey(event, 'budget')"><div class="stat-label" id="stat-budget-label">Budget</div><div class="stat-value" id="stat-budget">—</div></div>
       </div>
 
       <div class="dashboard-alert-grid">
@@ -2481,9 +2637,10 @@
           <h1>Inventory</h1>
           <p id="inventory-subtitle">Switch between active inventory and your full product catalog</p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="inventory-page-controls">
           <button type="button" id="catalog-toggle-inventory" class="btn btn-primary" onclick="setCatalogMode('inventory', { load: true })">Inventory</button>
           <button type="button" id="catalog-toggle-products" class="btn btn-ghost" onclick="setCatalogMode('products', { load: true })">Products</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="inventory-page-tools-toggle" onclick="toggleInventoryTools()">🔍</button>
         </div>
       </div>
 
@@ -2607,7 +2764,7 @@
           </div>
           <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
             <div class="form-group"><label>Monthly Target</label><input id="restaurant-budget-amount" type="number" step="0.01" placeholder="e.g. 300" /></div>
-            <div><button class="btn btn-primary" type="button" onclick="saveRestaurantBudget()">Save</button></div>
+            <div><button class="btn btn-primary" id="restaurant-budget-save" type="button" onclick="saveRestaurantBudget()">Save</button></div>
           </div>
           <div id="restaurant-budget-status" style="margin-top:14px"></div>
         </div>
@@ -2663,7 +2820,7 @@
           </div>
           <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
             <div class="form-group"><label>Monthly Target</label><input id="expense-budget-amount" type="number" step="0.01" placeholder="e.g. 250" /></div>
-            <div><button class="btn btn-primary" type="button" onclick="saveExpenseBudget()">Save</button></div>
+            <div><button class="btn btn-primary" id="expense-budget-save" type="button" onclick="saveExpenseBudget()">Save</button></div>
           </div>
           <div id="expense-budget-status" style="margin-top:14px"></div>
         </div>
@@ -2897,7 +3054,7 @@
           <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
           <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
         </div>
-        <div style="margin-top:16px"><button class="btn btn-primary" onclick="setBudget()">💾 Save Budget</button></div>
+        <div style="margin-top:16px"><button class="btn btn-primary" id="budget-save-btn" onclick="setBudget()">💾 Save Budget</button></div>
         <div style="margin-top:12px;color:var(--muted);font-size:0.82rem">Lost a receipt? Use <strong style="color:var(--text)">Manual Entry</strong> so the month stays accurate. If a test purchase affected spend, delete that receipt entry later to remove the amount.</div>
       </div>
       <div class="card" id="budget-status-card">
@@ -3192,6 +3349,7 @@ let leaderboardCollapsed = (() => {
     return true;
   }
 })();
+let leaderboardHoldTimer = null;
 let dashboardSectionCollapsed = (() => {
   try {
     return JSON.parse(localStorage.getItem('dashboard_section_collapsed') || '{}') || {};
@@ -4296,12 +4454,16 @@ function toggleInventoryAddDetails(forceVisible = null) {
 function updateInventoryToolsVisibility() {
   const tools = document.getElementById('inventory-header-tools');
   const toggle = document.getElementById('inventory-tools-toggle');
-  if (!tools || !toggle) return;
+  const pageToggle = document.getElementById('inventory-page-tools-toggle');
+  if (!tools) return;
   const collapsed = inventoryToolsCollapsed;
   tools.classList.toggle('inventory-tools-collapsed', collapsed);
-  toggle.classList.toggle('btn-primary', !collapsed);
-  toggle.classList.toggle('btn-ghost', collapsed);
-  toggle.setAttribute('aria-label', collapsed ? 'Show inventory search and sort tools' : 'Hide inventory search and sort tools');
+  [toggle, pageToggle].forEach(btn => {
+    if (!btn) return;
+    btn.classList.toggle('btn-primary', !collapsed);
+    btn.classList.toggle('btn-ghost', collapsed);
+    btn.setAttribute('aria-label', collapsed ? 'Show inventory search and sort tools' : 'Hide inventory search and sort tools');
+  });
 }
 
 function toggleInventoryTools() {
@@ -4450,6 +4612,27 @@ function cancelRecommendationHold() {
   recommendationHoldTimer = null;
 }
 
+function beginLeaderboardHold(event) {
+  if (window.innerWidth > 640) return;
+  clearTimeout(leaderboardHoldTimer);
+  leaderboardHoldTimer = setTimeout(() => {
+    event?.preventDefault?.();
+    toggleLeaderboard();
+  }, 450);
+}
+
+function cancelLeaderboardHold() {
+  clearTimeout(leaderboardHoldTimer);
+  leaderboardHoldTimer = null;
+}
+
+function bindLeaderboardHold(el) {
+  if (!el || el.dataset.leaderboardHoldBound === '1') return;
+  el.dataset.leaderboardHoldBound = '1';
+  ['mousedown', 'touchstart'].forEach(evt => el.addEventListener(evt, beginLeaderboardHold));
+  ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => el.addEventListener(evt, cancelLeaderboardHold));
+}
+
 function bindSecretQrTrigger(id) {
   const el = document.getElementById(id);
   if (!el || el.dataset.secretQrBound === '1') return;
@@ -4463,12 +4646,33 @@ function renderLeaderboard() {
   const footerEl = document.getElementById('dashboard-leaderboard-footer');
   const toggleEl = document.getElementById('dashboard-leaderboard-toggle');
   const previewEl = document.getElementById('dashboard-leaderboard-preview');
-  if (!listEl || !footerEl || !toggleEl || !previewEl) return;
+  const titleEl = document.getElementById('dashboard-leaderboard-title');
+  const cardEl = previewEl?.closest('.leaderboard-card');
+  if (!listEl || !footerEl || !toggleEl || !previewEl || !cardEl) return;
 
-  listEl.style.display = leaderboardCollapsed ? 'none' : '';
-  footerEl.style.display = leaderboardCollapsed ? 'none' : '';
-  previewEl.style.display = leaderboardCollapsed ? '' : 'none';
-  toggleEl.textContent = leaderboardCollapsed ? 'Show' : 'Hide';
+  const isMobile = window.innerWidth <= 640;
+  cardEl.classList.toggle('mobile-top-three-only', isMobile);
+  previewEl.classList.toggle('leaderboard-mobile-surface', isMobile);
+  listEl.classList.toggle('leaderboard-mobile-surface', isMobile);
+  if (isMobile) {
+    bindLeaderboardHold(previewEl);
+    bindLeaderboardHold(listEl);
+  }
+
+  if (isMobile) {
+    listEl.style.display = leaderboardCollapsed ? 'none' : '';
+    footerEl.style.display = 'none';
+    previewEl.style.display = '';
+    toggleEl.style.display = 'none';
+    if (titleEl) titleEl.style.display = 'none';
+  } else {
+    listEl.style.display = leaderboardCollapsed ? 'none' : '';
+    footerEl.style.display = leaderboardCollapsed ? 'none' : '';
+    previewEl.style.display = leaderboardCollapsed ? '' : 'none';
+    toggleEl.style.display = '';
+    toggleEl.textContent = leaderboardCollapsed ? 'Show' : 'Hide';
+    if (titleEl) titleEl.style.display = '';
+  }
 
   const rankings = householdLeaderboard?.rankings || householdLeaderboard?.leaders || [];
   if (!rankings.length) {
@@ -4528,6 +4732,12 @@ function toggleLeaderboard(forceCollapsed = null) {
     localStorage.setItem('dashboard_leaderboard_collapsed', String(leaderboardCollapsed));
   } catch (_error) {}
   renderLeaderboard();
+}
+
+function handleLeaderboardSurfaceTap(event) {
+  if (window.innerWidth <= 640) {
+    event?.preventDefault?.();
+  }
 }
 
 function isDashboardSectionCollapsed(sectionKey) {
@@ -5734,6 +5944,12 @@ function handleDashboardStatKey(event, target) {
 }
 
 function openDashboardStat(target) {
+  if (target === 'inventory-products') {
+    const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
+    nav('inventory', inventoryNav);
+    setCatalogMode('inventory', { load: true });
+    return;
+  }
   if (target === 'products') {
     const inventoryNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Inventory'));
     nav('products', inventoryNav);
@@ -5767,6 +5983,37 @@ function openDashboardStat(target) {
     nav('budget', budgetNav);
     setTimeout(() => document.getElementById('budget-amt')?.focus(), 0);
   }
+}
+
+function formatCompactBudgetAmount(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return '$0';
+  if (amount >= 1000) {
+    const short = amount % 1000 === 0 ? String(Math.round(amount / 1000)) : (amount / 1000).toFixed(1).replace(/\.0$/, '');
+    return `$${short}k`;
+  }
+  return `$${Math.round(amount)}`;
+}
+
+function updateBudgetEditorAccess() {
+  const isAdminUser = currentUser?.role === 'admin';
+  const ids = [
+    'budget-month',
+    'budget-domain',
+    'budget-amt',
+    'budget-save-btn',
+    'restaurant-budget-month',
+    'restaurant-budget-amount',
+    'restaurant-budget-save',
+    'expense-budget-month',
+    'expense-budget-amount',
+    'expense-budget-save',
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = !isAdminUser;
+  });
 }
 
 function isMobileViewport() {
@@ -5959,6 +6206,7 @@ function updateDemoModeUi() {
   if (uploadButton) uploadButton.disabled = demo || !document.getElementById('file-input')?.files?.length;
   if (fileInput) fileInput.disabled = demo;
   if (uploadStatus && demo) uploadStatus.textContent = 'Demo mode is read-only. Sign in to upload a real receipt.';
+  updateBudgetEditorAccess();
 }
 
 async function login() {
@@ -6569,11 +6817,16 @@ async function loadDashboard() {
     const inv = invRes.ok ? await invRes.json() : null;
     const recs = recRes.ok ? await recRes.json() : null;
 
-    if (prods) document.getElementById('stat-products').textContent = prods.total ?? prods.products?.length ?? '—';
+    const totalProducts = prods ? (prods.total ?? prods.products?.length ?? '—') : '—';
     if (inv) {
-      document.getElementById('stat-inv').textContent = inv.count ?? '—';
+      const inventoryCount = inv.count ?? '—';
+      const inventoryInline = document.getElementById('stat-inv-inline');
+      const productsInline = document.getElementById('stat-products-inline');
+      const lowInline = document.getElementById('stat-low-inline');
+      if (inventoryInline) inventoryInline.textContent = inventoryCount;
+      if (productsInline) productsInline.textContent = totalProducts;
       const low = getInventoryItems(inv).filter(i => i.is_low);
-      document.getElementById('stat-low').textContent = low.length;
+      if (lowInline) lowInline.textContent = low.length;
       const lowEl = document.getElementById('dash-low-stock');
       const lowCard = document.getElementById('dash-low-stock-card');
       const lowHeaderCount = document.getElementById('dash-low-stock-header-count');
@@ -6620,6 +6873,12 @@ async function loadDashboard() {
       }
       updateDashboardSectionVisibility('low-stock');
     }
+    if (!inv) {
+      const productsInline = document.getElementById('stat-products-inline');
+      const lowInline = document.getElementById('stat-low-inline');
+      if (productsInline) productsInline.textContent = totalProducts;
+      if (lowInline) lowInline.textContent = '—';
+    }
     if (recs) {
       const recsEl = document.getElementById('dash-recs');
       const recsCard = document.getElementById('dash-recs-card');
@@ -6646,9 +6905,10 @@ async function loadDashboard() {
     const bRes = await api(`/budget/status?month=${month}&domain=grocery`);
     if (bRes.ok) {
       const b = await bRes.json();
-      const pct = b.percentage ?? 0;
-      document.getElementById('stat-budget').textContent = `${pct}%`;
-      document.getElementById('stat-budget-sub').textContent = `$${b.spent ?? 0} / $${b.budget_amount ?? 0}`;
+      const budgetLabel = document.getElementById('stat-budget-label');
+      const budgetValue = document.getElementById('stat-budget');
+      if (budgetLabel) budgetLabel.textContent = `Budget ${formatCompactBudgetAmount(b.budget_amount ?? 0)}`;
+      if (budgetValue) budgetValue.innerHTML = `${escHtml(formatMoney(b.spent ?? 0))} <span class="dashboard-budget-percent">${escHtml(String(b.percentage ?? 0))}%</span>`;
     }
   } catch(e) { console.error(e); }
 }
@@ -8787,6 +9047,10 @@ function getSelectedBudgetDomain() {
 }
 
 async function setBudget() {
+  if (currentUser?.role !== 'admin') {
+    toast('Only admins can update budgets', 'error');
+    return;
+  }
   const month = document.getElementById('budget-month').value;
   const amt = parseFloat(document.getElementById('budget-amt').value);
   const domain = getSelectedBudgetDomain();
@@ -8797,6 +9061,7 @@ async function setBudget() {
 }
 
 async function loadBudgetStatus() {
+  updateBudgetEditorAccess();
   const month = document.getElementById('budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const domain = getSelectedBudgetDomain();
   const res = await api(`/budget/status?month=${encodeURIComponent(month)}&domain=${encodeURIComponent(domain)}`);
@@ -9006,6 +9271,10 @@ async function loadRestaurantBudget() {
 }
 
 async function saveRestaurantBudget() {
+  if (currentUser?.role !== 'admin') {
+    toast('Only admins can update budgets', 'error');
+    return;
+  }
   const month = document.getElementById('restaurant-budget-month')?.value;
   const amt = parseFloat(document.getElementById('restaurant-budget-amount')?.value);
   if (!month || Number.isNaN(amt)) {
@@ -9226,6 +9495,10 @@ async function loadExpenseBudget() {
 }
 
 async function saveExpenseBudget() {
+  if (currentUser?.role !== 'admin') {
+    toast('Only admins can update budgets', 'error');
+    return;
+  }
   const month = document.getElementById('expense-budget-month')?.value;
   const amt = parseFloat(document.getElementById('expense-budget-amount')?.value);
   if (!month || Number.isNaN(amt)) {

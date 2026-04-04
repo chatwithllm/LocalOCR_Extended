@@ -15,6 +15,7 @@ from flask import Blueprint, request, jsonify, g
 
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import Budget, Purchase
+from src.backend.manage_authentication import is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ def set_monthly_budget():
     """
     session = g.db_session
     data = request.get_json(silent=True)
+    current_user = getattr(g, "current_user", None)
+
+    if not is_admin(current_user):
+        return jsonify({"error": "Only admins can update budgets"}), 403
 
     if not data or not data.get("budget_amount"):
         return jsonify({"error": "budget_amount is required"}), 400
@@ -38,8 +43,7 @@ def set_monthly_budget():
     domain = (data.get("domain") or "grocery").strip().lower()
     budget_amount = float(data["budget_amount"])
 
-    user_id = getattr(g, "current_user", None)
-    user_id = user_id.id if user_id else None
+    user_id = current_user.id if current_user else None
 
     # Upsert budget
     existing = session.query(Budget).filter_by(user_id=user_id, month=month, domain=domain).first()

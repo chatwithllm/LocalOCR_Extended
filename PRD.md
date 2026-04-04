@@ -52,6 +52,7 @@ Shared-core UX requirements:
 - successful login should clear and re-hide the password field
 - browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
 - desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
+- mobile pages should avoid explanatory copy when compact controls already communicate the workflow
 
 ## 4. Grocery Module
 
@@ -74,6 +75,7 @@ Grocery UX requirements now in place:
 - inventory and products should behave like two modes of one shared workspace, not two separately designed pages
 - inventory search/category tools should be collapsible so they do not dominate the screen when unused
 - location editing should always reflect the item’s current known location and still allow preset or custom updates
+- budget changes should be restricted to admins, while budget status remains visible to signed-in household users
 
 ## 5. Restaurant Module
 
