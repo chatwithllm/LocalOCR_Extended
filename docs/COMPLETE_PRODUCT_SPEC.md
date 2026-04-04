@@ -133,6 +133,8 @@ General-expense receipts must never:
 - create shopping recommendations
 - affect restaurant analytics
 
+All three domains must also support manual spend capture when the receipt image is unavailable.
+
 ## 4. Shared Core
 
 The shared core spans all domains.
@@ -167,6 +169,12 @@ The app supports:
 - admin user creation and editing
 - password reset flows
 - profile/avatar editing
+
+Authentication UX requirements:
+
+- login password fields may expose an eye toggle for temporary visibility
+- after successful login, password fields must clear and reset to hidden mode
+- user-edit and password-reset flows should use in-app modal patterns instead of browser-native prompts where browser popups are unreliable
 
 Identity presentation rules:
 
@@ -220,6 +228,12 @@ Current dashboard demo behavior:
 - compact mobile ranking preview
 - mobile stat cards in a 2x2 layout
 
+Desktop workspace behavior:
+
+- the left sidebar may be hidden on larger screens
+- sidebar collapse state should be remembered across refreshes
+- mobile hamburger behavior remains separate from desktop sidebar collapse
+
 ## 7. Receipt Intake
 
 The upload entrypoint supports intent selection.
@@ -246,6 +260,16 @@ Upload workflow requirements:
   - `processed`
   - `review`
   - failure when truly failed
+
+Manual entry workflow requirements:
+
+- users must be able to create a manual entry when the receipt image is lost or unavailable
+- manual entries must support:
+  - grocery
+  - restaurant
+  - general expense
+- manual entries must create real spend history, not UI-only placeholders
+- manual entries must be deletable later so their amount can be removed from budget and analytics cleanly
 
 ## 8. OCR and Review
 
@@ -278,6 +302,11 @@ Quick review actions currently supported:
 - rotate right
 - mark as restaurant
 - safe re-run OCR
+
+Review/edit reliability rules:
+
+- browser-native prompts should be avoided for important edit flows where Chrome/Safari may dismiss them unexpectedly
+- in-app modal flows are preferred for rename, user edit, password reset, and similar structured edits
 
 Review philosophy:
 
@@ -372,10 +401,12 @@ Shopping page behavior:
   - Open
   - Estimate
   - Close
+- Open and Close summary pills may act as list-view toggles and should remember the chosen view
 - Current List is open-focused and visually lighter:
   - compact rows first
   - extra actions/details only when expanded
   - inline sort chips instead of heavier form controls
+- closed items remain available in the Close view so `Reopen` can safely undo shopping-only test actions
 
 ## 11. Recommendations and Low-Stock
 

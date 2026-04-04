@@ -97,12 +97,21 @@ This split gives you a clean safety net:
 - shopping and inventory mobile surfaces were then compacted further:
   - shopping summary strip now uses `Open / Estimate / Close`
   - Quick Find and Recommendations moved behind header toggles
+  - Open and Close summary pills now act as remembered Current List filters
   - Current List now uses lighter inline controls and compact expandable rows
   - inventory add/search/sort clutter was reduced on phones
   - inventory mobile rows now expand on demand instead of showing every action at once
+- desktop sidebar can now be hidden on larger screens and remembered across refreshes
 - household-style display names are now used across recommendations, low-stock, shopping, and inventory
 - duplicate household items in inventory are now grouped in the display layer so the list reads as unique household needs instead of repeated package variants
 - product rename now uses an in-app text modal instead of browser-native prompt
+- login password now supports an eye toggle and resets to hidden after successful sign-in
+- Settings user edit/reset password flows now use in-app modals instead of browser-native prompts
+- Budget now supports manual entry creation for:
+  - grocery
+  - restaurant
+  - general expense
+- manual entries create real purchase + manual receipt history so budget and analytics stay accurate even when the image is missing
 
 ## 5. What Still Belongs To Extended Next
 
