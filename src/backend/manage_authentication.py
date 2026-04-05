@@ -932,6 +932,24 @@ def approve_device_pairing():
         .all()
     )
 
+    stale_revoke = (
+        g.db_session.query(TrustedDevice)
+        .filter(
+            TrustedDevice.linked_user_id == linked_user.id,
+            TrustedDevice.name == device_name,
+            TrustedDevice.revoked_at.isnot(None),
+            TrustedDevice.revoked_at >= pairing.created_at,
+        )
+        .order_by(TrustedDevice.revoked_at.desc(), TrustedDevice.id.desc())
+        .first()
+    )
+    if stale_revoke:
+        pairing.status = "rejected"
+        pairing.approved_by_user_id = actor.id
+        pairing.approved_at = datetime.now(timezone.utc)
+        g.db_session.commit()
+        return jsonify({"error": "This device pairing was revoked and must be restarted from a fresh QR code"}), 409
+
     active_matching_devices = [device for device in matching_devices if device.status == "active"]
     trusted_device = active_matching_devices[0] if active_matching_devices else None
     if trusted_device:
