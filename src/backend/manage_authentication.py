@@ -12,9 +12,10 @@ import secrets
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
+from urllib.parse import urlparse
 
 import qrcode
-from flask import Blueprint, jsonify, request, g, session, redirect, send_file, render_template_string
+from flask import Blueprint, jsonify, request, g, session, redirect, send_file, render_template_string, has_request_context
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 
@@ -57,10 +58,14 @@ def get_enabled_modules() -> dict:
 
 def build_app_config() -> dict:
     modules = get_enabled_modules()
+    public_base = (os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/"))
+    request_base = request.host_url.rstrip("/") if has_request_context() else ""
     return {
         "app_name": os.getenv("APP_DISPLAY_NAME", "LocalOCR Extended"),
         "app_slug": os.getenv("APP_SLUG", "localocr_extended"),
         "service_name": os.getenv("APP_SERVICE_NAME", "localocr-extended-backend"),
+        "public_base_url_default": public_base,
+        "request_base_url": request_base,
         "modules": modules,
         "module_view_mode": "separate",
         "ports": {
@@ -74,7 +79,12 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def build_public_base_url() -> str:
+def build_public_base_url(preferred_base_url: str | None = None) -> str:
+    candidate = (preferred_base_url or "").strip().rstrip("/")
+    if candidate:
+        parsed = urlparse(candidate)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            return candidate
     return (
         os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
         or request.host_url.rstrip("/")
@@ -636,6 +646,8 @@ def qr_login_link():
     user = get_authenticated_user()
     if not user:
         return jsonify({"error": "Authentication required"}), 401
+    data = request.get_json(silent=True) or {}
+    base_url = build_public_base_url(data.get("current_base_url"))
 
     token, link = create_access_link(
         purpose="login_qr",
@@ -644,10 +656,10 @@ def qr_login_link():
         expires_in_minutes=10,
     )
     g.db_session.commit()
-    url = f"{build_public_base_url()}/auth/qr-login/{token}"
+    url = f"{base_url}/auth/qr-login/{token}"
     return jsonify({
         "url": url,
-        "qr_image_url": f"{build_public_base_url()}/auth/qr-image?data={quote(url, safe='')}",
+        "qr_image_url": f"{base_url}/auth/qr-image?data={quote(url, safe='')}",
         "expires_at": link.expires_at.isoformat() if link.expires_at else None,
     }), 200
 
@@ -690,6 +702,7 @@ def device_pairing_start():
     data = request.get_json(silent=True) or {}
     device_name = (data.get("device_name") or "Kitchen Fridge").strip()
     scope = _normalize_device_scope(data.get("scope"))
+    base_url = build_public_base_url(data.get("current_base_url"))
     pairing_token = secrets.token_urlsafe(32)
     pairing = DevicePairingSession(
         pairing_token_hash=hash_token(pairing_token),
@@ -701,11 +714,11 @@ def device_pairing_start():
     )
     g.db_session.add(pairing)
     g.db_session.commit()
-    pairing_url = f"{build_public_base_url()}/auth/pair-device/{quote(pairing_token, safe='')}"
+    pairing_url = f"{base_url}/auth/pair-device/{quote(pairing_token, safe='')}"
     return jsonify({
         "pairing_token": pairing_token,
         "pairing_url": pairing_url,
-        "qr_image_url": f"{build_public_base_url()}/auth/qr-image?data={quote(pairing_url, safe='')}",
+        "qr_image_url": f"{base_url}/auth/qr-image?data={quote(pairing_url, safe='')}",
         "expires_at": pairing.expires_at.isoformat() if pairing.expires_at else None,
         "device_name": pairing.device_name,
         "scope": pairing.scope,

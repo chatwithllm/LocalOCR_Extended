@@ -3359,6 +3359,16 @@
             <input id="settings-auth-device" value="—" disabled />
           </div>
         </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group">
+            <label>Current Host</label>
+            <input id="settings-current-host" value="—" disabled />
+          </div>
+          <div class="form-group">
+            <label>Default Pairing Host</label>
+            <input id="settings-pairing-host" value="—" disabled />
+          </div>
+        </div>
         <div class="form-group" style="margin-top:16px">
           <label>Profile Avatar</label>
           <div style="display:flex;gap:10px;align-items:center">
@@ -4856,7 +4866,7 @@ function closeSecretQrPanel() {
 async function ensureLoginQrData() {
   if (!currentUser || SHOPPING_HELPER_MODE) return null;
   if (!loginQrCache) {
-    const res = await api('/auth/qr-login-link', { method: 'POST', body: JSON.stringify({}) });
+    const res = await api('/auth/qr-login-link', { method: 'POST', body: JSON.stringify({ current_base_url: getCurrentOrigin() }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not generate login QR');
     loginQrCache = data;
@@ -6742,10 +6752,16 @@ function formatAuthSourceLabel(source) {
   return 'Signed out';
 }
 
+function getCurrentOrigin() {
+  return (window.location?.origin && /^https?:/i.test(window.location.origin)) ? window.location.origin : API_BASE;
+}
+
 function updateSettingsSessionFields() {
   const userEl = document.getElementById('settings-user');
   const authSourceEl = document.getElementById('settings-auth-source');
   const authDeviceEl = document.getElementById('settings-auth-device');
+  const currentHostEl = document.getElementById('settings-current-host');
+  const pairingHostEl = document.getElementById('settings-pairing-host');
   if (userEl) {
     userEl.value = currentUser
       ? `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`
@@ -6756,6 +6772,8 @@ function updateSettingsSessionFields() {
     const deviceName = currentAuthContext?.trusted_device?.name || '—';
     authDeviceEl.value = currentAuthContext?.source?.startsWith('trusted_device') ? deviceName : '—';
   }
+  if (currentHostEl) currentHostEl.value = getCurrentOrigin();
+  if (pairingHostEl) pairingHostEl.value = appConfig.request_base_url || appConfig.public_base_url_default || getCurrentOrigin();
 }
 
 function stopDevicePairingPolling() {
@@ -6800,7 +6818,7 @@ async function startDevicePairing() {
   try {
     const res = await api('/auth/device-pairing/start', {
       method: 'POST',
-      body: JSON.stringify({ device_name: name, scope })
+      body: JSON.stringify({ device_name: name, scope, current_base_url: getCurrentOrigin() })
     });
     const data = await res.json();
     if (!res.ok) {
