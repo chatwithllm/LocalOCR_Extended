@@ -150,8 +150,38 @@ def verify_password(user: User, password: str) -> bool:
     return False
 
 
+def _clear_auth_session():
+    session.pop("user_id", None)
+    session.pop("trusted_device_id", None)
+    session.pop("auth_source", None)
+    session.pop("session_version", None)
+
+
+def _set_browser_session(user: User):
+    session["user_id"] = user.id
+    session["auth_source"] = "browser_session"
+    session["session_version"] = int(user.session_version or 0)
+    session.pop("trusted_device_id", None)
+    session.permanent = True
+
+
+def _set_trusted_device_session(user: User, device: TrustedDevice):
+    session["user_id"] = user.id
+    session["trusted_device_id"] = device.id
+    session["auth_source"] = "trusted_device"
+    session["session_version"] = int(user.session_version or 0)
+    session.permanent = True
+
+
+def _set_auth_context(source: str, user: User | None = None, device: TrustedDevice | None = None):
+    g.auth_source = source
+    g.auth_user = user
+    g.auth_trusted_device = device
+
+
 def get_authenticated_user():
     """Resolve current user from session or bearer token."""
+    _set_auth_context("anonymous")
     trusted_device_token = (request.headers.get("X-Trusted-Device-Token") or "").strip()
     if trusted_device_token:
         token_hash = hash_token(trusted_device_token)
@@ -160,26 +190,40 @@ def get_authenticated_user():
             user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
             if user and user.is_active:
                 device.last_seen_at = datetime.now(timezone.utc)
+                _set_auth_context("trusted_device_token", user, device)
                 return user
 
+    session_auth_source = session.get("auth_source")
     trusted_device_id = session.get("trusted_device_id")
     if trusted_device_id:
         device = g.db_session.query(TrustedDevice).filter_by(id=trusted_device_id).first()
         if device and device.status == "active":
             user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
             if user and user.is_active:
+                if int(session.get("session_version", -1)) != int(user.session_version or 0):
+                    _clear_auth_session()
+                    return None
                 session["user_id"] = user.id
                 device.last_seen_at = datetime.now(timezone.utc)
+                _set_auth_context("trusted_device_session", user, device)
                 return user
-        session.pop("trusted_device_id", None)
-        session.pop("user_id", None)
+        _clear_auth_session()
+        return None
+
+    if session_auth_source == "trusted_device":
+        _clear_auth_session()
+        return None
 
     session_user_id = session.get("user_id")
     if session_user_id:
         user = g.db_session.query(User).filter_by(id=session_user_id).first()
         if user and user.is_active:
+            if int(session.get("session_version", -1)) != int(user.session_version or 0):
+                _clear_auth_session()
+                return None
+            _set_auth_context(session_auth_source or "browser_session", user)
             return user
-        session.pop("user_id", None)
+        _clear_auth_session()
 
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
@@ -187,6 +231,7 @@ def get_authenticated_user():
         token_hash = hash_token(token)
         user = g.db_session.query(User).filter_by(api_token_hash=token_hash).first()
         if user and user.is_active:
+            _set_auth_context("api_token", user)
             return user
         return None
 
@@ -215,6 +260,15 @@ def serialize_user(user: User) -> dict:
         ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    }
+
+
+def serialize_auth_context() -> dict:
+    source = getattr(g, "auth_source", "anonymous")
+    device = getattr(g, "auth_trusted_device", None)
+    return {
+        "source": source,
+        "trusted_device": serialize_trusted_device(device) if device else None,
     }
 
 
@@ -513,12 +567,15 @@ def login():
     if not user or not verify_password(user, password):
         return jsonify({"error": "Invalid email or password"}), 401
 
-    session["user_id"] = user.id
-    session.permanent = True
+    _set_browser_session(user)
 
     return jsonify({
         "user": {
             **serialize_user(user),
+        },
+        "auth": {
+            "source": "browser_session",
+            "trusted_device": None,
         },
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
@@ -529,7 +586,7 @@ def login():
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
     """End the browser session."""
-    session.pop("user_id", None)
+    _clear_auth_session()
     return jsonify({"status": "logged_out"}), 200
 
 
@@ -559,11 +616,15 @@ def me():
         return jsonify({"authenticated": False}), 401
 
     if session.get("user_id") != user.id and "Authorization" not in request.headers:
-        session["user_id"] = user.id
+        if getattr(g, "auth_source", "") == "trusted_device_session" and getattr(g, "auth_trusted_device", None):
+            _set_trusted_device_session(user, g.auth_trusted_device)
+        else:
+            _set_browser_session(user)
 
     return jsonify({
         "authenticated": True,
         "user": serialize_user(user),
+        "auth": serialize_auth_context(),
         "stats": serialize_user_stats(user),
         "leaderboard": serialize_household_leaderboard(user.id),
         "app_config": build_app_config(),
@@ -601,8 +662,7 @@ def qr_login(token: str):
     if not user:
         return redirect("/")
 
-    session["user_id"] = user.id
-    session.permanent = True
+    _set_browser_session(user)
     link.used_at = datetime.now(timezone.utc)
     g.db_session.commit()
     return redirect("/")
@@ -766,16 +826,19 @@ def device_pairing_status(token: str):
             pairing.claimed_at = datetime.now(timezone.utc)
             pairing.status = "claimed"
         device.last_seen_at = datetime.now(timezone.utc)
-        session["user_id"] = device.linked_user_id
-        session["trusted_device_id"] = device.id
-        session.permanent = True
-        g.db_session.commit()
-
         user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+        if not user or not user.is_active:
+            return jsonify({"status": "error", "error": "Linked user not available"}), 409
+        _set_trusted_device_session(user, device)
+        g.db_session.commit()
         return jsonify({
             "status": "approved",
             "authenticated": True,
             "user": serialize_user(user) if user else None,
+            "auth": {
+                "source": "trusted_device_session",
+                "trusted_device": serialize_trusted_device(device),
+            },
             "trusted_device": serialize_trusted_device(device),
             "app_config": build_app_config(),
         }), 200
@@ -789,6 +852,10 @@ def device_pairing_status(token: str):
                 "status": "claimed",
                 "authenticated": True,
                 "user": serialize_user(user) if user else None,
+                "auth": {
+                    "source": "trusted_device_session",
+                    "trusted_device": serialize_trusted_device(device) if device else None,
+                },
                 "trusted_device": serialize_trusted_device(device) if device else None,
                 "app_config": build_app_config(),
             }), 200
@@ -823,9 +890,10 @@ def claim_device_pairing(token: str):
         pairing.claimed_at = datetime.now(timezone.utc)
         pairing.status = "claimed"
     device.last_seen_at = datetime.now(timezone.utc)
-    session["user_id"] = device.linked_user_id
-    session["trusted_device_id"] = device.id
-    session.permanent = True
+    user = g.db_session.query(User).filter_by(id=device.linked_user_id).first()
+    if not user or not user.is_active:
+        return redirect("/?pairing_claim=unavailable")
+    _set_trusted_device_session(user, device)
     g.db_session.commit()
     return redirect("/?pairing_claim=ok")
 
@@ -864,7 +932,8 @@ def approve_device_pairing():
         .all()
     )
 
-    trusted_device = matching_devices[0] if matching_devices else None
+    active_matching_devices = [device for device in matching_devices if device.status == "active"]
+    trusted_device = active_matching_devices[0] if active_matching_devices else None
     if trusted_device:
         trusted_device.scope = scope
         trusted_device.status = "active"
@@ -885,7 +954,8 @@ def approve_device_pairing():
         g.db_session.add(trusted_device)
         g.db_session.flush()
 
-    for duplicate in matching_devices[1:]:
+    duplicate_pool = active_matching_devices[1:] if active_matching_devices else matching_devices
+    for duplicate in duplicate_pool:
         duplicate.status = "revoked"
         duplicate.revoked_at = datetime.now(timezone.utc)
 
@@ -989,10 +1059,21 @@ def revoke_trusted_device(device_id: int):
         )
         .all()
     )
+    pairing_sessions = (
+        g.db_session.query(DevicePairingSession)
+        .filter(
+            DevicePairingSession.device_name == device.name,
+            DevicePairingSession.status.in_(["pending", "approved", "claimed"]),
+        )
+        .all()
+    )
     revoked_at = datetime.now(timezone.utc)
     for matching_device in matching_devices:
         matching_device.status = "revoked"
         matching_device.revoked_at = revoked_at
+    for pairing in pairing_sessions:
+        pairing.status = "rejected"
+        pairing.approved_at = revoked_at
     g.db_session.commit()
     return jsonify({
         "status": "revoked",

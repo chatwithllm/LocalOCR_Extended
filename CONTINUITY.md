@@ -45,7 +45,7 @@ This split gives you a clean safety net:
 - if Extended is abandoned, grocery remains intact
 - no rollback on the grocery repo is required
 
-## 4. Current Verified Extended Changes
+## 4. Completed / Verified
 
 - Dockerfile default port changed to `8090`
 - compose backend now binds `8090:8090`
@@ -134,8 +134,53 @@ This split gives you a clean safety net:
 - manual entries create real purchase + manual receipt history so budget and analytics stay accurate even when the image is missing
 - budget updates are now enforced as admin-only on the backend and disabled in the frontend for non-admin users
 - trusted-device management remains environment-specific unless multiple hosts share the same backend/database
+- trusted-device pairing now supports explicit linked-user selection during admin approval, so a fridge/tablet can be paired to a lower-privilege household user instead of silently inheriting the approving admin account
+- Settings now shows session auth source more clearly:
+  - browser session
+  - trusted device
+  - API token
+- trusted-device sessions are now bound to trusted-device auth and no longer silently degrade into a normal browser session after revoke
+- trusted-device revoke now removes matching cards from Settings immediately with a quick exit animation instead of waiting for a full page refresh
 
-## 5. What Still Belongs To Extended Next
+## 5. Pending / Needs More Work
+
+Operational and product items that are not fully closed yet:
+
+- trusted-device management still needs clearer separation between:
+  - trusted-device access
+  - normal browser sessions
+  - API-token usage
+- admin-side "log out all sessions" or "invalidate all browser sessions" does not exist yet
+- trusted-device revoke currently removes trusted-device access, but it is still possible for a screen to remain logged in if it separately has a normal browser session
+- trusted-device lifecycle needs one more cleanup pass around:
+  - expired pairing-session cleanup
+  - duplicate historical pairing-session pruning
+  - more explicit live/device state in Settings
+- trusted-device list behavior is only reliable when pairing, viewing, and revoking are done against the same host/runtime
+- deployment/runtime notes should continue to assume:
+  - domain and LAN host are different environments unless proven to share the same backend + DB
+- some product surfaces still have remaining compactness/polish opportunities:
+  - expanded inventory mobile actions
+  - device-mode UI differences by scope
+  - better read-only affordances
+
+## 6. Planned Next
+
+High-value next work from the current state:
+
+- make trusted-device scopes affect runtime behavior:
+  - `Shared Household`
+  - `Kitchen Display`
+  - `Read Only`
+- add a visible device-mode badge in the app shell so shared screens are obviously in device mode
+- add admin-driven session invalidation for household users and shared screens
+- add trusted-device home/default-route behavior, for example:
+  - dashboard first
+  - shopping first
+  - kiosk/dashboard-only
+- continue reducing vertical clutter on mobile after row expansion
+- keep strengthening structured edit flows so browser-native prompts disappear entirely
+## 7. What Still Belongs To Extended Next
 
 Primary product direction:
 
@@ -165,7 +210,7 @@ Current rule:
 - do not destabilize the stable grocery repo for this work
 - new module and restaurant work should happen here
 
-## 6. Resume Order
+## 8. Resume Order
 
 Read these in order:
 
@@ -184,14 +229,14 @@ Then inspect:
 - [src/backend/setup_mqtt_connection.py](src/backend/setup_mqtt_connection.py)
 - [src/backend/publish_mqtt_events.py](src/backend/publish_mqtt_events.py)
 
-## 7. Safety Rules
+## 9. Safety Rules
 
 - keep grocery repo `main` as the stable baseline
 - keep Extended changes additive and modular where possible
 - if a feature is worth bringing back later, prefer cherry-picking focused commits instead of wholesale repo merging
 - preserve separate MQTT identifiers and topic namespaces so Home Assistant can ingest both apps cleanly
 
-## 8. Local Verification Targets
+## 10. Local Verification Targets
 
 When resuming, verify:
 

@@ -54,10 +54,16 @@ Shared-core UX requirements:
 - QR pairing should use short-lived approval sessions, not expose long-lived device tokens directly
 - once approved, the shared device should authenticate with a durable trusted-device token so refresh stays stable even if browser sessions are flaky
 - admins should be able to rename trusted devices and adjust scope from Settings after pairing
+- admins should be able to choose the linked household user during trusted-device approval instead of always pairing as the approving admin
 - trusted-device scopes should be understandable to a household:
   - `Shared Household`
   - `Kitchen Display`
   - `Read Only`
+- the app should clearly expose the current auth source in Settings or session UI so a screen can be identified as:
+  - browser session
+  - trusted device
+  - API token
+- trusted-device revoke should feel immediate in the UI and remove the device card without waiting for a full page reload
 - browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
 - desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
 - mobile pages should avoid explanatory copy when compact controls already communicate the workflow

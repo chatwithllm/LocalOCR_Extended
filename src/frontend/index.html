@@ -1786,6 +1786,27 @@
       animation: spin 0.7s linear infinite; display: inline-block;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes trustedDeviceExit {
+      0% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+        max-height: 220px;
+        margin-bottom: 12px;
+      }
+      100% {
+        opacity: 0;
+        transform: translateX(20px) scale(0.98);
+        max-height: 0;
+        margin-bottom: 0;
+      }
+    }
+    .trusted-device-card {
+      overflow: hidden;
+    }
+    .trusted-device-card.is-revoking {
+      pointer-events: none;
+      animation: trustedDeviceExit 220ms ease forwards;
+    }
 
     /* ---- Recs ---- */
     .rec-item {
@@ -2692,6 +2713,10 @@
             <input id="device-approval-inline-name" placeholder="Kitchen Fridge" />
           </label>
           <label style="display:grid;gap:6px">
+            <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Linked User</span>
+            <select id="device-approval-inline-linked-user"></select>
+          </label>
+          <label style="display:grid;gap:6px">
             <span style="color:var(--muted);font-size:.82rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase">Scope</span>
             <select id="device-approval-inline-scope">
               <option value="shared_household">Shared Household</option>
@@ -3324,6 +3349,16 @@
           <label>Current browser login</label>
           <input id="settings-user" value="Not signed in" disabled />
         </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group">
+            <label>Auth Source</label>
+            <input id="settings-auth-source" value="Signed out" disabled />
+          </div>
+          <div class="form-group">
+            <label>Trusted Device</label>
+            <input id="settings-auth-device" value="—" disabled />
+          </div>
+        </div>
         <div class="form-group" style="margin-top:16px">
           <label>Profile Avatar</label>
           <div style="display:flex;gap:10px;align-items:center">
@@ -3511,6 +3546,10 @@
           <input id="device-approval-name" placeholder="Kitchen Fridge" />
         </div>
         <div class="form-group">
+          <label>Linked User</label>
+          <select id="device-approval-linked-user"></select>
+        </div>
+        <div class="form-group">
           <label>Scope</label>
           <select id="device-approval-scope" onchange="updateDeviceScopeHelp('device-approval-scope', 'device-approval-scope-help')">
             <option value="shared_household" selected>Shared Household</option>
@@ -3548,6 +3587,7 @@ if (SHOPPING_HELPER_MODE) {
 }
 let receiptImageObjectUrl = null;
 let currentUser = null;
+let currentAuthContext = { source: 'anonymous', trusted_device: null };
 let bootstrapEmail = 'admin@localhost';
 let appConfig = {
   app_name: 'LocalOCR Extended',
@@ -6299,9 +6339,7 @@ function nav(page, el) {
   if (page === 'settings') {
     document.getElementById('settings-token').value = TOKEN;
     document.getElementById('settings-url').value = API_BASE;
-    document.getElementById('settings-user').value = currentUser
-      ? `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`
-      : 'Not signed in';
+    updateSettingsSessionFields();
     document.getElementById('settings-avatar').value = currentUser ? getUserAvatar(currentUser) : '';
     document.getElementById('settings-avatar-preview').textContent = currentUser ? getUserAvatar(currentUser) : '🦊';
     if (currentUser) {
@@ -6533,6 +6571,7 @@ async function checkAuth() {
     if (res.ok) {
       const data = await res.json();
       currentUser = data.user || null;
+      currentAuthContext = data.auth || { source: 'browser_session', trusted_device: null };
       currentUserStats = data.stats || currentUserStats;
       householdLeaderboard = data.leaderboard || householdLeaderboard;
       if (data.app_config) applyAppConfig(data.app_config);
@@ -6577,6 +6616,7 @@ async function checkAuth() {
   }
 
   currentUser = null;
+  currentAuthContext = { source: 'anonymous', trusted_device: null };
   currentUserStats = { ...DEMO_GUEST_STATS };
   householdLeaderboard = { month: DEMO_MONTH, rankings: DEMO_USERS, current_user_rank: null, total_users: DEMO_USERS.length };
   banner.classList.add('show');
@@ -6658,8 +6698,64 @@ function updateDeviceScopeHelp(selectId, helpId) {
   help.textContent = describeTrustedDeviceScope(select.value);
 }
 
+function getDefaultTrustedDeviceLinkedUserId() {
+  if (!currentUser) return '';
+  const activeUsers = (householdUsers || []).filter(user => user.is_active !== false);
+  const preferred = activeUsers.find(user => user.role !== 'admin') || activeUsers.find(user => user.id === currentUser.id) || activeUsers[0];
+  return preferred ? String(preferred.id) : String(currentUser.id);
+}
+
+async function ensureTrustedDeviceApprovalUsers() {
+  if (!currentUser || currentUser.role !== 'admin') return [];
+  if (!householdUsers.length) {
+    const res = await api('/auth/users');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'Could not load household users');
+    }
+    householdUsers = [...(data.users || [])];
+  }
+  return householdUsers.filter(user => user.is_active !== false);
+}
+
+function populateTrustedDeviceApprovalUserSelect(selectId, preferredId = '') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const activeUsers = (householdUsers || []).filter(user => user.is_active !== false);
+  const options = activeUsers.length
+    ? activeUsers.map(user => `<option value="${user.id}">${escHtml(user.name || user.email || `User ${user.id}`)}${user.role === 'admin' ? ' (admin)' : ''}</option>`).join('')
+    : '<option value="">Current user</option>';
+  select.innerHTML = options;
+  const fallback = preferredId || getDefaultTrustedDeviceLinkedUserId();
+  if (fallback) select.value = String(fallback);
+}
+
 function getTrustedDevicePairingToken() {
   return localStorage.getItem('trusted_device_pairing_token') || '';
+}
+
+function formatAuthSourceLabel(source) {
+  const normalized = String(source || 'anonymous');
+  if (normalized === 'trusted_device_token' || normalized === 'trusted_device_session') return 'Trusted Device';
+  if (normalized === 'browser_session') return 'Browser Session';
+  if (normalized === 'api_token') return 'API Token';
+  return 'Signed out';
+}
+
+function updateSettingsSessionFields() {
+  const userEl = document.getElementById('settings-user');
+  const authSourceEl = document.getElementById('settings-auth-source');
+  const authDeviceEl = document.getElementById('settings-auth-device');
+  if (userEl) {
+    userEl.value = currentUser
+      ? `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`
+      : 'Not signed in';
+  }
+  if (authSourceEl) authSourceEl.value = formatAuthSourceLabel(currentAuthContext?.source);
+  if (authDeviceEl) {
+    const deviceName = currentAuthContext?.trusted_device?.name || '—';
+    authDeviceEl.value = currentAuthContext?.source?.startsWith('trusted_device') ? deviceName : '—';
+  }
 }
 
 function stopDevicePairingPolling() {
@@ -6778,6 +6874,7 @@ function setDeviceApprovalNotice(state = '', data = {}) {
   const form = document.getElementById('device-approval-inline-form');
   const reauth = document.getElementById('device-approval-inline-reauth');
   const name = document.getElementById('device-approval-inline-name');
+  const linkedUser = document.getElementById('device-approval-inline-linked-user');
   const scope = document.getElementById('device-approval-inline-scope');
   const reauthEmail = document.getElementById('device-approval-inline-email');
   if (!card || !title || !summary || !status || !authNote || !form || !reauth) return;
@@ -6799,6 +6896,7 @@ function setDeviceApprovalNotice(state = '', data = {}) {
   form.style.display = data.showForm ? 'block' : 'none';
   reauth.style.display = data.showReauth ? 'block' : 'none';
   if (name && data.deviceName != null) name.value = data.deviceName;
+  if (linkedUser) populateTrustedDeviceApprovalUserSelect('device-approval-inline-linked-user', data.linkedUserId);
   if (scope && data.scope != null) scope.value = data.scope;
   if (reauthEmail && data.adminEmail != null) reauthEmail.value = data.adminEmail;
 }
@@ -6808,6 +6906,7 @@ function getPendingDeviceApprovalValues() {
   if (inlineVisible) {
     return {
       name: document.getElementById('device-approval-inline-name')?.value?.trim() || defaultDeviceName(),
+      linkedUserId: document.getElementById('device-approval-inline-linked-user')?.value || getDefaultTrustedDeviceLinkedUserId(),
       scope: document.getElementById('device-approval-inline-scope')?.value || 'shared_household',
       adminEmail: document.getElementById('device-approval-inline-email')?.value?.trim() || lastSuccessfulAdminAuth.email || '',
       adminPassword: document.getElementById('device-approval-inline-password')?.value || lastSuccessfulAdminAuth.password || '',
@@ -6815,6 +6914,7 @@ function getPendingDeviceApprovalValues() {
   }
   return {
     name: document.getElementById('device-approval-name')?.value?.trim() || defaultDeviceName(),
+    linkedUserId: document.getElementById('device-approval-linked-user')?.value || getDefaultTrustedDeviceLinkedUserId(),
     scope: document.getElementById('device-approval-scope')?.value || 'shared_household',
     adminEmail: lastSuccessfulAdminAuth.email || '',
     adminPassword: lastSuccessfulAdminAuth.password || '',
@@ -6874,6 +6974,7 @@ async function maybeHandleDeviceApprovalLink() {
     return;
   }
   try {
+    await ensureTrustedDeviceApprovalUsers();
     const res = await api(`/auth/device-pairing/status/${encodeURIComponent(pairingToken)}`);
     const data = await res.json();
     if (!res.ok) {
@@ -6896,6 +6997,7 @@ async function maybeHandleDeviceApprovalLink() {
       return;
     }
     document.getElementById('device-approval-name').value = data.device_name || defaultDeviceName();
+    populateTrustedDeviceApprovalUserSelect('device-approval-linked-user');
     document.getElementById('device-approval-scope').value = data.scope || 'shared_household';
     updateDeviceScopeHelp('device-approval-scope', 'device-approval-scope-help');
     document.getElementById('device-approval-body').textContent = `Approve persistent access for ${data.device_name || 'this device'}?`;
@@ -6903,6 +7005,7 @@ async function maybeHandleDeviceApprovalLink() {
       title: 'Approve Device Pairing',
       summary: `Approve persistent access for ${data.device_name || 'this device'}?`,
       deviceName: data.device_name || defaultDeviceName(),
+      linkedUserId: getDefaultTrustedDeviceLinkedUserId(),
       scope: data.scope || 'shared_household',
       status: 'Pending',
       showForm: true,
@@ -6939,14 +7042,14 @@ async function approvePendingDevicePairing() {
       adminEmail: document.getElementById('auth-email-input')?.value?.trim() || '',
     });
   }
-  const { name, scope, adminEmail, adminPassword } = getPendingDeviceApprovalValues();
+  const { name, linkedUserId, scope, adminEmail, adminPassword } = getPendingDeviceApprovalValues();
   const res = await api('/auth/device-pairing/approve', {
     method: 'POST',
     body: JSON.stringify({
       pairing_token: pendingApprovalPairingToken,
       device_name: name,
       scope,
-      linked_user_id: currentUser?.id,
+      linked_user_id: linkedUserId,
       admin_email: adminEmail,
       admin_password: adminPassword,
     })
@@ -7094,7 +7197,7 @@ async function loadTrustedDevices() {
     const linkedUser = device.linked_user_name || '—';
     const createdBy = device.created_by_name || '—';
     return `
-      <div class="card" style="margin-bottom:12px;padding:16px">
+      <div class="card trusted-device-card" data-device-id="${device.id}" data-device-name="${escAttr(device.name || 'Trusted Device')}" data-linked-user-id="${device.linked_user_id || ''}" style="margin-bottom:12px;padding:16px">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
           <div style="min-width:220px;flex:1">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -7114,6 +7217,26 @@ async function loadTrustedDevices() {
       </div>
     `;
   }).join('');
+}
+
+function animateTrustedDeviceRemoval(deviceId) {
+  const origin = document.querySelector(`.trusted-device-card[data-device-id="${deviceId}"]`);
+  if (!origin) return [];
+  const name = origin.getAttribute('data-device-name') || '';
+  const linkedUserId = origin.getAttribute('data-linked-user-id') || '';
+  const cards = Array.from(document.querySelectorAll('.trusted-device-card')).filter(card =>
+    card.getAttribute('data-device-name') === name &&
+    (card.getAttribute('data-linked-user-id') || '') === linkedUserId
+  );
+  cards.forEach(card => card.classList.add('is-revoking'));
+  window.setTimeout(() => {
+    cards.forEach(card => card.remove());
+    const body = document.getElementById('trusted-devices-body');
+    if (body && !body.children.length) {
+      body.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>No trusted devices yet. Pair one from the login screen or with the button above.</p></div>';
+    }
+  }, 230);
+  return cards;
 }
 
 async function renameTrustedDevice(deviceId, currentName) {
@@ -7174,15 +7297,18 @@ async function changeTrustedDeviceScope(deviceId, currentScope) {
 async function revokeTrustedDevice(deviceId) {
   const confirmed = await askConfirm('Revoke trusted device', 'This device will be signed out and must be paired again to regain access.', { okLabel: 'Revoke', danger: true });
   if (!confirmed) return;
+  const animatedCards = animateTrustedDeviceRemoval(deviceId);
   const res = await api(`/auth/trusted-devices/${deviceId}/revoke`, { method: 'POST' });
   const data = await res.json();
   if (!res.ok) {
+    animatedCards.forEach(card => card.classList.remove('is-revoking'));
     toast(data.error || 'Could not revoke trusted device', 'error');
+    loadTrustedDevices();
     return;
   }
   const revokedCount = Number(data.revoked_count || 0);
   toast(revokedCount > 1 ? `Revoked ${revokedCount} matching trusted devices` : 'Trusted device revoked', 'success');
-  loadTrustedDevices();
+  window.setTimeout(() => loadTrustedDevices(), 260);
 }
 
 async function login() {
@@ -7206,6 +7332,7 @@ async function login() {
   }
 
   currentUser = data.user || null;
+  currentAuthContext = data.auth || { source: 'browser_session', trusted_device: null };
   currentUserStats = data.stats || currentUserStats;
   householdLeaderboard = data.leaderboard || householdLeaderboard;
   if (data.app_config) applyAppConfig(data.app_config);
@@ -7314,6 +7441,7 @@ async function saveMyAvatar() {
 async function logout() {
   await api('/auth/logout', { method: 'POST' });
   currentUser = null;
+  currentAuthContext = { source: 'anonymous', trusted_device: null };
   currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
   householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
   clearStoredBrowserLogin();
@@ -7601,7 +7729,7 @@ async function updateUser(userId, payload, successMessage) {
   toast(successMessage, 'success');
   if (currentUser && data.user && currentUser.id === data.user.id) {
     currentUser = data.user;
-    document.getElementById('settings-user').value = `${currentUser.name || currentUser.email || 'Signed in'} (${currentUser.role})`;
+    updateSettingsSessionFields();
     const preview = document.getElementById('settings-avatar-preview');
     if (preview) preview.textContent = getUserAvatar(currentUser);
     const avatarInput = document.getElementById('settings-avatar');

@@ -83,6 +83,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)
     api_token_hash = Column(String(255), nullable=True)
     password_reset_requested_at = Column(DateTime, nullable=True)
+    session_version = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -480,6 +481,8 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE budget ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
         if "password_reset_requested_at" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
+        if "session_version" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0"))
 
         contribution_columns = {
             row[1]

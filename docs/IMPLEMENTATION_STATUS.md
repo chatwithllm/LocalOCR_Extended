@@ -115,11 +115,15 @@ Extended-specific runtime changes now in place:
   - anonymous device can start a short-lived pairing session
   - pairing QR can be scanned by an admin
   - admin can approve or reject the pending device
+  - admin can now choose which household user the device should be linked to during approval
   - approved device now authenticates with a trusted-device token on every request
   - paired shared screens stay signed in across refresh
   - admins can list, rename, rescope, and revoke trusted devices from Settings
   - Settings now shows relative last-seen state plus linked-user and created-by metadata
+  - Settings now also shows the current auth source for the active screen
   - same-name duplicate pairings for the same linked user are consolidated on future approvals and revoked together
+  - trusted-device sessions are now bound to trusted-device auth instead of silently degrading into plain browser sessions after revoke
+  - trusted-device cards now disappear immediately on revoke with a quick exit animation
 - Budget page now supports manual entry creation for missing receipts:
   - grocery
   - restaurant
@@ -155,12 +159,17 @@ This is the repo where the following should happen next:
 
 ## Not Yet Completed
 
+- full admin invalidation of regular browser sessions across devices
 - restaurant-specific analytics/detail polish beyond the current summary, budget, and receipt-detail baseline
 - module selection UI/runtime behavior
 - clean-machine validation of the full Extended stack
 - broader docs refresh beyond the core operator/handoff/product files
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
+- trusted-device scope-specific runtime behavior:
+  - Kitchen Display
+  - Read Only
+  - device-specific home pages / kiosk behavior
 
 ## Resume Priority
 
