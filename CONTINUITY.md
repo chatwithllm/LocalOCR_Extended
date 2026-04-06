@@ -115,6 +115,7 @@ This split gives you a clean safety net:
 - login password now supports an eye toggle and resets to hidden after successful sign-in
 - trusted-device pairing Phase 1 is now stable on the feature branch:
 - trusted-device pairing Phase 2 polish is now layered on top:
+  - QR scan works end to end when started from a fresh pairing session
   - device can start a short-lived pairing QR session
   - admin can approve or reject from the scanned link flow
   - approved shared screens now authenticate with a trusted-device token instead of relying only on fragile browser sessions
@@ -126,6 +127,9 @@ This split gives you a clean safety net:
     - relative last seen
     - clearer scope descriptions
   - duplicate same-name pairings for the same linked user are consolidated on future approvals and revoked together
+  - stale trusted-device tokens are now ignored for admin QR-approval login/approve/reject flows so the scan browser can authenticate cleanly as admin
+  - expired or revoked scanned pairing links now prefer a single inline terminal state instead of leaving a stale approval modal fighting the page
+  - revoke-vs-approve timestamp comparisons now use real UTC datetime comparison instead of SQLite string ordering, so fresh QR approvals are not falsely rejected as stale
 - Settings user edit/reset password flows now use in-app modals instead of browser-native prompts
 - Budget now supports manual entry creation for:
   - grocery
@@ -141,6 +145,10 @@ This split gives you a clean safety net:
   - API token
 - trusted-device sessions are now bound to trusted-device auth and no longer silently degrade into a normal browser session after revoke
 - trusted-device revoke now removes matching cards from Settings immediately with a quick exit animation instead of waiting for a full page refresh
+- trusted-device scopes now affect runtime in the main app flow:
+  - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
+  - `Kitchen Display` now defaults to a tighter dashboard/shopping/inventory navigation set instead of exposing the full admin-heavy workspace shell
+- legacy absolute receipt image paths from earlier local-machine runs can now be remapped into the current `/data/receipts` container root when the underlying file still exists there
 
 ## 5. Pending / Needs More Work
 
@@ -163,20 +171,24 @@ Operational and product items that are not fully closed yet:
   - expanded inventory mobile actions
   - device-mode UI differences by scope
   - better read-only affordances
+- some older receipt rows can still reference image files that are no longer physically present in `/data/receipts`
+  - those purchases still exist
+  - the image cannot be recovered automatically without restoring the missing file from backup/source
+- trusted-device scope behavior is now only partially differentiated:
+  - `Read Only` is enforced for the main write paths
+  - `Kitchen Display` now has a lighter default shell
+  - deeper page-level kiosk behavior still needs a follow-up pass
 
 ## 6. Planned Next
 
 High-value next work from the current state:
 
 - make trusted-device scopes affect runtime behavior:
-  - `Shared Household`
-  - `Kitchen Display`
-  - `Read Only`
+  - deepen `Kitchen Display` beyond nav/default-page behavior into a more purpose-built fridge/tablet mode
+  - expand `Read Only` affordances so mutating controls are visually disabled/hidden more consistently instead of only being blocked on click/request
 - add a visible device-mode badge in the app shell so shared screens are obviously in device mode
 - add admin-driven session invalidation for household users and shared screens
 - add trusted-device home/default-route behavior, for example:
-  - dashboard first
-  - shopping first
   - kiosk/dashboard-only
 - continue reducing vertical clutter on mobile after row expansion
 - keep strengthening structured edit flows so browser-native prompts disappear entirely

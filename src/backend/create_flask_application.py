@@ -75,16 +75,41 @@ def _get_db():
     return _engine, _SessionFactory
 
 
+def _require_authenticated_user():
+    from src.backend.manage_authentication import get_authenticated_user
+
+    user = getattr(g, "current_user", None) or get_authenticated_user()
+    if not user:
+        return None, (jsonify({"error": "Authentication required"}), 401)
+    g.current_user = user
+    return user, None
+
+
 def require_auth(f):
     """Decorator to require session or bearer-token authentication."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        from src.backend.manage_authentication import get_authenticated_user
-        user = get_authenticated_user()
-        if not user:
-            return jsonify({"error": "Authentication required"}), 401
-        g.current_user = user
+        _user, error = _require_authenticated_user()
+        if error:
+            return error
+        return f(*args, **kwargs)
+    return decorated
 
+
+def require_write_access(f):
+    """Decorator to block writes from trusted devices in read-only mode."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        from src.backend.manage_authentication import is_read_only_device_request
+
+        _user, error = _require_authenticated_user()
+        if error:
+            return error
+        if is_read_only_device_request():
+            return jsonify({
+                "error": "This trusted device is in read-only mode",
+                "scope": "read_only",
+            }), 403
         return f(*args, **kwargs)
     return decorated
 

@@ -22,7 +22,7 @@ from flask import Blueprint, request, jsonify, g, send_file
 from PIL import Image, ImageOps
 
 from src.backend.active_inventory import rebuild_active_inventory
-from src.backend.create_flask_application import require_auth
+from src.backend.create_flask_application import require_auth, require_write_access
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +55,28 @@ def _resolve_receipt_path(image_path: str) -> Path | None:
     if not image_path:
         return None
 
+    receipts_root = Path(_get_receipts_root()).resolve()
     path = Path(image_path)
     if not path.is_absolute():
-        path = Path(_get_receipts_root()) / path
+        path = receipts_root / path
+    else:
+        # Older records may store an absolute repo-local path from a prior
+        # machine or non-container run. If the path contains a `data/receipts`
+        # segment, remap that suffix into the current receipts root.
+        parts = list(path.parts)
+        try:
+            idx = parts.index("data")
+            if idx + 1 < len(parts) and parts[idx + 1] == "receipts":
+                suffix = Path(*parts[idx + 2:])
+                candidate = receipts_root / suffix
+                if candidate.exists():
+                    path = candidate
+        except ValueError:
+            pass
 
     try:
         resolved = path.resolve(strict=True)
-        root = Path(_get_receipts_root()).resolve()
-        resolved.relative_to(root)
+        resolved.relative_to(receipts_root)
     except Exception:
         return None
 
@@ -347,7 +361,7 @@ def _parse_filter_date(value: str | None):
 
 
 @receipts_bp.route("/upload", methods=["POST"])
-@require_auth
+@require_write_access
 def upload_receipt():
     """Upload a receipt file for OCR processing.
 
@@ -687,7 +701,7 @@ def list_receipts():
 
 
 @receipts_bp.route("/manual", methods=["POST"])
-@require_auth
+@require_write_access
 def create_manual_receipt():
     """Create a manual purchase/receipt entry when the image is unavailable."""
     payload = request.get_json(silent=True) or {}
@@ -745,7 +759,7 @@ def get_receipt_image(receipt_id):
 
 
 @receipts_bp.route("/<int:receipt_id>/approve", methods=["POST"])
-@require_auth
+@require_write_access
 def approve_receipt(receipt_id):
     """Approve a review receipt using edited or stored OCR payload."""
     from src.backend.initialize_database_schema import TelegramReceipt
@@ -803,7 +817,7 @@ def approve_receipt(receipt_id):
 
 
 @receipts_bp.route("/<int:receipt_id>/update", methods=["PUT"])
-@require_auth
+@require_write_access
 def update_receipt(receipt_id):
     """Update an existing receipt using edited structured payload."""
     from src.backend.initialize_database_schema import TelegramReceipt, Purchase
@@ -866,7 +880,7 @@ def update_receipt(receipt_id):
 
 
 @receipts_bp.route("/<int:receipt_id>/reprocess", methods=["POST"])
-@require_auth
+@require_write_access
 def reprocess_receipt(receipt_id):
     """Re-run OCR for an existing stored receipt and update its review payload."""
     from src.backend.initialize_database_schema import TelegramReceipt
@@ -904,7 +918,7 @@ def reprocess_receipt(receipt_id):
 
 
 @receipts_bp.route("/<int:receipt_id>/rotate", methods=["PUT"])
-@require_auth
+@require_write_access
 def rotate_receipt(receipt_id):
     """Rotate a stored receipt image in place for easier OCR and review."""
     from src.backend.initialize_database_schema import TelegramReceipt
@@ -939,7 +953,7 @@ def rotate_receipt(receipt_id):
 
 
 @receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])
-@require_auth
+@require_write_access
 def delete_receipt(receipt_id):
     """Delete a receipt record, its stored file, and any associated purchase data."""
     from src.backend.initialize_database_schema import (

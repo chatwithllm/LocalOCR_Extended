@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, g
 
-from src.backend.create_flask_application import require_auth
+from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.initialize_database_schema import Budget, Purchase
 from src.backend.manage_authentication import is_admin
 
@@ -23,7 +23,7 @@ budget_bp = Blueprint("budget", __name__, url_prefix="/budget")
 
 
 @budget_bp.route("/set-monthly", methods=["POST"])
-@require_auth
+@require_write_access
 def set_monthly_budget():
     """Set the monthly grocery budget.
 

@@ -18,7 +18,7 @@ from src.backend.contribution_scores import (
     reverse_shopping_item_contributions,
     unfinalize_recommendation_confirmation,
 )
-from src.backend.create_flask_application import require_auth
+from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ShoppingListItem, Store
 from src.backend.normalize_product_names import (
     canonicalize_product_identity,
@@ -214,7 +214,7 @@ def list_shopping_items():
 
 
 @shopping_list_bp.route("/share-link", methods=["POST"])
-@require_auth
+@require_write_access
 def create_shopping_share_link():
     token, link = _create_share_link(getattr(getattr(g, "current_user", None), "id", None))
     g.db_session.commit()
@@ -240,7 +240,7 @@ def list_shared_shopping_items(token: str):
 
 
 @shopping_list_bp.route("/items", methods=["POST"])
-@require_auth
+@require_write_access
 def add_shopping_item():
     session = g.db_session
     data = request.get_json(silent=True) or {}
@@ -336,7 +336,7 @@ def add_shopping_item():
 
 
 @shopping_list_bp.route("/items/<int:item_id>", methods=["PUT"])
-@require_auth
+@require_write_access
 def update_shopping_item(item_id):
     session = g.db_session
     item = session.query(ShoppingListItem).filter_by(id=item_id).first()
@@ -394,7 +394,7 @@ def update_shopping_item(item_id):
 
 
 @shopping_list_bp.route("/items/<int:item_id>", methods=["DELETE"])
-@require_auth
+@require_write_access
 def delete_shopping_item(item_id):
     session = g.db_session
     item = session.query(ShoppingListItem).filter_by(id=item_id).first()
@@ -429,7 +429,7 @@ def update_shared_shopping_item(token: str, item_id: int):
 
 
 @shopping_list_bp.route("/products/<int:product_id>/confirm-recommendation", methods=["POST"])
-@require_auth
+@require_write_access
 def confirm_recommendation_for_product(product_id):
     session = g.db_session
     item = (

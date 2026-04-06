@@ -1789,23 +1789,35 @@
     @keyframes trustedDeviceExit {
       0% {
         opacity: 1;
-        transform: translateX(0) scale(1);
+        transform: perspective(900px) translateY(0) scale(1) rotateX(0deg) rotateZ(0deg);
         max-height: 220px;
         margin-bottom: 12px;
+        filter: saturate(1);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+      }
+      18% {
+        opacity: 1;
+        transform: perspective(900px) translateY(-3px) scale(1.01) rotateX(3deg) rotateZ(-0.6deg);
+        filter: saturate(1.04);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.2);
       }
       100% {
         opacity: 0;
-        transform: translateX(20px) scale(0.98);
+        transform: perspective(900px) translateY(-10px) translateX(34px) scale(0.94) rotateX(10deg) rotateZ(-4deg);
         max-height: 0;
         margin-bottom: 0;
+        filter: saturate(0.9);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0);
       }
     }
     .trusted-device-card {
       overflow: hidden;
+      transform-origin: center center;
+      will-change: transform, opacity, max-height, margin-bottom, box-shadow, filter;
     }
     .trusted-device-card.is-revoking {
       pointer-events: none;
-      animation: trustedDeviceExit 220ms ease forwards;
+      animation: trustedDeviceExit 300ms cubic-bezier(0.22, 0.9, 0.24, 1) forwards;
     }
 
     /* ---- Recs ---- */
@@ -3614,6 +3626,7 @@ let inventorySearchQuery = '';
 let activeDevicePairing = null;
 let devicePairingPollTimer = null;
 let pendingApprovalPairingToken = '';
+let deviceApprovalRequestSeq = 0;
 let lastSuccessfulAdminAuth = { email: '', password: '' };
 let inventoryCategoryFilters = new Set();
 let inventoryAllItemsCache = [];
@@ -4399,6 +4412,46 @@ function goToPage(page) {
   const navItem = [...document.querySelectorAll('.nav-item')]
     .find(item => (item.getAttribute('onclick') || '').includes(`'${page}'`));
   nav(page, navItem || null);
+}
+
+function getTrustedDeviceScope() {
+  return String(currentAuthContext?.trusted_device?.scope || 'shared_household').trim().toLowerCase();
+}
+
+function isTrustedDeviceContext() {
+  return String(currentAuthContext?.source || '').startsWith('trusted_device');
+}
+
+function isReadOnlyTrustedDevice() {
+  return isTrustedDeviceContext() && getTrustedDeviceScope() === 'read_only';
+}
+
+function isKitchenDisplayTrustedDevice() {
+  return isTrustedDeviceContext() && getTrustedDeviceScope() === 'kitchen_display';
+}
+
+function updateScopedNavigation() {
+  const kitchenAllowed = new Set(['dashboard', 'inventory', 'shopping']);
+  document.body.classList.toggle('trusted-device-read-only', isReadOnlyTrustedDevice());
+  document.body.classList.toggle('trusted-device-kitchen-display', isKitchenDisplayTrustedDevice());
+  document.querySelectorAll('.nav-item').forEach(item => {
+    const match = (item.getAttribute('onclick') || '').match(/nav\('([^']+)'/);
+    if (!match) return;
+    const page = match[1];
+    if (!isKitchenDisplayTrustedDevice()) {
+      item.style.display = '';
+      if (item.id === 'nav-restaurant' && !appConfig.modules?.restaurant) item.style.display = 'none';
+      return;
+    }
+    item.style.display = kitchenAllowed.has(page) ? '' : 'none';
+  });
+}
+
+function getScopedPreferredPage() {
+  const preferred = getLastPage();
+  if (!isKitchenDisplayTrustedDevice()) return preferred;
+  if (['dashboard', 'shopping', 'inventory', 'products'].includes(preferred)) return preferred;
+  return 'dashboard';
 }
 
 function normalizeStoredPage(page) {
@@ -6288,9 +6341,20 @@ async function api(path, opts = {}) {
   if (isDemoMode() && !String(path).startsWith('/auth/')) {
     return demoApi(path, opts);
   }
+  const method = String(opts.method || 'GET').toUpperCase();
+  if (isReadOnlyTrustedDevice() && !['GET', 'HEAD', 'OPTIONS'].includes(method) && !String(path).startsWith('/auth/')) {
+    toast('This device is in read-only mode.', 'error');
+    return new Response(JSON.stringify({
+      error: 'This trusted device is in read-only mode',
+      scope: 'read_only',
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
-  const trustedDeviceToken = getTrustedDevicePairingToken();
+  const trustedDeviceToken = opts.ignoreTrustedDeviceToken ? '' : getTrustedDevicePairingToken();
   const res = await fetch(API_BASE + path, {
     credentials: 'include',
     headers: {
@@ -6306,7 +6370,7 @@ async function api(path, opts = {}) {
 async function sessionOnlyFetch(path, opts = {}) {
   const body = opts.body;
   const includeJson = !(body instanceof FormData);
-  const trustedDeviceToken = getTrustedDevicePairingToken();
+  const trustedDeviceToken = opts.ignoreTrustedDeviceToken ? '' : getTrustedDevicePairingToken();
   return fetch(API_BASE + path, {
     credentials: 'include',
     headers: {
@@ -6325,6 +6389,9 @@ function nav(page, el) {
   const requestedPage = page;
   if (page === 'products') {
     page = 'inventory';
+  }
+  if (isKitchenDisplayTrustedDevice() && !['dashboard', 'inventory', 'shopping'].includes(page)) {
+    page = 'dashboard';
   }
   saveLastPage(requestedPage);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -6546,6 +6613,7 @@ function toast(msg, type = 'info') {
 async function checkAuth() {
   const banner = document.getElementById('auth-banner');
   authCheckComplete = false;
+  const pairedDeviceToken = getTrustedDevicePairingToken();
 
   if (SHOPPING_HELPER_MODE) {
     currentUser = { name: 'Shopping Helper', role: 'helper' };
@@ -6596,16 +6664,33 @@ async function checkAuth() {
     console.error(e);
   }
 
+  if (pairedDeviceToken) {
+    currentUser = null;
+    currentAuthContext = { source: 'anonymous', trusted_device: null };
+    currentUserStats = { ...DEMO_GUEST_STATS };
+    householdLeaderboard = { month: DEMO_MONTH, rankings: DEMO_USERS, current_user_rank: null, total_users: DEMO_USERS.length };
+    banner.classList.add('show');
+    const help = document.getElementById('auth-help');
+    if (help) {
+      help.textContent = 'This paired device no longer has access. Pair it again from a fresh QR code.';
+    }
+    authCheckComplete = true;
+    updateDemoModeUi();
+    return false;
+  }
+
   const storedLogin = getStoredBrowserLogin();
   if (storedLogin.email && storedLogin.password) {
     try {
       const loginRes = await sessionOnlyFetch('/auth/login', {
         method: 'POST',
+        ignoreTrustedDeviceToken: true,
         body: JSON.stringify({ email: storedLogin.email, password: storedLogin.password })
       });
       const loginData = await loginRes.json().catch(() => ({}));
       if (loginRes.ok) {
         currentUser = loginData.user || null;
+        currentAuthContext = loginData.auth || { source: 'browser_session', trusted_device: null };
         currentUserStats = loginData.stats || currentUserStats;
         householdLeaderboard = loginData.leaderboard || householdLeaderboard;
         if (loginData.app_config) applyAppConfig(loginData.app_config);
@@ -6666,6 +6751,7 @@ function updateDemoModeUi() {
   if (fileInput) fileInput.disabled = demo;
   if (uploadStatus && demo) uploadStatus.textContent = 'Demo mode is read-only. Sign in to upload a real receipt.';
   updateBudgetEditorAccess();
+  updateScopedNavigation();
 }
 
 function maybeHandlePairingClaimResult() {
@@ -6940,12 +7026,15 @@ function getPendingDeviceApprovalValues() {
 }
 
 async function maybeHandleDeviceApprovalLink() {
+  const requestSeq = ++deviceApprovalRequestSeq;
   const url = new URL(window.location.href);
   const pairingToken = url.searchParams.get('pair_device');
   if (!pairingToken) {
+    closeDeviceApprovalModal(false, true);
     setDeviceApprovalNotice();
     return;
   }
+  closeDeviceApprovalModal(false, true);
   pendingApprovalPairingToken = pairingToken;
   if (!currentUser) {
     const banner = document.getElementById('auth-banner');
@@ -6993,9 +7082,14 @@ async function maybeHandleDeviceApprovalLink() {
   }
   try {
     await ensureTrustedDeviceApprovalUsers();
-    const res = await api(`/auth/device-pairing/status/${encodeURIComponent(pairingToken)}`);
+    if (requestSeq !== deviceApprovalRequestSeq) return;
+    const res = await api(`/auth/device-pairing/status/${encodeURIComponent(pairingToken)}`, {
+      ignoreTrustedDeviceToken: true,
+    });
     const data = await res.json();
+    if (requestSeq !== deviceApprovalRequestSeq) return;
     if (!res.ok) {
+      closeDeviceApprovalModal(true, false);
       setDeviceApprovalNotice('error', {
         title: 'Pairing Could Not Be Loaded',
         summary: data.error || 'Could not load this pairing request.',
@@ -7005,15 +7099,19 @@ async function maybeHandleDeviceApprovalLink() {
       return;
     }
     if (data.status !== 'pending') {
+      closeDeviceApprovalModal(true, false);
       setDeviceApprovalNotice('complete', {
-        title: 'Pairing Already Closed',
-        summary: `This pairing request is already ${data.status}.`,
+        title: data.status === 'rejected' ? 'Pairing Revoked' : 'Pairing Already Closed',
+        summary: data.status === 'rejected'
+          ? 'This device pairing was revoked and must be restarted from a fresh QR code.'
+          : `This pairing request is already ${data.status}.`,
         status: data.status,
       });
       toast(`Pairing is already ${data.status}`, data.status === 'approved' || data.status === 'claimed' ? 'success' : 'info');
-      closeDeviceApprovalModal(true, false);
       return;
     }
+    const currentPairingToken = new URL(window.location.href).searchParams.get('pair_device');
+    if (currentPairingToken !== pairingToken || requestSeq !== deviceApprovalRequestSeq) return;
     document.getElementById('device-approval-name').value = data.device_name || defaultDeviceName();
     populateTrustedDeviceApprovalUserSelect('device-approval-linked-user');
     document.getElementById('device-approval-scope').value = data.scope || 'shared_household';
@@ -7032,7 +7130,9 @@ async function maybeHandleDeviceApprovalLink() {
     });
     document.getElementById('device-approval-overlay').classList.add('show');
   } catch (e) {
+    if (requestSeq !== deviceApprovalRequestSeq) return;
     console.error(e);
+    closeDeviceApprovalModal(true, false);
     setDeviceApprovalNotice('error', {
       title: 'Pairing Could Not Be Opened',
       summary: 'The approval request could not be opened right now.',
@@ -7063,6 +7163,7 @@ async function approvePendingDevicePairing() {
   const { name, linkedUserId, scope, adminEmail, adminPassword } = getPendingDeviceApprovalValues();
   const res = await api('/auth/device-pairing/approve', {
     method: 'POST',
+    ignoreTrustedDeviceToken: true,
     body: JSON.stringify({
       pairing_token: pendingApprovalPairingToken,
       device_name: name,
@@ -7140,6 +7241,7 @@ async function rejectPendingDevicePairing() {
   const { adminEmail, adminPassword } = getPendingDeviceApprovalValues();
   const res = await api('/auth/device-pairing/reject', {
     method: 'POST',
+    ignoreTrustedDeviceToken: true,
     body: JSON.stringify({
       pairing_token: pendingApprovalPairingToken,
       admin_email: adminEmail,
@@ -7253,7 +7355,7 @@ function animateTrustedDeviceRemoval(deviceId) {
     if (body && !body.children.length) {
       body.innerHTML = '<div class="empty-state"><div class="icon">📱</div><p>No trusted devices yet. Pair one from the login screen or with the button above.</p></div>';
     }
-  }, 230);
+  }, 310);
   return cards;
 }
 
@@ -7341,6 +7443,7 @@ async function login() {
 
   const res = await api('/auth/login', {
     method: 'POST',
+    ignoreTrustedDeviceToken: true,
     body: JSON.stringify({ email, password })
   });
   const data = await res.json();
@@ -10815,7 +10918,7 @@ checkAuth().then(authenticated => {
     return;
   }
   applyDesktopSidebarPreference();
-  const preferredPage = getLastPage();
+  const preferredPage = getScopedPreferredPage();
   const navItem = [...document.querySelectorAll('.nav-item')]
     .find(item => (item.getAttribute('onclick') || '').includes(`'${preferredPage}'`));
   nav(preferredPage, navItem || null);

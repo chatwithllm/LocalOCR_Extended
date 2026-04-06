@@ -112,6 +112,7 @@ Extended-specific runtime changes now in place:
 - login now supports a password eye toggle and always resets back to hidden after successful sign-in
 - desktop users can now hide the left sidebar and keep that preference after refresh
 - trusted-device pairing is now working with Phase 2 management polish:
+  - QR scan works for fresh pairing sessions on the live host
   - anonymous device can start a short-lived pairing session
   - pairing QR can be scanned by an admin
   - admin can approve or reject the pending device
@@ -124,6 +125,12 @@ Extended-specific runtime changes now in place:
   - same-name duplicate pairings for the same linked user are consolidated on future approvals and revoked together
   - trusted-device sessions are now bound to trusted-device auth instead of silently degrading into plain browser sessions after revoke
   - trusted-device cards now disappear immediately on revoke with a quick exit animation
+  - scanned approval pages now clear stale revoked/expired messaging when a fresh pairing link is opened
+  - admin QR approval flows now ignore any stale trusted-device token so browser admin login/approve/reject requests are evaluated against the real admin session
+  - stale revoke checks during approval now use real UTC datetime comparison instead of SQLite string ordering
+  - trusted-device scopes now affect runtime:
+    - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
+    - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
 - Budget page now supports manual entry creation for missing receipts:
   - grocery
   - restaurant
@@ -133,6 +140,7 @@ Extended-specific runtime changes now in place:
   - analytics include the spend
   - receipts history can later delete the entry to remove the amount
 - budget target changes are now admin-only in both backend enforcement and frontend controls
+- receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
 
 ## Intended Parallel Deployment Shape
 
@@ -166,9 +174,10 @@ This is the repo where the following should happen next:
 - broader docs refresh beyond the core operator/handoff/product files
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
+- recovery of receipt images that are physically missing from `/data/receipts`; those purchases still exist, but the image cannot be shown until the file is restored
 - trusted-device scope-specific runtime behavior:
-  - Kitchen Display
-  - Read Only
+  - deeper `Kitchen Display` kiosk behavior beyond the lighter default nav set
+  - stronger `Read Only` visual affordances so controls look disabled/hidden before click
   - device-specific home pages / kiosk behavior
 
 ## Resume Priority
