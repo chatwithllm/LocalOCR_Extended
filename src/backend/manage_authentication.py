@@ -202,6 +202,10 @@ def get_authenticated_user():
                 device.last_seen_at = datetime.now(timezone.utc)
                 _set_auth_context("trusted_device_token", user, device)
                 return user
+        # A request that presents a trusted-device token must not silently fall
+        # back to a normal browser session after revoke/expiration.
+        _clear_auth_session()
+        return None
 
     session_auth_source = session.get("auth_source")
     trusted_device_id = session.get("trusted_device_id")
@@ -301,6 +305,29 @@ def serialize_trusted_device(device: TrustedDevice) -> dict:
     }
 
 
+def get_current_trusted_device() -> TrustedDevice | None:
+    return getattr(g, "auth_trusted_device", None)
+
+
+def is_trusted_device_request() -> bool:
+    return str(getattr(g, "auth_source", "") or "").startswith("trusted_device")
+
+
+def get_current_trusted_device_scope() -> str:
+    device = get_current_trusted_device()
+    if not device:
+        return "shared_household"
+    return _normalize_device_scope(device.scope)
+
+
+def is_read_only_device_request() -> bool:
+    return is_trusted_device_request() and get_current_trusted_device_scope() == "read_only"
+
+
+def is_kitchen_display_device_request() -> bool:
+    return is_trusted_device_request() and get_current_trusted_device_scope() == "kitchen_display"
+
+
 def _normalize_device_scope(value: str | None) -> str:
     scope = (value or "shared_household").strip().lower()
     if scope not in {"shared_household", "kitchen_display", "read_only"}:
@@ -313,6 +340,14 @@ def _device_pairing_expired(pairing: DevicePairingSession) -> bool:
     expires_at = pairing.expires_at
     compare_now = now.replace(tzinfo=None) if expires_at and expires_at.tzinfo is None else now
     return bool(expires_at and expires_at < compare_now)
+
+
+def _coerce_utc(value: datetime | None) -> datetime | None:
+    if not value:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _get_valid_pairing_session(token: str, *, allow_claimed: bool = False) -> DevicePairingSession | None:
@@ -945,17 +980,22 @@ def approve_device_pairing():
         .all()
     )
 
-    stale_revoke = (
-        g.db_session.query(TrustedDevice)
-        .filter(
-            TrustedDevice.linked_user_id == linked_user.id,
-            TrustedDevice.name == device_name,
-            TrustedDevice.revoked_at.isnot(None),
-            TrustedDevice.revoked_at >= pairing.created_at,
+    pairing_created_at = _coerce_utc(pairing.created_at)
+    stale_revoke = None
+    revoked_same_name_devices = [
+        device for device in matching_devices
+        if device.revoked_at and device.status == "revoked"
+    ]
+    if pairing_created_at:
+        revoked_same_name_devices.sort(
+            key=lambda device: (_coerce_utc(device.revoked_at) or datetime.min.replace(tzinfo=timezone.utc), device.id),
+            reverse=True,
         )
-        .order_by(TrustedDevice.revoked_at.desc(), TrustedDevice.id.desc())
-        .first()
-    )
+        for revoked_device in revoked_same_name_devices:
+            revoked_at = _coerce_utc(revoked_device.revoked_at)
+            if revoked_at and revoked_at >= pairing_created_at:
+                stale_revoke = revoked_device
+                break
     if stale_revoke:
         pairing.status = "rejected"
         pairing.approved_by_user_id = actor.id

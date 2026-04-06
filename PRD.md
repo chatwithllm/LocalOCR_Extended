@@ -52,6 +52,7 @@ Shared-core UX requirements:
 - successful login should clear and re-hide the password field
 - trusted shared devices should be pairable without typing household passwords on a fridge/tablet
 - QR pairing should use short-lived approval sessions, not expose long-lived device tokens directly
+- QR scan and approval should work end to end from a fresh pairing session on the live host
 - once approved, the shared device should authenticate with a durable trusted-device token so refresh stays stable even if browser sessions are flaky
 - admins should be able to rename trusted devices and adjust scope from Settings after pairing
 - admins should be able to choose the linked household user during trusted-device approval instead of always pairing as the approving admin
@@ -64,6 +65,10 @@ Shared-core UX requirements:
   - trusted device
   - API token
 - trusted-device revoke should feel immediate in the UI and remove the device card without waiting for a full page reload
+- trusted-device scopes should affect the real runtime, not just Settings labels:
+  - `Read Only` should block writes in both frontend and backend
+  - `Kitchen Display` should default to a tighter household-view shell
+- expired or revoked scanned pairing links should collapse to one clear terminal state instead of leaving stale approval UI visible
 - browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
 - desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
 - mobile pages should avoid explanatory copy when compact controls already communicate the workflow
@@ -124,6 +129,7 @@ Restaurant workflow requirement:
 - if OCR is inaccurate, users must be able to correct the restaurant receipt without editing raw JSON
 - corrected restaurant receipts must rebuild the saved purchase cleanly
 - corrected restaurant receipts must remain isolated from grocery inventory behavior
+- receipt image serving should tolerate older stored absolute receipt paths when the file still exists inside the current receipts storage root
 
 ## 5A. Guest Demo Requirement
 

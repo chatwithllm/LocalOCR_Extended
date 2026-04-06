@@ -21,7 +21,7 @@ from src.backend.contribution_scores import (
     meaningful_text_change,
     reverse_low_confirmation,
 )
-from src.backend.create_flask_application import require_auth
+from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.initialize_database_schema import Inventory, PriceHistory, Product
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
@@ -133,7 +133,7 @@ def list_inventory():
 
 
 @inventory_bp.route("/add-item", methods=["POST"])
-@require_auth
+@require_write_access
 def add_item():
     """Add a product to inventory with quantity."""
     session = g.db_session
@@ -231,7 +231,7 @@ def add_item():
 
 
 @inventory_bp.route("/<int:item_id>/consume", methods=["PUT"])
-@require_auth
+@require_write_access
 def consume_item(item_id):
     """Decrease quantity by 1 (or specified amount)."""
     session = g.db_session
@@ -269,7 +269,7 @@ def consume_item(item_id):
 
 
 @inventory_bp.route("/<int:item_id>/update", methods=["PUT"])
-@require_auth
+@require_write_access
 def update_item(item_id):
     """Set quantity directly."""
     session = g.db_session
@@ -327,7 +327,7 @@ def update_item(item_id):
 
 
 @inventory_bp.route("/products/<int:product_id>/low-status", methods=["PUT"])
-@require_auth
+@require_write_access
 def set_low_status(product_id):
     """Manually mark or clear a product as low without changing quantity."""
     session = g.db_session
@@ -401,7 +401,7 @@ def set_low_status(product_id):
 
 
 @inventory_bp.route("/products/<int:product_id>/confirm-low", methods=["POST"])
-@require_auth
+@require_write_access
 def confirm_low_status(product_id):
     """Allow a second household member to confirm a low-stock call."""
     session = g.db_session
@@ -427,7 +427,7 @@ def confirm_low_status(product_id):
 
 
 @inventory_bp.route("/<int:item_id>", methods=["DELETE"])
-@require_auth
+@require_write_access
 def remove_item(item_id):
     """Remove an item from inventory."""
     session = g.db_session

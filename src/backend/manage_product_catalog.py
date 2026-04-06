@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy import func, or_
 
-from src.backend.create_flask_application import require_auth
+from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.contribution_scores import meaningful_text_change
 from src.backend.enrich_product_names import maybe_enrich_product, product_needs_review, should_enrich_product_name
 from src.backend.initialize_database_schema import (
@@ -198,7 +198,7 @@ def search_products():
 
 
 @products_bp.route("/create", methods=["POST"])
-@require_auth
+@require_write_access
 def create_product():
     """Add a new product to the catalog."""
     session = g.db_session
@@ -243,7 +243,7 @@ def create_product():
 
 
 @products_bp.route("/<int:product_id>/update", methods=["PUT"])
-@require_auth
+@require_write_access
 def update_product(product_id):
     """Update an existing product."""
     session = g.db_session
@@ -337,7 +337,7 @@ def review_queue():
 
 
 @products_bp.route("/review-queue/enhance", methods=["POST"])
-@require_auth
+@require_write_access
 def bulk_enhance_review_queue():
     admin_error = _require_admin()
     if admin_error:
@@ -371,7 +371,7 @@ def bulk_enhance_review_queue():
 
 
 @products_bp.route("/<int:product_id>/enhance", methods=["POST"])
-@require_auth
+@require_write_access
 def enhance_product(product_id):
     admin_error = _require_admin()
     if admin_error:
@@ -394,7 +394,7 @@ def enhance_product(product_id):
 
 
 @products_bp.route("/<int:product_id>/review-status", methods=["PUT"])
-@require_auth
+@require_write_access
 def update_review_status(product_id):
     admin_error = _require_admin()
     if admin_error:
@@ -421,7 +421,7 @@ def update_review_status(product_id):
 
 
 @products_bp.route("/<int:product_id>", methods=["DELETE"])
-@require_auth
+@require_write_access
 def delete_product(product_id):
     """Remove a product from the catalog."""
     session = g.db_session
