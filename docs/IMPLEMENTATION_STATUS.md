@@ -135,6 +135,7 @@ Extended-specific runtime changes now in place:
   - compact two-row receipt rows for recent receipts and selected-month receipts
   - tighter extracted-item cards and receipt edit line-item cards
   - grouped mobile rows for receipt editor metadata fields
+- live receipt assets were restored into `/data/receipts`, so DB-linked receipt images are currently available again on the running environment
   - trusted-device scopes now affect runtime:
     - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
     - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
@@ -182,6 +183,7 @@ This is the repo where the following should happen next:
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
 - recovery of receipt images that are physically missing from `/data/receipts`; those purchases still exist, but the image cannot be shown until the file is restored
+- a first-class “backup the whole environment and restore to latest on a new machine” workflow still needs to be formalized and tested end to end
 - trusted-device scope-specific runtime behavior:
   - deeper `Kitchen Display` kiosk behavior beyond the lighter default nav set
   - stronger `Read Only` visual affordances so controls look disabled/hidden before click

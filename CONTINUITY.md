@@ -182,6 +182,9 @@ Operational and product items that are not fully closed yet:
 - some older receipt rows can still reference image files that are no longer physically present in `/data/receipts`
   - those purchases still exist
   - the image cannot be recovered automatically without restoring the missing file from backup/source
+- historical receipt images were restored once by copying legacy receipt files back into the live `/data/receipts` store
+  - this fixed the current broken-image state
+  - it also proved we still need a first-class full-environment backup/restore plan instead of ad-hoc file recovery
 - trusted-device scope behavior is now only partially differentiated:
   - `Read Only` is enforced for the main write paths
   - `Kitchen Display` now has a lighter default shell
@@ -200,6 +203,10 @@ High-value next work from the current state:
   - kiosk/dashboard-only
 - continue reducing vertical clutter on mobile after row expansion
 - keep strengthening structured edit flows so browser-native prompts disappear entirely
+- add a complete environment backup/restore workflow:
+  - one command or job to capture DB + receipts + config/environment metadata
+  - one documented restore flow for moving Extended to a fresh machine
+  - a latest-known-good restore drill so migration does not depend on manual container/file discovery
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

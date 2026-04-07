@@ -429,6 +429,15 @@ Restore:
 docker exec -it localocr-extended-backend /app/scripts/restore_from_backup.sh /data/backups/localocr_extended_backup_YYYYMMDD.tar.gz
 ```
 
+Operational note:
+
+- receipt history depends on both the database and `/data/receipts`
+- if receipt image files are missing from `/data/receipts`, purchases may still exist while receipt previews fail
+- any migration/backup plan must therefore preserve:
+  - database contents
+  - receipt files
+  - environment/config needed to boot the same app cleanly
+
 ## Documentation
 
 - [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md)
