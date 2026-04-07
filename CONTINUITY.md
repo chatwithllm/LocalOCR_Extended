@@ -149,6 +149,13 @@ This split gives you a clean safety net:
   - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
   - `Kitchen Display` now defaults to a tighter dashboard/shopping/inventory navigation set instead of exposing the full admin-heavy workspace shell
 - legacy absolute receipt image paths from earlier local-machine runs can now be remapped into the current `/data/receipts` container root when the underlying file still exists there
+- receipts mobile has now been compacted substantially:
+  - receipt detail image uses a constrained mobile preview instead of overflowing the screen
+  - filters are collapsed behind a header toggle on phones
+  - `Purchases By Month` keeps a compact mobile bar graph plus lighter month summary text
+  - mobile receipt lists now use compact two-row rows instead of desktop tables
+  - extracted item cards and receipt edit line items now use tighter two-row mobile summaries
+  - receipt edit metadata fields now use grouped mobile rows instead of a long single-column form
 
 ## 5. Pending / Needs More Work
 
@@ -171,6 +178,7 @@ Operational and product items that are not fully closed yet:
   - expanded inventory mobile actions
   - device-mode UI differences by scope
   - better read-only affordances
+- receipt detail mobile can still benefit from a dedicated full-screen image viewer for long receipts instead of relying only on the shortened inline preview
 - some older receipt rows can still reference image files that are no longer physically present in `/data/receipts`
   - those purchases still exist
   - the image cannot be recovered automatically without restoring the missing file from backup/source

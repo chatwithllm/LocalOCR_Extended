@@ -128,6 +128,13 @@ Extended-specific runtime changes now in place:
   - scanned approval pages now clear stale revoked/expired messaging when a fresh pairing link is opened
   - admin QR approval flows now ignore any stale trusted-device token so browser admin login/approve/reject requests are evaluated against the real admin session
   - stale revoke checks during approval now use real UTC datetime comparison instead of SQLite string ordering
+- receipts page now has a phone-first mobile layout:
+  - constrained receipt-image preview that stays inside the screen width
+  - collapsible filters behind a header toggle
+  - compact `Purchases By Month` mobile graph + summary
+  - compact two-row receipt rows for recent receipts and selected-month receipts
+  - tighter extracted-item cards and receipt edit line-item cards
+  - grouped mobile rows for receipt editor metadata fields
   - trusted-device scopes now affect runtime:
     - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
     - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
