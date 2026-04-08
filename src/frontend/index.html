@@ -244,7 +244,7 @@
     tr:hover td { background: var(--surface2); }
     .receipt-recent-table th,
     .receipt-recent-table td {
-      padding: 10px 12px;
+      padding: 10px 10px;
       vertical-align: middle;
     }
     .receipt-recent-table th:nth-child(1),
@@ -268,8 +268,9 @@
     .receipt-recent-table td:nth-child(2) strong {
       display: block;
       line-height: 1.2;
-      white-space: normal;
-      word-break: break-word;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .receipt-recent-table th:nth-child(6),
     .receipt-recent-table td:nth-child(6),
@@ -277,9 +278,13 @@
     .receipt-recent-table td:nth-child(7) {
       text-align: center;
     }
+    .receipt-recent-table .badge {
+      padding: 3px 8px;
+      font-size: 0.72rem;
+    }
     .receipt-recent-table .btn.btn-sm {
-      padding: 5px 10px;
-      min-width: 84px;
+      padding: 5px 8px;
+      min-width: 72px;
       justify-content: center;
     }
 
@@ -2179,7 +2184,7 @@
     }
     .receipt-detail-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+      grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.68fr);
       gap: 16px;
       align-items: start;
     }
