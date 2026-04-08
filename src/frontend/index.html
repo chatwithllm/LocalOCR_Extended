@@ -4164,6 +4164,17 @@
               <button class="btn btn-danger" style="width:100%" onclick="restoreEnvironmentBackup()">Restore Selected Backup</button>
             </div>
           </div>
+          <div id="environment-backup-restore-progress" class="environment-backup-report-card" style="display:none">
+            <div class="environment-backup-report-title">Restore progress</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+              <div id="environment-backup-restore-stage" style="font-size:0.9rem;color:var(--text);font-weight:700">Preparing restore…</div>
+              <div id="environment-backup-restore-percent" style="font-size:0.85rem;color:var(--muted)">0%</div>
+            </div>
+            <div style="height:10px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden">
+              <div id="environment-backup-restore-bar" style="height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--primary),#7bdcb5);transition:width .25s ease"></div>
+            </div>
+            <div id="environment-backup-restore-detail" style="margin-top:10px;font-size:0.83rem;color:var(--muted)">Waiting to start.</div>
+          </div>
           <div id="environment-backup-list" class="table-wrap" style="margin-top:16px"></div>
           <div class="environment-backup-report-card">
             <div class="environment-backup-report-title">Latest verification / restore report</div>
@@ -6135,7 +6146,14 @@ async function loadContributions() {
 
 function formatDateTime(value, fallback = '—') {
   if (!value) return fallback;
-  const date = new Date(value);
+  let normalized = value;
+  if (typeof value === 'number' && value > 0 && value < 1e12) {
+    normalized = value * 1000;
+  } else if (/^\d+(\.\d+)?$/.test(String(value))) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0 && num < 1e12) normalized = num * 1000;
+  }
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 }
@@ -8254,6 +8272,54 @@ function formatBackupTimestamp(value, fallback = 'Unknown') {
   return formatDateTime(value, fallback);
 }
 
+let environmentRestoreProgressTimer = null;
+
+function clearEnvironmentRestoreProgressTimer() {
+  if (environmentRestoreProgressTimer) {
+    window.clearInterval(environmentRestoreProgressTimer);
+    environmentRestoreProgressTimer = null;
+  }
+}
+
+function renderEnvironmentRestoreProgress(percent, stage, detail = '', visible = true) {
+  const shell = document.getElementById('environment-backup-restore-progress');
+  const stageEl = document.getElementById('environment-backup-restore-stage');
+  const percentEl = document.getElementById('environment-backup-restore-percent');
+  const barEl = document.getElementById('environment-backup-restore-bar');
+  const detailEl = document.getElementById('environment-backup-restore-detail');
+  if (!shell || !stageEl || !percentEl || !barEl || !detailEl) return;
+  shell.style.display = visible ? '' : 'none';
+  stageEl.textContent = stage || 'Preparing restore…';
+  percentEl.textContent = `${Math.max(0, Math.min(100, Math.round(percent || 0)))}%`;
+  barEl.style.width = `${Math.max(0, Math.min(100, percent || 0))}%`;
+  detailEl.textContent = detail || 'Waiting to start.';
+}
+
+function beginEnvironmentRestoreProgress(filename) {
+  clearEnvironmentRestoreProgressTimer();
+  renderEnvironmentRestoreProgress(8, 'Preparing restore bundle…', `Loading ${filename} and validating the selected archive.`);
+  const stages = [
+    { limit: 20, stage: 'Validating bundle…', detail: 'Checking manifest and preparing the restore workspace.' },
+    { limit: 48, stage: 'Restoring database…', detail: 'Replacing the current database snapshot from the selected backup.' },
+    { limit: 78, stage: 'Copying receipt files…', detail: 'Restoring receipt images and documents into the active receipts store.' },
+    { limit: 92, stage: 'Scheduling restart…', detail: 'Writing restore report and preparing the backend restart.' },
+  ];
+  environmentRestoreProgressTimer = window.setInterval(() => {
+    const percentEl = document.getElementById('environment-backup-restore-percent');
+    const current = percentEl ? Number(String(percentEl.textContent || '0').replace('%', '')) || 0 : 0;
+    let next = current + (current < 40 ? 6 : current < 75 ? 4 : 2);
+    let stage = stages[stages.length - 1];
+    for (const candidate of stages) {
+      if (next <= candidate.limit) {
+        stage = candidate;
+        break;
+      }
+    }
+    next = Math.min(next, 94);
+    renderEnvironmentRestoreProgress(next, stage.stage, stage.detail);
+  }, 600);
+}
+
 async function loadEnvironmentBackups() {
   const note = document.getElementById('environment-backup-note');
   const panel = document.getElementById('environment-backup-panel');
@@ -8437,20 +8503,31 @@ async function restoreEnvironmentBackup(filenameOverride = '') {
   );
   if (!confirmed) return;
   toast('Restoring backup... the backend will restart', 'info');
-  const res = await api('/system/backups/restore', {
-    method: 'POST',
-    body: JSON.stringify({ filename }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    toast(data.error || 'Could not restore backup', 'error');
-    return;
+  beginEnvironmentRestoreProgress(filename);
+  try {
+    const res = await api('/system/backups/restore', {
+      method: 'POST',
+      body: JSON.stringify({ filename }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      clearEnvironmentRestoreProgressTimer();
+      renderEnvironmentRestoreProgress(100, 'Restore failed', data.error || 'Could not restore backup.', true);
+      toast(data.error || 'Could not restore backup', 'error');
+      return;
+    }
+    clearEnvironmentRestoreProgressTimer();
+    renderEnvironmentRestoreProgress(100, 'Restore applied', 'Files were restored and the backend is restarting now.');
+    renderEnvironmentReport(data.report || null, 'Latest restore report');
+    toast('Restore applied. Reconnecting after restart...', 'success');
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 3500);
+  } catch (error) {
+    clearEnvironmentRestoreProgressTimer();
+    renderEnvironmentRestoreProgress(100, 'Restore failed', error?.message || 'Could not restore backup.', true);
+    toast(error?.message || 'Could not restore backup', 'error');
   }
-  renderEnvironmentReport(data.report || null, 'Latest restore report');
-  toast('Restore applied. Reconnecting after restart...', 'success');
-  window.setTimeout(() => {
-    window.location.reload();
-  }, 3500);
 }
 
 async function renameTrustedDevice(deviceId, currentName) {

@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import tarfile
 import threading
 from pathlib import Path
 
@@ -49,13 +50,7 @@ def _list_backup_entries():
     backups_dir.mkdir(parents=True, exist_ok=True)
     entries = []
     for archive in sorted(backups_dir.glob("*_backup_*.tar.gz"), key=lambda p: p.stat().st_mtime, reverse=True):
-        manifest = archive.with_suffix("").with_suffix(".manifest.json")
-        manifest_data = None
-        if manifest.exists():
-            try:
-                manifest_data = json.loads(manifest.read_text(encoding="utf-8"))
-            except Exception:
-                manifest_data = None
+        manifest_data = _load_manifest_for_archive(archive)
         entries.append({
             "filename": archive.name,
             "size_bytes": archive.stat().st_size,
@@ -63,6 +58,55 @@ def _list_backup_entries():
             "manifest": manifest_data,
         })
     return entries
+
+
+def _manifest_sidecar_path(archive: Path) -> Path:
+    return archive.with_suffix("").with_suffix(".manifest.json")
+
+
+def _normalize_manifest(manifest_data: dict | None, archive: Path) -> dict | None:
+    if not isinstance(manifest_data, dict):
+        return None
+    manifest = dict(manifest_data)
+    manifest.setdefault("archive_name", archive.name)
+    database = manifest.get("database")
+    if isinstance(database, dict):
+      # keep older manifests readable in the UI by adding explicit fields when missing
+        if "trusted_device_rows" not in database and "trusted_devices" in database:
+            database["trusted_device_rows"] = database.get("trusted_devices")
+        if "active_trusted_devices" not in database and "trusted_devices" in database:
+            database["active_trusted_devices"] = database.get("trusted_devices")
+    return manifest
+
+
+def _load_manifest_for_archive(archive: Path):
+    manifest_path = _manifest_sidecar_path(archive)
+    if manifest_path.exists():
+        try:
+            return _normalize_manifest(json.loads(manifest_path.read_text(encoding="utf-8")), archive)
+        except Exception:
+            pass
+    try:
+        with tarfile.open(archive, mode="r:gz") as tf:
+            for candidate in ("meta/manifest.json", "./meta/manifest.json", "manifest.json", "./manifest.json"):
+                try:
+                    member = tf.getmember(candidate)
+                except KeyError:
+                    continue
+                extracted = tf.extractfile(member)
+                if not extracted:
+                    continue
+                manifest_data = json.loads(extracted.read().decode("utf-8"))
+                normalized = _normalize_manifest(manifest_data, archive)
+                if normalized:
+                    try:
+                        manifest_path.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass
+                    return normalized
+    except Exception:
+        return None
+    return None
 
 
 def _validate_backup_filename(filename: str) -> str:
@@ -145,10 +189,12 @@ def upload_backup():
 
     backup_path = _backups_dir() / filename
     uploaded.save(backup_path)
+    manifest_data = _load_manifest_for_archive(backup_path)
     return jsonify({
         "status": "uploaded",
         "filename": filename,
         "size_bytes": backup_path.stat().st_size,
+        "manifest": manifest_data,
     })
 
 
