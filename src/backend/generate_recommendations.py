@@ -16,10 +16,10 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 
 from flask import Blueprint, g, jsonify
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 
 from src.backend.create_flask_application import require_auth
-from src.backend.initialize_database_schema import Inventory, Product, PriceHistory, ReceiptItem, Purchase, ShoppingListItem, User
+from src.backend.initialize_database_schema import ContributionEvent, Inventory, Product, PriceHistory, ReceiptItem, Purchase, ShoppingListItem, User
 from src.backend.normalize_product_names import canonicalize_product_name
 
 logger = logging.getLogger(__name__)
@@ -75,6 +75,7 @@ def generate_all_recommendations() -> list:
 
     # Filter by confidence threshold
     recommendations = [r for r in recommendations if r["confidence"] >= CONFIDENCE_THRESHOLD]
+    recommendations = _filter_confirmed_shopping_recommendations(recommendations)
     recommendations = _group_recommendations_by_family(recommendations)
     _annotate_shopping_status(recommendations)
 
@@ -82,6 +83,70 @@ def generate_all_recommendations() -> list:
     recommendations.sort(key=lambda r: r["confidence"], reverse=True)
 
     return recommendations
+
+
+def _filter_confirmed_shopping_recommendations(recommendations: list[dict]) -> list[dict]:
+    """Remove recommendations that already have an open, confirmed shopping action."""
+    session = g.db_session
+    open_recommendation_items = (
+        session.query(ShoppingListItem)
+        .filter(
+            ShoppingListItem.status == "open",
+            ShoppingListItem.source == "recommendation",
+        )
+        .all()
+    )
+    if not open_recommendation_items:
+        return recommendations
+
+    open_item_ids = [item.id for item in open_recommendation_items]
+    confirmed_subject_ids = {
+        int(subject_id)
+        for (subject_id,) in (
+            session.query(ContributionEvent.subject_id)
+            .filter(
+                ContributionEvent.subject_type == "shopping_item",
+                ContributionEvent.subject_id.in_(open_item_ids),
+                or_(
+                    and_(
+                        ContributionEvent.event_type == "recommendation_accepted",
+                        ContributionEvent.status.in_(["confirmed", "validated", "finalized"]),
+                    ),
+                    and_(
+                        ContributionEvent.event_type.in_(["recommendation_peer_confirmed", "recommendation_self_confirmed"]),
+                        ContributionEvent.status.in_(["floating", "finalized"]),
+                    ),
+                ),
+            )
+            .distinct()
+            .all()
+        )
+        if subject_id is not None
+    }
+    if not confirmed_subject_ids:
+        return recommendations
+
+    handled_product_ids = {
+        int(item.product_id)
+        for item in open_recommendation_items
+        if item.id in confirmed_subject_ids and item.product_id is not None
+    }
+    handled_names = {
+        canonicalize_product_name(item.name)
+        for item in open_recommendation_items
+        if item.id in confirmed_subject_ids and item.name
+    }
+
+    filtered: list[dict] = []
+    for rec in recommendations:
+        product_id = rec.get("product_id")
+        product_name = canonicalize_product_name(rec.get("product_name") or "")
+        if product_id is not None and int(product_id) in handled_product_ids:
+            continue
+        if product_name and product_name in handled_names:
+            continue
+        filtered.append(rec)
+    return filtered
 
 
 def _recommendation_family_name(product_name: str | None) -> str:
