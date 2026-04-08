@@ -434,6 +434,84 @@
       font-size: 0.84rem;
       padding: 10px 2px 2px;
     }
+    .receipt-detail-item-list {
+      display: grid;
+      gap: 10px;
+    }
+    .receipt-detail-item-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+    }
+    .receipt-detail-item-main {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .receipt-detail-item-name {
+      font-weight: 700;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .receipt-detail-item-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .receipt-detail-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+      min-width: 0;
+    }
+    .receipt-detail-item-actions .inline-select {
+      max-width: 170px;
+    }
+    .receipt-inline-detail-row td {
+      padding: 0 !important;
+      background: transparent !important;
+      border-bottom: none !important;
+    }
+    .receipt-inline-detail-wrap {
+      padding: 16px 0 4px;
+    }
+    .receipt-inline-detail-shell {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 18px;
+      display: grid;
+      gap: 18px;
+    }
+    .receipt-inline-detail-layout {
+      display: grid;
+      grid-template-columns: minmax(340px, 1.02fr) minmax(0, 1.18fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .receipt-inline-detail-bottom {
+      min-width: 0;
+      display: grid;
+      gap: 16px;
+    }
+    .receipt-inline-detail-left,
+    .receipt-inline-detail-right {
+      min-width: 0;
+      display: grid;
+      gap: 16px;
+    }
+    .receipt-inline-detail-image {
+      min-width: 0;
+    }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .card-title { font-size: 1rem; font-weight: 600; }
 
@@ -2593,6 +2671,11 @@
       height: 100%;
       display: flex;
       flex-direction: column;
+    }
+    @media (max-width: 1500px) {
+      #page-receipts > .receipt-detail-grid {
+        grid-template-columns: 1fr !important;
+      }
     }
     .receipt-page-head {
       display: flex;
@@ -11269,7 +11352,16 @@ async function jumpToReceipt(id) {
   const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
   nav('receipts', receiptNav);
   await loadReceipts();
-  await viewReceipt(Number(id));
+}
+
+async function toggleReceiptDetail(id) {
+  const targetId = Number(id);
+  if (!isCompactMobileReceiptView() && document.getElementById('page-receipts')?.classList.contains('active')) {
+    selectedReceiptId = Number(selectedReceiptId) === targetId ? null : targetId;
+    await loadReceipts();
+    return;
+  }
+  await viewReceipt(targetId);
 }
 
 // ============================================================
@@ -12176,6 +12268,7 @@ async function loadReceipts() {
   const query = getReceiptFilterParams();
   const res = await api(`/receipts${query ? `?${query}` : ''}`);
   const body = document.getElementById('receipts-table-body');
+  const detailCard = document.getElementById('receipt-detail-body')?.closest('.card');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipts.</p></div>'; return; }
   const data = await res.json();
   populateReceiptFilterOptions(data.filters || {});
@@ -12192,12 +12285,19 @@ async function loadReceipts() {
   if (receiptSortEl && receiptSortEl.value !== receiptSort) receiptSortEl.value = receiptSort;
   if (!receipts.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+    if (detailCard) detailCard.style.display = '';
     document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
     return;
   }
   if (isCompactMobileReceiptView()) {
+    if (detailCard) detailCard.style.display = '';
     body.innerHTML = renderCompactReceiptRows(receipts);
   } else {
+    if (detailCard) detailCard.style.display = 'none';
+    const availableReceiptIds = receipts.map(r => Number(r.purchase_id || r.id)).filter(Boolean);
+    const targetReceiptId = availableReceiptIds.includes(Number(selectedReceiptId))
+      ? Number(selectedReceiptId)
+      : null;
     body.innerHTML = `
       <table class="receipt-recent-table">
         <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th><th>Delete</th></tr></thead>
@@ -12208,11 +12308,19 @@ async function loadReceipts() {
             <td>${formatMoney(r.total)}</td>
             <td>${formatLabel(r.source, 'Upload')}</td>
             <td><span class="badge badge-${r.status === 'processed' ? 'ok' : 'low'}">${escHtml(formatLabel(r.status, 'Unknown'))}</span></td>
-            <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${r.purchase_id || r.id})">Open</button></td>
+            <td><button type="button" class="btn btn-sm btn-ghost" onclick="toggleReceiptDetail(${r.purchase_id || r.id})">${Number(r.purchase_id || r.id) === targetReceiptId ? 'Close' : 'Open'}</button></td>
             <td><button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
-          </tr>`).join('')}
+          </tr>
+          ${Number(r.purchase_id || r.id) === targetReceiptId
+            ? `<tr class="receipt-inline-detail-row"><td colspan="7"><div id="receipt-inline-detail-${Number(r.purchase_id || r.id)}"></div></td></tr>`
+            : ''}
+          `).join('')}
         </tbody>
       </table>`;
+    if (targetReceiptId) {
+      await viewReceipt(targetReceiptId, { scroll: false, inline: true });
+    }
+    return;
   }
 
   const availableReceiptIds = receipts.map(r => Number(r.purchase_id || r.id)).filter(Boolean);
@@ -12243,11 +12351,150 @@ function resetReceiptFilters() {
   loadReceipts();
 }
 
+function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
+  const canReprocess = Boolean(options.canReprocess);
+  const canEditReceipt = Boolean(options.canEditReceipt);
+  const compactReceiptMobile = Boolean(options.compactReceiptMobile);
+  const inlineLayout = Boolean(options.inlineLayout);
+  const statsHtml = `
+    <div class="receipt-detail-stats">
+      <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
+      <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
+    </div>`;
+  const actionsHtml = `
+    <div class="receipt-detail-actions">
+      ${receipt.file_type !== 'pdf' ? `
+        <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'left')">↺ Rotate Left</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'right')">↻ Rotate Right</button>
+      ` : ''}
+      <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
+      ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ''}
+    </div>`;
+  const extractedHtml = `
+    <div>
+      <div class="card-header" style="margin-bottom:12px">
+        <span class="card-title">Extracted Items</span>
+        <div class="table-toolbar">
+          <label for="receipt-item-sort">Sort</label>
+          <select id="receipt-item-sort" onchange="setReceiptItemSort(this.value)">
+            <option value="name_asc" ${receiptItemSort === 'name_asc' ? 'selected' : ''}>Name A-Z</option>
+            <option value="qty_desc" ${receiptItemSort === 'qty_desc' ? 'selected' : ''}>Qty high-low</option>
+            <option value="price_desc" ${receiptItemSort === 'price_desc' ? 'selected' : ''}>Highest price</option>
+          </select>
+          <span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+      ${renderReceiptExtractedItems(receipt, items)}
+    </div>`;
+  const reprocessHtml = canReprocess ? `
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header" style="margin-bottom:12px">
+        <span class="card-title">Refresh OCR Data</span>
+        <button class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
+      </div>
+      <p style="color:var(--muted);font-size:0.82rem">This older receipt does not have editable review JSON yet. Re-run OCR once to populate the review editor.</p>
+    </div>` : '';
+  const editHtml = canEditReceipt ? `
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header" style="margin-bottom:12px">
+        <span class="card-title">${receipt.receipt_type === 'restaurant' ? 'Restaurant Review' : 'Edit Receipt'}</span>
+        <button class="btn btn-primary btn-sm" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === 'processed' ? 'Update Receipt' : 'Save as Purchase'}</button>
+      </div>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
+      <div class="receipt-editor-grid">
+        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="unknown">Unknown</option></select></div>
+        <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
+        <div class="receipt-editor-main-field field-date-time">
+          <div class="receipt-editor-inline-fields">
+            <div class="receipt-editor-inline-field">
+              <label>Date</label>
+              <input id="receipt-date-${receipt.id}" type="date" />
+            </div>
+            <div class="receipt-editor-inline-field">
+              <label>Time</label>
+              <input id="receipt-time-${receipt.id}" placeholder="7:16 PM" />
+            </div>
+            <div class="receipt-editor-inline-field">
+              <label>Tax</label>
+              <input id="receipt-tax-${receipt.id}" type="number" step="0.01" />
+            </div>
+          </div>
+        </div>
+        <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
+        <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
+        <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
+      </div>
+      <div class="card-header" style="margin:4px 0 10px">
+        <span class="card-title" style="font-size:0.95rem">Line Items</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addReceiptEditorRow(${receipt.id})">Add Item</button>
+      </div>
+      ${compactReceiptMobile
+        ? `<div id="receipt-editor-items-${receipt.id}" class="receipt-mobile-list"></div>`
+        : `<div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>Qty</th><th>Line Total</th><th>Category</th><th></th></tr></thead>
+              <tbody id="receipt-editor-items-${receipt.id}"></tbody>
+            </table>
+          </div>`}
+    </div>` : '';
+  const footerHtml = `
+    <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button></div>
+    <div class="contrib-meta">Status: ${escHtml(formatLabel(receipt.status, 'Unknown'))} · Loaded ${escHtml(formatDateTime(receipt.created_at, 'Unknown'))}</div>`;
+
+  if (inlineLayout) {
+    return `
+      <div class="receipt-inline-detail-wrap">
+        <div class="receipt-inline-detail-shell">
+          <div class="receipt-inline-detail-layout">
+            <div class="receipt-inline-detail-left">
+              <div class="receipt-inline-detail-image">${imageHtml}</div>
+            </div>
+            <div class="receipt-inline-detail-right">
+              ${statsHtml}
+              ${actionsHtml}
+              ${extractedHtml}
+              ${reprocessHtml}
+            </div>
+          </div>
+          <div class="receipt-inline-detail-bottom">
+            ${editHtml}
+            ${footerHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  return `<div class="receipt-detail-stack" style="display:grid;gap:16px">
+    <div>${imageHtml}</div>
+    ${statsHtml}
+    ${actionsHtml}
+    ${extractedHtml}
+    ${reprocessHtml}
+    ${editHtml}
+    ${footerHtml}
+  </div>`;
+}
+
 async function viewReceipt(id, options = {}) {
+  const targetId = Number(id);
+  const compactReceiptMobile = isCompactMobileReceiptView();
+  const receiptsPageActive = Boolean(document.getElementById('page-receipts')?.classList.contains('active'));
+  const inlineTarget = !compactReceiptMobile ? document.getElementById(`receipt-inline-detail-${targetId}`) : null;
+  const shouldInline = !compactReceiptMobile && (Boolean(options.inline) || (receiptsPageActive && Boolean(inlineTarget)));
   const shouldScroll = options.scroll !== false;
+
+  if (!compactReceiptMobile && receiptsPageActive && !options.inline && !inlineTarget) {
+    selectedReceiptId = targetId;
+    await loadReceipts();
+    return;
+  }
+
   selectedReceiptId = id;
-  const res = await api(`/receipts/${id}`);
-  const body = document.getElementById('receipt-detail-body');
+  const res = await api(`/receipts/${targetId}`);
+  const body = shouldInline
+    ? document.getElementById(`receipt-inline-detail-${targetId}`)
+    : document.getElementById('receipt-detail-body');
+  if (!body) return;
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipt details.</p></div>'; return; }
   const receipt = await res.json();
   const rawItems = receipt.raw_ocr_data?.items || [];
@@ -12263,7 +12510,6 @@ async function viewReceipt(id, options = {}) {
   const canReprocess = !receipt.raw_ocr_data && ['review', 'failed', 'pending'].includes(receipt.status);
   const editableReceiptData = receipt.editable_data || receipt.raw_ocr_data || {};
   const canEditReceipt = editableReceiptData && typeof editableReceiptData === 'object';
-  const compactReceiptMobile = isCompactMobileReceiptView();
 
   if (receiptImageObjectUrl) {
     URL.revokeObjectURL(receiptImageObjectUrl);
@@ -12295,99 +12541,19 @@ async function viewReceipt(id, options = {}) {
     }
   }
 
-  body.innerHTML = `
-    <div class="receipt-detail-stack" style="display:grid;gap:16px">
-      <div class="receipt-detail-stats">
-        <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
-        <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
-      </div>
-      <div>${imageHtml}</div>
-      <div class="receipt-detail-actions">
-        ${receipt.file_type !== 'pdf' ? `
-          <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'left')">↺ Rotate Left</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="rotateReceipt(${receipt.id}, 'right')">↻ Rotate Right</button>
-        ` : ''}
-        <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
-        ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ''}
-      </div>
-      <div>
-        <div class="card-header" style="margin-bottom:12px">
-          <span class="card-title">Extracted Items</span>
-          <div class="table-toolbar">
-            <label for="receipt-item-sort">Sort</label>
-            <select id="receipt-item-sort" onchange="setReceiptItemSort(this.value)">
-              <option value="name_asc" ${receiptItemSort === 'name_asc' ? 'selected' : ''}>Name A-Z</option>
-              <option value="qty_desc" ${receiptItemSort === 'qty_desc' ? 'selected' : ''}>Qty high-low</option>
-              <option value="price_desc" ${receiptItemSort === 'price_desc' ? 'selected' : ''}>Highest price</option>
-            </select>
-            <span style="color:var(--muted);font-size:0.82rem">Confidence ${((receipt.confidence || 0) * 100).toFixed(0)}%</span>
-          </div>
-        </div>
-        ${renderReceiptExtractedItems(receipt, items)}
-      </div>
-      ${canReprocess ? `
-      <div class="card" style="margin-bottom:0">
-        <div class="card-header" style="margin-bottom:12px">
-          <span class="card-title">Refresh OCR Data</span>
-          <button class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
-        </div>
-        <p style="color:var(--muted);font-size:0.82rem">This older receipt does not have editable review JSON yet. Re-run OCR once to populate the review editor.</p>
-      </div>` : ''}
-      ${canEditReceipt ? `
-      <div class="card" style="margin-bottom:0">
-        <div class="card-header" style="margin-bottom:12px">
-          <span class="card-title">${receipt.receipt_type === 'restaurant' ? 'Restaurant Review' : 'Edit Receipt'}</span>
-          <button class="btn btn-primary btn-sm" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === 'processed' ? 'Update Receipt' : 'Save as Purchase'}</button>
-        </div>
-        <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
-        <div class="receipt-editor-grid">
-          <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="unknown">Unknown</option></select></div>
-          <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
-          <div class="receipt-editor-main-field field-date-time">
-            <div class="receipt-editor-inline-fields">
-              <div class="receipt-editor-inline-field">
-                <label>Date</label>
-                <input id="receipt-date-${receipt.id}" type="date" />
-              </div>
-              <div class="receipt-editor-inline-field">
-                <label>Time</label>
-                <input id="receipt-time-${receipt.id}" placeholder="7:16 PM" />
-              </div>
-              <div class="receipt-editor-inline-field">
-                <label>Tax</label>
-                <input id="receipt-tax-${receipt.id}" type="number" step="0.01" />
-              </div>
-            </div>
-          </div>
-          <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
-          <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
-          <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
-        </div>
-        <div class="card-header" style="margin:4px 0 10px">
-          <span class="card-title" style="font-size:0.95rem">Line Items</span>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="addReceiptEditorRow(${receipt.id})">Add Item</button>
-        </div>
-        ${compactReceiptMobile
-          ? `<div id="receipt-editor-items-${receipt.id}" class="receipt-mobile-list"></div>`
-          : `<div class="table-wrap">
-              <table>
-                <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Category</th><th></th></tr></thead>
-                <tbody id="receipt-editor-items-${receipt.id}"></tbody>
-              </table>
-            </div>`}
-      </div>` : ''}
-      <div style="display:flex;justify-content:flex-end">
-        <button type="button" class="btn btn-danger" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button>
-      </div>
-      <div style="color:var(--muted);font-size:0.82rem">Status: ${escHtml(formatLabel(receipt.status, 'Unknown'))} · Loaded ${formatDateTime(receipt.created_at, receipt.date || '—')}</div>
-    </div>`;
+  body.innerHTML = buildReceiptDetailHtml(receipt, items, imageHtml, {
+    canReprocess,
+    canEditReceipt,
+    compactReceiptMobile,
+    inlineLayout: shouldInline,
+  });
 
   if (canEditReceipt) {
     hydrateReceiptEditor(receipt.id, receipt.receipt_type || 'unknown', editableReceiptData);
   }
 
-  const detail = document.getElementById('receipt-detail-body');
-  if (shouldScroll && detail && document.getElementById('page-receipts').classList.contains('active')) {
+  const detail = body;
+  if (shouldScroll && detail && receiptsPageActive) {
     detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
@@ -12397,23 +12563,23 @@ function renderReceiptEditorRows(items = [], options = {}) {
   const rowItems = items.length ? items : [{ name: '', quantity: 1, unit_price: 0, category: 'other' }];
   if (!mobile) {
     return rowItems.map((item, index) => `
-      <tr data-row="${index}" data-receipt-editor-row>
+      <tr data-row="${index}" data-receipt-editor-row data-product-id="${escAttr(item.product_id ?? '')}">
         <td><input data-field="name" value="${escAttr(item.name || item.product_name || '')}" placeholder="Line item name" /></td>
         <td><input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" style="max-width:90px" /></td>
-        <td><input data-field="unit_price" type="number" step="0.01" value="${escAttr(item.unit_price ?? 0)}" style="max-width:120px" /></td>
+        <td><input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" style="max-width:120px" /></td>
         <td><select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select></td>
         <td><button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button></td>
       </tr>
     `).join('');
   }
   return rowItems.map((item, index) => `
-    <div class="receipt-editor-card" data-row="${index}" data-receipt-editor-row>
+    <div class="receipt-editor-card" data-row="${index}" data-receipt-editor-row data-product-id="${escAttr(item.product_id ?? '')}">
       <div class="receipt-editor-card-top receipt-editor-card-summary">
         <div class="receipt-editor-card-title">Item ${index + 1}</div>
         <button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button>
         <div class="receipt-editor-card-meta">
           <span>Qty ${escHtml(String(item.quantity ?? 1))}</span>
-          <span>${formatMoney(item.unit_price ?? 0)}</span>
+          <span>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}</span>
           <span>${escHtml(formatLabel(item.category || 'other', 'Other'))}</span>
         </div>
       </div>
@@ -12427,8 +12593,8 @@ function renderReceiptEditorRows(items = [], options = {}) {
           <input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" />
         </div>
         <div class="receipt-editor-card-field">
-          <label>Unit Price</label>
-          <input data-field="unit_price" type="number" step="0.01" value="${escAttr(item.unit_price ?? 0)}" />
+          <label>Line Total</label>
+          <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
         </div>
       </div>
       <div class="receipt-editor-card-field">
@@ -12506,11 +12672,25 @@ function isCompactMobileReceiptView() {
 function renderReceiptExtractedItems(receipt, items = []) {
   if (!items.length) return '<div class="empty-state"><p>No extracted items recorded.</p></div>';
   if (!isCompactMobileReceiptView()) {
-    return `
-      <table>
-        <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Engine</th><th>Actions</th></tr></thead>
-        <tbody>${items.map(i => `<tr><td>${escHtml(i.product_name || i.name || 'Unknown')}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td><td>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</td><td>${i.product_id ? `<div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select></div>` : '<span style="color:var(--muted)">—</span>'}</td></tr>`).join('')}</tbody>
-      </table>`;
+    return `<div class="receipt-detail-item-list">
+      ${items.map(i => `
+        <div class="receipt-detail-item-row">
+          <div class="receipt-detail-item-main">
+            <div class="receipt-detail-item-name">${escHtml(i.product_name || i.name || 'Unknown')}</div>
+            <div class="receipt-detail-item-meta">
+              <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
+              <span>${formatMoney(i.unit_price)}</span>
+              <span>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</span>
+            </div>
+          </div>
+          <div class="receipt-detail-item-actions">
+            ${i.product_id
+              ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>`
+              : '<span style="color:var(--muted)">—</span>'}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
   }
   return `<div class="receipt-mobile-list">
     ${items.map(i => `
@@ -12609,6 +12789,7 @@ function collectManualEntryData() {
     total: Number(document.getElementById('manual-entry-total')?.value || 0),
     confidence: 1,
     items: rows.map(row => ({
+      product_id: Number(row.dataset.productId || 0) || null,
       name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
       quantity: Number(row.querySelector('[data-field="quantity"]')?.value || 1),
       unit_price: Number(row.querySelector('[data-field="unit_price"]')?.value || 0),
@@ -12686,12 +12867,17 @@ function collectReceiptEditorData(receiptId) {
     tip: Number(document.getElementById(`receipt-tip-${receiptId}`)?.value || 0),
     total: Number(document.getElementById(`receipt-total-${receiptId}`)?.value || 0),
     confidence: 1,
-    items: rows.map(row => ({
-      name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
-      quantity: Number(row.querySelector('[data-field="quantity"]')?.value || 1),
-      unit_price: Number(row.querySelector('[data-field="unit_price"]')?.value || 0),
-      category: row.querySelector('[data-field="category"]')?.value || 'other',
-    })).filter(item => item.name),
+    items: rows.map(row => {
+      const quantity = Number(row.querySelector('[data-field="quantity"]')?.value || 1);
+      const lineTotal = Number(row.querySelector('[data-field="line_total"]')?.value || 0);
+      return {
+        product_id: Number(row.dataset.productId || 0) || null,
+        name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
+        quantity,
+        unit_price: quantity > 0 ? (lineTotal / quantity) : lineTotal,
+        category: row.querySelector('[data-field="category"]')?.value || 'other',
+      };
+    }).filter(item => item.name),
   };
 }
 

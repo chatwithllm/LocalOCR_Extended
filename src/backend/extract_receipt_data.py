@@ -29,6 +29,7 @@ from src.backend.normalize_product_names import (
     canonicalize_product_identity,
     find_matching_product,
 )
+from src.backend.manage_product_catalog import _merge_products
 from src.backend.contribution_scores import validate_low_workflow
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
 
@@ -728,8 +729,22 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             quantity = _safe_float(item_data.get("quantity", 1), 1.0)
             unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
 
+            # Preserve the existing linked product on receipt edits when available.
+            product = None
+            incoming_product_id = item_data.get("product_id")
+            if incoming_product_id not in (None, "", 0, "0"):
+                try:
+                    product = session.query(Product).filter_by(id=int(incoming_product_id)).first()
+                except (TypeError, ValueError):
+                    product = None
+
             # Find or create product
-            product = find_matching_product(session, product_name, category)
+            matched_product = find_matching_product(session, product_name, category)
+            if product and matched_product and matched_product.id != product.id:
+                product = _merge_products(session, product, matched_product)
+                session.flush()
+            elif not product:
+                product = matched_product
             if not product:
                 product = Product(
                     name=product_name,

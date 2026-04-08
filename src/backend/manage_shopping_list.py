@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from flask import Blueprint, jsonify, request, g
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from src.backend.contribution_scores import (
     award_contribution_event,
@@ -24,6 +24,7 @@ from src.backend.normalize_product_names import (
     canonicalize_product_identity,
     find_matching_product,
     get_product_display_name,
+    normalize_product_category,
 )
 from src.backend.normalize_store_names import canonicalize_store_name
 
@@ -158,14 +159,50 @@ def _latest_price_for_item(session, item: ShoppingListItem) -> dict | None:
                 "date": price.date.strftime("%Y-%m-%d") if price.date else None,
             }
 
-    row = (
-        session.query(PriceHistory, Product, Store)
-        .join(Product, Product.id == PriceHistory.product_id)
-        .outerjoin(Store, Store.id == PriceHistory.store_id)
-        .filter(func.lower(func.coalesce(Product.display_name, Product.name)) == func.lower(item.name))
-        .order_by(PriceHistory.date.desc(), PriceHistory.id.desc())
-        .first()
-    )
+    category = normalize_product_category(getattr(item, "category", None))
+    product = None
+    if item.product_id:
+        product = session.query(Product).filter_by(id=item.product_id).first()
+
+    candidate_names: set[str] = set()
+    for candidate in [
+        getattr(item, "name", None),
+        getattr(product, "display_name", None) if product else None,
+        getattr(product, "name", None) if product else None,
+        getattr(product, "raw_name", None) if product else None,
+    ]:
+        text = str(candidate or "").strip()
+        if text:
+            candidate_names.add(text.lower())
+            canonical_name, _ = canonicalize_product_identity(text, category)
+            if canonical_name:
+                candidate_names.add(canonical_name.lower())
+
+    row = None
+    if candidate_names:
+        matching_products = (
+            session.query(Product.id)
+            .filter(func.lower(func.coalesce(Product.category, "other")) == category)
+            .filter(
+                or_(
+                    func.lower(Product.name).in_(candidate_names),
+                    func.lower(func.coalesce(Product.display_name, "")).in_(candidate_names),
+                    func.lower(func.coalesce(Product.raw_name, "")).in_(candidate_names),
+                )
+            )
+            .all()
+        )
+        matching_product_ids = [product_id for (product_id,) in matching_products]
+        if matching_product_ids:
+            row = (
+                session.query(PriceHistory, Product, Store)
+                .join(Product, Product.id == PriceHistory.product_id)
+                .outerjoin(Store, Store.id == PriceHistory.store_id)
+                .filter(PriceHistory.product_id.in_(matching_product_ids))
+                .order_by(PriceHistory.date.desc(), PriceHistory.id.desc())
+                .first()
+            )
+
     if not row:
         return None
     price, _product, store = row

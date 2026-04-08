@@ -178,6 +178,7 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         if not name:
             continue
         sanitized["items"].append({
+            "product_id": int(item.get("product_id")) if item.get("product_id") not in (None, "", 0, "0") else None,
             "name": name,
             "quantity": float(item.get("quantity") or 1),
             "unit_price": float(item.get("unit_price") or 0),
@@ -221,6 +222,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
     )
     from src.backend.normalize_product_names import canonicalize_product_identity, find_matching_product
     from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
+    from src.backend.manage_product_catalog import _merge_products
 
     sanitized = _sanitize_receipt_payload(payload)
     store_name = canonicalize_store_name(sanitized.get("store") or "Manual Entry")
@@ -252,7 +254,20 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         name, category = canonicalize_product_identity(item_data.get("name", ""), item_data.get("category", "other"))
         if not name:
             continue
-        product = find_matching_product(session, name, category)
+        product = None
+        incoming_product_id = item_data.get("product_id")
+        if incoming_product_id not in (None, "", 0, "0"):
+            try:
+                product = session.query(Product).filter_by(id=int(incoming_product_id)).first()
+            except (TypeError, ValueError):
+                product = None
+
+        matched_product = find_matching_product(session, name, category)
+        if product and matched_product and matched_product.id != product.id:
+            product = _merge_products(session, product, matched_product)
+            session.flush()
+        elif not product:
+            product = matched_product
         if not product:
             product = Product(
                 name=name,
@@ -449,15 +464,21 @@ def get_receipt(receipt_id):
 
     session = g.db_session
     purchase = session.query(Purchase).filter_by(id=receipt_id).first()
-    receipt_record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
+    receipt_record = None
+    if purchase:
+        receipt_record = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.purchase_id == purchase.id)
+            .order_by(TelegramReceipt.created_at.desc())
+            .first()
         )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    if not receipt_record:
+        receipt_record = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.id == receipt_id)
+            .order_by(TelegramReceipt.created_at.desc())
+            .first()
+        )
     if not purchase and receipt_record and receipt_record.purchase_id:
         purchase = session.query(Purchase).filter_by(id=receipt_record.purchase_id).first()
     if not purchase and not receipt_record:
@@ -736,18 +757,25 @@ def create_manual_receipt():
 @require_auth
 def get_receipt_image(receipt_id):
     """Serve the stored image for a processed receipt."""
-    from src.backend.initialize_database_schema import TelegramReceipt
+    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
+    purchase = session.query(Purchase).filter_by(id=receipt_id).first()
+    record = None
+    if purchase:
+        record = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.purchase_id == purchase.id)
+            .order_by(TelegramReceipt.created_at.desc())
+            .first()
         )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    if not record:
+        record = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.id == receipt_id)
+            .order_by(TelegramReceipt.created_at.desc())
+            .first()
+        )
     if not record or not record.image_path:
         return jsonify({"error": "Receipt image not found"}), 404
 
