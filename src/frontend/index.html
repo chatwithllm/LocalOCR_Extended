@@ -242,44 +242,40 @@
     td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
-    .receipt-recent-table { table-layout: fixed; }
     .receipt-recent-table th,
     .receipt-recent-table td {
       padding: 10px 12px;
       vertical-align: middle;
     }
     .receipt-recent-table th:nth-child(1),
-    .receipt-recent-table td:nth-child(1) {
-      width: 116px;
+    .receipt-recent-table td:nth-child(1),
+    .receipt-recent-table th:nth-child(3),
+    .receipt-recent-table td:nth-child(3),
+    .receipt-recent-table th:nth-child(4),
+    .receipt-recent-table td:nth-child(4),
+    .receipt-recent-table th:nth-child(5),
+    .receipt-recent-table td:nth-child(5),
+    .receipt-recent-table th:nth-child(6),
+    .receipt-recent-table td:nth-child(6),
+    .receipt-recent-table th:nth-child(7),
+    .receipt-recent-table td:nth-child(7) {
       white-space: nowrap;
+    }
+    .receipt-recent-table th:nth-child(1),
+    .receipt-recent-table td:nth-child(1) {
       font-size: 0.84rem;
     }
-    .receipt-recent-table th:nth-child(3),
-    .receipt-recent-table td:nth-child(3) {
-      width: 112px;
-      white-space: nowrap;
-    }
-    .receipt-recent-table th:nth-child(4),
-    .receipt-recent-table td:nth-child(4) {
-      width: 120px;
-      white-space: nowrap;
-    }
-    .receipt-recent-table th:nth-child(5),
-    .receipt-recent-table td:nth-child(5) {
-      width: 136px;
-      white-space: nowrap;
+    .receipt-recent-table td:nth-child(2) strong {
+      display: block;
+      line-height: 1.2;
+      white-space: normal;
+      word-break: break-word;
     }
     .receipt-recent-table th:nth-child(6),
     .receipt-recent-table td:nth-child(6),
     .receipt-recent-table th:nth-child(7),
     .receipt-recent-table td:nth-child(7) {
-      width: 108px;
       text-align: center;
-      white-space: nowrap;
-    }
-    .receipt-recent-table td:nth-child(2) strong {
-      display: inline-block;
-      line-height: 1.2;
     }
     .receipt-recent-table .btn.btn-sm {
       padding: 5px 10px;
