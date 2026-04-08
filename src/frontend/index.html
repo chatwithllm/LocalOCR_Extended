@@ -4155,10 +4155,11 @@
               </div>
             </div>
           </div>
+          <div id="environment-backup-latest-summary" class="environment-backup-stat-grid" style="margin-top:14px"></div>
           <div class="environment-backup-restore-bar">
             <div class="form-group">
               <label>Restore Source</label>
-              <select id="environment-backup-select"></select>
+              <select id="environment-backup-select" onchange="pendingEnvironmentRestoreFilename=this.value;updateEnvironmentRestoreSelectedSummary()"></select>
             </div>
             <div class="form-group" style="display:flex;align-items:flex-end">
               <button class="btn btn-danger" style="width:100%" onclick="openEnvironmentRestoreModal()">Restore Selected Backup</button>
@@ -4347,6 +4348,7 @@
           <label>Selected Backup</label>
           <input id="environment-restore-filename" type="text" readonly />
         </div>
+        <div id="environment-restore-selected-summary" class="environment-backup-stat-grid"></div>
         <div class="card" style="padding:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
             <strong style="font-size:0.95rem">Restore Scope</strong>
@@ -4358,15 +4360,15 @@
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
             <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
               <input id="environment-restore-db" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
-              <span><strong>Database</strong><br><span style="color:var(--muted);font-size:0.82rem">Users, purchases, receipts metadata, trusted devices, and app data.</span></span>
+              <span><strong>Database</strong><br><span style="color:var(--muted);font-size:0.82rem">Users, purchases, receipt rows, trusted devices, and core app data.</span><br><span id="environment-restore-db-detail" style="color:var(--muted);font-size:0.78rem">Users • Purchases • Receipt Rows • Device Records</span></span>
             </label>
             <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
               <input id="environment-restore-receipts" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
-              <span><strong>Receipts / Files</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore `/data/receipts` assets from the backup bundle.</span></span>
+              <span><strong>Receipts / Files</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore `/data/receipts` assets from the backup bundle.</span><br><span id="environment-restore-receipts-detail" style="color:var(--muted);font-size:0.78rem">Receipt Files • Receipt Size</span></span>
             </label>
             <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
               <input id="environment-restore-env" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
-              <span><strong>Environment Config</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore env snapshot values into the target env file.</span></span>
+              <span><strong>Environment Config</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore env snapshot values into the target env file.</span><br><span id="environment-restore-env-detail" style="color:var(--muted);font-size:0.78rem">Base URL • Gemini • Admin bootstrap values</span></span>
             </label>
           </div>
         </div>
@@ -8358,6 +8360,7 @@ function formatBackupTimestamp(value, fallback = 'Unknown') {
 
 let environmentRestoreProgressTimer = null;
 let pendingEnvironmentRestoreFilename = '';
+let environmentBackupEntries = [];
 
 function clearEnvironmentRestoreProgressTimer() {
   if (environmentRestoreProgressTimer) {
@@ -8374,6 +8377,7 @@ function openEnvironmentRestoreModal(filename = '') {
   if (!overlay || !field) return;
   field.value = pendingEnvironmentRestoreFilename;
   toggleEnvironmentRestoreSelectAll(true);
+  updateEnvironmentRestoreSelectedSummary();
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
 }
@@ -8400,6 +8404,34 @@ function syncEnvironmentRestoreSelectAll() {
   const values = ['environment-restore-db', 'environment-restore-receipts', 'environment-restore-env']
     .map(id => document.getElementById(id)?.checked !== false);
   selectAll.checked = values.every(Boolean);
+}
+
+function getEnvironmentBackupEntry(filename) {
+  return (environmentBackupEntries || []).find(entry => entry.filename === filename) || null;
+}
+
+function updateEnvironmentRestoreSelectedSummary() {
+  const container = document.getElementById('environment-restore-selected-summary');
+  const field = document.getElementById('environment-restore-filename');
+  if (!container || !field) return;
+  const entry = getEnvironmentBackupEntry(field.value);
+  if (!entry) {
+    container.innerHTML = '';
+    return;
+  }
+  const manifest = entry.manifest || {};
+  const dbMeta = manifest.database || {};
+  const receiptMeta = manifest.receipts || {};
+  const activeDeviceCount = dbMeta.active_trusted_devices ?? '—';
+  const deviceRowCount = dbMeta.trusted_device_rows ?? dbMeta.trusted_devices ?? '—';
+  container.innerHTML = `
+    <div class="environment-backup-stat"><strong>${escHtml(formatBackupTimestamp(manifest.created_at_utc || manifest.created_at || entry.modified_at, 'Unknown'))}</strong><span>Backup Time</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.user_rows ?? '—'))}</strong><span>Users</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong><span>Purchases</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(receiptMeta.file_count ?? '—'))}</strong><span>Receipt Files</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(activeDeviceCount))}</strong><span>Active Devices</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(deviceRowCount))}</strong><span>Device Records</span></div>
+  `;
 }
 
 function renderEnvironmentRestoreProgress(percent, stage, detail = '', visible = true) {
@@ -8451,6 +8483,7 @@ async function loadEnvironmentBackups() {
   const latestSizeEl = document.getElementById('environment-backup-latest-size');
   const latestReceiptsEl = document.getElementById('environment-backup-latest-receipts');
   const latestPurchasesEl = document.getElementById('environment-backup-latest-purchases');
+  const latestSummaryEl = document.getElementById('environment-backup-latest-summary');
   if (!note || !panel || !list || !select) return;
   if (!currentUser) {
     note.textContent = 'Sign in to view environment backups.';
@@ -8472,11 +8505,51 @@ async function loadEnvironmentBackups() {
     return;
   }
   const backups = data.backups || [];
+  environmentBackupEntries = backups;
   if (countEl) countEl.textContent = String(backups.length || 0);
   const latestManifest = backups[0]?.manifest || {};
   if (latestSizeEl) latestSizeEl.textContent = backups[0] ? formatBytes(backups[0].size_bytes) : '—';
   if (latestReceiptsEl) latestReceiptsEl.textContent = String(latestManifest.receipts?.file_count ?? '—');
   if (latestPurchasesEl) latestPurchasesEl.textContent = String(latestManifest.database?.purchase_rows ?? '—');
+  if (latestSummaryEl) {
+    const latestBackup = backups[0] || null;
+    const latestBackupManifest = latestBackup?.manifest || {};
+    const latestBackupIsSafety = latestBackup && data.last_restore_report?.safety_backup?.filename === latestBackup.filename;
+    const latestRestore = data.last_restore_report || null;
+    const latestRestoreSections = latestRestore?.restored_sections
+      ? Object.entries(latestRestore.restored_sections).filter(([, enabled]) => !!enabled).map(([key]) => ({
+          database: 'Database',
+          receipts: 'Receipts',
+          env: 'Env',
+        }[key] || key)).join(' · ')
+      : '—';
+    latestSummaryEl.innerHTML = `
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestBackup ? formatBackupTimestamp(latestBackupManifest.created_at_utc || latestBackupManifest.created_at || latestBackup.modified_at, 'Unknown') : '—')}</strong>
+        <span>${latestBackupIsSafety ? 'Latest Backup (Safety)' : 'Latest Backup'}</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestBackup ? formatBytes(latestBackup.size_bytes) : '—')}</strong>
+        <span>${latestBackupIsSafety ? 'Created Before Restore' : 'Backup Size'}</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore ? formatDateTime(latestRestore.restored_at, '—') : '—')}</strong>
+        <span>Latest Restore</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore?.status || '—')}</strong>
+        <span>Restore Status</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestoreSections)}</strong>
+        <span>Restored Sections</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore?.safety_backup?.filename ? latestRestore.safety_backup.filename.replace(/\.tar\.gz$/,'') : '—')}</strong>
+        <span>Latest Safety Backup</span>
+      </div>
+    `;
+  }
   if (!backups.length) {
     select.innerHTML = '<option value="">No backups available yet</option>';
     list.innerHTML = '<div class="empty-state"><div class="icon">💾</div><p>No environment backups yet. Create one from this page.</p></div>';
@@ -8487,6 +8560,7 @@ async function loadEnvironmentBackups() {
       const label = `${formatBackupTimestamp(createdAt, 'Unknown time')} · ${formatBytes(entry.size_bytes)}`;
       return `<option value="${escAttr(entry.filename)}"${index === 0 ? ' selected' : ''}>${escHtml(label)}</option>`;
     }).join('');
+    updateEnvironmentRestoreSelectedSummary();
     list.innerHTML = backups.map(entry => {
       const manifest = entry.manifest || {};
       const dbMeta = manifest.database || {};
@@ -8496,6 +8570,7 @@ async function loadEnvironmentBackups() {
       const shortSha = String(dbMeta.sha256 || '').slice(0, 12);
       const activeDeviceCount = dbMeta.active_trusted_devices;
       const deviceRowCount = dbMeta.trusted_device_rows ?? dbMeta.trusted_devices;
+      const latestRestoreSafety = data.last_restore_report?.safety_backup?.filename === entry.filename;
       return `
         <div class="card environment-backup-card">
           <div class="environment-backup-card-top">
@@ -8503,6 +8578,7 @@ async function loadEnvironmentBackups() {
               <div class="environment-backup-card-title">
                 <strong>${escHtml(createdAt)}</strong>
                 <span class="badge badge-ok">${escHtml(formatBytes(entry.size_bytes))}</span>
+                ${latestRestoreSafety ? '<span class="badge badge-info">Safety backup from restore</span>' : ''}
               </div>
               <div class="environment-backup-card-subtitle">Portable environment bundle with database, receipts, env snapshot, and restore metadata.</div>
               <div class="environment-backup-filename">${escHtml(entry.filename)}</div>
