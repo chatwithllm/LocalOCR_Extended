@@ -276,6 +276,10 @@ What bootstrap does:
 
 Non-interactive bootstrap is also supported when operators want deterministic setup with no prompts.
 
+Operator runbook:
+
+- [/Users/assistant/.gemini/antigravity/LocalOCR_Extended/docs/BACKUP_RESTORE_RUNBOOK.md](/Users/assistant/.gemini/antigravity/LocalOCR_Extended/docs/BACKUP_RESTORE_RUNBOOK.md)
+
 ## Operational Notes
 
 - backup/restore is intended to move the complete working environment, not just the database

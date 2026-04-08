@@ -213,6 +213,8 @@ This is the repo where the following should happen next:
     - rotating environment secrets after restore
     - changing domain/base URL after restore
     - verifying restored receipt-file completeness before operators cut over traffic
+- a dedicated operator runbook now exists for this area:
+  - [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
 - trusted-device scope-specific runtime behavior:
   - deeper `Kitchen Display` kiosk behavior beyond the lighter default nav set
   - stronger `Read Only` visual affordances so controls look disabled/hidden before click

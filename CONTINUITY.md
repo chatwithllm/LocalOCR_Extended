@@ -271,6 +271,7 @@ Read these in order:
 4. [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md)
 5. [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md)
 6. [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
+7. [docs/BACKUP_RESTORE_RUNBOOK.md](docs/BACKUP_RESTORE_RUNBOOK.md)
 
 Then inspect:
 

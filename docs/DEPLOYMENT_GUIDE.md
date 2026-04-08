@@ -130,6 +130,28 @@ Expected Extended backend result:
 {"status":"healthy","service":"localocr-extended-backend"}
 ```
 
+## Environment Migration / Recovery
+
+If you are restoring a full production copy onto a new machine, use the backup bootstrap flow instead of manually creating volumes and copying files.
+
+Runbook:
+
+- [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
+
+Fresh-machine bootstrap example:
+
+```bash
+./scripts/bootstrap_from_backup.sh /absolute/path/to/localocr_extended_backup_YYYYMMDD_HHMMSS.tar.gz
+```
+
+That flow restores:
+
+- database
+- receipt files
+- env snapshot
+
+and then verifies the resulting environment automatically.
+
 ## Step 7: Optional Dedicated Infra Profile
 
 If you want Extended to run with its own bundled MQTT and Ollama, start:
