@@ -225,12 +225,89 @@
     }
     .dashboard-alert-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        "low recs shopping";
       gap: 20px;
       margin-bottom: 20px;
     }
     .dashboard-alert-grid > .card {
       margin-bottom: 0;
+    }
+    #dash-low-stock-card { grid-area: low; }
+    #dash-recs-card { grid-area: recs; }
+    #dash-shopping-card { grid-area: shopping; }
+    .dashboard-summary-card {
+      cursor: pointer;
+      padding: 10px 14px;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+    .dashboard-summary-card .card-header {
+      margin-bottom: 0;
+    }
+    .dashboard-summary-card-body {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.2;
+      min-width: 0;
+    }
+    .dashboard-summary-card-body .dashboard-summary-sep {
+      flex: 0 0 auto;
+      color: var(--muted);
+      opacity: 0.55;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+    .dashboard-summary-card-body strong {
+      color: var(--text);
+      font-size: 0.96rem;
+      font-weight: 800;
+      margin-right: 0;
+    }
+    .dashboard-summary-card-title {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dashboard-summary-card-count {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .dashboard-summary-card-value {
+      flex: 0 0 auto;
+    }
+    #dash-shopping-body {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(48px, auto) auto minmax(72px, 1fr);
+      align-items: center;
+      gap: 10px;
+    }
+    #dash-shopping-body .dashboard-summary-card-title {
+      min-width: 0;
+    }
+    #dash-shopping-body .dashboard-summary-card-count {
+      justify-self: center;
+      text-align: center;
+      min-width: 0;
+    }
+    #dash-shopping-body .dashboard-summary-card-value {
+      justify-self: end;
+      text-align: right;
+      min-width: 0;
     }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .card-title { font-size: 1rem; font-weight: 600; }
@@ -2890,9 +2967,22 @@
       .form-grid,
       #page-receipts > .receipt-summary-grid,
       #page-receipts > .receipt-detail-grid,
-      #page-dashboard > div[style*="grid-template-columns:1fr 1fr"],
-      .dashboard-alert-grid {
+      #page-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
+      }
+      .dashboard-alert-grid {
+        grid-template-columns: 1fr 1fr !important;
+        grid-template-areas:
+          "low recs"
+          "shopping shopping";
+        gap: 12px;
+      }
+      .dashboard-alert-grid.dashboard-mobile-expanded {
+        grid-template-columns: 1fr !important;
+        grid-template-areas:
+          "low"
+          "recs"
+          "shopping";
       }
       .receipt-detail-stats {
         grid-template-columns: 1fr !important;
@@ -3112,6 +3202,38 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+      }
+      #dash-shopping-card .card-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .dashboard-summary-card {
+        min-height: 64px;
+      }
+      .dashboard-summary-card-body {
+        font-size: 0.78rem;
+        gap: 10px;
+      }
+      #dash-shopping-body {
+        grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+        gap: 6px;
+      }
+      .dashboard-summary-card-body .dashboard-summary-sep {
+        font-size: 0.82rem;
+        opacity: 0.45;
+      }
+      .dashboard-summary-card-title {
+        font-size: 0.95rem;
+      }
+      .dashboard-summary-card-count {
+        font-size: 0.88rem;
+        min-width: 22px;
+      }
+      .dashboard-summary-card-value {
+        font-size: 0.92rem;
+        justify-self: start;
       }
       .page-header { margin-bottom: 20px; }
       .upload-zone { padding: 32px 18px; }
@@ -3768,17 +3890,26 @@
       <div class="dashboard-alert-grid">
         <div class="card" id="dash-low-stock-card">
           <div class="card-header">
-            <span class="card-title">⚠️ Low Stock Alerts</span>
+            <span class="card-title">⚠️ Low Stock</span>
             <button type="button" id="dash-low-stock-header-count" class="card-header-inline-stat" style="display:none" onclick="toggleDashboardSection('low-stock')" aria-label="Toggle low stock alerts">0</button>
           </div>
           <div id="dash-low-stock"><div class="empty-state"><div class="icon">✅</div><p>All items well-stocked!</p></div></div>
         </div>
         <div class="card" id="dash-recs-card">
           <div class="card-header">
-            <span class="card-title">💡 Top Recommendations</span>
+            <span class="card-title">💡 Top Picks</span>
             <button type="button" id="dash-recs-header-count" class="card-header-inline-stat" style="display:none" onclick="toggleDashboardSection('recommendations')" aria-label="Toggle top recommendations">0</button>
           </div>
           <div id="dash-recs"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div></div>
+        </div>
+        <div class="card dashboard-summary-card" id="dash-shopping-card" role="button" tabindex="0" onclick="openDashboardStat('shopping')" onkeydown="handleDashboardStatKey(event, 'shopping')">
+          <div class="dashboard-summary-card-body" id="dash-shopping-body">
+            <span class="dashboard-summary-card-title">🛒 Shopping List</span>
+            <span class="dashboard-summary-sep" aria-hidden="true">|</span>
+            <span class="dashboard-summary-card-count" id="dash-shopping-header-count">0</span>
+            <span class="dashboard-summary-sep" aria-hidden="true">|</span>
+            <strong class="dashboard-summary-card-value" id="dash-shopping-estimate">—</strong>
+          </div>
         </div>
       </div>
     </div>
@@ -6310,6 +6441,17 @@ function updateDashboardSectionVisibility(sectionKey) {
   const empty = body?.dataset?.empty === 'true';
   if (body) body.style.display = (collapsed || empty) ? 'none' : '';
   if (card) card.classList.toggle('dashboard-collapsed', collapsed || empty);
+  updateDashboardAlertGridLayout();
+}
+
+function updateDashboardAlertGridLayout() {
+  const grid = document.querySelector('#page-dashboard .dashboard-alert-grid');
+  if (!grid) return;
+  const lowBody = document.getElementById('dash-low-stock');
+  const recBody = document.getElementById('dash-recs');
+  const lowExpanded = Boolean(lowBody) && lowBody.dataset.empty !== 'true' && !isDashboardSectionCollapsed('low-stock');
+  const recExpanded = Boolean(recBody) && recBody.dataset.empty !== 'true' && !isDashboardSectionCollapsed('recommendations');
+  grid.classList.toggle('dashboard-mobile-expanded', lowExpanded || recExpanded);
 }
 
 function toggleDashboardSection(sectionKey, forceCollapsed = null) {
@@ -7754,6 +7896,12 @@ function openDashboardStat(target) {
     const budgetNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Budget'));
     nav('budget', budgetNav);
     setTimeout(() => document.getElementById('budget-amt')?.focus(), 0);
+    return;
+  }
+  if (target === 'shopping') {
+    const shoppingNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Shopping'));
+    nav('shopping', shoppingNav);
+    return;
   }
 }
 
@@ -9901,14 +10049,16 @@ async function loadDashboard() {
     if (correctionsValue) correctionsValue.textContent = currentUserStats?.ocr_corrections_month ?? 0;
     renderLeaderboard();
 
-    const [prodRes, invRes, recRes] = await Promise.all([
+    const [prodRes, invRes, recRes, shoppingRes] = await Promise.all([
       api('/products'),
       api('/inventory'),
       api('/recommendations'),
+      api('/shopping-list'),
     ]);
     const prods = prodRes.ok ? await prodRes.json() : null;
     const inv = invRes.ok ? await invRes.json() : null;
     const recs = recRes.ok ? await recRes.json() : null;
+    const shopping = shoppingRes.ok ? await shoppingRes.json() : null;
 
     const totalProducts = prods ? (prods.total ?? prods.products?.length ?? '—') : '—';
     if (inv) {
@@ -9989,6 +10139,15 @@ async function loadDashboard() {
         if (recsCard) recsCard.classList.add('compact-empty');
       }
       updateDashboardSectionVisibility('recommendations');
+    }
+
+    const shoppingCountEl = document.getElementById('dash-shopping-header-count');
+    const shoppingEstimateEl = document.getElementById('dash-shopping-estimate');
+    if (shoppingCountEl) {
+      shoppingCountEl.textContent = String(shopping?.open_count ?? 0);
+    }
+    if (shoppingEstimateEl) {
+      shoppingEstimateEl.textContent = formatMoney(shopping?.estimated_total_cost || 0);
     }
 
     // Budget stat
