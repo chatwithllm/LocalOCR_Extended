@@ -1718,6 +1718,32 @@
     .shopping-rename-btn:hover {
       color: #8f88ff;
     }
+    .shopping-store-table td {
+      vertical-align: top;
+    }
+    .shopping-store-table .shopping-item-cell {
+      min-width: 260px;
+    }
+    .shopping-store-table .shopping-store-select {
+      min-width: 150px;
+      max-width: 180px;
+      width: 100%;
+    }
+    .shopping-store-table .shopping-actions-cell {
+      min-width: 250px;
+    }
+    .shopping-store-table .shopping-item-actions-row {
+      min-width: 230px;
+      grid-template-columns: repeat(4, minmax(52px, 1fr));
+    }
+    .shopping-store-table .shopping-item-actions-row .btn {
+      padding: 6px 8px;
+      font-size: 0.74rem;
+    }
+    .shopping-store-table .shopping-rename-row {
+      justify-content: flex-start;
+      margin-top: 6px;
+    }
     .helper-section-label {
       color: var(--muted);
       font-size: 0.68rem;
@@ -11409,11 +11435,11 @@ function renderShoppingListTable() {
           >${storeItems.length}</button>
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
-          <table>
+          <table class="shopping-store-table">
             <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
-                <td>
+                <td class="shopping-item-cell">
                   <strong>${escHtml(item.name)}</strong>${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}
                   <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
                     ${[
@@ -11432,12 +11458,12 @@ function renderShoppingListTable() {
                 <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
                 <td>
-                  <select onchange="updateShoppingPreferredStore(${item.primaryItem.id}, this.value)" style="min-width:160px">
+                  <select class="shopping-store-select" onchange="updateShoppingPreferredStore(${item.primaryItem.id}, this.value)">
                     ${renderShoppingStoreOptionTags(item.preferred_store || '')}
                   </select>
                 </td>
                 <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
-                <td>
+                <td class="shopping-actions-cell">
                   <div class="shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
                   ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
