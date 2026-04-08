@@ -2188,6 +2188,12 @@
       gap: 16px;
       align-items: start;
     }
+    .receipt-detail-grid > .card,
+    #receipt-detail-body,
+    .receipt-detail-stack,
+    .receipt-detail-stack > * {
+      min-width: 0;
+    }
     .receipt-summary-grid > .card {
       height: 100%;
       display: flex;
@@ -2242,6 +2248,19 @@
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
+    .receipt-detail-stats > .stat-card {
+      min-width: 0;
+      overflow: hidden;
+    }
+    .receipt-detail-stats .stat-value,
+    .receipt-detail-stats .stat-sub {
+      min-width: 0;
+    }
+    .receipt-detail-stats .stat-sub {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .receipt-detail-actions {
       display: flex;
       gap: 8px;
@@ -2254,6 +2273,9 @@
       background: rgba(255,255,255,0.02);
       display: grid;
       place-items: center;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
     }
     .receipt-image-wrap img {
       display: block;
@@ -11523,7 +11545,7 @@ async function viewReceipt(id, options = {}) {
   }
 
   body.innerHTML = `
-    <div style="display:grid;gap:16px">
+    <div class="receipt-detail-stack" style="display:grid;gap:16px">
       <div class="receipt-detail-stats">
         <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
         <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
