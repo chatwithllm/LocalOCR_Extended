@@ -3966,6 +3966,33 @@
       </div>
       <div class="card">
         <div class="card-header">
+          <span class="card-title">💾 Environment Backup & Restore</span>
+          <div class="table-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="createEnvironmentBackup()">Create Backup</button>
+            <button class="btn btn-ghost btn-sm" onclick="verifyEnvironmentBackup()">Verify</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadEnvironmentBackups()">🔄</button>
+          </div>
+        </div>
+        <div id="environment-backup-note" style="color:var(--muted);font-size:0.84rem">Only admins can create environment backups, verify the current state, or restore a saved bundle.</div>
+        <div id="environment-backup-panel" style="margin-top:16px">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Available Backups</label>
+              <select id="environment-backup-select"></select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <button class="btn btn-danger" style="width:100%" onclick="restoreEnvironmentBackup()">Restore Selected Backup</button>
+            </div>
+          </div>
+          <div id="environment-backup-list" class="table-wrap" style="margin-top:16px"></div>
+          <div style="margin-top:16px">
+            <div style="font-size:0.82rem;color:var(--muted);margin-bottom:8px">Latest verification / restore report</div>
+            <div id="environment-backup-report" class="card" style="padding:16px;background:rgba(255,255,255,0.02);border-style:dashed;color:var(--muted);font-size:0.84rem">Run Verify or create a backup to see the latest environment report here.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
           <span class="card-title">🧠 Catalog Review</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="review-status-filter" onchange="loadReviewQueue()">
@@ -5957,6 +5984,19 @@ function formatRelativeTime(value, fallback = 'Never') {
   return future ? 'Soon' : 'Just now';
 }
 
+function formatBytes(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = num;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  return `${size >= 10 || idx === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[idx]}`;
+}
+
 function getRecommendationType(rec) {
   return rec?.type || rec?.reason || 'other';
 }
@@ -7053,6 +7093,7 @@ function nav(page, el) {
     if (currentUser) {
       loadUsers();
       loadTrustedDevices();
+      loadEnvironmentBackups();
       loadReviewQueue();
     }
   }
@@ -7988,6 +8029,164 @@ function animateTrustedDeviceRemoval(deviceId) {
     }
   }, 310);
   return cards;
+}
+
+function renderEnvironmentReport(report, label = '') {
+  const container = document.getElementById('environment-backup-report');
+  if (!container) return;
+  if (!report) {
+    container.innerHTML = 'Run Verify or create a backup to see the latest environment report here.';
+    return;
+  }
+  const heading = label ? `<div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px">${escHtml(label)}</div>` : '';
+  const missingSamples = Array.isArray(report.missing_receipt_samples) && report.missing_receipt_samples.length
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Missing image samples: ${escHtml(report.missing_receipt_samples.join(', '))}</div>`
+    : '';
+  container.innerHTML = `
+    ${heading}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
+      <div><div style="font-size:0.78rem;color:var(--muted)">Status</div><strong>${escHtml(report.status || '—')}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Users</div><strong>${escHtml(String(report.users ?? '—'))}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Purchases</div><strong>${escHtml(String(report.purchases ?? '—'))}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Trusted Devices</div><strong>${escHtml(String(report.trusted_devices ?? '—'))}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Receipt Rows</div><strong>${escHtml(String(report.receipt_rows ?? '—'))}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Receipt Files</div><strong>${escHtml(String(report.receipt_files ?? '—'))}</strong></div>
+      <div><div style="font-size:0.78rem;color:var(--muted)">Missing Images</div><strong>${escHtml(String(report.missing_receipt_images ?? '—'))}</strong></div>
+    </div>
+    ${missingSamples}
+  `;
+}
+
+async function loadEnvironmentBackups() {
+  const note = document.getElementById('environment-backup-note');
+  const panel = document.getElementById('environment-backup-panel');
+  const list = document.getElementById('environment-backup-list');
+  const select = document.getElementById('environment-backup-select');
+  if (!note || !panel || !list || !select) return;
+  if (!currentUser) {
+    note.textContent = 'Sign in to view environment backups.';
+    panel.style.display = 'none';
+    return;
+  }
+  if (currentUser.role !== 'admin') {
+    note.textContent = 'Only admins can create backups or restore the environment.';
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  note.textContent = 'Create a portable environment bundle with database, receipts, manifest, and env snapshot. Restore will restart the backend.';
+  const res = await api('/system/backups');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load environment backups.</p></div>';
+    renderEnvironmentReport(null);
+    return;
+  }
+  const backups = data.backups || [];
+  if (!backups.length) {
+    select.innerHTML = '<option value="">No backups available yet</option>';
+    list.innerHTML = '<div class="empty-state"><div class="icon">💾</div><p>No environment backups yet. Create one from this page.</p></div>';
+  } else {
+    select.innerHTML = backups.map((entry, index) => {
+      const manifest = entry.manifest || {};
+      const createdAt = manifest.created_at || entry.modified_at;
+      const label = `${entry.filename} · ${formatDateTime(createdAt, 'Unknown time')} · ${formatBytes(entry.size_bytes)}`;
+      return `<option value="${escAttr(entry.filename)}"${index === 0 ? ' selected' : ''}>${escHtml(label)}</option>`;
+    }).join('');
+    list.innerHTML = backups.map(entry => {
+      const manifest = entry.manifest || {};
+      const dbMeta = manifest.database || {};
+      const receiptMeta = manifest.receipts || {};
+      const createdAt = formatDateTime(manifest.created_at || entry.modified_at, 'Unknown');
+      return `
+        <div class="card" style="margin-bottom:12px;padding:16px">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+            <div style="min-width:220px;flex:1">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <strong style="font-size:0.96rem">${escHtml(entry.filename)}</strong>
+                <span class="badge badge-ok">${escHtml(formatBytes(entry.size_bytes))}</span>
+              </div>
+              <div style="margin-top:8px;color:var(--muted);font-size:0.82rem">Created ${escHtml(createdAt)}</div>
+              <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:0.82rem;color:var(--muted)">
+                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.user_rows ?? '—'))}</strong>Users</div>
+                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong>Purchases</div>
+                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.receipt_rows ?? '—'))}</strong>Receipt Rows</div>
+                <div><strong style="display:block;color:var(--text)">${escHtml(String(receiptMeta.file_count ?? '—'))}</strong>Receipt Files</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  renderEnvironmentReport(data.last_verify_report || data.last_restore_report, data.last_verify_report ? 'Latest verification report' : (data.last_restore_report ? 'Latest restore report' : ''));
+}
+
+async function createEnvironmentBackup() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  toast('Creating backup... this can take a moment', 'info');
+  const res = await api('/system/backups/create', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not create backup', 'error');
+    return;
+  }
+  toast('Environment backup created ✅', 'success');
+  await loadEnvironmentBackups();
+}
+
+async function verifyEnvironmentBackup() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  toast('Verifying current environment...', 'info');
+  const res = await api('/system/backups/verify', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not verify environment', 'error');
+    return;
+  }
+  renderEnvironmentReport(data.report, 'Latest verification report');
+  toast(data.report?.status === 'ok' ? 'Environment verification passed ✅' : 'Environment verification completed with warnings', data.report?.status === 'ok' ? 'success' : 'info');
+  await loadEnvironmentBackups();
+}
+
+async function restoreEnvironmentBackup() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  const select = document.getElementById('environment-backup-select');
+  const filename = select?.value || '';
+  if (!filename) {
+    toast('Select a backup first', 'error');
+    return;
+  }
+  const confirmed = await askConfirm(
+    'Restore environment backup',
+    `Restore ${filename}? This will replace the current database and receipts, then restart the backend.`,
+    { okLabel: 'Restore', danger: true }
+  );
+  if (!confirmed) return;
+  toast('Restoring backup... the backend will restart', 'info');
+  const res = await api('/system/backups/restore', {
+    method: 'POST',
+    body: JSON.stringify({ filename }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not restore backup', 'error');
+    return;
+  }
+  renderEnvironmentReport(data.report || null, 'Latest restore report');
+  toast('Restore applied. Reconnecting after restart...', 'success');
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 3500);
 }
 
 async function renameTrustedDevice(deviceId, currentName) {

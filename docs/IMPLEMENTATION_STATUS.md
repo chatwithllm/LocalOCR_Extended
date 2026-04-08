@@ -183,7 +183,16 @@ This is the repo where the following should happen next:
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
 - recovery of receipt images that are physically missing from `/data/receipts`; those purchases still exist, but the image cannot be shown until the file is restored
-- a first-class “backup the whole environment and restore to latest on a new machine” workflow still needs to be formalized and tested end to end
+- a full environment backup/restore workflow is now implemented:
+  - backup bundle script
+  - restore script
+  - verification script
+  - admin Settings UI for backup/verify/restore
+  - fresh-machine bootstrap script
+  - bootstrap prompt mode for overriding `PUBLIC_BASE_URL`, `GEMINI_API_KEY`, and `GEMINI_MODEL`
+- still pending for this area:
+  - clean-machine restore drill from backup to healthy app
+  - final operator checklist validation on a truly new environment
 - trusted-device scope-specific runtime behavior:
   - deeper `Kitchen Display` kiosk behavior beyond the lighter default nav set
   - stronger `Read Only` visual affordances so controls look disabled/hidden before click

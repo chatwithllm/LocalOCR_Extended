@@ -203,10 +203,14 @@ High-value next work from the current state:
   - kiosk/dashboard-only
 - continue reducing vertical clutter on mobile after row expansion
 - keep strengthening structured edit flows so browser-native prompts disappear entirely
-- add a complete environment backup/restore workflow:
-  - one command or job to capture DB + receipts + config/environment metadata
-  - one documented restore flow for moving Extended to a fresh machine
-  - a latest-known-good restore drill so migration does not depend on manual container/file discovery
+- finish the backup/restore workflow with a clean-machine restore drill:
+  - full environment backup bundle now exists
+  - backend/UI backup + verify + restore controls now exist
+  - fresh-machine bootstrap script now exists
+  - bootstrap can now prompt for the new machine's `PUBLIC_BASE_URL` and Gemini settings before first start
+  - still needed:
+    - run the bootstrap flow end to end on a clean machine or clean Docker host
+    - document the exact operator checklist from empty host to healthy app
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

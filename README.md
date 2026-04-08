@@ -423,11 +423,30 @@ Manual backup:
 docker exec localocr-extended-backend /app/scripts/backup_database_and_volumes.sh
 ```
 
-Restore:
+Restore inside an already-running environment:
 
 ```bash
 docker exec -it localocr-extended-backend /app/scripts/restore_from_backup.sh /data/backups/localocr_extended_backup_YYYYMMDD.tar.gz
 ```
+
+Bootstrap a fresh machine from a backup bundle:
+
+```bash
+./scripts/bootstrap_from_backup.sh /absolute/path/to/localocr_extended_backup_YYYYMMDD_HHMMSS.tar.gz --yes
+```
+
+In-app operator flow:
+
+- `Settings -> Environment Backup & Restore`
+- admins can:
+  - create a portable environment backup
+  - verify the current environment
+  - restore a selected backup bundle
+
+Operational note:
+
+- the very first restore on a brand-new machine is still a shell/bootstrap action
+- the Settings restore UI is intended for an already-running environment because the app must be booted before the UI exists
 
 Operational note:
 
