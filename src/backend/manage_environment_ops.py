@@ -4,7 +4,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, send_file
 
 from src.backend.create_flask_application import require_auth
 from src.backend.manage_authentication import is_admin
@@ -65,6 +65,13 @@ def _list_backup_entries():
     return entries
 
 
+def _validate_backup_filename(filename: str) -> str:
+    cleaned = str(filename or "").strip()
+    if not cleaned or "/" in cleaned or cleaned.startswith("."):
+        raise ValueError("Backup filename is required")
+    return cleaned
+
+
 def _schedule_container_restart(delay_seconds: float = 1.0):
     def _shutdown():
         os._exit(0)
@@ -121,6 +128,47 @@ def create_backup():
     })
 
 
+@environment_ops_bp.post("/backups/upload")
+@require_auth
+def upload_backup():
+    _actor, error = _admin_or_403()
+    if error:
+        return error
+
+    uploaded = request.files.get("backup")
+    if not uploaded or not uploaded.filename:
+        return jsonify({"error": "Backup file is required"}), 400
+
+    filename = Path(uploaded.filename).name
+    if not filename.endswith(".tar.gz"):
+        return jsonify({"error": "Backup must be a .tar.gz archive"}), 400
+
+    backup_path = _backups_dir() / filename
+    uploaded.save(backup_path)
+    return jsonify({
+        "status": "uploaded",
+        "filename": filename,
+        "size_bytes": backup_path.stat().st_size,
+    })
+
+
+@environment_ops_bp.get("/backups/download/<path:filename>")
+@require_auth
+def download_backup(filename):
+    _actor, error = _admin_or_403()
+    if error:
+        return error
+    try:
+        safe_name = _validate_backup_filename(filename)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    backup_path = _backups_dir() / safe_name
+    if not backup_path.exists():
+        return jsonify({"error": "Backup file not found"}), 404
+    return send_file(backup_path, as_attachment=True, download_name=safe_name)
+
+
 @environment_ops_bp.post("/backups/verify")
 @require_auth
 def verify_environment():
@@ -155,8 +203,12 @@ def restore_backup():
         return error
 
     payload = request.get_json(silent=True) or {}
-    filename = str(payload.get("filename") or "").strip()
-    if not filename or "/" in filename or filename.startswith("."):
+    try:
+        filename = _validate_backup_filename(payload.get("filename") or "")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if not filename:
         return jsonify({"error": "Backup filename is required"}), 400
 
     backup_path = _backups_dir() / filename

@@ -1819,6 +1819,145 @@
       pointer-events: none;
       animation: trustedDeviceExit 300ms cubic-bezier(0.22, 0.9, 0.24, 1) forwards;
     }
+    .environment-backup-shell {
+      display: grid;
+      gap: 16px;
+    }
+    .environment-backup-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(108,99,255,0.18);
+      background:
+        radial-gradient(circle at top right, rgba(108,99,255,0.14), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.015));
+    }
+    .environment-backup-hero-copy {
+      min-width: 0;
+      flex: 1;
+    }
+    .environment-backup-eyebrow {
+      color: var(--accent2);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .environment-backup-hero-copy p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .environment-backup-hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(92px, 1fr));
+      gap: 10px;
+      min-width: 220px;
+    }
+    .environment-backup-hero-stat,
+    .environment-backup-stat {
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .environment-backup-hero-stat strong,
+    .environment-backup-stat strong {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .environment-backup-hero-stat span,
+    .environment-backup-stat span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+    .environment-backup-restore-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.9fr);
+      gap: 14px;
+      align-items: end;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+    }
+    .environment-backup-card {
+      margin-bottom: 12px;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
+    }
+    .environment-backup-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .environment-backup-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .environment-backup-card-title strong {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .environment-backup-card-subtitle {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .environment-backup-filename {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .environment-backup-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .environment-backup-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .environment-backup-report-card {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
+    }
+    .environment-backup-report-title {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
 
     /* ---- Recs ---- */
     .rec-item {
@@ -2754,6 +2893,21 @@
       }
       #page-settings .trusted-device-card .btn {
         flex: 1 1 auto;
+      }
+      .environment-backup-hero {
+        display: grid;
+      }
+      .environment-backup-hero-stats {
+        min-width: 0;
+      }
+      .environment-backup-restore-bar {
+        grid-template-columns: 1fr;
+      }
+      .environment-backup-card-top {
+        flex-direction: column;
+      }
+      .environment-backup-card-actions .btn {
+        flex: 1;
       }
       #page-settings .avatar-bubble {
         flex: 0 0 auto;
@@ -3969,15 +4123,41 @@
           <span class="card-title">💾 Environment Backup & Restore</span>
           <div class="table-toolbar">
             <button class="btn btn-ghost btn-sm" onclick="createEnvironmentBackup()">Create Backup</button>
+            <button class="btn btn-ghost btn-sm" onclick="triggerEnvironmentBackupUpload()">Upload Backup</button>
             <button class="btn btn-ghost btn-sm" onclick="verifyEnvironmentBackup()">Verify</button>
             <button class="btn btn-ghost btn-sm" onclick="loadEnvironmentBackups()">🔄</button>
           </div>
         </div>
         <div id="environment-backup-note" style="color:var(--muted);font-size:0.84rem">Only admins can create environment backups, verify the current state, or restore a saved bundle.</div>
-        <div id="environment-backup-panel" style="margin-top:16px">
-          <div class="form-grid">
+        <div id="environment-backup-panel" class="environment-backup-shell" style="margin-top:16px">
+          <input id="environment-backup-upload" type="file" accept=".tar.gz,application/gzip,application/x-gzip" style="display:none" onchange="uploadEnvironmentBackup(this)" />
+          <div class="environment-backup-hero">
+            <div class="environment-backup-hero-copy">
+              <div class="environment-backup-eyebrow">Portable Recovery</div>
+              <p>Create a complete bundle with database, receipts, manifest, and env snapshot. Restore replaces the current state and restarts the backend cleanly.</p>
+            </div>
+            <div class="environment-backup-hero-stats">
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-count">0</strong>
+                <span>Backups</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-size">—</strong>
+                <span>Latest Size</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-receipts">—</strong>
+                <span>Receipt Files</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-purchases">—</strong>
+                <span>Purchases</span>
+              </div>
+            </div>
+          </div>
+          <div class="environment-backup-restore-bar">
             <div class="form-group">
-              <label>Available Backups</label>
+              <label>Restore Source</label>
               <select id="environment-backup-select"></select>
             </div>
             <div class="form-group" style="display:flex;align-items:flex-end">
@@ -3985,9 +4165,9 @@
             </div>
           </div>
           <div id="environment-backup-list" class="table-wrap" style="margin-top:16px"></div>
-          <div style="margin-top:16px">
-            <div style="font-size:0.82rem;color:var(--muted);margin-bottom:8px">Latest verification / restore report</div>
-            <div id="environment-backup-report" class="card" style="padding:16px;background:rgba(255,255,255,0.02);border-style:dashed;color:var(--muted);font-size:0.84rem">Run Verify or create a backup to see the latest environment report here.</div>
+          <div class="environment-backup-report-card">
+            <div class="environment-backup-report-title">Latest verification / restore report</div>
+            <div id="environment-backup-report" style="color:var(--muted);font-size:0.84rem">Run Verify or create a backup to see the latest environment report here.</div>
           </div>
         </div>
       </div>
@@ -8044,17 +8224,34 @@ function renderEnvironmentReport(report, label = '') {
     : '';
   container.innerHTML = `
     ${heading}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
-      <div><div style="font-size:0.78rem;color:var(--muted)">Status</div><strong>${escHtml(report.status || '—')}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Users</div><strong>${escHtml(String(report.users ?? '—'))}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Purchases</div><strong>${escHtml(String(report.purchases ?? '—'))}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Trusted Devices</div><strong>${escHtml(String(report.trusted_devices ?? '—'))}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Receipt Rows</div><strong>${escHtml(String(report.receipt_rows ?? '—'))}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Receipt Files</div><strong>${escHtml(String(report.receipt_files ?? '—'))}</strong></div>
-      <div><div style="font-size:0.78rem;color:var(--muted)">Missing Images</div><strong>${escHtml(String(report.missing_receipt_images ?? '—'))}</strong></div>
+    <div class="environment-backup-stat-grid">
+      <div class="environment-backup-stat"><strong>${escHtml(report.status || '—')}</strong><span>Status</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.users ?? '—'))}</strong><span>Users</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.purchases ?? '—'))}</strong><span>Purchases</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.trusted_devices ?? '—'))}</strong><span>Active Devices</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.receipt_rows ?? '—'))}</strong><span>Receipt Rows</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.receipt_files ?? '—'))}</strong><span>Receipt Files</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.missing_receipt_images ?? '—'))}</strong><span>Missing Images</span></div>
     </div>
     ${missingSamples}
   `;
+}
+
+function formatBackupTimestamp(value, fallback = 'Unknown') {
+  if (!value) return fallback;
+  if (/^\d{8}_\d{6}$/.test(String(value))) {
+    const s = String(value);
+    const utcDate = new Date(Date.UTC(
+      Number(s.slice(0, 4)),
+      Number(s.slice(4, 6)) - 1,
+      Number(s.slice(6, 8)),
+      Number(s.slice(9, 11)),
+      Number(s.slice(11, 13)),
+      Number(s.slice(13, 15))
+    ));
+    return Number.isNaN(utcDate.getTime()) ? fallback : utcDate.toLocaleString();
+  }
+  return formatDateTime(value, fallback);
 }
 
 async function loadEnvironmentBackups() {
@@ -8062,6 +8259,10 @@ async function loadEnvironmentBackups() {
   const panel = document.getElementById('environment-backup-panel');
   const list = document.getElementById('environment-backup-list');
   const select = document.getElementById('environment-backup-select');
+  const countEl = document.getElementById('environment-backup-count');
+  const latestSizeEl = document.getElementById('environment-backup-latest-size');
+  const latestReceiptsEl = document.getElementById('environment-backup-latest-receipts');
+  const latestPurchasesEl = document.getElementById('environment-backup-latest-purchases');
   if (!note || !panel || !list || !select) return;
   if (!currentUser) {
     note.textContent = 'Sign in to view environment backups.';
@@ -8083,36 +8284,56 @@ async function loadEnvironmentBackups() {
     return;
   }
   const backups = data.backups || [];
+  if (countEl) countEl.textContent = String(backups.length || 0);
+  const latestManifest = backups[0]?.manifest || {};
+  if (latestSizeEl) latestSizeEl.textContent = backups[0] ? formatBytes(backups[0].size_bytes) : '—';
+  if (latestReceiptsEl) latestReceiptsEl.textContent = String(latestManifest.receipts?.file_count ?? '—');
+  if (latestPurchasesEl) latestPurchasesEl.textContent = String(latestManifest.database?.purchase_rows ?? '—');
   if (!backups.length) {
     select.innerHTML = '<option value="">No backups available yet</option>';
     list.innerHTML = '<div class="empty-state"><div class="icon">💾</div><p>No environment backups yet. Create one from this page.</p></div>';
   } else {
     select.innerHTML = backups.map((entry, index) => {
       const manifest = entry.manifest || {};
-      const createdAt = manifest.created_at || entry.modified_at;
-      const label = `${entry.filename} · ${formatDateTime(createdAt, 'Unknown time')} · ${formatBytes(entry.size_bytes)}`;
+      const createdAt = manifest.created_at_utc || manifest.created_at || entry.modified_at;
+      const label = `${formatBackupTimestamp(createdAt, 'Unknown time')} · ${formatBytes(entry.size_bytes)}`;
       return `<option value="${escAttr(entry.filename)}"${index === 0 ? ' selected' : ''}>${escHtml(label)}</option>`;
     }).join('');
     list.innerHTML = backups.map(entry => {
       const manifest = entry.manifest || {};
       const dbMeta = manifest.database || {};
       const receiptMeta = manifest.receipts || {};
-      const createdAt = formatDateTime(manifest.created_at || entry.modified_at, 'Unknown');
+      const createdAt = formatBackupTimestamp(manifest.created_at_utc || manifest.created_at || entry.modified_at, 'Unknown');
+      const receiptBytes = formatBytes(receiptMeta.total_bytes || 0);
+      const shortSha = String(dbMeta.sha256 || '').slice(0, 12);
+      const activeDeviceCount = dbMeta.active_trusted_devices;
+      const deviceRowCount = dbMeta.trusted_device_rows ?? dbMeta.trusted_devices;
       return `
-        <div class="card" style="margin-bottom:12px;padding:16px">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div class="card environment-backup-card">
+          <div class="environment-backup-card-top">
             <div style="min-width:220px;flex:1">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <strong style="font-size:0.96rem">${escHtml(entry.filename)}</strong>
+              <div class="environment-backup-card-title">
+                <strong>${escHtml(createdAt)}</strong>
                 <span class="badge badge-ok">${escHtml(formatBytes(entry.size_bytes))}</span>
               </div>
-              <div style="margin-top:8px;color:var(--muted);font-size:0.82rem">Created ${escHtml(createdAt)}</div>
-              <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:0.82rem;color:var(--muted)">
-                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.user_rows ?? '—'))}</strong>Users</div>
-                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong>Purchases</div>
-                <div><strong style="display:block;color:var(--text)">${escHtml(String(dbMeta.receipt_rows ?? '—'))}</strong>Receipt Rows</div>
-                <div><strong style="display:block;color:var(--text)">${escHtml(String(receiptMeta.file_count ?? '—'))}</strong>Receipt Files</div>
+              <div class="environment-backup-card-subtitle">Portable environment bundle with database, receipts, env snapshot, and restore metadata.</div>
+              <div class="environment-backup-filename">${escHtml(entry.filename)}</div>
+              <div class="environment-backup-stat-grid">
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.user_rows ?? '—'))}</strong><span>Users</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong><span>Purchases</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.receipt_rows ?? '—'))}</strong><span>Receipt Rows</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(receiptMeta.file_count ?? '—'))}</strong><span>Receipt Files</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(activeDeviceCount ?? '—'))}</strong><span>Active Devices</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(deviceRowCount ?? '—'))}</strong><span>Device Records</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(receiptBytes)}</strong><span>Receipt Size</span></div>
               </div>
+              <div style="margin-top:10px;color:var(--muted);font-size:0.8rem">
+                DB fingerprint <code style="font-size:0.78rem">${escHtml(shortSha)}${dbMeta.sha256 ? '…' : ''}</code>
+              </div>
+            </div>
+            <div class="environment-backup-card-actions">
+              <button class="btn btn-sm btn-ghost" onclick="downloadEnvironmentBackup('${escAttr(entry.filename)}')">Download</button>
+              <button class="btn btn-sm btn-danger" onclick="restoreEnvironmentBackup('${escAttr(entry.filename)}')">Restore</button>
             </div>
           </div>
         </div>
@@ -8138,6 +8359,49 @@ async function createEnvironmentBackup() {
   await loadEnvironmentBackups();
 }
 
+function triggerEnvironmentBackupUpload() {
+  const input = document.getElementById('environment-backup-upload');
+  if (input) input.click();
+}
+
+async function uploadEnvironmentBackup(input) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    if (input) input.value = '';
+    return;
+  }
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (!String(file.name || '').endsWith('.tar.gz')) {
+    toast('Backup must be a .tar.gz archive', 'error');
+    input.value = '';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('backup', file);
+  toast(`Uploading ${file.name}...`, 'info');
+  const res = await api('/system/backups/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  input.value = '';
+  if (!res.ok) {
+    toast(data.error || 'Could not upload backup', 'error');
+    return;
+  }
+  toast('Backup uploaded ✅', 'success');
+  await loadEnvironmentBackups();
+}
+
+function downloadEnvironmentBackup(filename) {
+  if (!filename) {
+    toast('Backup filename missing', 'error');
+    return;
+  }
+  window.open(`${API_BASE}/system/backups/download/${encodeURIComponent(filename)}`, '_blank', 'noopener');
+}
+
 async function verifyEnvironmentBackup() {
   if (!currentUser || currentUser.role !== 'admin') {
     toast('Admin access required', 'error');
@@ -8155,13 +8419,13 @@ async function verifyEnvironmentBackup() {
   await loadEnvironmentBackups();
 }
 
-async function restoreEnvironmentBackup() {
+async function restoreEnvironmentBackup(filenameOverride = '') {
   if (!currentUser || currentUser.role !== 'admin') {
     toast('Admin access required', 'error');
     return;
   }
   const select = document.getElementById('environment-backup-select');
-  const filename = select?.value || '';
+  const filename = filenameOverride || select?.value || '';
   if (!filename) {
     toast('Select a backup first', 'error');
     return;
