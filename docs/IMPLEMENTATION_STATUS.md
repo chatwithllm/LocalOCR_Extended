@@ -139,6 +139,29 @@ Extended-specific runtime changes now in place:
   - trusted-device scopes now affect runtime:
     - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
     - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
+- full environment backup/restore is now implemented:
+  - backup bundle creation script
+  - restore script
+  - verification script
+  - fresh-machine bootstrap script
+  - admin Settings UI for:
+    - create backup
+    - upload backup
+    - download backup
+    - verify environment
+    - restore selected backup
+  - backup manifests now include:
+    - archive size
+    - user count
+    - purchase count
+    - receipt-row count
+    - receipt file count
+    - active trusted-device count
+    - total trusted-device row count
+    - total receipt bytes
+    - DB checksum/fingerprint
+    - UTC creation timestamp
+  - backup cards now render legacy timestamps in the browser's local timezone for clearer operator display
 - Budget page now supports manual entry creation for missing receipts:
   - grocery
   - restaurant
@@ -183,16 +206,13 @@ This is the repo where the following should happen next:
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
 - recovery of receipt images that are physically missing from `/data/receipts`; those purchases still exist, but the image cannot be shown until the file is restored
-- a full environment backup/restore workflow is now implemented:
-  - backup bundle script
-  - restore script
-  - verification script
-  - admin Settings UI for backup/verify/restore
-  - fresh-machine bootstrap script
-  - bootstrap prompt mode for overriding `PUBLIC_BASE_URL`, `GEMINI_API_KEY`, and `GEMINI_MODEL`
-- still pending for this area:
+- the backup/restore workflow still has one major validation gap:
   - clean-machine restore drill from backup to healthy app
   - final operator checklist validation on a truly new environment
+  - explicit documented recovery steps for:
+    - rotating environment secrets after restore
+    - changing domain/base URL after restore
+    - verifying restored receipt-file completeness before operators cut over traffic
 - trusted-device scope-specific runtime behavior:
   - deeper `Kitchen Display` kiosk behavior beyond the lighter default nav set
   - stronger `Read Only` visual affordances so controls look disabled/hidden before click

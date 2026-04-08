@@ -160,6 +160,82 @@ Shared-core rules:
 - receipt detail must be human-editable without raw JSON editing
 - receipts must always remain traceable even when extracted data is weak
 - weak OCR must land in review rather than silently polluting downstream workflows
+- the full environment must be recoverable as a portable bundle, not just as code plus ad-hoc volume recovery
+- backup metadata must distinguish:
+  - currently active trusted devices
+  - total trusted-device history rows
+- operator-facing timestamps should display in local time even if legacy archives were named using container UTC
+
+## 4A. Environment Backup, Restore, and Migration
+
+Extended now includes a full environment portability layer.
+
+The product must support two restore paths:
+
+- `In-app restore`
+  - used when the environment is already running
+  - initiated from `Settings -> Environment Backup & Restore`
+- `Fresh-machine bootstrap restore`
+  - used when the app is not yet available on the target machine
+  - initiated from `scripts/bootstrap_from_backup.sh`
+
+The backup bundle must contain:
+
+- SQLite DB snapshot
+- receipts storage tree
+- env snapshot
+- compose snapshot when available
+- manifest metadata
+
+Manifest expectations:
+
+- archive filename
+- creation time
+- creation time in UTC
+- user count
+- purchase count
+- receipt-row count
+- receipt file count
+- active trusted-device count
+- total trusted-device row count
+- total receipt bytes
+- DB checksum/fingerprint
+
+UI expectations:
+
+- admins can create backup
+- admins can upload backup
+- admins can download backup
+- admins can verify current environment
+- admins can restore selected backup
+- backup cards should look like operator-ready product surfaces, not raw admin rows
+
+Verification expectations:
+
+- database presence check
+- receipts directory presence check
+- user count
+- purchase count
+- active trusted-device count
+- receipt-row count
+- receipt file count
+- missing receipt-image count
+- sample missing-image paths when failures exist
+
+Bootstrap expectations for a new machine:
+
+- restore env snapshot first
+- allow override of machine-specific values before first real start
+- build/start backend
+- restore DB and receipts
+- restart backend
+- run verification automatically
+
+Still-required operational validation:
+
+- perform one true clean-machine restore drill from backup to healthy app
+- document final cutover checklist for operators
+- document post-restore secret/domain override handling
 
 ## 5. Authentication, Users, and Identity
 

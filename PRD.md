@@ -72,6 +72,21 @@ Shared-core UX requirements:
 - browser-native popup prompts should be avoided for critical edit flows when in-app modals are available
 - desktop users should be able to hide the left workspace sidebar without affecting mobile navigation
 - mobile pages should avoid explanatory copy when compact controls already communicate the workflow
+- admins should be able to create a full environment backup from the UI
+- admins should be able to upload a backup bundle from the UI
+- admins should be able to download an existing backup bundle from the UI
+- admins should be able to verify the current environment before or after a restore
+- restore UI should be available for already-running environments, while a separate bootstrap flow handles first restore on a new machine
+- backup metadata should be understandable at a glance, including:
+  - local display time
+  - archive size
+  - user count
+  - purchase count
+  - receipt-row count
+  - receipt file count
+  - active trusted-device count
+  - historical trusted-device row count
+- backup timestamps should display in the operator's local timezone, even when older bundles were originally named in UTC inside the container
 
 ## 4. Grocery Module
 
@@ -190,6 +205,22 @@ Extended must support safe side-by-side testing with the grocery app:
 - Extended uses separate DB, receipt storage, and backups
 - Extended may share MQTT and Ollama with the grocery stack
 - Extended must use different MQTT identifiers and namespaces so Home Assistant entities do not collide
+
+Environment portability requirements:
+
+- the complete working environment must be portable to a new machine with simple steps
+- a production bundle must include:
+  - database
+  - receipt files
+  - env snapshot
+  - manifest metadata
+- fresh-machine bootstrap must support prompt-time overrides for machine-specific values like:
+  - public base URL
+  - Gemini API key
+  - Gemini model
+  - initial admin email
+- validation must confirm the restored environment is healthy and that receipt-image references still resolve
+- restore must be treated as environment replacement, not a partial import
 
 ## 8. Success Criteria
 
