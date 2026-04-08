@@ -4161,7 +4161,7 @@
               <select id="environment-backup-select"></select>
             </div>
             <div class="form-group" style="display:flex;align-items:flex-end">
-              <button class="btn btn-danger" style="width:100%" onclick="restoreEnvironmentBackup()">Restore Selected Backup</button>
+              <button class="btn btn-danger" style="width:100%" onclick="openEnvironmentRestoreModal()">Restore Selected Backup</button>
             </div>
           </div>
           <div id="environment-backup-restore-progress" class="environment-backup-report-card" style="display:none">
@@ -4335,6 +4335,48 @@
       <div class="confirm-actions">
         <button type="button" id="device-approval-reject" class="btn btn-danger" onclick="rejectPendingDevicePairing()">Reject</button>
         <button type="button" id="device-approval-approve" class="btn btn-primary" onclick="approvePendingDevicePairing()">Approve Device</button>
+      </div>
+    </div>
+  </div>
+  <div id="environment-restore-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="environment-restore-title" style="width:min(620px,100%);max-height:min(90vh,920px);overflow:auto">
+      <div id="environment-restore-title" class="confirm-title">Restore Backup</div>
+      <div id="environment-restore-body" class="confirm-body">Choose what to restore. A safety backup of the current system will be created automatically first.</div>
+      <div style="display:grid;gap:12px;margin-top:14px">
+        <div class="form-group">
+          <label>Selected Backup</label>
+          <input id="environment-restore-filename" type="text" readonly />
+        </div>
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+            <strong style="font-size:0.95rem">Restore Scope</strong>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.86rem">
+              <input id="environment-restore-select-all" type="checkbox" checked onchange="toggleEnvironmentRestoreSelectAll(this.checked)" />
+              Select All
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-db" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Database</strong><br><span style="color:var(--muted);font-size:0.82rem">Users, purchases, receipts metadata, trusted devices, and app data.</span></span>
+            </label>
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-receipts" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Receipts / Files</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore `/data/receipts` assets from the backup bundle.</span></span>
+            </label>
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-env" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Environment Config</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore env snapshot values into the target env file.</span></span>
+            </label>
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:0.83rem">
+          The system will first create a fresh safety backup of the current environment, then restore the selected sections and restart the backend.
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeEnvironmentRestoreModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="confirmEnvironmentRestore()">Backup Current State and Restore</button>
       </div>
     </div>
   </div>
@@ -8267,6 +8309,19 @@ function renderEnvironmentReport(report, label = '') {
   const missingSamples = Array.isArray(report.missing_receipt_samples) && report.missing_receipt_samples.length
     ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Missing image samples: ${escHtml(report.missing_receipt_samples.join(', '))}</div>`
     : '';
+  const restoredSections = report.restored_sections
+    ? Object.entries(report.restored_sections).filter(([, enabled]) => !!enabled).map(([key]) => ({
+        database: 'Database',
+        receipts: 'Receipts',
+        env: 'Env Config',
+      }[key] || key)).join(' · ')
+    : '';
+  const safetyBackup = report.safety_backup?.filename
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Safety backup created: ${escHtml(report.safety_backup.filename)}</div>`
+    : '';
+  const sectionNote = restoredSections
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Restored sections: ${escHtml(restoredSections)}</div>`
+    : '';
   container.innerHTML = `
     ${heading}
     <div class="environment-backup-stat-grid">
@@ -8278,6 +8333,8 @@ function renderEnvironmentReport(report, label = '') {
       <div class="environment-backup-stat"><strong>${escHtml(String(report.receipt_files ?? '—'))}</strong><span>Receipt Files</span></div>
       <div class="environment-backup-stat"><strong>${escHtml(String(report.missing_receipt_images ?? '—'))}</strong><span>Missing Images</span></div>
     </div>
+    ${sectionNote}
+    ${safetyBackup}
     ${missingSamples}
   `;
 }
@@ -8300,12 +8357,49 @@ function formatBackupTimestamp(value, fallback = 'Unknown') {
 }
 
 let environmentRestoreProgressTimer = null;
+let pendingEnvironmentRestoreFilename = '';
 
 function clearEnvironmentRestoreProgressTimer() {
   if (environmentRestoreProgressTimer) {
     window.clearInterval(environmentRestoreProgressTimer);
     environmentRestoreProgressTimer = null;
   }
+}
+
+function openEnvironmentRestoreModal(filename = '') {
+  const overlay = document.getElementById('environment-restore-overlay');
+  const field = document.getElementById('environment-restore-filename');
+  const select = document.getElementById('environment-backup-select');
+  pendingEnvironmentRestoreFilename = filename || select?.value || '';
+  if (!overlay || !field) return;
+  field.value = pendingEnvironmentRestoreFilename;
+  toggleEnvironmentRestoreSelectAll(true);
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeEnvironmentRestoreModal() {
+  const overlay = document.getElementById('environment-restore-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function toggleEnvironmentRestoreSelectAll(checked) {
+  ['environment-restore-db', 'environment-restore-receipts', 'environment-restore-env'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!checked;
+  });
+  const selectAll = document.getElementById('environment-restore-select-all');
+  if (selectAll) selectAll.checked = !!checked;
+}
+
+function syncEnvironmentRestoreSelectAll() {
+  const selectAll = document.getElementById('environment-restore-select-all');
+  if (!selectAll) return;
+  const values = ['environment-restore-db', 'environment-restore-receipts', 'environment-restore-env']
+    .map(id => document.getElementById(id)?.checked !== false);
+  selectAll.checked = values.every(Boolean);
 }
 
 function renderEnvironmentRestoreProgress(percent, stage, detail = '', visible = true) {
@@ -8324,12 +8418,13 @@ function renderEnvironmentRestoreProgress(percent, stage, detail = '', visible =
 
 function beginEnvironmentRestoreProgress(filename) {
   clearEnvironmentRestoreProgressTimer();
-  renderEnvironmentRestoreProgress(8, 'Preparing restore bundle…', `Loading ${filename} and validating the selected archive.`);
+  renderEnvironmentRestoreProgress(6, 'Creating safety backup…', `Saving the current environment before ${filename} is restored.`);
   const stages = [
-    { limit: 20, stage: 'Validating bundle…', detail: 'Checking manifest and preparing the restore workspace.' },
-    { limit: 48, stage: 'Restoring database…', detail: 'Replacing the current database snapshot from the selected backup.' },
-    { limit: 78, stage: 'Copying receipt files…', detail: 'Restoring receipt images and documents into the active receipts store.' },
-    { limit: 92, stage: 'Scheduling restart…', detail: 'Writing restore report and preparing the backend restart.' },
+    { limit: 18, stage: 'Creating safety backup…', detail: 'Creating a fresh backup of the current environment before any restore changes are applied.' },
+    { limit: 34, stage: 'Validating bundle…', detail: 'Checking manifest and preparing the restore workspace.' },
+    { limit: 62, stage: 'Restoring database…', detail: 'Replacing the current database snapshot from the selected backup when database restore is enabled.' },
+    { limit: 84, stage: 'Copying receipt files…', detail: 'Restoring receipt images and documents into the active receipts store when file restore is enabled.' },
+    { limit: 94, stage: 'Scheduling restart…', detail: 'Writing the restore report and preparing the backend restart.' },
   ];
   environmentRestoreProgressTimer = window.setInterval(() => {
     const percentEl = document.getElementById('environment-backup-restore-percent');
@@ -8426,7 +8521,7 @@ async function loadEnvironmentBackups() {
             </div>
             <div class="environment-backup-card-actions">
               <button class="btn btn-sm btn-ghost" onclick="downloadEnvironmentBackup('${escAttr(entry.filename)}')">Download</button>
-              <button class="btn btn-sm btn-danger" onclick="restoreEnvironmentBackup('${escAttr(entry.filename)}')">Restore</button>
+              <button class="btn btn-sm btn-danger" onclick="openEnvironmentRestoreModal('${escAttr(entry.filename)}')">Restore</button>
             </div>
           </div>
         </div>
@@ -8512,29 +8607,26 @@ async function verifyEnvironmentBackup() {
   await loadEnvironmentBackups();
 }
 
-async function restoreEnvironmentBackup(filenameOverride = '') {
+async function restoreEnvironmentBackup(filename, options = {}) {
   if (!currentUser || currentUser.role !== 'admin') {
     toast('Admin access required', 'error');
     return;
   }
-  const select = document.getElementById('environment-backup-select');
-  const filename = filenameOverride || select?.value || '';
   if (!filename) {
     toast('Select a backup first', 'error');
     return;
   }
-  const confirmed = await askConfirm(
-    'Restore environment backup',
-    `Restore ${filename}? This will replace the current database and receipts, then restart the backend.`,
-    { okLabel: 'Restore', danger: true }
-  );
-  if (!confirmed) return;
   toast('Restoring backup... the backend will restart', 'info');
   beginEnvironmentRestoreProgress(filename);
   try {
     const res = await api('/system/backups/restore', {
       method: 'POST',
-      body: JSON.stringify({ filename }),
+      body: JSON.stringify({
+        filename,
+        restore_database: !!options.restore_database,
+        restore_receipts: !!options.restore_receipts,
+        restore_env: !!options.restore_env,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -8555,6 +8647,25 @@ async function restoreEnvironmentBackup(filenameOverride = '') {
     renderEnvironmentRestoreProgress(100, 'Restore failed', error?.message || 'Could not restore backup.', true);
     toast(error?.message || 'Could not restore backup', 'error');
   }
+}
+
+async function confirmEnvironmentRestore() {
+  const filename = pendingEnvironmentRestoreFilename || document.getElementById('environment-backup-select')?.value || '';
+  if (!filename) {
+    toast('Select a backup first', 'error');
+    return;
+  }
+  const options = {
+    restore_database: !!document.getElementById('environment-restore-db')?.checked,
+    restore_receipts: !!document.getElementById('environment-restore-receipts')?.checked,
+    restore_env: !!document.getElementById('environment-restore-env')?.checked,
+  };
+  if (!options.restore_database && !options.restore_receipts && !options.restore_env) {
+    toast('Select at least one restore section', 'error');
+    return;
+  }
+  closeEnvironmentRestoreModal();
+  await restoreEnvironmentBackup(filename, options);
 }
 
 async function renameTrustedDevice(deviceId, currentName) {

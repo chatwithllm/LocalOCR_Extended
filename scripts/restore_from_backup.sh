@@ -7,10 +7,16 @@ shift || true
 ASSUME_YES="0"
 NO_RESTART="0"
 TARGET_ENV_FILE="${TARGET_ENV_FILE:-}"
+RESTORE_DB="1"
+RESTORE_RECEIPTS="1"
+RESTORE_ENV="1"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --yes) ASSUME_YES="1"; shift ;;
     --no-restart) NO_RESTART="1"; shift ;;
+    --skip-db) RESTORE_DB="0"; shift ;;
+    --skip-receipts) RESTORE_RECEIPTS="0"; shift ;;
+    --skip-env) RESTORE_ENV="0"; shift ;;
     --target-env-file)
       TARGET_ENV_FILE="${2:-}"
       shift 2
@@ -30,7 +36,7 @@ RESTORE_DIR="$(mktemp -d)"
 trap 'rm -rf "${RESTORE_DIR}"' EXIT
 
 if [ -z "${BACKUP_FILE}" ]; then
-  echo "Usage: $0 <backup_file.tar.gz> [--yes] [--no-restart] [--target-env-file <path>]"
+  echo "Usage: $0 <backup_file.tar.gz> [--yes] [--no-restart] [--skip-db] [--skip-receipts] [--skip-env] [--target-env-file <path>]"
   exit 1
 fi
 
@@ -55,29 +61,33 @@ fi
 
 tar -xzf "${BACKUP_FILE}" -C "${RESTORE_DIR}"
 
-if [ ! -f "${RESTORE_DIR}/database.db" ]; then
+if [ "${RESTORE_DB}" = "1" ] && [ ! -f "${RESTORE_DIR}/database.db" ]; then
   echo "❌ Backup archive does not contain database.db"
   exit 1
 fi
 
-mkdir -p "$(dirname "${DB_PATH}")"
-rm -f "${DB_PATH}" "${DB_PATH}-wal" "${DB_PATH}-shm"
-cp "${RESTORE_DIR}/database.db" "${DB_PATH}"
-sync || true
-
-mkdir -p "${RECEIPTS_DIR}"
-find "${RECEIPTS_DIR}" -mindepth 1 -exec rm -rf {} +
-if [ -d "${RESTORE_DIR}/receipts" ]; then
-  cp -R "${RESTORE_DIR}/receipts/." "${RECEIPTS_DIR}/"
+if [ "${RESTORE_DB}" = "1" ]; then
+  mkdir -p "$(dirname "${DB_PATH}")"
+  rm -f "${DB_PATH}" "${DB_PATH}-wal" "${DB_PATH}-shm"
+  cp "${RESTORE_DIR}/database.db" "${DB_PATH}"
+  sync || true
 fi
-sync || true
 
-if [ -n "${TARGET_ENV_FILE}" ] && [ -f "${RESTORE_DIR}/meta/env.snapshot" ]; then
+if [ "${RESTORE_RECEIPTS}" = "1" ]; then
+  mkdir -p "${RECEIPTS_DIR}"
+  find "${RECEIPTS_DIR}" -mindepth 1 -exec rm -rf {} +
+  if [ -d "${RESTORE_DIR}/receipts" ]; then
+    cp -R "${RESTORE_DIR}/receipts/." "${RECEIPTS_DIR}/"
+  fi
+  sync || true
+fi
+
+if [ "${RESTORE_ENV}" = "1" ] && [ -n "${TARGET_ENV_FILE}" ] && [ -f "${RESTORE_DIR}/meta/env.snapshot" ]; then
   mkdir -p "$(dirname "${TARGET_ENV_FILE}")"
   cp "${RESTORE_DIR}/meta/env.snapshot" "${TARGET_ENV_FILE}"
 fi
 
-RESTORE_REPORT="$(python3 - <<'PY' "${DB_PATH}" "${RECEIPTS_DIR}" "$(basename "${BACKUP_FILE}")" "${TARGET_ENV_FILE}"
+RESTORE_REPORT="$(python3 - <<'PY' "${DB_PATH}" "${RECEIPTS_DIR}" "$(basename "${BACKUP_FILE}")" "${TARGET_ENV_FILE}" "${RESTORE_DB}" "${RESTORE_RECEIPTS}" "${RESTORE_ENV}"
 import json
 import sqlite3
 import sys
@@ -118,6 +128,11 @@ report = {
     "db_path": str(db_path),
     "receipts_dir": str(receipts_root),
     "target_env_file": target_env_file,
+    "restored_sections": {
+        "database": sys.argv[5] == "1",
+        "receipts": sys.argv[6] == "1",
+        "env": sys.argv[7] == "1",
+    },
     "users": scalar("select count(*) from users"),
     "purchases": scalar("select count(*) from purchases"),
     "trusted_devices": scalar("select count(*) from trusted_devices where status = 'active'"),

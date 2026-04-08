@@ -261,14 +261,39 @@ def restore_backup():
     if not backup_path.exists():
         return jsonify({"error": "Backup file not found"}), 404
 
+    restore_database = bool(payload.get("restore_database", True))
+    restore_receipts = bool(payload.get("restore_receipts", True))
+    restore_env = bool(payload.get("restore_env", True))
+    if not any((restore_database, restore_receipts, restore_env)):
+        return jsonify({"error": "Select at least one restore section"}), 400
+
+    safety_result = _run_script("backup_database_and_volumes.sh", timeout=900)
+    if safety_result.returncode != 0:
+        return jsonify({
+            "error": "Could not create pre-restore safety backup",
+            "stdout": safety_result.stdout[-4000:],
+            "stderr": safety_result.stderr[-4000:],
+        }), 500
+    safety_backups = _list_backup_entries()
+    safety_backup = safety_backups[0] if safety_backups else None
+
     target_env = str(_backups_dir() / "restored_env.snapshot")
-    result = _run_script(
-        "restore_from_backup.sh",
+    restore_args = [
         str(backup_path),
         "--yes",
         "--no-restart",
         "--target-env-file",
         target_env,
+    ]
+    if not restore_database:
+        restore_args.append("--skip-db")
+    if not restore_receipts:
+        restore_args.append("--skip-receipts")
+    if not restore_env:
+        restore_args.append("--skip-env")
+    result = _run_script(
+        "restore_from_backup.sh",
+        *restore_args,
         timeout=900,
     )
     if result.returncode != 0:
@@ -285,12 +310,28 @@ def restore_backup():
             restore_report = json.loads(restore_path.read_text(encoding="utf-8"))
         except Exception:
             restore_report = None
+    if isinstance(restore_report, dict):
+        restore_report["safety_backup"] = {
+            "filename": safety_backup.get("filename"),
+            "size_bytes": safety_backup.get("size_bytes"),
+        } if safety_backup else None
+        restore_report["restored_sections"] = {
+            "database": restore_database,
+            "receipts": restore_receipts,
+            "env": restore_env,
+        }
 
     _schedule_container_restart(1.2)
     return jsonify({
         "status": "restored",
         "restart_scheduled": True,
         "message": "Restore applied. Backend restart scheduled.",
+        "safety_backup": safety_backup,
+        "requested_sections": {
+            "database": restore_database,
+            "receipts": restore_receipts,
+            "env": restore_env,
+        },
         "report": restore_report,
         "stdout": result.stdout[-4000:],
     })
