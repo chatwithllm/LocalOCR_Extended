@@ -111,10 +111,23 @@ def _ensure_pending_recommendation_event(session, item: ShoppingListItem):
 def _serialize_item(item: ShoppingListItem) -> dict:
     latest_price = _latest_price_for_item(g.db_session, item)
     preferred_store = canonicalize_store_name(item.preferred_store) if item.preferred_store else None
+    product = None
+    if item.product_id:
+        product = g.db_session.query(Product).filter_by(id=item.product_id).first()
+    product_display_name = get_product_display_name(product) if product else None
+    product_full_name = None
+    if product:
+        for candidate in [getattr(product, "raw_name", None), getattr(product, "name", None)]:
+            text = str(candidate or "").strip()
+            if text and text != str(product_display_name or "").strip():
+                product_full_name = text
+                break
     return {
         "id": item.id,
         "product_id": item.product_id,
         "name": item.name,
+        "product_display_name": product_display_name,
+        "product_full_name": product_full_name,
         "category": item.category,
         "quantity": item.quantity,
         "status": item.status,

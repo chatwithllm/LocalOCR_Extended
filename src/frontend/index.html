@@ -1145,6 +1145,44 @@
     #shopping-recommendations-card {
       margin-top: 14px;
     }
+    .shopping-recommendations-summary {
+      appearance: none;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 0;
+      margin: 0 0 12px;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+    .shopping-recommendations-summary-title {
+      font-size: 1rem;
+      font-weight: 700;
+      min-width: 0;
+    }
+    .shopping-recommendations-summary-count {
+      margin-left: auto;
+      flex: 0 0 auto;
+      min-width: 36px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(108, 99, 255, 0.16);
+      border: 1px solid rgba(108, 99, 255, 0.35);
+      color: #d9d6ff;
+      font-size: 0.82rem;
+      font-weight: 800;
+      line-height: 1;
+      text-align: center;
+    }
+    .shopping-section-collapsed .shopping-recommendations-summary {
+      margin-bottom: 0;
+    }
     .shopping-recs-body-head {
       display: flex;
       align-items: center;
@@ -1592,12 +1630,15 @@
       align-items: center;
       padding: 10px 12px;
       cursor: pointer;
+      min-width: 0;
     }
     .shopping-mobile-item-name {
+      flex: 1 1 auto;
       font-weight: 700;
       font-size: 0.92rem;
       line-height: 1.25;
       min-width: 0;
+      max-width: 100%;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1639,6 +1680,43 @@
       gap: 6px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .shopping-item-actions-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      align-items: center;
+      min-width: 0;
+    }
+    .shopping-item-actions-row .btn {
+      width: 100%;
+      min-width: 0;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .shopping-item-actions-row .btn:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+    }
+    .shopping-rename-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+    .shopping-rename-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .shopping-rename-btn:hover {
+      color: #8f88ff;
     }
     .helper-section-label {
       color: var(--muted);
@@ -2062,6 +2140,95 @@
     }
     .rec-item.compact-dashboard.expanded .rec-detail {
       display: block;
+    }
+    .rec-item.shopping-rec-row {
+      padding: 10px 12px;
+      align-items: center;
+      gap: 10px;
+    }
+    .shopping-rec-main {
+      min-width: 0;
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .shopping-rec-text {
+      min-width: 0;
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+    .shopping-rec-text .rec-name {
+      font-size: 0.9rem;
+      flex: 0 1 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .shopping-rec-text .rec-msg {
+      margin-top: 0;
+      flex: 1 1 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .shopping-rec-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      margin-top: 0;
+      flex: 0 0 auto;
+    }
+    .shopping-rec-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      flex: 0 0 auto;
+    }
+    .shopping-rec-actions .btn {
+      white-space: nowrap;
+    }
+    @media (max-width: 640px) {
+      .rec-item.shopping-rec-row {
+        align-items: flex-start;
+        flex-wrap: nowrap;
+      }
+      .shopping-rec-main {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .shopping-rec-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+        width: 100%;
+      }
+      .shopping-rec-text .rec-name,
+      .shopping-rec-text .rec-msg {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        width: 100%;
+      }
+      .shopping-rec-meta {
+        flex-wrap: wrap;
+        margin-top: 4px;
+        width: 100%;
+      }
+      .shopping-rec-actions {
+        width: 100%;
+        justify-content: flex-start;
+        padding-left: 0;
+      }
     }
     .month-chart {
       min-height: 100%;
@@ -3240,6 +3407,10 @@
         padding: 7px 10px;
         min-height: 0;
       }
+      .shopping-item-actions-row .btn {
+        padding: 7px 8px;
+        font-size: 0.78rem;
+      }
       .shopping-quick-row {
         padding: 9px 10px;
         gap: 5px;
@@ -3869,6 +4040,10 @@
         </div>
       </div>
       <div class="card" id="shopping-recommendations-card">
+        <button type="button" class="shopping-recommendations-summary" id="shopping-recommendations-summary" onclick="toggleShoppingSection('recommendations')" aria-label="Toggle shopping recommendations">
+          <span class="shopping-recommendations-summary-title">Recommendations</span>
+          <span class="shopping-recommendations-summary-count" id="shopping-recommendations-summary-count">0</span>
+        </button>
         <div id="shopping-recommendations-body">
           <div class="shopping-recs-body-head">
             <button type="button" class="btn btn-ghost btn-sm" onclick="loadRecs('shopping-recs-body')">🔄 Refresh</button>
@@ -4574,9 +4749,12 @@ let shoppingSectionCollapsed = (() => {
     if (stored['quick-find'] === undefined) {
       stored['quick-find'] = true;
     }
+    if (stored['recommendations'] === undefined) {
+      stored['recommendations'] = true;
+    }
     return stored;
   } catch (_error) {
-    return { 'quick-find': true };
+    return { 'quick-find': true, 'recommendations': true };
   }
 })();
 let shoppingStoreGroupCollapsed = (() => {
@@ -4860,6 +5038,44 @@ function simplifyShoppingDisplayName(name) {
   return family.charAt(0).toUpperCase() + family.slice(1);
 }
 
+function scoreShoppingBuyerFacingName(name, familyName = '') {
+  const raw = String(name || '').trim();
+  if (!raw) return -Infinity;
+  const family = String(familyName || '').trim().toLowerCase();
+  const normalized = raw.toLowerCase();
+  let score = 0;
+  const wordCount = raw.split(/\s+/).filter(Boolean).length;
+  score += Math.min(raw.length, 80);
+  score += wordCount * 25;
+  if (/[a-z][A-Z]|[A-Z]{2,}/.test(raw)) score += 4;
+  if (/[-/&]/.test(raw)) score += 4;
+  if (!/[aeiou]/i.test(raw)) score -= 18;
+  if (wordCount === 1 && family && normalized === family) score -= 30;
+  if (wordCount === 1 && raw.length <= 5) score -= 16;
+  if (/^\w+$/.test(raw) && raw.length > 12 && wordCount === 1) score -= 12;
+  return score;
+}
+
+function selectShoppingBuyerFacingName(names = [], familyName = '') {
+  const candidates = [...new Set((names || []).map(name => String(name || '').trim()).filter(Boolean))];
+  if (!candidates.length) return familyName || 'Unknown Item';
+  return candidates
+    .sort((left, right) =>
+      scoreShoppingBuyerFacingName(right, familyName) - scoreShoppingBuyerFacingName(left, familyName) ||
+      right.length - left.length ||
+      compareText(left, right, 'asc')
+    )[0];
+}
+
+function selectShoppingExpandedFullName(names = [], visibleName = '') {
+  const visible = String(visibleName || '').trim().toLowerCase();
+  const candidates = [...new Set((names || []).map(name => String(name || '').trim()).filter(Boolean))]
+    .filter(name => String(name).trim().toLowerCase() !== visible);
+  if (!candidates.length) return '';
+  return candidates
+    .sort((left, right) => right.length - left.length || compareText(left, right, 'asc'))[0];
+}
+
 function simplifyInventoryDisplayName(name) {
   return simplifyShoppingDisplayName(name);
 }
@@ -5058,15 +5274,18 @@ function renderInventorySearchAssist() {
 function mergeShoppingDisplayItems(items = []) {
   const groups = new Map();
   for (const item of items) {
-    const displayName = simplifyShoppingDisplayName(item.name);
-    const key = `${String(displayName).toLowerCase()}|${String(item.status || 'open').toLowerCase()}`;
+    const buyerFacingName = item.product_display_name || item.name;
+    const familyName = simplifyShoppingDisplayName(buyerFacingName);
+    const key = `${String(familyName).toLowerCase()}|${String(item.status || 'open').toLowerCase()}`;
     if (!groups.has(key)) {
       groups.set(key, {
         key,
         ids: [],
         items: [],
-        name: displayName,
+        familyName,
+        name: buyerFacingName || familyName,
         rawNames: new Set(),
+        fullNames: new Set(),
         quantity: 0,
         mergedCount: 0,
         estimateTotal: 0,
@@ -5085,6 +5304,10 @@ function mergeShoppingDisplayItems(items = []) {
     group.ids.push(item.id);
     group.items.push(item);
     group.rawNames.add(item.name);
+    if (item.product_full_name) group.fullNames.add(item.product_full_name);
+    if (item.product_display_name || item.name) {
+      group.name = item.product_display_name || selectShoppingBuyerFacingName([group.name, item.name, ...group.rawNames], group.familyName);
+    }
     group.quantity += Number(item.quantity || 0);
     group.mergedCount += 1;
     group.estimateTotal += Number(item.latest_price?.price || 0) * Number(item.quantity || 1);
@@ -5105,11 +5328,14 @@ function mergeShoppingDisplayItems(items = []) {
   }
   return [...groups.values()].map(group => ({
     ...group,
+    name: group.primaryItem?.product_display_name || selectShoppingBuyerFacingName([group.primaryItem?.name, ...group.rawNames], group.familyName),
+    expandedFullName: selectShoppingExpandedFullName([group.primaryItem?.product_full_name, ...group.fullNames, ...group.rawNames], group.primaryItem?.product_display_name || group.name),
     quantity: group.quantity || group.mergedCount || 1,
     mergedCount: group.mergedCount || 1,
     estimateTotal: group.estimateTotal || 0,
     primaryProductId: group.productIds.size === 1 ? [...group.productIds][0] : null,
     rawNames: [...group.rawNames],
+    fullNames: [...group.fullNames],
   }));
 }
 
@@ -5433,6 +5659,9 @@ function updateShoppingSectionVisibility(sectionKey) {
     'quick-find': 'shopping-quick-header-toggle',
     'recommendations': 'shopping-recommendations-toggle',
   };
+  const summaryToggleMap = {
+    'recommendations': 'shopping-recommendations-summary',
+  };
   const cardMap = {
     'quick-find': 'shopping-quick-find-card',
     'recommendations': 'shopping-recommendations-card',
@@ -5442,12 +5671,10 @@ function updateShoppingSectionVisibility(sectionKey) {
   const body = document.getElementById(bodyMap[sectionKey]);
   const toggle = document.getElementById(toggleMap[sectionKey]);
   const headerToggle = document.getElementById(headerToggleMap[sectionKey]);
+  const summaryToggle = document.getElementById(summaryToggleMap[sectionKey]);
   const card = document.getElementById(cardMap[sectionKey]);
   if (body) body.style.display = collapsed ? 'none' : '';
   if (card) card.classList.toggle('shopping-section-collapsed', collapsed);
-  if (card && sectionKey === 'recommendations') {
-    card.style.display = collapsed ? 'none' : '';
-  }
   if (toggle && sectionKey !== 'recommendations') toggle.textContent = collapsed ? 'Expand' : 'Collapse';
   if (headerToggle && sectionKey === 'quick-find') {
     headerToggle.setAttribute('aria-label', collapsed ? 'Show Quick Find' : 'Hide Quick Find');
@@ -5458,6 +5685,9 @@ function updateShoppingSectionVisibility(sectionKey) {
     headerToggle.setAttribute('aria-label', collapsed ? 'Show shopping recommendations' : 'Hide shopping recommendations');
     headerToggle.classList.toggle('btn-primary', !collapsed);
     headerToggle.classList.toggle('btn-ghost', collapsed);
+  }
+  if (summaryToggle && sectionKey === 'recommendations') {
+    summaryToggle.setAttribute('aria-label', collapsed ? 'Show shopping recommendations' : 'Hide shopping recommendations');
   }
 }
 
@@ -10552,6 +10782,69 @@ async function renameProduct(id, currentName) {
   ]);
 }
 
+async function renameShoppingDisplayItem(itemIds, primaryProductId, currentName) {
+  const name = await askForTextInput(
+    'Use the shopper-friendly name you want to see in Shopping.',
+    'Rename shopping item',
+    currentName || '',
+    { placeholder: 'e.g. Avocado Oil' }
+  );
+  if (name === null) return;
+  const trimmed = String(name || '').trim();
+  if (!trimmed) {
+    toast('Item name cannot be blank', 'error');
+    return;
+  }
+
+  if (primaryProductId) {
+    const res = await api(`/products/${primaryProductId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify({ name: trimmed })
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(payload.error || 'Could not rename product', 'error');
+      return;
+    }
+    toast(payload.merged ? 'Shopping name updated and merged ✅' : 'Shopping name updated ✅', 'success');
+    await Promise.all([
+      loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+      loadInventory(),
+      loadShoppingList(),
+      loadDashboard(),
+      loadContributions()
+    ]);
+    return;
+  }
+
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) {
+    toast('No shopping items available to rename', 'error');
+    return;
+  }
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name: trimmed })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not rename shopping item');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast('Shopping item renamed ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadDashboard(),
+    loadContributions()
+  ]);
+}
+
 async function jumpToReceipt(id) {
   selectedReceiptId = Number(id);
   [
@@ -10703,6 +10996,46 @@ async function increaseShoppingQuantity(itemId, currentQuantity = 1) {
     loadDashboard(),
     loadContributions()
   ]);
+}
+
+async function decreaseShoppingQuantity(itemId, currentQuantity = 1) {
+  const nextQuantity = Number(currentQuantity || 1) - 1;
+  if (nextQuantity <= 0) {
+    const res = await shoppingApi(`/shopping-list/items/${itemId}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || 'Could not reduce quantity', 'error');
+      return;
+    }
+    toast('Shopping item removed ✅', 'success');
+  } else {
+    const res = await shoppingApi(`/shopping-list/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity: nextQuantity })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Could not reduce quantity', 'error');
+      return;
+    }
+    toast('Shopping quantity reduced ✅', 'success');
+  }
+  await Promise.all([
+    loadShoppingList(),
+    loadDashboard(),
+    loadContributions()
+  ]);
+}
+
+async function decreaseShoppingGroupQuantity(ids) {
+  const validIds = (ids || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  const candidates = shoppingListCache
+    .filter(item => validIds.includes(Number(item.id)) && item.status !== 'purchased')
+    .sort((a, b) => compareNumber(a.quantity, b.quantity, 'desc') || compareText(a.name, b.name, 'asc'));
+  const target = candidates[0];
+  if (!target) return;
+  await decreaseShoppingQuantity(target.id, target.quantity || 1);
 }
 
 function getMatchingShoppingEntry(productId, name) {
@@ -11037,15 +11370,20 @@ function renderShoppingListTable() {
                     item.note || null
                   ].filter(Boolean).map(value => escHtml(value)).join(' · ') || 'Tap Bought when you pick this up.'}
                 </div>
+                ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
                 <div style="margin-top:10px">
                   <select onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)" style="width:100%">
                     ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
                   </select>
                 </div>
-                <div class="shopping-mobile-item-actions">
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : ''}
+                <div class="shopping-rename-row">
+                  <button type="button" class="shopping-rename-btn" onclick="event.stopPropagation(); renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+                </div>
+                <div class="shopping-mobile-item-actions shopping-item-actions-row">
+                  <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
+                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingGroupItems([${item.ids.join(',')}])">🗑</button>
+                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
                 </div>
               </div>
             </div>
@@ -11084,6 +11422,10 @@ function renderShoppingListTable() {
                       item.note || null
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
+                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                  <div class="shopping-rename-row">
+                    <button type="button" class="shopping-rename-btn" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+                  </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
                 <td>${item.quantity}</td>
@@ -11095,10 +11437,13 @@ function renderShoppingListTable() {
                   </select>
                 </td>
                 <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
-                <td style="display:flex;gap:6px;flex-wrap:wrap">
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : ''}
+                <td>
+                  <div class="shopping-item-actions-row">
+                  <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
+                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingGroupItems([${item.ids.join(',')}])">🗑</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+                  </div>
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -12635,16 +12980,21 @@ async function loadRecs(targetId = 'shopping-recs-body') {
   const countEl = targetId === 'shopping-recs-body'
     ? document.querySelector('#shopping-recommendations-toggle .shopping-header-chip-count')
     : null;
+  const summaryCountEl = targetId === 'shopping-recs-body'
+    ? document.getElementById('shopping-recommendations-summary-count')
+    : null;
   if (!body) return;
   if (!res.ok) {
     body.innerHTML = '<div class="empty-state"><p>Could not load recommendations.</p></div>';
     if (countEl) countEl.textContent = '0';
+    if (summaryCountEl) summaryCountEl.textContent = '0';
     return;
   }
   const data = await res.json();
   const list = data.recommendations || [];
   if (countEl) countEl.textContent = String(list.length);
-  const compactShopping = targetId === 'shopping-recs-body' && window.innerWidth <= 640;
+  if (summaryCountEl) summaryCountEl.textContent = String(list.length);
+  const compactShopping = targetId === 'shopping-recs-body';
   body.innerHTML = list.length ? list.map(item => recHtml(item, compactShopping ? { compact: true, shoppingCompact: true } : {})).join('') :
     '<div class="empty-state"><div class="icon">💡</div><p>No recommendations yet. Add more purchase history!</p></div>';
 }
@@ -12654,6 +13004,30 @@ function recHtml(r, options = {}) {
   const type = getRecommendationType(r);
   const inShopping = !!r.in_shopping_list;
   const shoppingLabel = r.shopping_list_by ? `🛒 In Shopping List by ${r.shopping_list_by}` : '🛒 In Shopping List';
+  if (options.shoppingCompact) {
+    const actionLabel = inShopping ? 'Open Shopping List' : 'Add to Shopping';
+    return `<div class="rec-item shopping-rec-row">
+      <span class="rec-icon">${icons[type] || '💡'}</span>
+      <div class="shopping-rec-main">
+        <div class="shopping-rec-text">
+          <div class="rec-name">${escHtml(r.product_name)}</div>
+          <div class="rec-msg">${escHtml(r.message)}</div>
+          <div class="shopping-rec-meta">
+            <span class="rec-conf">Confidence: ${((r.confidence||0)*100).toFixed(0)}%</span>
+            ${inShopping ? `<span class="person-modal-pill finalized">${escHtml(shoppingLabel)}</span>` : ''}
+            ${inShopping ? `<span class="person-modal-pill confirmed">Bought unlocks</span>` : ''}
+          </div>
+        </div>
+        <div class="shopping-rec-actions">
+          ${inShopping
+            ? `<button class="btn btn-sm btn-tonal-success" title="Open the shopping list and jump into the shared cart flow for this item." aria-label="Open shopping cart for this recommendation" onclick="event.stopPropagation();goToPage('shopping')">🛒 ${actionLabel}</button>`
+            : `<button class="btn btn-sm btn-tonal-accent" title="Add this recommendation to the shopping list. This starts a pending shopping action." aria-label="Add this recommendation to shopping list" onclick="event.stopPropagation();quickAddToShoppingList({ product_id: ${r.product_id ?? 'null'}, name: decodeURIComponent('${encodeURIComponent(r.product_name || '')}'), category: decodeURIComponent('${encodeURIComponent(r.category || 'other')}'), quantity: 1, source: 'recommendation', note: decodeURIComponent('${encodeURIComponent(r.message || '')}') })">🛒 ${actionLabel}</button>`
+          }
+          <button class="btn btn-sm btn-ghost" title="Confirm that this recommendation looks right for the household. Confirmations can earn points when later validated." aria-label="Confirm this recommendation" onclick="event.stopPropagation();confirmRecommendationFromDashboard(${r.product_id ?? 'null'})">✅ Confirm</button>
+        </div>
+      </div>
+    </div>`;
+  }
   if (options.compact) {
     const recId = `rec-${String(r.product_id ?? r.product_name ?? Math.random()).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
     const actionLabel = inShopping ? 'Cart' : 'Add';
