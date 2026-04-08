@@ -244,6 +244,32 @@
       display: flex;
       align-items: center;
     }
+    .dashboard-shopping-expanded-head {
+      display: none;
+      margin-bottom: 12px;
+    }
+    .dashboard-shopping-expanded-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .dashboard-shopping-expanded-title {
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .dashboard-shopping-expanded-count {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .dashboard-shopping-expanded-sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
     .dashboard-summary-card .card-header {
       margin-bottom: 0;
     }
@@ -280,6 +306,21 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .dashboard-summary-card-title-link {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      padding: 0;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      min-width: 0;
+      cursor: pointer;
+      text-align: left;
+    }
     .dashboard-summary-card-count {
       flex: 0 0 auto;
       color: var(--muted);
@@ -288,6 +329,16 @@
     }
     .dashboard-summary-card-value {
       flex: 0 0 auto;
+    }
+    .btn-reset {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
     }
     #dash-shopping-body {
       width: 100%;
@@ -308,6 +359,80 @@
       justify-self: end;
       text-align: right;
       min-width: 0;
+    }
+    .dashboard-shopping-preview {
+      display: none;
+      width: 100%;
+      margin-top: 14px;
+      max-height: calc(48px * 5 + 10px * 4);
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      gap: 10px;
+      flex-direction: column;
+    }
+    .dashboard-shopping-preview::-webkit-scrollbar {
+      display: none;
+    }
+    #dash-shopping-card.dashboard-shopping-preview-active {
+      align-items: stretch;
+      flex-direction: column;
+    }
+    #dash-shopping-card.dashboard-shopping-preview-active .dashboard-summary-card-body {
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    #dash-shopping-card.dashboard-shopping-preview-active.dashboard-shopping-preview-collapsed .dashboard-summary-card-body {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    #dash-shopping-card.dashboard-shopping-preview-active .dashboard-shopping-preview {
+      display: flex;
+    }
+    #dash-shopping-card.dashboard-shopping-preview-active.dashboard-shopping-preview-collapsed .dashboard-shopping-preview {
+      display: none;
+    }
+    .dashboard-shopping-preview-row .rec-icon {
+      color: var(--muted);
+    }
+    .dashboard-shopping-preview-row .dashboard-shopping-preview-price {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 84px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .dashboard-shopping-preview-qty {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      opacity: 0.9;
+    }
+    .dashboard-shopping-preview-row .rec-compact-title {
+      flex-wrap: nowrap;
+    }
+    .dashboard-shopping-preview-row .rec-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .dashboard-shopping-preview-row {
+      min-height: 48px;
+    }
+    .dashboard-shopping-preview-empty {
+      color: var(--muted);
+      font-size: 0.84rem;
+      padding: 10px 2px 2px;
     }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .card-title { font-size: 1rem; font-weight: 600; }
@@ -2977,6 +3102,15 @@
           "shopping shopping";
         gap: 12px;
       }
+      .dashboard-shopping-preview {
+        display: none !important;
+      }
+      #dash-shopping-card.dashboard-shopping-preview-active .dashboard-shopping-preview {
+        display: flex !important;
+      }
+      .dashboard-shopping-expanded-head {
+        display: none !important;
+      }
       .dashboard-alert-grid.dashboard-mobile-expanded {
         grid-template-columns: 1fr !important;
         grid-template-areas:
@@ -3902,14 +4036,37 @@
           </div>
           <div id="dash-recs"><div class="empty-state"><div class="icon">💡</div><p>No recommendations yet</p></div></div>
         </div>
-        <div class="card dashboard-summary-card" id="dash-shopping-card" role="button" tabindex="0" onclick="openDashboardStat('shopping')" onkeydown="handleDashboardStatKey(event, 'shopping')">
+        <div class="card dashboard-summary-card" id="dash-shopping-card">
+          <div class="dashboard-shopping-expanded-head">
+            <div class="dashboard-shopping-expanded-header">
+              <span class="dashboard-shopping-expanded-title">🛒 Shopping List</span>
+              <span class="dashboard-shopping-expanded-count" id="dash-shopping-expanded-count">0</span>
+            </div>
+            <div class="dashboard-shopping-expanded-sub" id="dash-shopping-expanded-estimate">Estimate —</div>
+          </div>
           <div class="dashboard-summary-card-body" id="dash-shopping-body">
-            <span class="dashboard-summary-card-title">🛒 Shopping List</span>
+            <button
+              type="button"
+              class="dashboard-summary-card-title dashboard-summary-card-title-link"
+              onclick="openDashboardStat('shopping')"
+              onkeydown="handleDashboardShoppingTitleKey(event)"
+              aria-label="Open Shopping List."
+              title="Open Shopping List."
+            >🛒 Shopping List</button>
             <span class="dashboard-summary-sep" aria-hidden="true">|</span>
             <span class="dashboard-summary-card-count" id="dash-shopping-header-count">0</span>
             <span class="dashboard-summary-sep" aria-hidden="true">|</span>
-            <strong class="dashboard-summary-card-value" id="dash-shopping-estimate">—</strong>
+            <button
+              type="button"
+              class="dashboard-summary-card-value btn-reset"
+              id="dash-shopping-estimate"
+              onclick="toggleDashboardShoppingPreview(event)"
+              onkeydown="handleDashboardShoppingToggleKey(event)"
+              aria-label="Toggle Shopping List preview"
+              title="Toggle Shopping List preview"
+            >—</button>
           </div>
+          <div class="dashboard-shopping-preview" id="dash-shopping-preview"></div>
         </div>
       </div>
     </div>
@@ -4893,6 +5050,9 @@ let leaderboardCollapsed = (() => {
   }
 })();
 let leaderboardHoldTimer = null;
+let dashboardShoppingTapTimer = null;
+let dashboardShoppingLastTapAt = 0;
+let dashboardShoppingPreviewCollapsed = true;
 let dashboardSectionCollapsed = (() => {
   try {
     return JSON.parse(localStorage.getItem('dashboard_section_collapsed') || '{}') || {};
@@ -6300,6 +6460,27 @@ function cancelLeaderboardHold() {
   leaderboardHoldTimer = null;
 }
 
+function handleDashboardShoppingTitleKey(event) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openDashboardStat('shopping');
+  }
+}
+
+function toggleDashboardShoppingPreview(event) {
+  event?.preventDefault?.();
+  dashboardShoppingPreviewCollapsed = !dashboardShoppingPreviewCollapsed;
+  updateDashboardAlertGridLayout();
+}
+
+function handleDashboardShoppingToggleKey(event) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    dashboardShoppingPreviewCollapsed = !dashboardShoppingPreviewCollapsed;
+    updateDashboardAlertGridLayout();
+  }
+}
+
 function bindLeaderboardHold(el) {
   if (!el || el.dataset.leaderboardHoldBound === '1') return;
   el.dataset.leaderboardHoldBound = '1';
@@ -6449,9 +6630,45 @@ function updateDashboardAlertGridLayout() {
   if (!grid) return;
   const lowBody = document.getElementById('dash-low-stock');
   const recBody = document.getElementById('dash-recs');
+  const shoppingCard = document.getElementById('dash-shopping-card');
   const lowExpanded = Boolean(lowBody) && lowBody.dataset.empty !== 'true' && !isDashboardSectionCollapsed('low-stock');
   const recExpanded = Boolean(recBody) && recBody.dataset.empty !== 'true' && !isDashboardSectionCollapsed('recommendations');
-  grid.classList.toggle('dashboard-mobile-expanded', lowExpanded || recExpanded);
+  const shoppingExpanded = !dashboardShoppingPreviewCollapsed;
+  const isMobile = window.matchMedia('(max-width: 640px)').matches;
+  const previewActive = isMobile ? shoppingExpanded : (lowExpanded || recExpanded || shoppingExpanded);
+  grid.classList.toggle('dashboard-mobile-expanded', lowExpanded || recExpanded || shoppingExpanded);
+  if (shoppingCard) {
+    shoppingCard.classList.toggle('dashboard-shopping-preview-active', previewActive);
+    shoppingCard.classList.toggle('dashboard-shopping-preview-collapsed', previewActive && dashboardShoppingPreviewCollapsed);
+  }
+}
+
+function renderDashboardShoppingPreview(shopping) {
+  const previewEl = document.getElementById('dash-shopping-preview');
+  if (!previewEl) return;
+  const openItems = Array.isArray(shopping?.items)
+    ? shopping.items.filter(item => String(item?.status || '').toLowerCase() === 'open')
+    : [];
+  const grouped = mergeShoppingDisplayItems(openItems);
+  if (!grouped.length) {
+    previewEl.innerHTML = '<div class="dashboard-shopping-preview-empty">No open shopping items.</div>';
+    return;
+  }
+  previewEl.innerHTML = grouped.map(item => {
+    const qtyText = Number(item.quantity || 0) > 1 ? `x${Number(item.quantity)}` : 'x1';
+    return `
+      <div class="rec-item compact-dashboard dashboard-shopping-preview-row" onclick="event.stopPropagation()">
+        <span class="rec-icon">🛒</span>
+        <div class="rec-compact-main">
+          <div class="rec-compact-title">
+            <span class="rec-name">${escHtml(item.name)}</span>
+            <span class="dashboard-shopping-preview-qty">${escHtml(qtyText)}</span>
+          </div>
+          <div class="dashboard-shopping-preview-price">${formatMoney(item.estimateTotal || 0)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function toggleDashboardSection(sectionKey, forceCollapsed = null) {
@@ -10125,7 +10342,7 @@ async function loadDashboard() {
       const recsEl = document.getElementById('dash-recs');
       const recsCard = document.getElementById('dash-recs-card');
       const recsHeaderCount = document.getElementById('dash-recs-header-count');
-      const list = recs.recommendations?.slice(0, 3) || [];
+      const list = recs.recommendations?.slice(0, 5) || [];
       if (recsCard) recsCard.classList.remove('compact-empty', 'dashboard-collapsed');
       if (recsHeaderCount) {
         recsHeaderCount.textContent = String(list.length);
@@ -10141,14 +10358,18 @@ async function loadDashboard() {
       updateDashboardSectionVisibility('recommendations');
     }
 
+    const shoppingCount = String(shopping?.open_count ?? 0);
+    const shoppingEstimate = formatMoney(shopping?.estimated_total_cost || 0);
     const shoppingCountEl = document.getElementById('dash-shopping-header-count');
+    const shoppingExpandedCountEl = document.getElementById('dash-shopping-expanded-count');
     const shoppingEstimateEl = document.getElementById('dash-shopping-estimate');
-    if (shoppingCountEl) {
-      shoppingCountEl.textContent = String(shopping?.open_count ?? 0);
-    }
-    if (shoppingEstimateEl) {
-      shoppingEstimateEl.textContent = formatMoney(shopping?.estimated_total_cost || 0);
-    }
+    const shoppingExpandedEstimateEl = document.getElementById('dash-shopping-expanded-estimate');
+    if (shoppingCountEl) shoppingCountEl.textContent = shoppingCount;
+    if (shoppingExpandedCountEl) shoppingExpandedCountEl.textContent = shoppingCount;
+    if (shoppingEstimateEl) shoppingEstimateEl.textContent = shoppingEstimate;
+    if (shoppingExpandedEstimateEl) shoppingExpandedEstimateEl.textContent = `Estimate ${shoppingEstimate}`;
+    renderDashboardShoppingPreview(shopping);
+    updateDashboardAlertGridLayout();
 
     // Budget stat
     const now = new Date();
