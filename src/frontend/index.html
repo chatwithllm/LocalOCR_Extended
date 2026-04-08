@@ -4382,6 +4382,17 @@
       </div>
     </div>
   </div>
+  <div id="environment-restart-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="environment-restart-title" style="width:min(560px,100%);text-align:center">
+      <div id="environment-restart-title" class="confirm-title">Restarting Extended</div>
+      <div class="confirm-body" id="environment-restart-body">Your restore finished. Extended is restarting and reconnecting now.</div>
+      <div style="display:grid;justify-items:center;gap:14px;margin-top:16px">
+        <div style="width:56px;height:56px;border-radius:999px;border:3px solid rgba(108,99,255,0.2);border-top-color:var(--primary);animation:spin 0.9s linear infinite"></div>
+        <div id="environment-restart-status" style="font-size:0.88rem;color:var(--text);font-weight:700">Waiting for backend health…</div>
+        <div id="environment-restart-detail" style="font-size:0.82rem;color:var(--muted)">Stay on this page. The app will reconnect automatically once the backend is healthy.</div>
+      </div>
+    </div>
+  </div>
 
 <script>
 // ============================================================
@@ -8361,12 +8372,76 @@ function formatBackupTimestamp(value, fallback = 'Unknown') {
 let environmentRestoreProgressTimer = null;
 let pendingEnvironmentRestoreFilename = '';
 let environmentBackupEntries = [];
+let environmentRestartPollTimer = null;
+let environmentBackupHistoryExpanded = false;
 
 function clearEnvironmentRestoreProgressTimer() {
   if (environmentRestoreProgressTimer) {
     window.clearInterval(environmentRestoreProgressTimer);
     environmentRestoreProgressTimer = null;
   }
+}
+
+function setEnvironmentRestartOverlay(visible, status = '', detail = '') {
+  const overlay = document.getElementById('environment-restart-overlay');
+  const statusEl = document.getElementById('environment-restart-status');
+  const detailEl = document.getElementById('environment-restart-detail');
+  if (!overlay) return;
+  overlay.classList.toggle('show', !!visible);
+  overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (statusEl && status) statusEl.textContent = status;
+  if (detailEl && detail) detailEl.textContent = detail;
+}
+
+function clearEnvironmentRestartPolling() {
+  if (environmentRestartPollTimer) {
+    window.clearInterval(environmentRestartPollTimer);
+    environmentRestartPollTimer = null;
+  }
+  sessionStorage.removeItem('environment_restore_restarting');
+}
+
+async function checkEnvironmentHealthOnce() {
+  try {
+    const res = await fetch(`${API_BASE}/health?_ts=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => ({}));
+    return data?.status === 'healthy';
+  } catch (e) {
+    return false;
+  }
+}
+
+function beginEnvironmentRestartPolling() {
+  clearEnvironmentRestartPolling();
+  sessionStorage.setItem('environment_restore_restarting', JSON.stringify({ started_at: Date.now() }));
+  let attempts = 0;
+  setEnvironmentRestartOverlay(true, 'Restarting backend…', 'Stay on this page. Extended will reconnect automatically as soon as the backend becomes healthy.');
+  environmentRestartPollTimer = window.setInterval(async () => {
+    attempts += 1;
+    const healthy = await checkEnvironmentHealthOnce();
+    if (healthy) {
+      clearEnvironmentRestartPolling();
+      setEnvironmentRestartOverlay(true, 'Reconnected', 'Extended is back. Reloading the app now…');
+      window.setTimeout(() => window.location.reload(), 900);
+      return;
+    }
+    const seconds = Math.max(1, attempts * 2);
+    setEnvironmentRestartOverlay(
+      true,
+      'Waiting for backend health…',
+      `Restore completed. Extended is still restarting and should reconnect shortly. Elapsed: ~${seconds}s.`
+    );
+  }, 2000);
+}
+
+function maybeResumeEnvironmentRestartPolling() {
+  const raw = sessionStorage.getItem('environment_restore_restarting');
+  if (!raw) return;
+  beginEnvironmentRestartPolling();
 }
 
 function openEnvironmentRestoreModal(filename = '') {
@@ -8408,6 +8483,11 @@ function syncEnvironmentRestoreSelectAll() {
 
 function getEnvironmentBackupEntry(filename) {
   return (environmentBackupEntries || []).find(entry => entry.filename === filename) || null;
+}
+
+function toggleEnvironmentBackupHistory() {
+  environmentBackupHistoryExpanded = !environmentBackupHistoryExpanded;
+  loadEnvironmentBackups();
 }
 
 function updateEnvironmentRestoreSelectedSummary() {
@@ -8561,7 +8641,7 @@ async function loadEnvironmentBackups() {
       return `<option value="${escAttr(entry.filename)}"${index === 0 ? ' selected' : ''}>${escHtml(label)}</option>`;
     }).join('');
     updateEnvironmentRestoreSelectedSummary();
-    list.innerHTML = backups.map(entry => {
+    const renderBackupCard = (entry) => {
       const manifest = entry.manifest || {};
       const dbMeta = manifest.database || {};
       const receiptMeta = manifest.receipts || {};
@@ -8602,7 +8682,30 @@ async function loadEnvironmentBackups() {
           </div>
         </div>
       `;
-    }).join('');
+    };
+    const latestTwo = backups.slice(0, 2);
+    const olderBackups = backups.slice(2);
+    const summaryRow = olderBackups.length ? `
+      <div class="card environment-backup-card" style="padding:14px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+          <div style="min-width:220px;flex:1">
+            <div class="environment-backup-card-title" style="margin-bottom:0">
+              <strong>${environmentBackupHistoryExpanded ? 'Older backup history' : `Older backups (${olderBackups.length})`}</strong>
+              <span class="badge badge-info">${escHtml(String(olderBackups.length))}</span>
+            </div>
+            <div class="environment-backup-card-subtitle">
+              ${environmentBackupHistoryExpanded
+                ? 'Showing older backup bundles kept for restore history and safety checkpoints.'
+                : 'Latest two backups stay visible. Expand to review older backup and restore history.'}
+            </div>
+          </div>
+          <div class="environment-backup-card-actions">
+            <button class="btn btn-sm btn-ghost" onclick="toggleEnvironmentBackupHistory()">${environmentBackupHistoryExpanded ? 'Hide Older Backups' : 'Show Older Backups'}</button>
+          </div>
+        </div>
+      </div>
+    ` : '';
+    list.innerHTML = latestTwo.map(renderBackupCard).join('') + summaryRow + (environmentBackupHistoryExpanded ? olderBackups.map(renderBackupCard).join('') : '');
   }
   renderEnvironmentReport(data.last_verify_report || data.last_restore_report, data.last_verify_report ? 'Latest verification report' : (data.last_restore_report ? 'Latest restore report' : ''));
 }
@@ -8715,9 +8818,7 @@ async function restoreEnvironmentBackup(filename, options = {}) {
     renderEnvironmentRestoreProgress(100, 'Restore applied', 'Files were restored and the backend is restarting now.');
     renderEnvironmentReport(data.report || null, 'Latest restore report');
     toast('Restore applied. Reconnecting after restart...', 'success');
-    window.setTimeout(() => {
-      window.location.reload();
-    }, 3500);
+    beginEnvironmentRestartPolling();
   } catch (error) {
     clearEnvironmentRestoreProgressTimer();
     renderEnvironmentRestoreProgress(100, 'Restore failed', error?.message || 'Could not restore backup.', true);
@@ -12544,6 +12645,7 @@ function escAttr(s) {
 // ============================================================
 // Init
 // ============================================================
+maybeResumeEnvironmentRestartPolling();
 checkAuth().then(authenticated => {
   bindSecretQrTrigger('brand-secret-trigger');
   bindSecretQrTrigger('mobile-brand-secret-trigger');
