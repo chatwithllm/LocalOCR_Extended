@@ -26,9 +26,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ /app/src/
 COPY alembic/ /app/alembic/ 
 COPY alembic.ini /app/alembic.ini
+COPY scripts/ /app/scripts/
 
 # Create data directories (volumes will override these)
 RUN mkdir -p /data/db /data/receipts /data/backups
+RUN chmod +x /app/scripts/*.sh
 
 # Expose Flask port
 EXPOSE 8090

@@ -190,6 +190,104 @@ Operational note:
 - login password fields support an eye toggle and reset to hidden after successful login
 - mobile shopping and inventory surfaces favor compact rows first, with detail shown only when expanded
 
+## Environment Backup & Restore
+
+Extended now includes a first-class environment backup and migration workflow.
+
+What a full backup bundle contains:
+
+- SQLite database snapshot
+- full `/data/receipts` tree
+- env snapshot used by the running app
+- compose file snapshot when available
+- manifest metadata with counts and checksums
+
+What the manifest currently records:
+
+- backup creation time
+- backup creation time in UTC
+- archive size
+- user count
+- purchase count
+- receipt-row count
+- trusted-device row count
+- active trusted-device count
+- receipt file count
+- total receipt bytes
+- DB fingerprint / checksum
+
+Where backups can be managed:
+
+- `Settings -> Environment Backup & Restore`
+
+What admins can do from the UI:
+
+- create backup
+- upload backup bundle
+- download backup bundle
+- verify current environment
+- restore a selected backup
+
+What the verification report checks:
+
+- database exists
+- receipts directory exists
+- user count
+- purchase count
+- active trusted-device count
+- receipt-row count
+- receipt file count
+- missing receipt-image count
+- sample missing-image paths when any are broken
+
+Important distinction:
+
+- backup cards show both:
+  - `Active Devices`
+  - `Device Records`
+- `Active Devices` means currently usable trusted-device entries
+- `Device Records` includes revoked history rows too
+
+Backup timestamp behavior:
+
+- legacy backups created with container UTC naming are now displayed in the UI using the viewer's local timezone
+- newer manifests also store an explicit `created_at_utc` field so time display is less ambiguous
+
+## Fresh-Machine Restore
+
+The UI restore is for an already-running environment.
+
+For a brand-new machine, use the bootstrap script first:
+
+- `/Users/assistant/.gemini/antigravity/LocalOCR_Extended/scripts/bootstrap_from_backup.sh`
+
+What bootstrap does:
+
+- optionally restores env snapshot into `.env`
+- prompts for environment-specific overrides such as:
+  - `PUBLIC_BASE_URL`
+  - `GEMINI_API_KEY`
+  - `GEMINI_MODEL`
+  - `INITIAL_ADMIN_EMAIL`
+- builds and starts the backend
+- restores DB + receipts from the chosen backup
+- restarts the backend
+- runs the verification script automatically
+
+Non-interactive bootstrap is also supported when operators want deterministic setup with no prompts.
+
+Operator runbook:
+
+- [/Users/assistant/.gemini/antigravity/LocalOCR_Extended/docs/BACKUP_RESTORE_RUNBOOK.md](/Users/assistant/.gemini/antigravity/LocalOCR_Extended/docs/BACKUP_RESTORE_RUNBOOK.md)
+
+## Operational Notes
+
+- backup/restore is intended to move the complete working environment, not just the database
+- receipt-image availability depends on the receipt files being restored with the DB
+- trusted-device pairing/revoke only behaves as one system when LAN and domain point to the same backend/database
+- restore is destructive by design and should be treated like environment replacement
+- a clean-machine restore drill is still the main remaining validation gap for this workflow
+
 ## Restaurant Workflow
 
 Restaurant receipts are treated differently from grocery receipts.
@@ -423,11 +521,30 @@ Manual backup:
 docker exec localocr-extended-backend /app/scripts/backup_database_and_volumes.sh
 ```
 
-Restore:
+Restore inside an already-running environment:
 
 ```bash
 docker exec -it localocr-extended-backend /app/scripts/restore_from_backup.sh /data/backups/localocr_extended_backup_YYYYMMDD.tar.gz
 ```
+
+Bootstrap a fresh machine from a backup bundle:
+
+```bash
+./scripts/bootstrap_from_backup.sh /absolute/path/to/localocr_extended_backup_YYYYMMDD_HHMMSS.tar.gz --yes
+```
+
+In-app operator flow:
+
+- `Settings -> Environment Backup & Restore`
+- admins can:
+  - create a portable environment backup
+  - verify the current environment
+  - restore a selected backup bundle
+
+Operational note:
+
+- the very first restore on a brand-new machine is still a shell/bootstrap action
+- the Settings restore UI is intended for an already-running environment because the app must be booted before the UI exists
 
 Operational note:
 

@@ -242,6 +242,46 @@
     td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
+    .receipt-recent-table th,
+    .receipt-recent-table td {
+      padding: 10px 12px;
+      vertical-align: middle;
+    }
+    .receipt-recent-table th:nth-child(1),
+    .receipt-recent-table td:nth-child(1),
+    .receipt-recent-table th:nth-child(3),
+    .receipt-recent-table td:nth-child(3),
+    .receipt-recent-table th:nth-child(4),
+    .receipt-recent-table td:nth-child(4),
+    .receipt-recent-table th:nth-child(5),
+    .receipt-recent-table td:nth-child(5),
+    .receipt-recent-table th:nth-child(6),
+    .receipt-recent-table td:nth-child(6),
+    .receipt-recent-table th:nth-child(7),
+    .receipt-recent-table td:nth-child(7) {
+      white-space: nowrap;
+    }
+    .receipt-recent-table th:nth-child(1),
+    .receipt-recent-table td:nth-child(1) {
+      font-size: 0.84rem;
+    }
+    .receipt-recent-table td:nth-child(2) strong {
+      display: block;
+      line-height: 1.2;
+      white-space: normal;
+      word-break: break-word;
+    }
+    .receipt-recent-table th:nth-child(6),
+    .receipt-recent-table td:nth-child(6),
+    .receipt-recent-table th:nth-child(7),
+    .receipt-recent-table td:nth-child(7) {
+      text-align: center;
+    }
+    .receipt-recent-table .btn.btn-sm {
+      padding: 5px 10px;
+      min-width: 84px;
+      justify-content: center;
+    }
 
     /* ---- Badge ---- */
     .badge {
@@ -1819,6 +1859,145 @@
       pointer-events: none;
       animation: trustedDeviceExit 300ms cubic-bezier(0.22, 0.9, 0.24, 1) forwards;
     }
+    .environment-backup-shell {
+      display: grid;
+      gap: 16px;
+    }
+    .environment-backup-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(108,99,255,0.18);
+      background:
+        radial-gradient(circle at top right, rgba(108,99,255,0.14), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.015));
+    }
+    .environment-backup-hero-copy {
+      min-width: 0;
+      flex: 1;
+    }
+    .environment-backup-eyebrow {
+      color: var(--accent2);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .environment-backup-hero-copy p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .environment-backup-hero-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(92px, 1fr));
+      gap: 10px;
+      min-width: 220px;
+    }
+    .environment-backup-hero-stat,
+    .environment-backup-stat {
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .environment-backup-hero-stat strong,
+    .environment-backup-stat strong {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .environment-backup-hero-stat span,
+    .environment-backup-stat span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+    .environment-backup-restore-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(220px, 0.9fr);
+      gap: 14px;
+      align-items: end;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.02);
+    }
+    .environment-backup-card {
+      margin-bottom: 12px;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
+    }
+    .environment-backup-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .environment-backup-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .environment-backup-card-title strong {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .environment-backup-card-subtitle {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .environment-backup-filename {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .environment-backup-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .environment-backup-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .environment-backup-report-card {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.015));
+    }
+    .environment-backup-report-title {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
 
     /* ---- Recs ---- */
     .rec-item {
@@ -2754,6 +2933,21 @@
       }
       #page-settings .trusted-device-card .btn {
         flex: 1 1 auto;
+      }
+      .environment-backup-hero {
+        display: grid;
+      }
+      .environment-backup-hero-stats {
+        min-width: 0;
+      }
+      .environment-backup-restore-bar {
+        grid-template-columns: 1fr;
+      }
+      .environment-backup-card-top {
+        flex-direction: column;
+      }
+      .environment-backup-card-actions .btn {
+        flex: 1;
       }
       #page-settings .avatar-bubble {
         flex: 0 0 auto;
@@ -3966,6 +4160,71 @@
       </div>
       <div class="card">
         <div class="card-header">
+          <span class="card-title">💾 Environment Backup & Restore</span>
+          <div class="table-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="createEnvironmentBackup()">Create Backup</button>
+            <button class="btn btn-ghost btn-sm" onclick="triggerEnvironmentBackupUpload()">Upload Backup</button>
+            <button class="btn btn-ghost btn-sm" onclick="verifyEnvironmentBackup()">Verify</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadEnvironmentBackups()">🔄</button>
+          </div>
+        </div>
+        <div id="environment-backup-note" style="color:var(--muted);font-size:0.84rem">Only admins can create environment backups, verify the current state, or restore a saved bundle.</div>
+        <div id="environment-backup-panel" class="environment-backup-shell" style="margin-top:16px">
+          <input id="environment-backup-upload" type="file" accept=".tar.gz,application/gzip,application/x-gzip" style="display:none" onchange="uploadEnvironmentBackup(this)" />
+          <div class="environment-backup-hero">
+            <div class="environment-backup-hero-copy">
+              <div class="environment-backup-eyebrow">Portable Recovery</div>
+              <p>Create a complete bundle with database, receipts, manifest, and env snapshot. Restore replaces the current state and restarts the backend cleanly.</p>
+            </div>
+            <div class="environment-backup-hero-stats">
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-count">0</strong>
+                <span>Backups</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-size">—</strong>
+                <span>Latest Size</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-receipts">—</strong>
+                <span>Receipt Files</span>
+              </div>
+              <div class="environment-backup-hero-stat">
+                <strong id="environment-backup-latest-purchases">—</strong>
+                <span>Purchases</span>
+              </div>
+            </div>
+          </div>
+          <div id="environment-backup-latest-summary" class="environment-backup-stat-grid" style="margin-top:14px"></div>
+          <div class="environment-backup-restore-bar">
+            <div class="form-group">
+              <label>Restore Source</label>
+              <select id="environment-backup-select" onchange="pendingEnvironmentRestoreFilename=this.value;updateEnvironmentRestoreSelectedSummary()"></select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <button class="btn btn-danger" style="width:100%" onclick="openEnvironmentRestoreModal()">Restore Selected Backup</button>
+            </div>
+          </div>
+          <div id="environment-backup-restore-progress" class="environment-backup-report-card" style="display:none">
+            <div class="environment-backup-report-title">Restore progress</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+              <div id="environment-backup-restore-stage" style="font-size:0.9rem;color:var(--text);font-weight:700">Preparing restore…</div>
+              <div id="environment-backup-restore-percent" style="font-size:0.85rem;color:var(--muted)">0%</div>
+            </div>
+            <div style="height:10px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden">
+              <div id="environment-backup-restore-bar" style="height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--primary),#7bdcb5);transition:width .25s ease"></div>
+            </div>
+            <div id="environment-backup-restore-detail" style="margin-top:10px;font-size:0.83rem;color:var(--muted)">Waiting to start.</div>
+          </div>
+          <div id="environment-backup-list" class="table-wrap" style="margin-top:16px"></div>
+          <div class="environment-backup-report-card">
+            <div class="environment-backup-report-title">Latest verification / restore report</div>
+            <div id="environment-backup-report" style="color:var(--muted);font-size:0.84rem">Run Verify or create a backup to see the latest environment report here.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
           <span class="card-title">🧠 Catalog Review</span>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <select id="review-status-filter" onchange="loadReviewQueue()">
@@ -4117,6 +4376,60 @@
       <div class="confirm-actions">
         <button type="button" id="device-approval-reject" class="btn btn-danger" onclick="rejectPendingDevicePairing()">Reject</button>
         <button type="button" id="device-approval-approve" class="btn btn-primary" onclick="approvePendingDevicePairing()">Approve Device</button>
+      </div>
+    </div>
+  </div>
+  <div id="environment-restore-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="environment-restore-title" style="width:min(620px,100%);max-height:min(90vh,920px);overflow:auto">
+      <div id="environment-restore-title" class="confirm-title">Restore Backup</div>
+      <div id="environment-restore-body" class="confirm-body">Choose what to restore. A safety backup of the current system will be created automatically first.</div>
+      <div style="display:grid;gap:12px;margin-top:14px">
+        <div class="form-group">
+          <label>Selected Backup</label>
+          <input id="environment-restore-filename" type="text" readonly />
+        </div>
+        <div id="environment-restore-selected-summary" class="environment-backup-stat-grid"></div>
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+            <strong style="font-size:0.95rem">Restore Scope</strong>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:0.86rem">
+              <input id="environment-restore-select-all" type="checkbox" checked onchange="toggleEnvironmentRestoreSelectAll(this.checked)" />
+              Select All
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-db" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Database</strong><br><span style="color:var(--muted);font-size:0.82rem">Users, purchases, receipt rows, trusted devices, and core app data.</span><br><span id="environment-restore-db-detail" style="color:var(--muted);font-size:0.78rem">Users • Purchases • Receipt Rows • Device Records</span></span>
+            </label>
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-receipts" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Receipts / Files</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore `/data/receipts` assets from the backup bundle.</span><br><span id="environment-restore-receipts-detail" style="color:var(--muted);font-size:0.78rem">Receipt Files • Receipt Size</span></span>
+            </label>
+            <label class="card" style="padding:12px;display:flex;gap:10px;align-items:flex-start">
+              <input id="environment-restore-env" type="checkbox" checked onchange="syncEnvironmentRestoreSelectAll()" />
+              <span><strong>Environment Config</strong><br><span style="color:var(--muted);font-size:0.82rem">Restore env snapshot values into the target env file.</span><br><span id="environment-restore-env-detail" style="color:var(--muted);font-size:0.78rem">Base URL • Gemini • Admin bootstrap values</span></span>
+            </label>
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:0.83rem">
+          The system will first create a fresh safety backup of the current environment, then restore the selected sections and restart the backend.
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeEnvironmentRestoreModal()">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="confirmEnvironmentRestore()">Backup Current State and Restore</button>
+      </div>
+    </div>
+  </div>
+  <div id="environment-restart-overlay" class="confirm-overlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="environment-restart-title" style="width:min(560px,100%);text-align:center">
+      <div id="environment-restart-title" class="confirm-title">Restarting Extended</div>
+      <div class="confirm-body" id="environment-restart-body">Your restore finished. Extended is restarting and reconnecting now.</div>
+      <div style="display:grid;justify-items:center;gap:14px;margin-top:16px">
+        <div style="width:56px;height:56px;border-radius:999px;border:3px solid rgba(108,99,255,0.2);border-top-color:var(--primary);animation:spin 0.9s linear infinite"></div>
+        <div id="environment-restart-status" style="font-size:0.88rem;color:var(--text);font-weight:700">Waiting for backend health…</div>
+        <div id="environment-restart-detail" style="font-size:0.82rem;color:var(--muted)">Stay on this page. The app will reconnect automatically once the backend is healthy.</div>
       </div>
     </div>
   </div>
@@ -5928,7 +6241,14 @@ async function loadContributions() {
 
 function formatDateTime(value, fallback = '—') {
   if (!value) return fallback;
-  const date = new Date(value);
+  let normalized = value;
+  if (typeof value === 'number' && value > 0 && value < 1e12) {
+    normalized = value * 1000;
+  } else if (/^\d+(\.\d+)?$/.test(String(value))) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0 && num < 1e12) normalized = num * 1000;
+  }
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 }
@@ -5955,6 +6275,19 @@ function formatRelativeTime(value, fallback = 'Never') {
     }
   }
   return future ? 'Soon' : 'Just now';
+}
+
+function formatBytes(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = num;
+  let idx = 0;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  return `${size >= 10 || idx === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[idx]}`;
 }
 
 function getRecommendationType(rec) {
@@ -6088,6 +6421,33 @@ function askForConfirmation(message, title = 'Confirm action') {
     document.onkeydown = (event) => {
       if (event.key === 'Escape') finish(false);
     };
+  });
+}
+
+function askConfirm(title, message, options = {}) {
+  const overlay = document.getElementById('confirm-overlay');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+
+  if (!overlay || !okBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message || title || 'Are you sure?'));
+  }
+
+  const previousOkText = okBtn.textContent;
+  const previousCancelText = cancelBtn.textContent;
+  const previousOkClass = okBtn.className;
+  const previousCancelClass = cancelBtn.className;
+
+  okBtn.textContent = options.okLabel || 'Confirm';
+  cancelBtn.textContent = options.cancelLabel || 'Cancel';
+  okBtn.className = options.danger ? 'btn btn-danger' : 'btn btn-primary';
+  cancelBtn.className = 'btn btn-secondary';
+
+  return askForConfirmation(message, title).finally(() => {
+    okBtn.textContent = previousOkText;
+    cancelBtn.textContent = previousCancelText;
+    okBtn.className = previousOkClass;
+    cancelBtn.className = previousCancelClass;
   });
 }
 
@@ -7053,6 +7413,7 @@ function nav(page, el) {
     if (currentUser) {
       loadUsers();
       loadTrustedDevices();
+      loadEnvironmentBackups();
       loadReviewQueue();
     }
   }
@@ -7988,6 +8349,540 @@ function animateTrustedDeviceRemoval(deviceId) {
     }
   }, 310);
   return cards;
+}
+
+function renderEnvironmentReport(report, label = '') {
+  const container = document.getElementById('environment-backup-report');
+  if (!container) return;
+  if (!report) {
+    container.innerHTML = 'Run Verify or create a backup to see the latest environment report here.';
+    return;
+  }
+  const heading = label ? `<div style="font-size:0.82rem;color:var(--muted);margin-bottom:10px">${escHtml(label)}</div>` : '';
+  const missingSamples = Array.isArray(report.missing_receipt_samples) && report.missing_receipt_samples.length
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Missing image samples: ${escHtml(report.missing_receipt_samples.join(', '))}</div>`
+    : '';
+  const restoredSections = report.restored_sections
+    ? Object.entries(report.restored_sections).filter(([, enabled]) => !!enabled).map(([key]) => ({
+        database: 'Database',
+        receipts: 'Receipts',
+        env: 'Env Config',
+      }[key] || key)).join(' · ')
+    : '';
+  const safetyBackup = report.safety_backup?.filename
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Safety backup created: ${escHtml(report.safety_backup.filename)}</div>`
+    : '';
+  const sectionNote = restoredSections
+    ? `<div style="margin-top:10px;color:var(--muted);font-size:0.8rem">Restored sections: ${escHtml(restoredSections)}</div>`
+    : '';
+  container.innerHTML = `
+    ${heading}
+    <div class="environment-backup-stat-grid">
+      <div class="environment-backup-stat"><strong>${escHtml(report.status || '—')}</strong><span>Status</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.users ?? '—'))}</strong><span>Users</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.purchases ?? '—'))}</strong><span>Purchases</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.trusted_devices ?? '—'))}</strong><span>Active Devices</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.receipt_rows ?? '—'))}</strong><span>Receipt Rows</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.receipt_files ?? '—'))}</strong><span>Receipt Files</span></div>
+      <div class="environment-backup-stat"><strong>${escHtml(String(report.missing_receipt_images ?? '—'))}</strong><span>Missing Images</span></div>
+    </div>
+    ${sectionNote}
+    ${safetyBackup}
+    ${missingSamples}
+  `;
+}
+
+function formatBackupTimestamp(value, fallback = 'Unknown') {
+  if (!value) return fallback;
+  if (/^\d{8}_\d{6}$/.test(String(value))) {
+    const s = String(value);
+    const utcDate = new Date(Date.UTC(
+      Number(s.slice(0, 4)),
+      Number(s.slice(4, 6)) - 1,
+      Number(s.slice(6, 8)),
+      Number(s.slice(9, 11)),
+      Number(s.slice(11, 13)),
+      Number(s.slice(13, 15))
+    ));
+    return Number.isNaN(utcDate.getTime()) ? fallback : utcDate.toLocaleString();
+  }
+  return formatDateTime(value, fallback);
+}
+
+let environmentRestoreProgressTimer = null;
+let pendingEnvironmentRestoreFilename = '';
+let environmentBackupEntries = [];
+let environmentRestartPollTimer = null;
+let environmentBackupHistoryExpanded = false;
+
+function clearEnvironmentRestoreProgressTimer() {
+  if (environmentRestoreProgressTimer) {
+    window.clearInterval(environmentRestoreProgressTimer);
+    environmentRestoreProgressTimer = null;
+  }
+}
+
+function setEnvironmentRestartOverlay(visible, status = '', detail = '') {
+  const overlay = document.getElementById('environment-restart-overlay');
+  const statusEl = document.getElementById('environment-restart-status');
+  const detailEl = document.getElementById('environment-restart-detail');
+  if (!overlay) return;
+  overlay.classList.toggle('show', !!visible);
+  overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (statusEl && status) statusEl.textContent = status;
+  if (detailEl && detail) detailEl.textContent = detail;
+}
+
+function clearEnvironmentRestartPolling() {
+  if (environmentRestartPollTimer) {
+    window.clearInterval(environmentRestartPollTimer);
+    environmentRestartPollTimer = null;
+  }
+  sessionStorage.removeItem('environment_restore_restarting');
+}
+
+async function checkEnvironmentHealthOnce() {
+  try {
+    const res = await fetch(`${API_BASE}/health?_ts=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!res.ok) return false;
+    const data = await res.json().catch(() => ({}));
+    return data?.status === 'healthy';
+  } catch (e) {
+    return false;
+  }
+}
+
+function beginEnvironmentRestartPolling() {
+  clearEnvironmentRestartPolling();
+  sessionStorage.setItem('environment_restore_restarting', JSON.stringify({ started_at: Date.now() }));
+  let attempts = 0;
+  setEnvironmentRestartOverlay(true, 'Restarting backend…', 'Stay on this page. Extended will reconnect automatically as soon as the backend becomes healthy.');
+  environmentRestartPollTimer = window.setInterval(async () => {
+    attempts += 1;
+    const healthy = await checkEnvironmentHealthOnce();
+    if (healthy) {
+      clearEnvironmentRestartPolling();
+      setEnvironmentRestartOverlay(true, 'Reconnected', 'Extended is back. Reloading the app now…');
+      window.setTimeout(() => window.location.reload(), 900);
+      return;
+    }
+    const seconds = Math.max(1, attempts * 2);
+    setEnvironmentRestartOverlay(
+      true,
+      'Waiting for backend health…',
+      `Restore completed. Extended is still restarting and should reconnect shortly. Elapsed: ~${seconds}s.`
+    );
+  }, 2000);
+}
+
+function maybeResumeEnvironmentRestartPolling() {
+  const raw = sessionStorage.getItem('environment_restore_restarting');
+  if (!raw) return;
+  beginEnvironmentRestartPolling();
+}
+
+function openEnvironmentRestoreModal(filename = '') {
+  const overlay = document.getElementById('environment-restore-overlay');
+  const field = document.getElementById('environment-restore-filename');
+  const select = document.getElementById('environment-backup-select');
+  pendingEnvironmentRestoreFilename = filename || select?.value || '';
+  if (!overlay || !field) return;
+  field.value = pendingEnvironmentRestoreFilename;
+  toggleEnvironmentRestoreSelectAll(true);
+  updateEnvironmentRestoreSelectedSummary();
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeEnvironmentRestoreModal() {
+  const overlay = document.getElementById('environment-restore-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function toggleEnvironmentRestoreSelectAll(checked) {
+  ['environment-restore-db', 'environment-restore-receipts', 'environment-restore-env'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!checked;
+  });
+  const selectAll = document.getElementById('environment-restore-select-all');
+  if (selectAll) selectAll.checked = !!checked;
+}
+
+function syncEnvironmentRestoreSelectAll() {
+  const selectAll = document.getElementById('environment-restore-select-all');
+  if (!selectAll) return;
+  const values = ['environment-restore-db', 'environment-restore-receipts', 'environment-restore-env']
+    .map(id => document.getElementById(id)?.checked !== false);
+  selectAll.checked = values.every(Boolean);
+}
+
+function getEnvironmentBackupEntry(filename) {
+  return (environmentBackupEntries || []).find(entry => entry.filename === filename) || null;
+}
+
+function toggleEnvironmentBackupHistory() {
+  environmentBackupHistoryExpanded = !environmentBackupHistoryExpanded;
+  loadEnvironmentBackups();
+}
+
+function updateEnvironmentRestoreSelectedSummary() {
+  const container = document.getElementById('environment-restore-selected-summary');
+  const field = document.getElementById('environment-restore-filename');
+  if (!container || !field) return;
+  const entry = getEnvironmentBackupEntry(field.value);
+  if (!entry) {
+    container.innerHTML = '';
+    return;
+  }
+  const manifest = entry.manifest || {};
+  const dbMeta = manifest.database || {};
+  const receiptMeta = manifest.receipts || {};
+  const activeDeviceCount = dbMeta.active_trusted_devices ?? '—';
+  const deviceRowCount = dbMeta.trusted_device_rows ?? dbMeta.trusted_devices ?? '—';
+  container.innerHTML = `
+    <div class="environment-backup-stat"><strong>${escHtml(formatBackupTimestamp(manifest.created_at_utc || manifest.created_at || entry.modified_at, 'Unknown'))}</strong><span>Backup Time</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.user_rows ?? '—'))}</strong><span>Users</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong><span>Purchases</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(receiptMeta.file_count ?? '—'))}</strong><span>Receipt Files</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(activeDeviceCount))}</strong><span>Active Devices</span></div>
+    <div class="environment-backup-stat"><strong>${escHtml(String(deviceRowCount))}</strong><span>Device Records</span></div>
+  `;
+}
+
+function renderEnvironmentRestoreProgress(percent, stage, detail = '', visible = true) {
+  const shell = document.getElementById('environment-backup-restore-progress');
+  const stageEl = document.getElementById('environment-backup-restore-stage');
+  const percentEl = document.getElementById('environment-backup-restore-percent');
+  const barEl = document.getElementById('environment-backup-restore-bar');
+  const detailEl = document.getElementById('environment-backup-restore-detail');
+  if (!shell || !stageEl || !percentEl || !barEl || !detailEl) return;
+  shell.style.display = visible ? '' : 'none';
+  stageEl.textContent = stage || 'Preparing restore…';
+  percentEl.textContent = `${Math.max(0, Math.min(100, Math.round(percent || 0)))}%`;
+  barEl.style.width = `${Math.max(0, Math.min(100, percent || 0))}%`;
+  detailEl.textContent = detail || 'Waiting to start.';
+}
+
+function beginEnvironmentRestoreProgress(filename) {
+  clearEnvironmentRestoreProgressTimer();
+  renderEnvironmentRestoreProgress(6, 'Creating safety backup…', `Saving the current environment before ${filename} is restored.`);
+  const stages = [
+    { limit: 18, stage: 'Creating safety backup…', detail: 'Creating a fresh backup of the current environment before any restore changes are applied.' },
+    { limit: 34, stage: 'Validating bundle…', detail: 'Checking manifest and preparing the restore workspace.' },
+    { limit: 62, stage: 'Restoring database…', detail: 'Replacing the current database snapshot from the selected backup when database restore is enabled.' },
+    { limit: 84, stage: 'Copying receipt files…', detail: 'Restoring receipt images and documents into the active receipts store when file restore is enabled.' },
+    { limit: 94, stage: 'Scheduling restart…', detail: 'Writing the restore report and preparing the backend restart.' },
+  ];
+  environmentRestoreProgressTimer = window.setInterval(() => {
+    const percentEl = document.getElementById('environment-backup-restore-percent');
+    const current = percentEl ? Number(String(percentEl.textContent || '0').replace('%', '')) || 0 : 0;
+    let next = current + (current < 40 ? 6 : current < 75 ? 4 : 2);
+    let stage = stages[stages.length - 1];
+    for (const candidate of stages) {
+      if (next <= candidate.limit) {
+        stage = candidate;
+        break;
+      }
+    }
+    next = Math.min(next, 94);
+    renderEnvironmentRestoreProgress(next, stage.stage, stage.detail);
+  }, 600);
+}
+
+async function loadEnvironmentBackups() {
+  const note = document.getElementById('environment-backup-note');
+  const panel = document.getElementById('environment-backup-panel');
+  const list = document.getElementById('environment-backup-list');
+  const select = document.getElementById('environment-backup-select');
+  const countEl = document.getElementById('environment-backup-count');
+  const latestSizeEl = document.getElementById('environment-backup-latest-size');
+  const latestReceiptsEl = document.getElementById('environment-backup-latest-receipts');
+  const latestPurchasesEl = document.getElementById('environment-backup-latest-purchases');
+  const latestSummaryEl = document.getElementById('environment-backup-latest-summary');
+  if (!note || !panel || !list || !select) return;
+  if (!currentUser) {
+    note.textContent = 'Sign in to view environment backups.';
+    panel.style.display = 'none';
+    return;
+  }
+  if (currentUser.role !== 'admin') {
+    note.textContent = 'Only admins can create backups or restore the environment.';
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  note.textContent = 'Create a portable environment bundle with database, receipts, manifest, and env snapshot. Restore will restart the backend.';
+  const res = await api('/system/backups');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    list.innerHTML = '<div class="empty-state"><p>Could not load environment backups.</p></div>';
+    renderEnvironmentReport(null);
+    return;
+  }
+  const backups = data.backups || [];
+  environmentBackupEntries = backups;
+  if (countEl) countEl.textContent = String(backups.length || 0);
+  const latestManifest = backups[0]?.manifest || {};
+  if (latestSizeEl) latestSizeEl.textContent = backups[0] ? formatBytes(backups[0].size_bytes) : '—';
+  if (latestReceiptsEl) latestReceiptsEl.textContent = String(latestManifest.receipts?.file_count ?? '—');
+  if (latestPurchasesEl) latestPurchasesEl.textContent = String(latestManifest.database?.purchase_rows ?? '—');
+  if (latestSummaryEl) {
+    const latestBackup = backups[0] || null;
+    const latestBackupManifest = latestBackup?.manifest || {};
+    const latestBackupIsSafety = latestBackup && data.last_restore_report?.safety_backup?.filename === latestBackup.filename;
+    const latestRestore = data.last_restore_report || null;
+    const latestRestoreSections = latestRestore?.restored_sections
+      ? Object.entries(latestRestore.restored_sections).filter(([, enabled]) => !!enabled).map(([key]) => ({
+          database: 'Database',
+          receipts: 'Receipts',
+          env: 'Env',
+        }[key] || key)).join(' · ')
+      : '—';
+    latestSummaryEl.innerHTML = `
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestBackup ? formatBackupTimestamp(latestBackupManifest.created_at_utc || latestBackupManifest.created_at || latestBackup.modified_at, 'Unknown') : '—')}</strong>
+        <span>${latestBackupIsSafety ? 'Latest Backup (Safety)' : 'Latest Backup'}</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestBackup ? formatBytes(latestBackup.size_bytes) : '—')}</strong>
+        <span>${latestBackupIsSafety ? 'Created Before Restore' : 'Backup Size'}</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore ? formatDateTime(latestRestore.restored_at, '—') : '—')}</strong>
+        <span>Latest Restore</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore?.status || '—')}</strong>
+        <span>Restore Status</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestoreSections)}</strong>
+        <span>Restored Sections</span>
+      </div>
+      <div class="environment-backup-stat">
+        <strong>${escHtml(latestRestore?.safety_backup?.filename ? latestRestore.safety_backup.filename.replace(/\.tar\.gz$/,'') : '—')}</strong>
+        <span>Latest Safety Backup</span>
+      </div>
+    `;
+  }
+  if (!backups.length) {
+    select.innerHTML = '<option value="">No backups available yet</option>';
+    list.innerHTML = '<div class="empty-state"><div class="icon">💾</div><p>No environment backups yet. Create one from this page.</p></div>';
+  } else {
+    select.innerHTML = backups.map((entry, index) => {
+      const manifest = entry.manifest || {};
+      const createdAt = manifest.created_at_utc || manifest.created_at || entry.modified_at;
+      const label = `${formatBackupTimestamp(createdAt, 'Unknown time')} · ${formatBytes(entry.size_bytes)}`;
+      return `<option value="${escAttr(entry.filename)}"${index === 0 ? ' selected' : ''}>${escHtml(label)}</option>`;
+    }).join('');
+    updateEnvironmentRestoreSelectedSummary();
+    const renderBackupCard = (entry) => {
+      const manifest = entry.manifest || {};
+      const dbMeta = manifest.database || {};
+      const receiptMeta = manifest.receipts || {};
+      const createdAt = formatBackupTimestamp(manifest.created_at_utc || manifest.created_at || entry.modified_at, 'Unknown');
+      const receiptBytes = formatBytes(receiptMeta.total_bytes || 0);
+      const shortSha = String(dbMeta.sha256 || '').slice(0, 12);
+      const activeDeviceCount = dbMeta.active_trusted_devices;
+      const deviceRowCount = dbMeta.trusted_device_rows ?? dbMeta.trusted_devices;
+      const latestRestoreSafety = data.last_restore_report?.safety_backup?.filename === entry.filename;
+      return `
+        <div class="card environment-backup-card">
+          <div class="environment-backup-card-top">
+            <div style="min-width:220px;flex:1">
+              <div class="environment-backup-card-title">
+                <strong>${escHtml(createdAt)}</strong>
+                <span class="badge badge-ok">${escHtml(formatBytes(entry.size_bytes))}</span>
+                ${latestRestoreSafety ? '<span class="badge badge-info">Safety backup from restore</span>' : ''}
+              </div>
+              <div class="environment-backup-card-subtitle">Portable environment bundle with database, receipts, env snapshot, and restore metadata.</div>
+              <div class="environment-backup-filename">${escHtml(entry.filename)}</div>
+              <div class="environment-backup-stat-grid">
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.user_rows ?? '—'))}</strong><span>Users</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.purchase_rows ?? '—'))}</strong><span>Purchases</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(dbMeta.receipt_rows ?? '—'))}</strong><span>Receipt Rows</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(receiptMeta.file_count ?? '—'))}</strong><span>Receipt Files</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(activeDeviceCount ?? '—'))}</strong><span>Active Devices</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(String(deviceRowCount ?? '—'))}</strong><span>Device Records</span></div>
+                <div class="environment-backup-stat"><strong>${escHtml(receiptBytes)}</strong><span>Receipt Size</span></div>
+              </div>
+              <div style="margin-top:10px;color:var(--muted);font-size:0.8rem">
+                DB fingerprint <code style="font-size:0.78rem">${escHtml(shortSha)}${dbMeta.sha256 ? '…' : ''}</code>
+              </div>
+            </div>
+            <div class="environment-backup-card-actions">
+              <button class="btn btn-sm btn-ghost" onclick="downloadEnvironmentBackup('${escAttr(entry.filename)}')">Download</button>
+              <button class="btn btn-sm btn-danger" onclick="openEnvironmentRestoreModal('${escAttr(entry.filename)}')">Restore</button>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+    const latestTwo = backups.slice(0, 2);
+    const olderBackups = backups.slice(2);
+    const summaryRow = olderBackups.length ? `
+      <div class="card environment-backup-card" style="padding:14px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+          <div style="min-width:220px;flex:1">
+            <div class="environment-backup-card-title" style="margin-bottom:0">
+              <strong>${environmentBackupHistoryExpanded ? 'Older backup history' : `Older backups (${olderBackups.length})`}</strong>
+              <span class="badge badge-info">${escHtml(String(olderBackups.length))}</span>
+            </div>
+            <div class="environment-backup-card-subtitle">
+              ${environmentBackupHistoryExpanded
+                ? 'Showing older backup bundles kept for restore history and safety checkpoints.'
+                : 'Latest two backups stay visible. Expand to review older backup and restore history.'}
+            </div>
+          </div>
+          <div class="environment-backup-card-actions">
+            <button class="btn btn-sm btn-ghost" onclick="toggleEnvironmentBackupHistory()">${environmentBackupHistoryExpanded ? 'Hide Older Backups' : 'Show Older Backups'}</button>
+          </div>
+        </div>
+      </div>
+    ` : '';
+    list.innerHTML = latestTwo.map(renderBackupCard).join('') + summaryRow + (environmentBackupHistoryExpanded ? olderBackups.map(renderBackupCard).join('') : '');
+  }
+  renderEnvironmentReport(data.last_verify_report || data.last_restore_report, data.last_verify_report ? 'Latest verification report' : (data.last_restore_report ? 'Latest restore report' : ''));
+}
+
+async function createEnvironmentBackup() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  toast('Creating backup... this can take a moment', 'info');
+  const res = await api('/system/backups/create', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not create backup', 'error');
+    return;
+  }
+  toast('Environment backup created ✅', 'success');
+  await loadEnvironmentBackups();
+}
+
+function triggerEnvironmentBackupUpload() {
+  const input = document.getElementById('environment-backup-upload');
+  if (input) input.click();
+}
+
+async function uploadEnvironmentBackup(input) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    if (input) input.value = '';
+    return;
+  }
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (!String(file.name || '').endsWith('.tar.gz')) {
+    toast('Backup must be a .tar.gz archive', 'error');
+    input.value = '';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('backup', file);
+  toast(`Uploading ${file.name}...`, 'info');
+  const res = await api('/system/backups/upload', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  input.value = '';
+  if (!res.ok) {
+    toast(data.error || 'Could not upload backup', 'error');
+    return;
+  }
+  toast('Backup uploaded ✅', 'success');
+  await loadEnvironmentBackups();
+}
+
+function downloadEnvironmentBackup(filename) {
+  if (!filename) {
+    toast('Backup filename missing', 'error');
+    return;
+  }
+  window.open(`${API_BASE}/system/backups/download/${encodeURIComponent(filename)}`, '_blank', 'noopener');
+}
+
+async function verifyEnvironmentBackup() {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  toast('Verifying current environment...', 'info');
+  const res = await api('/system/backups/verify', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not verify environment', 'error');
+    return;
+  }
+  renderEnvironmentReport(data.report, 'Latest verification report');
+  toast(data.report?.status === 'ok' ? 'Environment verification passed ✅' : 'Environment verification completed with warnings', data.report?.status === 'ok' ? 'success' : 'info');
+  await loadEnvironmentBackups();
+}
+
+async function restoreEnvironmentBackup(filename, options = {}) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Admin access required', 'error');
+    return;
+  }
+  if (!filename) {
+    toast('Select a backup first', 'error');
+    return;
+  }
+  toast('Restoring backup... the backend will restart', 'info');
+  beginEnvironmentRestoreProgress(filename);
+  try {
+    const res = await api('/system/backups/restore', {
+      method: 'POST',
+      body: JSON.stringify({
+        filename,
+        restore_database: !!options.restore_database,
+        restore_receipts: !!options.restore_receipts,
+        restore_env: !!options.restore_env,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      clearEnvironmentRestoreProgressTimer();
+      renderEnvironmentRestoreProgress(100, 'Restore failed', data.error || 'Could not restore backup.', true);
+      toast(data.error || 'Could not restore backup', 'error');
+      return;
+    }
+    clearEnvironmentRestoreProgressTimer();
+    renderEnvironmentRestoreProgress(100, 'Restore applied', 'Files were restored and the backend is restarting now.');
+    renderEnvironmentReport(data.report || null, 'Latest restore report');
+    toast('Restore applied. Reconnecting after restart...', 'success');
+    beginEnvironmentRestartPolling();
+  } catch (error) {
+    clearEnvironmentRestoreProgressTimer();
+    renderEnvironmentRestoreProgress(100, 'Restore failed', error?.message || 'Could not restore backup.', true);
+    toast(error?.message || 'Could not restore backup', 'error');
+  }
+}
+
+async function confirmEnvironmentRestore() {
+  const filename = pendingEnvironmentRestoreFilename || document.getElementById('environment-backup-select')?.value || '';
+  if (!filename) {
+    toast('Select a backup first', 'error');
+    return;
+  }
+  const options = {
+    restore_database: !!document.getElementById('environment-restore-db')?.checked,
+    restore_receipts: !!document.getElementById('environment-restore-receipts')?.checked,
+    restore_env: !!document.getElementById('environment-restore-env')?.checked,
+  };
+  if (!options.restore_database && !options.restore_receipts && !options.restore_env) {
+    toast('Select at least one restore section', 'error');
+    return;
+  }
+  closeEnvironmentRestoreModal();
+  await restoreEnvironmentBackup(filename, options);
 }
 
 async function renameTrustedDevice(deviceId, currentName) {
@@ -10520,7 +11415,7 @@ async function loadReceipts() {
     body.innerHTML = renderCompactReceiptRows(receipts);
   } else {
     body.innerHTML = `
-      <table>
+      <table class="receipt-recent-table">
         <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th><th>Delete</th></tr></thead>
         <tbody>${receipts.map(r => `
           <tr>
@@ -11790,6 +12685,7 @@ function escAttr(s) {
 // ============================================================
 // Init
 // ============================================================
+maybeResumeEnvironmentRestartPolling();
 checkAuth().then(authenticated => {
   bindSecretQrTrigger('brand-secret-trigger');
   bindSecretQrTrigger('mobile-brand-secret-trigger');

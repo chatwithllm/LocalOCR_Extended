@@ -185,6 +185,28 @@ Operational and product items that are not fully closed yet:
 - historical receipt images were restored once by copying legacy receipt files back into the live `/data/receipts` store
   - this fixed the current broken-image state
   - it also proved we still need a first-class full-environment backup/restore plan instead of ad-hoc file recovery
+- the full-environment backup/restore system is now built, but it still needs one clean-machine drill to be considered production-closed:
+  - backup bundle creation script exists
+  - restore script exists
+  - verification script exists
+  - admin Settings UI now supports create / upload / download / verify / restore
+  - fresh-machine bootstrap script now exists for first restore before the UI is available
+  - bootstrap can now prompt for:
+    - `PUBLIC_BASE_URL`
+    - `GEMINI_API_KEY`
+    - `GEMINI_MODEL`
+    - `INITIAL_ADMIN_EMAIL`
+  - backup manifests now carry:
+    - user count
+    - purchase count
+    - receipt-row count
+    - receipt file count
+    - active trusted-device count
+    - trusted-device row count
+    - receipt bytes
+    - DB fingerprint
+    - UTC creation timestamp
+  - backup cards now display timestamps in the viewer's local timezone instead of raw container-style UTC naming only
 - trusted-device scope behavior is now only partially differentiated:
   - `Read Only` is enforced for the main write paths
   - `Kitchen Display` now has a lighter default shell
@@ -203,10 +225,12 @@ High-value next work from the current state:
   - kiosk/dashboard-only
 - continue reducing vertical clutter on mobile after row expansion
 - keep strengthening structured edit flows so browser-native prompts disappear entirely
-- add a complete environment backup/restore workflow:
-  - one command or job to capture DB + receipts + config/environment metadata
-  - one documented restore flow for moving Extended to a fresh machine
-  - a latest-known-good restore drill so migration does not depend on manual container/file discovery
+- finish validating the backup/restore workflow with a clean-machine restore drill:
+  - run `bootstrap_from_backup.sh` on a clean machine or clean Docker host
+  - verify the restored environment reaches healthy state without manual DB/receipt copying
+  - confirm prompt-mode overrides for base URL and Gemini settings behave correctly
+  - document the exact operator checklist from empty host to healthy app
+  - optionally add a restore smoke-test checklist to the UI/reporting surface
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:
@@ -247,6 +271,7 @@ Read these in order:
 4. [docs/COMPLETE_PRODUCT_SPEC.md](docs/COMPLETE_PRODUCT_SPEC.md)
 5. [docs/APP_SETUP_GUIDE.md](docs/APP_SETUP_GUIDE.md)
 6. [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
+7. [docs/BACKUP_RESTORE_RUNBOOK.md](docs/BACKUP_RESTORE_RUNBOOK.md)
 
 Then inspect:
 
@@ -254,6 +279,11 @@ Then inspect:
 - [Dockerfile](Dockerfile)
 - [src/backend/create_flask_application.py](src/backend/create_flask_application.py)
 - [src/backend/setup_mqtt_connection.py](src/backend/setup_mqtt_connection.py)
+- [scripts/backup_database_and_volumes.sh](scripts/backup_database_and_volumes.sh)
+- [scripts/restore_from_backup.sh](scripts/restore_from_backup.sh)
+- [scripts/verify_restored_environment.sh](scripts/verify_restored_environment.sh)
+- [scripts/bootstrap_from_backup.sh](scripts/bootstrap_from_backup.sh)
+- [src/backend/manage_environment_ops.py](src/backend/manage_environment_ops.py)
 - [src/backend/publish_mqtt_events.py](src/backend/publish_mqtt_events.py)
 
 ## 9. Safety Rules
