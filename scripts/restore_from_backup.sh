@@ -55,32 +55,83 @@ fi
 
 tar -xzf "${BACKUP_FILE}" -C "${RESTORE_DIR}"
 
-if [ -f "${RESTORE_DIR}/database.db" ]; then
-  mkdir -p "$(dirname "${DB_PATH}")"
-  cp "${RESTORE_DIR}/database.db" "${DB_PATH}"
+if [ ! -f "${RESTORE_DIR}/database.db" ]; then
+  echo "❌ Backup archive does not contain database.db"
+  exit 1
 fi
+
+mkdir -p "$(dirname "${DB_PATH}")"
+rm -f "${DB_PATH}" "${DB_PATH}-wal" "${DB_PATH}-shm"
+cp "${RESTORE_DIR}/database.db" "${DB_PATH}"
+sync || true
 
 mkdir -p "${RECEIPTS_DIR}"
 find "${RECEIPTS_DIR}" -mindepth 1 -exec rm -rf {} +
 if [ -d "${RESTORE_DIR}/receipts" ]; then
   cp -R "${RESTORE_DIR}/receipts/." "${RECEIPTS_DIR}/"
 fi
+sync || true
 
 if [ -n "${TARGET_ENV_FILE}" ] && [ -f "${RESTORE_DIR}/meta/env.snapshot" ]; then
   mkdir -p "$(dirname "${TARGET_ENV_FILE}")"
   cp "${RESTORE_DIR}/meta/env.snapshot" "${TARGET_ENV_FILE}"
 fi
 
-cat > "${BACKUP_DIR}/last_restore_report.json" <<EOF
-{
-  "status": "restored",
-  "backup_file": "$(basename "${BACKUP_FILE}")",
-  "restored_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "db_path": "${DB_PATH}",
-  "receipts_dir": "${RECEIPTS_DIR}",
-  "target_env_file": "${TARGET_ENV_FILE}"
+RESTORE_REPORT="$(python3 - <<'PY' "${DB_PATH}" "${RECEIPTS_DIR}" "$(basename "${BACKUP_FILE}")" "${TARGET_ENV_FILE}"
+import json
+import sqlite3
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+db_path = Path(sys.argv[1])
+receipts_root = Path(sys.argv[2])
+backup_file = sys.argv[3]
+target_env_file = sys.argv[4]
+
+conn = sqlite3.connect(db_path)
+conn.row_factory = sqlite3.Row
+c = conn.cursor()
+
+def scalar(query):
+    row = c.execute(query).fetchone()
+    return row[0] if row else 0
+
+receipt_refs = c.execute("select image_path from telegram_receipts where image_path is not null and image_path != ''").fetchall()
+missing = []
+for row in receipt_refs:
+    image_path = row["image_path"]
+    parts = Path(image_path).parts
+    try:
+        idx = parts.index("data")
+        rel = Path(*parts[idx + 2:]) if idx + 1 < len(parts) and parts[idx + 1] == "receipts" else Path(image_path)
+    except ValueError:
+        rel = Path(image_path)
+    if not (receipts_root / rel).exists():
+        missing.append(rel.as_posix())
+
+receipt_file_count = sum(1 for path in receipts_root.rglob("*") if path.is_file()) if receipts_root.exists() else 0
+report = {
+    "status": "restored",
+    "backup_file": backup_file,
+    "restored_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "db_path": str(db_path),
+    "receipts_dir": str(receipts_root),
+    "target_env_file": target_env_file,
+    "users": scalar("select count(*) from users"),
+    "purchases": scalar("select count(*) from purchases"),
+    "trusted_devices": scalar("select count(*) from trusted_devices where status = 'active'"),
+    "receipt_rows": scalar("select count(*) from telegram_receipts"),
+    "receipt_files": receipt_file_count,
+    "missing_receipt_images": len(missing),
+    "missing_receipt_samples": missing[:10],
 }
-EOF
+print(json.dumps(report, indent=2))
+PY
+)"
+
+printf '%s\n' "${RESTORE_REPORT}" > "${BACKUP_DIR}/last_restore_report.json"
+printf '%s\n' "${RESTORE_REPORT}"
 
 if [ "${NO_RESTART}" = "1" ]; then
   echo "⚠️  Restore finished without restarting the service."

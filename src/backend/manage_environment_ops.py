@@ -278,10 +278,19 @@ def restore_backup():
             "stderr": result.stderr[-4000:],
         }), 500
 
+    restore_report = None
+    restore_path = _backups_dir() / "last_restore_report.json"
+    if restore_path.exists():
+        try:
+            restore_report = json.loads(restore_path.read_text(encoding="utf-8"))
+        except Exception:
+            restore_report = None
+
     _schedule_container_restart(1.2)
     return jsonify({
         "status": "restored",
         "restart_scheduled": True,
         "message": "Restore applied. Backend restart scheduled.",
+        "report": restore_report,
         "stdout": result.stdout[-4000:],
     })
