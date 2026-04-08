@@ -2177,6 +2177,12 @@
     .receipt-detail-grid {
       margin-bottom: 16px;
     }
+    .receipt-detail-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+      gap: 16px;
+      align-items: start;
+    }
     .receipt-summary-grid > .card {
       height: 100%;
       display: flex;
@@ -3967,7 +3973,7 @@
           <div id="receipt-summary-months"><div class="empty-state"><p>No purchase summary yet.</p></div></div>
         </div>
       </div>
-      <div class="receipt-detail-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:16px">
+      <div class="receipt-detail-grid">
         <div class="card">
           <div class="card-header">
             <span class="card-title">Recent Receipts</span>
