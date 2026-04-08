@@ -6329,6 +6329,33 @@ function askForConfirmation(message, title = 'Confirm action') {
   });
 }
 
+function askConfirm(title, message, options = {}) {
+  const overlay = document.getElementById('confirm-overlay');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+
+  if (!overlay || !okBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message || title || 'Are you sure?'));
+  }
+
+  const previousOkText = okBtn.textContent;
+  const previousCancelText = cancelBtn.textContent;
+  const previousOkClass = okBtn.className;
+  const previousCancelClass = cancelBtn.className;
+
+  okBtn.textContent = options.okLabel || 'Confirm';
+  cancelBtn.textContent = options.cancelLabel || 'Cancel';
+  okBtn.className = options.danger ? 'btn btn-danger' : 'btn btn-primary';
+  cancelBtn.className = 'btn btn-secondary';
+
+  return askForConfirmation(message, title).finally(() => {
+    okBtn.textContent = previousOkText;
+    cancelBtn.textContent = previousCancelText;
+    okBtn.className = previousOkClass;
+    cancelBtn.className = previousCancelClass;
+  });
+}
+
 function askForTextInput(message, title = 'Update value', initialValue = '', options = {}) {
   const overlay = document.getElementById('input-overlay');
   const titleEl = document.getElementById('input-title');
