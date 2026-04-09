@@ -268,6 +268,7 @@ class ShoppingListItem(Base):
     source = Column(String(30), nullable=True)  # recommendation, inventory, product, manual
     note = Column(String(500), nullable=True)
     preferred_store = Column(String(120), nullable=True)
+    manual_estimated_price = Column(Float, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -501,6 +502,8 @@ def _ensure_runtime_columns(engine):
         } else set()
         if shopping_columns and "preferred_store" not in shopping_columns:
             conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN preferred_store VARCHAR(120)"))
+        if shopping_columns and "manual_estimated_price" not in shopping_columns:
+            conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN manual_estimated_price FLOAT"))
 
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS inventory_adjustments (
