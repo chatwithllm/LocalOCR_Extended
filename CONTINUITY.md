@@ -156,6 +156,39 @@ This split gives you a clean safety net:
   - mobile receipt lists now use compact two-row rows instead of desktop tables
   - extracted item cards and receipt edit line items now use tighter two-row mobile summaries
   - receipt edit metadata fields now use grouped mobile rows instead of a long single-column form
+- quick-find and manual shopping entry have been cleaned up further:
+  - duplicate manual-add CTAs were removed from Quick Find
+  - manual shopping add now supports:
+    - category dropdown
+    - estimated price
+    - quantity
+    - note
+  - manual shopping add now creates a real product when no matching catalog item exists, so future Quick Find and Products searches can find it
+  - manual shopping estimate fallback now uses the saved manual estimate when no price history exists yet
+- shopping store-group headers now show richer summary context:
+  - store name
+  - store-group estimated total
+  - grouped item count
+- dashboard summary stat routing is now explicit:
+  - `Low` opens the low-stock inventory view
+  - `INV` opens the Inventory workspace
+  - `PROD` opens the Products workspace
+- dashboard summary cards were tightened further:
+  - recommendation tile label is now `Top Picks`
+  - shopping summary tile uses the compact `Shopping List | count | estimate` pattern
+  - low stock / top picks / shopping tiles now expand more safely on mobile instead of squeezing content into half-width cards
+- shopping naming and recommendation behavior is now more buyer-friendly:
+  - shopping rows prefer the explicit renamed/display name instead of awkward shortened family labels
+  - expanded shopping rows can show the fuller/original product name as muted context when it differs from the shopper-facing short name
+  - recommendation-backed items fall out of active `Top Picks` after they are added to shopping and confirmed, allowing the next best item to surface
+- shopping list row interactions were refined:
+  - web and mobile recommendation cards were compacted and cleaned up
+  - `-1 / Low / Bought / Delete` actions were normalized into a more consistent row
+  - shopping rows can now be renamed directly from the shopping workflow
+- README now has a screenshots section backed by committed repo images
+- future-enhancement planning docs now exist in-repo:
+  - `future enhancements/multi household.md`
+  - `future enhancements/budget domains.md`
 
 ## 5. Pending / Needs More Work
 
@@ -211,6 +244,12 @@ Operational and product items that are not fully closed yet:
   - `Read Only` is enforced for the main write paths
   - `Kitchen Display` now has a lighter default shell
   - deeper page-level kiosk behavior still needs a follow-up pass
+- restaurant and expenses have improved mobile compactness, but they still need one more convergence pass toward the shared Receipts review/edit experience instead of carrying bespoke receipt-detail shells
+- the budgeting redesign is still only documented, not implemented:
+  - `budget domains.md` now reflects the stronger model of:
+    - `Spending Domain` for workflow defaults and overrides
+    - `Budget Category` for meaningful household budgeting
+  - line-item overrides, tax allocation, and budget-page redesign still need phased implementation
 
 ## 6. Planned Next
 
@@ -231,6 +270,12 @@ High-value next work from the current state:
   - confirm prompt-mode overrides for base URL and Gemini settings behave correctly
   - document the exact operator checklist from empty host to healthy app
   - optionally add a restore smoke-test checklist to the UI/reporting surface
+- checkpoint and merge the current `codex/minor-cosmetics` branch before starting the budgeting implementation branch
+- start phased budgeting implementation from the design now captured in `future enhancements/budget domains.md`:
+  - Phase 1: schema and migration foundations
+  - Phase 2: receipt-review UI for defaults and line-item overrides
+  - Phase 3: budget engine rollups from effective line-item categories
+  - Phase 4+: budget page redesign, event support, and migration quality passes
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:
@@ -249,12 +294,12 @@ Current restaurant workflow baseline:
 - restaurant OCR is now stronger for difficult phone photos before the user even opens review
 - non-grocery, non-restaurant receipts now have a clean third lane instead of polluting grocery or restaurant
 - general-expense line items can now be categorized for better spending analytics
-- Restaurant workspace now includes:
+- Restaurant workspace is now moving toward summary-first behavior:
   - dining budget card
-  - selected receipt detail panel
-  - repeat-order estimate from the chosen receipt
-  - recent receipt inspect action
-  - stronger top-ordered-item reporting
+  - recent restaurant receipt preview
+  - top-ordered-item reporting
+  - top-restaurant summary
+  - receipt inspection/editing is increasingly handed off to the shared `Receipts` workspace instead of maintaining a second cramped receipt-inspector UI
 
 Current rule:
 

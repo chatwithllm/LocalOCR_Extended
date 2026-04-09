@@ -19,6 +19,7 @@ from src.backend.contribution_scores import (
     unfinalize_recommendation_confirmation,
 )
 from src.backend.create_flask_application import require_auth, require_write_access
+from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ShoppingListItem, Store
 from src.backend.normalize_product_names import (
     canonicalize_product_identity,
@@ -135,6 +136,7 @@ def _serialize_item(item: ShoppingListItem) -> dict:
         "source": item.source,
         "note": item.note,
         "preferred_store": preferred_store,
+        "manual_estimated_price": float(item.manual_estimated_price) if item.manual_estimated_price is not None else None,
         "effective_store": preferred_store or (latest_price or {}).get("store"),
         "latest_price": latest_price,
         "created_at": item.created_at.isoformat() if item.created_at else None,
@@ -203,14 +205,22 @@ def _latest_price_for_item(session, item: ShoppingListItem) -> dict | None:
                 .first()
             )
 
-    if not row:
-        return None
-    price, _product, store = row
-    return {
-        "price": float(price.price or 0),
-        "store": store.name if store else None,
-        "date": price.date.strftime("%Y-%m-%d") if price.date else None,
-    }
+    if row:
+        price, _product, store = row
+        return {
+            "price": float(price.price or 0),
+            "store": store.name if store else None,
+            "date": price.date.strftime("%Y-%m-%d") if price.date else None,
+        }
+
+    if item.manual_estimated_price is not None:
+        return {
+            "price": float(item.manual_estimated_price or 0),
+            "store": canonicalize_store_name(item.preferred_store) if item.preferred_store else None,
+            "date": None,
+        }
+
+    return None
 
 
 def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool = False):
@@ -304,6 +314,8 @@ def add_shopping_item():
     source = (data.get("source") or "manual").strip().lower()
     note = (data.get("note") or "").strip() or None
     preferred_store = canonicalize_store_name(data.get("preferred_store")) if data.get("preferred_store") else None
+    manual_estimated_price = data.get("manual_estimated_price")
+    manual_estimated_price = float(manual_estimated_price) if manual_estimated_price not in (None, "", False) else None
 
     product = None
     product_id = data.get("product_id")
@@ -311,6 +323,16 @@ def add_shopping_item():
         product = session.query(Product).filter_by(id=product_id).first()
     if not product:
         product = find_matching_product(session, name, category)
+    if not product and source == "manual":
+        product = Product(
+            name=name,
+            raw_name=raw_name,
+            display_name=name,
+            category=category,
+        )
+        product.review_state = "pending" if should_enrich_product_name(raw_name, category) else "resolved"
+        session.add(product)
+        session.flush()
 
     existing = (
         session.query(ShoppingListItem)
@@ -340,6 +362,8 @@ def add_shopping_item():
             existing.product_id = product.id
         if product:
             existing.name = get_product_display_name(product)
+        if manual_estimated_price is not None:
+            existing.manual_estimated_price = manual_estimated_price
         if source == "recommendation":
             _ensure_pending_recommendation_event(session, existing)
         session.commit()
@@ -355,6 +379,7 @@ def add_shopping_item():
         source=source,
         note=note,
         preferred_store=preferred_store,
+        manual_estimated_price=manual_estimated_price,
     )
     session.add(item)
     session.flush()
@@ -424,6 +449,8 @@ def update_shopping_item(item_id):
                 subject_id=item.id,
                 dedupe_minutes=60 * 24 * 30,
             )
+    if "manual_estimated_price" in data:
+        item.manual_estimated_price = float(data["manual_estimated_price"]) if data.get("manual_estimated_price") not in (None, "", False) else None
 
     if previous_status != "purchased" and item.status == "purchased":
         finalize_recommendation_confirmation(session, shopping_item_id=item.id)

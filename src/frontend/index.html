@@ -494,7 +494,7 @@
     }
     .receipt-inline-detail-layout {
       display: grid;
-      grid-template-columns: minmax(340px, 1.02fr) minmax(0, 1.18fr);
+      grid-template-columns: minmax(280px, 0.88fr) minmax(0, 1.12fr);
       gap: 18px;
       align-items: start;
     }
@@ -511,6 +511,39 @@
     }
     .receipt-inline-detail-image {
       min-width: 0;
+    }
+    .receipt-inline-detail-image .receipt-image-wrap img {
+      max-height: min(54vh, 620px);
+    }
+    .receipt-inline-detail-bottom .receipt-editor-grid {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-type {
+      grid-column: span 3;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-store {
+      grid-column: span 5;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-date-time {
+      grid-column: span 4;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-subtotal {
+      grid-column: span 3;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-tip {
+      grid-column: span 3;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-total {
+      grid-column: span 3;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-card-fields {
+      grid-template-columns: minmax(0, 1fr) 112px 140px;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-card {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+      padding: 14px;
     }
     .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .card-title { font-size: 1rem; font-weight: 600; }
@@ -3175,6 +3208,8 @@
       .form-grid,
       #page-receipts > .receipt-summary-grid,
       #page-receipts > .receipt-detail-grid,
+      #page-restaurant > .receipt-summary-grid,
+      #page-expenses > .receipt-summary-grid,
       #page-dashboard > div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
       }
@@ -3272,6 +3307,29 @@
       }
       .receipt-summary-tiles-compact .stat-sub {
         display: none;
+      }
+      #page-restaurant .stats-grid,
+      #page-expenses .stats-grid {
+        gap: 12px;
+      }
+      #page-restaurant .stat-card,
+      #page-expenses .stat-card {
+        padding: 16px;
+      }
+      #page-restaurant .stat-label,
+      #page-expenses .stat-label {
+        font-size: 0.72rem;
+      }
+      #page-restaurant .stat-value,
+      #page-expenses .stat-value {
+        font-size: 1.25rem;
+        line-height: 1.1;
+        margin-top: 4px;
+      }
+      #page-restaurant .stat-sub,
+      #page-expenses .stat-sub {
+        font-size: 0.74rem;
+        line-height: 1.3;
       }
       .receipt-image-wrap {
         border-radius: 14px;
@@ -3530,6 +3588,15 @@
       #page-expenses .mobile-action-row .btn,
       #page-settings .mobile-action-row .btn {
         flex: 1 1 140px;
+      }
+      #restaurant-top-items .mobile-data-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #expense-top-items .mobile-data-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #expense-detail-body .mobile-data-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .shopping-quick-toolbar {
         width: 100%;
@@ -4069,17 +4136,17 @@
         </div>
       </div>
       <div class="stats-grid dashboard-stats-grid" id="dashboard-stats-row">
-        <div class="stat-card dashboard-stat-link dashboard-combo-stat" role="button" tabindex="0" onclick="openDashboardStat('inventory-products')" onkeydown="handleDashboardStatKey(event, 'inventory-products')">
+        <div class="stat-card dashboard-combo-stat">
           <div class="dashboard-combo-grid">
-            <div class="dashboard-combo-item low">
+            <div class="dashboard-combo-item low dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('low-stock')" onkeydown="handleDashboardStatKey(event, 'low-stock')">
               <div class="dashboard-combo-meta">Low</div>
               <div class="dashboard-combo-value" id="stat-low-inline">—</div>
             </div>
-            <div class="dashboard-combo-item inventory">
+            <div class="dashboard-combo-item inventory dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('inventory')" onkeydown="handleDashboardStatKey(event, 'inventory')">
               <div class="dashboard-combo-meta">Inv</div>
               <div class="dashboard-combo-value" id="stat-inv-inline">—</div>
             </div>
-            <div class="dashboard-combo-item products">
+            <div class="dashboard-combo-item products dashboard-stat-link" role="button" tabindex="0" onclick="openDashboardStat('products')" onkeydown="handleDashboardStatKey(event, 'products')">
               <div class="dashboard-combo-meta">Prod</div>
               <div class="dashboard-combo-value" id="stat-products-inline">—</div>
             </div>
@@ -4280,26 +4347,20 @@
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="restaurant-average-ticket">$0.00</div><div class="stat-sub">per visit</div></div>
         <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
       </div>
-      <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(0,2fr);gap:16px;align-items:start">
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Dining Budget</span>
-            <input type="month" id="restaurant-budget-month" onchange="loadRestaurantBudget()" style="width:160px" />
-          </div>
-          <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
-            <div class="form-group"><label>Monthly Target</label><input id="restaurant-budget-amount" type="number" step="0.01" placeholder="e.g. 300" /></div>
-            <div><button class="btn btn-primary" id="restaurant-budget-save" type="button" onclick="saveRestaurantBudget()">Save</button></div>
-          </div>
-          <div id="restaurant-budget-status" style="margin-top:14px"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Dining Budget</span>
+          <input type="month" id="restaurant-budget-month" onchange="loadRestaurantBudget()" style="width:160px" />
         </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Selected Receipt</span></div>
-          <div id="restaurant-detail-body"><div class="empty-state"><p>Select a restaurant receipt to inspect totals and line items.</p></div></div>
+        <div class="form-grid" style="grid-template-columns:minmax(0,1fr) auto;align-items:end">
+          <div class="form-group"><label>Monthly Target</label><input id="restaurant-budget-amount" type="number" step="0.01" placeholder="e.g. 300" /></div>
+          <div><button class="btn btn-primary" id="restaurant-budget-save" type="button" onclick="saveRestaurantBudget()">Save</button></div>
         </div>
+        <div id="restaurant-budget-status" style="margin-top:14px"></div>
       </div>
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Restaurant Receipts</span>
+          <span class="card-title">Receipt Review</span>
           <div class="table-toolbar">
             <select id="restaurant-period" onchange="loadRestaurant()">
               <option value="3">Last 3 months</option>
@@ -4415,8 +4476,9 @@
         </div>
         <div class="form-grid">
           <div class="form-group"><label>Name</label><input id="shop-name" placeholder="e.g. Milk" /></div>
-          <div class="form-group"><label>Category</label><input id="shop-category" placeholder="e.g. dairy" value="other" /></div>
+          <div class="form-group"><label>Category</label><select id="shop-category"></select></div>
           <div class="form-group"><label>Preferred Store</label><select id="shop-manual-store"></select></div>
+          <div class="form-group"><label>Estimate Price</label><input id="shop-manual-price" type="number" min="0" step="0.01" placeholder="optional" /></div>
           <div class="form-group"><label>Quantity</label><input id="shop-qty" type="number" min="0" step="0.1" value="1" /></div>
           <div class="form-group"><label>Note</label><input id="shop-note" placeholder="optional note" /></div>
         </div>
@@ -4429,7 +4491,7 @@
             <button type="button" class="btn btn-ghost btn-sm" id="shopping-quick-toggle" onclick="toggleShoppingSection('quick-find')">Collapse</button>
             <input id="shop-quick-search" class="shopping-quick-search" placeholder="Find products to add..." onfocus="handleShoppingQuickFindFocus()" onblur="handleShoppingQuickFindBlur()" oninput="searchShoppingQuickFind()" onkeydown="handleShoppingQuickFindKey(event)" />
             <select id="shop-preferred-store" class="shopping-quick-store"></select>
-            <button type="button" class="btn btn-ghost btn-sm" id="shop-manual-toggle" onclick="toggleManualShoppingForm()">Manual Item</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="shop-manual-toggle" onclick="toggleManualShoppingForm()">Add Manually</button>
           </div>
         </div>
         <div id="shopping-quick-find-body">
@@ -5200,7 +5262,6 @@ const PAGE_STORAGE_KEY = 'extended_last_page';
 const SIDEBAR_COLLAPSED_KEY = 'extended_sidebar_collapsed';
 let catalogMode = 'inventory';
 let selectedReceiptMonth = null;
-let selectedRestaurantReceiptId = null;
 let selectedExpenseReceiptId = null;
 let latestReceiptSummary = {};
 let receiptBudgetRequestId = 0;
@@ -6353,6 +6414,14 @@ function populateInventoryManualCategorySelect() {
   const currentValue = select.value || 'other';
   select.innerHTML = renderInventoryManualCategoryOptionTags(currentValue);
   select.value = INVENTORY_MANUAL_CATEGORY_OPTIONS.includes(currentValue) ? currentValue : 'other';
+}
+
+function populateShoppingManualCategorySelect() {
+  const select = document.getElementById('shop-category');
+  if (!select) return;
+  const currentValue = select.value || 'other';
+  select.innerHTML = renderProductCategoryOptionTags(currentValue);
+  select.value = PRODUCT_CATEGORY_OPTIONS.includes(currentValue) ? currentValue : 'other';
 }
 
 function updateInventoryAddDetailsVisibility() {
@@ -10591,6 +10660,7 @@ async function loadInventory() {
   await loadInventorySearchAssist();
   populateInventoryManualCategorySelect();
   populateInventoryStoreSelect();
+  populateShoppingManualCategorySelect();
   renderInventoryUnitChips();
   updateInventoryAddCardVisibility();
   updateInventoryAddDetailsVisibility();
@@ -11354,6 +11424,29 @@ async function jumpToReceipt(id) {
   await loadReceipts();
 }
 
+async function openRestaurantReceipts() {
+  selectedReceiptId = null;
+  [
+    'receipt-filter-store',
+    'receipt-filter-source',
+    'receipt-filter-status',
+    'receipt-filter-purchase-from',
+    'receipt-filter-purchase-to',
+    'receipt-filter-upload-from',
+    'receipt-filter-upload-to',
+  ].forEach(filterId => {
+    const el = document.getElementById(filterId);
+    if (el) el.value = '';
+  });
+  const typeDesktop = document.getElementById('receipt-filter-type');
+  const typeMobile = document.getElementById('receipt-filter-type-mobile');
+  if (typeDesktop) typeDesktop.value = 'restaurant';
+  if (typeMobile) typeMobile.value = 'restaurant';
+  const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
+  nav('receipts', receiptNav);
+  await loadReceipts();
+}
+
 async function toggleReceiptDetail(id) {
   const targetId = Number(id);
   if (!isCompactMobileReceiptView() && document.getElementById('page-receipts')?.classList.contains('active')) {
@@ -11419,6 +11512,7 @@ async function createShoppingItem() {
     name,
     category: document.getElementById('shop-category').value.trim() || 'other',
     preferred_store: document.getElementById('shop-manual-store')?.value || '',
+    manual_estimated_price: document.getElementById('shop-manual-price')?.value || '',
     quantity: parseFloat(document.getElementById('shop-qty').value) || 1,
     note: document.getElementById('shop-note').value.trim(),
     source: 'manual',
@@ -11426,6 +11520,7 @@ async function createShoppingItem() {
   document.getElementById('shop-name').value = '';
   document.getElementById('shop-category').value = 'other';
   document.getElementById('shop-manual-store').value = '';
+  document.getElementById('shop-manual-price').value = '';
   document.getElementById('shop-qty').value = '1';
   document.getElementById('shop-note').value = '';
   toggleManualShoppingForm(false);
@@ -11458,7 +11553,8 @@ function toggleManualShoppingForm(forceVisible = null) {
   const card = document.getElementById('shop-manual-card');
   const toggle = document.getElementById('shop-manual-toggle');
   if (card) card.style.display = shoppingManualVisible ? 'block' : 'none';
-  if (toggle) toggle.textContent = shoppingManualVisible ? 'Hide Manual' : 'Manual Item';
+  if (toggle) toggle.textContent = shoppingManualVisible ? 'Hide Manual' : 'Add Manually';
+  populateShoppingManualCategorySelect();
   if (shoppingManualVisible) {
     const query = document.getElementById('shop-quick-search')?.value?.trim() || '';
     if (query && !document.getElementById('shop-name')?.value?.trim()) {
@@ -11584,7 +11680,6 @@ function renderShoppingQuickResults() {
     body.innerHTML = `
       <div class="empty-state">
         <p>Find products from your catalog to add to shopping, mark low, or mark bought.</p>
-        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="toggleManualShoppingForm(true)">Add manual item instead</button>
       </div>`;
     return;
   }
@@ -11831,23 +11926,33 @@ function renderShoppingListTable() {
     }
     return compareText(a, b, 'asc');
   });
+  const storeEstimateForItems = list => Math.round(list.reduce((sum, item) => {
+    const itemEstimate = item.estimateTotal != null
+      ? Number(item.estimateTotal || 0)
+      : (Number(item.latest_price?.price || 0) * Number(item.quantity || 1));
+    return sum + itemEstimate;
+  }, 0) * 100) / 100;
   const isMobileShoppingList = () => !SHOPPING_HELPER_MODE && window.innerWidth <= 640;
   const renderMobileStoreCards = (groups, options = {}) => sortShoppingGroups(groups)
     .map(([storeName, rawStoreItems]) => {
       const storeItems = mergeShoppingDisplayItems(rawStoreItems);
+      const storeEstimate = storeEstimateForItems(storeItems);
       const sectionKey = options.sectionKey || selectedStatus || 'current';
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="shopping-mobile-store-card" style="${options.dimmed ? 'opacity:0.92;' : ''}">
         <div class="shopping-mobile-store-head">
           <div class="shopping-mobile-store-title">${escHtml(storeName)}</div>
-          <button
-            type="button"
-            class="card-header-inline-stat"
-            onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
-            aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
-            title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
-          >${storeItems.length}</button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
+            <button
+              type="button"
+              class="card-header-inline-stat"
+              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+              title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+            >${storeItems.length}</button>
+          </div>
         </div>
         <div class="shopping-mobile-item-list" style="display:${collapsed ? 'none' : ''}">
           ${sortShoppingItems(storeItems).map(item => `
@@ -11892,19 +11997,23 @@ function renderShoppingListTable() {
   const renderStoreTables = (groups, options = {}) => sortShoppingGroups(groups)
     .map(([storeName, rawStoreItems]) => {
       const storeItems = mergeShoppingDisplayItems(rawStoreItems);
+      const storeEstimate = storeEstimateForItems(storeItems);
       const sectionKey = options.sectionKey || selectedStatus || 'current';
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
         <div class="card-header">
           <span class="card-title">${escHtml(storeName)}</span>
-          <button
-            type="button"
-            class="card-header-inline-stat"
-            onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
-            aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
-            title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
-          >${storeItems.length}</button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
+            <button
+              type="button"
+              class="card-header-inline-stat"
+              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+              title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+            >${storeItems.length}</button>
+          </div>
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table class="shopping-store-table">
@@ -12428,7 +12537,7 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addReceiptEditorRow(${receipt.id})">Add Item</button>
       </div>
-      ${compactReceiptMobile
+      ${(compactReceiptMobile || inlineLayout)
         ? `<div id="receipt-editor-items-${receipt.id}" class="receipt-mobile-list"></div>`
         : `<div class="table-wrap">
             <table>
@@ -12735,14 +12844,41 @@ function renderMobileMetricCards(rows = []) {
 
 function renderReceiptLineItemCards(items = []) {
   if (!items.length) return '<div class="empty-state"><p>No line items saved yet.</p></div>';
-  return renderMobileMetricCards(items.map(item => ({
-    title: item.name || item.product_name || 'Unknown',
-    value: formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || item.average_price || 0) || 0)),
-    cells: [
-      { label: 'Qty', value: String(item.quantity ?? 1) },
-      { label: 'Unit', value: formatMoney(item.unit_price || item.average_price || 0) }
-    ]
-  })));
+  return `<div class="mobile-data-list">
+    ${items.map(item => {
+      const quantity = Number(item.quantity ?? 1) || 1;
+      const unitPrice = Number(item.unit_price || item.average_price || 0) || 0;
+      const total = quantity * unitPrice;
+      return `
+        <div class="mobile-data-card">
+          <div class="mobile-data-top">
+            <div class="mobile-data-title">${escHtml(item.name || item.product_name || 'Unknown')}</div>
+            <div class="mobile-data-value">${formatMoney(total)}</div>
+          </div>
+          <div class="mobile-data-meta" style="display:flex;gap:10px;flex-wrap:wrap">
+            <span>Qty ${escHtml(String(item.quantity ?? 1))}</span>
+            <span>Unit ${formatMoney(unitPrice)}</span>
+          </div>
+        </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderCompactTopItemCards(items = [], averageLabel = 'Avg') {
+  if (!items.length) return '<div class="empty-state"><p>No data yet.</p></div>';
+  return `<div class="mobile-data-list">
+    ${items.map(item => `
+      <div class="mobile-data-card">
+        <div class="mobile-data-top">
+          <div class="mobile-data-title">${escHtml(item.name || 'Unknown')}</div>
+          <div class="mobile-data-value">${formatMoney(item.total || 0)}</div>
+        </div>
+        <div class="mobile-data-meta" style="display:flex;gap:10px;flex-wrap:wrap">
+          <span>Qty ${escHtml(String(item.quantity ?? 0))}</span>
+          <span>${escHtml(averageLabel)} ${formatMoney(item.average_price || 0)}</span>
+        </div>
+      </div>`).join('')}
+  </div>`;
 }
 
 function renderCompactReceiptRows(receipts = [], options = {}) {
@@ -13134,69 +13270,43 @@ async function loadRestaurant() {
     const topItems = summaryData.top_items || [];
     topItemsEl.innerHTML = topItems.length
       ? (compact
-          ? renderMobileMetricCards(topItems.map(item => ({
-              title: item.name,
-              value: formatMoney(item.total),
-              cells: [
-                { label: 'Qty', value: String(item.quantity) },
-                { label: 'Avg', value: formatMoney(item.average_price || 0) }
-              ]
-            })))
+          ? renderCompactTopItemCards(topItems, 'Avg')
           : `<table>
               <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Avg</th></tr></thead>
               <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td><td>${formatMoney(item.average_price || 0)}</td></tr>`).join('')}</tbody>
             </table>`)
       : '<div class="empty-state"><p>No restaurant line items yet.</p></div>';
   }
-  body.innerHTML = receipts.length ? `
+  body.innerHTML = `
     <div style="display:grid;gap:16px">
       <div class="card" style="margin-bottom:0">
-        <div class="card-header"><span class="card-title">Monthly Dining Spend</span></div>
-        ${periodRows.length
-          ? (compact
-              ? renderMobileMetricCards(periodRows.map(([period, values]) => ({
-                  title: period,
-                  value: formatMoney(values.total),
-                  cells: [{ label: 'Visits', value: String(values.count ?? 0) }]
-                })))
-              : `<table>
-                  <thead><tr><th>Month</th><th>Total</th><th>Visits</th></tr></thead>
-                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.count ?? 0}</td></tr>`).join('')}</tbody>
-                </table>`)
-          : '<div class="empty-state"><p>No restaurant spending data yet.</p></div>'}
-      </div>
-      <div class="card" style="margin-bottom:0">
-        <div class="card-header"><span class="card-title">Recent Restaurant Receipts</span></div>
-        <div class="contrib-list">
-          ${receipts.slice(0, 12).map(receipt => `
-            <div class="contrib-list-item">
-              <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                <div style="min-width:0;flex:1">
-                  <strong>${escHtml(receipt.store || 'Unknown')}</strong>
-                  <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="viewRestaurantReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
-                </div>
-              </div>
-            </div>
-          `).join('')}
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Open Restaurant Receipts in Receipts</span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openRestaurantReceipts()">Open Receipts</button>
         </div>
+        <p style="color:var(--muted);font-size:0.86rem;line-height:1.45;margin-bottom:12px">Use the shared Receipts workspace to inspect images, review OCR items, and edit restaurant receipts. Restaurant stays focused on dining summary and budget.</p>
+        ${receipts.length
+          ? `<div class="contrib-list">
+              ${receipts.slice(0, compact ? 4 : 6).map(receipt => `
+                <div class="contrib-list-item">
+                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="min-width:0;flex:1">
+                      <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                      <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open in Receipts</button>
+                    </div>
+                  </div>
+                </div>`).join('')}
+            </div>`
+          : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>'}
       </div>
     </div>
-  ` : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>';
+  `;
 
   await loadRestaurantBudget();
-  const candidateReceiptId = receipts.find(r => Number(r.purchase_id || r.id) === Number(selectedRestaurantReceiptId))
-    ? selectedRestaurantReceiptId
-    : receipts[0]?.purchase_id || receipts[0]?.id;
-  if (candidateReceiptId) {
-    await viewRestaurantReceiptDetail(candidateReceiptId);
-  } else {
-    renderRestaurantReceiptDetail(null);
-  }
 }
 
 function ensureRestaurantBudgetMonth() {
@@ -13263,60 +13373,6 @@ async function saveRestaurantBudget() {
   await loadRestaurantBudget();
 }
 
-function renderRestaurantReceiptDetail(receipt) {
-  const body = document.getElementById('restaurant-detail-body');
-  if (!body) return;
-  if (!receipt) {
-    body.innerHTML = '<div class="empty-state"><p>Select a restaurant receipt to inspect totals and line items.</p></div>';
-    return;
-  }
-  const data = receipt.editable_data || receipt.raw_ocr_data || {};
-  const items = (data.items || []).filter(Boolean);
-  const repeatTotal = Number(data.total || receipt.total || 0);
-  const compact = isCompactMobileReceiptView();
-  body.innerHTML = `
-    <div style="display:grid;gap:14px">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Restaurant')}</div>
-          <div class="contrib-meta">${escHtml(data.store_location || 'Address not captured')}</div>
-          <div class="contrib-meta">${escHtml(data.date || receipt.date || '—')}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
-        </div>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(${compact ? 2 : 4},minmax(0,1fr));gap:10px">
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
-        <div class="stat-card success" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(repeatTotal)}</div></div>
-      </div>
-      <div class="card" style="margin-bottom:0;background:var(--surface2)">
-        <div class="card-header" style="margin-bottom:10px">
-          <span class="card-title" style="font-size:0.95rem">Repeat Order Estimate</span>
-          <span class="contrib-points">${formatMoney(repeatTotal)}</span>
-        </div>
-        <div class="contrib-meta">If you order the same items again, this receipt suggests a rough bill around ${formatMoney(repeatTotal)} before future price changes.</div>
-      </div>
-      ${compact
-        ? renderReceiptLineItemCards(items)
-        : (items.length ? `<table>
-            <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
-            <tbody>${items.map(item => `<tr><td>${escHtml(item.name || item.product_name || 'Unknown')}</td><td>${escHtml(String(item.quantity ?? 1))}</td><td>${formatMoney(item.unit_price || 0)}</td><td>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || 0) || 0))}</td></tr>`).join('')}</tbody>
-          </table>` : '<div class="empty-state"><p>No restaurant line items saved yet.</p></div>')}
-    </div>`;
-}
-
-async function viewRestaurantReceiptDetail(id) {
-  selectedRestaurantReceiptId = Number(id);
-  const res = await api(`/receipts/${id}`);
-  if (!res.ok) {
-    renderRestaurantReceiptDetail(null);
-    return;
-  }
-  const receipt = await res.json();
-  renderRestaurantReceiptDetail(receipt);
-}
-
 // ============================================================
 // Expenses
 // ============================================================
@@ -13369,14 +13425,7 @@ async function loadExpenses() {
     const topItems = summaryData.top_items || [];
     topItemsEl.innerHTML = topItems.length
       ? (compact
-          ? renderMobileMetricCards(topItems.map(item => ({
-              title: item.name,
-              value: formatMoney(item.total),
-              cells: [
-                { label: 'Qty', value: String(item.quantity) },
-                { label: 'Avg', value: formatMoney(item.average_price || 0) }
-              ]
-            })))
+          ? renderCompactTopItemCards(topItems, 'Avg')
           : `<table>
               <thead><tr><th>Item</th><th>Qty</th><th>Total</th><th>Avg</th></tr></thead>
               <tbody>${topItems.map(item => `<tr><td>${escHtml(item.name)}</td><td>${escHtml(String(item.quantity))}</td><td>${formatMoney(item.total)}</td><td>${formatMoney(item.average_price || 0)}</td></tr>`).join('')}</tbody>

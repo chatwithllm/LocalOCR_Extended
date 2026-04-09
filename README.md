@@ -13,6 +13,26 @@ It is designed to help a household:
 
 It also supports a read-only guest demo experience for non-logged-in visitors, so the product can be explored with realistic sample data before a household account is created or used.
 
+## Screenshots
+
+### Products And Catalog Cleanup
+
+Catalog search, OCR-normalized product families, rename support, and household product cleanup.
+
+![Products catalog view](docs/images/readme/products-catalog.png)
+
+### Receipts And OCR Review
+
+Inline receipt review with image preview, extracted items, and correction tools.
+
+![Receipts inline review](docs/images/readme/receipts-inline-review.png)
+
+### Mobile Dashboard Summary
+
+Compact mobile dashboard cards for low stock, top picks, and shopping awareness.
+
+![Mobile dashboard summary](docs/images/readme/dashboard-mobile-summary.png)
+
 ## What The Product Does
 
 `LocalOCR Extended` has three main domains:
