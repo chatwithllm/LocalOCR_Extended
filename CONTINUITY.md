@@ -358,6 +358,11 @@ Smoke-test target after Phase 1:
   - opened inline receipts now include a `Close Receipt` action inside the expanded shell
   - extracted-items rows are denser on web
   - the web receipt editor now uses a split action lane for `Remove` instead of treating it like a full data column
+- refund Phase 2 presentation polish is now layered on top of the accounting foundation:
+  - Budget category contribution rows now show an explicit refund/purchase badge
+  - Restaurant recent-receipt cards now show refund state and signed totals instead of looking like normal visits
+  - Expense recent-receipt cards now show refund state and signed totals
+  - Expense selected-receipt detail now shows refund state and uses the signed total treatment consistently
   - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work

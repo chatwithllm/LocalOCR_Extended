@@ -7636,6 +7636,19 @@ function receiptDisplayTotal(receipt) {
   return normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund' ? -Math.abs(total) : total;
 }
 
+function receiptTransactionBadgeHtml(value) {
+  const type = normalizeReceiptTransactionType(value);
+  return `<span class="badge badge-${type === 'refund' ? 'warning' : 'ok'}">${escHtml(formatReceiptTransactionLabel(type))}</span>`;
+}
+
+function receiptTransactionMetaText(receipt, fallbackDate = '—') {
+  const parts = [
+    receipt?.date || fallbackDate,
+    formatReceiptTransactionLabel(receipt?.transaction_type),
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
+
 function formatMoneyCompactOneDecimal(value) {
   const amount = Number(value || 0);
   const prefix = amount < 0 ? '-$' : '$';
@@ -14337,8 +14350,11 @@ function renderBudgetStatusRow(item, selectedCategory) {
                 <div class="contrib-list-item" style="padding:10px 12px">
                   <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                     <div style="min-width:0;flex:1">
-                      <strong>${escHtml(entry.store || 'Unknown')}</strong>
-                      <div class="contrib-meta">${escHtml(entry.date || '—')} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <strong>${escHtml(entry.store || 'Unknown')}</strong>
+                        ${receiptTransactionBadgeHtml(entry.transaction_type)}
+                      </div>
+                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(entry))} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                       <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
@@ -14539,11 +14555,14 @@ async function loadRestaurant() {
                 <div class="contrib-list-item">
                   <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                     <div style="min-width:0;flex:1">
-                      <strong>${escHtml(receipt.store || 'Unknown')}</strong>
-                      <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                        ${receiptTransactionBadgeHtml(receipt.transaction_type)}
+                      </div>
+                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                      <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open in Receipts</button>
                     </div>
                   </div>
@@ -14722,11 +14741,14 @@ async function loadExpenses() {
             <div class="contrib-list-item">
               <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                 <div style="min-width:0;flex:1">
-                  <strong>${escHtml(receipt.store || 'Unknown')}</strong>
-                  <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                    ${receiptTransactionBadgeHtml(receipt.transaction_type)}
+                  </div>
+                  <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                  <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="viewExpenseReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
                 </div>
@@ -14822,15 +14844,18 @@ function renderExpenseReceiptDetail(receipt) {
   }
   const data = receipt.editable_data || receipt.raw_ocr_data || {};
   const items = (data.items || []).filter(Boolean);
-  const total = Number(data.total || receipt.total || 0);
+  const total = receiptDisplayTotal(receipt || data);
   const compact = isCompactMobileReceiptView();
   body.innerHTML = `
     <div style="display:grid;gap:14px">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
         <div>
-          <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Merchant')}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Merchant')}</div>
+            ${receiptTransactionBadgeHtml(receipt?.transaction_type)}
+          </div>
           <div class="contrib-meta">${escHtml(data.store_location || 'Location not captured')}</div>
-          <div class="contrib-meta">${escHtml(data.date || receipt.date || '—')}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+          <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt, data.date || receipt.date || '—'))}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
         </div>
         <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
       </div>
@@ -14838,7 +14863,7 @@ function renderExpenseReceiptDetail(receipt) {
         <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
         <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
         <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
-        <div class="stat-card success" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
+        <div class="stat-card ${normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund' ? 'warning' : 'success'}" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
       </div>
       ${compact
         ? renderReceiptLineItemCards(items)
