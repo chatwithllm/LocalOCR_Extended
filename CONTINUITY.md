@@ -189,6 +189,7 @@ This split gives you a clean safety net:
 - future-enhancement planning docs now exist in-repo:
   - `future enhancements/multi household.md`
   - `future enhancements/budget domains.md`
+  - `future enhancements/units and size labels.md`
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`
@@ -221,6 +222,43 @@ This split gives you a clean safety net:
   - the main `Budget` page now edits monthly targets by budget category instead of by domain
   - the main `Budget` page now renders active and inactive category cards from effective line-item rollups
   - legacy budget consumers like Restaurant / Expenses / Grocery still work through the old domain endpoint, with category-target fallback where that mapping is meaningful
+- budgeting follow-up UX/data work is now implemented on the feature branch:
+  - saves now append to a real `budget_change_log`
+  - the Budget page now shows:
+    - compact active-category rows with collapsed summaries
+    - expandable category details
+    - current budget targets
+    - budget change history
+    - contributing receipt breakdowns when a category is expanded
+  - inactive and zero categories are now grouped under `Other Categories`
+  - `Set Monthly Budget`, `Current Budget Targets`, and `Budget Change History` now default to collapsed on mobile-first layouts
+  - category target saves now preload the current saved amount back into the editor
+  - repeated receipt updates now preserve the existing linked purchase instead of creating duplicate purchases
+  - budget contribution rows now use real receipt/store/item naming instead of `Unknown` fallbacks
+- budgeting receipt editor cleanup is now implemented:
+  - visible `Default Spending Domain` was removed from the shared editor
+  - `Default Budget Category` now reads simply as `Budget Category`
+  - line-item `Category` now reads as `Item Group`
+  - visible line-item `Spending Domain` control was removed from the main editing flow
+- unit/size-label enhancement is now implemented through Phase 2:
+  - schema/runtime migration now supports:
+    - `products.default_unit`
+    - `products.default_size_label`
+    - `receipt_items.unit`
+    - `receipt_items.size_label`
+    - `shopping_list_items.unit`
+    - `shopping_list_items.size_label`
+  - legacy receipt and shopping rows are backfilled to `unit = each`
+  - receipt editor and manual entry now expose:
+    - `Unit`
+    - `Size Label`
+  - payload serialization now preserves the new fields through receipt edits and shopping/manual flows
+- receipts desktop inline workflow was refined further:
+  - desktop Receipts now uses a single-column inline-detail mode instead of reserving the old dead right-hand pane
+  - opened inline receipts now include a `Close Receipt` action inside the expanded shell
+  - extracted-items rows are denser on web
+  - the web receipt editor now uses a split action lane for `Remove` instead of treating it like a full data column
+  - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work
 
@@ -289,6 +327,16 @@ Operational and product items that are not fully closed yet:
   - still pending:
     - event naming/reporting
     - migration quality/cleanup passes
+- the unit/size-label enhancement is now through Phase 2:
+  - planning doc exists in `future enhancements/units and size labels.md`
+  - implemented:
+    - schema/runtime migration
+    - receipt editor controls
+    - manual-entry support
+    - payload serialization
+  - still pending for the unit/size stream:
+    - shopping display formatting
+    - product-level defaults in the UI
 
 ## 6. Planned Next
 
@@ -312,6 +360,8 @@ High-value next work from the current state:
 - start phased budgeting implementation from the design now captured in `future enhancements/budget domains.md`:
   - Phase 5: event naming/reporting support
   - Phase 6: migration quality, recategorization helpers, and cleanup passes
+- continue the unit-and-size enhancement from `future enhancements/units and size labels.md`:
+  - Phase 3: shopping/product display updates that use those fields
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

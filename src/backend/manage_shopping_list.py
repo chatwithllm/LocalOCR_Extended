@@ -132,6 +132,8 @@ def _serialize_item(item: ShoppingListItem) -> dict:
         "product_full_name": product_full_name,
         "category": item.category,
         "quantity": item.quantity,
+        "unit": getattr(item, "unit", None) or getattr(product, "default_unit", None) or "each",
+        "size_label": getattr(item, "size_label", None) or getattr(product, "default_size_label", None),
         "status": item.status,
         "source": item.source,
         "note": item.note,
@@ -329,6 +331,8 @@ def add_shopping_item():
     preferred_store = canonicalize_store_name(data.get("preferred_store")) if data.get("preferred_store") else None
     manual_estimated_price = data.get("manual_estimated_price")
     manual_estimated_price = float(manual_estimated_price) if manual_estimated_price not in (None, "", False) else None
+    unit = (str(data.get("unit", "each") or "each").strip().lower() or "each")
+    size_label = (str(data.get("size_label", "") or "").strip() or None)
 
     product = None
     product_id = data.get("product_id")
@@ -342,6 +346,8 @@ def add_shopping_item():
             raw_name=raw_name,
             display_name=name,
             category=category,
+            default_unit=unit,
+            default_size_label=size_label,
         )
         product.review_state = "pending" if should_enrich_product_name(raw_name, category) else "resolved"
         session.add(product)
@@ -377,6 +383,10 @@ def add_shopping_item():
             existing.name = get_product_display_name(product)
         if manual_estimated_price is not None:
             existing.manual_estimated_price = manual_estimated_price
+        if "unit" in data:
+            existing.unit = unit
+        if "size_label" in data:
+            existing.size_label = size_label
         if source == "recommendation":
             _ensure_pending_recommendation_event(session, existing)
         session.commit()
@@ -393,6 +403,8 @@ def add_shopping_item():
         note=note,
         preferred_store=preferred_store,
         manual_estimated_price=manual_estimated_price,
+        unit=unit,
+        size_label=size_label,
     )
     session.add(item)
     session.flush()
@@ -465,6 +477,10 @@ def update_shopping_item(item_id):
             )
     if "manual_estimated_price" in data:
         item.manual_estimated_price = float(data["manual_estimated_price"]) if data.get("manual_estimated_price") not in (None, "", False) else None
+    if "unit" in data:
+        item.unit = (str(data.get("unit", "each") or "each").strip().lower() or "each")
+    if "size_label" in data:
+        item.size_label = (str(data.get("size_label", "") or "").strip() or None)
 
     persist_latest_price = bool(data.get("persist_latest_price"))
     if persist_latest_price and item.manual_estimated_price not in (None, "", False):

@@ -38,6 +38,20 @@ Current implementation state:
     - preloads the selected category's saved target
     - renders active and inactive category cards from effective line-item rollups
   - legacy domain budget views can fall back to category targets where that mapping is meaningful
+- Phase 4 follow-up UX/data work is also complete in code:
+  - budget saves now append to a real `budget_change_log`
+  - the page now includes:
+    - current budget targets
+    - budget change history
+    - expanded contributing-receipt breakdowns
+  - active category rows now use a compact collapsed summary with:
+    - `% spent`
+    - `$ spent`
+    - target
+  - inactive categories collapse under `Other Categories`
+  - budget-management cards now default to collapsed for mobile-first use
+  - duplicate purchase creation during repeated receipt updates was fixed so category totals stop double-counting the same receipt
+  - contribution rows now carry real receipt/store/item naming instead of `Unknown`
 - Still pending:
   - event naming/reporting
   - migration quality / cleanup
@@ -202,15 +216,6 @@ Each line item in receipt review can optionally override:
 
 Recommended options in the line-item editor:
 
-For spending domain:
-
-- `Use Receipt Default`
-- `Grocery`
-- `Restaurant`
-- `General Expenses`
-- `Events`
-- `Other`
-
 For budget category:
 
 - `Use Receipt Default`
@@ -230,6 +235,18 @@ This means:
 
 - simple receipts can be reviewed with one receipt-level choice
 - mixed receipts can be split accurately without forcing every line item to be manually classified
+
+Note on current UI simplification:
+
+- the visible `Default Spending Domain` editor control has been removed from the main receipt-edit flow
+- the visible line-item `Spending Domain` control has also been removed from the main editor flow
+- the current UI intentionally centers on:
+  - `Receipt Type`
+  - `Budget Category`
+  - line-item `Item Group`
+  - line-item `Budget Category`
+
+This keeps the workflow understandable while the deeper domain model remains available in backend allocation logic.
 
 
 ### 3. Event Support

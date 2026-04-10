@@ -139,6 +139,34 @@ Extended-specific runtime changes now in place:
   - trusted-device scopes now affect runtime:
     - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
     - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
+- budgeting redesign is now substantially in place on the feature branch:
+  - purchases persist:
+    - `default_spending_domain`
+    - `default_budget_category`
+  - receipt items persist optional overrides:
+    - `spending_domain`
+    - `budget_category`
+  - backend rollups now allocate by effective line-item category
+  - `Budget` now uses category targets plus:
+    - current targets
+    - change history
+    - contributing receipt breakdowns
+  - repeated receipt updates now preserve the existing purchase instead of duplicating it
+  - receipt-edit budgeting UI is simplified around:
+    - `Receipt Type`
+    - `Budget Category`
+    - line-item `Item Group`
+    - line-item `Budget Category`
+- unit / size-label enhancement is now through Phase 2 on the feature branch:
+  - schema/runtime migration support exists for product, receipt-item, and shopping-item unit metadata
+  - legacy rows backfill to `unit = each`
+  - receipt editor and manual entry now expose:
+    - `Unit`
+    - `Size Label`
+- desktop Receipts inline review flow is now cleaner on the feature branch:
+  - old dead right-hand detail column is removed during inline mode
+  - inline receipts include an in-panel `Close Receipt` action
+  - extracted items and the web receipt editor use denser row layouts and a separate remove-action lane
 - full environment backup/restore is now implemented:
   - backup bundle creation script
   - restore script

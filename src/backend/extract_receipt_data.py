@@ -728,6 +728,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             )
             quantity = _safe_float(item_data.get("quantity", 1), 1.0)
             unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
+            unit = (str(item_data.get("unit", "each") or "each").strip().lower() or "each")
+            size_label = (str(item_data.get("size_label", "") or "").strip() or None)
             item_spending_domain = normalize_spending_domain(
                 item_data.get("spending_domain"),
                 default="",
@@ -774,6 +776,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 product_id=product.id,
                 quantity=quantity,
                 unit_price=unit_price,
+                unit=unit,
+                size_label=size_label,
                 spending_domain=item_spending_domain,
                 budget_category=item_budget_category,
                 extracted_by=engine,

@@ -101,6 +101,8 @@ class Product(Base):
     display_name = Column(String(255), nullable=True)
     brand = Column(String(120), nullable=True)
     size = Column(String(80), nullable=True)
+    default_unit = Column(String(40), nullable=True)
+    default_size_label = Column(String(120), nullable=True)
     enrichment_confidence = Column(Float, nullable=True)
     enriched_at = Column(DateTime, nullable=True)
     review_state = Column(String(20), nullable=True, default="pending")  # pending, resolved, dismissed
@@ -206,6 +208,8 @@ class ReceiptItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, nullable=False, default=1)
     unit_price = Column(Float, nullable=False)
+    unit = Column(String(40), nullable=True)
+    size_label = Column(String(120), nullable=True)
     spending_domain = Column(String(30), nullable=True)
     budget_category = Column(String(40), nullable=True)
     extracted_by = Column(String(20), nullable=True)  # "gemini" or "ollama"
@@ -287,6 +291,8 @@ class ShoppingListItem(Base):
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=True)
     quantity = Column(Float, nullable=False, default=1)
+    unit = Column(String(40), nullable=True)
+    size_label = Column(String(120), nullable=True)
     status = Column(String(20), nullable=False, default="open")  # open, purchased
     source = Column(String(30), nullable=True)  # recommendation, inventory, product, manual
     note = Column(String(500), nullable=True)
@@ -460,6 +466,10 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE products ADD COLUMN brand VARCHAR(120)"))
         if "size" not in product_columns:
             conn.execute(text("ALTER TABLE products ADD COLUMN size VARCHAR(80)"))
+        if "default_unit" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN default_unit VARCHAR(40)"))
+        if "default_size_label" not in product_columns:
+            conn.execute(text("ALTER TABLE products ADD COLUMN default_size_label VARCHAR(120)"))
         if "enrichment_confidence" not in product_columns:
             conn.execute(text("ALTER TABLE products ADD COLUMN enrichment_confidence FLOAT"))
         if "enriched_at" not in product_columns:
@@ -534,6 +544,16 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE receipt_items ADD COLUMN spending_domain VARCHAR(30)"))
         if receipt_item_columns and "budget_category" not in receipt_item_columns:
             conn.execute(text("ALTER TABLE receipt_items ADD COLUMN budget_category VARCHAR(40)"))
+        if receipt_item_columns and "unit" not in receipt_item_columns:
+            conn.execute(text("ALTER TABLE receipt_items ADD COLUMN unit VARCHAR(40)"))
+        if receipt_item_columns and "size_label" not in receipt_item_columns:
+            conn.execute(text("ALTER TABLE receipt_items ADD COLUMN size_label VARCHAR(120)"))
+        if receipt_item_columns:
+            conn.execute(text("""
+                UPDATE receipt_items
+                SET unit = 'each'
+                WHERE COALESCE(NULLIF(TRIM(unit), ''), '') = ''
+            """))
 
         budget_columns = {
             row[1]
@@ -623,6 +643,16 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN preferred_store VARCHAR(120)"))
         if shopping_columns and "manual_estimated_price" not in shopping_columns:
             conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN manual_estimated_price FLOAT"))
+        if shopping_columns and "unit" not in shopping_columns:
+            conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN unit VARCHAR(40)"))
+        if shopping_columns and "size_label" not in shopping_columns:
+            conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN size_label VARCHAR(120)"))
+        if shopping_columns:
+            conn.execute(text("""
+                UPDATE shopping_list_items
+                SET unit = 'each'
+                WHERE COALESCE(NULLIF(TRIM(unit), ''), '') = ''
+            """))
 
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS inventory_adjustments (

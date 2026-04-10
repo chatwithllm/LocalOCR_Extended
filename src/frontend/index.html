@@ -508,9 +508,19 @@
       display: grid;
       gap: 18px;
     }
+    .receipt-inline-detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: -2px;
+    }
+    .receipt-inline-detail-head .card-title {
+      margin: 0;
+    }
     .receipt-inline-detail-layout {
       display: grid;
-      grid-template-columns: minmax(280px, 0.88fr) minmax(0, 1.12fr);
+      grid-template-columns: minmax(220px, 0.56fr) minmax(0, 1.44fr);
       gap: 18px;
       align-items: start;
     }
@@ -529,7 +539,7 @@
       min-width: 0;
     }
     .receipt-inline-detail-image .receipt-image-wrap img {
-      max-height: min(54vh, 620px);
+      max-height: min(40vh, 460px);
     }
     .receipt-inline-detail-bottom .receipt-editor-grid {
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -557,7 +567,7 @@
       grid-column: span 2;
     }
     .receipt-inline-detail-bottom .receipt-editor-card-fields {
-      grid-template-columns: minmax(0, 1fr) 112px 140px;
+      grid-template-columns: minmax(0, 1.15fr) 112px 132px;
     }
     .receipt-inline-detail-bottom .receipt-editor-card-overrides {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2823,6 +2833,9 @@
       gap: 16px;
       align-items: start;
     }
+    .receipt-detail-grid.receipts-inline-mode {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .receipt-detail-grid > .card,
     #receipt-detail-body,
     .receipt-detail-stack,
@@ -3095,13 +3108,25 @@
     }
     .receipt-editor-web-row {
       display: grid;
-      grid-template-columns: minmax(260px, 1.5fr) 96px 120px minmax(170px, 1fr) minmax(190px, 1fr) 96px;
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 84px;
+      gap: 10px;
       align-items: end;
       padding: 12px 14px;
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 14px;
       background: rgba(255,255,255,0.02);
+    }
+    .receipt-editor-web-main {
+      display: grid;
+      grid-template-columns: minmax(220px, 2.3fr) minmax(64px, 0.58fr) minmax(92px, 0.82fr) minmax(88px, 0.8fr) minmax(150px, 1.15fr) minmax(150px, 1fr) minmax(160px, 1.1fr);
+      gap: 10px;
+      align-items: end;
+      min-width: 0;
+    }
+    .receipt-editor-web-action {
+      display: grid;
+      align-items: end;
+      min-width: 0;
     }
     .receipt-editor-web-field {
       display: grid;
@@ -3131,8 +3156,8 @@
       justify-content: center;
     }
     @media (max-width: 1400px) {
-      .receipt-editor-web-row {
-        grid-template-columns: minmax(240px, 1.4fr) 84px 110px minmax(150px, 0.95fr) minmax(170px, 1fr) 90px;
+      .receipt-editor-web-main {
+        grid-template-columns: minmax(190px, 2fr) minmax(58px, 0.5fr) minmax(84px, 0.72fr) minmax(82px, 0.72fr) minmax(132px, 1fr) minmax(132px, 0.9fr) minmax(148px, 0.98fr);
         gap: 10px;
       }
     }
@@ -3525,6 +3550,10 @@
         max-height: 42vh;
       }
       .receipt-editor-card-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+      }
+      .receipt-editor-card-unit-row {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px;
       }
@@ -5502,6 +5531,7 @@ let authCheckComplete = false;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
 const SPENDING_DOMAIN_OPTIONS = ['grocery', 'restaurant', 'general_expense', 'event', 'other'];
 const BUDGET_CATEGORY_OPTIONS = ['grocery', 'dining', 'housing', 'insurance', 'childcare', 'health', 'subscriptions', 'household', 'retail', 'events', 'other'];
+const UNIT_OPTIONS = ['each', 'bottle', 'can', 'bag', 'box', 'pack', 'roll', 'gal', 'oz', 'lb', 'count', 'dozen', 'bunch'];
 const DEMO_MONTH = '2026-04';
 const DEMO_USERS = [
   { id: 101, name: 'Iron Man', avatar_emoji: '🦾', receipts_processed: 18, ocr_corrections: 5, score: 132, rank: 1 },
@@ -11320,6 +11350,13 @@ function renderBudgetCategoryOptionTags(selectedValue = '', includeReceiptDefaul
   `).join('');
 }
 
+function renderUnitOptionTags(selectedValue = 'each') {
+  const normalized = String(selectedValue || 'each').trim().toLowerCase() || 'each';
+  return UNIT_OPTIONS.map(unit => `
+    <option value="${escAttr(unit)}" ${unit === normalized ? 'selected' : ''}>${escHtml(formatLabel(unit, unit))}</option>
+  `).join('');
+}
+
 async function updateProductCategory(productId, nextCategory) {
   const category = String(nextCategory || 'other').trim().toLowerCase() || 'other';
   const res = await api(`/products/${productId}/update`, {
@@ -12888,6 +12925,7 @@ async function loadReceipts() {
   const res = await api(`/receipts${query ? `?${query}` : ''}`);
   const body = document.getElementById('receipts-table-body');
   const detailCard = document.getElementById('receipt-detail-body')?.closest('.card');
+  const receiptDetailGrid = document.querySelector('#page-receipts .receipt-detail-grid');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipts.</p></div>'; return; }
   const data = await res.json();
   populateReceiptFilterOptions(data.filters || {});
@@ -12905,14 +12943,17 @@ async function loadReceipts() {
   if (!receipts.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
     if (detailCard) detailCard.style.display = '';
+    if (receiptDetailGrid) receiptDetailGrid.classList.remove('receipts-inline-mode');
     document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
     return;
   }
   if (isCompactMobileReceiptView()) {
     if (detailCard) detailCard.style.display = '';
+    if (receiptDetailGrid) receiptDetailGrid.classList.remove('receipts-inline-mode');
     body.innerHTML = renderCompactReceiptRows(receipts);
   } else {
     if (detailCard) detailCard.style.display = 'none';
+    if (receiptDetailGrid) receiptDetailGrid.classList.add('receipts-inline-mode');
     const availableReceiptIds = receipts.map(r => Number(r.purchase_id || r.id)).filter(Boolean);
     const targetReceiptId = availableReceiptIds.includes(Number(selectedReceiptId))
       ? Number(selectedReceiptId)
@@ -13063,6 +13104,10 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
     return `
       <div class="receipt-inline-detail-wrap">
         <div class="receipt-inline-detail-shell">
+          <div class="receipt-inline-detail-head">
+            <span class="card-title">${escHtml(receipt.store || 'Receipt')}</span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReceiptDetail(${receipt.purchase_id || receipt.id})">Close Receipt</button>
+          </div>
           <div class="receipt-inline-detail-layout">
             <div class="receipt-inline-detail-left">
               <div class="receipt-inline-detail-image">${imageHtml}</div>
@@ -13179,34 +13224,43 @@ async function viewReceipt(id, options = {}) {
 function renderReceiptEditorRows(items = [], options = {}) {
   const mobile = options.mobile ?? isCompactMobileReceiptView();
   const showBudgeting = options.showBudgeting !== false;
-  const rowItems = items.length ? items : [{ name: '', quantity: 1, unit_price: 0, category: 'other' }];
+  const rowItems = items.length ? items : [{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other' }];
   if (!mobile) {
     return rowItems.map((item, index) => `
       <div class="receipt-editor-web-row" data-row="${index}" data-receipt-editor-row data-product-id="${escAttr(item.product_id ?? '')}">
-        <div class="receipt-editor-web-field">
-          <label>Item</label>
-          <input data-field="name" value="${escAttr(item.name || item.product_name || '')}" placeholder="Line item name" />
-        </div>
-        <div class="receipt-editor-web-field">
-          <label>Qty</label>
-          <input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" />
-        </div>
-        <div class="receipt-editor-web-field">
-          <label>Line Total</label>
-          <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
-        </div>
-        <div class="receipt-editor-web-field">
-          <label>Item Group</label>
-          <select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select>
-        </div>
-        ${showBudgeting ? `
+        <div class="receipt-editor-web-main">
           <div class="receipt-editor-web-field">
-            <label>Budget Category</label>
-            <select data-field="budget_category" class="inline-select">${renderBudgetCategoryOptionTags(item.budget_category || '', true)}</select>
+            <label>Item</label>
+            <input data-field="name" value="${escAttr(item.name || item.product_name || '')}" placeholder="Line item name" />
           </div>
-        ` : '<div></div>'}
-        <div class="receipt-editor-web-field">
-          <label>&nbsp;</label>
+          <div class="receipt-editor-web-field">
+            <label>Qty</label>
+            <input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Line Total</label>
+            <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Unit</label>
+            <select data-field="unit" class="inline-select">${renderUnitOptionTags(item.unit || 'each')}</select>
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Size Label</label>
+            <input data-field="size_label" value="${escAttr(item.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Item Group</label>
+            <select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+          </div>
+          ${showBudgeting ? `
+            <div class="receipt-editor-web-field">
+              <label>Budget Category</label>
+              <select data-field="budget_category" class="inline-select">${renderBudgetCategoryOptionTags(item.budget_category || '', true)}</select>
+            </div>
+          ` : '<div></div>'}
+        </div>
+        <div class="receipt-editor-web-action">
           <button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button>
         </div>
       </div>
@@ -13235,6 +13289,16 @@ function renderReceiptEditorRows(items = [], options = {}) {
         <div class="receipt-editor-card-field">
           <label>Line Total</label>
           <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
+        </div>
+      </div>
+      <div class="receipt-editor-card-unit-row receipt-editor-card-overrides">
+        <div class="receipt-editor-card-field">
+          <label>Unit</label>
+          <select data-field="unit" class="inline-select">${renderUnitOptionTags(item.unit || 'each')}</select>
+        </div>
+        <div class="receipt-editor-card-field">
+          <label>Size Label</label>
+          <input data-field="size_label" value="${escAttr(item.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
         </div>
       </div>
       <div class="receipt-editor-card-overrides">
@@ -13289,7 +13353,7 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
 function addReceiptEditorRow(receiptId) {
   const body = document.getElementById(`receipt-editor-items-${receiptId}`);
   if (!body) return;
-  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true }));
+  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true }));
   wireReceiptBudgetingControls(receiptId);
 }
 
@@ -13299,7 +13363,7 @@ function removeReceiptEditorRow(button) {
   if (!row || !tbody) return;
   row.remove();
   if (!tbody.children.length) {
-    tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true });
+    tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true });
   }
   const receiptEditorRoot = tbody.closest('[id^="receipt-editor-items-"]');
   if (receiptEditorRoot) {
@@ -13325,7 +13389,7 @@ function openManualEntryModal() {
   document.getElementById('manual-entry-tax').value = '0';
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
-  document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
+  document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
@@ -13480,7 +13544,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
 function addManualEntryRow() {
   const body = document.getElementById('manual-entry-items');
   if (!body) return;
-  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false }));
+  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false }));
 }
 
 function collectManualEntryData() {
@@ -13497,7 +13561,13 @@ function collectManualEntryData() {
       product_id: Number(row.dataset.productId || 0) || null,
       name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
       quantity: Number(row.querySelector('[data-field="quantity"]')?.value || 1),
-      unit_price: Number(row.querySelector('[data-field="unit_price"]')?.value || 0),
+      unit_price: (() => {
+        const quantity = Number(row.querySelector('[data-field="quantity"]')?.value || 1);
+        const lineTotal = Number(row.querySelector('[data-field="line_total"]')?.value || 0);
+        return quantity > 0 ? (lineTotal / quantity) : lineTotal;
+      })(),
+      unit: row.querySelector('[data-field="unit"]')?.value || 'each',
+      size_label: row.querySelector('[data-field="size_label"]')?.value?.trim() || '',
       category: row.querySelector('[data-field="category"]')?.value || 'other',
     })).filter(item => item.name),
   };
@@ -13584,6 +13654,8 @@ function collectReceiptEditorData(receiptId) {
         name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
         quantity,
         unit_price: quantity > 0 ? (lineTotal / quantity) : lineTotal,
+        unit: row.querySelector('[data-field="unit"]')?.value || 'each',
+        size_label: row.querySelector('[data-field="size_label"]')?.value?.trim() || '',
         category: row.querySelector('[data-field="category"]')?.value || 'other',
         spending_domain: '',
         budget_category: row.querySelector('[data-field="budget_category"]')?.value || '',

@@ -126,6 +126,8 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
             "name": item.get("product_name") or item.get("name") or "",
             "quantity": item.get("quantity") or 1,
             "unit_price": item.get("unit_price") or 0,
+            "unit": item.get("unit") or "each",
+            "size_label": item.get("size_label"),
             "category": item.get("category") or "other",
             "spending_domain": item.get("spending_domain"),
             "budget_category": item.get("budget_category"),
@@ -208,6 +210,8 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
             "name": name,
             "quantity": float(item.get("quantity") or 1),
             "unit_price": float(item.get("unit_price") or 0),
+            "unit": (str(item.get("unit", "each") or "each").strip().lower() or "each"),
+            "size_label": (str(item.get("size_label", "") or "").strip() or None),
             "category": str(item.get("category", "other") or "other").strip().lower(),
             "spending_domain": normalize_spending_domain(item.get("spending_domain"), default="") or None,
             "budget_category": normalize_budget_category(item.get("budget_category"), default="") or None,
@@ -351,6 +355,8 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
 
         quantity = float(item_data.get("quantity") or 1)
         unit_price = float(item_data.get("unit_price") or 0)
+        unit = (str(item_data.get("unit", "each") or "each").strip().lower() or "each")
+        size_label = (str(item_data.get("size_label", "") or "").strip() or None)
         item_spending_domain = normalize_spending_domain(item_data.get("spending_domain"), default="") or None
         item_budget_category = normalize_budget_category(item_data.get("budget_category"), default="") or None
         if item_budget_category and not item_spending_domain:
@@ -363,6 +369,8 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
                 product_id=product.id,
                 quantity=quantity,
                 unit_price=unit_price,
+                unit=unit,
+                size_label=size_label,
                 spending_domain=item_spending_domain,
                 budget_category=item_budget_category,
                 extracted_by="manual",
@@ -583,6 +591,8 @@ def get_receipt(receipt_id):
                 "category": product.category,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
+                "unit": item.unit,
+                "size_label": item.size_label,
                 "spending_domain": item.spending_domain,
                 "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
@@ -615,6 +625,8 @@ def get_receipt(receipt_id):
                 "category": product.category,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
+                "unit": item.unit,
+                "size_label": item.size_label,
                 "spending_domain": item.spending_domain,
                 "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
