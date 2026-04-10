@@ -41,10 +41,19 @@ Current implementation state:
   - mobile receipt editor layout was adjusted so:
     - `Qty` and `Line Total` are balanced
     - `Item Group` and `Budget Category` stay side by side
+- Phase 3 display rollout is now substantially complete:
+  - Products/Catalog now exposes inline default editing for:
+    - `Unit`
+    - `Size Label`
+  - Shopping rows now expose inline editing for:
+    - preferred store
+    - `Unit`
+    - `Size Label`
+    - unit price
+  - shopper-facing summaries in Products and Shopping now use unit/size context when available
 - Still pending:
-  - Phase 3 display rollout in Shopping / Products
-  - product-level defaults UI
-  - later price-basis logic
+  - stronger price-basis logic beyond current shopper/unit totals
+  - optional future analytics around price-per-pound / price-per-ounce
 
 ## Problem Summary
 
@@ -238,6 +247,12 @@ Collapsed row display should use the best readable version:
 
 - `Avocado Oil x2`
 - `Milk x1 gal`
+
+Current practical implementation:
+
+- shopping rows now keep the richer unit/size context in expanded controls
+- shopping/product defaults can be corrected inline instead of only at receipt-edit time
+- manual price edits in shopping can now coexist with unit/size corrections, which makes live trip correction more useful
 - `Eggs x1 (18 count)`
 - `Chicken Breast 2.4 lb`
 

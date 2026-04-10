@@ -89,7 +89,23 @@ Extended-specific runtime changes now in place:
   - a lighter Current List with inline sort chips
   - compact expandable mobile rows
   - duplicate household items in Current List now collapse into one row with summed quantity and estimate
-  - mobile expanded shopping rows now allow store updates directly from the phone view
+  - mobile expanded shopping rows now allow:
+    - store updates
+    - unit updates
+    - size-label updates
+    - price updates
+  - current shopping actions now use a cleaner visible row plus overflow menu:
+    - visible:
+      - `-1`
+      - `Bought`
+      - `More`
+    - overflow:
+      - `Low`
+      - `Out of Stock`
+      - `Rename`
+      - `Delete`
+  - shopping rows now support `out_of_stock` state alongside `open` and `purchased`
+  - swipe-right mobile bought flow includes undo feedback
 - inventory page now has:
   - a shared Inventory / Products workspace shell
   - magnifier-driven search/sort tools that can now be collapsed on both desktop and mobile
@@ -163,6 +179,15 @@ Extended-specific runtime changes now in place:
   - receipt editor and manual entry now expose:
     - `Unit`
     - `Size Label`
+  - product catalog now exposes editable product defaults for:
+    - `default_unit`
+    - `default_size_label`
+  - shopping rows now expose inline edits for:
+    - preferred store
+    - unit
+    - size label
+    - price
+  - shopping and product display layers now surface unit/size context in buyer-facing summaries where available
 - desktop Receipts inline review flow is now cleaner on the feature branch:
   - old dead right-hand detail column is removed during inline mode
   - inline receipts include an in-panel `Close Receipt` action

@@ -649,6 +649,8 @@
     .badge-freezer { background: #0d1a2a; color: #6ac0ff; }
     .badge-low { background: rgba(255,101,132,0.15); color: var(--danger); }
     .badge-ok { background: rgba(0,212,170,0.1); color: var(--success); }
+    .badge-warning { background: rgba(250, 204, 21, 0.14); color: #facc15; }
+    .badge-info { background: rgba(108,99,255,0.16); color: #b8b4ff; }
 
     /* ---- Buttons ---- */
     .btn {
@@ -692,6 +694,18 @@
       font-family: 'Inter', sans-serif;
       font-size: 0.78rem;
       min-width: 112px;
+    }
+    .inline-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 5px 10px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      min-width: 112px;
+      height: 32px;
+      box-sizing: border-box;
     }
 
     /* ---- Form ---- */
@@ -2135,7 +2149,7 @@
     }
     .shopping-item-actions-row {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
       align-items: center;
       min-width: 0;
@@ -2182,19 +2196,147 @@
       width: 100%;
     }
     .shopping-store-table .shopping-actions-cell {
-      min-width: 250px;
+      min-width: 210px;
     }
     .shopping-store-table .shopping-item-actions-row {
-      min-width: 230px;
-      grid-template-columns: repeat(4, minmax(52px, 1fr));
+      min-width: 210px;
+      grid-template-columns: repeat(3, minmax(52px, 1fr));
     }
     .shopping-store-table .shopping-item-actions-row .btn {
       padding: 6px 8px;
       font-size: 0.74rem;
     }
+    .shopping-more-menu {
+      position: relative;
+      width: 100%;
+    }
+    .shopping-more-menu summary {
+      list-style: none;
+      width: 100%;
+    }
+    .shopping-more-menu summary::-webkit-details-marker {
+      display: none;
+    }
+    .shopping-more-menu[open] summary {
+      border-color: rgba(108, 99, 255, 0.42);
+      background: rgba(108, 99, 255, 0.12);
+    }
+    .shopping-more-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 30;
+      min-width: 156px;
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(20, 24, 36, 0.98);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
+    }
+    .shopping-more-panel .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .shopping-more-panel.mobile {
+      right: 0;
+      left: auto;
+      min-width: 170px;
+    }
+    .shopping-more-panel.mobile-inline {
+      position: static;
+      min-width: 0;
+      margin-top: 8px;
+      width: 100%;
+      box-shadow: none;
+    }
     .shopping-store-table .shopping-rename-row {
       justify-content: flex-start;
       margin-top: 6px;
+    }
+    .shopping-web-edit-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(96px, 0.9fr)
+        minmax(96px, 0.8fr)
+        minmax(160px, 1.3fr)
+        minmax(110px, 0.9fr)
+        auto
+        auto
+        auto;
+      gap: 8px;
+      align-items: end;
+      margin-top: 8px;
+    }
+    .shopping-web-edit-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .shopping-web-edit-field label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-web-edit-field input,
+    .shopping-web-edit-field select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      height: 36px;
+    }
+    .shopping-web-edit-field.compact-store select {
+      min-width: 96px;
+      max-width: 132px;
+    }
+    .shopping-web-edit-grid .btn {
+      height: 36px;
+      align-self: end;
+      white-space: nowrap;
+    }
+    .shopping-mobile-compact-grid {
+      display: grid;
+      grid-template-columns: minmax(68px, 78px) minmax(96px, 108px) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+    }
+    .shopping-mobile-compact-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .shopping-mobile-compact-field label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-mobile-compact-field input,
+    .shopping-mobile-compact-field select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      height: 40px;
+    }
+    .shopping-mobile-compact-field.compact-store label {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    .shopping-mobile-action-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+    }
+    .shopping-mobile-action-grid .btn {
+      height: 40px;
+      white-space: nowrap;
     }
     .helper-section-label {
       color: var(--muted);
@@ -3108,7 +3250,6 @@
     }
     .receipt-editor-web-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 84px;
       gap: 10px;
       align-items: end;
       padding: 12px 14px;
@@ -3118,15 +3259,19 @@
     }
     .receipt-editor-web-main {
       display: grid;
-      grid-template-columns: minmax(220px, 2.3fr) minmax(64px, 0.58fr) minmax(92px, 0.82fr) minmax(88px, 0.8fr) minmax(150px, 1.15fr) minmax(150px, 1fr) minmax(160px, 1.1fr);
+      grid-template-columns:
+        minmax(220px, 2.2fr)
+        minmax(72px, 0.56fr)
+        minmax(104px, 0.8fr)
+        minmax(110px, 0.82fr)
+        minmax(170px, 1.15fr)
+        minmax(170px, 1fr)
+        minmax(190px, 1.1fr)
+        minmax(102px, 0.68fr);
       gap: 10px;
       align-items: end;
       min-width: 0;
-    }
-    .receipt-editor-web-action {
-      display: grid;
-      align-items: end;
-      min-width: 0;
+      width: 100%;
     }
     .receipt-editor-web-field {
       display: grid;
@@ -3155,9 +3300,17 @@
       align-items: center;
       justify-content: center;
     }
-    @media (max-width: 1400px) {
+    @media (max-width: 1480px) {
       .receipt-editor-web-main {
-        grid-template-columns: minmax(190px, 2fr) minmax(58px, 0.5fr) minmax(84px, 0.72fr) minmax(82px, 0.72fr) minmax(132px, 1fr) minmax(132px, 0.9fr) minmax(148px, 0.98fr);
+        grid-template-columns:
+          minmax(180px, 2fr)
+          minmax(68px, 0.52fr)
+          minmax(96px, 0.74fr)
+          minmax(98px, 0.72fr)
+          minmax(148px, 1fr)
+          minmax(148px, 0.9fr)
+          minmax(168px, 1fr)
+          minmax(96px, 0.62fr);
         gap: 10px;
       }
     }
@@ -5481,6 +5634,7 @@ let shoppingStoreGroupCollapsed = (() => {
   }
 })();
 let shoppingMobileItemExpanded = {};
+let shoppingMoreMenuOpen = {};
 let inventoryMobileItemExpanded = {};
 let inventoryAddCollapsed = (() => {
   try {
@@ -6512,7 +6666,14 @@ function cancelShoppingSwipe(key) {
 }
 
 function toggleShoppingMobileItem(itemId) {
+  shoppingMoreMenuOpen[itemId] = false;
   shoppingMobileItemExpanded[itemId] = !shoppingMobileItemExpanded[itemId];
+  renderShoppingListTable();
+}
+
+function toggleShoppingMoreMenu(menuId) {
+  const nextState = !shoppingMoreMenuOpen[menuId];
+  shoppingMoreMenuOpen = { [menuId]: nextState };
   renderShoppingListTable();
 }
 
@@ -11357,6 +11518,78 @@ function renderUnitOptionTags(selectedValue = 'each') {
   `).join('');
 }
 
+function normalizeUnitValue(unit = '') {
+  return String(unit || '').trim().toLowerCase();
+}
+
+function hasMeaningfulUnit(unit = '') {
+  const normalized = normalizeUnitValue(unit);
+  return Boolean(normalized) && normalized !== 'each';
+}
+
+function formatUnitSizeSummary(unit = '', sizeLabel = '') {
+  const normalizedUnit = normalizeUnitValue(unit);
+  const normalizedSize = String(sizeLabel || '').trim();
+  if (normalizedSize) return normalizedSize;
+  if (hasMeaningfulUnit(normalizedUnit)) return formatLabel(normalizedUnit, normalizedUnit);
+  return '';
+}
+
+function formatShoppingQuantitySummary(quantity = 1, unit = '', sizeLabel = '') {
+  const qty = Number(quantity || 0);
+  const normalizedUnit = normalizeUnitValue(unit);
+  const normalizedSize = String(sizeLabel || '').trim();
+  if (normalizedSize) {
+    if (qty > 1) return `x${qty} (${normalizedSize})`;
+    return normalizedSize;
+  }
+  if (hasMeaningfulUnit(normalizedUnit)) {
+    if (qty > 1) return `${qty} ${formatLabel(normalizedUnit, normalizedUnit)}`;
+    return `1 ${formatLabel(normalizedUnit, normalizedUnit)}`;
+  }
+  if (qty > 1) return `x${qty}`;
+  return '';
+}
+
+function formatProductUnitMeta(product = {}) {
+  const parts = [];
+  const unitSize = formatUnitSizeSummary(product.default_unit || '', product.default_size_label || '');
+  if (product.brand) parts.push(product.brand);
+  if (product.size) parts.push(product.size);
+  if (unitSize && !parts.includes(unitSize)) parts.push(unitSize);
+  if (product.latest_price?.price != null) parts.push(formatMoney(product.latest_price.price));
+  return parts;
+}
+
+function formatShoppingDisplayName(item = {}) {
+  const baseName = item.name || item.product_display_name || item.product_full_name || 'Item';
+  const summary = formatShoppingQuantitySummary(item.quantity, item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || '');
+  return summary ? `${baseName} ${summary}` : baseName;
+}
+
+async function updateProductUnitDefaults(productId) {
+  const unitEl = document.getElementById(`product-default-unit-${productId}`);
+  const sizeEl = document.getElementById(`product-default-size-${productId}`);
+  if (!unitEl || !sizeEl) return;
+  const res = await api(`/products/${productId}/update`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      default_unit: unitEl.value || 'each',
+      default_size_label: sizeEl.value?.trim?.() || ''
+    })
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(payload.error || 'Could not update unit defaults', 'error');
+    return;
+  }
+  toast('Unit defaults updated ✅', 'success');
+  await Promise.all([
+    loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+    loadShoppingList()
+  ]);
+}
+
 async function updateProductCategory(productId, nextCategory) {
   const category = String(nextCategory || 'other').trim().toLowerCase() || 'other';
   const res = await api(`/products/${productId}/update`, {
@@ -11618,12 +11851,7 @@ async function loadProducts(query = '') {
                         <strong>${escHtml(item.name)}</strong>
                         ${item.manual_low || item.is_low ? '<span class="badge badge-low">Low</span>' : ''}
                       </div>
-                      <div class="inventory-mobile-meta">${[
-                        item.brand,
-                        item.size,
-                        item.latest_price?.price != null ? formatMoney(item.latest_price.price) : null,
-                        item.last_purchase_date ? `Purchased ${item.last_purchase_date}` : null
-                      ].filter(Boolean).map(value => escHtml(String(value))).join(' · ')}</div>
+                      <div class="inventory-mobile-meta">${formatProductUnitMeta(item).map(value => escHtml(String(value))).join(' · ')}</div>
                       ${item.recent_receipts?.length ? `
                         <div class="mini-links">
                           ${item.recent_receipts.map(link => `
@@ -11637,6 +11865,17 @@ async function loadProducts(query = '') {
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'product' })"><span class="icon">🛒</span><span class="label">Add</span></button>
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
                         <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      </div>
+                      <div style="display:grid;gap:8px;grid-template-columns:minmax(92px, 0.8fr) minmax(0, 1fr) auto;align-items:end">
+                        <div>
+                          <div class="inventory-mobile-meta" style="margin-bottom:4px">Unit</div>
+                          <select id="product-default-unit-${item.id}" class="inline-select">${renderUnitOptionTags(item.default_unit || 'each')}</select>
+                        </div>
+                        <div>
+                          <div class="inventory-mobile-meta" style="margin-bottom:4px">Size Label</div>
+                          <input id="product-default-size-${item.id}" class="inline-input" value="${escAttr(item.default_size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                        </div>
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save</button>
                       </div>
                     </div>
                   `).join('')}
@@ -11668,9 +11907,7 @@ async function loadProducts(query = '') {
                       </div>
                       <div style="color:var(--muted);font-size:0.78rem">
                         ${[
-                          item.brand,
-                          item.size,
-                          item.latest_price?.price != null ? `${formatMoney(item.latest_price.price)}${item.size ? ` · ${item.size}` : ''}` : null,
+                          ...formatProductUnitMeta(item),
                           formatLabel(item.category, 'Other')
                         ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                         ${item.last_purchase_date ? ` · Purchased ${escHtml(item.last_purchase_date)}` : ''}
@@ -11695,6 +11932,9 @@ async function loadProducts(query = '') {
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? 'Clear Low' : 'Low'}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
                       <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || 'each')}</select>
+                      <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || '')}" placeholder="18 count, 1 gal" />
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save Unit</button>
                       <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
                     </div>
                   </div>`).join('')}
@@ -12095,8 +12335,7 @@ function renderShoppingQuickResults() {
         ${shoppingQuickSuggestions.slice(0, 5).map(item => {
           const existing = getMatchingShoppingEntry(item.id, item.name);
           const meta = [
-            item.brand || null,
-            item.size || null,
+            ...formatProductUnitMeta(item),
             item.category ? formatLabel(item.category, 'Other') : null,
             item.last_purchase_date ? `Recent ${item.last_purchase_date}` : null
           ].filter(Boolean).map(value => escHtml(value)).join(' · ');
@@ -12141,8 +12380,7 @@ function renderShoppingQuickResults() {
       ${shoppingQuickResults.slice(0, 5).map(item => {
         const existing = getMatchingShoppingEntry(item.id, item.name);
         const meta = [
-          item.brand || null,
-          item.size || null,
+          ...formatProductUnitMeta(item),
           item.category ? formatLabel(item.category, 'Other') : null
         ].filter(Boolean).map(value => escHtml(value)).join(' · ');
         return `
@@ -12360,6 +12598,56 @@ async function saveShoppingGroupPrice(itemIds, key, priceStore = '') {
   ]);
 }
 
+async function saveShoppingGroupUnitDefaults(itemIds, primaryProductId, key) {
+  if (SHOPPING_HELPER_MODE) return;
+  const unitEl = document.getElementById(`shopping-unit-${key}`);
+  const sizeEl = document.getElementById(`shopping-size-${key}`);
+  const unit = unitEl?.value || 'each';
+  const sizeLabel = sizeEl?.value?.trim?.() || '';
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+
+  if (primaryProductId) {
+    const productRes = await api(`/products/${primaryProductId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        default_unit: unit,
+        default_size_label: sizeLabel
+      })
+    });
+    const productPayload = await productRes.json().catch(() => ({}));
+    if (!productRes.ok) {
+      toast(productPayload.error || 'Could not update product unit defaults', 'error');
+      return;
+    }
+  }
+
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      unit,
+      size_label: sizeLabel
+    })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not save shopping unit details');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast('Unit details saved ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -12419,6 +12707,46 @@ function renderShoppingListTable() {
     return sum + itemEstimate;
   }, 0) * 100) / 100;
   const isMobileShoppingList = () => !SHOPPING_HELPER_MODE && window.innerWidth <= 640;
+  const renderShoppingMorePanelButtons = item => {
+    const lowLabel = item.primaryItem?.manual_low || item.primaryItem?.is_low ? 'Clear Low' : 'Low';
+    const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
+    const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
+    return `
+      ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel}</button>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+    `;
+  };
+  const renderShoppingMoreMenu = (item, mobile = false) => {
+    const menuId = `${item.key}-${mobile ? 'mobile' : 'web'}`;
+    if (mobile) {
+      return `
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+          ontouchend="event.preventDefault(); event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+        >More</button>
+      `;
+    }
+    return `
+      <div class="shopping-more-menu" onclick="event.stopPropagation()">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+        >More</button>
+        <div
+          class="shopping-more-panel"
+          style="display:${shoppingMoreMenuOpen[menuId] ? 'grid' : 'none'}"
+          onclick="event.stopPropagation()"
+        >
+          ${renderShoppingMorePanelButtons(item)}
+        </div>
+      </div>
+    `;
+  };
   const renderMobileStoreCards = (groups, options = {}) => sortShoppingGroups(groups)
     .map(([storeName, rawStoreItems]) => {
       const storeItems = mergeShoppingDisplayItems(rawStoreItems);
@@ -12458,7 +12786,7 @@ function renderShoppingListTable() {
                 ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
-                  <div class="shopping-mobile-item-name">${escHtml(item.name)}${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}</div>
+                  <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
                 <div class="shopping-mobile-item-estimate">
                   ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
                   <span class="shopping-mobile-item-chevron">▾</span>
@@ -12468,19 +12796,45 @@ function renderShoppingListTable() {
                 <div class="shopping-mobile-item-meta">
                   ${[
                     item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                    formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
                     item.category ? formatLabel(item.category, 'Other') : null,
                     item.effective_store ? `Likely ${item.effective_store}` : null,
                     item.note || null
                   ].filter(Boolean).map(value => escHtml(value)).join(' · ') || 'Tap Bought when you pick this up.'}
                 </div>
                 ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
-                <div style="margin-top:10px">
-                  <select onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)" style="width:100%">
-                    ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
-                  </select>
+                <div class="shopping-mobile-compact-grid">
+                  <div class="shopping-mobile-compact-field compact-store">
+                    <label title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}">🏬</label>
+                    <select
+                      onclick="event.stopPropagation()"
+                      onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                      title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                    >
+                      ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
+                    </select>
+                  </div>
+                  <div class="shopping-mobile-compact-field">
+                    <label>Unit</label>
+                    <select
+                      id="shopping-unit-${escAttr(item.key)}"
+                      class="inline-select"
+                      onclick="event.stopPropagation()"
+                    >${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                  </div>
+                  <div class="shopping-mobile-compact-field">
+                    <label>Size Label</label>
+                    <input
+                      id="shopping-size-${escAttr(item.key)}"
+                      class="inline-input"
+                      value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}"
+                      placeholder="18 count, 1 gal, 2.4 lb"
+                      onclick="event.stopPropagation()"
+                    />
+                  </div>
                 </div>
-                <div class="shopping-price-editor">
-                  <div>
+                <div class="shopping-mobile-action-grid">
+                  <div class="shopping-mobile-compact-field">
                     <label>Unit Price</label>
                     <input
                       id="shopping-price-${escAttr(item.key)}"
@@ -12495,18 +12849,20 @@ function renderShoppingListTable() {
                   <button
                     type="button"
                     class="btn btn-sm btn-ghost"
+                    onclick="event.stopPropagation(); saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                  >Save Unit</button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
                     onclick="event.stopPropagation(); saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
                   >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
                 </div>
-                <div class="shopping-rename-row">
-                  <button type="button" class="shopping-rename-btn" onclick="event.stopPropagation(); renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
-                </div>
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+                  ${renderShoppingMoreMenu(item, true)}
                 </div>
+                ${shoppingMoreMenuOpen[`${item.key}-mobile`] ? `<div class="shopping-more-panel mobile-inline" onclick="event.stopPropagation()">${renderShoppingMorePanelButtons(item)}</div>` : ''}
               </div>
             </div>
           `).join('')}
@@ -12544,21 +12900,38 @@ function renderShoppingListTable() {
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table class="shopping-store-table">
-            <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td class="shopping-item-cell">
-                  <strong>${escHtml(item.name)}</strong>${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}
+                  <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
                   <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
                     ${[
                       item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                      formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
                       item.effective_store ? `Likely ${item.effective_store}` : null,
                       item.note || null
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
-                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
-                  <div class="shopping-price-editor">
-                    <div>
+                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                  <div class="shopping-web-edit-grid">
+                    <div class="shopping-web-edit-field compact-store">
+                      <label>🏬</label>
+                      <select
+                        class="inline-select"
+                        title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                        onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                      >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                    </div>
+                    <div class="shopping-web-edit-field">
+                      <label>Unit</label>
+                      <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                    </div>
+                    <div class="shopping-web-edit-field">
+                      <label>Size Label</label>
+                      <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                    </div>
+                    <div class="shopping-web-edit-field">
                       <label>Unit Price</label>
                       <input
                         id="shopping-price-${escAttr(item.key)}"
@@ -12572,29 +12945,26 @@ function renderShoppingListTable() {
                     <button
                       type="button"
                       class="btn btn-sm btn-ghost"
+                      onclick="saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                    >Save Unit</button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-ghost"
                       onclick="saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
                     >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
-                  </div>
-                  <div class="shopping-rename-row">
-                    <button type="button" class="shopping-rename-btn" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
                   </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
                 <td>${item.quantity}</td>
                 <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
-                <td>
-                  <select class="shopping-store-select" onchange="updateShoppingPreferredStore(${item.primaryItem.id}, this.value)">
-                    ${renderShoppingStoreOptionTags(item.preferred_store || '')}
-                  </select>
-                </td>
-                <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
+                <td><span class="badge badge-${shoppingStatusBadgeClass(item.status)}">${escHtml(shoppingStatusLabel(item.status))}</span></td>
                 <td class="shopping-actions-cell">
                   <div class="shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+                  ${renderShoppingMoreMenu(item)}
                   </div>
                 </td>
               </tr>`).join('')}
@@ -12734,6 +13104,27 @@ async function loadShoppingList() {
   renderShoppingQuickResults();
 }
 
+function shoppingStatusLabel(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'out_of_stock') return 'Out of Stock';
+  if (normalized === 'purchased') return 'Bought';
+  return 'Open';
+}
+
+function shoppingStatusSuccessMessage(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'purchased') return 'Marked as bought ✅';
+  if (normalized === 'out_of_stock') return 'Marked out of stock 🚫';
+  return 'Item reopened ✅';
+}
+
+function shoppingStatusBadgeClass(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'purchased') return 'ok';
+  if (normalized === 'out_of_stock') return 'low';
+  return 'warning';
+}
+
 async function toggleShoppingItem(id, status, options = {}) {
   const res = await shoppingApi(`/shopping-list/items/${id}`, {
     method: 'PUT',
@@ -12744,7 +13135,7 @@ async function toggleShoppingItem(id, status, options = {}) {
     toast(data.error || 'Could not update shopping list item', 'error');
     return;
   }
-  if (!options.silent) toast(options.successMessage || (status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅'), 'success');
+  if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
   await loadShoppingList();
   if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
@@ -12767,7 +13158,7 @@ async function toggleShoppingGroupItems(ids, status, options = {}) {
     toast(failed[0], 'error');
     return;
   }
-  if (!options.silent) toast(options.successMessage || (status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅'), 'success');
+  if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
   await loadShoppingList();
   if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
@@ -13259,9 +13650,10 @@ function renderReceiptEditorRows(items = [], options = {}) {
               <select data-field="budget_category" class="inline-select">${renderBudgetCategoryOptionTags(item.budget_category || '', true)}</select>
             </div>
           ` : '<div></div>'}
-        </div>
-        <div class="receipt-editor-web-action">
-          <button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button>
+          <div class="receipt-editor-web-field">
+            <label>&nbsp;</label>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button>
+          </div>
         </div>
       </div>
     `).join('');

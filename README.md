@@ -13,6 +13,44 @@ It is designed to help a household:
 
 It also supports a read-only guest demo experience for non-logged-in visitors, so the product can be explored with realistic sample data before a household account is created or used.
 
+## Current Feature Set
+
+The app currently supports these major household workflows:
+
+- receipt intake and correction
+  - upload grocery, restaurant, and general-expense receipts
+  - OCR review with inline correction of store, date/time, totals, and line items
+  - rotate, re-run OCR, and rebuild corrected receipts without losing the source image
+- inventory and catalog management
+  - maintain active grocery inventory
+  - normalize OCR-heavy product names into cleaner catalog items
+  - rename, recategorize, group, and review confusing products
+  - keep unit and size defaults on products for clearer downstream shopping
+- shopping execution
+  - quick find and manual add
+  - recommendation confirmation
+  - grouped shopping rows by store
+  - buyer-friendly display names and expanded original-name context
+  - inline price editing while shopping
+  - inline unit and size-label editing while shopping
+  - swipe-right bought flow with undo support
+  - compact action model with `Bought`, quantity adjust, and `More` actions
+  - support for `Open`, `Bought`, and `Out of Stock` shopping states
+- budgeting and allocations
+  - monthly targets by budget category
+  - line-item and receipt-level budget-category allocation
+  - contributing receipt breakdowns per active budget category
+  - change history for saved targets
+- collaboration and household operations
+  - admin/user accounts
+  - trusted-device pairing and scoped shared screens
+  - contribution tracking
+  - guest demo experience
+- environment portability
+  - create, verify, upload, download, and restore environment backups
+  - restore safety backup behavior
+  - local-time backup timestamps in the UI
+
 ## Screenshots
 
 ### Products And Catalog Cleanup
@@ -121,6 +159,7 @@ Operational note:
 - normalized names and receipt history
 - rename, recategorize, add to shopping
 - cleanup support for OCR-heavy product names
+- inline default `Unit` and `Size Label` editing for better shopping and receipt context
 
 ### Upload Receipt
 
@@ -136,17 +175,21 @@ Operational note:
 ### Receipts
 
 - receipt list with filters and sorting
-- receipt detail with image/PDF view
+- inline expandable receipt detail with image/PDF view
 - structured editing for:
   - receipt type
   - store
   - date/time
   - subtotal/tax/tip/total
   - line items
+  - line-item `Unit`
+  - line-item `Size Label`
+  - budget category allocation
 - quick actions:
   - rotate left/right
   - mark as restaurant
   - re-run OCR
+- close/open receipt review inline without losing list context
 - safe rebuild of corrected receipts
 
 ### Shopping List
@@ -156,11 +199,18 @@ Operational note:
 - remembered `Open` / `Close` list view pills
 - shopping helper QR for shared trip execution
 - bought / reopen handling
+- `Out of Stock` handling
+- swipe-right bought flow with undo on mobile
+- inline store preference, unit, size-label, and price editing
+- rename directly from shopping rows
+- compact action row with overflow `More` menu for lower-noise mobile and web use
 
 ### Budget
 
-- grocery monthly budget
-- restaurant monthly budget
+- monthly targets by budget category
+- category-level current-month spend progress
+- expandable contributing receipt breakdowns
+- saved target history with old and new values
 - manual entry support when a receipt image is lost
 - budget status and progress
 

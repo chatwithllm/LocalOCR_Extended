@@ -131,6 +131,8 @@ def _serialize_product(session, product: Product) -> dict:
         "display_name": product.display_name or product.name,
         "brand": product.brand,
         "size": product.size,
+        "default_unit": product.default_unit or "each",
+        "default_size_label": product.default_size_label,
         "enrichment_confidence": product.enrichment_confidence,
         "review_state": product.review_state or ("pending" if product_needs_review(product) else "resolved"),
         "reviewed_at": product.reviewed_at.isoformat() if product.reviewed_at else None,
@@ -284,10 +286,20 @@ def update_product(product_id):
         product.category = next_category
     if "barcode" in data:
         product.barcode = data["barcode"]
+    if "default_unit" in data:
+        next_unit = str(data.get("default_unit") or "each").strip().lower() or "each"
+        product.default_unit = next_unit
+    if "default_size_label" in data:
+        next_size_label = str(data.get("default_size_label") or "").strip()
+        product.default_size_label = next_size_label or None
 
     if merge_target and (meaningful_name_update or meaningful_category_update):
         if product.barcode and not merge_target.barcode:
             merge_target.barcode = product.barcode
+        if product.default_unit and not merge_target.default_unit:
+            merge_target.default_unit = product.default_unit
+        if product.default_size_label and not merge_target.default_size_label:
+            merge_target.default_size_label = product.default_size_label
         product = _merge_products(session, merge_target, product)
         product.review_state = "resolved"
         product.reviewed_at = datetime.now(timezone.utc)
@@ -301,6 +313,8 @@ def update_product(product_id):
         "display_name": product.display_name or product.name,
         "category": product.category,
         "barcode": product.barcode,
+        "default_unit": product.default_unit or "each",
+        "default_size_label": product.default_size_label,
         "merged": bool(merge_target),
     }), 200
 

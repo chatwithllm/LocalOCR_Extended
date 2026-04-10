@@ -183,8 +183,22 @@ This split gives you a clean safety net:
   - recommendation-backed items fall out of active `Top Picks` after they are added to shopping and confirmed, allowing the next best item to surface
 - shopping list row interactions were refined:
   - web and mobile recommendation cards were compacted and cleaned up
-  - `-1 / Low / Bought / Delete` actions were normalized into a more consistent row
+  - web and mobile shopping rows now support:
+    - inline preferred-store updates
+    - inline unit / size-label updates
+    - inline unit-price updates
+    - direct rename from the shopping workflow
+  - swipe-right on mobile now marks an item bought and shows a short undo countdown
+  - action rows were simplified for usability:
+    - visible actions now favor `-1`, `Bought`, and `More`
+    - `More` now carries:
+      - low / clear-low
+      - out-of-stock / reopen
+      - rename
+      - delete
+  - shopping rows now support explicit `out_of_stock` state in addition to `open` and `purchased`
   - shopping rows can now be renamed directly from the shopping workflow
+  - compact store selection for shopping rows is now being used so store, unit, and size information fit more cleanly in expanded controls
 - README now has a screenshots section backed by committed repo images
 - future-enhancement planning docs now exist in-repo:
   - `future enhancements/multi household.md`
@@ -238,6 +252,16 @@ This split gives you a clean safety net:
 - budgeting receipt editor cleanup is now implemented:
   - visible `Default Spending Domain` was removed from the shared editor
   - `Default Budget Category` now reads simply as `Budget Category`
+- units / size labels rollout is now substantially complete in the active workflows:
+  - product catalog rows now expose editable default:
+    - unit
+    - size label
+  - shopping rows now expose editable:
+    - preferred store
+    - unit
+    - size label
+    - price
+  - product and shopping displays now use the richer unit/size metadata in buyer-facing summaries where available
   - line-item `Category` now reads as `Item Group`
   - visible line-item `Spending Domain` control was removed from the main editing flow
 - unit/size-label enhancement is now implemented through Phase 2:
