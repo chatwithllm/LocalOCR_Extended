@@ -770,6 +770,48 @@
     #toast.show { transform: translateY(0); opacity: 1; }
     #toast.success { border-color: var(--success); }
     #toast.error { border-color: var(--danger); }
+    #action-toast {
+      position: fixed; bottom: 24px; left: 24px; z-index: 1000;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; font-size: 0.86rem;
+      transform: translateY(100px); opacity: 0; transition: all 0.25s ease;
+      min-width: 260px; max-width: min(420px, calc(100vw - 32px));
+      display: grid; gap: 10px;
+    }
+    #action-toast.show { transform: translateY(0); opacity: 1; }
+    .action-toast-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .action-toast-message {
+      color: var(--text);
+      min-width: 0;
+      flex: 1;
+    }
+    .action-toast-button {
+      border: 1px solid rgba(108,99,255,0.35);
+      background: rgba(108,99,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .action-toast-button:hover {
+      background: rgba(108,99,255,0.2);
+    }
+    .action-toast-progress {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .action-toast-progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent);
+      transition: width 1s linear;
+    }
 
     /* ---- Confirm Modal ---- */
     .confirm-overlay {
@@ -2056,6 +2098,30 @@
       gap: 6px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .shopping-price-editor {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+      margin-top: 2px;
+    }
+    .shopping-price-editor label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-price-editor input {
+      width: 100%;
+      min-width: 0;
+    }
+    .shopping-price-editor .btn {
+      align-self: end;
+      white-space: nowrap;
     }
     .shopping-item-actions-row {
       display: grid;
@@ -5087,6 +5153,7 @@
 </div>
 
   <div id="toast"></div>
+  <div id="action-toast" aria-live="polite"></div>
   <div id="confirm-overlay" class="confirm-overlay" aria-hidden="true">
     <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
       <div id="confirm-title" class="confirm-title">Confirm action</div>
@@ -6338,6 +6405,80 @@ function toggleShoppingStoreGroup(sectionKey, storeName) {
   shoppingStoreGroupCollapsed[key] = !shoppingStoreGroupCollapsed[key];
   localStorage.setItem('shopping_store_group_collapsed', JSON.stringify(shoppingStoreGroupCollapsed));
   renderShoppingListTable();
+}
+
+function handleShoppingMobileSummaryClick(event, key) {
+  const suppressUntil = shoppingSwipeSuppressClickUntil[key] || 0;
+  if (Date.now() < suppressUntil) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    return;
+  }
+  toggleShoppingMobileItem(key);
+}
+
+function startShoppingSwipe(event, key, ids = [], status = 'open') {
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  shoppingSwipeState[key] = {
+    startX: touch.clientX,
+    startY: touch.clientY,
+    lastX: touch.clientX,
+    ids: (ids || []).map(Number).filter(Boolean),
+    status,
+    swiping: false,
+  };
+}
+
+function moveShoppingSwipe(event, key) {
+  const state = shoppingSwipeState[key];
+  const touch = event.touches?.[0];
+  if (!state || !touch) return;
+  const dx = touch.clientX - state.startX;
+  const dy = touch.clientY - state.startY;
+  state.lastX = touch.clientX;
+  if (dx > 12 && Math.abs(dx) > Math.abs(dy)) {
+    state.swiping = true;
+    const summary = event.currentTarget;
+    if (summary) {
+      const translate = Math.min(dx, 84);
+      summary.style.transform = `translateX(${translate}px)`;
+      summary.style.transition = 'none';
+      summary.style.background = 'rgba(0,212,170,0.08)';
+    }
+    event.preventDefault();
+  }
+}
+
+function resetShoppingSwipeSummary(summary) {
+  if (!summary) return;
+  summary.style.transform = '';
+  summary.style.transition = '';
+  summary.style.background = '';
+}
+
+async function endShoppingSwipe(event, key) {
+  const state = shoppingSwipeState[key];
+  const summary = event.currentTarget;
+  if (!state) {
+    resetShoppingSwipeSummary(summary);
+    return;
+  }
+  const dx = (state.lastX || state.startX) - state.startX;
+  const shouldBought = state.status !== 'purchased' && dx > 72 && state.swiping && state.ids.length;
+  delete shoppingSwipeState[key];
+  resetShoppingSwipeSummary(summary);
+  if (!shouldBought) return;
+  shoppingSwipeSuppressClickUntil[key] = Date.now() + 350;
+  const itemName = summary?.querySelector('.shopping-mobile-item-name')?.textContent?.trim() || 'Item';
+  await toggleShoppingGroupItems(state.ids, 'purchased', {
+    silent: true,
+    afterSuccess: () => showShoppingUndoToast(state.ids, itemName)
+  });
+}
+
+function cancelShoppingSwipe(key) {
+  delete shoppingSwipeState[key];
 }
 
 function toggleShoppingMobileItem(itemId) {
@@ -8572,12 +8713,65 @@ function getSelectedInventoryLocation() {
 // Toast
 // ============================================================
 let toastTimer;
+let shoppingUndoTimer;
+let shoppingUndoInterval;
+let shoppingPendingUndo = null;
+const shoppingSwipeState = {};
+const shoppingSwipeSuppressClickUntil = {};
 function toast(msg, type = 'info') {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = `show ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+function hideActionToast() {
+  const el = document.getElementById('action-toast');
+  if (!el) return;
+  el.className = '';
+  el.innerHTML = '';
+}
+
+function clearShoppingUndoToast() {
+  clearTimeout(shoppingUndoTimer);
+  clearInterval(shoppingUndoInterval);
+  shoppingUndoTimer = null;
+  shoppingUndoInterval = null;
+  shoppingPendingUndo = null;
+  hideActionToast();
+}
+
+function showShoppingUndoToast(ids, label = 'Item') {
+  clearShoppingUndoToast();
+  const el = document.getElementById('action-toast');
+  if (!el) return;
+  const expiresAt = Date.now() + 5000;
+  shoppingPendingUndo = { ids: [...ids], expiresAt };
+  const render = () => {
+    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    const pct = Math.max(0, Math.min(100, ((expiresAt - Date.now()) / 5000) * 100));
+    el.innerHTML = `
+      <div class="action-toast-row">
+        <div class="action-toast-message">${escHtml(label)} marked bought • Undo in ${remaining}s</div>
+        <button type="button" class="action-toast-button" onclick="undoShoppingBought()">Undo</button>
+      </div>
+      <div class="action-toast-progress"><div class="action-toast-progress-bar" style="width:${pct}%"></div></div>
+    `;
+    el.className = 'show';
+  };
+  render();
+  shoppingUndoInterval = setInterval(render, 250);
+  shoppingUndoTimer = setTimeout(() => {
+    clearShoppingUndoToast();
+  }, 5000);
+}
+
+async function undoShoppingBought() {
+  if (!shoppingPendingUndo?.ids?.length) return;
+  const ids = [...shoppingPendingUndo.ids];
+  clearShoppingUndoToast();
+  await toggleShoppingGroupItems(ids, 'open', { silent: true, successMessage: 'Shopping item reopened ✅' });
 }
 
 // ============================================================
@@ -12088,6 +12282,47 @@ async function updateShoppingPreferredStoreGroup(itemIds, preferredStore) {
   ]);
 }
 
+async function saveShoppingGroupPrice(itemIds, key, priceStore = '') {
+  if (SHOPPING_HELPER_MODE) return;
+  const input = document.getElementById(`shopping-price-${key}`);
+  const rawValue = input?.value?.trim?.() ?? '';
+  if (!rawValue) {
+    toast('Enter a unit price', 'error');
+    return;
+  }
+  const unitPrice = Number(rawValue);
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    toast('Enter a valid unit price', 'error');
+    return;
+  }
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      manual_estimated_price: unitPrice,
+      persist_latest_price: true,
+      price_store: priceStore || ''
+    })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not save shopping price');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast('Shopping price saved ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -12155,14 +12390,22 @@ function renderShoppingListTable() {
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="shopping-mobile-store-card" style="${options.dimmed ? 'opacity:0.92;' : ''}">
-        <div class="shopping-mobile-store-head">
+        <div
+          class="shopping-mobile-store-head"
+          role="button"
+          tabindex="0"
+          onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'));}"
+          aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+          title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+        >
           <div class="shopping-mobile-store-title">${escHtml(storeName)}</div>
           <div style="display:flex;align-items:center;gap:10px">
             <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
             <button
               type="button"
               class="card-header-inline-stat"
-              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              onclick="event.stopPropagation(); toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
               aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
               title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
             >${storeItems.length}</button>
@@ -12171,7 +12414,13 @@ function renderShoppingListTable() {
         <div class="shopping-mobile-item-list" style="display:${collapsed ? 'none' : ''}">
           ${sortShoppingItems(storeItems).map(item => `
             <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.key] ? 'expanded' : ''}">
-              <div class="shopping-mobile-item-summary" role="button" tabindex="0" onclick="toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}">
+              <div class="shopping-mobile-item-summary" role="button" tabindex="0"
+                onclick="handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}"
+                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(',')}], '${escAttr(item.status || 'open')}')"
+                ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
                   <div class="shopping-mobile-item-name">${escHtml(item.name)}${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}</div>
                 <div class="shopping-mobile-item-estimate">
                   ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
@@ -12192,6 +12441,25 @@ function renderShoppingListTable() {
                   <select onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)" style="width:100%">
                     ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
                   </select>
+                </div>
+                <div class="shopping-price-editor">
+                  <div>
+                    <label>Unit Price</label>
+                    <input
+                      id="shopping-price-${escAttr(item.key)}"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                      placeholder="0.00"
+                      onclick="event.stopPropagation()"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    onclick="event.stopPropagation(); saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                  >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
                 </div>
                 <div class="shopping-rename-row">
                   <button type="button" class="shopping-rename-btn" onclick="event.stopPropagation(); renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
@@ -12216,14 +12484,22 @@ function renderShoppingListTable() {
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
-        <div class="card-header">
+        <div
+          class="card-header"
+          role="button"
+          tabindex="0"
+          onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'));}"
+          aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+          title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+        >
           <span class="card-title">${escHtml(storeName)}</span>
           <div style="display:flex;align-items:center;gap:10px">
             <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
             <button
               type="button"
               class="card-header-inline-stat"
-              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              onclick="event.stopPropagation(); toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
               aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
               title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
             >${storeItems.length}</button>
@@ -12244,6 +12520,24 @@ function renderShoppingListTable() {
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
                   ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                  <div class="shopping-price-editor">
+                    <div>
+                      <label>Unit Price</label>
+                      <input
+                        id="shopping-price-${escAttr(item.key)}"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-ghost"
+                      onclick="saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                    >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
+                  </div>
                   <div class="shopping-rename-row">
                     <button type="button" class="shopping-rename-btn" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
                   </div>
@@ -12403,7 +12697,7 @@ async function loadShoppingList() {
   renderShoppingQuickResults();
 }
 
-async function toggleShoppingItem(id, status) {
+async function toggleShoppingItem(id, status, options = {}) {
   const res = await shoppingApi(`/shopping-list/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ status })
@@ -12413,11 +12707,12 @@ async function toggleShoppingItem(id, status) {
     toast(data.error || 'Could not update shopping list item', 'error');
     return;
   }
-  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
-  loadShoppingList();
+  if (!options.silent) toast(options.successMessage || (status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅'), 'success');
+  await loadShoppingList();
+  if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
 
-async function toggleShoppingGroupItems(ids, status) {
+async function toggleShoppingGroupItems(ids, status, options = {}) {
   const validIds = (ids || []).map(Number).filter(Boolean);
   if (!validIds.length) return;
   const results = await Promise.all(validIds.map(id => shoppingApi(`/shopping-list/items/${id}`, {
@@ -12435,8 +12730,9 @@ async function toggleShoppingGroupItems(ids, status) {
     toast(failed[0], 'error');
     return;
   }
-  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
-  loadShoppingList();
+  if (!options.silent) toast(options.successMessage || (status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅'), 'success');
+  await loadShoppingList();
+  if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
 
 async function deleteShoppingItem(id) {

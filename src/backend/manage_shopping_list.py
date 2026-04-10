@@ -223,6 +223,19 @@ def _latest_price_for_item(session, item: ShoppingListItem) -> dict | None:
     return None
 
 
+def _ensure_store(session, store_name: str | None):
+    normalized = canonicalize_store_name(store_name) if store_name else None
+    if not normalized:
+        return None
+    store = session.query(Store).filter(func.lower(Store.name) == normalized.lower()).first()
+    if store:
+        return store
+    store = Store(name=normalized)
+    session.add(store)
+    session.flush()
+    return store
+
+
 def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool = False):
     query = session.query(ShoppingListItem)
     if status:
@@ -421,6 +434,7 @@ def update_shopping_item(item_id):
     data = request.get_json(silent=True) or {}
     previous_status = item.status
     previous_preferred_store = item.preferred_store
+    previous_price = item.manual_estimated_price
     if "name" in data:
         next_name, next_category = canonicalize_product_identity(
             data["name"],
@@ -451,6 +465,25 @@ def update_shopping_item(item_id):
             )
     if "manual_estimated_price" in data:
         item.manual_estimated_price = float(data["manual_estimated_price"]) if data.get("manual_estimated_price") not in (None, "", False) else None
+
+    persist_latest_price = bool(data.get("persist_latest_price"))
+    if persist_latest_price and item.manual_estimated_price not in (None, "", False):
+        price_value = float(item.manual_estimated_price or 0)
+        if price_value > 0 and item.product_id:
+            store_name = data.get("price_store") or item.preferred_store
+            if not store_name:
+                latest = _latest_price_for_item(session, item)
+                store_name = (latest or {}).get("store")
+            store = _ensure_store(session, store_name)
+            if store:
+                session.add(
+                    PriceHistory(
+                        product_id=item.product_id,
+                        store_id=store.id,
+                        price=price_value,
+                        date=datetime.now(timezone.utc).date(),
+                    )
+                )
 
     if previous_status != "purchased" and item.status == "purchased":
         finalize_recommendation_confirmation(session, shopping_item_id=item.id)
