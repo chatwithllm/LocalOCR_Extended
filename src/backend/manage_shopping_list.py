@@ -132,6 +132,8 @@ def _serialize_item(item: ShoppingListItem) -> dict:
         "product_full_name": product_full_name,
         "category": item.category,
         "quantity": item.quantity,
+        "unit": getattr(item, "unit", None) or getattr(product, "default_unit", None) or "each",
+        "size_label": getattr(item, "size_label", None) or getattr(product, "default_size_label", None),
         "status": item.status,
         "source": item.source,
         "note": item.note,
@@ -221,6 +223,19 @@ def _latest_price_for_item(session, item: ShoppingListItem) -> dict | None:
         }
 
     return None
+
+
+def _ensure_store(session, store_name: str | None):
+    normalized = canonicalize_store_name(store_name) if store_name else None
+    if not normalized:
+        return None
+    store = session.query(Store).filter(func.lower(Store.name) == normalized.lower()).first()
+    if store:
+        return store
+    store = Store(name=normalized)
+    session.add(store)
+    session.flush()
+    return store
 
 
 def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool = False):
@@ -316,6 +331,8 @@ def add_shopping_item():
     preferred_store = canonicalize_store_name(data.get("preferred_store")) if data.get("preferred_store") else None
     manual_estimated_price = data.get("manual_estimated_price")
     manual_estimated_price = float(manual_estimated_price) if manual_estimated_price not in (None, "", False) else None
+    unit = (str(data.get("unit", "each") or "each").strip().lower() or "each")
+    size_label = (str(data.get("size_label", "") or "").strip() or None)
 
     product = None
     product_id = data.get("product_id")
@@ -329,6 +346,8 @@ def add_shopping_item():
             raw_name=raw_name,
             display_name=name,
             category=category,
+            default_unit=unit,
+            default_size_label=size_label,
         )
         product.review_state = "pending" if should_enrich_product_name(raw_name, category) else "resolved"
         session.add(product)
@@ -364,6 +383,10 @@ def add_shopping_item():
             existing.name = get_product_display_name(product)
         if manual_estimated_price is not None:
             existing.manual_estimated_price = manual_estimated_price
+        if "unit" in data:
+            existing.unit = unit
+        if "size_label" in data:
+            existing.size_label = size_label
         if source == "recommendation":
             _ensure_pending_recommendation_event(session, existing)
         session.commit()
@@ -380,6 +403,8 @@ def add_shopping_item():
         note=note,
         preferred_store=preferred_store,
         manual_estimated_price=manual_estimated_price,
+        unit=unit,
+        size_label=size_label,
     )
     session.add(item)
     session.flush()
@@ -421,6 +446,7 @@ def update_shopping_item(item_id):
     data = request.get_json(silent=True) or {}
     previous_status = item.status
     previous_preferred_store = item.preferred_store
+    previous_price = item.manual_estimated_price
     if "name" in data:
         next_name, next_category = canonicalize_product_identity(
             data["name"],
@@ -451,6 +477,29 @@ def update_shopping_item(item_id):
             )
     if "manual_estimated_price" in data:
         item.manual_estimated_price = float(data["manual_estimated_price"]) if data.get("manual_estimated_price") not in (None, "", False) else None
+    if "unit" in data:
+        item.unit = (str(data.get("unit", "each") or "each").strip().lower() or "each")
+    if "size_label" in data:
+        item.size_label = (str(data.get("size_label", "") or "").strip() or None)
+
+    persist_latest_price = bool(data.get("persist_latest_price"))
+    if persist_latest_price and item.manual_estimated_price not in (None, "", False):
+        price_value = float(item.manual_estimated_price or 0)
+        if price_value > 0 and item.product_id:
+            store_name = data.get("price_store") or item.preferred_store
+            if not store_name:
+                latest = _latest_price_for_item(session, item)
+                store_name = (latest or {}).get("store")
+            store = _ensure_store(session, store_name)
+            if store:
+                session.add(
+                    PriceHistory(
+                        product_id=item.product_id,
+                        store_id=store.id,
+                        price=price_value,
+                        date=datetime.now(timezone.utc).date(),
+                    )
+                )
 
     if previous_status != "purchased" and item.status == "purchased":
         finalize_recommendation_confirmation(session, shopping_item_id=item.id)

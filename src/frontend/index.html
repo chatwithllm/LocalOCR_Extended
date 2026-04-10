@@ -436,22 +436,24 @@
     }
     .receipt-detail-item-list {
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
     .receipt-detail-item-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 10px;
-      align-items: start;
-      padding: 12px 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: 12px;
       background: rgba(255,255,255,0.025);
     }
     .receipt-detail-item-main {
       min-width: 0;
-      display: grid;
-      gap: 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .receipt-detail-item-name {
       font-weight: 700;
@@ -468,13 +470,27 @@
     .receipt-detail-item-actions {
       display: flex;
       gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-start;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
       align-items: center;
       min-width: 0;
     }
     .receipt-detail-item-actions .inline-select {
       max-width: 170px;
+    }
+    @media (max-width: 1100px) {
+      .receipt-detail-item-row {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+      }
+      .receipt-detail-item-main {
+        display: grid;
+        gap: 6px;
+      }
+      .receipt-detail-item-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
     }
     .receipt-inline-detail-row td {
       padding: 0 !important;
@@ -492,9 +508,19 @@
       display: grid;
       gap: 18px;
     }
+    .receipt-inline-detail-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: -2px;
+    }
+    .receipt-inline-detail-head .card-title {
+      margin: 0;
+    }
     .receipt-inline-detail-layout {
       display: grid;
-      grid-template-columns: minmax(280px, 0.88fr) minmax(0, 1.12fr);
+      grid-template-columns: minmax(220px, 0.56fr) minmax(0, 1.44fr);
       gap: 18px;
       align-items: start;
     }
@@ -513,7 +539,7 @@
       min-width: 0;
     }
     .receipt-inline-detail-image .receipt-image-wrap img {
-      max-height: min(54vh, 620px);
+      max-height: min(40vh, 460px);
     }
     .receipt-inline-detail-bottom .receipt-editor-grid {
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -527,6 +553,10 @@
     .receipt-inline-detail-bottom .receipt-editor-main-field.field-date-time {
       grid-column: span 4;
     }
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-default-domain,
+    .receipt-inline-detail-bottom .receipt-editor-main-field.field-default-category {
+      grid-column: span 4;
+    }
     .receipt-inline-detail-bottom .receipt-editor-main-field.field-subtotal {
       grid-column: span 3;
     }
@@ -534,10 +564,13 @@
       grid-column: span 3;
     }
     .receipt-inline-detail-bottom .receipt-editor-main-field.field-total {
-      grid-column: span 3;
+      grid-column: span 2;
     }
     .receipt-inline-detail-bottom .receipt-editor-card-fields {
-      grid-template-columns: minmax(0, 1fr) 112px 140px;
+      grid-template-columns: minmax(0, 1.15fr) 112px 132px;
+    }
+    .receipt-inline-detail-bottom .receipt-editor-card-overrides {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .receipt-inline-detail-bottom .receipt-editor-card {
       border: 1px solid rgba(255,255,255,0.06);
@@ -616,6 +649,8 @@
     .badge-freezer { background: #0d1a2a; color: #6ac0ff; }
     .badge-low { background: rgba(255,101,132,0.15); color: var(--danger); }
     .badge-ok { background: rgba(0,212,170,0.1); color: var(--success); }
+    .badge-warning { background: rgba(250, 204, 21, 0.14); color: #facc15; }
+    .badge-info { background: rgba(108,99,255,0.16); color: #b8b4ff; }
 
     /* ---- Buttons ---- */
     .btn {
@@ -660,10 +695,47 @@
       font-size: 0.78rem;
       min-width: 112px;
     }
+    .inline-input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 5px 10px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.78rem;
+      min-width: 112px;
+      height: 32px;
+      box-sizing: border-box;
+    }
 
     /* ---- Form ---- */
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .budget-editor-card { display: grid; gap: 12px; }
+    .budget-editor-shell,
+    .budget-section-shell { padding: 0; overflow: hidden; }
+    .budget-editor-shell.open .budget-editor-body,
+    .budget-section-shell.open .budget-section-body { display: grid; }
+    .budget-editor-header,
+    .budget-section-header {
+      display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:nowrap;
+      padding: 16px 18px; cursor: pointer;
+    }
+    .budget-editor-header-left,
+    .budget-section-header-left { display:flex; align-items:center; gap:10px; min-width:0; }
+    .budget-editor-chevron,
+    .budget-section-chevron { color: var(--muted); transition: transform 0.2s ease; font-size: 0.82rem; }
+    .budget-editor-shell.open .budget-editor-chevron,
+    .budget-section-shell.open .budget-section-chevron { transform: rotate(90deg); }
+    .budget-editor-body {
+      display:none; gap:12px; padding: 0 18px 18px; border-top: 1px solid var(--border);
+    }
+    .budget-section-body {
+      display:none; gap:12px; padding: 0 18px 18px; border-top: 1px solid var(--border);
+    }
+    .budget-editor-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items:end; }
+    .budget-editor-actions { display:flex; justify-content:flex-start; align-items:center; gap:10px; flex-wrap:wrap; }
+    .budget-editor-note { color:var(--muted); font-size:0.78rem; line-height:1.35; }
     label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
     input, select {
       background: var(--surface2); border: 1px solid var(--border);
@@ -673,6 +745,21 @@
     }
     input:focus, select:focus { border-color: var(--accent); }
     input::placeholder { color: var(--muted); }
+
+    @media (max-width: 720px) {
+      .budget-editor-card { gap: 10px; }
+      .budget-editor-header .card-title,
+      .budget-section-header .card-title { font-size: 1rem; }
+      .budget-editor-header,
+      .budget-section-header { padding: 14px 16px; }
+      .budget-editor-body,
+      .budget-section-body { padding: 0 16px 16px; gap: 10px; }
+      .budget-editor-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .budget-editor-grid .form-group.budget-editor-amount { grid-column: 1 / -1; }
+      .budget-editor-actions { justify-content:space-between; }
+      .budget-editor-actions .btn { padding: 8px 14px; }
+      .budget-editor-note { font-size: 0.74rem; }
+    }
 
     /* ---- Upload Zone ---- */
     .upload-zone {
@@ -707,6 +794,48 @@
     #toast.show { transform: translateY(0); opacity: 1; }
     #toast.success { border-color: var(--success); }
     #toast.error { border-color: var(--danger); }
+    #action-toast {
+      position: fixed; bottom: 24px; left: 24px; z-index: 1000;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; font-size: 0.86rem;
+      transform: translateY(100px); opacity: 0; transition: all 0.25s ease;
+      min-width: 260px; max-width: min(420px, calc(100vw - 32px));
+      display: grid; gap: 10px;
+    }
+    #action-toast.show { transform: translateY(0); opacity: 1; }
+    .action-toast-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .action-toast-message {
+      color: var(--text);
+      min-width: 0;
+      flex: 1;
+    }
+    .action-toast-button {
+      border: 1px solid rgba(108,99,255,0.35);
+      background: rgba(108,99,255,0.12);
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    .action-toast-button:hover {
+      background: rgba(108,99,255,0.2);
+    }
+    .action-toast-progress {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .action-toast-progress-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent);
+      transition: width 1s linear;
+    }
 
     /* ---- Confirm Modal ---- */
     .confirm-overlay {
@@ -1994,9 +2123,33 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .shopping-price-editor {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+      margin-top: 2px;
+    }
+    .shopping-price-editor label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-price-editor input {
+      width: 100%;
+      min-width: 0;
+    }
+    .shopping-price-editor .btn {
+      align-self: end;
+      white-space: nowrap;
+    }
     .shopping-item-actions-row {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
       align-items: center;
       min-width: 0;
@@ -2043,19 +2196,147 @@
       width: 100%;
     }
     .shopping-store-table .shopping-actions-cell {
-      min-width: 250px;
+      min-width: 210px;
     }
     .shopping-store-table .shopping-item-actions-row {
-      min-width: 230px;
-      grid-template-columns: repeat(4, minmax(52px, 1fr));
+      min-width: 210px;
+      grid-template-columns: repeat(3, minmax(52px, 1fr));
     }
     .shopping-store-table .shopping-item-actions-row .btn {
       padding: 6px 8px;
       font-size: 0.74rem;
     }
+    .shopping-more-menu {
+      position: relative;
+      width: 100%;
+    }
+    .shopping-more-menu summary {
+      list-style: none;
+      width: 100%;
+    }
+    .shopping-more-menu summary::-webkit-details-marker {
+      display: none;
+    }
+    .shopping-more-menu[open] summary {
+      border-color: rgba(108, 99, 255, 0.42);
+      background: rgba(108, 99, 255, 0.12);
+    }
+    .shopping-more-panel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      z-index: 30;
+      min-width: 156px;
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(20, 24, 36, 0.98);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
+    }
+    .shopping-more-panel .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .shopping-more-panel.mobile {
+      right: 0;
+      left: auto;
+      min-width: 170px;
+    }
+    .shopping-more-panel.mobile-inline {
+      position: static;
+      min-width: 0;
+      margin-top: 8px;
+      width: 100%;
+      box-shadow: none;
+    }
     .shopping-store-table .shopping-rename-row {
       justify-content: flex-start;
       margin-top: 6px;
+    }
+    .shopping-web-edit-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(96px, 0.9fr)
+        minmax(96px, 0.8fr)
+        minmax(160px, 1.3fr)
+        minmax(110px, 0.9fr)
+        auto
+        auto
+        auto;
+      gap: 8px;
+      align-items: end;
+      margin-top: 8px;
+    }
+    .shopping-web-edit-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .shopping-web-edit-field label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-web-edit-field input,
+    .shopping-web-edit-field select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      height: 36px;
+    }
+    .shopping-web-edit-field.compact-store select {
+      min-width: 96px;
+      max-width: 132px;
+    }
+    .shopping-web-edit-grid .btn {
+      height: 36px;
+      align-self: end;
+      white-space: nowrap;
+    }
+    .shopping-mobile-compact-grid {
+      display: grid;
+      grid-template-columns: minmax(68px, 78px) minmax(96px, 108px) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+    }
+    .shopping-mobile-compact-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .shopping-mobile-compact-field label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .shopping-mobile-compact-field input,
+    .shopping-mobile-compact-field select {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      height: 40px;
+    }
+    .shopping-mobile-compact-field.compact-store label {
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    .shopping-mobile-action-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+    }
+    .shopping-mobile-action-grid .btn {
+      height: 40px;
+      white-space: nowrap;
     }
     .helper-section-label {
       color: var(--muted);
@@ -2694,6 +2975,9 @@
       gap: 16px;
       align-items: start;
     }
+    .receipt-detail-grid.receipts-inline-mode {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .receipt-detail-grid > .card,
     #receipt-detail-body,
     .receipt-detail-stack,
@@ -2917,6 +3201,12 @@
       gap: 10px;
       align-items: end;
     }
+    .receipt-editor-card-overrides {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
     .receipt-editor-card-summary {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -2952,6 +3242,77 @@
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
+      min-height: 44px;
+    }
+    .receipt-editor-web-list {
+      display: grid;
+      gap: 12px;
+    }
+    .receipt-editor-web-row {
+      display: grid;
+      gap: 10px;
+      align-items: end;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.02);
+    }
+    .receipt-editor-web-main {
+      display: grid;
+      grid-template-columns:
+        minmax(220px, 2.2fr)
+        minmax(72px, 0.56fr)
+        minmax(104px, 0.8fr)
+        minmax(110px, 0.82fr)
+        minmax(170px, 1.15fr)
+        minmax(170px, 1fr)
+        minmax(190px, 1.1fr)
+        minmax(102px, 0.68fr);
+      gap: 10px;
+      align-items: end;
+      min-width: 0;
+      width: 100%;
+    }
+    .receipt-editor-web-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .receipt-editor-web-field label {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .receipt-editor-web-field input,
+    .receipt-editor-web-field select,
+    .receipt-editor-web-row .btn {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      height: 40px;
+    }
+    .receipt-editor-web-row .btn {
+      padding-top: 0;
+      padding-bottom: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    @media (max-width: 1480px) {
+      .receipt-editor-web-main {
+        grid-template-columns:
+          minmax(180px, 2fr)
+          minmax(68px, 0.52fr)
+          minmax(96px, 0.74fr)
+          minmax(98px, 0.72fr)
+          minmax(148px, 1fr)
+          minmax(148px, 0.9fr)
+          minmax(168px, 1fr)
+          minmax(96px, 0.62fr);
+        gap: 10px;
+      }
     }
     .mobile-data-list {
       display: grid;
@@ -3247,6 +3608,10 @@
       .receipt-editor-main-field.field-store {
         grid-column: 1 / -1;
       }
+      .receipt-editor-main-field.field-default-domain,
+      .receipt-editor-main-field.field-default-category {
+        grid-column: 1 / -1;
+      }
       .receipt-editor-main-field.field-date-time { grid-column: 1 / -1; }
       .receipt-editor-main-field.field-subtotal { grid-column: span 5; }
       .receipt-editor-main-field.field-tip { grid-column: span 2; }
@@ -3338,11 +3703,18 @@
         max-height: 42vh;
       }
       .receipt-editor-card-fields {
-        grid-template-columns: minmax(74px, 0.58fr) minmax(108px, 0.92fr) !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px;
       }
-      .receipt-editor-card-field:first-child,
-      .receipt-editor-card-field:nth-child(4) {
+      .receipt-editor-card-unit-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+      }
+      .receipt-editor-card-overrides {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+      }
+      .receipt-editor-card-fields .receipt-editor-card-field:first-child {
         grid-column: 1 / -1;
       }
       .receipt-editor-card-summary {
@@ -4661,20 +5033,54 @@
 
     <!-- Budget -->
     <div class="page" id="page-budget">
-      <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by domain.</p></div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Set Monthly Budget</span><button type="button" class="btn btn-ghost btn-sm" onclick="openManualEntryModal()">✍️ Manual Entry</button></div>
-        <div class="form-grid">
-          <div class="form-group"><label>Month</label><input type="month" id="budget-month" /></div>
-          <div class="form-group"><label>Budget Type</label><select id="budget-domain"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
-          <div class="form-group"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
+      <div class="page-header"><h1>Budget</h1><p>Track monthly budgets by category.</p></div>
+      <div class="card budget-editor-card budget-editor-shell" id="budget-editor-shell">
+        <div class="budget-editor-header" onclick="toggleBudgetEditor()">
+          <div class="budget-editor-header-left">
+            <span class="budget-editor-chevron">▶</span>
+            <span class="card-title">Set Monthly Budget</span>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); openManualEntryModal()">✍️ Manual Entry</button>
         </div>
-        <div style="margin-top:16px"><button class="btn btn-primary" id="budget-save-btn" onclick="setBudget()">💾 Save Budget</button></div>
-        <div style="margin-top:12px;color:var(--muted);font-size:0.82rem">Lost a receipt? Use <strong style="color:var(--text)">Manual Entry</strong> so the month stays accurate. If a test purchase affected spend, delete that receipt entry later to remove the amount.</div>
+        <div class="budget-editor-body">
+          <div class="budget-editor-grid">
+            <div class="form-group"><label>Month</label><input type="month" id="budget-month" onchange="loadBudgetStatus()" /></div>
+            <div class="form-group"><label>Budget Category</label><select id="budget-category" onchange="loadBudgetEditorDefaults()"></select></div>
+            <div class="form-group budget-editor-amount"><label>Budget ($)</label><input type="number" id="budget-amt" placeholder="500" min="0" step="10" /></div>
+          </div>
+          <div class="budget-editor-actions">
+            <button class="btn btn-primary" id="budget-save-btn" onclick="setBudget()">💾 Save Budget</button>
+            <div class="budget-editor-note">Receipt defaults and line-item overrides decide how spending rolls into each budget category.</div>
+          </div>
+        </div>
       </div>
       <div class="card" id="budget-status-card">
-        <div class="card-header"><span class="card-title">This Month</span><button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">🔄</button></div>
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;width:100%">
+            <span class="card-title">This Month</span>
+            <div id="budget-total-spent" style="font-weight:700;color:var(--text)"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">🔄</button>
+        </div>
         <div id="budget-status-body"></div>
+      </div>
+      <div class="card budget-section-shell" id="budget-targets-shell">
+        <div class="budget-section-header" onclick="toggleBudgetSection('budget-targets-shell')">
+          <div class="budget-section-header-left">
+            <span class="budget-section-chevron">▶</span>
+            <span class="card-title">Current Budget Targets</span>
+          </div>
+        </div>
+        <div class="budget-section-body" id="budget-targets-body"></div>
+      </div>
+      <div class="card budget-section-shell" id="budget-history-shell">
+        <div class="budget-section-header" onclick="toggleBudgetSection('budget-history-shell')">
+          <div class="budget-section-header-left">
+            <span class="budget-section-chevron">▶</span>
+            <span class="card-title">Budget Change History</span>
+          </div>
+        </div>
+        <div class="budget-section-body" id="budget-history-body"></div>
       </div>
     </div>
 
@@ -4929,6 +5335,7 @@
 </div>
 
   <div id="toast"></div>
+  <div id="action-toast" aria-live="polite"></div>
   <div id="confirm-overlay" class="confirm-overlay" aria-hidden="true">
     <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
       <div id="confirm-title" class="confirm-title">Confirm action</div>
@@ -5227,6 +5634,7 @@ let shoppingStoreGroupCollapsed = (() => {
   }
 })();
 let shoppingMobileItemExpanded = {};
+let shoppingMoreMenuOpen = {};
 let inventoryMobileItemExpanded = {};
 let inventoryAddCollapsed = (() => {
   try {
@@ -5275,6 +5683,9 @@ let secretQrHoldTimer = null;
 let recommendationHoldTimer = null;
 let authCheckComplete = false;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
+const SPENDING_DOMAIN_OPTIONS = ['grocery', 'restaurant', 'general_expense', 'event', 'other'];
+const BUDGET_CATEGORY_OPTIONS = ['grocery', 'dining', 'housing', 'insurance', 'childcare', 'health', 'subscriptions', 'household', 'retail', 'events', 'other'];
+const UNIT_OPTIONS = ['each', 'bottle', 'can', 'bag', 'box', 'pack', 'roll', 'gal', 'oz', 'lb', 'count', 'dozen', 'bunch'];
 const DEMO_MONTH = '2026-04';
 const DEMO_USERS = [
   { id: 101, name: 'Iron Man', avatar_emoji: '🦾', receipts_processed: 18, ocr_corrections: 5, score: 132, rank: 1 },
@@ -5430,18 +5841,12 @@ function applyAppConfig(config = {}) {
     if (el) el.style.display = groceryEnabled ? '' : 'none';
   });
 
-  const budgetDomain = document.getElementById('budget-domain');
   const analyticsDomain = document.getElementById('analytics-domain');
   const availableDomains = [
     groceryEnabled ? { value: 'grocery', label: 'Grocery' } : null,
     restaurantEnabled ? { value: 'restaurant', label: 'Restaurant' } : null,
     expenseEnabled ? { value: 'general_expense', label: 'General Expense' } : null,
   ].filter(Boolean);
-  if (budgetDomain) {
-    const current = budgetDomain.value || availableDomains[0]?.value || 'grocery';
-    budgetDomain.innerHTML = availableDomains.map(option => `<option value="${option.value}">${option.label}</option>`).join('');
-    if (availableDomains.some(option => option.value === current)) budgetDomain.value = current;
-  }
   if (analyticsDomain) {
     const current = analyticsDomain.value || (groceryEnabled ? 'grocery' : availableDomains[0]?.value || '');
     analyticsDomain.innerHTML = availableDomains.map(option => `<option value="${option.value}">${option.label}</option>`).join('') +
@@ -6186,8 +6591,89 @@ function toggleShoppingStoreGroup(sectionKey, storeName) {
   renderShoppingListTable();
 }
 
+function handleShoppingMobileSummaryClick(event, key) {
+  const suppressUntil = shoppingSwipeSuppressClickUntil[key] || 0;
+  if (Date.now() < suppressUntil) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    return;
+  }
+  toggleShoppingMobileItem(key);
+}
+
+function startShoppingSwipe(event, key, ids = [], status = 'open') {
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  shoppingSwipeState[key] = {
+    startX: touch.clientX,
+    startY: touch.clientY,
+    lastX: touch.clientX,
+    ids: (ids || []).map(Number).filter(Boolean),
+    status,
+    swiping: false,
+  };
+}
+
+function moveShoppingSwipe(event, key) {
+  const state = shoppingSwipeState[key];
+  const touch = event.touches?.[0];
+  if (!state || !touch) return;
+  const dx = touch.clientX - state.startX;
+  const dy = touch.clientY - state.startY;
+  state.lastX = touch.clientX;
+  if (dx > 12 && Math.abs(dx) > Math.abs(dy)) {
+    state.swiping = true;
+    const summary = event.currentTarget;
+    if (summary) {
+      const translate = Math.min(dx, 84);
+      summary.style.transform = `translateX(${translate}px)`;
+      summary.style.transition = 'none';
+      summary.style.background = 'rgba(0,212,170,0.08)';
+    }
+    event.preventDefault();
+  }
+}
+
+function resetShoppingSwipeSummary(summary) {
+  if (!summary) return;
+  summary.style.transform = '';
+  summary.style.transition = '';
+  summary.style.background = '';
+}
+
+async function endShoppingSwipe(event, key) {
+  const state = shoppingSwipeState[key];
+  const summary = event.currentTarget;
+  if (!state) {
+    resetShoppingSwipeSummary(summary);
+    return;
+  }
+  const dx = (state.lastX || state.startX) - state.startX;
+  const shouldBought = state.status !== 'purchased' && dx > 72 && state.swiping && state.ids.length;
+  delete shoppingSwipeState[key];
+  resetShoppingSwipeSummary(summary);
+  if (!shouldBought) return;
+  shoppingSwipeSuppressClickUntil[key] = Date.now() + 350;
+  const itemName = summary?.querySelector('.shopping-mobile-item-name')?.textContent?.trim() || 'Item';
+  await toggleShoppingGroupItems(state.ids, 'purchased', {
+    silent: true,
+    afterSuccess: () => showShoppingUndoToast(state.ids, itemName)
+  });
+}
+
+function cancelShoppingSwipe(key) {
+  delete shoppingSwipeState[key];
+}
+
 function toggleShoppingMobileItem(itemId) {
+  shoppingMoreMenuOpen[itemId] = false;
   shoppingMobileItemExpanded[itemId] = !shoppingMobileItemExpanded[itemId];
+  renderShoppingListTable();
+}
+
+function toggleShoppingMoreMenu(menuId) {
+  const nextState = !shoppingMoreMenuOpen[menuId];
+  shoppingMoreMenuOpen = { [menuId]: nextState };
   renderShoppingListTable();
 }
 
@@ -7053,6 +7539,27 @@ function formatDateTime(value, fallback = '—') {
   return date.toLocaleString();
 }
 
+function formatDateTimeCompact(value, fallback = '—') {
+  if (!value) return fallback;
+  let normalized = value;
+  if (typeof value === 'number' && value > 0 && value < 1e12) {
+    normalized = value * 1000;
+  } else if (/^\d+(\.\d+)?$/.test(String(value))) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0 && num < 1e12) normalized = num * 1000;
+  }
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    year: '2-digit',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 function formatRelativeTime(value, fallback = 'Never') {
   if (!value) return fallback;
   const date = new Date(value);
@@ -7743,7 +8250,7 @@ function renderReceiptSummaries(summary = {}) {
                     <td>${escHtml(receipt.store || 'Unknown')}</td>
                     <td>${formatMoney(receipt.total)}</td>
                     <td>${escHtml(formatLabel(receipt.source, 'Upload'))}</td>
-                    <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.receipt_id || receipt.record_id})">Open</button></td>
+                    <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button></td>
                   </tr>
                 `).join('')}</tbody>
               </table>
@@ -8288,7 +8795,7 @@ function updateBudgetEditorAccess() {
   const isAdminUser = currentUser?.role === 'admin';
   const ids = [
     'budget-month',
-    'budget-domain',
+    'budget-category',
     'budget-amt',
     'budget-save-btn',
     'restaurant-budget-month',
@@ -8397,12 +8904,65 @@ function getSelectedInventoryLocation() {
 // Toast
 // ============================================================
 let toastTimer;
+let shoppingUndoTimer;
+let shoppingUndoInterval;
+let shoppingPendingUndo = null;
+const shoppingSwipeState = {};
+const shoppingSwipeSuppressClickUntil = {};
 function toast(msg, type = 'info') {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = `show ${type}`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.className = '', 3500);
+}
+
+function hideActionToast() {
+  const el = document.getElementById('action-toast');
+  if (!el) return;
+  el.className = '';
+  el.innerHTML = '';
+}
+
+function clearShoppingUndoToast() {
+  clearTimeout(shoppingUndoTimer);
+  clearInterval(shoppingUndoInterval);
+  shoppingUndoTimer = null;
+  shoppingUndoInterval = null;
+  shoppingPendingUndo = null;
+  hideActionToast();
+}
+
+function showShoppingUndoToast(ids, label = 'Item') {
+  clearShoppingUndoToast();
+  const el = document.getElementById('action-toast');
+  if (!el) return;
+  const expiresAt = Date.now() + 5000;
+  shoppingPendingUndo = { ids: [...ids], expiresAt };
+  const render = () => {
+    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    const pct = Math.max(0, Math.min(100, ((expiresAt - Date.now()) / 5000) * 100));
+    el.innerHTML = `
+      <div class="action-toast-row">
+        <div class="action-toast-message">${escHtml(label)} marked bought • Undo in ${remaining}s</div>
+        <button type="button" class="action-toast-button" onclick="undoShoppingBought()">Undo</button>
+      </div>
+      <div class="action-toast-progress"><div class="action-toast-progress-bar" style="width:${pct}%"></div></div>
+    `;
+    el.className = 'show';
+  };
+  render();
+  shoppingUndoInterval = setInterval(render, 250);
+  shoppingUndoTimer = setTimeout(() => {
+    clearShoppingUndoToast();
+  }, 5000);
+}
+
+async function undoShoppingBought() {
+  if (!shoppingPendingUndo?.ids?.length) return;
+  const ids = [...shoppingPendingUndo.ids];
+  clearShoppingUndoToast();
+  await toggleShoppingGroupItems(ids, 'open', { silent: true, successMessage: 'Shopping item reopened ✅' });
 }
 
 // ============================================================
@@ -10912,6 +11472,124 @@ function renderInventoryManualCategoryOptionTags(selectedCategory = 'other') {
   `).join('');
 }
 
+function defaultBudgetCategoryForSpendingDomain(spendingDomain = 'other') {
+  const normalized = String(spendingDomain || 'other').trim().toLowerCase() || 'other';
+  if (normalized === 'grocery') return 'grocery';
+  if (normalized === 'restaurant') return 'dining';
+  if (normalized === 'event') return 'events';
+  return 'other';
+}
+
+function deriveReceiptBudgetDefaults(receiptType = 'grocery') {
+  const normalized = String(receiptType || 'grocery').trim().toLowerCase() || 'grocery';
+  const spendingDomain = SPENDING_DOMAIN_OPTIONS.includes(normalized)
+    ? normalized
+    : (normalized === 'unknown' ? 'other' : 'grocery');
+  return {
+    spendingDomain,
+    budgetCategory: defaultBudgetCategoryForSpendingDomain(spendingDomain),
+  };
+}
+
+function renderSpendingDomainOptionTags(selectedValue = '', includeReceiptDefault = false) {
+  const normalized = String(selectedValue || '').trim().toLowerCase();
+  const options = includeReceiptDefault
+    ? [{ value: '', label: 'Use receipt default' }, ...SPENDING_DOMAIN_OPTIONS.map(value => ({ value, label: formatLabel(value, value) }))]
+    : SPENDING_DOMAIN_OPTIONS.map(value => ({ value, label: formatLabel(value, value) }));
+  return options.map(option => `
+    <option value="${escAttr(option.value)}" ${option.value === normalized ? 'selected' : ''}>${escHtml(option.label)}</option>
+  `).join('');
+}
+
+function renderBudgetCategoryOptionTags(selectedValue = '', includeReceiptDefault = false) {
+  const normalized = String(selectedValue || '').trim().toLowerCase();
+  const options = includeReceiptDefault
+    ? [{ value: '', label: 'Use receipt default' }, ...BUDGET_CATEGORY_OPTIONS.map(value => ({ value, label: formatLabel(value, value) }))]
+    : BUDGET_CATEGORY_OPTIONS.map(value => ({ value, label: formatLabel(value, value) }));
+  return options.map(option => `
+    <option value="${escAttr(option.value)}" ${option.value === normalized ? 'selected' : ''}>${escHtml(option.label)}</option>
+  `).join('');
+}
+
+function renderUnitOptionTags(selectedValue = 'each') {
+  const normalized = String(selectedValue || 'each').trim().toLowerCase() || 'each';
+  return UNIT_OPTIONS.map(unit => `
+    <option value="${escAttr(unit)}" ${unit === normalized ? 'selected' : ''}>${escHtml(formatLabel(unit, unit))}</option>
+  `).join('');
+}
+
+function normalizeUnitValue(unit = '') {
+  return String(unit || '').trim().toLowerCase();
+}
+
+function hasMeaningfulUnit(unit = '') {
+  const normalized = normalizeUnitValue(unit);
+  return Boolean(normalized) && normalized !== 'each';
+}
+
+function formatUnitSizeSummary(unit = '', sizeLabel = '') {
+  const normalizedUnit = normalizeUnitValue(unit);
+  const normalizedSize = String(sizeLabel || '').trim();
+  if (normalizedSize) return normalizedSize;
+  if (hasMeaningfulUnit(normalizedUnit)) return formatLabel(normalizedUnit, normalizedUnit);
+  return '';
+}
+
+function formatShoppingQuantitySummary(quantity = 1, unit = '', sizeLabel = '') {
+  const qty = Number(quantity || 0);
+  const normalizedUnit = normalizeUnitValue(unit);
+  const normalizedSize = String(sizeLabel || '').trim();
+  if (normalizedSize) {
+    if (qty > 1) return `x${qty} (${normalizedSize})`;
+    return normalizedSize;
+  }
+  if (hasMeaningfulUnit(normalizedUnit)) {
+    if (qty > 1) return `${qty} ${formatLabel(normalizedUnit, normalizedUnit)}`;
+    return `1 ${formatLabel(normalizedUnit, normalizedUnit)}`;
+  }
+  if (qty > 1) return `x${qty}`;
+  return '';
+}
+
+function formatProductUnitMeta(product = {}) {
+  const parts = [];
+  const unitSize = formatUnitSizeSummary(product.default_unit || '', product.default_size_label || '');
+  if (product.brand) parts.push(product.brand);
+  if (product.size) parts.push(product.size);
+  if (unitSize && !parts.includes(unitSize)) parts.push(unitSize);
+  if (product.latest_price?.price != null) parts.push(formatMoney(product.latest_price.price));
+  return parts;
+}
+
+function formatShoppingDisplayName(item = {}) {
+  const baseName = item.name || item.product_display_name || item.product_full_name || 'Item';
+  const summary = formatShoppingQuantitySummary(item.quantity, item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || '');
+  return summary ? `${baseName} ${summary}` : baseName;
+}
+
+async function updateProductUnitDefaults(productId) {
+  const unitEl = document.getElementById(`product-default-unit-${productId}`);
+  const sizeEl = document.getElementById(`product-default-size-${productId}`);
+  if (!unitEl || !sizeEl) return;
+  const res = await api(`/products/${productId}/update`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      default_unit: unitEl.value || 'each',
+      default_size_label: sizeEl.value?.trim?.() || ''
+    })
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(payload.error || 'Could not update unit defaults', 'error');
+    return;
+  }
+  toast('Unit defaults updated ✅', 'success');
+  await Promise.all([
+    loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+    loadShoppingList()
+  ]);
+}
+
 async function updateProductCategory(productId, nextCategory) {
   const category = String(nextCategory || 'other').trim().toLowerCase() || 'other';
   const res = await api(`/products/${productId}/update`, {
@@ -11173,12 +11851,7 @@ async function loadProducts(query = '') {
                         <strong>${escHtml(item.name)}</strong>
                         ${item.manual_low || item.is_low ? '<span class="badge badge-low">Low</span>' : ''}
                       </div>
-                      <div class="inventory-mobile-meta">${[
-                        item.brand,
-                        item.size,
-                        item.latest_price?.price != null ? formatMoney(item.latest_price.price) : null,
-                        item.last_purchase_date ? `Purchased ${item.last_purchase_date}` : null
-                      ].filter(Boolean).map(value => escHtml(String(value))).join(' · ')}</div>
+                      <div class="inventory-mobile-meta">${formatProductUnitMeta(item).map(value => escHtml(String(value))).join(' · ')}</div>
                       ${item.recent_receipts?.length ? `
                         <div class="mini-links">
                           ${item.recent_receipts.map(link => `
@@ -11192,6 +11865,17 @@ async function loadProducts(query = '') {
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || 'other')}'), quantity: 1, source: 'product' })"><span class="icon">🛒</span><span class="label">Add</span></button>
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
                         <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      </div>
+                      <div style="display:grid;gap:8px;grid-template-columns:minmax(92px, 0.8fr) minmax(0, 1fr) auto;align-items:end">
+                        <div>
+                          <div class="inventory-mobile-meta" style="margin-bottom:4px">Unit</div>
+                          <select id="product-default-unit-${item.id}" class="inline-select">${renderUnitOptionTags(item.default_unit || 'each')}</select>
+                        </div>
+                        <div>
+                          <div class="inventory-mobile-meta" style="margin-bottom:4px">Size Label</div>
+                          <input id="product-default-size-${item.id}" class="inline-input" value="${escAttr(item.default_size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                        </div>
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save</button>
                       </div>
                     </div>
                   `).join('')}
@@ -11223,9 +11907,7 @@ async function loadProducts(query = '') {
                       </div>
                       <div style="color:var(--muted);font-size:0.78rem">
                         ${[
-                          item.brand,
-                          item.size,
-                          item.latest_price?.price != null ? `${formatMoney(item.latest_price.price)}${item.size ? ` · ${item.size}` : ''}` : null,
+                          ...formatProductUnitMeta(item),
                           formatLabel(item.category, 'Other')
                         ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                         ${item.last_purchase_date ? ` · Purchased ${escHtml(item.last_purchase_date)}` : ''}
@@ -11250,6 +11932,9 @@ async function loadProducts(query = '') {
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? 'Clear Low' : 'Low'}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
                       <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+                      <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || 'each')}</select>
+                      <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || '')}" placeholder="18 count, 1 gal" />
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save Unit</button>
                       <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
                     </div>
                   </div>`).join('')}
@@ -11650,8 +12335,7 @@ function renderShoppingQuickResults() {
         ${shoppingQuickSuggestions.slice(0, 5).map(item => {
           const existing = getMatchingShoppingEntry(item.id, item.name);
           const meta = [
-            item.brand || null,
-            item.size || null,
+            ...formatProductUnitMeta(item),
             item.category ? formatLabel(item.category, 'Other') : null,
             item.last_purchase_date ? `Recent ${item.last_purchase_date}` : null
           ].filter(Boolean).map(value => escHtml(value)).join(' · ');
@@ -11696,8 +12380,7 @@ function renderShoppingQuickResults() {
       ${shoppingQuickResults.slice(0, 5).map(item => {
         const existing = getMatchingShoppingEntry(item.id, item.name);
         const meta = [
-          item.brand || null,
-          item.size || null,
+          ...formatProductUnitMeta(item),
           item.category ? formatLabel(item.category, 'Other') : null
         ].filter(Boolean).map(value => escHtml(value)).join(' · ');
         return `
@@ -11874,6 +12557,97 @@ async function updateShoppingPreferredStoreGroup(itemIds, preferredStore) {
   ]);
 }
 
+async function saveShoppingGroupPrice(itemIds, key, priceStore = '') {
+  if (SHOPPING_HELPER_MODE) return;
+  const input = document.getElementById(`shopping-price-${key}`);
+  const rawValue = input?.value?.trim?.() ?? '';
+  if (!rawValue) {
+    toast('Enter a unit price', 'error');
+    return;
+  }
+  const unitPrice = Number(rawValue);
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    toast('Enter a valid unit price', 'error');
+    return;
+  }
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      manual_estimated_price: unitPrice,
+      persist_latest_price: true,
+      price_store: priceStore || ''
+    })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not save shopping price');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast('Shopping price saved ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
+async function saveShoppingGroupUnitDefaults(itemIds, primaryProductId, key) {
+  if (SHOPPING_HELPER_MODE) return;
+  const unitEl = document.getElementById(`shopping-unit-${key}`);
+  const sizeEl = document.getElementById(`shopping-size-${key}`);
+  const unit = unitEl?.value || 'each';
+  const sizeLabel = sizeEl?.value?.trim?.() || '';
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+
+  if (primaryProductId) {
+    const productRes = await api(`/products/${primaryProductId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        default_unit: unit,
+        default_size_label: sizeLabel
+      })
+    });
+    const productPayload = await productRes.json().catch(() => ({}));
+    if (!productRes.ok) {
+      toast(productPayload.error || 'Could not update product unit defaults', 'error');
+      return;
+    }
+  }
+
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      unit,
+      size_label: sizeLabel
+    })
+  })));
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not save shopping unit details');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+  toast('Unit details saved ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadProducts(document.getElementById('prod-search')?.value?.trim() || ''),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -11933,6 +12707,46 @@ function renderShoppingListTable() {
     return sum + itemEstimate;
   }, 0) * 100) / 100;
   const isMobileShoppingList = () => !SHOPPING_HELPER_MODE && window.innerWidth <= 640;
+  const renderShoppingMorePanelButtons = item => {
+    const lowLabel = item.primaryItem?.manual_low || item.primaryItem?.is_low ? 'Clear Low' : 'Low';
+    const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
+    const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
+    return `
+      ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel}</button>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+    `;
+  };
+  const renderShoppingMoreMenu = (item, mobile = false) => {
+    const menuId = `${item.key}-${mobile ? 'mobile' : 'web'}`;
+    if (mobile) {
+      return `
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+          ontouchend="event.preventDefault(); event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+        >More</button>
+      `;
+    }
+    return `
+      <div class="shopping-more-menu" onclick="event.stopPropagation()">
+        <button
+          type="button"
+          class="btn btn-sm btn-ghost"
+          onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
+        >More</button>
+        <div
+          class="shopping-more-panel"
+          style="display:${shoppingMoreMenuOpen[menuId] ? 'grid' : 'none'}"
+          onclick="event.stopPropagation()"
+        >
+          ${renderShoppingMorePanelButtons(item)}
+        </div>
+      </div>
+    `;
+  };
   const renderMobileStoreCards = (groups, options = {}) => sortShoppingGroups(groups)
     .map(([storeName, rawStoreItems]) => {
       const storeItems = mergeShoppingDisplayItems(rawStoreItems);
@@ -11941,14 +12755,22 @@ function renderShoppingListTable() {
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="shopping-mobile-store-card" style="${options.dimmed ? 'opacity:0.92;' : ''}">
-        <div class="shopping-mobile-store-head">
+        <div
+          class="shopping-mobile-store-head"
+          role="button"
+          tabindex="0"
+          onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'));}"
+          aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+          title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+        >
           <div class="shopping-mobile-store-title">${escHtml(storeName)}</div>
           <div style="display:flex;align-items:center;gap:10px">
             <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
             <button
               type="button"
               class="card-header-inline-stat"
-              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              onclick="event.stopPropagation(); toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
               aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
               title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
             >${storeItems.length}</button>
@@ -11957,8 +12779,14 @@ function renderShoppingListTable() {
         <div class="shopping-mobile-item-list" style="display:${collapsed ? 'none' : ''}">
           ${sortShoppingItems(storeItems).map(item => `
             <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.key] ? 'expanded' : ''}">
-              <div class="shopping-mobile-item-summary" role="button" tabindex="0" onclick="toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}">
-                  <div class="shopping-mobile-item-name">${escHtml(item.name)}${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}</div>
+              <div class="shopping-mobile-item-summary" role="button" tabindex="0"
+                onclick="handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}"
+                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(',')}], '${escAttr(item.status || 'open')}')"
+                ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
+                  <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
                 <div class="shopping-mobile-item-estimate">
                   ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
                   <span class="shopping-mobile-item-chevron">▾</span>
@@ -11968,26 +12796,73 @@ function renderShoppingListTable() {
                 <div class="shopping-mobile-item-meta">
                   ${[
                     item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                    formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
                     item.category ? formatLabel(item.category, 'Other') : null,
                     item.effective_store ? `Likely ${item.effective_store}` : null,
                     item.note || null
                   ].filter(Boolean).map(value => escHtml(value)).join(' · ') || 'Tap Bought when you pick this up.'}
                 </div>
                 ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
-                <div style="margin-top:10px">
-                  <select onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)" style="width:100%">
-                    ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
-                  </select>
+                <div class="shopping-mobile-compact-grid">
+                  <div class="shopping-mobile-compact-field compact-store">
+                    <label title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}">🏬</label>
+                    <select
+                      onclick="event.stopPropagation()"
+                      onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                      title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                    >
+                      ${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}
+                    </select>
+                  </div>
+                  <div class="shopping-mobile-compact-field">
+                    <label>Unit</label>
+                    <select
+                      id="shopping-unit-${escAttr(item.key)}"
+                      class="inline-select"
+                      onclick="event.stopPropagation()"
+                    >${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                  </div>
+                  <div class="shopping-mobile-compact-field">
+                    <label>Size Label</label>
+                    <input
+                      id="shopping-size-${escAttr(item.key)}"
+                      class="inline-input"
+                      value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}"
+                      placeholder="18 count, 1 gal, 2.4 lb"
+                      onclick="event.stopPropagation()"
+                    />
+                  </div>
                 </div>
-                <div class="shopping-rename-row">
-                  <button type="button" class="shopping-rename-btn" onclick="event.stopPropagation(); renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+                <div class="shopping-mobile-action-grid">
+                  <div class="shopping-mobile-compact-field">
+                    <label>Unit Price</label>
+                    <input
+                      id="shopping-price-${escAttr(item.key)}"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                      placeholder="0.00"
+                      onclick="event.stopPropagation()"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    onclick="event.stopPropagation(); saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                  >Save Unit</button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-ghost"
+                    onclick="event.stopPropagation(); saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                  >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
                 </div>
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+                  ${renderShoppingMoreMenu(item, true)}
                 </div>
+                ${shoppingMoreMenuOpen[`${item.key}-mobile`] ? `<div class="shopping-more-panel mobile-inline" onclick="event.stopPropagation()">${renderShoppingMorePanelButtons(item)}</div>` : ''}
               </div>
             </div>
           `).join('')}
@@ -12002,14 +12877,22 @@ function renderShoppingListTable() {
       const collapsed = isShoppingStoreGroupCollapsed(sectionKey, storeName);
       return `
       <div class="card" style="margin-bottom:16px;${options.dimmed ? 'opacity:0.92;' : ''}">
-        <div class="card-header">
+        <div
+          class="card-header"
+          role="button"
+          tabindex="0"
+          onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'));}"
+          aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
+          title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
+        >
           <span class="card-title">${escHtml(storeName)}</span>
           <div style="display:flex;align-items:center;gap:10px">
             <div style="color:var(--muted);font-weight:700">${formatMoney(storeEstimate)}</div>
             <button
               type="button"
               class="card-header-inline-stat"
-              onclick="toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
+              onclick="event.stopPropagation(); toggleShoppingStoreGroup(decodeURIComponent('${encodeURIComponent(sectionKey)}'), decodeURIComponent('${encodeURIComponent(storeName)}'))"
               aria-label="${collapsed ? 'Expand' : 'Collapse'} ${escHtml(storeName)} items"
               title="${collapsed ? 'Show items from this store' : 'Hide items from this store'}"
             >${storeItems.length}</button>
@@ -12017,39 +12900,71 @@ function renderShoppingListTable() {
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table class="shopping-store-table">
-            <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Store</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td class="shopping-item-cell">
-                  <strong>${escHtml(item.name)}</strong>${item.quantity > 1 ? ` <span style="color:var(--muted);font-weight:600">x${escHtml(String(item.quantity))}</span>` : ''}
+                  <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
                   <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
                     ${[
                       item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                      formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
                       item.effective_store ? `Likely ${item.effective_store}` : null,
                       item.note || null
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
-                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
-                  <div class="shopping-rename-row">
-                    <button type="button" class="shopping-rename-btn" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
+                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                  <div class="shopping-web-edit-grid">
+                    <div class="shopping-web-edit-field compact-store">
+                      <label>🏬</label>
+                      <select
+                        class="inline-select"
+                        title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                        onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                      >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                    </div>
+                    <div class="shopping-web-edit-field">
+                      <label>Unit</label>
+                      <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                    </div>
+                    <div class="shopping-web-edit-field">
+                      <label>Size Label</label>
+                      <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                    </div>
+                    <div class="shopping-web-edit-field">
+                      <label>Unit Price</label>
+                      <input
+                        id="shopping-price-${escAttr(item.key)}"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-ghost"
+                      onclick="saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                    >Save Unit</button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-ghost"
+                      onclick="saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                    >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
                   </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
                 <td>${item.quantity}</td>
                 <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ''}` : '<span style="color:var(--muted)">—</span>'}</td>
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
-                <td>
-                  <select class="shopping-store-select" onchange="updateShoppingPreferredStore(${item.primaryItem.id}, this.value)">
-                    ${renderShoppingStoreOptionTags(item.preferred_store || '')}
-                  </select>
-                </td>
-                <td><span class="badge badge-${item.status === 'purchased' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Open'))}</span></td>
+                <td><span class="badge badge-${shoppingStatusBadgeClass(item.status)}">${escHtml(shoppingStatusLabel(item.status))}</span></td>
                 <td class="shopping-actions-cell">
                   <div class="shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.primaryProductId}, true)">Low</button>` : '<button type="button" class="btn btn-sm btn-ghost" disabled aria-disabled="true">Low</button>'}
                   <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+                  ${renderShoppingMoreMenu(item)}
                   </div>
                 </td>
               </tr>`).join('')}
@@ -12189,7 +13104,28 @@ async function loadShoppingList() {
   renderShoppingQuickResults();
 }
 
-async function toggleShoppingItem(id, status) {
+function shoppingStatusLabel(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'out_of_stock') return 'Out of Stock';
+  if (normalized === 'purchased') return 'Bought';
+  return 'Open';
+}
+
+function shoppingStatusSuccessMessage(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'purchased') return 'Marked as bought ✅';
+  if (normalized === 'out_of_stock') return 'Marked out of stock 🚫';
+  return 'Item reopened ✅';
+}
+
+function shoppingStatusBadgeClass(status) {
+  const normalized = String(status || 'open').trim().toLowerCase();
+  if (normalized === 'purchased') return 'ok';
+  if (normalized === 'out_of_stock') return 'low';
+  return 'warning';
+}
+
+async function toggleShoppingItem(id, status, options = {}) {
   const res = await shoppingApi(`/shopping-list/items/${id}`, {
     method: 'PUT',
     body: JSON.stringify({ status })
@@ -12199,11 +13135,12 @@ async function toggleShoppingItem(id, status) {
     toast(data.error || 'Could not update shopping list item', 'error');
     return;
   }
-  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
-  loadShoppingList();
+  if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
+  await loadShoppingList();
+  if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
 
-async function toggleShoppingGroupItems(ids, status) {
+async function toggleShoppingGroupItems(ids, status, options = {}) {
   const validIds = (ids || []).map(Number).filter(Boolean);
   if (!validIds.length) return;
   const results = await Promise.all(validIds.map(id => shoppingApi(`/shopping-list/items/${id}`, {
@@ -12221,8 +13158,9 @@ async function toggleShoppingGroupItems(ids, status) {
     toast(failed[0], 'error');
     return;
   }
-  toast(status === 'purchased' ? 'Marked as bought ✅' : 'Item reopened ✅', 'success');
-  loadShoppingList();
+  if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
+  await loadShoppingList();
+  if (typeof options.afterSuccess === 'function') options.afterSuccess();
 }
 
 async function deleteShoppingItem(id) {
@@ -12378,6 +13316,7 @@ async function loadReceipts() {
   const res = await api(`/receipts${query ? `?${query}` : ''}`);
   const body = document.getElementById('receipts-table-body');
   const detailCard = document.getElementById('receipt-detail-body')?.closest('.card');
+  const receiptDetailGrid = document.querySelector('#page-receipts .receipt-detail-grid');
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>Could not load receipts.</p></div>'; return; }
   const data = await res.json();
   populateReceiptFilterOptions(data.filters || {});
@@ -12395,14 +13334,17 @@ async function loadReceipts() {
   if (!receipts.length) {
     body.innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
     if (detailCard) detailCard.style.display = '';
+    if (receiptDetailGrid) receiptDetailGrid.classList.remove('receipts-inline-mode');
     document.getElementById('receipt-detail-body').innerHTML = '<div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div>';
     return;
   }
   if (isCompactMobileReceiptView()) {
     if (detailCard) detailCard.style.display = '';
+    if (receiptDetailGrid) receiptDetailGrid.classList.remove('receipts-inline-mode');
     body.innerHTML = renderCompactReceiptRows(receipts);
   } else {
     if (detailCard) detailCard.style.display = 'none';
+    if (receiptDetailGrid) receiptDetailGrid.classList.add('receipts-inline-mode');
     const availableReceiptIds = receipts.map(r => Number(r.purchase_id || r.id)).filter(Boolean);
     const targetReceiptId = availableReceiptIds.includes(Number(selectedReceiptId))
       ? Number(selectedReceiptId)
@@ -12511,7 +13453,7 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
-        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="unknown">Unknown</option></select></div>
+        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="event">Event</option><option value="unknown">Unknown</option></select></div>
         <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">
@@ -12529,6 +13471,10 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
             </div>
           </div>
         </div>
+        <div class="receipt-editor-main-field field-default-category">
+          <label>Budget Category</label>
+          <select id="receipt-default-category-${receipt.id}">${renderBudgetCategoryOptionTags(receipt.default_budget_category || 'grocery')}</select>
+        </div>
         <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
@@ -12537,14 +13483,9 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addReceiptEditorRow(${receipt.id})">Add Item</button>
       </div>
-      ${(compactReceiptMobile || inlineLayout)
+      ${compactReceiptMobile
         ? `<div id="receipt-editor-items-${receipt.id}" class="receipt-mobile-list"></div>`
-        : `<div class="table-wrap">
-            <table>
-              <thead><tr><th>Item</th><th>Qty</th><th>Line Total</th><th>Category</th><th></th></tr></thead>
-              <tbody id="receipt-editor-items-${receipt.id}"></tbody>
-            </table>
-          </div>`}
+        : `<div id="receipt-editor-items-${receipt.id}" class="receipt-editor-web-list"></div>`}
     </div>` : '';
   const footerHtml = `
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button></div>
@@ -12554,6 +13495,10 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
     return `
       <div class="receipt-inline-detail-wrap">
         <div class="receipt-inline-detail-shell">
+          <div class="receipt-inline-detail-head">
+            <span class="card-title">${escHtml(receipt.store || 'Receipt')}</span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReceiptDetail(${receipt.purchase_id || receipt.id})">Close Receipt</button>
+          </div>
           <div class="receipt-inline-detail-layout">
             <div class="receipt-inline-detail-left">
               <div class="receipt-inline-detail-image">${imageHtml}</div>
@@ -12669,16 +13614,48 @@ async function viewReceipt(id, options = {}) {
 
 function renderReceiptEditorRows(items = [], options = {}) {
   const mobile = options.mobile ?? isCompactMobileReceiptView();
-  const rowItems = items.length ? items : [{ name: '', quantity: 1, unit_price: 0, category: 'other' }];
+  const showBudgeting = options.showBudgeting !== false;
+  const rowItems = items.length ? items : [{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other' }];
   if (!mobile) {
     return rowItems.map((item, index) => `
-      <tr data-row="${index}" data-receipt-editor-row data-product-id="${escAttr(item.product_id ?? '')}">
-        <td><input data-field="name" value="${escAttr(item.name || item.product_name || '')}" placeholder="Line item name" /></td>
-        <td><input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" style="max-width:90px" /></td>
-        <td><input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" style="max-width:120px" /></td>
-        <td><select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select></td>
-        <td><button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button></td>
-      </tr>
+      <div class="receipt-editor-web-row" data-row="${index}" data-receipt-editor-row data-product-id="${escAttr(item.product_id ?? '')}">
+        <div class="receipt-editor-web-main">
+          <div class="receipt-editor-web-field">
+            <label>Item</label>
+            <input data-field="name" value="${escAttr(item.name || item.product_name || '')}" placeholder="Line item name" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Qty</label>
+            <input data-field="quantity" type="number" step="0.01" value="${escAttr(item.quantity ?? 1)}" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Line Total</label>
+            <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Unit</label>
+            <select data-field="unit" class="inline-select">${renderUnitOptionTags(item.unit || 'each')}</select>
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Size Label</label>
+            <input data-field="size_label" value="${escAttr(item.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+          </div>
+          <div class="receipt-editor-web-field">
+            <label>Item Group</label>
+            <select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+          </div>
+          ${showBudgeting ? `
+            <div class="receipt-editor-web-field">
+              <label>Budget Category</label>
+              <select data-field="budget_category" class="inline-select">${renderBudgetCategoryOptionTags(item.budget_category || '', true)}</select>
+            </div>
+          ` : '<div></div>'}
+          <div class="receipt-editor-web-field">
+            <label>&nbsp;</label>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeReceiptEditorRow(this)">Remove</button>
+          </div>
+        </div>
+      </div>
     `).join('');
   }
   return rowItems.map((item, index) => `
@@ -12706,32 +13683,70 @@ function renderReceiptEditorRows(items = [], options = {}) {
           <input data-field="line_total" type="number" step="0.01" value="${escAttr((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price ?? 0) || 0))}" />
         </div>
       </div>
-      <div class="receipt-editor-card-field">
-        <label>Category</label>
-        <select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+      <div class="receipt-editor-card-unit-row receipt-editor-card-overrides">
+        <div class="receipt-editor-card-field">
+          <label>Unit</label>
+          <select data-field="unit" class="inline-select">${renderUnitOptionTags(item.unit || 'each')}</select>
+        </div>
+        <div class="receipt-editor-card-field">
+          <label>Size Label</label>
+          <input data-field="size_label" value="${escAttr(item.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+        </div>
+      </div>
+      <div class="receipt-editor-card-overrides">
+        <div class="receipt-editor-card-field">
+          <label>Item Group</label>
+          <select data-field="category" class="inline-select">${renderProductCategoryOptionTags(item.category || 'other')}</select>
+        </div>
+        ${showBudgeting ? `
+          <div class="receipt-editor-card-field">
+            <label>Budget Category</label>
+            <select data-field="budget_category" class="inline-select">${renderBudgetCategoryOptionTags(item.budget_category || '', true)}</select>
+          </div>
+        ` : ''}
       </div>
     </div>
   `).join('');
 }
 
+function wireReceiptBudgetingControls(receiptId) {
+  const defaultCategoryEl = document.getElementById(`receipt-default-category-${receiptId}`);
+  const receiptTypeEl = document.getElementById(`receipt-type-${receiptId}`);
+  if (receiptTypeEl && defaultCategoryEl) {
+    receiptTypeEl.onchange = () => {
+      const derived = deriveReceiptBudgetDefaults(receiptTypeEl.value || 'grocery');
+      if (!defaultCategoryEl.value || defaultCategoryEl.value === defaultBudgetCategoryForSpendingDomain(deriveReceiptBudgetDefaults(receiptTypeEl.dataset.previousValue || 'grocery').spendingDomain)) {
+        defaultCategoryEl.value = derived.budgetCategory;
+      }
+      receiptTypeEl.dataset.previousValue = receiptTypeEl.value || 'grocery';
+    };
+    receiptTypeEl.dataset.previousValue = receiptTypeEl.value || 'grocery';
+  }
+}
+
 function hydrateReceiptEditor(receiptId, receiptType, data) {
   const itemsBody = document.getElementById(`receipt-editor-items-${receiptId}`);
   if (!itemsBody) return;
+  const derivedDefaults = deriveReceiptBudgetDefaults(data.default_spending_domain || receiptType || 'grocery');
   document.getElementById(`receipt-type-${receiptId}`).value = receiptType || 'unknown';
   document.getElementById(`receipt-store-${receiptId}`).value = data.store || '';
   document.getElementById(`receipt-date-${receiptId}`).value = data.date || '';
   document.getElementById(`receipt-time-${receiptId}`).value = data.time || '';
+  const defaultCategoryEl = document.getElementById(`receipt-default-category-${receiptId}`);
+  if (defaultCategoryEl) defaultCategoryEl.value = data.default_budget_category || derivedDefaults.budgetCategory;
   document.getElementById(`receipt-subtotal-${receiptId}`).value = data.subtotal ?? data.total ?? 0;
   document.getElementById(`receipt-tax-${receiptId}`).value = data.tax ?? 0;
   document.getElementById(`receipt-tip-${receiptId}`).value = data.tip ?? 0;
   document.getElementById(`receipt-total-${receiptId}`).value = data.total ?? 0;
-  itemsBody.innerHTML = renderReceiptEditorRows(data.items || [], { mobile: isCompactMobileReceiptView() });
+  itemsBody.innerHTML = renderReceiptEditorRows(data.items || [], { mobile: isCompactMobileReceiptView(), showBudgeting: true });
+  wireReceiptBudgetingControls(receiptId);
 }
 
 function addReceiptEditorRow(receiptId) {
   const body = document.getElementById(`receipt-editor-items-${receiptId}`);
   if (!body) return;
-  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }], { mobile: isCompactMobileReceiptView() }));
+  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true }));
+  wireReceiptBudgetingControls(receiptId);
 }
 
 function removeReceiptEditorRow(button) {
@@ -12740,14 +13755,24 @@ function removeReceiptEditorRow(button) {
   if (!row || !tbody) return;
   row.remove();
   if (!tbody.children.length) {
-    tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }], { mobile: isCompactMobileReceiptView() });
+    tbody.innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other', spending_domain: '', budget_category: '' }], { mobile: isCompactMobileReceiptView(), showBudgeting: true });
+  }
+  const receiptEditorRoot = tbody.closest('[id^="receipt-editor-items-"]');
+  if (receiptEditorRoot) {
+    const receiptId = Number(String(receiptEditorRoot.id).replace('receipt-editor-items-', '')) || 0;
+    if (receiptId) wireReceiptBudgetingControls(receiptId);
   }
 }
 
 function openManualEntryModal() {
   const overlay = document.getElementById('manual-entry-overlay');
   if (!overlay) return;
-  const selectedDomain = getSelectedBudgetDomain();
+  const selectedCategory = getSelectedBudgetCategory();
+  const selectedDomain = selectedCategory === 'dining'
+    ? 'restaurant'
+    : selectedCategory === 'grocery'
+      ? 'grocery'
+      : 'general_expense';
   const today = new Date();
   document.getElementById('manual-entry-type').value = selectedDomain || 'grocery';
   document.getElementById('manual-entry-store').value = '';
@@ -12756,7 +13781,7 @@ function openManualEntryModal() {
   document.getElementById('manual-entry-tax').value = '0';
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
-  document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView() });
+  document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
@@ -12894,7 +13919,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
           <div class="receipt-compact-row-right">
             <div class="receipt-compact-row-value">${formatMoney(receipt.total || 0)}</div>
             <div class="receipt-compact-row-actions">
-              <button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.receipt_id || receipt.record_id || receipt.purchase_id || receipt.id})">Open</button>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button>
               ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${receipt.purchase_id || receipt.id})">Delete</button>` : ''}
             </div>
           </div>
@@ -12911,7 +13936,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
 function addManualEntryRow() {
   const body = document.getElementById('manual-entry-items');
   if (!body) return;
-  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, category: 'other' }], { mobile: isCompactMobileReceiptView() }));
+  body.insertAdjacentHTML('beforeend', renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false }));
 }
 
 function collectManualEntryData() {
@@ -12928,7 +13953,13 @@ function collectManualEntryData() {
       product_id: Number(row.dataset.productId || 0) || null,
       name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
       quantity: Number(row.querySelector('[data-field="quantity"]')?.value || 1),
-      unit_price: Number(row.querySelector('[data-field="unit_price"]')?.value || 0),
+      unit_price: (() => {
+        const quantity = Number(row.querySelector('[data-field="quantity"]')?.value || 1);
+        const lineTotal = Number(row.querySelector('[data-field="line_total"]')?.value || 0);
+        return quantity > 0 ? (lineTotal / quantity) : lineTotal;
+      })(),
+      unit: row.querySelector('[data-field="unit"]')?.value || 'each',
+      size_label: row.querySelector('[data-field="size_label"]')?.value?.trim() || '',
       category: row.querySelector('[data-field="category"]')?.value || 'other',
     })).filter(item => item.name),
   };
@@ -12994,10 +14025,14 @@ async function rotateReceipt(id, direction) {
 
 function collectReceiptEditorData(receiptId) {
   const rows = [...document.querySelectorAll(`#receipt-editor-items-${receiptId} [data-receipt-editor-row]`)];
+  const receiptType = document.getElementById(`receipt-type-${receiptId}`)?.value || 'grocery';
+  const derivedDefaults = deriveReceiptBudgetDefaults(receiptType);
   return {
     store: document.getElementById(`receipt-store-${receiptId}`)?.value?.trim() || '',
     date: document.getElementById(`receipt-date-${receiptId}`)?.value || '',
     time: document.getElementById(`receipt-time-${receiptId}`)?.value?.trim() || '',
+    default_spending_domain: derivedDefaults.spendingDomain,
+    default_budget_category: document.getElementById(`receipt-default-category-${receiptId}`)?.value || derivedDefaults.budgetCategory,
     subtotal: Number(document.getElementById(`receipt-subtotal-${receiptId}`)?.value || 0),
     tax: Number(document.getElementById(`receipt-tax-${receiptId}`)?.value || 0),
     tip: Number(document.getElementById(`receipt-tip-${receiptId}`)?.value || 0),
@@ -13011,7 +14046,11 @@ function collectReceiptEditorData(receiptId) {
         name: row.querySelector('[data-field="name"]')?.value?.trim() || '',
         quantity,
         unit_price: quantity > 0 ? (lineTotal / quantity) : lineTotal,
+        unit: row.querySelector('[data-field="unit"]')?.value || 'each',
+        size_label: row.querySelector('[data-field="size_label"]')?.value?.trim() || '',
         category: row.querySelector('[data-field="category"]')?.value || 'other',
+        spending_domain: '',
+        budget_category: row.querySelector('[data-field="budget_category"]')?.value || '',
       };
     }).filter(item => item.name),
   };
@@ -13121,8 +14160,18 @@ function setDefaultMonth() {
   document.getElementById('budget-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
-function getSelectedBudgetDomain() {
-  return document.getElementById('budget-domain')?.value || 'grocery';
+function populateBudgetCategoryOptions() {
+  const budgetCategory = document.getElementById('budget-category');
+  if (!budgetCategory) return;
+  const current = budgetCategory.value || 'grocery';
+  budgetCategory.innerHTML = BUDGET_CATEGORY_OPTIONS
+    .map(value => `<option value="${escAttr(value)}">${escHtml(formatLabel(value, value))}</option>`)
+    .join('');
+  if ([...budgetCategory.options].some(option => option.value === current)) budgetCategory.value = current;
+}
+
+function getSelectedBudgetCategory() {
+  return document.getElementById('budget-category')?.value || 'grocery';
 }
 
 async function setBudget() {
@@ -13132,36 +14181,204 @@ async function setBudget() {
   }
   const month = document.getElementById('budget-month').value;
   const amt = parseFloat(document.getElementById('budget-amt').value);
-  const domain = getSelectedBudgetDomain();
+  const budgetCategory = getSelectedBudgetCategory();
   if (!month || !amt) { toast('Enter month and amount', 'error'); return; }
-  const res = await api('/budget/set-monthly', { method: 'POST', body: JSON.stringify({ month, domain, budget_amount: amt }) });
-  if (res.ok) { toast(`${formatLabel(domain, domain)} budget saved ✅`, 'success'); loadBudgetStatus(); }
+  const res = await api('/budget/set-monthly', { method: 'POST', body: JSON.stringify({ month, budget_category: budgetCategory, budget_amount: amt }) });
+  if (res.ok) { toast(`${formatLabel(budgetCategory, budgetCategory)} budget saved ✅`, 'success'); loadBudgetStatus(); }
   else { const e = await res.json(); toast(e.error || 'Failed', 'error'); }
+}
+
+async function loadBudgetEditorDefaults() {
+  const month = document.getElementById('budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const budgetCategory = getSelectedBudgetCategory();
+  const amountInput = document.getElementById('budget-amt');
+  if (!amountInput) return;
+  const res = await api(`/budget/status?month=${encodeURIComponent(month)}&budget_category=${encodeURIComponent(budgetCategory)}`);
+  if (!res.ok) {
+    amountInput.value = '';
+    return;
+  }
+  const payload = await res.json();
+  amountInput.value = payload.budget_amount ? String(payload.budget_amount) : '';
+}
+
+function renderBudgetTargetRows(rows) {
+  if (!rows.length) return '<div class="empty-state"><p>No saved category budgets yet.</p></div>';
+  return `<table style="table-layout:fixed;width:100%">
+    <colgroup>
+      <col style="width:26%">
+      <col style="width:22%">
+      <col style="width:52%">
+    </colgroup>
+    <thead><tr><th>Category</th><th>Current Budget</th><th>Last Updated</th></tr></thead>
+    <tbody>${rows.map(row => `
+      <tr>
+        <td>${escHtml(formatLabel(row.budget_category, row.budget_category))}</td>
+        <td>${formatMoney(row.budget_amount || 0)}</td>
+        <td style="white-space:nowrap;font-size:0.95rem">${escHtml(formatDateTime(row.updated_at, '—'))}</td>
+      </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderBudgetHistoryRows(rows) {
+  if (!rows.length) return '<div class="empty-state"><p>No budget changes recorded yet.</p></div>';
+  return `<table style="table-layout:fixed;width:100%">
+    <colgroup>
+      <col style="width:40%">
+      <col style="width:18%">
+      <col style="width:21%">
+      <col style="width:21%">
+    </colgroup>
+    <thead><tr><th>Date / Time</th><th>Category</th><th>Old Value</th><th>New Value</th></tr></thead>
+    <tbody>${rows.map(row => `
+      <tr>
+        <td style="white-space:nowrap;font-size:0.9rem">${escHtml(formatDateTimeCompact(row.changed_at, '—'))}</td>
+        <td>${escHtml(formatLabel(row.budget_category, row.budget_category))}</td>
+        <td>${row.previous_amount == null ? '—' : formatMoney(row.previous_amount)}</td>
+        <td>${formatMoney(row.new_amount || 0)}</td>
+      </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+async function loadBudgetHistory() {
+  const month = document.getElementById('budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const targetsBody = document.getElementById('budget-targets-body');
+  const historyBody = document.getElementById('budget-history-body');
+  if (!targetsBody || !historyBody) return;
+  const res = await api(`/budget/target-history?month=${encodeURIComponent(month)}`);
+  if (!res.ok) {
+    targetsBody.innerHTML = '<div class="empty-state"><p>Could not load current budget targets.</p></div>';
+    historyBody.innerHTML = '<div class="empty-state"><p>Could not load budget history.</p></div>';
+    return;
+  }
+  const payload = await res.json();
+  targetsBody.innerHTML = renderBudgetTargetRows(payload.current_targets || []);
+  historyBody.innerHTML = renderBudgetHistoryRows(payload.history || []);
+}
+
+function syncBudgetCategorySelection(category) {
+  const budgetCategory = document.getElementById('budget-category');
+  if (budgetCategory) budgetCategory.value = category;
+  loadBudgetEditorDefaults();
+}
+
+function renderBudgetStatusRow(item, selectedCategory) {
+  const pct = Number(item.percentage || 0);
+  const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const updated = item.updated_at ? formatDateTime(item.updated_at, '—') : '—';
+  const contributions = Array.isArray(item.contributions) ? item.contributions : [];
+  const spent = Number(item.spent || 0);
+  const target = Number(item.budget_amount || 0);
+  return `
+    <details class="stat-card" style="padding:0;overflow:hidden">
+      <summary
+        onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')"
+        style="list-style:none;cursor:pointer;padding:14px 16px 12px;display:block"
+      >
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+          <div style="font-weight:700">${escHtml(formatLabel(item.budget_category, item.budget_category))}</div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;text-align:right">
+            <span style="font-size:0.82rem;color:var(--muted)">${pct}%</span>
+            <span style="font-weight:700">${formatMoney(spent)}</span>
+            <span style="font-size:0.82rem;color:var(--muted)">${formatMoney(target)}</span>
+          </div>
+        </div>
+        <div class="progress-wrap" style="margin-top:10px"><div class="progress-bar ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
+      </summary>
+      <div style="padding:0 16px 14px;border-top:1px solid var(--border);display:grid;gap:8px;font-size:0.82rem;color:var(--muted)">
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:10px">
+          <span>${pct}% used</span>
+          <span>${formatMoney(item.remaining || 0)} left</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span>Target</span>
+          <span>${formatMoney(item.budget_amount || 0)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span>Last updated</span>
+          <span>${escHtml(updated)}</span>
+        </div>
+        <div style="margin-top:6px">
+          <div style="font-weight:700;color:var(--text);margin-bottom:8px">Contributing receipts</div>
+          ${contributions.length ? `
+            <div style="display:grid;gap:8px">
+              ${contributions.map(entry => `
+                <div class="contrib-list-item" style="padding:10px 12px">
+                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+                    <div style="min-width:0;flex:1">
+                      <strong>${escHtml(entry.store || 'Unknown')}</strong>
+                      <div class="contrib-meta">${escHtml(entry.date || '—')} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${Number(entry.purchase_id || 0)})">Open Receipt</button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>` : '<div class="empty-state"><p>No receipt detail captured for this category yet.</p></div>'}
+        </div>
+      </div>
+    </details>
+  `;
 }
 
 async function loadBudgetStatus() {
   updateBudgetEditorAccess();
+  populateBudgetCategoryOptions();
   const month = document.getElementById('budget-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const domain = getSelectedBudgetDomain();
-  const res = await api(`/budget/status?month=${encodeURIComponent(month)}&domain=${encodeURIComponent(domain)}`);
+  const selectedCategory = getSelectedBudgetCategory();
+  const res = await api(`/budget/category-summary?month=${encodeURIComponent(month)}`);
   const body = document.getElementById('budget-status-body');
+  const totalSpentEl = document.getElementById('budget-total-spent');
+  if (totalSpentEl) totalSpentEl.textContent = '';
   if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>No budget set for this month.</p></div>'; return; }
-  const b = await res.json();
-  const pct = b.percentage ?? 0;
-  const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+  const payload = await res.json();
+  const categories = Array.isArray(payload.categories) ? payload.categories : [];
+  const active = categories.filter(item => Number(item.budget_amount || 0) > 0 || Number(item.spent || 0) > 0);
+  const inactive = categories.filter(item => !(Number(item.budget_amount || 0) > 0 || Number(item.spent || 0) > 0));
+  const totalSpent = categories.reduce((sum, item) => sum + Number(item.spent || 0), 0);
+  if (totalSpentEl) totalSpentEl.textContent = formatMoney(totalSpent);
   body.innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:600">${b.month} · ${formatLabel(b.domain, 'Grocery')}</span>
-        <span style="color:var(--muted)">$${b.spent ?? 0} / $${b.budget_amount ?? 0}</span>
-      </div>
-      <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
-        <span>${pct}% used</span>
-        <span>$${b.remaining ?? (b.budget_amount - b.spent) ?? 0} remaining</span>
-      </div>
-    </div>
-    ${pct >= 80 ? '<div style="color:var(--danger);font-size:0.88rem">⚠️ Over 80% of budget spent!</div>' : ''}`;
+    ${active.length ? `
+      <div style="margin-bottom:18px">
+        <div style="font-weight:700;margin-bottom:10px">Active Categories</div>
+        <div style="display:grid;gap:10px">
+          ${active.map(item => renderBudgetStatusRow(item, selectedCategory)).join('')}
+        </div>
+      </div>` : ''}
+    ${inactive.length ? `
+      <details class="stat-card" style="padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700">
+          <span>Other Categories</span>
+          <span>${inactive.length}</span>
+        </summary>
+        <div style="padding:0 12px 12px;border-top:1px solid var(--border);display:grid;gap:10px">
+          ${inactive.map(item => renderBudgetStatusRow(item, selectedCategory)).join('')}
+        </div>
+      </details>` : ''}`;
+  await loadBudgetEditorDefaults();
+  await loadBudgetHistory();
+}
+
+function selectBudgetCategory(category) {
+  const budgetCategory = document.getElementById('budget-category');
+  if (budgetCategory) budgetCategory.value = category;
+  loadBudgetStatus();
+}
+
+function toggleBudgetEditor(forceOpen = null) {
+  const shell = document.getElementById('budget-editor-shell');
+  if (!shell) return;
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !shell.classList.contains('open');
+  shell.classList.toggle('open', shouldOpen);
+}
+
+function toggleBudgetSection(id, forceOpen = null) {
+  const shell = document.getElementById(id);
+  if (!shell) return;
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !shell.classList.contains('open');
+  shell.classList.toggle('open', shouldOpen);
 }
 
 // ============================================================

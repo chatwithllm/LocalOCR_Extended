@@ -183,12 +183,106 @@ This split gives you a clean safety net:
   - recommendation-backed items fall out of active `Top Picks` after they are added to shopping and confirmed, allowing the next best item to surface
 - shopping list row interactions were refined:
   - web and mobile recommendation cards were compacted and cleaned up
-  - `-1 / Low / Bought / Delete` actions were normalized into a more consistent row
+  - web and mobile shopping rows now support:
+    - inline preferred-store updates
+    - inline unit / size-label updates
+    - inline unit-price updates
+    - direct rename from the shopping workflow
+  - swipe-right on mobile now marks an item bought and shows a short undo countdown
+  - action rows were simplified for usability:
+    - visible actions now favor `-1`, `Bought`, and `More`
+    - `More` now carries:
+      - low / clear-low
+      - out-of-stock / reopen
+      - rename
+      - delete
+  - shopping rows now support explicit `out_of_stock` state in addition to `open` and `purchased`
   - shopping rows can now be renamed directly from the shopping workflow
+  - compact store selection for shopping rows is now being used so store, unit, and size information fit more cleanly in expanded controls
 - README now has a screenshots section backed by committed repo images
 - future-enhancement planning docs now exist in-repo:
   - `future enhancements/multi household.md`
   - `future enhancements/budget domains.md`
+  - `future enhancements/units and size labels.md`
+- budgeting Phase 1 foundation is now implemented:
+  - purchases now persist:
+    - `default_spending_domain`
+    - `default_budget_category`
+  - receipt items now persist optional overrides:
+    - `spending_domain`
+    - `budget_category`
+  - OCR/manual/edit receipt save paths now preserve these fields
+  - schema migration backfills legacy purchases from the existing `domain` field so old grocery / restaurant / general expense history starts with meaningful defaults
+- budgeting Phase 2 receipt review wiring is now implemented:
+  - shared receipt editor now exposes:
+    - receipt default spending domain
+    - receipt default budget category
+    - line-item spending-domain override
+    - line-item budget-category override
+  - line-item overrides support `Use receipt default`
+  - editor helpers auto-fill budget categories from selected spending domains to reduce correction work on mixed receipts
+- budgeting Phase 3 backend rollup foundation is now implemented:
+  - effective line-item allocations are now calculated in backend helpers
+  - receipt-level remainder between line subtotals and receipt total is allocated proportionally across effective buckets
+  - additive endpoint now exists:
+    - `/budget/allocation-summary`
+  - current domain-based budget endpoints remain available for compatibility
+- budgeting Phase 4 budget-page redesign is now implemented:
+  - `Budget` now stores optional category targets via:
+    - `budget_category`
+    - storage keys like `category:grocery` in the legacy `domain` column for safe coexistence
+  - new additive endpoint now exists:
+    - `/budget/category-summary`
+  - the main `Budget` page now edits monthly targets by budget category instead of by domain
+  - the main `Budget` page now renders active and inactive category cards from effective line-item rollups
+  - legacy budget consumers like Restaurant / Expenses / Grocery still work through the old domain endpoint, with category-target fallback where that mapping is meaningful
+- budgeting follow-up UX/data work is now implemented on the feature branch:
+  - saves now append to a real `budget_change_log`
+  - the Budget page now shows:
+    - compact active-category rows with collapsed summaries
+    - expandable category details
+    - current budget targets
+    - budget change history
+    - contributing receipt breakdowns when a category is expanded
+  - inactive and zero categories are now grouped under `Other Categories`
+  - `Set Monthly Budget`, `Current Budget Targets`, and `Budget Change History` now default to collapsed on mobile-first layouts
+  - category target saves now preload the current saved amount back into the editor
+  - repeated receipt updates now preserve the existing linked purchase instead of creating duplicate purchases
+  - budget contribution rows now use real receipt/store/item naming instead of `Unknown` fallbacks
+- budgeting receipt editor cleanup is now implemented:
+  - visible `Default Spending Domain` was removed from the shared editor
+  - `Default Budget Category` now reads simply as `Budget Category`
+- units / size labels rollout is now substantially complete in the active workflows:
+  - product catalog rows now expose editable default:
+    - unit
+    - size label
+  - shopping rows now expose editable:
+    - preferred store
+    - unit
+    - size label
+    - price
+  - product and shopping displays now use the richer unit/size metadata in buyer-facing summaries where available
+  - line-item `Category` now reads as `Item Group`
+  - visible line-item `Spending Domain` control was removed from the main editing flow
+- unit/size-label enhancement is now implemented through Phase 2:
+  - schema/runtime migration now supports:
+    - `products.default_unit`
+    - `products.default_size_label`
+    - `receipt_items.unit`
+    - `receipt_items.size_label`
+    - `shopping_list_items.unit`
+    - `shopping_list_items.size_label`
+  - legacy receipt and shopping rows are backfilled to `unit = each`
+  - receipt editor and manual entry now expose:
+    - `Unit`
+    - `Size Label`
+  - payload serialization now preserves the new fields through receipt edits and shopping/manual flows
+- receipts desktop inline workflow was refined further:
+  - desktop Receipts now uses a single-column inline-detail mode instead of reserving the old dead right-hand pane
+  - opened inline receipts now include a `Close Receipt` action inside the expanded shell
+  - extracted-items rows are denser on web
+  - the web receipt editor now uses a split action lane for `Remove` instead of treating it like a full data column
+  - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work
 
@@ -245,11 +339,28 @@ Operational and product items that are not fully closed yet:
   - `Kitchen Display` now has a lighter default shell
   - deeper page-level kiosk behavior still needs a follow-up pass
 - restaurant and expenses have improved mobile compactness, but they still need one more convergence pass toward the shared Receipts review/edit experience instead of carrying bespoke receipt-detail shells
-- the budgeting redesign is still only documented, not implemented:
-  - `budget domains.md` now reflects the stronger model of:
+- the budgeting redesign is now partially implemented:
+  - `budget domains.md` reflects the stronger model of:
     - `Spending Domain` for workflow defaults and overrides
     - `Budget Category` for meaningful household budgeting
-  - line-item overrides, tax allocation, and budget-page redesign still need phased implementation
+  - Phases 1-4 are now in code:
+    - schema foundations
+    - receipt review/edit wiring
+    - backend line-item rollups
+    - category-based budget page and targets
+  - still pending:
+    - event naming/reporting
+    - migration quality/cleanup passes
+- the unit/size-label enhancement is now through Phase 2:
+  - planning doc exists in `future enhancements/units and size labels.md`
+  - implemented:
+    - schema/runtime migration
+    - receipt editor controls
+    - manual-entry support
+    - payload serialization
+  - still pending for the unit/size stream:
+    - shopping display formatting
+    - product-level defaults in the UI
 
 ## 6. Planned Next
 
@@ -270,12 +381,11 @@ High-value next work from the current state:
   - confirm prompt-mode overrides for base URL and Gemini settings behave correctly
   - document the exact operator checklist from empty host to healthy app
   - optionally add a restore smoke-test checklist to the UI/reporting surface
-- checkpoint and merge the current `codex/minor-cosmetics` branch before starting the budgeting implementation branch
 - start phased budgeting implementation from the design now captured in `future enhancements/budget domains.md`:
-  - Phase 1: schema and migration foundations
-  - Phase 2: receipt-review UI for defaults and line-item overrides
-  - Phase 3: budget engine rollups from effective line-item categories
-  - Phase 4+: budget page redesign, event support, and migration quality passes
+  - Phase 5: event naming/reporting support
+  - Phase 6: migration quality, recategorization helpers, and cleanup passes
+- continue the unit-and-size enhancement from `future enhancements/units and size labels.md`:
+  - Phase 3: shopping/product display updates that use those fields
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

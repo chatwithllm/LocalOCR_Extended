@@ -89,7 +89,23 @@ Extended-specific runtime changes now in place:
   - a lighter Current List with inline sort chips
   - compact expandable mobile rows
   - duplicate household items in Current List now collapse into one row with summed quantity and estimate
-  - mobile expanded shopping rows now allow store updates directly from the phone view
+  - mobile expanded shopping rows now allow:
+    - store updates
+    - unit updates
+    - size-label updates
+    - price updates
+  - current shopping actions now use a cleaner visible row plus overflow menu:
+    - visible:
+      - `-1`
+      - `Bought`
+      - `More`
+    - overflow:
+      - `Low`
+      - `Out of Stock`
+      - `Rename`
+      - `Delete`
+  - shopping rows now support `out_of_stock` state alongside `open` and `purchased`
+  - swipe-right mobile bought flow includes undo feedback
 - inventory page now has:
   - a shared Inventory / Products workspace shell
   - magnifier-driven search/sort tools that can now be collapsed on both desktop and mobile
@@ -139,6 +155,43 @@ Extended-specific runtime changes now in place:
   - trusted-device scopes now affect runtime:
     - `Read Only` blocks the main mutating inventory, shopping, product, receipt, and budget actions in both frontend and backend
     - `Kitchen Display` defaults to a lighter dashboard/shopping/inventory navigation set instead of the full workspace shell
+- budgeting redesign is now substantially in place on the feature branch:
+  - purchases persist:
+    - `default_spending_domain`
+    - `default_budget_category`
+  - receipt items persist optional overrides:
+    - `spending_domain`
+    - `budget_category`
+  - backend rollups now allocate by effective line-item category
+  - `Budget` now uses category targets plus:
+    - current targets
+    - change history
+    - contributing receipt breakdowns
+  - repeated receipt updates now preserve the existing purchase instead of duplicating it
+  - receipt-edit budgeting UI is simplified around:
+    - `Receipt Type`
+    - `Budget Category`
+    - line-item `Item Group`
+    - line-item `Budget Category`
+- unit / size-label enhancement is now through Phase 2 on the feature branch:
+  - schema/runtime migration support exists for product, receipt-item, and shopping-item unit metadata
+  - legacy rows backfill to `unit = each`
+  - receipt editor and manual entry now expose:
+    - `Unit`
+    - `Size Label`
+  - product catalog now exposes editable product defaults for:
+    - `default_unit`
+    - `default_size_label`
+  - shopping rows now expose inline edits for:
+    - preferred store
+    - unit
+    - size label
+    - price
+  - shopping and product display layers now surface unit/size context in buyer-facing summaries where available
+- desktop Receipts inline review flow is now cleaner on the feature branch:
+  - old dead right-hand detail column is removed during inline mode
+  - inline receipts include an in-panel `Close Receipt` action
+  - extracted items and the web receipt editor use denser row layouts and a separate remove-action lane
 - full environment backup/restore is now implemented:
   - backup bundle creation script
   - restore script
