@@ -20,7 +20,12 @@ from src.backend.budgeting_domains import (
     normalize_budget_category,
     normalize_spending_domain,
 )
-from src.backend.budgeting_rollups import calculate_budget_allocations, calculate_budget_breakdowns, month_bounds
+from src.backend.budgeting_rollups import (
+    calculate_budget_allocations,
+    calculate_budget_breakdowns,
+    month_bounds,
+    signed_purchase_total,
+)
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.initialize_database_schema import Budget, BudgetChangeLog, Product, Purchase, ReceiptItem, Store
 from src.backend.manage_authentication import is_admin
@@ -179,7 +184,7 @@ def get_budget_status():
         Purchase.domain == domain,
     ).all()
 
-    spent = sum(p.total_amount or 0 for p in purchases)
+    spent = sum(signed_purchase_total(p) for p in purchases)
     remaining = budget_amount - spent
     percentage = (spent / budget_amount * 100) if budget_amount > 0 else 0
 

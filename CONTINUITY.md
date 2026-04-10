@@ -262,6 +262,82 @@ This split gives you a clean safety net:
     - size label
     - price
   - product and shopping displays now use the richer unit/size metadata in buyer-facing summaries where available
+
+## 5. Active Next Feature: Receipt Refunds
+
+Branch now reserved for this work:
+
+- `feature_receipt_refunds`
+
+Why this feature matters:
+
+- households sometimes return grocery, restaurant, pharmacy, or general-expense items
+- today those receipts can only look like normal purchases, which makes:
+  - budgets incorrect
+  - analytics overstated
+  - merchant/category reporting misleading
+
+### Phase 1 Refund Scope
+
+Phase 1 should treat refunds as a receipt-level transaction type, not as mixed purchase/refund line items.
+
+Recommended model:
+
+- keep existing receipt/spending domain:
+  - grocery
+  - restaurant
+  - general expense
+  - event
+- add a separate purchase transaction flag:
+  - `purchase`
+  - `refund`
+
+Phase 1 behavior:
+
+- receipt editor can mark a receipt as `Refund`
+- receipt list/detail clearly shows refund state
+- budgeting rollups treat refund purchases as negative spend
+- analytics totals/net spend treat refund purchases as negative spend
+- refund receipts do not create inventory additions
+- refund receipts do not act like normal shopping/recommendation purchases
+- price-history writes should not blindly learn from refund values
+
+Phase 1 intentionally does not include:
+
+- mixed purchase + refund lines on the same receipt
+- automatic inventory reversal/removal
+- advanced refund-only analytics screens
+
+### Implementation Notes For Phase 1
+
+Backend:
+
+- add `transaction_type` to `purchases`
+- default existing rows to `purchase`
+- preserve this field through:
+  - OCR ingest
+  - receipt rebuild/update
+  - receipt detail serialization
+- budget/allocation helpers should invert sign for refund purchases
+- any spend-summary analytics that total purchases should also net refund rows
+
+Frontend:
+
+- receipt editor should expose:
+  - `Transaction`
+    - `Purchase`
+    - `Refund`
+- receipt rows/detail should display refund badge/state clearly
+- refund totals should render meaningfully, ideally as a refund rather than looking like a broken normal purchase
+
+Smoke-test target after Phase 1:
+
+- mark one existing receipt as `Refund`
+- verify:
+  - receipt saves
+  - receipt reopens with refund state preserved
+  - monthly budget totals decrease appropriately
+  - receipt/merchant views no longer overstate spend
   - line-item `Category` now reads as `Item Group`
   - visible line-item `Spending Domain` control was removed from the main editing flow
 - unit/size-label enhancement is now implemented through Phase 2:

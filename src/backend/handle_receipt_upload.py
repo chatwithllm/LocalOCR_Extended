@@ -28,6 +28,7 @@ from src.backend.budgeting_domains import (
     normalize_budget_category,
     normalize_spending_domain,
 )
+from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total
 from src.backend.create_flask_application import require_auth, require_write_access
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,7 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
         "store_location": None,
         "date": receipt.get("date") or "",
         "time": None,
+        "transaction_type": receipt.get("transaction_type") or "purchase",
         "default_spending_domain": receipt.get("default_spending_domain") or "grocery",
         "default_budget_category": receipt.get("default_budget_category") or "grocery",
         "items": items,
@@ -160,6 +162,7 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         payload.setdefault("subtotal", payload.get("total", 0))
         payload.setdefault("tax", 0)
         payload.setdefault("tip", 0)
+        payload.setdefault("transaction_type", normalize_transaction_type(getattr(purchase, "transaction_type", None)))
         payload.setdefault("default_spending_domain", getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"))
         payload.setdefault(
             "default_budget_category",
@@ -173,6 +176,7 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
         "total": purchase.total_amount if purchase else 0,
         "confidence": receipt_record.ocr_confidence if receipt_record else 1,
+        "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"),
         "default_budget_category": getattr(purchase, "default_budget_category", None)
             or default_budget_category_for_spending_domain(getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery")),
@@ -187,6 +191,7 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "store_location": (str(payload.get("store_location", "") or "").strip() or None),
         "date": str(payload.get("date", "") or "").strip(),
         "time": (str(payload.get("time", "") or "").strip() or None),
+        "transaction_type": normalize_transaction_type(payload.get("transaction_type"), default="purchase"),
         "default_spending_domain": normalize_spending_domain(payload.get("default_spending_domain"), default="grocery"),
         "default_budget_category": None,
         "subtotal": float(payload.get("subtotal") or 0),
@@ -310,6 +315,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         total_amount=float(sanitized.get("total") or 0),
         date=purchase_date,
         domain=purchase_domain,
+        transaction_type=normalize_transaction_type(sanitized.get("transaction_type"), default="purchase"),
         default_spending_domain=normalize_spending_domain(
             sanitized.get("default_spending_domain"),
             default=purchase_domain,
@@ -376,7 +382,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
                 extracted_by="manual",
             )
         )
-        if unit_price > 0:
+        if unit_price > 0 and purchase.transaction_type != "refund":
             session.add(
                 PriceHistory(
                     product_id=product.id,
@@ -385,7 +391,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
                     date=purchase.date,
                 )
             )
-        if purchase_domain == "grocery":
+        if purchase_domain == "grocery" and purchase.transaction_type != "refund":
             validate_low_workflow(
                 session,
                 product_id=product.id,
@@ -408,7 +414,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
     session.add(receipt_record)
     session.commit()
 
-    if purchase_domain == "grocery" and persisted_items:
+    if purchase_domain == "grocery":
         rebuild_active_inventory(session)
         session.commit()
 
@@ -610,12 +616,14 @@ def get_receipt(receipt_id):
         "ocr_engine": receipt_record.ocr_engine if receipt_record else None,
         "confidence": receipt_record.ocr_confidence if receipt_record else None,
         "receipt_type": receipt_record.receipt_type if receipt_record else None,
+        "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) if purchase else None,
         "default_budget_category": getattr(purchase, "default_budget_category", None) if purchase else None,
         "source": _receipt_source_label(receipt_record) if receipt_record else "upload",
         "created_at": receipt_record.created_at.isoformat() if receipt_record and receipt_record.created_at else None,
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
         "file_type": _detect_receipt_file_type(receipt_record.image_path if receipt_record else None),
+        "signed_total": signed_purchase_total(purchase) if purchase else None,
         "raw_ocr_data": raw_ocr_data,
         "editable_data": editable_data,
         "items": [
@@ -708,13 +716,14 @@ def list_receipts():
                 {"count": 0, "total_amount": 0.0, "receipts": []},
             )
             month_entry["count"] += 1
-            month_entry["total_amount"] += float(purchase.total_amount or 0)
+            month_entry["total_amount"] += signed_purchase_total(purchase)
             month_entry["receipts"].append({
                 "receipt_id": purchase.id,
                 "record_id": record.id,
                 "store": store_name,
                 "date": purchase.date.strftime("%Y-%m-%d"),
-                "total": float(purchase.total_amount or 0),
+                "total": signed_purchase_total(purchase),
+                "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
                 "source": _receipt_source_label(record),
                 "status": record.status,
             })
@@ -768,11 +777,13 @@ def list_receipts():
                 "purchase_id": purchase.id if purchase else None,
                 "store": store.name if store else None,
                 "total": purchase.total_amount if purchase else None,
+                "signed_total": signed_purchase_total(purchase) if purchase else None,
                 "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
                 "status": record.status,
                 "ocr_engine": record.ocr_engine,
                 "confidence": record.ocr_confidence,
                 "receipt_type": record.receipt_type,
+                "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
                 "created_at": record.created_at.isoformat() if record.created_at else None,
                 "source": _receipt_source_label(record),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,

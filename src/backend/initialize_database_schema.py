@@ -184,6 +184,7 @@ class Purchase(Base):
     total_amount = Column(Float, nullable=True)
     date = Column(DateTime, nullable=False)
     domain = Column(String(30), nullable=False, default="grocery")
+    transaction_type = Column(String(20), nullable=False, default="purchase")
     default_spending_domain = Column(String(30), nullable=False, default="grocery")
     default_budget_category = Column(String(40), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -506,10 +507,20 @@ def _ensure_runtime_columns(engine):
         }
         if "domain" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
+        if "transaction_type" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN transaction_type VARCHAR(20) NOT NULL DEFAULT 'purchase'"))
         if "default_spending_domain" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN default_spending_domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
         if "default_budget_category" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN default_budget_category VARCHAR(40) NOT NULL DEFAULT 'grocery'"))
+        conn.execute(text("""
+            UPDATE purchases
+            SET transaction_type = CASE
+                WHEN COALESCE(NULLIF(TRIM(transaction_type), ''), '') = '' THEN 'purchase'
+                WHEN LOWER(TRIM(transaction_type)) = 'refund' THEN 'refund'
+                ELSE 'purchase'
+            END
+        """))
         conn.execute(text("""
             UPDATE purchases
             SET default_spending_domain = CASE

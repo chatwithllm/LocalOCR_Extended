@@ -17,6 +17,7 @@ from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Purchase, ReceiptItem, Product, Store, PriceHistory
 )
+from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,8 @@ def get_general_expense_summary():
     recent_receipts = []
 
     for purchase, store, record in purchases:
-        total = float(purchase.total_amount or 0.0)
+        sign = purchase_amount_sign(purchase)
+        total = signed_purchase_total(purchase)
         total_spend += total
         merchant = store.name if store and store.name else "Unknown"
         merchant_info = merchant_summary[merchant]
@@ -70,7 +72,7 @@ def get_general_expense_summary():
             name = str((item or {}).get("name", "") or "").strip()
             if not name:
                 continue
-            quantity = float((item or {}).get("quantity") or 1)
+            quantity = float((item or {}).get("quantity") or 1) * sign
             unit_price = float((item or {}).get("unit_price") or 0)
             category = str((item or {}).get("category", "") or "other").strip().lower() or "other"
             info = item_summary[name]
@@ -84,6 +86,7 @@ def get_general_expense_summary():
             "store": merchant,
             "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
             "total": round(total, 2),
+            "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
             "item_count": len(items or []),
         })
 
@@ -162,7 +165,8 @@ def get_restaurant_summary():
 
     for purchase, store in purchases:
         purchase_ids.append(purchase.id)
-        total = float(purchase.total_amount or 0.0)
+        sign = purchase_amount_sign(purchase)
+        total = signed_purchase_total(purchase)
         total_spend += total
         store_name = store.name if store and store.name else "Unknown"
         info = store_summary[store_name]
@@ -175,20 +179,23 @@ def get_restaurant_summary():
             "store": store_name,
             "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
             "total": round(total, 2),
+            "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
         })
 
     item_summary = defaultdict(lambda: {"quantity": 0.0, "total": 0.0, "category": None})
     if purchase_ids:
         rows = (
-            session.query(ReceiptItem, Product)
+            session.query(ReceiptItem, Product, Purchase)
             .join(Product, ReceiptItem.product_id == Product.id)
+            .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
             .filter(ReceiptItem.purchase_id.in_(purchase_ids))
             .all()
         )
-        for receipt_item, product in rows:
+        for receipt_item, product, purchase in rows:
             name = product.display_name or product.name
-            item_summary[name]["quantity"] += float(receipt_item.quantity or 0)
-            item_summary[name]["total"] += float((receipt_item.unit_price or 0) * (receipt_item.quantity or 1))
+            purchase_sign = purchase_amount_sign(purchase)
+            item_summary[name]["quantity"] += float(receipt_item.quantity or 0) * purchase_sign
+            item_summary[name]["total"] += float((receipt_item.unit_price or 0) * (receipt_item.quantity or 1)) * purchase_sign
             item_summary[name]["category"] = product.category
 
     top_restaurants = sorted(
@@ -268,14 +275,14 @@ def get_spending():
         else:  # monthly
             key = purchase.date.strftime("%Y-%m")
 
-        spending_by_period[key]["total"] += purchase.total_amount or 0
+        spending_by_period[key]["total"] += signed_purchase_total(purchase)
         spending_by_period[key]["count"] += 1
 
     # Category breakdown if requested
     category_breakdown = {}
     if category or True:  # Always include category breakdown
         items = (
-            session.query(ReceiptItem, Product)
+            session.query(ReceiptItem, Product, Purchase)
             .join(Product, ReceiptItem.product_id == Product.id)
             .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
             .filter(Purchase.date >= cutoff)
@@ -285,11 +292,11 @@ def get_spending():
         if category:
             items = items.filter(Product.category == category)
 
-        for item, product in items.all():
+        for item, product, purchase in items.all():
             cat = product.category or "other"
             if cat not in category_breakdown:
                 category_breakdown[cat] = {"total": 0, "count": 0}
-            category_breakdown[cat]["total"] += (item.unit_price or 0) * (item.quantity or 1)
+            category_breakdown[cat]["total"] += ((item.unit_price or 0) * (item.quantity or 1)) * purchase_amount_sign(purchase)
             category_breakdown[cat]["count"] += 1
 
     grand_total = sum(p["total"] for p in spending_by_period.values())

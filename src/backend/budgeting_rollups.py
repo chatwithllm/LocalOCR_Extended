@@ -11,6 +11,18 @@ from src.backend.budgeting_domains import (
     normalize_spending_domain,
 )
 
+def normalize_transaction_type(value: str | None, default: str = "purchase") -> str:
+    normalized = str(value or default).strip().lower()
+    return "refund" if normalized == "refund" else "purchase"
+
+
+def purchase_amount_sign(purchase) -> float:
+    return -1.0 if normalize_transaction_type(getattr(purchase, "transaction_type", None)) == "refund" else 1.0
+
+
+def signed_purchase_total(purchase) -> float:
+    return float(getattr(purchase, "total_amount", 0) or 0) * purchase_amount_sign(purchase)
+
 
 def month_bounds(month: str) -> tuple[datetime, datetime]:
     year, month_num = month.split("-")
@@ -51,7 +63,8 @@ def calculate_budget_allocations(purchases, receipt_items_by_purchase):
     for purchase in purchases:
         items = list(receipt_items_by_purchase.get(purchase.id, []))
         default_domain, default_category = purchase_defaults(purchase)
-        total_amount = float(getattr(purchase, "total_amount", 0) or 0)
+        sign = purchase_amount_sign(purchase)
+        total_amount = float(getattr(purchase, "total_amount", 0) or 0) * sign
 
         if not items:
             categories[default_category]["spent"] += total_amount
@@ -63,7 +76,7 @@ def calculate_budget_allocations(purchases, receipt_items_by_purchase):
         line_totals = []
         subtotal = 0.0
         for item in items:
-            line_total = float(getattr(item, "quantity", 0) or 0) * float(getattr(item, "unit_price", 0) or 0)
+            line_total = float(getattr(item, "quantity", 0) or 0) * float(getattr(item, "unit_price", 0) or 0) * sign
             item_domain, item_category = effective_item_classification(purchase, item)
             line_totals.append((item_domain, item_category, line_total))
             subtotal += line_total
@@ -123,7 +136,8 @@ def calculate_budget_breakdowns(purchases, receipt_items_by_purchase):
     for purchase in purchases:
         items = list(receipt_items_by_purchase.get(purchase.id, []))
         default_domain, default_category = purchase_defaults(purchase)
-        total_amount = float(getattr(purchase, "total_amount", 0) or 0)
+        sign = purchase_amount_sign(purchase)
+        total_amount = float(getattr(purchase, "total_amount", 0) or 0) * sign
         purchase_breakdown = defaultdict(lambda: {"amount": 0.0, "items": []})
 
         if not items:
@@ -132,14 +146,14 @@ def calculate_budget_breakdowns(purchases, receipt_items_by_purchase):
             line_totals = []
             subtotal = 0.0
             for item in items:
-                line_total = float(getattr(item, "quantity", 0) or 0) * float(getattr(item, "unit_price", 0) or 0)
+                line_total = float(getattr(item, "quantity", 0) or 0) * float(getattr(item, "unit_price", 0) or 0) * sign
                 _, item_category = effective_item_classification(purchase, item)
                 line_totals.append((item_category, line_total))
                 subtotal += line_total
                 purchase_breakdown[item_category]["amount"] += line_total
                 purchase_breakdown[item_category]["items"].append({
                     "name": getattr(item, "name", None) or getattr(item, "product_name", None) or "Unknown",
-                    "quantity": float(getattr(item, "quantity", 0) or 0),
+                    "quantity": float(getattr(item, "quantity", 0) or 0) * sign,
                     "amount": round(line_total, 2),
                 })
 
@@ -161,6 +175,7 @@ def calculate_budget_breakdowns(purchases, receipt_items_by_purchase):
                 "date": getattr(purchase, "date", None).strftime("%Y-%m-%d") if getattr(purchase, "date", None) else None,
                 "amount": round(entry["amount"], 2),
                 "items": entry["items"][:5],
+                "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
             })
 
     for category in breakdowns:

@@ -7615,11 +7615,31 @@ function formatLabel(value, fallback = 'Other') {
 }
 
 function formatMoney(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
+  const amount = Number(value || 0);
+  const prefix = amount < 0 ? '-$' : '$';
+  return `${prefix}${Math.abs(amount).toFixed(2)}`;
+}
+
+function normalizeReceiptTransactionType(value) {
+  return String(value || 'purchase').trim().toLowerCase() === 'refund' ? 'refund' : 'purchase';
+}
+
+function formatReceiptTransactionLabel(value) {
+  return normalizeReceiptTransactionType(value) === 'refund' ? 'Refund' : 'Purchase';
+}
+
+function receiptDisplayTotal(receipt) {
+  if (receipt && typeof receipt.signed_total === 'number' && Number.isFinite(receipt.signed_total)) {
+    return receipt.signed_total;
+  }
+  const total = Number(receipt?.total || 0);
+  return normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund' ? -Math.abs(total) : total;
 }
 
 function formatMoneyCompactOneDecimal(value) {
-  return `$${Number(value || 0).toFixed(1)}`;
+  const amount = Number(value || 0);
+  const prefix = amount < 0 ? '-$' : '$';
+  return `${prefix}${Math.abs(amount).toFixed(1)}`;
 }
 
 function formatTrustedDeviceScope(scope) {
@@ -8248,7 +8268,7 @@ function renderReceiptSummaries(summary = {}) {
                   <tr>
                     <td>${escHtml(receipt.date || '—')}</td>
                     <td>${escHtml(receipt.store || 'Unknown')}</td>
-                    <td>${formatMoney(receipt.total)}</td>
+                    <td>${formatMoney(receiptDisplayTotal(receipt))}</td>
                     <td>${escHtml(formatLabel(receipt.source, 'Upload'))}</td>
                     <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button></td>
                   </tr>
@@ -13324,7 +13344,7 @@ async function loadReceipts() {
   const receipts = [...(data.receipts || [])];
   receipts.sort((a, b) => {
     if (receiptSort === 'date_asc') return compareDateValue(a.date, b.date, 'asc') || compareText(a.store, b.store, 'asc');
-    if (receiptSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareDateValue(a.date, b.date, 'desc');
+    if (receiptSort === 'total_desc') return compareNumber(receiptDisplayTotal(a), receiptDisplayTotal(b), 'desc') || compareDateValue(a.date, b.date, 'desc');
     if (receiptSort === 'store_asc') return compareText(a.store, b.store, 'asc') || compareDateValue(a.date, b.date, 'desc');
     if (receiptSort === 'status_asc') return compareText(a.status, b.status, 'asc') || compareDateValue(a.date, b.date, 'desc');
     return compareDateValue(a.date, b.date, 'desc') || compareText(a.store, b.store, 'asc');
@@ -13356,9 +13376,9 @@ async function loadReceipts() {
           <tr>
             <td>${escHtml(r.date || '—')}</td>
             <td><strong>${escHtml(r.store || 'Unknown')}</strong></td>
-            <td>${formatMoney(r.total)}</td>
+            <td>${formatMoney(receiptDisplayTotal(r))}</td>
             <td>${formatLabel(r.source, 'Upload')}</td>
-            <td><span class="badge badge-${r.status === 'processed' ? 'ok' : 'low'}">${escHtml(formatLabel(r.status, 'Unknown'))}</span></td>
+            <td><span class="badge badge-${normalizeReceiptTransactionType(r.transaction_type) === 'refund' ? 'warning' : (r.status === 'processed' ? 'ok' : 'low')}">${escHtml(normalizeReceiptTransactionType(r.transaction_type) === 'refund' ? 'Refund' : formatLabel(r.status, 'Unknown'))}</span></td>
             <td><button type="button" class="btn btn-sm btn-ghost" onclick="toggleReceiptDetail(${r.purchase_id || r.id})">${Number(r.purchase_id || r.id) === targetReceiptId ? 'Close' : 'Open'}</button></td>
             <td><button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
           </tr>
@@ -13410,7 +13430,7 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
   const statsHtml = `
     <div class="receipt-detail-stats">
       <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
-      <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
+      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === 'refund' ? 'warning' : 'success'}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</div></div>
     </div>`;
   const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -13470,6 +13490,13 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
               <input id="receipt-tax-${receipt.id}" type="number" step="0.01" />
             </div>
           </div>
+        </div>
+        <div class="receipt-editor-main-field field-default-category">
+          <label>Transaction</label>
+          <select id="receipt-transaction-type-${receipt.id}">
+            <option value="purchase">Purchase</option>
+            <option value="refund">Refund</option>
+          </select>
         </div>
         <div class="receipt-editor-main-field field-default-category">
           <label>Budget Category</label>
@@ -13729,6 +13756,8 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
   if (!itemsBody) return;
   const derivedDefaults = deriveReceiptBudgetDefaults(data.default_spending_domain || receiptType || 'grocery');
   document.getElementById(`receipt-type-${receiptId}`).value = receiptType || 'unknown';
+  const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
+  if (transactionTypeEl) transactionTypeEl.value = normalizeReceiptTransactionType(data.transaction_type || 'purchase');
   document.getElementById(`receipt-store-${receiptId}`).value = data.store || '';
   document.getElementById(`receipt-date-${receiptId}`).value = data.date || '';
   document.getElementById(`receipt-time-${receiptId}`).value = data.time || '';
@@ -13917,7 +13946,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
             <div class="receipt-compact-row-title">${escHtml(receipt.store || 'Unknown')}</div>
           </div>
           <div class="receipt-compact-row-right">
-            <div class="receipt-compact-row-value">${formatMoney(receipt.total || 0)}</div>
+            <div class="receipt-compact-row-value">${formatMoney(receiptDisplayTotal(receipt))}</div>
             <div class="receipt-compact-row-actions">
               <button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button>
               ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${receipt.purchase_id || receipt.id})">Delete</button>` : ''}
@@ -13926,6 +13955,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
           <div class="receipt-compact-row-meta">
             <span>${escHtml(receipt.date || '—')}</span>
             ${receipt.source ? `<span>${escHtml(formatLabel(receipt.source, 'Upload'))}</span>` : ''}
+            ${receipt.transaction_type ? `<span>${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</span>` : ''}
             ${receipt.status ? `<span>${escHtml(formatLabel(receipt.status, 'Unknown'))}</span>` : ''}
           </div>
         </div>
@@ -14031,6 +14061,7 @@ function collectReceiptEditorData(receiptId) {
     store: document.getElementById(`receipt-store-${receiptId}`)?.value?.trim() || '',
     date: document.getElementById(`receipt-date-${receiptId}`)?.value || '',
     time: document.getElementById(`receipt-time-${receiptId}`)?.value?.trim() || '',
+    transaction_type: document.getElementById(`receipt-transaction-type-${receiptId}`)?.value || 'purchase',
     default_spending_domain: derivedDefaults.spendingDomain,
     default_budget_category: document.getElementById(`receipt-default-category-${receiptId}`)?.value || derivedDefaults.budgetCategory,
     subtotal: Number(document.getElementById(`receipt-subtotal-${receiptId}`)?.value || 0),

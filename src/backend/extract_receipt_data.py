@@ -37,6 +37,7 @@ from src.backend.budgeting_domains import (
     normalize_budget_category,
     normalize_spending_domain,
 )
+from src.backend.budgeting_rollups import normalize_transaction_type
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
 
 logger = logging.getLogger(__name__)
@@ -702,6 +703,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         purchase.total_amount = _safe_float(ocr_data.get("total", 0.0))
         purchase.date = datetime.strptime(str(purchase_date), "%Y-%m-%d")
         purchase.domain = purchase_domain
+        purchase.transaction_type = normalize_transaction_type(ocr_data.get("transaction_type"), default="purchase")
         purchase.default_spending_domain = normalize_spending_domain(
             ocr_data.get("default_spending_domain"),
             default=purchase_domain,
@@ -785,16 +787,17 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             session.add(receipt_item)
 
             # Update price history
-            ph = PriceHistory(
-                product_id=product.id,
-                store_id=store.id,
-                price=unit_price,
-                date=purchase.date,
-            )
-            session.add(ph)
+            if purchase.transaction_type != "refund":
+                ph = PriceHistory(
+                    product_id=product.id,
+                    store_id=store.id,
+                    price=unit_price,
+                    date=purchase.date,
+                )
+                session.add(ph)
             persisted_items.append(item_data)
             session.flush()
-            if purchase_domain == "grocery":
+            if purchase_domain == "grocery" and purchase.transaction_type != "refund":
                 validate_low_workflow(
                     session,
                     product_id=product.id,
@@ -809,7 +812,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
 
         if receipt_type == "grocery":
             rebuild_active_inventory(session)
-            _publish_inventory_updates(session, persisted_items)
+            if purchase.transaction_type != "refund":
+                _publish_inventory_updates(session, persisted_items)
 
         session.commit()
 
