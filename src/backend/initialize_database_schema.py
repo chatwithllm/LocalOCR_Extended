@@ -182,6 +182,8 @@ class Purchase(Base):
     total_amount = Column(Float, nullable=True)
     date = Column(DateTime, nullable=False)
     domain = Column(String(30), nullable=False, default="grocery")
+    default_spending_domain = Column(String(30), nullable=False, default="grocery")
+    default_budget_category = Column(String(40), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
@@ -204,6 +206,8 @@ class ReceiptItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, nullable=False, default=1)
     unit_price = Column(Float, nullable=False)
+    spending_domain = Column(String(30), nullable=True)
+    budget_category = Column(String(40), nullable=True)
     extracted_by = Column(String(20), nullable=True)  # "gemini" or "ollama"
     created_at = Column(DateTime, default=utcnow)
 
@@ -243,6 +247,7 @@ class Budget(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     month = Column(String(7), nullable=False)  # Format: "2026-04"
     domain = Column(String(30), nullable=False, default="grocery")
+    budget_category = Column(String(40), nullable=True)
     budget_amount = Column(Float, nullable=False)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -253,6 +258,24 @@ class Budget(Base):
 
     # Relationships
     user = relationship("User", back_populates="budgets")
+
+
+class BudgetChangeLog(Base):
+    __tablename__ = "budget_change_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    month = Column(String(7), nullable=False)
+    domain = Column(String(30), nullable=False, default="grocery")
+    budget_category = Column(String(40), nullable=True)
+    previous_amount = Column(Float, nullable=True)
+    new_amount = Column(Float, nullable=False)
+    changed_at = Column(DateTime, default=utcnow, nullable=False)
+
+    __table_args__ = (
+        Index("ix_budget_change_log_user_month", "user_id", "month"),
+        Index("ix_budget_change_log_category", "budget_category"),
+    )
 
 
 class ShoppingListItem(Base):
@@ -473,6 +496,44 @@ def _ensure_runtime_columns(engine):
         }
         if "domain" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
+        if "default_spending_domain" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN default_spending_domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
+        if "default_budget_category" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN default_budget_category VARCHAR(40) NOT NULL DEFAULT 'grocery'"))
+        conn.execute(text("""
+            UPDATE purchases
+            SET default_spending_domain = CASE
+                WHEN COALESCE(NULLIF(TRIM(default_spending_domain), ''), '') = ''
+                    THEN COALESCE(NULLIF(TRIM(domain), ''), 'grocery')
+                WHEN default_spending_domain = 'grocery' AND domain <> 'grocery'
+                    THEN COALESCE(NULLIF(TRIM(domain), ''), 'grocery')
+                ELSE default_spending_domain
+            END
+        """))
+        conn.execute(text("""
+            UPDATE purchases
+            SET default_budget_category = CASE
+                WHEN default_spending_domain = 'grocery' THEN 'grocery'
+                WHEN default_spending_domain = 'restaurant' THEN 'dining'
+                WHEN default_spending_domain = 'event' THEN 'events'
+                WHEN default_spending_domain = 'general_expense' THEN 'other'
+                ELSE 'other'
+            END
+            WHERE COALESCE(NULLIF(TRIM(default_budget_category), ''), '') = ''
+               OR (default_budget_category = 'grocery' AND default_spending_domain <> 'grocery')
+               OR (default_budget_category = 'other' AND default_spending_domain IN ('restaurant', 'event'))
+        """))
+
+        receipt_item_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(receipt_items)"))
+        } if "receipt_items" in {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        } else set()
+        if receipt_item_columns and "spending_domain" not in receipt_item_columns:
+            conn.execute(text("ALTER TABLE receipt_items ADD COLUMN spending_domain VARCHAR(30)"))
+        if receipt_item_columns and "budget_category" not in receipt_item_columns:
+            conn.execute(text("ALTER TABLE receipt_items ADD COLUMN budget_category VARCHAR(40)"))
 
         budget_columns = {
             row[1]
@@ -480,6 +541,64 @@ def _ensure_runtime_columns(engine):
         }
         if "domain" not in budget_columns:
             conn.execute(text("ALTER TABLE budget ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
+        if "budget_category" not in budget_columns:
+            conn.execute(text("ALTER TABLE budget ADD COLUMN budget_category VARCHAR(40)"))
+        budget_index_columns = []
+        for index_row in conn.execute(text("PRAGMA index_list(budget)")):
+            if int(index_row[2]) != 1:
+                continue
+            budget_index_columns = [
+                info_row[2]
+                for info_row in conn.execute(text(f"PRAGMA index_info('{index_row[1]}')"))
+            ]
+            if budget_index_columns:
+                break
+        if budget_index_columns == ["user_id", "month"]:
+            conn.execute(text("""
+                CREATE TABLE budget__migrated (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER REFERENCES users(id),
+                    month VARCHAR(7) NOT NULL,
+                    domain VARCHAR(30) NOT NULL DEFAULT 'grocery',
+                    budget_category VARCHAR(40),
+                    budget_amount FLOAT NOT NULL,
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    CONSTRAINT uq_budget_user_month_domain UNIQUE (user_id, month, domain)
+                )
+            """))
+            conn.execute(text("""
+                INSERT INTO budget__migrated (id, user_id, month, domain, budget_category, budget_amount, created_at, updated_at)
+                SELECT
+                    id,
+                    user_id,
+                    month,
+                    COALESCE(NULLIF(TRIM(domain), ''), 'grocery'),
+                    budget_category,
+                    budget_amount,
+                    created_at,
+                    updated_at
+                FROM budget
+            """))
+            conn.execute(text("DROP TABLE budget"))
+            conn.execute(text("ALTER TABLE budget__migrated RENAME TO budget"))
+        if "budget_change_log" not in {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        }:
+            conn.execute(text("""
+                CREATE TABLE budget_change_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER REFERENCES users(id),
+                    month VARCHAR(7) NOT NULL,
+                    domain VARCHAR(30) NOT NULL DEFAULT 'grocery',
+                    budget_category VARCHAR(40),
+                    previous_amount FLOAT,
+                    new_amount FLOAT NOT NULL,
+                    changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("CREATE INDEX ix_budget_change_log_user_month ON budget_change_log (user_id, month)"))
+            conn.execute(text("CREATE INDEX ix_budget_change_log_category ON budget_change_log (budget_category)"))
         if "password_reset_requested_at" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
         if "session_version" not in user_columns:

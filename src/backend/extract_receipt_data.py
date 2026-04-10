@@ -31,6 +31,12 @@ from src.backend.normalize_product_names import (
 )
 from src.backend.manage_product_catalog import _merge_products
 from src.backend.contribution_scores import validate_low_workflow
+from src.backend.budgeting_domains import (
+    default_budget_category_for_spending_domain,
+    derive_receipt_budget_defaults,
+    normalize_budget_category,
+    normalize_spending_domain,
+)
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
 
 logger = logging.getLogger(__name__)
@@ -666,7 +672,8 @@ def _cleanup_temp_dir(temp_dir: str | Path):
 # ---------------------------------------------------------------------------
 
 def _save_to_database(ocr_data: dict, engine: str, image_path: str,
-                       user_id: int = None, receipt_type: str = "grocery") -> int:
+                       user_id: int = None, receipt_type: str = "grocery",
+                       existing_purchase=None) -> int:
     """Save validated OCR data to purchases, receipt_items, and price_history."""
     try:
         from src.backend.initialize_database_schema import (
@@ -674,12 +681,9 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         )
         session = g.db_session
 
-        if receipt_type == "restaurant":
-            purchase_domain = "restaurant"
-        elif receipt_type in {"general_expense", "retail_items"}:
-            purchase_domain = "general_expense"
-        else:
-            purchase_domain = "grocery"
+        purchase_domain, purchase_budget_category = derive_receipt_budget_defaults(
+            "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type
+        )
 
         # Find or create store
         store_name = canonicalize_store_name(ocr_data.get("store", "Unknown Store"))
@@ -692,28 +696,24 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             session.add(store)
             session.flush()
 
-        # Create purchase record
         purchase_date = _normalize_purchase_date(ocr_data.get("date"))
-        purchase = Purchase(
-            store_id=store.id,
-            total_amount=_safe_float(ocr_data.get("total", 0.0)),
-            date=datetime.strptime(str(purchase_date), "%Y-%m-%d"),
-            domain=purchase_domain,
-            user_id=user_id,
+        purchase = existing_purchase or Purchase()
+        purchase.store_id = store.id
+        purchase.total_amount = _safe_float(ocr_data.get("total", 0.0))
+        purchase.date = datetime.strptime(str(purchase_date), "%Y-%m-%d")
+        purchase.domain = purchase_domain
+        purchase.default_spending_domain = normalize_spending_domain(
+            ocr_data.get("default_spending_domain"),
+            default=purchase_domain,
         )
-        session.add(purchase)
+        purchase.default_budget_category = normalize_budget_category(
+            ocr_data.get("default_budget_category"),
+            default=purchase_budget_category,
+        )
+        purchase.user_id = user_id
+        if existing_purchase is None:
+            session.add(purchase)
         session.flush()
-
-        if purchase_domain == "general_expense":
-            session.commit()
-            logger.info(
-                "Saved general expense receipt: %s | $%.2f | %s reference items | purchase_id=%s",
-                store_name,
-                _safe_float(ocr_data.get("total", 0)),
-                len(ocr_data.get("items", []) or []),
-                purchase.id,
-            )
-            return purchase.id
 
         # Process each item
         persisted_items = []
@@ -728,6 +728,18 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             )
             quantity = _safe_float(item_data.get("quantity", 1), 1.0)
             unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
+            item_spending_domain = normalize_spending_domain(
+                item_data.get("spending_domain"),
+                default="",
+            ) or None
+            item_budget_category = normalize_budget_category(
+                item_data.get("budget_category"),
+                default="",
+            ) or None
+            if item_budget_category and not item_spending_domain:
+                item_spending_domain = purchase.default_spending_domain
+            if item_spending_domain and not item_budget_category:
+                item_budget_category = default_budget_category_for_spending_domain(item_spending_domain)
 
             # Preserve the existing linked product on receipt edits when available.
             product = None
@@ -762,6 +774,8 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 product_id=product.id,
                 quantity=quantity,
                 unit_price=unit_price,
+                spending_domain=item_spending_domain,
+                budget_category=item_budget_category,
                 extracted_by=engine,
             )
             session.add(receipt_item)
@@ -776,14 +790,13 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             session.add(ph)
             persisted_items.append(item_data)
             session.flush()
-            validate_low_workflow(
-                session,
-                product_id=product.id,
-                purchase_id=purchase.id,
-                product_name=product.display_name or product.name,
-            )
-
-            session.commit()
+            if purchase_domain == "grocery":
+                validate_low_workflow(
+                    session,
+                    product_id=product.id,
+                    purchase_id=purchase.id,
+                    product_name=product.display_name or product.name,
+                )
 
         logger.info(
             f"Saved receipt: {store_name} | ${_safe_float(ocr_data.get('total', 0)):.2f} | "
@@ -792,8 +805,9 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
 
         if receipt_type == "grocery":
             rebuild_active_inventory(session)
-            session.commit()
             _publish_inventory_updates(session, persisted_items)
+
+        session.commit()
 
         return purchase.id
 

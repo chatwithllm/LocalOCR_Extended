@@ -22,6 +22,12 @@ from flask import Blueprint, request, jsonify, g, send_file
 from PIL import Image, ImageOps
 
 from src.backend.active_inventory import rebuild_active_inventory
+from src.backend.budgeting_domains import (
+    default_budget_category_for_spending_domain,
+    derive_receipt_budget_defaults,
+    normalize_budget_category,
+    normalize_spending_domain,
+)
 from src.backend.create_flask_application import require_auth, require_write_access
 
 logger = logging.getLogger(__name__)
@@ -116,16 +122,21 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
     items = []
     for item in receipt.get("items", []) or []:
         items.append({
+            "product_id": item.get("product_id"),
             "name": item.get("product_name") or item.get("name") or "",
             "quantity": item.get("quantity") or 1,
             "unit_price": item.get("unit_price") or 0,
             "category": item.get("category") or "other",
+            "spending_domain": item.get("spending_domain"),
+            "budget_category": item.get("budget_category"),
         })
     return {
         "store": receipt.get("store") or "",
         "store_location": None,
         "date": receipt.get("date") or "",
         "time": None,
+        "default_spending_domain": receipt.get("default_spending_domain") or "grocery",
+        "default_budget_category": receipt.get("default_budget_category") or "grocery",
         "items": items,
         "subtotal": receipt.get("total") or 0,
         "tax": 0,
@@ -147,6 +158,12 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         payload.setdefault("subtotal", payload.get("total", 0))
         payload.setdefault("tax", 0)
         payload.setdefault("tip", 0)
+        payload.setdefault("default_spending_domain", getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"))
+        payload.setdefault(
+            "default_budget_category",
+            getattr(purchase, "default_budget_category", None)
+            or default_budget_category_for_spending_domain(getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"))
+        )
         return payload
 
     return _receipt_payload_from_purchase({
@@ -154,6 +171,9 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
         "total": purchase.total_amount if purchase else 0,
         "confidence": receipt_record.ocr_confidence if receipt_record else 1,
+        "default_spending_domain": getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"),
+        "default_budget_category": getattr(purchase, "default_budget_category", None)
+            or default_budget_category_for_spending_domain(getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery")),
         "items": items,
     })
 
@@ -165,6 +185,8 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "store_location": (str(payload.get("store_location", "") or "").strip() or None),
         "date": str(payload.get("date", "") or "").strip(),
         "time": (str(payload.get("time", "") or "").strip() or None),
+        "default_spending_domain": normalize_spending_domain(payload.get("default_spending_domain"), default="grocery"),
+        "default_budget_category": None,
         "subtotal": float(payload.get("subtotal") or 0),
         "tax": float(payload.get("tax") or 0),
         "tip": float(payload.get("tip") or 0),
@@ -172,6 +194,10 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "confidence": float(payload.get("confidence") or 1),
         "items": [],
     }
+    sanitized["default_budget_category"] = normalize_budget_category(
+        payload.get("default_budget_category"),
+        default=default_budget_category_for_spending_domain(sanitized["default_spending_domain"]),
+    )
 
     for item in payload.get("items", []) or []:
         name = str(item.get("name", "") or "").strip()
@@ -183,6 +209,8 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
             "quantity": float(item.get("quantity") or 1),
             "unit_price": float(item.get("unit_price") or 0),
             "category": str(item.get("category", "other") or "other").strip().lower(),
+            "spending_domain": normalize_spending_domain(item.get("spending_domain"), default="") or None,
+            "budget_category": normalize_budget_category(item.get("budget_category"), default="") or None,
         })
     return sanitized
 
@@ -206,6 +234,42 @@ def _delete_purchase_data(session, purchase):
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
     session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
+
+
+def _clear_purchase_detail_data(session, purchase):
+    """Remove item/price rows while preserving the purchase record itself."""
+    from src.backend.initialize_database_schema import ReceiptItem, PriceHistory
+
+    receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
+    product_ids = {item.product_id for item in receipt_items if item.product_id}
+    if product_ids:
+        session.query(PriceHistory).filter(
+            PriceHistory.product_id.in_(product_ids),
+            PriceHistory.store_id == purchase.store_id,
+            PriceHistory.date == purchase.date,
+        ).delete(synchronize_session=False)
+
+    session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+
+
+def _resolve_receipt_record(session, receipt_id):
+    """Resolve a receipt reference by preferring purchase_id over raw receipt id."""
+    from src.backend.initialize_database_schema import TelegramReceipt
+
+    record = (
+        session.query(TelegramReceipt)
+        .filter(TelegramReceipt.purchase_id == receipt_id)
+        .order_by(TelegramReceipt.created_at.desc())
+        .first()
+    )
+    if record:
+        return record
+    return (
+        session.query(TelegramReceipt)
+        .filter(TelegramReceipt.id == receipt_id)
+        .order_by(TelegramReceipt.created_at.desc())
+        .first()
+    )
 
 
 def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user_id: int | None):
@@ -233,17 +297,23 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         session.flush()
 
     purchase_date = datetime.strptime(sanitized["date"], "%Y-%m-%d")
-    purchase_domain = "grocery"
-    if receipt_type == "restaurant":
-        purchase_domain = "restaurant"
-    elif receipt_type in {"general_expense", "retail_items"}:
-        purchase_domain = "general_expense"
+    purchase_domain, purchase_budget_category = derive_receipt_budget_defaults(
+        "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type
+    )
 
     purchase = Purchase(
         store_id=store.id,
         total_amount=float(sanitized.get("total") or 0),
         date=purchase_date,
         domain=purchase_domain,
+        default_spending_domain=normalize_spending_domain(
+            sanitized.get("default_spending_domain"),
+            default=purchase_domain,
+        ),
+        default_budget_category=normalize_budget_category(
+            sanitized.get("default_budget_category"),
+            default=purchase_budget_category,
+        ),
         user_id=user_id,
     )
     session.add(purchase)
@@ -281,12 +351,20 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
 
         quantity = float(item_data.get("quantity") or 1)
         unit_price = float(item_data.get("unit_price") or 0)
+        item_spending_domain = normalize_spending_domain(item_data.get("spending_domain"), default="") or None
+        item_budget_category = normalize_budget_category(item_data.get("budget_category"), default="") or None
+        if item_budget_category and not item_spending_domain:
+            item_spending_domain = purchase.default_spending_domain
+        if item_spending_domain and not item_budget_category:
+            item_budget_category = default_budget_category_for_spending_domain(item_spending_domain)
         session.add(
             ReceiptItem(
                 purchase_id=purchase.id,
                 product_id=product.id,
                 quantity=quantity,
                 unit_price=unit_price,
+                spending_domain=item_spending_domain,
+                budget_category=item_budget_category,
                 extracted_by="manual",
             )
         )
@@ -505,6 +583,8 @@ def get_receipt(receipt_id):
                 "category": product.category,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
+                "spending_domain": item.spending_domain,
+                "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
             }
             for item, product in items
@@ -520,6 +600,8 @@ def get_receipt(receipt_id):
         "ocr_engine": receipt_record.ocr_engine if receipt_record else None,
         "confidence": receipt_record.ocr_confidence if receipt_record else None,
         "receipt_type": receipt_record.receipt_type if receipt_record else None,
+        "default_spending_domain": getattr(purchase, "default_spending_domain", None) if purchase else None,
+        "default_budget_category": getattr(purchase, "default_budget_category", None) if purchase else None,
         "source": _receipt_source_label(receipt_record) if receipt_record else "upload",
         "created_at": receipt_record.created_at.isoformat() if receipt_record and receipt_record.created_at else None,
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
@@ -533,6 +615,8 @@ def get_receipt(receipt_id):
                 "category": product.category,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
+                "spending_domain": item.spending_domain,
+                "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
             }
             for item, product in items
@@ -794,15 +878,7 @@ def approve_receipt(receipt_id):
     from src.backend.extract_receipt_data import _save_to_database, classify_receipt_data
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
-        )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    record = _resolve_receipt_record(session, receipt_id)
     if not record:
         return jsonify({"error": "Receipt not found"}), 404
     if record.purchase_id:
@@ -852,15 +928,7 @@ def update_receipt(receipt_id):
     from src.backend.extract_receipt_data import _save_to_database, classify_receipt_data
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
-        )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    record = _resolve_receipt_record(session, receipt_id)
     if not record:
         return jsonify({"error": "Receipt not found"}), 404
 
@@ -880,7 +948,7 @@ def update_receipt(receipt_id):
     user_id = current_user.id if current_user else None
     purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
     if purchase:
-        _delete_purchase_data(session, purchase)
+        _clear_purchase_detail_data(session, purchase)
         session.flush()
 
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
@@ -890,6 +958,7 @@ def update_receipt(receipt_id):
         record.image_path,
         user_id,
         receipt_type,
+        existing_purchase=purchase,
     )
     record.purchase_id = purchase_id
     record.status = "processed"
@@ -915,15 +984,7 @@ def reprocess_receipt(receipt_id):
     from src.backend.extract_receipt_data import process_receipt
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
-        )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    record = _resolve_receipt_record(session, receipt_id)
     if not record or not record.image_path:
         return jsonify({"error": "Receipt not found"}), 404
 
@@ -952,15 +1013,7 @@ def rotate_receipt(receipt_id):
     from src.backend.initialize_database_schema import TelegramReceipt
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
-        )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    record = _resolve_receipt_record(session, receipt_id)
     if not record or not record.image_path:
         return jsonify({"error": "Receipt not found"}), 404
 
@@ -989,15 +1042,7 @@ def delete_receipt(receipt_id):
     )
 
     session = g.db_session
-    record = (
-        session.query(TelegramReceipt)
-        .filter(
-            (TelegramReceipt.purchase_id == receipt_id) |
-            (TelegramReceipt.id == receipt_id)
-        )
-        .order_by(TelegramReceipt.created_at.desc())
-        .first()
-    )
+    record = _resolve_receipt_record(session, receipt_id)
     purchase = session.query(Purchase).filter_by(id=receipt_id).first()
     if not record and not purchase:
         return jsonify({"error": "Receipt not found"}), 404

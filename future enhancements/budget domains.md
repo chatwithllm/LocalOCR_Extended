@@ -1,5 +1,47 @@
 # Budget Domains Plan
 
+## Status
+
+Current implementation state:
+
+- Phase 1 foundation is complete in code:
+  - purchases now persist:
+    - `default_spending_domain`
+    - `default_budget_category`
+  - receipt items now persist optional overrides:
+    - `spending_domain`
+    - `budget_category`
+  - OCR/manual/edit receipt save paths now preserve these fields
+  - existing purchases backfill from legacy `domain` values during schema migration
+- Phase 2 review/edit UI is complete in code:
+  - shared receipt editor now exposes:
+    - receipt default spending domain
+    - receipt default budget category
+    - line-item spending-domain override
+    - line-item budget-category override
+  - line-item overrides support `Use receipt default`
+  - the editor gently auto-fills budget categories from selected spending domains to reduce correction friction
+- Phase 3 budget engine foundation is complete in code:
+  - effective line-item allocations now exist in backend rollup logic
+  - receipt-level remainder (tax/fees/tip/delta between line subtotal and receipt total) is allocated proportionally across effective line-item buckets
+  - additive backend endpoint now exists:
+    - `/budget/allocation-summary`
+  - current domain-based budget endpoints remain intact for compatibility
+- Phase 4 budget page redesign is complete in code:
+  - `Budget` now stores optional category targets via:
+    - `budget_category`
+    - storage keys like `category:grocery` in the legacy `domain` column so category targets can coexist with old domain rows
+  - additive backend endpoint now exists:
+    - `/budget/category-summary`
+  - the main Budget page now:
+    - edits targets by budget category
+    - preloads the selected category's saved target
+    - renders active and inactive category cards from effective line-item rollups
+  - legacy domain budget views can fall back to category targets where that mapping is meaningful
+- Still pending:
+  - event naming/reporting
+  - migration quality / cleanup
+
 ## Purpose
 
 This document is the restart point for redesigning budgets so they reflect real household spending more accurately.
@@ -359,7 +401,25 @@ Change budget totals to use:
 - proportional tax allocation
 - budget category rollups
 
-### Phase 4: Events
+### Phase 4: Budget Page Redesign
+
+Redesign the main Budget page to use:
+
+- monthly budget targets by `budget category`
+- category-level cards for:
+  - target
+  - spent
+  - remaining
+  - percentage used
+- prefilled budget editor values when a category is selected
+
+Compatibility rules:
+
+- old `/budget/status?domain=...` consumers remain available
+- category targets are stored alongside legacy domain rows
+- restaurant / expense budget views can fall back to mapped category targets while their page-level redesign catches up
+
+### Phase 5: Events
 
 Add:
 
