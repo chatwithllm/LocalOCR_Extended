@@ -4714,7 +4714,7 @@
         </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub">restaurant receipts</div></div>
+        <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub" id="restaurant-visit-sub">restaurant purchases</div></div>
         <div class="stat-card success"><div class="stat-label">Dining Spend</div><div class="stat-value" id="restaurant-total-spend">$0.00</div><div class="stat-sub">current window</div></div>
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="restaurant-average-ticket">$0.00</div><div class="stat-sub">per visit</div></div>
         <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
@@ -4764,7 +4764,7 @@
         </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Expense Receipts</div><div class="stat-value" id="expense-receipt-count">0</div><div class="stat-sub">current window</div></div>
+        <div class="stat-card accent"><div class="stat-label">Expense Receipts</div><div class="stat-value" id="expense-receipt-count">0</div><div class="stat-sub" id="expense-receipt-sub">purchase receipts</div></div>
         <div class="stat-card success"><div class="stat-label">Total Spend</div><div class="stat-value" id="expense-total-spend">$0.00</div><div class="stat-sub">general expenses</div></div>
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="expense-average-ticket">$0.00</div><div class="stat-sub">per receipt</div></div>
         <div class="stat-card"><div class="stat-label">Top Merchant</div><div class="stat-value" id="expense-top-store">—</div><div class="stat-sub" id="expense-top-store-sub">No expenses yet</div></div>
@@ -14502,15 +14502,19 @@ async function loadRestaurant() {
   }
 
   const visitEl = document.getElementById('restaurant-visit-count');
+  const visitSubEl = document.getElementById('restaurant-visit-sub');
   const spendEl = document.getElementById('restaurant-total-spend');
   const averageTicketEl = document.getElementById('restaurant-average-ticket');
   const topStoreEl = document.getElementById('restaurant-top-store');
   const topStoreSubEl = document.getElementById('restaurant-top-store-sub');
   if (visitEl) visitEl.textContent = summaryData.visit_count || 0;
+  if (visitSubEl) visitSubEl.textContent = summaryData.refund_count ? `${summaryData.refund_count} refund${summaryData.refund_count === 1 ? '' : 's'} in window` : 'restaurant purchases';
   if (spendEl) spendEl.textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
   if (averageTicketEl) averageTicketEl.textContent = formatMoney(summaryData.average_ticket || 0);
   if (topStoreEl) topStoreEl.textContent = topStore?.store || '—';
-  if (topStoreSubEl) topStoreSubEl.textContent = topStore ? `${topStore.visits} visit${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No visits yet';
+  if (topStoreSubEl) topStoreSubEl.textContent = topStore
+    ? `${topStore.visits} visit${topStore.visits === 1 ? '' : 's'}${topStore.refunds ? ` · ${topStore.refunds} refund${topStore.refunds === 1 ? '' : 's'}` : ''} · Net ${formatMoney(topStore.total)}`
+    : 'No visits yet';
 
   const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));
   const topRestaurantsEl = document.getElementById('restaurant-top-restaurants');
@@ -14524,7 +14528,7 @@ async function loadRestaurant() {
               <strong>${escHtml(item.store)}</strong>
               <span class="contrib-points">${formatMoney(item.total)}</span>
             </div>
-            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? '' : 's'}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? '' : 's'}` : ''} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
           </div>
         `).join('')}
       </div>` : '<div class="empty-state"><p>No restaurant history yet.</p></div>';
@@ -14612,7 +14616,7 @@ async function loadRestaurantBudget() {
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
       <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
       <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
 }
 
@@ -14664,11 +14668,15 @@ async function loadExpenses() {
   let spendData = { grand_total: 0, spending_by_period: {} };
   if (spendRes.ok) spendData = await spendRes.json();
 
-  document.getElementById('expense-receipt-count').textContent = summaryData.receipt_count || 0;
+  document.getElementById('expense-receipt-count').textContent = summaryData.purchase_count || 0;
+  const expenseReceiptSubEl = document.getElementById('expense-receipt-sub');
+  if (expenseReceiptSubEl) expenseReceiptSubEl.textContent = summaryData.refund_count ? `${summaryData.refund_count} refund${summaryData.refund_count === 1 ? '' : 's'} in window` : 'purchase receipts';
   document.getElementById('expense-total-spend').textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
   document.getElementById('expense-average-ticket').textContent = formatMoney(summaryData.average_ticket || 0);
   document.getElementById('expense-top-store').textContent = topStore?.store || '—';
-  document.getElementById('expense-top-store-sub').textContent = topStore ? `${topStore.visits} receipt${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No expenses yet';
+  document.getElementById('expense-top-store-sub').textContent = topStore
+    ? `${topStore.visits} receipt${topStore.visits === 1 ? '' : 's'}${topStore.refunds ? ` · ${topStore.refunds} refund${topStore.refunds === 1 ? '' : 's'}` : ''} · Net ${formatMoney(topStore.total)}`
+    : 'No expenses yet';
 
   const topMerchantsEl = document.getElementById('expense-top-merchants');
   if (topMerchantsEl) {
@@ -14681,7 +14689,7 @@ async function loadExpenses() {
               <strong>${escHtml(item.store)}</strong>
               <span class="contrib-points">${formatMoney(item.total)}</span>
             </div>
-            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? '' : 's'}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? '' : 's'}` : ''} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
           </div>
         `).join('')}
       </div>` : '<div class="empty-state"><p>No merchant history yet.</p></div>';
@@ -14807,7 +14815,7 @@ async function loadExpenseBudget() {
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
       <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
       <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
 }
 

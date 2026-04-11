@@ -24,6 +24,7 @@ from src.backend.budgeting_rollups import (
     calculate_budget_allocations,
     calculate_budget_breakdowns,
     month_bounds,
+    normalize_transaction_type,
     signed_purchase_total,
 )
 from src.backend.create_flask_application import require_auth, require_write_access
@@ -185,6 +186,8 @@ def get_budget_status():
     ).all()
 
     spent = sum(signed_purchase_total(p) for p in purchases)
+    purchase_count = sum(1 for p in purchases if normalize_transaction_type(getattr(p, "transaction_type", None)) != "refund")
+    refund_count = sum(1 for p in purchases if normalize_transaction_type(getattr(p, "transaction_type", None)) == "refund")
     remaining = budget_amount - spent
     percentage = (spent / budget_amount * 100) if budget_amount > 0 else 0
 
@@ -207,7 +210,9 @@ def get_budget_status():
         "remaining": round(remaining, 2),
         "percentage": round(percentage, 1),
         "alert_triggered": alert_triggered,
-        "purchase_count": len(purchases),
+        "purchase_count": purchase_count,
+        "refund_count": refund_count,
+        "receipt_count": len(purchases),
     }), 200
 
 
@@ -274,7 +279,9 @@ def get_budget_allocation_summary():
         "month": month,
         "categories": computed["category_rows"],
         "domains": computed["domain_rows"],
-        "purchase_count": len(computed["purchases"]),
+        "purchase_count": sum(1 for p in computed["purchases"] if normalize_transaction_type(getattr(p, "transaction_type", None)) != "refund"),
+        "refund_count": sum(1 for p in computed["purchases"] if normalize_transaction_type(getattr(p, "transaction_type", None)) == "refund"),
+        "receipt_count": len(computed["purchases"]),
     }), 200
 
 

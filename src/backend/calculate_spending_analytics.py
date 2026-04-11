@@ -24,6 +24,17 @@ logger = logging.getLogger(__name__)
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
 
 
+def _transaction_counts(purchases):
+    purchase_count = 0
+    refund_count = 0
+    for purchase in purchases:
+        if normalize_transaction_type(getattr(purchase, "transaction_type", None)) == "refund":
+            refund_count += 1
+        else:
+            purchase_count += 1
+    return purchase_count, refund_count
+
+
 @analytics_bp.route("/expense-summary", methods=["GET"])
 @require_auth
 def get_general_expense_summary():
@@ -45,7 +56,9 @@ def get_general_expense_summary():
     )
 
     total_spend = 0.0
-    merchant_summary = defaultdict(lambda: {"visits": 0, "total": 0.0, "latest_date": None})
+    purchase_total = 0.0
+    refund_total = 0.0
+    merchant_summary = defaultdict(lambda: {"visits": 0, "refunds": 0, "total": 0.0, "purchase_total": 0.0, "refund_total": 0.0, "latest_date": None})
     item_summary = defaultdict(lambda: {"quantity": 0.0, "total": 0.0})
     category_summary = defaultdict(lambda: {"total": 0.0, "count": 0})
     recent_receipts = []
@@ -53,10 +66,20 @@ def get_general_expense_summary():
     for purchase, store, record in purchases:
         sign = purchase_amount_sign(purchase)
         total = signed_purchase_total(purchase)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
         total_spend += total
+        if transaction_type == "refund":
+            refund_total += abs(total)
+        else:
+            purchase_total += total
         merchant = store.name if store and store.name else "Unknown"
         merchant_info = merchant_summary[merchant]
-        merchant_info["visits"] += 1
+        if transaction_type == "refund":
+            merchant_info["refunds"] += 1
+            merchant_info["refund_total"] += abs(total)
+        else:
+            merchant_info["visits"] += 1
+            merchant_info["purchase_total"] += total
         merchant_info["total"] += total
         if not merchant_info["latest_date"] or (purchase.date and purchase.date > merchant_info["latest_date"]):
             merchant_info["latest_date"] = purchase.date
@@ -95,8 +118,11 @@ def get_general_expense_summary():
             {
                 "store": merchant,
                 "visits": values["visits"],
+                "refunds": values["refunds"],
                 "total": round(values["total"], 2),
-                "average_ticket": round(values["total"] / values["visits"], 2) if values["visits"] else 0,
+                "purchase_total": round(values["purchase_total"], 2),
+                "refund_total": round(values["refund_total"], 2),
+                "average_ticket": round(values["purchase_total"] / values["visits"], 2) if values["visits"] else 0,
                 "latest_date": values["latest_date"].strftime("%Y-%m-%d") if values["latest_date"] else None,
             }
             for merchant, values in merchant_summary.items()
@@ -129,12 +155,16 @@ def get_general_expense_summary():
         key=lambda item: (-item["total"], -item["count"], item["category"]),
     )
 
-    receipt_count = len(recent_receipts)
+    purchase_count, refund_count = _transaction_counts([purchase for purchase, _, _ in purchases])
     return jsonify({
         "months_back": months_back,
-        "receipt_count": receipt_count,
+        "receipt_count": purchase_count + refund_count,
+        "purchase_count": purchase_count,
+        "refund_count": refund_count,
         "total_spend": round(total_spend, 2),
-        "average_ticket": round(total_spend / receipt_count, 2) if receipt_count else 0,
+        "purchase_total": round(purchase_total, 2),
+        "refund_total": round(refund_total, 2),
+        "average_ticket": round(purchase_total / purchase_count, 2) if purchase_count else 0,
         "top_merchants": top_merchants[:8],
         "top_items": top_items,
         "category_breakdown": category_breakdown,
@@ -159,7 +189,9 @@ def get_restaurant_summary():
     )
 
     total_spend = 0.0
-    store_summary = defaultdict(lambda: {"visits": 0, "total": 0.0, "latest_date": None})
+    purchase_total = 0.0
+    refund_total = 0.0
+    store_summary = defaultdict(lambda: {"visits": 0, "refunds": 0, "total": 0.0, "purchase_total": 0.0, "refund_total": 0.0, "latest_date": None})
     purchase_ids = []
     recent_receipts = []
 
@@ -167,10 +199,20 @@ def get_restaurant_summary():
         purchase_ids.append(purchase.id)
         sign = purchase_amount_sign(purchase)
         total = signed_purchase_total(purchase)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
         total_spend += total
+        if transaction_type == "refund":
+            refund_total += abs(total)
+        else:
+            purchase_total += total
         store_name = store.name if store and store.name else "Unknown"
         info = store_summary[store_name]
-        info["visits"] += 1
+        if transaction_type == "refund":
+            info["refunds"] += 1
+            info["refund_total"] += abs(total)
+        else:
+            info["visits"] += 1
+            info["purchase_total"] += total
         info["total"] += total
         if not info["latest_date"] or (purchase.date and purchase.date > info["latest_date"]):
             info["latest_date"] = purchase.date
@@ -203,8 +245,11 @@ def get_restaurant_summary():
             {
                 "store": store_name,
                 "visits": values["visits"],
+                "refunds": values["refunds"],
                 "total": round(values["total"], 2),
-                "average_ticket": round(values["total"] / values["visits"], 2) if values["visits"] else 0,
+                "purchase_total": round(values["purchase_total"], 2),
+                "refund_total": round(values["refund_total"], 2),
+                "average_ticket": round(values["purchase_total"] / values["visits"], 2) if values["visits"] else 0,
                 "latest_date": values["latest_date"].strftime("%Y-%m-%d") if values["latest_date"] else None,
             }
             for store_name, values in store_summary.items()
@@ -226,12 +271,16 @@ def get_restaurant_summary():
         key=lambda item: (-item["quantity"], -item["total"], item["name"]),
     )[:10]
 
-    visit_count = len(recent_receipts)
+    purchase_count, refund_count = _transaction_counts([purchase for purchase, _ in purchases])
     return jsonify({
         "months_back": months_back,
-        "visit_count": visit_count,
+        "visit_count": purchase_count,
+        "receipt_count": purchase_count + refund_count,
+        "refund_count": refund_count,
         "total_spend": round(total_spend, 2),
-        "average_ticket": round(total_spend / visit_count, 2) if visit_count else 0,
+        "purchase_total": round(purchase_total, 2),
+        "refund_total": round(refund_total, 2),
+        "average_ticket": round(purchase_total / purchase_count, 2) if purchase_count else 0,
         "top_restaurants": top_restaurants[:8],
         "top_items": top_items,
         "recent_receipts": recent_receipts[:12],

@@ -363,6 +363,18 @@ Smoke-test target after Phase 1:
   - Restaurant recent-receipt cards now show refund state and signed totals instead of looking like normal visits
   - Expense recent-receipt cards now show refund state and signed totals
   - Expense selected-receipt detail now shows refund state and uses the signed total treatment consistently
+- refund Phase 3 summary accuracy is now in progress on the branch:
+  - restaurant and general-expense summaries now track:
+    - purchase-count
+    - refund-count
+    - net spend
+    - purchase-only average ticket
+  - top restaurant / top merchant summaries now stop treating refunds as normal visits
+  - budget status domain endpoints now expose:
+    - purchase_count
+    - refund_count
+    - receipt_count
+  - frontend summary cards now surface refund counts so users can tell the difference between real visits and return activity
   - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work
