@@ -1950,6 +1950,19 @@
       gap: 6px;
       white-space: nowrap;
     }
+    .refund-warning-pill {
+      display: block !important;
+      width: min(100%, calc(100vw - 48px));
+      max-width: 100%;
+      border-radius: 14px;
+      padding: 8px 10px;
+      white-space: normal !important;
+      line-height: 1.35;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
     .person-modal-pill.pending {
       color: #ffd666;
       border-color: rgba(255, 214, 102, 0.35);
@@ -5385,8 +5398,8 @@
         <div><label>Total</label><input id="manual-entry-total" type="number" step="0.01" value="0" /></div>
         <div><label>Tip</label><input id="manual-entry-tip" type="number" step="0.01" value="0" /></div>
       </div>
-      <div id="manual-entry-refund-note" class="person-modal-pill" style="display:none;margin-top:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
-        Refund mode: enter positive amounts here. The app will treat this receipt as negative spend automatically.
+      <div id="manual-entry-refund-note" class="person-modal-pill refund-warning-pill" style="display:none;margin-top:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: enter positive amounts. The app records this as negative spend.
       </div>
       <div id="manual-entry-refund-fields" style="display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">
         <div><label>Refund Reason</label><select id="manual-entry-refund-reason"></select></div>
@@ -13714,8 +13727,8 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
       </div>
-      <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
-        Refund mode: this receipt will reduce spend, will not update price history, and will not behave like a normal grocery purchase.
+      <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill refund-warning-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: reduces spend, skips price history, and will not count as a normal grocery purchase.
       </div>
       <div id="receipt-refund-note-wrap-${receipt.id}" style="display:none;margin-bottom:12px">
         <label style="display:block;margin-bottom:6px;color:var(--muted);font-size:0.82rem">Refund Note</label>
@@ -13973,7 +13986,7 @@ function wireReceiptBudgetingControls(receiptId) {
   if (transactionTypeEl && refundNoteEl) {
     const updateRefundNote = () => {
       const refundMode = normalizeReceiptTransactionType(transactionTypeEl.value) === 'refund';
-      refundNoteEl.style.display = refundMode ? 'inline-flex' : 'none';
+      refundNoteEl.style.display = refundMode ? 'block' : 'none';
       if (refundReasonWrapEl) refundReasonWrapEl.style.display = refundMode ? '' : 'none';
       if (refundNoteWrapEl) refundNoteWrapEl.style.display = refundMode ? '' : 'none';
       if (!refundMode) {
@@ -14066,7 +14079,7 @@ function openManualEntryModal() {
   if (manualTransactionTypeEl && manualRefundNoteEl) {
     manualTransactionTypeEl.onchange = () => {
       const refundMode = normalizeReceiptTransactionType(manualTransactionTypeEl.value) === 'refund';
-      manualRefundNoteEl.style.display = refundMode ? 'inline-flex' : 'none';
+      manualRefundNoteEl.style.display = refundMode ? 'block' : 'none';
       if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = refundMode ? 'grid' : 'none';
       if (!refundMode) {
         if (manualRefundReasonEl) manualRefundReasonEl.value = '';

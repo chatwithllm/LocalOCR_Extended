@@ -427,6 +427,18 @@ Smoke-test target after Phase 1:
     - latest refund-active month
     - top refund stores
   - this strip only appears when `Transaction = Refund`, so the normal receipts workspace stays clean
+- refund Phase 13 mobile polish is now complete:
+  - refund warning messaging in receipt edit and manual entry now wraps correctly on mobile instead of overflowing horizontally
+  - warning copy was shortened slightly so refund context remains clear without dominating narrow screens
+
+Refund feature development is complete for the current scoped rollout:
+
+- receipt-level refund transactions
+- refund-aware budgets and analytics
+- refund-safe inventory/recommendation handling
+- refund reason and note capture
+- refund audit shortcuts and refund-only review strip
+- mobile refund editing polish
 
 ## 5. Pending / Needs More Work
 
