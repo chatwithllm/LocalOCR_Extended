@@ -378,6 +378,10 @@ Smoke-test target after Phase 1:
 - refund Phase 4 operational safeguards are now being layered in:
   - active inventory rebuild now nets grocery refund quantities back out instead of treating them like normal purchases
   - seasonal recommendation timing now ignores refund receipts so returns do not look like fresh restock activity
+- refund Phase 5 editor/manual-entry UX is now being layered in:
+  - manual receipt entry now supports explicit `Purchase` vs `Refund`
+  - manual refund entry tells the user to enter positive amounts while the app handles the negative-spend treatment
+  - the shared receipt editor now shows a refund-mode warning so refund side effects are explicit before saving
   - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work

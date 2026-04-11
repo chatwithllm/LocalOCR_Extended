@@ -5370,12 +5370,16 @@
       <div class="confirm-body">Add a purchase manually when the receipt image is missing. It will count in budget and receipts history. For grocery and restaurant entries, add at least one line item.</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px">
         <div><label>Type</label><select id="manual-entry-type"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
+        <div><label>Transaction</label><select id="manual-entry-transaction-type"><option value="purchase">Purchase</option><option value="refund">Refund</option></select></div>
         <div><label>Store</label><input id="manual-entry-store" placeholder="Store or merchant" /></div>
         <div><label>Date</label><input id="manual-entry-date" type="date" /></div>
         <div><label>Subtotal</label><input id="manual-entry-subtotal" type="number" step="0.01" value="0" /></div>
         <div><label>Tax</label><input id="manual-entry-tax" type="number" step="0.01" value="0" /></div>
         <div><label>Total</label><input id="manual-entry-total" type="number" step="0.01" value="0" /></div>
         <div><label>Tip</label><input id="manual-entry-tip" type="number" step="0.01" value="0" /></div>
+      </div>
+      <div id="manual-entry-refund-note" class="person-modal-pill" style="display:none;margin-top:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: enter positive amounts here. The app will treat this receipt as negative spend automatically.
       </div>
       <div class="card-header" style="margin:16px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
@@ -13519,6 +13523,9 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
       </div>
+      <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: this receipt will reduce spend, will not update price history, and will not behave like a normal grocery purchase.
+      </div>
       <div class="card-header" style="margin:4px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addReceiptEditorRow(${receipt.id})">Add Item</button>
@@ -13752,6 +13759,8 @@ function renderReceiptEditorRows(items = [], options = {}) {
 function wireReceiptBudgetingControls(receiptId) {
   const defaultCategoryEl = document.getElementById(`receipt-default-category-${receiptId}`);
   const receiptTypeEl = document.getElementById(`receipt-type-${receiptId}`);
+  const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
+  const refundNoteEl = document.getElementById(`receipt-refund-note-${receiptId}`);
   if (receiptTypeEl && defaultCategoryEl) {
     receiptTypeEl.onchange = () => {
       const derived = deriveReceiptBudgetDefaults(receiptTypeEl.value || 'grocery');
@@ -13761,6 +13770,13 @@ function wireReceiptBudgetingControls(receiptId) {
       receiptTypeEl.dataset.previousValue = receiptTypeEl.value || 'grocery';
     };
     receiptTypeEl.dataset.previousValue = receiptTypeEl.value || 'grocery';
+  }
+  if (transactionTypeEl && refundNoteEl) {
+    const updateRefundNote = () => {
+      refundNoteEl.style.display = normalizeReceiptTransactionType(transactionTypeEl.value) === 'refund' ? 'inline-flex' : 'none';
+    };
+    transactionTypeEl.onchange = updateRefundNote;
+    updateRefundNote();
   }
 }
 
@@ -13815,15 +13831,24 @@ function openManualEntryModal() {
     : selectedCategory === 'grocery'
       ? 'grocery'
       : 'general_expense';
+  const manualTransactionTypeEl = document.getElementById('manual-entry-transaction-type');
+  const manualRefundNoteEl = document.getElementById('manual-entry-refund-note');
   const today = new Date();
   document.getElementById('manual-entry-type').value = selectedDomain || 'grocery';
+  if (manualTransactionTypeEl) manualTransactionTypeEl.value = 'purchase';
   document.getElementById('manual-entry-store').value = '';
   document.getElementById('manual-entry-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   document.getElementById('manual-entry-subtotal').value = '0';
   document.getElementById('manual-entry-tax').value = '0';
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
+  if (manualRefundNoteEl) manualRefundNoteEl.style.display = 'none';
   document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
+  if (manualTransactionTypeEl && manualRefundNoteEl) {
+    manualTransactionTypeEl.onchange = () => {
+      manualRefundNoteEl.style.display = normalizeReceiptTransactionType(manualTransactionTypeEl.value) === 'refund' ? 'inline-flex' : 'none';
+    };
+  }
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
@@ -13987,6 +14012,7 @@ function collectManualEntryData() {
   return {
     store: document.getElementById('manual-entry-store')?.value?.trim() || '',
     date: document.getElementById('manual-entry-date')?.value || '',
+    transaction_type: document.getElementById('manual-entry-transaction-type')?.value || 'purchase',
     subtotal: Number(document.getElementById('manual-entry-subtotal')?.value || 0),
     tax: Number(document.getElementById('manual-entry-tax')?.value || 0),
     tip: Number(document.getElementById('manual-entry-tip')?.value || 0),
