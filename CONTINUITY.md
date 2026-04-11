@@ -417,6 +417,9 @@ Smoke-test target after Phase 1:
     - refund total
     - latest refund-active period
   - Receipts summary now uses stored refund reasons to surface the top refund reason in the refund tile subtext
+- refund Phase 11 audit navigation is now being layered in:
+  - Receipts now includes a `Review Refunds` quick action that jumps directly into the refund-only filtered receipt view
+  - Analytics now includes the same `Review Refunds` shortcut so users can move from refund summary into refund audit with one action
 
 ## 5. Pending / Needs More Work
 

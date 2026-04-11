@@ -4951,6 +4951,7 @@
         <div class="card-header">
           <span class="card-title">Filters</span>
           <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openRefundReceipts()">Review Refunds</button>
             <button class="btn btn-primary btn-sm" onclick="loadReceipts()">Apply</button>
             <button class="btn btn-ghost btn-sm" onclick="resetReceiptFilters()">Reset</button>
           </div>
@@ -5111,6 +5112,7 @@
               <option value="total_desc">Highest total</option>
               <option value="count_desc">Most items</option>
             </select>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openRefundReceipts()">Review Refunds</button>
           </div>
         </div>
         <div id="analytics-refund-summary" style="margin-bottom:12px"></div>
@@ -12233,6 +12235,7 @@ async function jumpToReceipt(id) {
     'receipt-filter-store',
     'receipt-filter-source',
     'receipt-filter-type',
+    'receipt-filter-transaction',
     'receipt-filter-status',
     'receipt-filter-purchase-from',
     'receipt-filter-purchase-to',
@@ -12253,6 +12256,7 @@ async function openRestaurantReceipts() {
     'receipt-filter-store',
     'receipt-filter-source',
     'receipt-filter-status',
+    'receipt-filter-transaction',
     'receipt-filter-purchase-from',
     'receipt-filter-purchase-to',
     'receipt-filter-upload-from',
@@ -12265,6 +12269,28 @@ async function openRestaurantReceipts() {
   const typeMobile = document.getElementById('receipt-filter-type-mobile');
   if (typeDesktop) typeDesktop.value = 'restaurant';
   if (typeMobile) typeMobile.value = 'restaurant';
+  const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
+  nav('receipts', receiptNav);
+  await loadReceipts();
+}
+
+async function openRefundReceipts() {
+  selectedReceiptId = null;
+  [
+    'receipt-filter-store',
+    'receipt-filter-source',
+    'receipt-filter-type',
+    'receipt-filter-status',
+    'receipt-filter-purchase-from',
+    'receipt-filter-purchase-to',
+    'receipt-filter-upload-from',
+    'receipt-filter-upload-to',
+  ].forEach(filterId => {
+    const el = document.getElementById(filterId);
+    if (el) el.value = '';
+  });
+  const transactionEl = document.getElementById('receipt-filter-transaction');
+  if (transactionEl) transactionEl.value = 'refund';
   const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
   nav('receipts', receiptNav);
   await loadReceipts();
