@@ -375,6 +375,9 @@ Smoke-test target after Phase 1:
     - refund_count
     - receipt_count
   - frontend summary cards now surface refund counts so users can tell the difference between real visits and return activity
+- refund Phase 4 operational safeguards are now being layered in:
+  - active inventory rebuild now nets grocery refund quantities back out instead of treating them like normal purchases
+  - seasonal recommendation timing now ignores refund receipts so returns do not look like fresh restock activity
   - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work
