@@ -420,6 +420,13 @@ Smoke-test target after Phase 1:
 - refund Phase 11 audit navigation is now being layered in:
   - Receipts now includes a `Review Refunds` quick action that jumps directly into the refund-only filtered receipt view
   - Analytics now includes the same `Review Refunds` shortcut so users can move from refund summary into refund audit with one action
+- refund Phase 12 refund-only audit insight is now being layered in:
+  - the refund-filtered Receipts view now shows a dedicated `Refund Review` strip
+  - refund review highlights:
+    - top refund reason
+    - latest refund-active month
+    - top refund stores
+  - this strip only appears when `Transaction = Refund`, so the normal receipts workspace stays clean
 
 ## 5. Pending / Needs More Work
 

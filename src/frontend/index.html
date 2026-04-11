@@ -4991,6 +4991,7 @@
         <div class="stat-card"><div class="stat-label">Unique Items</div><div class="stat-value" id="receipt-unique-items">—</div><div class="stat-sub">distinct products</div></div>
         <div class="stat-card"><div class="stat-label">Most Bought Items</div><div class="stat-value" id="receipt-most-bought-count">—</div><div class="stat-sub" id="receipt-most-bought-list">No item data yet.</div></div>
       </div>
+      <div id="receipt-refund-review-strip" style="display:none"></div>
       <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,3fr);gap:16px;align-items:start">
         <div class="card receipt-summary-store-card mobile-only">
           <div class="card-header">
@@ -7687,6 +7688,58 @@ function summarizeRefundReasons(receipts = []) {
   };
 }
 
+function renderReceiptRefundReviewStrip(summary = {}) {
+  const target = document.getElementById('receipt-refund-review-strip');
+  if (!target) return;
+  const transactionFilter = document.getElementById('receipt-filter-transaction')?.value || '';
+  const allReceipts = (summary.purchases_by_month || []).flatMap(month => month.receipts || []);
+  const refundReceipts = allReceipts.filter(receipt => normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund');
+  if (transactionFilter !== 'refund' || !refundReceipts.length) {
+    target.style.display = 'none';
+    target.innerHTML = '';
+    return;
+  }
+
+  const reasonSummary = summarizeRefundReasons(refundReceipts);
+  const latestMonth = [...(summary.purchases_by_month || [])]
+    .filter(month => Number(month.refund_count || 0) > 0)
+    .sort((a, b) => compareText(a.month, b.month, 'desc'))[0];
+  const storeCounts = new Map();
+  refundReceipts.forEach(receipt => {
+    const store = String(receipt?.store || 'Unknown').trim() || 'Unknown';
+    storeCounts.set(store, (storeCounts.get(store) || 0) + 1);
+  });
+  const topStores = [...storeCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3);
+
+  target.style.display = '';
+  target.innerHTML = `
+    <div class="card" style="margin-bottom:16px;border-color:rgba(255,184,0,0.35);background:rgba(255,184,0,0.05)">
+      <div class="card-header" style="margin-bottom:10px">
+        <span class="card-title">Refund Review</span>
+        <span style="color:var(--muted);font-size:0.84rem">${refundReceipts.length} refund${refundReceipts.length === 1 ? '' : 's'} in current filter</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+        <div class="stat-card warning" style="padding:12px">
+          <div class="stat-label">Top Reason</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(reasonSummary.topReason || 'Not tagged yet')}</div>
+          <div class="stat-sub">${reasonSummary.topReasonCount || 0} receipt${reasonSummary.topReasonCount === 1 ? '' : 's'}</div>
+        </div>
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Latest Refund Month</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(latestMonth?.month || '—')}</div>
+          <div class="stat-sub">${latestMonth ? `${latestMonth.refund_count || 0} refunds · ${formatMoney(latestMonth.refund_total || 0)}` : 'No month summary'}</div>
+        </div>
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Top Stores</div>
+          <div class="stat-value" style="font-size:1rem">${topStores.length ? escHtml(topStores.map(([store]) => store).join(' · ')) : '—'}</div>
+          <div class="stat-sub">${topStores.length ? escHtml(topStores.map(([, count]) => `${count}`).join(' · ')) : 'No store data'}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderAnalyticsRefundSummary(periods = [], domain = '') {
   const target = document.getElementById('analytics-refund-summary');
   if (!target) return;
@@ -8270,6 +8323,7 @@ function renderReceiptSummaries(summary = {}) {
   const receiptStoreSortMobileEl = document.getElementById('receipt-store-sort-mobile');
   if (receiptStoreSortMobileEl && receiptStoreSortMobileEl.value !== receiptStoreSort) receiptStoreSortMobileEl.value = receiptStoreSort;
   const compact = isCompactMobileReceiptView();
+  renderReceiptRefundReviewStrip(summary);
   document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
   document.getElementById('receipt-refund-count').textContent = summary.refund_count ?? 0;
   document.getElementById('receipt-refund-total').textContent = formatMoney(summary.refund_total ?? 0);
