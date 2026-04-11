@@ -455,6 +455,34 @@ def _cleanup_receipt_files(image_paths: list[str]):
             logger.warning("Failed to remove stored receipt file %s: %s", resolved, exc)
 
 
+def _latest_snapshot_for_receipt_item(session, receipt_item_id: int) -> dict | None:
+    from src.backend.initialize_database_schema import ProductSnapshot
+
+    snapshot = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.receipt_item_id == receipt_item_id)
+        .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+        .first()
+    )
+    if not snapshot:
+        return None
+
+    snapshot_count = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.receipt_item_id == receipt_item_id)
+        .count()
+    )
+    return {
+        "id": snapshot.id,
+        "image_url": f"/product-snapshots/{snapshot.id}/image",
+        "status": snapshot.status,
+        "source_context": snapshot.source_context,
+        "notes": snapshot.notes,
+        "captured_at": snapshot.captured_at.isoformat() if snapshot.captured_at else None,
+        "count": snapshot_count,
+    }
+
+
 def _rotate_receipt_file(image_path: str, direction: str) -> bool:
     """Rotate a stored receipt image in place."""
     resolved = _resolve_receipt_path(image_path)
@@ -644,6 +672,7 @@ def get_receipt(receipt_id):
         "editable_data": editable_data,
         "items": [
             {
+                "receipt_item_id": item.id,
                 "product_id": item.product_id,
                 "product_name": product.name,
                 "category": product.category,
@@ -654,6 +683,7 @@ def get_receipt(receipt_id):
                 "spending_domain": item.spending_domain,
                 "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
+                "latest_snapshot": _latest_snapshot_for_receipt_item(session, item.id),
             }
             for item, product in items
         ],

@@ -35,9 +35,15 @@ The app currently supports these major household workflows:
   - buyer-friendly display names and expanded original-name context
   - inline price editing while shopping
   - inline unit and size-label editing while shopping
+  - item photo capture from shopping rows, with follow-up `View Photo` access after upload
   - swipe-right bought flow with undo support
   - compact action model with `Bought`, quantity adjust, and `More` actions
   - support for `Open`, `Bought`, and `Out of Stock` shopping states
+- product and receipt photo capture
+  - attach supporting item photos from shopping rows
+  - attach supporting item photos from receipt extracted-line-item actions
+  - keep photo history in a dedicated product snapshot store
+  - review pending snapshots from Settings in an admin queue
 - budgeting and allocations
   - monthly targets by budget category
   - line-item and receipt-level budget-category allocation
@@ -188,6 +194,9 @@ Operational note:
   - line-item `Unit`
   - line-item `Size Label`
   - budget category allocation
+- extracted receipt items now support photo capture:
+  - `Add Photo`
+  - `View Photo` once a supporting item image exists
 - quick actions:
   - rotate left/right
   - mark as restaurant
@@ -205,8 +214,18 @@ Operational note:
 - `Out of Stock` handling
 - swipe-right bought flow with undo on mobile
 - inline store preference, unit, size-label, and price editing
+- inline product-photo support from the row action menu
 - rename directly from shopping rows
 - compact action row with overflow `More` menu for lower-noise mobile and web use
+
+### Settings
+
+- environment backup and restore controls
+- trusted-device management
+- product snapshot review queue for admins:
+  - see pending snapshot uploads
+  - review linked item/store context
+  - archive or approve captured photos into the catalog workflow
 
 ### Budget
 

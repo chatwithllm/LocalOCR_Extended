@@ -20,7 +20,7 @@ from src.backend.contribution_scores import (
 )
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
-from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ShoppingListItem, Store
+from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ProductSnapshot, ShoppingListItem, Store
 from src.backend.normalize_product_names import (
     canonicalize_product_identity,
     find_matching_product,
@@ -112,6 +112,7 @@ def _ensure_pending_recommendation_event(session, item: ShoppingListItem):
 
 def _serialize_item(item: ShoppingListItem) -> dict:
     latest_price = _latest_price_for_item(g.db_session, item)
+    latest_snapshot = _latest_snapshot_for_item(g.db_session, item)
     preferred_store = canonicalize_store_name(item.preferred_store) if item.preferred_store else None
     product = None
     if item.product_id:
@@ -141,8 +142,35 @@ def _serialize_item(item: ShoppingListItem) -> dict:
         "manual_estimated_price": float(item.manual_estimated_price) if item.manual_estimated_price is not None else None,
         "effective_store": preferred_store or (latest_price or {}).get("store"),
         "latest_price": latest_price,
+        "latest_snapshot": latest_snapshot,
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+def _latest_snapshot_for_item(session, item: ShoppingListItem) -> dict | None:
+    snapshot = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.shopping_list_item_id == item.id)
+        .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+        .first()
+    )
+    if not snapshot:
+        return None
+
+    snapshot_count = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.shopping_list_item_id == item.id)
+        .count()
+    )
+    return {
+        "id": snapshot.id,
+        "image_url": f"/product-snapshots/{snapshot.id}/image",
+        "status": snapshot.status,
+        "source_context": snapshot.source_context,
+        "notes": snapshot.notes,
+        "captured_at": snapshot.captured_at.isoformat() if snapshot.captured_at else None,
+        "count": snapshot_count,
     }
 
 

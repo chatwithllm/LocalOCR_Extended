@@ -4909,6 +4909,7 @@
           </div>
         </div>
         <div id="shopping-current-list-body" class="table-wrap"><div id="shopping-table-body"></div></div>
+        <input id="shopping-snapshot-input" type="file" accept="image/*" style="display:none" onchange="uploadShoppingSnapshotFromPicker(event)" />
       </div>
     </div>
 
@@ -5045,6 +5046,7 @@
         <div class="card">
           <div class="card-header"><span class="card-title">Receipt Details</span></div>
           <div id="receipt-detail-body"><div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div></div>
+          <input id="receipt-item-snapshot-input" type="file" accept="image/*" style="display:none" onchange="uploadReceiptItemSnapshotFromPicker(event)" />
         </div>
       </div>
     </div>
@@ -5250,6 +5252,16 @@
         </div>
         <div id="trusted-devices-note" style="color:var(--muted);font-size:0.84rem">Only admins can view or revoke trusted household devices.</div>
         <div class="table-wrap" style="margin-top:16px"><div id="trusted-devices-body"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📷 Snapshot Review</span>
+          <div class="table-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="loadSnapshotReviewQueue()">🔄</button>
+          </div>
+        </div>
+        <div id="snapshot-review-note" style="color:var(--muted);font-size:0.84rem">Only admins can review item photos and link them to products.</div>
+        <div id="snapshot-review-body" style="margin-top:16px"></div>
       </div>
       <div class="card">
         <div class="card-header">
@@ -5701,6 +5713,8 @@ let selectedReceiptMonth = null;
 let selectedExpenseReceiptId = null;
 let latestReceiptSummary = {};
 let receiptBudgetRequestId = 0;
+let shoppingSnapshotTargetItemId = null;
+let receiptSnapshotTargetItem = null;
 let currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
 let householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
 let contributionSummary = null;
@@ -6192,6 +6206,7 @@ function mergeShoppingDisplayItems(items = []) {
         productIds: new Set(),
         primaryItem: item,
         source: item.source,
+        latest_snapshot: item.latest_snapshot || null,
       });
     }
     const group = groups.get(key);
@@ -6212,6 +6227,15 @@ function mergeShoppingDisplayItems(items = []) {
     if (!group.effective_store && (item.effective_store || item.latest_price?.store)) {
       group.effective_store = item.effective_store || item.latest_price?.store || '';
     }
+    const currentSnapshotCapturedAt = group.latest_snapshot?.captured_at
+      ? new Date(group.latest_snapshot.captured_at).getTime()
+      : 0;
+    const nextSnapshotCapturedAt = item.latest_snapshot?.captured_at
+      ? new Date(item.latest_snapshot.captured_at).getTime()
+      : 0;
+    if (!group.latest_snapshot || nextSnapshotCapturedAt >= currentSnapshotCapturedAt) {
+      group.latest_snapshot = item.latest_snapshot || group.latest_snapshot;
+    }
     const currentPrice = Number(group.primaryItem?.latest_price?.price || 0);
     const nextPrice = Number(item.latest_price?.price || 0);
     const currentQty = Number(group.primaryItem?.quantity || 0);
@@ -6230,6 +6254,9 @@ function mergeShoppingDisplayItems(items = []) {
     primaryProductId: group.productIds.size === 1 ? [...group.productIds][0] : null,
     rawNames: [...group.rawNames],
     fullNames: [...group.fullNames],
+    latest_snapshot: group.latest_snapshot || group.primaryItem?.latest_snapshot || null,
+    unit: group.primaryItem?.unit || null,
+    size_label: group.primaryItem?.size_label || null,
   }));
 }
 
@@ -8929,6 +8956,7 @@ function nav(page, el) {
       loadTrustedDevices();
       loadEnvironmentBackups();
       loadReviewQueue();
+      loadSnapshotReviewQueue();
     }
   }
 }
@@ -9902,6 +9930,123 @@ async function loadTrustedDevices() {
       </div>
     `;
   }).join('');
+}
+
+async function loadSnapshotReviewQueue() {
+  const note = document.getElementById('snapshot-review-note');
+  const body = document.getElementById('snapshot-review-body');
+  if (!note || !body) return;
+  if (!currentUser) {
+    note.textContent = 'Sign in to review item photos.';
+    body.innerHTML = '<div class="empty-state"><p>Sign in to view the snapshot review queue.</p></div>';
+    return;
+  }
+  if (currentUser.role !== 'admin') {
+    note.textContent = 'Only admins can review item photos and link them to products.';
+    body.innerHTML = '<div class="empty-state"><p>Your account can use photos, but only admins can review the queue.</p></div>';
+    return;
+  }
+
+  note.textContent = 'Review item photos, link them to the right product name, or archive them when they are no longer useful.';
+  const res = await api('/product-snapshots/review-queue?status=pending&limit=50');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load the snapshot review queue.</p></div>';
+    return;
+  }
+  const items = data.items || [];
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No pending item photos right now.</p></div>';
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="display:grid;gap:14px">
+      ${items.map(item => `
+        <div class="card" style="margin:0;padding:14px">
+          <div style="display:grid;grid-template-columns:minmax(140px,180px) minmax(0,1fr);gap:14px;align-items:start">
+            <div>
+              <a href="${API_BASE}${item.image_url}" target="_blank" rel="noopener noreferrer" style="display:block">
+                <img src="${API_BASE}${item.image_url}" alt="Snapshot ${item.id}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:12px;border:1px solid var(--border);background:var(--surface2)" />
+              </a>
+            </div>
+            <div style="display:grid;gap:10px">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div>
+                  <div style="font-weight:800">${escHtml(item.product_name || item.shopping_item_name || 'Unlinked snapshot')}</div>
+                  <div style="color:var(--muted);font-size:0.82rem;margin-top:4px">
+                    ${[
+                      item.store_name || null,
+                      item.source_context ? formatLabel(item.source_context.replaceAll('_', ' '), 'Unknown') : null,
+                      item.captured_at ? formatDateTime(item.captured_at, '—') : null,
+                      item.notes || null
+                    ].filter(Boolean).map(v => escHtml(v)).join(' · ')}
+                  </div>
+                </div>
+                <span class="badge badge-${item.status === 'linked' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Pending'))}</span>
+              </div>
+              <div class="form-grid" style="grid-template-columns:minmax(0,1.4fr) minmax(180px,.8fr)">
+                <div class="form-group" style="margin:0">
+                  <label>Product Name</label>
+                  <input id="snapshot-review-name-${item.id}" value="${escAttr(item.linked_product?.name || item.product_name || item.shopping_item_name || '')}" placeholder="Shopping-friendly product name" />
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label>Category</label>
+                  <select id="snapshot-review-category-${item.id}">${renderProductCategoryOptionTags(item.linked_product?.category || 'other')}</select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="saveSnapshotReview(${item.id})">Link Product</button>
+                <button class="btn btn-ghost btn-sm" onclick="window.open('${API_BASE}${item.image_url}', '_blank', 'noopener,noreferrer')">Open Photo</button>
+                <button class="btn btn-danger btn-sm" onclick="archiveSnapshotReview(${item.id})">Archive</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function saveSnapshotReview(snapshotId) {
+  const nameEl = document.getElementById(`snapshot-review-name-${snapshotId}`);
+  const categoryEl = document.getElementById(`snapshot-review-category-${snapshotId}`);
+  const productName = nameEl?.value?.trim() || '';
+  const category = categoryEl?.value || 'other';
+  if (!productName) {
+    toast('Enter a product name before linking the snapshot', 'error');
+    return;
+  }
+  const res = await api(`/product-snapshots/${snapshotId}/review`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      product_name: productName,
+      category,
+      status: 'linked',
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not review snapshot', 'error');
+    return;
+  }
+  toast('Snapshot linked to product ✅', 'success');
+  await Promise.allSettled([loadSnapshotReviewQueue(), loadShoppingList()]);
+  if (selectedReceiptId) await viewReceipt(selectedReceiptId, { scroll: false });
+}
+
+async function archiveSnapshotReview(snapshotId) {
+  const res = await api(`/product-snapshots/${snapshotId}/review`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'archived' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not archive snapshot', 'error');
+    return;
+  }
+  toast('Snapshot archived', 'success');
+  await loadSnapshotReviewQueue();
 }
 
 function animateTrustedDeviceRemoval(deviceId) {
@@ -12943,6 +13088,8 @@ function renderShoppingListTable() {
     const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
     const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
     return `
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; selectShoppingSnapshotFile(${item.primaryItem?.id || item.ids[0] || 'null'})">Add Photo</button>
+      ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')">View Photo</button>` : ''}
       ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
       <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel}</button>
       <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
@@ -13141,7 +13288,8 @@ function renderShoppingListTable() {
                       item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
                       formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
                       item.effective_store ? `Likely ${item.effective_store}` : null,
-                      item.note || null
+                      item.note || null,
+                      item.latest_snapshot?.count ? `${item.latest_snapshot.count} photo${item.latest_snapshot.count === 1 ? '' : 's'} saved` : null
                     ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
                   </div>
                   ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
@@ -13369,6 +13517,60 @@ async function toggleShoppingItem(id, status, options = {}) {
   if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
   await loadShoppingList();
   if (typeof options.afterSuccess === 'function') options.afterSuccess();
+}
+
+function selectShoppingSnapshotFile(itemId) {
+  shoppingSnapshotTargetItemId = itemId;
+  const input = document.getElementById('shopping-snapshot-input');
+  if (!input || !itemId) return;
+  input.value = '';
+  input.click();
+}
+
+async function uploadShoppingSnapshotFromPicker(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  const itemId = shoppingSnapshotTargetItemId;
+  shoppingSnapshotTargetItemId = null;
+  if (!file || !itemId) return;
+
+  const item = shoppingListCache.find(entry => Number(entry.id) === Number(itemId));
+  if (!item) {
+    toast('Shopping item not found', 'error');
+    return;
+  }
+
+  const form = new FormData();
+  form.append('image', file);
+  form.append('shopping_list_item_id', String(itemId));
+  form.append('source_context', 'during_purchase');
+  if (item.product_id) form.append('product_id', String(item.product_id));
+  if (item.preferred_store || item.effective_store) {
+    form.append('notes', `Shopping item photo · ${item.preferred_store || item.effective_store}`);
+  }
+  try {
+    const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(false),
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || 'Could not save item photo', 'error');
+      return;
+    }
+    toast('Item photo saved ✅', 'success');
+    await loadShoppingList();
+  } catch (error) {
+    console.error(error);
+    toast('Could not save item photo', 'error');
+  }
+}
+
+function openShoppingSnapshot(imageUrl) {
+  if (!imageUrl) return;
+  window.open(`${API_BASE}${imageUrl}`, '_blank', 'noopener,noreferrer');
 }
 
 async function toggleShoppingGroupItems(ids, status, options = {}) {
@@ -14120,12 +14322,13 @@ function renderReceiptExtractedItems(receipt, items = []) {
               <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
               <span>${formatMoney(i.unit_price)}</span>
               <span>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</span>
+              ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? '' : 's'}</span>` : ''}
             </div>
           </div>
           <div class="receipt-detail-item-actions">
             ${i.product_id
-              ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>`
-              : '<span style="color:var(--muted)">—</span>'}
+              ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}`
+              : (i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : '<span style="color:var(--muted)">—</span>')}
           </div>
         </div>
       `).join('')}
@@ -14140,13 +14343,64 @@ function renderReceiptExtractedItems(receipt, items = []) {
             <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
             <span>${formatMoney(i.unit_price)}</span>
             <span>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</span>
+            ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? '' : 's'}</span>` : ''}
           </div>
           <div class="receipt-item-actions">
-            ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>` : '<span style="color:var(--muted)">No product actions</span>'}
+            ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : (i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : '<span style="color:var(--muted)">No product actions</span>')}
           </div>
         </div>
       </div>`).join('')}
   </div>`;
+}
+
+function selectReceiptItemSnapshotFile(receiptItemId, productId, encodedName) {
+  receiptSnapshotTargetItem = {
+    receiptItemId,
+    productId: productId || null,
+    itemName: decodeURIComponent(encodedName || ''),
+  };
+  const input = document.getElementById('receipt-item-snapshot-input');
+  if (!input || !receiptItemId) return;
+  input.value = '';
+  input.click();
+}
+
+async function uploadReceiptItemSnapshotFromPicker(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  const target = receiptSnapshotTargetItem;
+  receiptSnapshotTargetItem = null;
+  if (!file || !target?.receiptItemId) return;
+
+  const form = new FormData();
+  form.append('image', file);
+  form.append('receipt_item_id', String(target.receiptItemId));
+  form.append('source_context', 'receipt_backfill');
+  if (target.productId) form.append('product_id', String(target.productId));
+  if (target.itemName) form.append('notes', `Receipt item photo · ${target.itemName}`);
+  try {
+    const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(false),
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || 'Could not save receipt item photo', 'error');
+      return;
+    }
+    toast('Receipt item photo saved ✅', 'success');
+    if (selectedReceiptId) await viewReceipt(selectedReceiptId, { scroll: false });
+  } catch (error) {
+    console.error(error);
+    toast('Could not save receipt item photo', 'error');
+  }
+}
+
+function openReceiptItemSnapshot(imageUrl) {
+  if (!imageUrl) return;
+  window.open(`${API_BASE}${imageUrl}`, '_blank', 'noopener,noreferrer');
 }
 
 function renderMobileMetricCards(rows = []) {
