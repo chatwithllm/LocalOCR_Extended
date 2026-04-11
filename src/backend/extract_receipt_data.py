@@ -704,6 +704,12 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         purchase.date = datetime.strptime(str(purchase_date), "%Y-%m-%d")
         purchase.domain = purchase_domain
         purchase.transaction_type = normalize_transaction_type(ocr_data.get("transaction_type"), default="purchase")
+        purchase.refund_reason = (
+            str(ocr_data.get("refund_reason", "") or "").strip().lower() or None
+        ) if purchase.transaction_type == "refund" else None
+        purchase.refund_note = (
+            str(ocr_data.get("refund_note", "") or "").strip() or None
+        ) if purchase.transaction_type == "refund" else None
         purchase.default_spending_domain = normalize_spending_domain(
             ocr_data.get("default_spending_domain"),
             default=purchase_domain,

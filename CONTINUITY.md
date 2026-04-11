@@ -399,6 +399,13 @@ Smoke-test target after Phase 1:
     - refund total
   - receipt month drilldowns now show purchase counts, refund counts, and net totals instead of only a single blended receipt count
   - desktop month drilldown tables now include transaction state so refund activity is visible without opening each receipt
+- refund Phase 8 attribution details are now being layered in:
+  - purchases now persist refund-specific attribution fields:
+    - `refund_reason`
+    - `refund_note`
+  - manual receipt entry now exposes refund reason and refund note only when `Transaction = Refund`
+  - the shared receipt editor now exposes the same refund attribution fields for saved receipts
+  - receipt detail totals now show refund attribution context so a refund is easier to understand without reopening the editor
 
 ## 5. Pending / Needs More Work
 

@@ -5384,6 +5384,10 @@
       <div id="manual-entry-refund-note" class="person-modal-pill" style="display:none;margin-top:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
         Refund mode: enter positive amounts here. The app will treat this receipt as negative spend automatically.
       </div>
+      <div id="manual-entry-refund-fields" style="display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">
+        <div><label>Refund Reason</label><select id="manual-entry-refund-reason"></select></div>
+        <div><label>Refund Note</label><input id="manual-entry-refund-note-text" placeholder="Returned damaged item, duplicate charge, price adjustment..." /></div>
+      </div>
       <div class="card-header" style="margin:16px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addManualEntryRow()">Add Item</button>
@@ -7633,6 +7637,29 @@ function normalizeReceiptTransactionType(value) {
 
 function formatReceiptTransactionLabel(value) {
   return normalizeReceiptTransactionType(value) === 'refund' ? 'Refund' : 'Purchase';
+}
+
+const REFUND_REASON_OPTIONS = [
+  ['return', 'Return'],
+  ['price_adjustment', 'Price Adjustment'],
+  ['duplicate_charge', 'Duplicate Charge'],
+  ['cancelled_order', 'Cancelled Order'],
+  ['damaged_item', 'Damaged Item'],
+  ['deposit_return', 'Deposit Return'],
+  ['other', 'Other'],
+];
+
+function renderRefundReasonOptionTags(selected = '') {
+  const normalized = String(selected || '').trim().toLowerCase();
+  return `<option value="">Select reason</option>${
+    REFUND_REASON_OPTIONS.map(([value, label]) => `<option value="${escAttr(value)}"${value === normalized ? ' selected' : ''}>${escHtml(label)}</option>`).join('')
+  }`;
+}
+
+function formatRefundReasonLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  const match = REFUND_REASON_OPTIONS.find(([option]) => option === normalized);
+  return match ? match[1] : formatLabel(normalized, 'Refund');
 }
 
 function receiptDisplayTotal(receipt) {
@@ -13454,10 +13481,16 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
   const canEditReceipt = Boolean(options.canEditReceipt);
   const compactReceiptMobile = Boolean(options.compactReceiptMobile);
   const inlineLayout = Boolean(options.inlineLayout);
+  const refundMeta = normalizeReceiptTransactionType(receipt.transaction_type) === 'refund'
+    ? [
+        receipt.refund_reason ? formatRefundReasonLabel(receipt.refund_reason) : null,
+        receipt.refund_note || null,
+      ].filter(Boolean).join(' · ')
+    : '';
   const statsHtml = `
     <div class="receipt-detail-stats">
       <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
-      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === 'refund' ? 'warning' : 'success'}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</div></div>
+      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === 'refund' ? 'warning' : 'success'}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ''}</div></div>
     </div>`;
   const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -13525,6 +13558,10 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
             <option value="refund">Refund</option>
           </select>
         </div>
+        <div class="receipt-editor-main-field field-default-category" id="receipt-refund-reason-wrap-${receipt.id}" style="display:none">
+          <label>Refund Reason</label>
+          <select id="receipt-refund-reason-${receipt.id}">${renderRefundReasonOptionTags(receipt.refund_reason || '')}</select>
+        </div>
         <div class="receipt-editor-main-field field-default-category">
           <label>Budget Category</label>
           <select id="receipt-default-category-${receipt.id}">${renderBudgetCategoryOptionTags(receipt.default_budget_category || 'grocery')}</select>
@@ -13535,6 +13572,10 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
       </div>
       <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
         Refund mode: this receipt will reduce spend, will not update price history, and will not behave like a normal grocery purchase.
+      </div>
+      <div id="receipt-refund-note-wrap-${receipt.id}" style="display:none;margin-bottom:12px">
+        <label style="display:block;margin-bottom:6px;color:var(--muted);font-size:0.82rem">Refund Note</label>
+        <input id="receipt-refund-note-text-${receipt.id}" placeholder="Returned duplicate item, partial refund after issue, store credit explanation..." />
       </div>
       <div class="card-header" style="margin:4px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
@@ -13771,6 +13812,10 @@ function wireReceiptBudgetingControls(receiptId) {
   const receiptTypeEl = document.getElementById(`receipt-type-${receiptId}`);
   const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
   const refundNoteEl = document.getElementById(`receipt-refund-note-${receiptId}`);
+  const refundReasonWrapEl = document.getElementById(`receipt-refund-reason-wrap-${receiptId}`);
+  const refundReasonEl = document.getElementById(`receipt-refund-reason-${receiptId}`);
+  const refundNoteWrapEl = document.getElementById(`receipt-refund-note-wrap-${receiptId}`);
+  const refundNoteTextEl = document.getElementById(`receipt-refund-note-text-${receiptId}`);
   if (receiptTypeEl && defaultCategoryEl) {
     receiptTypeEl.onchange = () => {
       const derived = deriveReceiptBudgetDefaults(receiptTypeEl.value || 'grocery');
@@ -13783,7 +13828,14 @@ function wireReceiptBudgetingControls(receiptId) {
   }
   if (transactionTypeEl && refundNoteEl) {
     const updateRefundNote = () => {
-      refundNoteEl.style.display = normalizeReceiptTransactionType(transactionTypeEl.value) === 'refund' ? 'inline-flex' : 'none';
+      const refundMode = normalizeReceiptTransactionType(transactionTypeEl.value) === 'refund';
+      refundNoteEl.style.display = refundMode ? 'inline-flex' : 'none';
+      if (refundReasonWrapEl) refundReasonWrapEl.style.display = refundMode ? '' : 'none';
+      if (refundNoteWrapEl) refundNoteWrapEl.style.display = refundMode ? '' : 'none';
+      if (!refundMode) {
+        if (refundReasonEl) refundReasonEl.value = '';
+        if (refundNoteTextEl) refundNoteTextEl.value = '';
+      }
     };
     transactionTypeEl.onchange = updateRefundNote;
     updateRefundNote();
@@ -13797,6 +13849,10 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
   document.getElementById(`receipt-type-${receiptId}`).value = receiptType || 'unknown';
   const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
   if (transactionTypeEl) transactionTypeEl.value = normalizeReceiptTransactionType(data.transaction_type || 'purchase');
+  const refundReasonEl = document.getElementById(`receipt-refund-reason-${receiptId}`);
+  if (refundReasonEl) refundReasonEl.value = data.refund_reason || '';
+  const refundNoteTextEl = document.getElementById(`receipt-refund-note-text-${receiptId}`);
+  if (refundNoteTextEl) refundNoteTextEl.value = data.refund_note || '';
   document.getElementById(`receipt-store-${receiptId}`).value = data.store || '';
   document.getElementById(`receipt-date-${receiptId}`).value = data.date || '';
   document.getElementById(`receipt-time-${receiptId}`).value = data.time || '';
@@ -13843,6 +13899,9 @@ function openManualEntryModal() {
       : 'general_expense';
   const manualTransactionTypeEl = document.getElementById('manual-entry-transaction-type');
   const manualRefundNoteEl = document.getElementById('manual-entry-refund-note');
+  const manualRefundFieldsEl = document.getElementById('manual-entry-refund-fields');
+  const manualRefundReasonEl = document.getElementById('manual-entry-refund-reason');
+  const manualRefundNoteTextEl = document.getElementById('manual-entry-refund-note-text');
   const today = new Date();
   document.getElementById('manual-entry-type').value = selectedDomain || 'grocery';
   if (manualTransactionTypeEl) manualTransactionTypeEl.value = 'purchase';
@@ -13853,10 +13912,22 @@ function openManualEntryModal() {
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
   if (manualRefundNoteEl) manualRefundNoteEl.style.display = 'none';
+  if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = 'none';
+  if (manualRefundReasonEl) {
+    manualRefundReasonEl.innerHTML = renderRefundReasonOptionTags('');
+    manualRefundReasonEl.value = '';
+  }
+  if (manualRefundNoteTextEl) manualRefundNoteTextEl.value = '';
   document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
   if (manualTransactionTypeEl && manualRefundNoteEl) {
     manualTransactionTypeEl.onchange = () => {
-      manualRefundNoteEl.style.display = normalizeReceiptTransactionType(manualTransactionTypeEl.value) === 'refund' ? 'inline-flex' : 'none';
+      const refundMode = normalizeReceiptTransactionType(manualTransactionTypeEl.value) === 'refund';
+      manualRefundNoteEl.style.display = refundMode ? 'inline-flex' : 'none';
+      if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = refundMode ? 'grid' : 'none';
+      if (!refundMode) {
+        if (manualRefundReasonEl) manualRefundReasonEl.value = '';
+        if (manualRefundNoteTextEl) manualRefundNoteTextEl.value = '';
+      }
     };
   }
   overlay.classList.add('show');
@@ -14032,6 +14103,8 @@ function collectManualEntryData() {
     store: document.getElementById('manual-entry-store')?.value?.trim() || '',
     date: document.getElementById('manual-entry-date')?.value || '',
     transaction_type: document.getElementById('manual-entry-transaction-type')?.value || 'purchase',
+    refund_reason: document.getElementById('manual-entry-refund-reason')?.value || '',
+    refund_note: document.getElementById('manual-entry-refund-note-text')?.value?.trim() || '',
     subtotal: Number(document.getElementById('manual-entry-subtotal')?.value || 0),
     tax: Number(document.getElementById('manual-entry-tax')?.value || 0),
     tip: Number(document.getElementById('manual-entry-tip')?.value || 0),
@@ -14120,6 +14193,8 @@ function collectReceiptEditorData(receiptId) {
     date: document.getElementById(`receipt-date-${receiptId}`)?.value || '',
     time: document.getElementById(`receipt-time-${receiptId}`)?.value?.trim() || '',
     transaction_type: document.getElementById(`receipt-transaction-type-${receiptId}`)?.value || 'purchase',
+    refund_reason: document.getElementById(`receipt-refund-reason-${receiptId}`)?.value || '',
+    refund_note: document.getElementById(`receipt-refund-note-text-${receiptId}`)?.value?.trim() || '',
     default_spending_domain: derivedDefaults.spendingDomain,
     default_budget_category: document.getElementById(`receipt-default-category-${receiptId}`)?.value || derivedDefaults.budgetCategory,
     subtotal: Number(document.getElementById(`receipt-subtotal-${receiptId}`)?.value || 0),

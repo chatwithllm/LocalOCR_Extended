@@ -140,6 +140,8 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
         "date": receipt.get("date") or "",
         "time": None,
         "transaction_type": receipt.get("transaction_type") or "purchase",
+        "refund_reason": receipt.get("refund_reason"),
+        "refund_note": receipt.get("refund_note"),
         "default_spending_domain": receipt.get("default_spending_domain") or "grocery",
         "default_budget_category": receipt.get("default_budget_category") or "grocery",
         "items": items,
@@ -164,6 +166,8 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         payload.setdefault("tax", 0)
         payload.setdefault("tip", 0)
         payload.setdefault("transaction_type", normalize_transaction_type(getattr(purchase, "transaction_type", None)))
+        payload.setdefault("refund_reason", getattr(purchase, "refund_reason", None))
+        payload.setdefault("refund_note", getattr(purchase, "refund_note", None))
         payload.setdefault("default_spending_domain", getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"))
         payload.setdefault(
             "default_budget_category",
@@ -178,6 +182,8 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
         "total": purchase.total_amount if purchase else 0,
         "confidence": receipt_record.ocr_confidence if receipt_record else 1,
         "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
+        "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
+        "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery"),
         "default_budget_category": getattr(purchase, "default_budget_category", None)
             or default_budget_category_for_spending_domain(getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", "grocery")),
@@ -193,6 +199,8 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "date": str(payload.get("date", "") or "").strip(),
         "time": (str(payload.get("time", "") or "").strip() or None),
         "transaction_type": normalize_transaction_type(payload.get("transaction_type"), default="purchase"),
+        "refund_reason": (str(payload.get("refund_reason", "") or "").strip().lower() or None),
+        "refund_note": (str(payload.get("refund_note", "") or "").strip() or None),
         "default_spending_domain": normalize_spending_domain(payload.get("default_spending_domain"), default="grocery"),
         "default_budget_category": None,
         "subtotal": float(payload.get("subtotal") or 0),
@@ -206,6 +214,9 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         payload.get("default_budget_category"),
         default=default_budget_category_for_spending_domain(sanitized["default_spending_domain"]),
     )
+    if sanitized["transaction_type"] != "refund":
+        sanitized["refund_reason"] = None
+        sanitized["refund_note"] = None
 
     for item in payload.get("items", []) or []:
         name = str(item.get("name", "") or "").strip()
@@ -317,6 +328,8 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         date=purchase_date,
         domain=purchase_domain,
         transaction_type=normalize_transaction_type(sanitized.get("transaction_type"), default="purchase"),
+        refund_reason=sanitized.get("refund_reason"),
+        refund_note=sanitized.get("refund_note"),
         default_spending_domain=normalize_spending_domain(
             sanitized.get("default_spending_domain"),
             default=purchase_domain,
@@ -618,6 +631,8 @@ def get_receipt(receipt_id):
         "confidence": receipt_record.ocr_confidence if receipt_record else None,
         "receipt_type": receipt_record.receipt_type if receipt_record else None,
         "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
+        "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
+        "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) if purchase else None,
         "default_budget_category": getattr(purchase, "default_budget_category", None) if purchase else None,
         "source": _receipt_source_label(receipt_record) if receipt_record else "upload",

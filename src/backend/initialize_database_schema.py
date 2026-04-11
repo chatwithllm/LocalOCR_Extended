@@ -185,6 +185,8 @@ class Purchase(Base):
     date = Column(DateTime, nullable=False)
     domain = Column(String(30), nullable=False, default="grocery")
     transaction_type = Column(String(20), nullable=False, default="purchase")
+    refund_reason = Column(String(40), nullable=True)
+    refund_note = Column(String(500), nullable=True)
     default_spending_domain = Column(String(30), nullable=False, default="grocery")
     default_budget_category = Column(String(40), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -509,6 +511,10 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE purchases ADD COLUMN domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
         if "transaction_type" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN transaction_type VARCHAR(20) NOT NULL DEFAULT 'purchase'"))
+        if "refund_reason" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN refund_reason VARCHAR(40)"))
+        if "refund_note" not in purchase_columns:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN refund_note VARCHAR(500)"))
         if "default_spending_domain" not in purchase_columns:
             conn.execute(text("ALTER TABLE purchases ADD COLUMN default_spending_domain VARCHAR(30) NOT NULL DEFAULT 'grocery'"))
         if "default_budget_category" not in purchase_columns:
@@ -520,6 +526,12 @@ def _ensure_runtime_columns(engine):
                 WHEN LOWER(TRIM(transaction_type)) = 'refund' THEN 'refund'
                 ELSE 'purchase'
             END
+        """))
+        conn.execute(text("""
+            UPDATE purchases
+            SET refund_reason = NULL,
+                refund_note = NULL
+            WHERE transaction_type <> 'refund'
         """))
         conn.execute(text("""
             UPDATE purchases
