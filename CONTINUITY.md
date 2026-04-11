@@ -391,6 +391,14 @@ Smoke-test target after Phase 1:
     - net total
   - analytics and monthly expense views now show purchase/refund counts alongside the net result instead of only a single blended total
   - receipt image weight was reduced slightly so the editor gets more usable width
+- refund Phase 7 receipts reporting/filtering is now being layered in:
+  - Receipts filters now include `Transaction` so users can isolate purchases vs refunds directly from the receipts workspace
+  - Receipts summary tiles now surface:
+    - total receipts
+    - refund receipt count
+    - refund total
+  - receipt month drilldowns now show purchase counts, refund counts, and net totals instead of only a single blended receipt count
+  - desktop month drilldown tables now include transaction state so refund activity is visible without opening each receipt
 
 ## 5. Pending / Needs More Work
 

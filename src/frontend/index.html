@@ -4960,6 +4960,7 @@
             <div class="form-group"><label>Store</label><select id="receipt-filter-store"><option value="">All stores</option></select></div>
             <div class="form-group"><label>Source</label><select id="receipt-filter-source"><option value="">All sources</option><option value="upload">Upload</option><option value="telegram">Telegram</option></select></div>
             <div class="form-group"><label>Receipt Type</label><select id="receipt-filter-type"><option value="">All types</option></select></div>
+            <div class="form-group"><label>Transaction</label><select id="receipt-filter-transaction"><option value="">All transactions</option></select></div>
             <div class="form-group"><label>Status</label><select id="receipt-filter-status"><option value="">All statuses</option></select></div>
             <div class="form-group"><label>Purchase Date From</label><input id="receipt-filter-purchase-from" type="date" /></div>
             <div class="form-group"><label>Purchase Date To</label><input id="receipt-filter-purchase-to" type="date" /></div>
@@ -4983,6 +4984,8 @@
       </div>
       <div class="stats-grid receipt-summary-tiles-compact" id="receipt-summary-cards">
         <div class="stat-card accent"><div class="stat-label">Total Receipts</div><div class="stat-value" id="receipt-total-count">—</div><div class="stat-sub">matching filters</div></div>
+        <div class="stat-card warning"><div class="stat-label">Refund Receipts</div><div class="stat-value" id="receipt-refund-count">—</div><div class="stat-sub" id="receipt-refund-sub">refund activity</div></div>
+        <div class="stat-card"><div class="stat-label">Refund Total</div><div class="stat-value" id="receipt-refund-total">—</div><div class="stat-sub">returned amount</div></div>
         <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value" id="receipt-total-items">—</div><div class="stat-sub">line-item quantity</div></div>
         <div class="stat-card"><div class="stat-label">Unique Items</div><div class="stat-value" id="receipt-unique-items">—</div><div class="stat-sub">distinct products</div></div>
         <div class="stat-card"><div class="stat-label">Most Bought Items</div><div class="stat-value" id="receipt-most-bought-count">—</div><div class="stat-sub" id="receipt-most-bought-list">No item data yet.</div></div>
@@ -5544,7 +5547,7 @@ let appConfig = {
 };
 let householdUsers = [];
 let reviewQueueItems = [];
-let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [] };
+let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [], transaction_types: [] };
 let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let activeDevicePairing = null;
@@ -8112,6 +8115,7 @@ function getReceiptFilterParams() {
     ['store', 'receipt-filter-store'],
     ['source', 'receipt-filter-source'],
     ['receipt_type', 'receipt-filter-type'],
+    ['transaction_type', 'receipt-filter-transaction'],
     ['status', 'receipt-filter-status'],
     ['purchase_date_from', 'receipt-filter-purchase-from'],
     ['purchase_date_to', 'receipt-filter-purchase-to'],
@@ -8131,6 +8135,7 @@ function populateReceiptFilterOptions(filters = {}) {
     sources: filters.sources || ['upload', 'telegram'],
     statuses: filters.statuses || [],
     receipt_types: filters.receipt_types || [],
+    transaction_types: filters.transaction_types || ['purchase', 'refund'],
   };
 
   const populate = (id, values, placeholder) => {
@@ -8145,6 +8150,7 @@ function populateReceiptFilterOptions(filters = {}) {
   populate('receipt-filter-store', receiptFilterOptions.stores, 'All stores');
   populate('receipt-filter-source', receiptFilterOptions.sources, 'All sources');
   populate('receipt-filter-type', receiptFilterOptions.receipt_types, 'All types');
+  populate('receipt-filter-transaction', receiptFilterOptions.transaction_types, 'All transactions');
   populate('receipt-filter-status', receiptFilterOptions.statuses, 'All statuses');
 }
 
@@ -8176,6 +8182,9 @@ function renderReceiptSummaries(summary = {}) {
   if (receiptStoreSortMobileEl && receiptStoreSortMobileEl.value !== receiptStoreSort) receiptStoreSortMobileEl.value = receiptStoreSort;
   const compact = isCompactMobileReceiptView();
   document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
+  document.getElementById('receipt-refund-count').textContent = summary.refund_count ?? 0;
+  document.getElementById('receipt-refund-total').textContent = formatMoney(summary.refund_total ?? 0);
+  document.getElementById('receipt-refund-sub').textContent = `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'}`;
   document.getElementById('receipt-total-items').textContent = summary.total_items ?? 0;
   document.getElementById('receipt-unique-items').textContent = summary.unique_items ?? 0;
 
@@ -8248,7 +8257,7 @@ function renderReceiptSummaries(summary = {}) {
           ${activeMonthData ? `
             <div class="card-header" style="margin:16px 0 10px">
               <span class="card-title">Receipts In ${escHtml(activeMonthData.month)}</span>
-              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.count} receipts · ${formatMoney(activeMonthData.total_amount)}</span>
+              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             ${renderCompactReceiptRows(activeMonthData.receipts || [], { includeDelete: false })}
           ` : ''}
@@ -8276,16 +8285,17 @@ function renderReceiptSummaries(summary = {}) {
           ${activeMonthData ? `
             <div class="card-header" style="margin:16px 0 10px">
               <span class="card-title">Receipts In ${escHtml(activeMonthData.month)}</span>
-              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.count} receipts · ${formatMoney(activeMonthData.total_amount)}</span>
+              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Open</th></tr></thead>
+                <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Transaction</th><th>Source</th><th>Open</th></tr></thead>
                 <tbody>${(activeMonthData.receipts || []).map(receipt => `
                   <tr>
                     <td>${escHtml(receipt.date || '—')}</td>
                     <td>${escHtml(receipt.store || 'Unknown')}</td>
                     <td>${formatMoney(receiptDisplayTotal(receipt))}</td>
+                    <td>${receiptTransactionBadgeHtml(receipt.transaction_type)}</td>
                     <td>${escHtml(formatLabel(receipt.source, 'Upload'))}</td>
                     <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button></td>
                   </tr>

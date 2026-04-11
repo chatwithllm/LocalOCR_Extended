@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, g, send_file
 from PIL import Image, ImageOps
+from sqlalchemy import or_
 
 from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.budgeting_domains import (
@@ -664,6 +665,7 @@ def list_receipts():
     status_filter = request.args.get("status", "").strip().lower()
     source_filter = request.args.get("source", "").strip().lower()
     receipt_type_filter = request.args.get("receipt_type", "").strip().lower()
+    transaction_type_filter = request.args.get("transaction_type", "").strip().lower()
     purchase_date_from = _parse_filter_date(request.args.get("purchase_date_from"))
     purchase_date_to = _parse_filter_date(request.args.get("purchase_date_to"))
     upload_date_from = _parse_filter_date(request.args.get("upload_date_from"))
@@ -681,6 +683,10 @@ def list_receipts():
         query = query.filter(TelegramReceipt.status == status_filter)
     if receipt_type_filter:
         query = query.filter(TelegramReceipt.receipt_type == receipt_type_filter)
+    if transaction_type_filter == "refund":
+        query = query.filter(Purchase.transaction_type == "refund")
+    elif transaction_type_filter == "purchase":
+        query = query.filter(or_(Purchase.transaction_type.is_(None), Purchase.transaction_type != "refund"))
     if source_filter == "manual":
         query = query.filter(TelegramReceipt.telegram_user_id.startswith("manual:"))
     elif source_filter == "telegram":
@@ -706,23 +712,38 @@ def list_receipts():
 
     store_counts = {}
     month_summary = {}
+    refund_count = 0
+    purchase_count = 0
+    refund_total = 0.0
     for record, purchase, store in records:
         store_name = store.name if store else "Unknown"
         store_counts[store_name] = store_counts.get(store_name, 0) + 1
+        if purchase:
+            if normalize_transaction_type(getattr(purchase, "transaction_type", None)) == "refund":
+                refund_count += 1
+                refund_total += abs(signed_purchase_total(purchase))
+            else:
+                purchase_count += 1
         if purchase and purchase.date:
             month_key = purchase.date.strftime("%Y-%m")
             month_entry = month_summary.setdefault(
                 month_key,
-                {"count": 0, "total_amount": 0.0, "receipts": []},
+                {"count": 0, "purchase_count": 0, "refund_count": 0, "total_amount": 0.0, "refund_total": 0.0, "receipts": []},
             )
             month_entry["count"] += 1
-            month_entry["total_amount"] += signed_purchase_total(purchase)
+            signed_total = signed_purchase_total(purchase)
+            month_entry["total_amount"] += signed_total
+            if normalize_transaction_type(getattr(purchase, "transaction_type", None)) == "refund":
+                month_entry["refund_count"] += 1
+                month_entry["refund_total"] += abs(signed_total)
+            else:
+                month_entry["purchase_count"] += 1
             month_entry["receipts"].append({
                 "receipt_id": purchase.id,
                 "record_id": record.id,
                 "store": store_name,
                 "date": purchase.date.strftime("%Y-%m-%d"),
-                "total": signed_purchase_total(purchase),
+                "total": signed_total,
                 "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
                 "source": _receipt_source_label(record),
                 "status": record.status,
@@ -805,9 +826,13 @@ def list_receipts():
                 for row in session.query(TelegramReceipt.receipt_type).distinct().all()
                 if row[0]
             }),
+            "transaction_types": ["purchase", "refund"],
         },
         "summary": {
             "total_receipts": len(records),
+            "purchase_count": purchase_count,
+            "refund_count": refund_count,
+            "refund_total": round(refund_total, 2),
             "total_items": total_items,
             "unique_items": unique_items,
             "most_bought_items": most_bought_items,
@@ -819,7 +844,10 @@ def list_receipts():
                 {
                     "month": month,
                     "count": values["count"],
+                    "purchase_count": values["purchase_count"],
+                    "refund_count": values["refund_count"],
                     "total_amount": round(values["total_amount"], 2),
+                    "refund_total": round(values["refund_total"], 2),
                     "receipts": values["receipts"],
                 }
                 for month, values in sorted(month_summary.items(), reverse=True)
