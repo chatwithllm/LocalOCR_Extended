@@ -310,7 +310,15 @@ def get_spending():
     purchases = query.order_by(Purchase.date).all()
 
     # Aggregate by period
-    spending_by_period = defaultdict(lambda: {"total": 0, "count": 0, "purchases": []})
+    spending_by_period = defaultdict(lambda: {
+        "total": 0,
+        "count": 0,
+        "purchase_count": 0,
+        "refund_count": 0,
+        "purchase_total": 0,
+        "refund_total": 0,
+        "purchases": [],
+    })
 
     for purchase in purchases:
         if not purchase.date:
@@ -324,8 +332,16 @@ def get_spending():
         else:  # monthly
             key = purchase.date.strftime("%Y-%m")
 
-        spending_by_period[key]["total"] += signed_purchase_total(purchase)
+        signed_total = signed_purchase_total(purchase)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
+        spending_by_period[key]["total"] += signed_total
         spending_by_period[key]["count"] += 1
+        if transaction_type == "refund":
+            spending_by_period[key]["refund_count"] += 1
+            spending_by_period[key]["refund_total"] += abs(signed_total)
+        else:
+            spending_by_period[key]["purchase_count"] += 1
+            spending_by_period[key]["purchase_total"] += signed_total
 
     # Category breakdown if requested
     category_breakdown = {}
@@ -356,7 +372,14 @@ def get_spending():
         "months_back": months_back,
         "grand_total": round(grand_total, 2),
         "spending_by_period": {
-            k: {"total": round(v["total"], 2), "count": v["count"]}
+            k: {
+                "total": round(v["total"], 2),
+                "count": v["count"],
+                "purchase_count": v["purchase_count"],
+                "refund_count": v["refund_count"],
+                "purchase_total": round(v["purchase_total"], 2),
+                "refund_total": round(v["refund_total"], 2),
+            }
             for k, v in sorted(spending_by_period.items())
         },
         "category_breakdown": {

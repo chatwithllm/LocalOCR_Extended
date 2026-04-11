@@ -382,6 +382,14 @@ Smoke-test target after Phase 1:
   - manual receipt entry now supports explicit `Purchase` vs `Refund`
   - manual refund entry tells the user to enter positive amounts while the app handles the negative-spend treatment
   - the shared receipt editor now shows a refund-mode warning so refund side effects are explicit before saving
+- refund Phase 6 period-breakdown clarity is now being layered in:
+  - spending analytics period rows now expose:
+    - purchase_count
+    - refund_count
+    - purchase_total
+    - refund_total
+    - net total
+  - analytics and monthly expense views now show purchase/refund counts alongside the net result instead of only a single blended total
   - receipt image weight was reduced slightly so the editor gets more usable width
 
 ## 5. Pending / Needs More Work
