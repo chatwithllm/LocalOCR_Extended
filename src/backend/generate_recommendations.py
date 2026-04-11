@@ -320,6 +320,7 @@ def detect_seasonal_patterns() -> list:
             session.query(Purchase.date)
             .join(ReceiptItem, ReceiptItem.purchase_id == Purchase.id)
             .filter(ReceiptItem.product_id == product.id)
+            .filter(or_(Purchase.transaction_type.is_(None), Purchase.transaction_type != "refund"))
             .order_by(Purchase.date)
             .all()
         )

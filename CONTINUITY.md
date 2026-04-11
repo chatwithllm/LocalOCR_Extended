@@ -262,6 +262,82 @@ This split gives you a clean safety net:
     - size label
     - price
   - product and shopping displays now use the richer unit/size metadata in buyer-facing summaries where available
+
+## 5. Active Next Feature: Receipt Refunds
+
+Branch now reserved for this work:
+
+- `feature_receipt_refunds`
+
+Why this feature matters:
+
+- households sometimes return grocery, restaurant, pharmacy, or general-expense items
+- today those receipts can only look like normal purchases, which makes:
+  - budgets incorrect
+  - analytics overstated
+  - merchant/category reporting misleading
+
+### Phase 1 Refund Scope
+
+Phase 1 should treat refunds as a receipt-level transaction type, not as mixed purchase/refund line items.
+
+Recommended model:
+
+- keep existing receipt/spending domain:
+  - grocery
+  - restaurant
+  - general expense
+  - event
+- add a separate purchase transaction flag:
+  - `purchase`
+  - `refund`
+
+Phase 1 behavior:
+
+- receipt editor can mark a receipt as `Refund`
+- receipt list/detail clearly shows refund state
+- budgeting rollups treat refund purchases as negative spend
+- analytics totals/net spend treat refund purchases as negative spend
+- refund receipts do not create inventory additions
+- refund receipts do not act like normal shopping/recommendation purchases
+- price-history writes should not blindly learn from refund values
+
+Phase 1 intentionally does not include:
+
+- mixed purchase + refund lines on the same receipt
+- automatic inventory reversal/removal
+- advanced refund-only analytics screens
+
+### Implementation Notes For Phase 1
+
+Backend:
+
+- add `transaction_type` to `purchases`
+- default existing rows to `purchase`
+- preserve this field through:
+  - OCR ingest
+  - receipt rebuild/update
+  - receipt detail serialization
+- budget/allocation helpers should invert sign for refund purchases
+- any spend-summary analytics that total purchases should also net refund rows
+
+Frontend:
+
+- receipt editor should expose:
+  - `Transaction`
+    - `Purchase`
+    - `Refund`
+- receipt rows/detail should display refund badge/state clearly
+- refund totals should render meaningfully, ideally as a refund rather than looking like a broken normal purchase
+
+Smoke-test target after Phase 1:
+
+- mark one existing receipt as `Refund`
+- verify:
+  - receipt saves
+  - receipt reopens with refund state preserved
+  - monthly budget totals decrease appropriately
+  - receipt/merchant views no longer overstate spend
   - line-item `Category` now reads as `Item Group`
   - visible line-item `Spending Domain` control was removed from the main editing flow
 - unit/size-label enhancement is now implemented through Phase 2:
@@ -282,7 +358,87 @@ This split gives you a clean safety net:
   - opened inline receipts now include a `Close Receipt` action inside the expanded shell
   - extracted-items rows are denser on web
   - the web receipt editor now uses a split action lane for `Remove` instead of treating it like a full data column
+- refund Phase 2 presentation polish is now layered on top of the accounting foundation:
+  - Budget category contribution rows now show an explicit refund/purchase badge
+  - Restaurant recent-receipt cards now show refund state and signed totals instead of looking like normal visits
+  - Expense recent-receipt cards now show refund state and signed totals
+  - Expense selected-receipt detail now shows refund state and uses the signed total treatment consistently
+- refund Phase 3 summary accuracy is now in progress on the branch:
+  - restaurant and general-expense summaries now track:
+    - purchase-count
+    - refund-count
+    - net spend
+    - purchase-only average ticket
+  - top restaurant / top merchant summaries now stop treating refunds as normal visits
+  - budget status domain endpoints now expose:
+    - purchase_count
+    - refund_count
+    - receipt_count
+  - frontend summary cards now surface refund counts so users can tell the difference between real visits and return activity
+- refund Phase 4 operational safeguards are now being layered in:
+  - active inventory rebuild now nets grocery refund quantities back out instead of treating them like normal purchases
+  - seasonal recommendation timing now ignores refund receipts so returns do not look like fresh restock activity
+- refund Phase 5 editor/manual-entry UX is now being layered in:
+  - manual receipt entry now supports explicit `Purchase` vs `Refund`
+  - manual refund entry tells the user to enter positive amounts while the app handles the negative-spend treatment
+  - the shared receipt editor now shows a refund-mode warning so refund side effects are explicit before saving
+- refund Phase 6 period-breakdown clarity is now being layered in:
+  - spending analytics period rows now expose:
+    - purchase_count
+    - refund_count
+    - purchase_total
+    - refund_total
+    - net total
+  - analytics and monthly expense views now show purchase/refund counts alongside the net result instead of only a single blended total
   - receipt image weight was reduced slightly so the editor gets more usable width
+- refund Phase 7 receipts reporting/filtering is now being layered in:
+  - Receipts filters now include `Transaction` so users can isolate purchases vs refunds directly from the receipts workspace
+  - Receipts summary tiles now surface:
+    - total receipts
+    - refund receipt count
+    - refund total
+  - receipt month drilldowns now show purchase counts, refund counts, and net totals instead of only a single blended receipt count
+  - desktop month drilldown tables now include transaction state so refund activity is visible without opening each receipt
+- refund Phase 8 attribution details are now being layered in:
+  - purchases now persist refund-specific attribution fields:
+    - `refund_reason`
+    - `refund_note`
+  - manual receipt entry now exposes refund reason and refund note only when `Transaction = Refund`
+  - the shared receipt editor now exposes the same refund attribution fields for saved receipts
+  - receipt detail totals now show refund attribution context so a refund is easier to understand without reopening the editor
+- refund Phase 9 downstream visibility is now being layered in:
+  - receipt-list responses now carry refund reason and refund note so downstream dashboards do not need extra fetches
+  - Budget category contribution rows now show refund attribution under refund entries
+  - Restaurant recent-receipt cards now show refund attribution when a row is a refund
+  - Expense recent-receipt cards and selected expense detail now show refund attribution as part of the spend review flow
+- refund Phase 10 snapshot visibility is now being layered in:
+  - Analytics now shows a compact refund snapshot strip with:
+    - refund count
+    - refund total
+    - latest refund-active period
+  - Receipts summary now uses stored refund reasons to surface the top refund reason in the refund tile subtext
+- refund Phase 11 audit navigation is now being layered in:
+  - Receipts now includes a `Review Refunds` quick action that jumps directly into the refund-only filtered receipt view
+  - Analytics now includes the same `Review Refunds` shortcut so users can move from refund summary into refund audit with one action
+- refund Phase 12 refund-only audit insight is now being layered in:
+  - the refund-filtered Receipts view now shows a dedicated `Refund Review` strip
+  - refund review highlights:
+    - top refund reason
+    - latest refund-active month
+    - top refund stores
+  - this strip only appears when `Transaction = Refund`, so the normal receipts workspace stays clean
+- refund Phase 13 mobile polish is now complete:
+  - refund warning messaging in receipt edit and manual entry now wraps correctly on mobile instead of overflowing horizontally
+  - warning copy was shortened slightly so refund context remains clear without dominating narrow screens
+
+Refund feature development is complete for the current scoped rollout:
+
+- receipt-level refund transactions
+- refund-aware budgets and analytics
+- refund-safe inventory/recommendation handling
+- refund reason and note capture
+- refund audit shortcuts and refund-only review strip
+- mobile refund editing polish
 
 ## 5. Pending / Needs More Work
 

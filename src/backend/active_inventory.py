@@ -12,6 +12,7 @@ from datetime import datetime
 
 from sqlalchemy import func
 
+from src.backend.budgeting_rollups import purchase_amount_sign
 from src.backend.initialize_database_schema import (
     Inventory,
     InventoryAdjustment,
@@ -62,15 +63,20 @@ def rebuild_active_inventory(session):
     baseline_rows = (
         session.query(
             ReceiptItem.product_id.label("product_id"),
-            func.coalesce(func.sum(ReceiptItem.quantity), 0).label("quantity"),
+            ReceiptItem.quantity.label("quantity"),
+            Purchase.id.label("purchase_id"),
+            Purchase.transaction_type.label("transaction_type"),
         )
         .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
         .join(eligible_purchase_ids, eligible_purchase_ids.c.purchase_id == Purchase.id)
         .filter(Purchase.date >= cutoff)
-        .group_by(ReceiptItem.product_id)
         .all()
     )
-    baseline_map = {row.product_id: float(row.quantity or 0) for row in baseline_rows}
+    baseline_map = {}
+    for row in baseline_rows:
+        baseline_map[row.product_id] = float(baseline_map.get(row.product_id, 0) or 0) + (
+            float(row.quantity or 0) * purchase_amount_sign(row)
+        )
 
     adjustment_rows = (
         session.query(

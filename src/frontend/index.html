@@ -1950,6 +1950,19 @@
       gap: 6px;
       white-space: nowrap;
     }
+    .refund-warning-pill {
+      display: block !important;
+      width: min(100%, calc(100vw - 48px));
+      max-width: 100%;
+      border-radius: 14px;
+      padding: 8px 10px;
+      white-space: normal !important;
+      line-height: 1.35;
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
     .person-modal-pill.pending {
       color: #ffd666;
       border-color: rgba(255, 214, 102, 0.35);
@@ -4714,7 +4727,7 @@
         </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub">restaurant receipts</div></div>
+        <div class="stat-card accent"><div class="stat-label">Visits</div><div class="stat-value" id="restaurant-visit-count">0</div><div class="stat-sub" id="restaurant-visit-sub">restaurant purchases</div></div>
         <div class="stat-card success"><div class="stat-label">Dining Spend</div><div class="stat-value" id="restaurant-total-spend">$0.00</div><div class="stat-sub">current window</div></div>
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="restaurant-average-ticket">$0.00</div><div class="stat-sub">per visit</div></div>
         <div class="stat-card"><div class="stat-label">Top Restaurant</div><div class="stat-value" id="restaurant-top-store">—</div><div class="stat-sub" id="restaurant-top-store-sub">No visits yet</div></div>
@@ -4764,7 +4777,7 @@
         </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-card accent"><div class="stat-label">Expense Receipts</div><div class="stat-value" id="expense-receipt-count">0</div><div class="stat-sub">current window</div></div>
+        <div class="stat-card accent"><div class="stat-label">Expense Receipts</div><div class="stat-value" id="expense-receipt-count">0</div><div class="stat-sub" id="expense-receipt-sub">purchase receipts</div></div>
         <div class="stat-card success"><div class="stat-label">Total Spend</div><div class="stat-value" id="expense-total-spend">$0.00</div><div class="stat-sub">general expenses</div></div>
         <div class="stat-card"><div class="stat-label">Average Ticket</div><div class="stat-value" id="expense-average-ticket">$0.00</div><div class="stat-sub">per receipt</div></div>
         <div class="stat-card"><div class="stat-label">Top Merchant</div><div class="stat-value" id="expense-top-store">—</div><div class="stat-sub" id="expense-top-store-sub">No expenses yet</div></div>
@@ -4951,6 +4964,7 @@
         <div class="card-header">
           <span class="card-title">Filters</span>
           <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openRefundReceipts()">Review Refunds</button>
             <button class="btn btn-primary btn-sm" onclick="loadReceipts()">Apply</button>
             <button class="btn btn-ghost btn-sm" onclick="resetReceiptFilters()">Reset</button>
           </div>
@@ -4960,6 +4974,7 @@
             <div class="form-group"><label>Store</label><select id="receipt-filter-store"><option value="">All stores</option></select></div>
             <div class="form-group"><label>Source</label><select id="receipt-filter-source"><option value="">All sources</option><option value="upload">Upload</option><option value="telegram">Telegram</option></select></div>
             <div class="form-group"><label>Receipt Type</label><select id="receipt-filter-type"><option value="">All types</option></select></div>
+            <div class="form-group"><label>Transaction</label><select id="receipt-filter-transaction"><option value="">All transactions</option></select></div>
             <div class="form-group"><label>Status</label><select id="receipt-filter-status"><option value="">All statuses</option></select></div>
             <div class="form-group"><label>Purchase Date From</label><input id="receipt-filter-purchase-from" type="date" /></div>
             <div class="form-group"><label>Purchase Date To</label><input id="receipt-filter-purchase-to" type="date" /></div>
@@ -4983,10 +4998,13 @@
       </div>
       <div class="stats-grid receipt-summary-tiles-compact" id="receipt-summary-cards">
         <div class="stat-card accent"><div class="stat-label">Total Receipts</div><div class="stat-value" id="receipt-total-count">—</div><div class="stat-sub">matching filters</div></div>
+        <div class="stat-card warning"><div class="stat-label">Refund Receipts</div><div class="stat-value" id="receipt-refund-count">—</div><div class="stat-sub" id="receipt-refund-sub">refund activity</div></div>
+        <div class="stat-card"><div class="stat-label">Refund Total</div><div class="stat-value" id="receipt-refund-total">—</div><div class="stat-sub">returned amount</div></div>
         <div class="stat-card"><div class="stat-label">Total Items</div><div class="stat-value" id="receipt-total-items">—</div><div class="stat-sub">line-item quantity</div></div>
         <div class="stat-card"><div class="stat-label">Unique Items</div><div class="stat-value" id="receipt-unique-items">—</div><div class="stat-sub">distinct products</div></div>
         <div class="stat-card"><div class="stat-label">Most Bought Items</div><div class="stat-value" id="receipt-most-bought-count">—</div><div class="stat-sub" id="receipt-most-bought-list">No item data yet.</div></div>
       </div>
+      <div id="receipt-refund-review-strip" style="display:none"></div>
       <div class="receipt-summary-grid" style="display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,3fr);gap:16px;align-items:start">
         <div class="card receipt-summary-store-card mobile-only">
           <div class="card-header">
@@ -5108,8 +5126,10 @@
               <option value="total_desc">Highest total</option>
               <option value="count_desc">Most items</option>
             </select>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openRefundReceipts()">Review Refunds</button>
           </div>
         </div>
+        <div id="analytics-refund-summary" style="margin-bottom:12px"></div>
         <div id="analytics-body"><div class="empty-state"><div class="icon">📊</div><p>No spending data yet. Upload a receipt to get started.</p></div></div>
       </div>
       <div class="card">
@@ -5370,12 +5390,20 @@
       <div class="confirm-body">Add a purchase manually when the receipt image is missing. It will count in budget and receipts history. For grocery and restaurant entries, add at least one line item.</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px">
         <div><label>Type</label><select id="manual-entry-type"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
+        <div><label>Transaction</label><select id="manual-entry-transaction-type"><option value="purchase">Purchase</option><option value="refund">Refund</option></select></div>
         <div><label>Store</label><input id="manual-entry-store" placeholder="Store or merchant" /></div>
         <div><label>Date</label><input id="manual-entry-date" type="date" /></div>
         <div><label>Subtotal</label><input id="manual-entry-subtotal" type="number" step="0.01" value="0" /></div>
         <div><label>Tax</label><input id="manual-entry-tax" type="number" step="0.01" value="0" /></div>
         <div><label>Total</label><input id="manual-entry-total" type="number" step="0.01" value="0" /></div>
         <div><label>Tip</label><input id="manual-entry-tip" type="number" step="0.01" value="0" /></div>
+      </div>
+      <div id="manual-entry-refund-note" class="person-modal-pill refund-warning-pill" style="display:none;margin-top:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: enter positive amounts. The app records this as negative spend.
+      </div>
+      <div id="manual-entry-refund-fields" style="display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">
+        <div><label>Refund Reason</label><select id="manual-entry-refund-reason"></select></div>
+        <div><label>Refund Note</label><input id="manual-entry-refund-note-text" placeholder="Returned damaged item, duplicate charge, price adjustment..." /></div>
       </div>
       <div class="card-header" style="margin:16px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
@@ -5540,7 +5568,7 @@ let appConfig = {
 };
 let householdUsers = [];
 let reviewQueueItems = [];
-let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [] };
+let receiptFilterOptions = { stores: [], sources: [], statuses: [], receipt_types: [], transaction_types: [] };
 let selectedReceiptId = null;
 let inventorySearchQuery = '';
 let activeDevicePairing = null;
@@ -7615,11 +7643,178 @@ function formatLabel(value, fallback = 'Other') {
 }
 
 function formatMoney(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
+  const amount = Number(value || 0);
+  const prefix = amount < 0 ? '-$' : '$';
+  return `${prefix}${Math.abs(amount).toFixed(2)}`;
+}
+
+function normalizeReceiptTransactionType(value) {
+  return String(value || 'purchase').trim().toLowerCase() === 'refund' ? 'refund' : 'purchase';
+}
+
+function formatReceiptTransactionLabel(value) {
+  return normalizeReceiptTransactionType(value) === 'refund' ? 'Refund' : 'Purchase';
+}
+
+const REFUND_REASON_OPTIONS = [
+  ['return', 'Return'],
+  ['price_adjustment', 'Price Adjustment'],
+  ['duplicate_charge', 'Duplicate Charge'],
+  ['cancelled_order', 'Cancelled Order'],
+  ['damaged_item', 'Damaged Item'],
+  ['deposit_return', 'Deposit Return'],
+  ['other', 'Other'],
+];
+
+function renderRefundReasonOptionTags(selected = '') {
+  const normalized = String(selected || '').trim().toLowerCase();
+  return `<option value="">Select reason</option>${
+    REFUND_REASON_OPTIONS.map(([value, label]) => `<option value="${escAttr(value)}"${value === normalized ? ' selected' : ''}>${escHtml(label)}</option>`).join('')
+  }`;
+}
+
+function formatRefundReasonLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  const match = REFUND_REASON_OPTIONS.find(([option]) => option === normalized);
+  return match ? match[1] : formatLabel(normalized, 'Refund');
+}
+
+function refundAttributionText(receipt) {
+  if (normalizeReceiptTransactionType(receipt?.transaction_type) !== 'refund') return '';
+  const parts = [];
+  if (receipt?.refund_reason) parts.push(formatRefundReasonLabel(receipt.refund_reason));
+  if (receipt?.refund_note) parts.push(receipt.refund_note);
+  return parts.filter(Boolean).join(' · ');
+}
+
+function summarizeRefundReasons(receipts = []) {
+  const counts = new Map();
+  receipts.forEach(receipt => {
+    if (normalizeReceiptTransactionType(receipt?.transaction_type) !== 'refund') return;
+    const key = String(receipt?.refund_reason || '').trim().toLowerCase() || 'other';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return {
+    topReason: sorted[0] ? formatRefundReasonLabel(sorted[0][0]) : '',
+    topReasonCount: sorted[0]?.[1] || 0,
+  };
+}
+
+function renderReceiptRefundReviewStrip(summary = {}) {
+  const target = document.getElementById('receipt-refund-review-strip');
+  if (!target) return;
+  const transactionFilter = document.getElementById('receipt-filter-transaction')?.value || '';
+  const allReceipts = (summary.purchases_by_month || []).flatMap(month => month.receipts || []);
+  const refundReceipts = allReceipts.filter(receipt => normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund');
+  if (transactionFilter !== 'refund' || !refundReceipts.length) {
+    target.style.display = 'none';
+    target.innerHTML = '';
+    return;
+  }
+
+  const reasonSummary = summarizeRefundReasons(refundReceipts);
+  const latestMonth = [...(summary.purchases_by_month || [])]
+    .filter(month => Number(month.refund_count || 0) > 0)
+    .sort((a, b) => compareText(a.month, b.month, 'desc'))[0];
+  const storeCounts = new Map();
+  refundReceipts.forEach(receipt => {
+    const store = String(receipt?.store || 'Unknown').trim() || 'Unknown';
+    storeCounts.set(store, (storeCounts.get(store) || 0) + 1);
+  });
+  const topStores = [...storeCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 3);
+
+  target.style.display = '';
+  target.innerHTML = `
+    <div class="card" style="margin-bottom:16px;border-color:rgba(255,184,0,0.35);background:rgba(255,184,0,0.05)">
+      <div class="card-header" style="margin-bottom:10px">
+        <span class="card-title">Refund Review</span>
+        <span style="color:var(--muted);font-size:0.84rem">${refundReceipts.length} refund${refundReceipts.length === 1 ? '' : 's'} in current filter</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+        <div class="stat-card warning" style="padding:12px">
+          <div class="stat-label">Top Reason</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(reasonSummary.topReason || 'Not tagged yet')}</div>
+          <div class="stat-sub">${reasonSummary.topReasonCount || 0} receipt${reasonSummary.topReasonCount === 1 ? '' : 's'}</div>
+        </div>
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Latest Refund Month</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(latestMonth?.month || '—')}</div>
+          <div class="stat-sub">${latestMonth ? `${latestMonth.refund_count || 0} refunds · ${formatMoney(latestMonth.refund_total || 0)}` : 'No month summary'}</div>
+        </div>
+        <div class="stat-card" style="padding:12px">
+          <div class="stat-label">Top Stores</div>
+          <div class="stat-value" style="font-size:1rem">${topStores.length ? escHtml(topStores.map(([store]) => store).join(' · ')) : '—'}</div>
+          <div class="stat-sub">${topStores.length ? escHtml(topStores.map(([, count]) => `${count}`).join(' · ')) : 'No store data'}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderAnalyticsRefundSummary(periods = [], domain = '') {
+  const target = document.getElementById('analytics-refund-summary');
+  if (!target) return;
+  const refundPeriods = (periods || []).filter(period => Number(period.refund_count || 0) > 0 || Number(period.refund_total || 0) > 0);
+  if (!refundPeriods.length) {
+    target.innerHTML = '';
+    return;
+  }
+  const latest = [...refundPeriods].sort((a, b) => compareText(a.period, b.period, 'desc'))[0];
+  const totalRefunds = refundPeriods.reduce((sum, period) => sum + Number(period.refund_count || 0), 0);
+  const totalRefundAmount = refundPeriods.reduce((sum, period) => sum + Number(period.refund_total || 0), 0);
+  const scopeLabel = domain ? formatLabel(domain, 'Module') : 'All Modules';
+  target.innerHTML = `
+    <div class="stat-card warning" style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="stat-label">Refund Snapshot</div>
+          <div class="stat-sub" style="margin-top:4px">${escHtml(scopeLabel)} · latest refund activity in ${escHtml(latest.period || 'current period')}</div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;justify-content:flex-end;flex-wrap:wrap;text-align:right">
+          <div>
+            <div class="stat-value" style="font-size:1.1rem">${totalRefunds}</div>
+            <div class="stat-sub">refund${totalRefunds === 1 ? '' : 's'}</div>
+          </div>
+          <div>
+            <div class="stat-value" style="font-size:1.1rem">${formatMoney(totalRefundAmount)}</div>
+            <div class="stat-sub">returned</div>
+          </div>
+          <div>
+            <div class="stat-value" style="font-size:1rem">${escHtml(latest.period || '—')}</div>
+            <div class="stat-sub">${latest.refund_count || 0} refund${Number(latest.refund_count || 0) === 1 ? '' : 's'} · ${formatMoney(latest.refund_total || 0)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function receiptDisplayTotal(receipt) {
+  if (receipt && typeof receipt.signed_total === 'number' && Number.isFinite(receipt.signed_total)) {
+    return receipt.signed_total;
+  }
+  const total = Number(receipt?.total || 0);
+  return normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund' ? -Math.abs(total) : total;
+}
+
+function receiptTransactionBadgeHtml(value) {
+  const type = normalizeReceiptTransactionType(value);
+  return `<span class="badge badge-${type === 'refund' ? 'warning' : 'ok'}">${escHtml(formatReceiptTransactionLabel(type))}</span>`;
+}
+
+function receiptTransactionMetaText(receipt, fallbackDate = '—') {
+  const parts = [
+    receipt?.date || fallbackDate,
+    formatReceiptTransactionLabel(receipt?.transaction_type),
+  ];
+  return parts.filter(Boolean).join(' · ');
 }
 
 function formatMoneyCompactOneDecimal(value) {
-  return `$${Number(value || 0).toFixed(1)}`;
+  const amount = Number(value || 0);
+  const prefix = amount < 0 ? '-$' : '$';
+  return `${prefix}${Math.abs(amount).toFixed(1)}`;
 }
 
 function formatTrustedDeviceScope(scope) {
@@ -8075,6 +8270,7 @@ function getReceiptFilterParams() {
     ['store', 'receipt-filter-store'],
     ['source', 'receipt-filter-source'],
     ['receipt_type', 'receipt-filter-type'],
+    ['transaction_type', 'receipt-filter-transaction'],
     ['status', 'receipt-filter-status'],
     ['purchase_date_from', 'receipt-filter-purchase-from'],
     ['purchase_date_to', 'receipt-filter-purchase-to'],
@@ -8094,6 +8290,7 @@ function populateReceiptFilterOptions(filters = {}) {
     sources: filters.sources || ['upload', 'telegram'],
     statuses: filters.statuses || [],
     receipt_types: filters.receipt_types || [],
+    transaction_types: filters.transaction_types || ['purchase', 'refund'],
   };
 
   const populate = (id, values, placeholder) => {
@@ -8108,6 +8305,7 @@ function populateReceiptFilterOptions(filters = {}) {
   populate('receipt-filter-store', receiptFilterOptions.stores, 'All stores');
   populate('receipt-filter-source', receiptFilterOptions.sources, 'All sources');
   populate('receipt-filter-type', receiptFilterOptions.receipt_types, 'All types');
+  populate('receipt-filter-transaction', receiptFilterOptions.transaction_types, 'All transactions');
   populate('receipt-filter-status', receiptFilterOptions.statuses, 'All statuses');
 }
 
@@ -8138,7 +8336,15 @@ function renderReceiptSummaries(summary = {}) {
   const receiptStoreSortMobileEl = document.getElementById('receipt-store-sort-mobile');
   if (receiptStoreSortMobileEl && receiptStoreSortMobileEl.value !== receiptStoreSort) receiptStoreSortMobileEl.value = receiptStoreSort;
   const compact = isCompactMobileReceiptView();
+  renderReceiptRefundReviewStrip(summary);
   document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
+  document.getElementById('receipt-refund-count').textContent = summary.refund_count ?? 0;
+  document.getElementById('receipt-refund-total').textContent = formatMoney(summary.refund_total ?? 0);
+  const allMonthReceipts = (summary.purchases_by_month || []).flatMap(month => month.receipts || []);
+  const refundReasonSummary = summarizeRefundReasons(allMonthReceipts);
+  document.getElementById('receipt-refund-sub').textContent = refundReasonSummary.topReason
+    ? `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'} · Top: ${refundReasonSummary.topReason}`
+    : `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'}`;
   document.getElementById('receipt-total-items').textContent = summary.total_items ?? 0;
   document.getElementById('receipt-unique-items').textContent = summary.unique_items ?? 0;
 
@@ -8211,7 +8417,7 @@ function renderReceiptSummaries(summary = {}) {
           ${activeMonthData ? `
             <div class="card-header" style="margin:16px 0 10px">
               <span class="card-title">Receipts In ${escHtml(activeMonthData.month)}</span>
-              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.count} receipts · ${formatMoney(activeMonthData.total_amount)}</span>
+              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             ${renderCompactReceiptRows(activeMonthData.receipts || [], { includeDelete: false })}
           ` : ''}
@@ -8239,16 +8445,17 @@ function renderReceiptSummaries(summary = {}) {
           ${activeMonthData ? `
             <div class="card-header" style="margin:16px 0 10px">
               <span class="card-title">Receipts In ${escHtml(activeMonthData.month)}</span>
-              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.count} receipts · ${formatMoney(activeMonthData.total_amount)}</span>
+              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Open</th></tr></thead>
+                <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Transaction</th><th>Source</th><th>Open</th></tr></thead>
                 <tbody>${(activeMonthData.receipts || []).map(receipt => `
                   <tr>
                     <td>${escHtml(receipt.date || '—')}</td>
                     <td>${escHtml(receipt.store || 'Unknown')}</td>
-                    <td>${formatMoney(receipt.total)}</td>
+                    <td>${formatMoney(receiptDisplayTotal(receipt))}</td>
+                    <td>${receiptTransactionBadgeHtml(receipt.transaction_type)}</td>
                     <td>${escHtml(formatLabel(receipt.source, 'Upload'))}</td>
                     <td><button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button></td>
                   </tr>
@@ -12095,6 +12302,7 @@ async function jumpToReceipt(id) {
     'receipt-filter-store',
     'receipt-filter-source',
     'receipt-filter-type',
+    'receipt-filter-transaction',
     'receipt-filter-status',
     'receipt-filter-purchase-from',
     'receipt-filter-purchase-to',
@@ -12115,6 +12323,7 @@ async function openRestaurantReceipts() {
     'receipt-filter-store',
     'receipt-filter-source',
     'receipt-filter-status',
+    'receipt-filter-transaction',
     'receipt-filter-purchase-from',
     'receipt-filter-purchase-to',
     'receipt-filter-upload-from',
@@ -12127,6 +12336,28 @@ async function openRestaurantReceipts() {
   const typeMobile = document.getElementById('receipt-filter-type-mobile');
   if (typeDesktop) typeDesktop.value = 'restaurant';
   if (typeMobile) typeMobile.value = 'restaurant';
+  const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
+  nav('receipts', receiptNav);
+  await loadReceipts();
+}
+
+async function openRefundReceipts() {
+  selectedReceiptId = null;
+  [
+    'receipt-filter-store',
+    'receipt-filter-source',
+    'receipt-filter-type',
+    'receipt-filter-status',
+    'receipt-filter-purchase-from',
+    'receipt-filter-purchase-to',
+    'receipt-filter-upload-from',
+    'receipt-filter-upload-to',
+  ].forEach(filterId => {
+    const el = document.getElementById(filterId);
+    if (el) el.value = '';
+  });
+  const transactionEl = document.getElementById('receipt-filter-transaction');
+  if (transactionEl) transactionEl.value = 'refund';
   const receiptNav = [...document.querySelectorAll('.nav-item')].find(item => item.textContent.includes('Receipts'));
   nav('receipts', receiptNav);
   await loadReceipts();
@@ -13324,7 +13555,7 @@ async function loadReceipts() {
   const receipts = [...(data.receipts || [])];
   receipts.sort((a, b) => {
     if (receiptSort === 'date_asc') return compareDateValue(a.date, b.date, 'asc') || compareText(a.store, b.store, 'asc');
-    if (receiptSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareDateValue(a.date, b.date, 'desc');
+    if (receiptSort === 'total_desc') return compareNumber(receiptDisplayTotal(a), receiptDisplayTotal(b), 'desc') || compareDateValue(a.date, b.date, 'desc');
     if (receiptSort === 'store_asc') return compareText(a.store, b.store, 'asc') || compareDateValue(a.date, b.date, 'desc');
     if (receiptSort === 'status_asc') return compareText(a.status, b.status, 'asc') || compareDateValue(a.date, b.date, 'desc');
     return compareDateValue(a.date, b.date, 'desc') || compareText(a.store, b.store, 'asc');
@@ -13356,9 +13587,9 @@ async function loadReceipts() {
           <tr>
             <td>${escHtml(r.date || '—')}</td>
             <td><strong>${escHtml(r.store || 'Unknown')}</strong></td>
-            <td>${formatMoney(r.total)}</td>
+            <td>${formatMoney(receiptDisplayTotal(r))}</td>
             <td>${formatLabel(r.source, 'Upload')}</td>
-            <td><span class="badge badge-${r.status === 'processed' ? 'ok' : 'low'}">${escHtml(formatLabel(r.status, 'Unknown'))}</span></td>
+            <td><span class="badge badge-${normalizeReceiptTransactionType(r.transaction_type) === 'refund' ? 'warning' : (r.status === 'processed' ? 'ok' : 'low')}">${escHtml(normalizeReceiptTransactionType(r.transaction_type) === 'refund' ? 'Refund' : formatLabel(r.status, 'Unknown'))}</span></td>
             <td><button type="button" class="btn btn-sm btn-ghost" onclick="toggleReceiptDetail(${r.purchase_id || r.id})">${Number(r.purchase_id || r.id) === targetReceiptId ? 'Close' : 'Open'}</button></td>
             <td><button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
           </tr>
@@ -13407,10 +13638,16 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
   const canEditReceipt = Boolean(options.canEditReceipt);
   const compactReceiptMobile = Boolean(options.compactReceiptMobile);
   const inlineLayout = Boolean(options.inlineLayout);
+  const refundMeta = normalizeReceiptTransactionType(receipt.transaction_type) === 'refund'
+    ? [
+        receipt.refund_reason ? formatRefundReasonLabel(receipt.refund_reason) : null,
+        receipt.refund_note || null,
+      ].filter(Boolean).join(' · ')
+    : '';
   const statsHtml = `
     <div class="receipt-detail-stats">
       <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || 'Unknown')}</div><div class="stat-sub">${escHtml(receipt.date || '—')}</div></div>
-      <div class="stat-card success"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receipt.total)}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))}</div></div>
+      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === 'refund' ? 'warning' : 'success'}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, 'Upload'))} · ${escHtml(receipt.ocr_engine || 'n/a')} · ${escHtml(formatLabel(receipt.receipt_type, 'Unknown'))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ''}</div></div>
     </div>`;
   const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -13472,12 +13709,30 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
           </div>
         </div>
         <div class="receipt-editor-main-field field-default-category">
+          <label>Transaction</label>
+          <select id="receipt-transaction-type-${receipt.id}">
+            <option value="purchase">Purchase</option>
+            <option value="refund">Refund</option>
+          </select>
+        </div>
+        <div class="receipt-editor-main-field field-default-category" id="receipt-refund-reason-wrap-${receipt.id}" style="display:none">
+          <label>Refund Reason</label>
+          <select id="receipt-refund-reason-${receipt.id}">${renderRefundReasonOptionTags(receipt.refund_reason || '')}</select>
+        </div>
+        <div class="receipt-editor-main-field field-default-category">
           <label>Budget Category</label>
           <select id="receipt-default-category-${receipt.id}">${renderBudgetCategoryOptionTags(receipt.default_budget_category || 'grocery')}</select>
         </div>
         <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
+      </div>
+      <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill refund-warning-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
+        Refund mode: reduces spend, skips price history, and will not count as a normal grocery purchase.
+      </div>
+      <div id="receipt-refund-note-wrap-${receipt.id}" style="display:none;margin-bottom:12px">
+        <label style="display:block;margin-bottom:6px;color:var(--muted);font-size:0.82rem">Refund Note</label>
+        <input id="receipt-refund-note-text-${receipt.id}" placeholder="Returned duplicate item, partial refund after issue, store credit explanation..." />
       </div>
       <div class="card-header" style="margin:4px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
@@ -13712,6 +13967,12 @@ function renderReceiptEditorRows(items = [], options = {}) {
 function wireReceiptBudgetingControls(receiptId) {
   const defaultCategoryEl = document.getElementById(`receipt-default-category-${receiptId}`);
   const receiptTypeEl = document.getElementById(`receipt-type-${receiptId}`);
+  const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
+  const refundNoteEl = document.getElementById(`receipt-refund-note-${receiptId}`);
+  const refundReasonWrapEl = document.getElementById(`receipt-refund-reason-wrap-${receiptId}`);
+  const refundReasonEl = document.getElementById(`receipt-refund-reason-${receiptId}`);
+  const refundNoteWrapEl = document.getElementById(`receipt-refund-note-wrap-${receiptId}`);
+  const refundNoteTextEl = document.getElementById(`receipt-refund-note-text-${receiptId}`);
   if (receiptTypeEl && defaultCategoryEl) {
     receiptTypeEl.onchange = () => {
       const derived = deriveReceiptBudgetDefaults(receiptTypeEl.value || 'grocery');
@@ -13722,6 +13983,20 @@ function wireReceiptBudgetingControls(receiptId) {
     };
     receiptTypeEl.dataset.previousValue = receiptTypeEl.value || 'grocery';
   }
+  if (transactionTypeEl && refundNoteEl) {
+    const updateRefundNote = () => {
+      const refundMode = normalizeReceiptTransactionType(transactionTypeEl.value) === 'refund';
+      refundNoteEl.style.display = refundMode ? 'block' : 'none';
+      if (refundReasonWrapEl) refundReasonWrapEl.style.display = refundMode ? '' : 'none';
+      if (refundNoteWrapEl) refundNoteWrapEl.style.display = refundMode ? '' : 'none';
+      if (!refundMode) {
+        if (refundReasonEl) refundReasonEl.value = '';
+        if (refundNoteTextEl) refundNoteTextEl.value = '';
+      }
+    };
+    transactionTypeEl.onchange = updateRefundNote;
+    updateRefundNote();
+  }
 }
 
 function hydrateReceiptEditor(receiptId, receiptType, data) {
@@ -13729,6 +14004,12 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
   if (!itemsBody) return;
   const derivedDefaults = deriveReceiptBudgetDefaults(data.default_spending_domain || receiptType || 'grocery');
   document.getElementById(`receipt-type-${receiptId}`).value = receiptType || 'unknown';
+  const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
+  if (transactionTypeEl) transactionTypeEl.value = normalizeReceiptTransactionType(data.transaction_type || 'purchase');
+  const refundReasonEl = document.getElementById(`receipt-refund-reason-${receiptId}`);
+  if (refundReasonEl) refundReasonEl.value = data.refund_reason || '';
+  const refundNoteTextEl = document.getElementById(`receipt-refund-note-text-${receiptId}`);
+  if (refundNoteTextEl) refundNoteTextEl.value = data.refund_note || '';
   document.getElementById(`receipt-store-${receiptId}`).value = data.store || '';
   document.getElementById(`receipt-date-${receiptId}`).value = data.date || '';
   document.getElementById(`receipt-time-${receiptId}`).value = data.time || '';
@@ -13773,15 +14054,39 @@ function openManualEntryModal() {
     : selectedCategory === 'grocery'
       ? 'grocery'
       : 'general_expense';
+  const manualTransactionTypeEl = document.getElementById('manual-entry-transaction-type');
+  const manualRefundNoteEl = document.getElementById('manual-entry-refund-note');
+  const manualRefundFieldsEl = document.getElementById('manual-entry-refund-fields');
+  const manualRefundReasonEl = document.getElementById('manual-entry-refund-reason');
+  const manualRefundNoteTextEl = document.getElementById('manual-entry-refund-note-text');
   const today = new Date();
   document.getElementById('manual-entry-type').value = selectedDomain || 'grocery';
+  if (manualTransactionTypeEl) manualTransactionTypeEl.value = 'purchase';
   document.getElementById('manual-entry-store').value = '';
   document.getElementById('manual-entry-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   document.getElementById('manual-entry-subtotal').value = '0';
   document.getElementById('manual-entry-tax').value = '0';
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
+  if (manualRefundNoteEl) manualRefundNoteEl.style.display = 'none';
+  if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = 'none';
+  if (manualRefundReasonEl) {
+    manualRefundReasonEl.innerHTML = renderRefundReasonOptionTags('');
+    manualRefundReasonEl.value = '';
+  }
+  if (manualRefundNoteTextEl) manualRefundNoteTextEl.value = '';
   document.getElementById('manual-entry-items').innerHTML = renderReceiptEditorRows([{ name: '', quantity: 1, unit_price: 0, unit: 'each', size_label: '', category: selectedDomain === 'restaurant' ? 'restaurant' : 'other' }], { mobile: isCompactMobileReceiptView(), showBudgeting: false });
+  if (manualTransactionTypeEl && manualRefundNoteEl) {
+    manualTransactionTypeEl.onchange = () => {
+      const refundMode = normalizeReceiptTransactionType(manualTransactionTypeEl.value) === 'refund';
+      manualRefundNoteEl.style.display = refundMode ? 'block' : 'none';
+      if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = refundMode ? 'grid' : 'none';
+      if (!refundMode) {
+        if (manualRefundReasonEl) manualRefundReasonEl.value = '';
+        if (manualRefundNoteTextEl) manualRefundNoteTextEl.value = '';
+      }
+    };
+  }
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
@@ -13867,6 +14172,15 @@ function renderMobileMetricCards(rows = []) {
   </div>`;
 }
 
+function formatPeriodBreakdownMeta(values = {}) {
+  const purchases = Number(values.purchase_count || 0);
+  const refunds = Number(values.refund_count || 0);
+  const parts = [];
+  if (purchases) parts.push(`${purchases} purchase${purchases === 1 ? '' : 's'}`);
+  if (refunds) parts.push(`${refunds} refund${refunds === 1 ? '' : 's'}`);
+  return parts.join(' · ') || `${Number(values.count || 0)} receipt${Number(values.count || 0) === 1 ? '' : 's'}`;
+}
+
 function renderReceiptLineItemCards(items = []) {
   if (!items.length) return '<div class="empty-state"><p>No line items saved yet.</p></div>';
   return `<div class="mobile-data-list">
@@ -13917,7 +14231,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
             <div class="receipt-compact-row-title">${escHtml(receipt.store || 'Unknown')}</div>
           </div>
           <div class="receipt-compact-row-right">
-            <div class="receipt-compact-row-value">${formatMoney(receipt.total || 0)}</div>
+            <div class="receipt-compact-row-value">${formatMoney(receiptDisplayTotal(receipt))}</div>
             <div class="receipt-compact-row-actions">
               <button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button>
               ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${receipt.purchase_id || receipt.id})">Delete</button>` : ''}
@@ -13926,6 +14240,7 @@ function renderCompactReceiptRows(receipts = [], options = {}) {
           <div class="receipt-compact-row-meta">
             <span>${escHtml(receipt.date || '—')}</span>
             ${receipt.source ? `<span>${escHtml(formatLabel(receipt.source, 'Upload'))}</span>` : ''}
+            ${receipt.transaction_type ? `<span>${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</span>` : ''}
             ${receipt.status ? `<span>${escHtml(formatLabel(receipt.status, 'Unknown'))}</span>` : ''}
           </div>
         </div>
@@ -13944,6 +14259,9 @@ function collectManualEntryData() {
   return {
     store: document.getElementById('manual-entry-store')?.value?.trim() || '',
     date: document.getElementById('manual-entry-date')?.value || '',
+    transaction_type: document.getElementById('manual-entry-transaction-type')?.value || 'purchase',
+    refund_reason: document.getElementById('manual-entry-refund-reason')?.value || '',
+    refund_note: document.getElementById('manual-entry-refund-note-text')?.value?.trim() || '',
     subtotal: Number(document.getElementById('manual-entry-subtotal')?.value || 0),
     tax: Number(document.getElementById('manual-entry-tax')?.value || 0),
     tip: Number(document.getElementById('manual-entry-tip')?.value || 0),
@@ -14031,6 +14349,9 @@ function collectReceiptEditorData(receiptId) {
     store: document.getElementById(`receipt-store-${receiptId}`)?.value?.trim() || '',
     date: document.getElementById(`receipt-date-${receiptId}`)?.value || '',
     time: document.getElementById(`receipt-time-${receiptId}`)?.value?.trim() || '',
+    transaction_type: document.getElementById(`receipt-transaction-type-${receiptId}`)?.value || 'purchase',
+    refund_reason: document.getElementById(`receipt-refund-reason-${receiptId}`)?.value || '',
+    refund_note: document.getElementById(`receipt-refund-note-text-${receiptId}`)?.value?.trim() || '',
     default_spending_domain: derivedDefaults.spendingDomain,
     default_budget_category: document.getElementById(`receipt-default-category-${receiptId}`)?.value || derivedDefaults.budgetCategory,
     subtotal: Number(document.getElementById(`receipt-subtotal-${receiptId}`)?.value || 0),
@@ -14306,8 +14627,12 @@ function renderBudgetStatusRow(item, selectedCategory) {
                 <div class="contrib-list-item" style="padding:10px 12px">
                   <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                     <div style="min-width:0;flex:1">
-                      <strong>${escHtml(entry.store || 'Unknown')}</strong>
-                      <div class="contrib-meta">${escHtml(entry.date || '—')} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <strong>${escHtml(entry.store || 'Unknown')}</strong>
+                        ${receiptTransactionBadgeHtml(entry.transaction_type)}
+                      </div>
+                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(entry))} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
+                      ${refundAttributionText(entry) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(entry))}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                       <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
@@ -14396,6 +14721,7 @@ async function loadAnalytics() {
   if (spendRes.ok) {
     const d = await spendRes.json();
     const periods = getSpendingPeriods(d);
+    renderAnalyticsRefundSummary(periods, domain);
     periods.sort((a, b) => {
       if (analyticsSort === 'period_asc') return compareText(a.period, b.period, 'asc');
       if (analyticsSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareText(a.period, b.period, 'desc');
@@ -14409,13 +14735,22 @@ async function loadAnalytics() {
         ? renderMobileMetricCards(periods.map(p => ({
             title: p.period,
             value: formatMoney(p.total),
-            cells: [{ label: 'Items', value: String(p.count ?? '—') }]
+            meta: formatPeriodBreakdownMeta(p),
+            cells: [
+              { label: 'Purchases', value: String(p.purchase_count ?? 0) },
+              { label: 'Refunds', value: String(p.refund_count ?? 0) },
+              { label: 'Net', value: formatMoney(p.total) }
+            ]
           })))
         : `<table>
-            <thead><tr><th>Period</th><th>Total</th><th>Items</th></tr></thead>
-            <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
+            <thead><tr><th>Period</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
+            <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.purchase_count ?? 0}</td><td>${p.refund_count ?? 0}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
           </table>`) :
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
+  }
+  else {
+    const refundSummaryEl = document.getElementById('analytics-refund-summary');
+    if (refundSummaryEl) refundSummaryEl.innerHTML = '';
   }
   const dealsBody = document.getElementById('deals-body');
   if (domain === 'restaurant' || domain === 'general_expense') {
@@ -14455,15 +14790,19 @@ async function loadRestaurant() {
   }
 
   const visitEl = document.getElementById('restaurant-visit-count');
+  const visitSubEl = document.getElementById('restaurant-visit-sub');
   const spendEl = document.getElementById('restaurant-total-spend');
   const averageTicketEl = document.getElementById('restaurant-average-ticket');
   const topStoreEl = document.getElementById('restaurant-top-store');
   const topStoreSubEl = document.getElementById('restaurant-top-store-sub');
   if (visitEl) visitEl.textContent = summaryData.visit_count || 0;
+  if (visitSubEl) visitSubEl.textContent = summaryData.refund_count ? `${summaryData.refund_count} refund${summaryData.refund_count === 1 ? '' : 's'} in window` : 'restaurant purchases';
   if (spendEl) spendEl.textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
   if (averageTicketEl) averageTicketEl.textContent = formatMoney(summaryData.average_ticket || 0);
   if (topStoreEl) topStoreEl.textContent = topStore?.store || '—';
-  if (topStoreSubEl) topStoreSubEl.textContent = topStore ? `${topStore.visits} visit${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No visits yet';
+  if (topStoreSubEl) topStoreSubEl.textContent = topStore
+    ? `${topStore.visits} visit${topStore.visits === 1 ? '' : 's'}${topStore.refunds ? ` · ${topStore.refunds} refund${topStore.refunds === 1 ? '' : 's'}` : ''} · Net ${formatMoney(topStore.total)}`
+    : 'No visits yet';
 
   const periodRows = Object.entries(spendData.spending_by_period || {}).sort((a, b) => b[0].localeCompare(a[0]));
   const topRestaurantsEl = document.getElementById('restaurant-top-restaurants');
@@ -14477,7 +14816,7 @@ async function loadRestaurant() {
               <strong>${escHtml(item.store)}</strong>
               <span class="contrib-points">${formatMoney(item.total)}</span>
             </div>
-            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? '' : 's'}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? '' : 's'}` : ''} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
           </div>
         `).join('')}
       </div>` : '<div class="empty-state"><p>No restaurant history yet.</p></div>';
@@ -14508,11 +14847,15 @@ async function loadRestaurant() {
                 <div class="contrib-list-item">
                   <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                     <div style="min-width:0;flex:1">
-                      <strong>${escHtml(receipt.store || 'Unknown')}</strong>
-                      <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                        ${receiptTransactionBadgeHtml(receipt.transaction_type)}
+                      </div>
+                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                      ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                      <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open in Receipts</button>
                     </div>
                   </div>
@@ -14562,7 +14905,7 @@ async function loadRestaurantBudget() {
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
       <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
       <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
 }
 
@@ -14614,11 +14957,15 @@ async function loadExpenses() {
   let spendData = { grand_total: 0, spending_by_period: {} };
   if (spendRes.ok) spendData = await spendRes.json();
 
-  document.getElementById('expense-receipt-count').textContent = summaryData.receipt_count || 0;
+  document.getElementById('expense-receipt-count').textContent = summaryData.purchase_count || 0;
+  const expenseReceiptSubEl = document.getElementById('expense-receipt-sub');
+  if (expenseReceiptSubEl) expenseReceiptSubEl.textContent = summaryData.refund_count ? `${summaryData.refund_count} refund${summaryData.refund_count === 1 ? '' : 's'} in window` : 'purchase receipts';
   document.getElementById('expense-total-spend').textContent = formatMoney(summaryData.total_spend || spendData.grand_total || 0);
   document.getElementById('expense-average-ticket').textContent = formatMoney(summaryData.average_ticket || 0);
   document.getElementById('expense-top-store').textContent = topStore?.store || '—';
-  document.getElementById('expense-top-store-sub').textContent = topStore ? `${topStore.visits} receipt${topStore.visits === 1 ? '' : 's'} · ${formatMoney(topStore.total)}` : 'No expenses yet';
+  document.getElementById('expense-top-store-sub').textContent = topStore
+    ? `${topStore.visits} receipt${topStore.visits === 1 ? '' : 's'}${topStore.refunds ? ` · ${topStore.refunds} refund${topStore.refunds === 1 ? '' : 's'}` : ''} · Net ${formatMoney(topStore.total)}`
+    : 'No expenses yet';
 
   const topMerchantsEl = document.getElementById('expense-top-merchants');
   if (topMerchantsEl) {
@@ -14631,7 +14978,7 @@ async function loadExpenses() {
               <strong>${escHtml(item.store)}</strong>
               <span class="contrib-points">${formatMoney(item.total)}</span>
             </div>
-            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? '' : 's'} · Avg ${formatMoney(item.average_ticket)}</div>
+            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? '' : 's'}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? '' : 's'}` : ''} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
           </div>
         `).join('')}
       </div>` : '<div class="empty-state"><p>No merchant history yet.</p></div>';
@@ -14676,11 +15023,16 @@ async function loadExpenses() {
               ? renderMobileMetricCards(periodRows.map(([period, values]) => ({
                   title: period,
                   value: formatMoney(values.total),
-                  cells: [{ label: 'Receipts', value: String(values.count ?? 0) }]
+                  meta: formatPeriodBreakdownMeta(values),
+                  cells: [
+                    { label: 'Purchases', value: String(values.purchase_count ?? 0) },
+                    { label: 'Refunds', value: String(values.refund_count ?? 0) },
+                    { label: 'Net', value: formatMoney(values.total) }
+                  ]
                 })))
               : `<table>
-                  <thead><tr><th>Month</th><th>Total</th><th>Receipts</th></tr></thead>
-                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.count ?? 0}</td></tr>`).join('')}</tbody>
+                  <thead><tr><th>Month</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
+                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join('')}</tbody>
                 </table>`)
           : '<div class="empty-state"><p>No expense spending data yet.</p></div>'}
       </div>
@@ -14691,11 +15043,15 @@ async function loadExpenses() {
             <div class="contrib-list-item">
               <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
                 <div style="min-width:0;flex:1">
-                  <strong>${escHtml(receipt.store || 'Unknown')}</strong>
-                  <div class="contrib-meta">${escHtml(receipt.date || '—')} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <strong>${escHtml(receipt.store || 'Unknown')}</strong>
+                    ${receiptTransactionBadgeHtml(receipt.transaction_type)}
+                  </div>
+                  <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
+                  ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ''}
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  <span class="contrib-points">${formatMoney(receipt.total || 0)}</span>
+                  <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="viewExpenseReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
                 </div>
@@ -14754,7 +15110,7 @@ async function loadExpenseBudget() {
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
       <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
       <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div></div>
+      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
 }
 
@@ -14791,15 +15147,19 @@ function renderExpenseReceiptDetail(receipt) {
   }
   const data = receipt.editable_data || receipt.raw_ocr_data || {};
   const items = (data.items || []).filter(Boolean);
-  const total = Number(data.total || receipt.total || 0);
+  const total = receiptDisplayTotal(receipt || data);
   const compact = isCompactMobileReceiptView();
   body.innerHTML = `
     <div style="display:grid;gap:14px">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
         <div>
-          <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Merchant')}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || 'Unknown Merchant')}</div>
+            ${receiptTransactionBadgeHtml(receipt?.transaction_type)}
+          </div>
           <div class="contrib-meta">${escHtml(data.store_location || 'Location not captured')}</div>
-          <div class="contrib-meta">${escHtml(data.date || receipt.date || '—')}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+          <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt, data.date || receipt.date || '—'))}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+          ${refundAttributionText(receipt) ? `<div class="contrib-meta">${escHtml(refundAttributionText(receipt))}</div>` : ''}
         </div>
         <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
       </div>
@@ -14807,7 +15167,7 @@ function renderExpenseReceiptDetail(receipt) {
         <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
         <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
         <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
-        <div class="stat-card success" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
+        <div class="stat-card ${normalizeReceiptTransactionType(receipt?.transaction_type) === 'refund' ? 'warning' : 'success'}" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
       </div>
       ${compact
         ? renderReceiptLineItemCards(items)

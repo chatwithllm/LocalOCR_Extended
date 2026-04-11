@@ -20,6 +20,8 @@ The app currently supports these major household workflows:
 - receipt intake and correction
   - upload grocery, restaurant, and general-expense receipts
   - OCR review with inline correction of store, date/time, totals, and line items
+  - mark receipts as `Purchase` or `Refund` with refund reason and refund note
+  - refund-aware receipt review, refund-only filtering, and refund audit shortcuts
   - rotate, re-run OCR, and rebuild corrected receipts without losing the source image
 - inventory and catalog management
   - maintain active grocery inventory
@@ -39,6 +41,7 @@ The app currently supports these major household workflows:
 - budgeting and allocations
   - monthly targets by budget category
   - line-item and receipt-level budget-category allocation
+  - refund-aware spend rollups across budgets, expenses, restaurant, and analytics
   - contributing receipt breakdowns per active budget category
   - change history for saved targets
 - collaboration and household operations
