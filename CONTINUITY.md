@@ -406,6 +406,11 @@ Smoke-test target after Phase 1:
   - manual receipt entry now exposes refund reason and refund note only when `Transaction = Refund`
   - the shared receipt editor now exposes the same refund attribution fields for saved receipts
   - receipt detail totals now show refund attribution context so a refund is easier to understand without reopening the editor
+- refund Phase 9 downstream visibility is now being layered in:
+  - receipt-list responses now carry refund reason and refund note so downstream dashboards do not need extra fetches
+  - Budget category contribution rows now show refund attribution under refund entries
+  - Restaurant recent-receipt cards now show refund attribution when a row is a refund
+  - Expense recent-receipt cards and selected expense detail now show refund attribution as part of the spend review flow
 
 ## 5. Pending / Needs More Work
 

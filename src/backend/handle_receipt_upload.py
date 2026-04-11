@@ -760,6 +760,8 @@ def list_receipts():
                 "date": purchase.date.strftime("%Y-%m-%d"),
                 "total": signed_total,
                 "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None)),
+                "refund_reason": getattr(purchase, "refund_reason", None),
+                "refund_note": getattr(purchase, "refund_note", None),
                 "source": _receipt_source_label(record),
                 "status": record.status,
             })
@@ -820,6 +822,8 @@ def list_receipts():
                 "confidence": record.ocr_confidence,
                 "receipt_type": record.receipt_type,
                 "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
+                "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
+                "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
                 "created_at": record.created_at.isoformat() if record.created_at else None,
                 "source": _receipt_source_label(record),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,

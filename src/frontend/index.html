@@ -7662,6 +7662,14 @@ function formatRefundReasonLabel(value) {
   return match ? match[1] : formatLabel(normalized, 'Refund');
 }
 
+function refundAttributionText(receipt) {
+  if (normalizeReceiptTransactionType(receipt?.transaction_type) !== 'refund') return '';
+  const parts = [];
+  if (receipt?.refund_reason) parts.push(formatRefundReasonLabel(receipt.refund_reason));
+  if (receipt?.refund_note) parts.push(receipt.refund_note);
+  return parts.filter(Boolean).join(' · ');
+}
+
 function receiptDisplayTotal(receipt) {
   if (receipt && typeof receipt.signed_total === 'number' && Number.isFinite(receipt.signed_total)) {
     return receipt.signed_total;
@@ -14475,6 +14483,7 @@ function renderBudgetStatusRow(item, selectedCategory) {
                         ${receiptTransactionBadgeHtml(entry.transaction_type)}
                       </div>
                       <div class="contrib-meta">${escHtml(receiptTransactionMetaText(entry))} · ${entry.items?.length ? escHtml(entry.items.map(item => item.name).join(', ')) : 'Receipt-level allocation'}</div>
+                      ${refundAttributionText(entry) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(entry))}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                       <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
@@ -14689,6 +14698,7 @@ async function loadRestaurant() {
                         ${receiptTransactionBadgeHtml(receipt.transaction_type)}
                       </div>
                       <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${escHtml(formatLabel(receipt.source, 'Upload'))}</div>
+                      ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ''}
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                       <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
@@ -14884,6 +14894,7 @@ async function loadExpenses() {
                     ${receiptTransactionBadgeHtml(receipt.transaction_type)}
                   </div>
                   <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? '' : 's'}</div>
+                  ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ''}
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                   <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
@@ -14994,6 +15005,7 @@ function renderExpenseReceiptDetail(receipt) {
           </div>
           <div class="contrib-meta">${escHtml(data.store_location || 'Location not captured')}</div>
           <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt, data.date || receipt.date || '—'))}${data.time ? ` · ${escHtml(data.time)}` : ''}</div>
+          ${refundAttributionText(receipt) ? `<div class="contrib-meta">${escHtml(refundAttributionText(receipt))}</div>` : ''}
         </div>
         <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
       </div>
