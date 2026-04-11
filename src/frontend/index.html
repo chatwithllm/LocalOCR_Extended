@@ -5113,6 +5113,7 @@
             </select>
           </div>
         </div>
+        <div id="analytics-refund-summary" style="margin-bottom:12px"></div>
         <div id="analytics-body"><div class="empty-state"><div class="icon">📊</div><p>No spending data yet. Upload a receipt to get started.</p></div></div>
       </div>
       <div class="card">
@@ -7670,6 +7671,57 @@ function refundAttributionText(receipt) {
   return parts.filter(Boolean).join(' · ');
 }
 
+function summarizeRefundReasons(receipts = []) {
+  const counts = new Map();
+  receipts.forEach(receipt => {
+    if (normalizeReceiptTransactionType(receipt?.transaction_type) !== 'refund') return;
+    const key = String(receipt?.refund_reason || '').trim().toLowerCase() || 'other';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return {
+    topReason: sorted[0] ? formatRefundReasonLabel(sorted[0][0]) : '',
+    topReasonCount: sorted[0]?.[1] || 0,
+  };
+}
+
+function renderAnalyticsRefundSummary(periods = [], domain = '') {
+  const target = document.getElementById('analytics-refund-summary');
+  if (!target) return;
+  const refundPeriods = (periods || []).filter(period => Number(period.refund_count || 0) > 0 || Number(period.refund_total || 0) > 0);
+  if (!refundPeriods.length) {
+    target.innerHTML = '';
+    return;
+  }
+  const latest = [...refundPeriods].sort((a, b) => compareText(a.period, b.period, 'desc'))[0];
+  const totalRefunds = refundPeriods.reduce((sum, period) => sum + Number(period.refund_count || 0), 0);
+  const totalRefundAmount = refundPeriods.reduce((sum, period) => sum + Number(period.refund_total || 0), 0);
+  const scopeLabel = domain ? formatLabel(domain, 'Module') : 'All Modules';
+  target.innerHTML = `
+    <div class="stat-card warning" style="padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="stat-label">Refund Snapshot</div>
+          <div class="stat-sub" style="margin-top:4px">${escHtml(scopeLabel)} · latest refund activity in ${escHtml(latest.period || 'current period')}</div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;justify-content:flex-end;flex-wrap:wrap;text-align:right">
+          <div>
+            <div class="stat-value" style="font-size:1.1rem">${totalRefunds}</div>
+            <div class="stat-sub">refund${totalRefunds === 1 ? '' : 's'}</div>
+          </div>
+          <div>
+            <div class="stat-value" style="font-size:1.1rem">${formatMoney(totalRefundAmount)}</div>
+            <div class="stat-sub">returned</div>
+          </div>
+          <div>
+            <div class="stat-value" style="font-size:1rem">${escHtml(latest.period || '—')}</div>
+            <div class="stat-sub">${latest.refund_count || 0} refund${Number(latest.refund_count || 0) === 1 ? '' : 's'} · ${formatMoney(latest.refund_total || 0)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function receiptDisplayTotal(receipt) {
   if (receipt && typeof receipt.signed_total === 'number' && Number.isFinite(receipt.signed_total)) {
     return receipt.signed_total;
@@ -8219,7 +8271,11 @@ function renderReceiptSummaries(summary = {}) {
   document.getElementById('receipt-total-count').textContent = summary.total_receipts ?? 0;
   document.getElementById('receipt-refund-count').textContent = summary.refund_count ?? 0;
   document.getElementById('receipt-refund-total').textContent = formatMoney(summary.refund_total ?? 0);
-  document.getElementById('receipt-refund-sub').textContent = `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'}`;
+  const allMonthReceipts = (summary.purchases_by_month || []).flatMap(month => month.receipts || []);
+  const refundReasonSummary = summarizeRefundReasons(allMonthReceipts);
+  document.getElementById('receipt-refund-sub').textContent = refundReasonSummary.topReason
+    ? `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'} · Top: ${refundReasonSummary.topReason}`
+    : `${summary.purchase_count ?? 0} purchase${Number(summary.purchase_count ?? 0) === 1 ? '' : 's'}`;
   document.getElementById('receipt-total-items').textContent = summary.total_items ?? 0;
   document.getElementById('receipt-unique-items').textContent = summary.unique_items ?? 0;
 
@@ -14572,6 +14628,7 @@ async function loadAnalytics() {
   if (spendRes.ok) {
     const d = await spendRes.json();
     const periods = getSpendingPeriods(d);
+    renderAnalyticsRefundSummary(periods, domain);
     periods.sort((a, b) => {
       if (analyticsSort === 'period_asc') return compareText(a.period, b.period, 'asc');
       if (analyticsSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareText(a.period, b.period, 'desc');
@@ -14597,6 +14654,10 @@ async function loadAnalytics() {
             <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.purchase_count ?? 0}</td><td>${p.refund_count ?? 0}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
           </table>`) :
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
+  }
+  else {
+    const refundSummaryEl = document.getElementById('analytics-refund-summary');
+    if (refundSummaryEl) refundSummaryEl.innerHTML = '';
   }
   const dealsBody = document.getElementById('deals-body');
   if (domain === 'restaurant' || domain === 'general_expense') {

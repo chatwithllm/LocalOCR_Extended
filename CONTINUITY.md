@@ -411,6 +411,12 @@ Smoke-test target after Phase 1:
   - Budget category contribution rows now show refund attribution under refund entries
   - Restaurant recent-receipt cards now show refund attribution when a row is a refund
   - Expense recent-receipt cards and selected expense detail now show refund attribution as part of the spend review flow
+- refund Phase 10 snapshot visibility is now being layered in:
+  - Analytics now shows a compact refund snapshot strip with:
+    - refund count
+    - refund total
+    - latest refund-active period
+  - Receipts summary now uses stored refund reasons to surface the top refund reason in the refund tile subtext
 
 ## 5. Pending / Needs More Work
 
