@@ -2087,8 +2087,34 @@
       cursor: pointer;
       min-width: 0;
     }
-    .shopping-mobile-item-name {
+    .shopping-item-thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .shopping-item-thumb.placeholder {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .shopping-mobile-item-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
       flex: 1 1 auto;
+    }
+    .shopping-mobile-item-text {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .shopping-mobile-item-name {
       font-weight: 700;
       font-size: 0.92rem;
       line-height: 1.25;
@@ -2202,6 +2228,16 @@
     }
     .shopping-store-table .shopping-item-cell {
       min-width: 260px;
+    }
+    .shopping-web-item-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+    }
+    .shopping-web-item-text {
+      min-width: 0;
+      flex: 1 1 auto;
     }
     .shopping-store-table .shopping-store-select {
       min-width: 150px;
@@ -13164,7 +13200,14 @@ function renderShoppingListTable() {
                 ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
-                  <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
+                  <div class="shopping-mobile-item-main">
+                    ${item.latest_snapshot?.image_url
+                      ? `<img class="shopping-item-thumb" src="${escAttr(item.latest_snapshot.image_url)}" alt="${escAttr(formatShoppingDisplayName(item))}" onclick="event.stopPropagation(); openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />`
+                      : `<div class="shopping-item-thumb placeholder" aria-hidden="true">📷</div>`}
+                    <div class="shopping-mobile-item-text">
+                      <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
+                    </div>
+                  </div>
                 <div class="shopping-mobile-item-estimate">
                   ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
                   <span class="shopping-mobile-item-chevron">▾</span>
@@ -13282,17 +13325,24 @@ function renderShoppingListTable() {
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td class="shopping-item-cell">
-                  <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
-                  <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
-                    ${[
-                      item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
-                      formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
-                      item.effective_store ? `Likely ${item.effective_store}` : null,
-                      item.note || null,
-                      item.latest_snapshot?.count ? `${item.latest_snapshot.count} photo${item.latest_snapshot.count === 1 ? '' : 's'} saved` : null
-                    ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                  <div class="shopping-web-item-head">
+                    ${item.latest_snapshot?.image_url
+                      ? `<img class="shopping-item-thumb" src="${escAttr(item.latest_snapshot.image_url)}" alt="${escAttr(formatShoppingDisplayName(item))}" onclick="openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />`
+                      : `<div class="shopping-item-thumb placeholder" aria-hidden="true">📷</div>`}
+                    <div class="shopping-web-item-text">
+                      <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
+                      <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
+                        ${[
+                          item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                          formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
+                          item.effective_store ? `Likely ${item.effective_store}` : null,
+                          item.note || null,
+                          item.latest_snapshot?.count ? `${item.latest_snapshot.count} photo${item.latest_snapshot.count === 1 ? '' : 's'} saved` : null
+                        ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                      </div>
+                      ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                    </div>
                   </div>
-                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
                   <div class="shopping-web-edit-grid">
                     <div class="shopping-web-edit-field compact-store">
                       <label>🏬</label>

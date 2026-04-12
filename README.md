@@ -36,6 +36,7 @@ The app currently supports these major household workflows:
   - inline price editing while shopping
   - inline unit and size-label editing while shopping
   - item photo capture from shopping rows, with follow-up `View Photo` access after upload
+  - inline photo thumbnail preview directly in shopping rows after upload
   - swipe-right bought flow with undo support
   - compact action model with `Bought`, quantity adjust, and `More` actions
   - support for `Open`, `Bought`, and `Out of Stock` shopping states

@@ -193,6 +193,7 @@ Extended-specific runtime changes now in place:
   - shopping rows now support:
     - `Add Photo`
     - `View Photo` after a snapshot exists
+    - inline thumbnail preview of the latest saved photo
   - receipt extracted items now support:
     - `Add Photo`
     - `View Photo`

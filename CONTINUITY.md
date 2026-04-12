@@ -361,6 +361,7 @@ Smoke-test target after Phase 1:
 - product snapshot capture is now live on the branch:
   - shopping rows can upload supporting item photos from the `More` menu
   - shopping rows switch to `View Photo` once a latest snapshot exists
+  - shopping rows now also show the latest snapshot inline as a compact thumbnail preview
   - receipt extracted items can upload supporting product photos directly from receipt review
   - snapshot files now persist in `/data/product_snapshots`
   - Settings now includes an admin `Snapshot Review` queue
