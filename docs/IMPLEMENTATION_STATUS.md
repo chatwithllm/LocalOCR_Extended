@@ -275,6 +275,13 @@ Extended-specific runtime changes now in place:
     - `Committed This Month` from entered recurring household bills
     - separation of recurring vs one-off household-bill spend
     - fast jump buttons from the Household Obligations panel into the detailed obligation budget categories
+  - current Phase 3 analytics implementation now includes:
+    - a dedicated Household Obligations view on the shared Analytics page
+    - monthly obligation spend trends using the standard spending analytics feed
+    - bill budget-category breakdown from household bill receipts
+    - provider-level totals plus recent monthly trend chips
+    - recurring vs one-off obligation totals surfaced inside Analytics
+    - recent household bill activity embedded inside the analytics view
   - intentionally deferred to later phases:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records

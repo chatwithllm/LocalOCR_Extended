@@ -568,6 +568,7 @@ def get_utility_summary():
     recurring_total = 0.0
     one_off_total = 0.0
     provider_summary: dict = {}
+    category_summary: dict = {}
     monthly_totals: dict = {}
     recent_bills = []
 
@@ -585,6 +586,7 @@ def get_utility_summary():
         billing_cycle = (meta.billing_cycle_month if meta else None) or (
             purchase.date.strftime("%Y-%m") if purchase.date else None
         )
+        budget_category = getattr(purchase, "default_budget_category", None) or "other_recurring"
 
         if is_recurring:
             recurring_total += signed_total
@@ -616,6 +618,22 @@ def get_utility_summary():
                 ps["monthly_breakdown"].get(billing_cycle, 0.0) + signed_total, 2
             )
 
+        # Per-category aggregation for analytics rollups
+        ckey = budget_category
+        if ckey not in category_summary:
+            category_summary[ckey] = {
+                "budget_category": ckey,
+                "total": 0.0,
+                "purchase_count": 0,
+                "refund_count": 0,
+            }
+        cs = category_summary[ckey]
+        cs["total"] += signed_total
+        if transaction_type == "refund":
+            cs["refund_count"] += 1
+        else:
+            cs["purchase_count"] += 1
+
         # Global month totals
         if billing_cycle:
             monthly_totals[billing_cycle] = round(
@@ -646,7 +664,7 @@ def get_utility_summary():
             "transaction_type": transaction_type,
             "is_recurring": is_recurring,
             "due_date": meta.due_date.isoformat() if meta and meta.due_date else None,
-            "budget_category": getattr(purchase, "default_budget_category", None),
+            "budget_category": budget_category,
         })
 
     # Serialize provider summary
@@ -670,6 +688,18 @@ def get_utility_summary():
     )
 
     due_soon.sort(key=lambda x: x["days_until_due"])
+    category_list = sorted(
+        [
+            {
+                "budget_category": value["budget_category"],
+                "total": round(value["total"], 2),
+                "purchase_count": value["purchase_count"],
+                "refund_count": value["refund_count"],
+            }
+            for value in category_summary.values()
+        ],
+        key=lambda entry: (-abs(entry["total"]), entry["budget_category"]),
+    )
 
     purchase_count, refund_count = _transaction_counts([p for p, _, _ in rows])
     return jsonify({
@@ -681,6 +711,7 @@ def get_utility_summary():
         "recurring_total": round(recurring_total, 2),
         "one_off_total": round(one_off_total, 2),
         "providers": provider_list,
+        "category_breakdown": category_list,
         "monthly_totals": {k: v for k, v in sorted(monthly_totals.items())},
         "due_soon": due_soon,
         "recent_bills": recent_bills[:20],

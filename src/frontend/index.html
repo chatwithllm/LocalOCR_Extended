@@ -15520,19 +15520,170 @@ function toggleBudgetSection(id, forceOpen = null) {
 // ============================================================
 // Analytics
 // ============================================================
+function renderHouseholdObligationsAnalytics(spendingData, billData, compact) {
+  const periods = getSpendingPeriods(spendingData);
+  periods.sort((a, b) => {
+    if (analyticsSort === 'period_asc') return compareText(a.period, b.period, 'asc');
+    if (analyticsSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareText(a.period, b.period, 'desc');
+    if (analyticsSort === 'count_desc') return compareNumber(a.count, b.count, 'desc') || compareText(a.period, b.period, 'desc');
+    return compareText(a.period, b.period, 'desc');
+  });
+
+  const providers = Array.isArray(billData.providers) ? billData.providers : [];
+  const categories = Array.isArray(billData.category_breakdown) ? billData.category_breakdown : [];
+  const recentBills = Array.isArray(billData.recent_bills) ? billData.recent_bills : [];
+  const recurringTotal = Number(billData.recurring_total || 0);
+  const oneOffTotal = Number(billData.one_off_total || 0);
+  const totalSpend = Number(billData.total_spend || spendingData.grand_total || 0);
+
+  const monthlyMarkup = periods.length
+    ? (compact
+        ? renderMobileMetricCards(periods.map(p => ({
+            title: p.period,
+            value: formatMoney(p.total),
+            meta: formatPeriodBreakdownMeta(p),
+            cells: [
+              { label: 'Purchases', value: String(p.purchase_count ?? 0) },
+              { label: 'Refunds', value: String(p.refund_count ?? 0) },
+              { label: 'Net', value: formatMoney(p.total) }
+            ]
+          })))
+        : `<table>
+            <thead><tr><th>Period</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
+            <tbody>${periods.map(p => `<tr><td>${escHtml(p.period)}</td><td>${formatMoney(p.total)}</td><td>${p.purchase_count ?? 0}</td><td>${p.refund_count ?? 0}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
+          </table>`)
+    : '<div class="empty-state"><p>No household-obligation spend in this window yet.</p></div>';
+
+  const categoryMarkup = categories.length
+    ? (compact
+        ? renderMobileMetricCards(categories.map(item => ({
+            title: formatLabel(item.budget_category, 'Other Recurring'),
+            value: formatMoney(item.total),
+            meta: `${item.purchase_count ?? 0} purchase${item.purchase_count === 1 ? '' : 's'}${item.refund_count ? ` · ${item.refund_count} refund${item.refund_count === 1 ? '' : 's'}` : ''}`,
+          })))
+        : `<table>
+            <thead><tr><th>Category</th><th>Net</th><th>Purchases</th><th>Refunds</th></tr></thead>
+            <tbody>${categories.map(item => `<tr><td>${escHtml(formatLabel(item.budget_category, 'Other Recurring'))}</td><td>${formatMoney(item.total)}</td><td>${item.purchase_count ?? 0}</td><td>${item.refund_count ?? 0}</td></tr>`).join('')}</tbody>
+          </table>`)
+    : '<div class="empty-state"><p>No obligation categories have spend yet.</p></div>';
+
+  const providerMarkup = providers.length
+    ? (compact
+        ? renderMobileMetricCards(providers.map(provider => ({
+            title: provider.provider_name || 'Unknown',
+            value: formatMoney(provider.total),
+            meta: `${formatLabel(provider.provider_type, 'Other')} · Avg ${formatMoney(provider.average_monthly || 0)}`,
+            cells: [
+              { label: 'Purchases', value: String(provider.purchase_count ?? 0) },
+              { label: 'Refunds', value: String(provider.refund_count ?? 0) },
+              { label: 'Last', value: provider.latest_date || '—' }
+            ]
+          })))
+        : `<div class="contrib-list">
+            ${providers.map(provider => `
+              <div class="contrib-list-item">
+                <div class="contrib-list-top">
+                  <strong>${escHtml(provider.provider_name || 'Unknown')}</strong>
+                  <span class="contrib-points">${formatMoney(provider.total)}</span>
+                </div>
+                <div class="contrib-meta">
+                  ${escHtml(formatLabel(provider.provider_type, 'Other'))}
+                  · ${provider.purchase_count ?? 0} purchase${provider.purchase_count === 1 ? '' : 's'}
+                  ${provider.refund_count ? ` · ${provider.refund_count} refund${provider.refund_count === 1 ? '' : 's'}` : ''}
+                  · Avg ${formatMoney(provider.average_monthly || 0)}
+                  · Last ${escHtml(provider.latest_date || '—')}
+                </div>
+                ${provider.monthly_breakdown && Object.keys(provider.monthly_breakdown).length ? `
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+                    ${Object.entries(provider.monthly_breakdown)
+                      .sort((a, b) => compareText(a[0], b[0], 'desc'))
+                      .slice(0, 6)
+                      .map(([period, total]) => `<span class="chip">${escHtml(period)} · ${formatMoney(total)}</span>`)
+                      .join('')}
+                  </div>` : ''}
+              </div>`).join('')}
+          </div>`)
+    : '<div class="empty-state"><p>No bill providers yet.</p></div>';
+
+  const recentMarkup = recentBills.length
+    ? `<div class="contrib-list">
+        ${recentBills.map(entry => `
+          <div class="contrib-list-item">
+            <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+              <div style="min-width:0;flex:1">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <strong>${escHtml(entry.provider_name || 'Unknown')}</strong>
+                  ${receiptTransactionBadgeHtml(entry.transaction_type)}
+                  ${entry.is_recurring ? '<span class="chip">Recurring</span>' : '<span class="chip">One-off</span>'}
+                </div>
+                <div class="contrib-meta">
+                  ${escHtml(entry.billing_cycle_month || entry.date || '—')}
+                  · ${escHtml(formatLabel(entry.provider_type, 'Other'))}
+                  · ${escHtml(formatLabel(entry.budget_category, 'Other Recurring'))}
+                  ${entry.due_date ? ` · Due ${escHtml(entry.due_date)}` : ''}
+                </div>
+              </div>
+              <span class="contrib-points">${formatMoney(entry.amount)}</span>
+            </div>
+          </div>`).join('')}
+      </div>`
+    : '<div class="empty-state"><p>No recent household bills yet.</p></div>';
+
+  return `
+    <div style="display:grid;gap:16px">
+      <div class="stats-grid">
+        <div class="stat-card success"><div class="stat-label">Total Spend</div><div class="stat-value">${formatMoney(totalSpend)}</div><div class="stat-sub">household obligations</div></div>
+        <div class="stat-card accent"><div class="stat-label">Recurring</div><div class="stat-value">${formatMoney(recurringTotal)}</div><div class="stat-sub">committed bills in window</div></div>
+        <div class="stat-card warning"><div class="stat-label">One-Off</div><div class="stat-value">${formatMoney(oneOffTotal)}</div><div class="stat-sub">non-recurring obligation spend</div></div>
+        <div class="stat-card"><div class="stat-label">Providers</div><div class="stat-value">${providers.length}</div><div class="stat-sub">tracked billers</div></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Monthly Household Obligations</span></div>
+        ${monthlyMarkup}
+      </div>
+      <div class="two-col">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header"><span class="card-title">Budget Categories</span></div>
+          ${categoryMarkup}
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-header"><span class="card-title">Providers & Trends</span></div>
+          ${providerMarkup}
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header"><span class="card-title">Recent Household Bills</span></div>
+        ${recentMarkup}
+      </div>
+    </div>
+  `;
+}
+
 async function loadAnalytics() {
   const period = document.getElementById('analytics-period').value;
   const domain = document.getElementById('analytics-domain')?.value || 'grocery';
   const compact = isCompactMobileReceiptView();
-  const [spendRes, dealsRes] = await Promise.all([
+  const analyticsRequests = [
     api(`/analytics/spending?period=${encodeURIComponent(period)}&domain=${encodeURIComponent(domain)}`),
-    ['restaurant', 'general_expense'].includes(domain) ? Promise.resolve(null) : api('/analytics/deals-captured?months=1')
-  ]);
+    ['restaurant', 'general_expense', 'household_obligations'].includes(domain)
+      ? Promise.resolve(null)
+      : api('/analytics/deals-captured?months=1'),
+  ];
+  if (domain === 'household_obligations') {
+    analyticsRequests.push(api('/analytics/utility-summary?months=12'));
+  }
+  const [spendRes, dealsRes, householdRes] = await Promise.all(analyticsRequests);
   const body = document.getElementById('analytics-body');
   if (spendRes.ok) {
     const d = await spendRes.json();
     const periods = getSpendingPeriods(d);
     renderAnalyticsRefundSummary(periods, domain);
+    if (domain === 'household_obligations' && householdRes?.ok) {
+      const householdData = await householdRes.json();
+      const analyticsSortEl = document.getElementById('analytics-sort');
+      if (analyticsSortEl && analyticsSortEl.value !== analyticsSort) analyticsSortEl.value = analyticsSort;
+      body.innerHTML = renderHouseholdObligationsAnalytics(d, householdData, compact);
+    } else {
     periods.sort((a, b) => {
       if (analyticsSort === 'period_asc') return compareText(a.period, b.period, 'asc');
       if (analyticsSort === 'total_desc') return compareNumber(a.total, b.total, 'desc') || compareText(a.period, b.period, 'desc');
@@ -15558,14 +15709,20 @@ async function loadAnalytics() {
             <tbody>${periods.map(p => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.purchase_count ?? 0}</td><td>${p.refund_count ?? 0}</td><td>${p.count ?? '—'}</td></tr>`).join('')}</tbody>
           </table>`) :
       '<div class="empty-state"><div class="icon">📊</div><p>No spending data yet.</p></div>';
+    }
   }
   else {
     const refundSummaryEl = document.getElementById('analytics-refund-summary');
     if (refundSummaryEl) refundSummaryEl.innerHTML = '';
   }
   const dealsBody = document.getElementById('deals-body');
-  if (domain === 'restaurant' || domain === 'general_expense') {
-    dealsBody.innerHTML = `<div class="empty-state"><p>${domain === 'restaurant' ? 'Restaurant' : 'General expense'} spend is tracked separately from grocery deal detection.</p></div>`;
+  if (domain === 'restaurant' || domain === 'general_expense' || domain === 'household_obligations') {
+    const domainMessage = domain === 'restaurant'
+      ? 'Restaurant'
+      : domain === 'general_expense'
+        ? 'General expense'
+        : 'Household obligations';
+    dealsBody.innerHTML = `<div class="empty-state"><p>${domainMessage} spend is tracked separately from grocery deal detection.</p></div>`;
   } else if (dealsRes && dealsRes.ok) {
     const d = await dealsRes.json();
     dealsBody.innerHTML = `<div style="font-size:1.4rem;font-weight:700;color:var(--success)">${formatMoney(d.total_saved)} saved</div>

@@ -241,6 +241,13 @@ This split gives you a clean safety net:
     - health
     - other recurring
   - existing category cards remain intact below the new summary so detailed budget review still works
+- Household Bill Phase 3 analytics integration is now in progress on `codex/household-bills` and currently includes:
+  - a dedicated Household Obligations analytics rendering path on the main Analytics page
+  - monthly household-obligation spend trends using the shared analytics periods endpoint
+  - household-obligation budget category breakdown driven from bill receipts
+  - provider-level totals with recent month chips for fast trend inspection
+  - recurring vs one-off household bill totals surfaced directly in Analytics
+  - recent household bills list inside Analytics so the bills domain can be reviewed without leaving the page
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`
