@@ -5638,6 +5638,7 @@
             <option value="health">Health</option>
             <option value="other">Other</option>
           </select></div>
+          <div style="grid-column:span 2"><label>Service Types</label><div id="manual-entry-bill-service-types"></div></div>
           <div><label>Account Label</label><input id="manual-entry-bill-account-label" placeholder="Nickname or last 4 digits" /></div>
           <div><label>Billing Cycle Month</label><input id="manual-entry-bill-billing-cycle-month" type="month" /></div>
           <div><label>Service Period Start</label><input id="manual-entry-bill-service-period-start" type="date" /></div>
@@ -14315,6 +14316,7 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
             <option value="health">Health</option>
             <option value="other">Other</option>
           </select></div>
+          <div class="receipt-editor-main-field" style="grid-column:span 2"><label>Service Types</label><div id="receipt-bill-service-types-${receipt.id}"></div></div>
           <div class="receipt-editor-main-field"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
           <div class="receipt-editor-main-field"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
           <div class="receipt-editor-main-field"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
@@ -14628,12 +14630,14 @@ function hydrateReceiptEditor(receiptId, receiptType, data, billMeta = null) {
 
   // Show bill details panel for household bills and pre-populate from bill_meta.
   handleReceiptEditorTypeChange(receiptId);
+  renderBillServiceTypeChecklist(`receipt-bill-service-types-${receiptId}`, []);
   if (['utility_bill', 'household_bill'].includes(receiptType) && billMeta) {
     const bm = billMeta;
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
     const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v ?? true; };
     setVal(`receipt-bill-provider-name-${receiptId}`, bm.provider_name);
     setVal(`receipt-bill-provider-type-${receiptId}`, bm.provider_type);
+    renderBillServiceTypeChecklist(`receipt-bill-service-types-${receiptId}`, bm.service_types || (bm.provider_type ? [bm.provider_type] : []));
     setVal(`receipt-bill-account-label-${receiptId}`, bm.account_label);
     setVal(`receipt-bill-billing-cycle-month-${receiptId}`, bm.billing_cycle_month);
     setVal(`receipt-bill-service-period-start-${receiptId}`, bm.service_period_start);
@@ -14700,6 +14704,7 @@ function openManualEntryModal() {
   resetVal('manual-entry-bill-service-period-end');
   resetVal('manual-entry-bill-due-date');
   resetChk('manual-entry-bill-is-recurring', true);
+  renderBillServiceTypeChecklist('manual-entry-bill-service-types', []);
   if (manualRefundNoteEl) manualRefundNoteEl.style.display = 'none';
   if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = 'none';
   if (manualRefundReasonEl) {
@@ -14989,9 +14994,11 @@ function collectManualEntryData() {
 }
 
 function collectManualBillMeta() {
+  const providerType = document.getElementById('manual-entry-bill-provider-type')?.value || null;
   return {
     provider_name: document.getElementById('manual-entry-bill-provider-name')?.value?.trim() || null,
-    provider_type: document.getElementById('manual-entry-bill-provider-type')?.value || null,
+    provider_type: providerType,
+    service_types: getSelectedBillServiceTypes('manual-entry-bill-service-types'),
     account_label: document.getElementById('manual-entry-bill-account-label')?.value?.trim() || null,
     billing_cycle_month: document.getElementById('manual-entry-bill-billing-cycle-month')?.value || null,
     service_period_start: document.getElementById('manual-entry-bill-service-period-start')?.value || null,
@@ -15103,9 +15110,11 @@ async function saveEditedReceipt(id) {
   // Collect bill_meta fields if this is a household bill receipt.
   let billMeta = null;
   if (['utility_bill', 'household_bill'].includes(receiptType)) {
+    const providerType = document.getElementById(`receipt-bill-provider-type-${id}`)?.value || null;
     billMeta = {
       provider_name: document.getElementById(`receipt-bill-provider-name-${id}`)?.value?.trim() || null,
-      provider_type: document.getElementById(`receipt-bill-provider-type-${id}`)?.value || null,
+      provider_type: providerType,
+      service_types: getSelectedBillServiceTypes(`receipt-bill-service-types-${id}`),
       account_label: document.getElementById(`receipt-bill-account-label-${id}`)?.value?.trim() || null,
       billing_cycle_month: document.getElementById(`receipt-bill-billing-cycle-month-${id}`)?.value || null,
       service_period_start: document.getElementById(`receipt-bill-service-period-start-${id}`)?.value || null,
@@ -15586,7 +15595,7 @@ function renderHouseholdObligationsAnalytics(spendingData, billData, compact) {
         ? renderMobileMetricCards(providers.map(provider => ({
             title: provider.provider_name || 'Unknown',
             value: formatMoney(provider.total),
-            meta: `${formatLabel(provider.provider_type, 'Other')} · Avg ${formatMoney(provider.average_monthly || 0)}`,
+            meta: `${formatLabel(provider.provider_type, 'Other')}${provider.service_types?.length ? ` · ${formatBillServiceTypes(provider.service_types)}` : ''} · Avg ${formatMoney(provider.average_monthly || 0)}`,
             cells: [
               { label: 'Purchases', value: String(provider.purchase_count ?? 0) },
               { label: 'Refunds', value: String(provider.refund_count ?? 0) },
@@ -15602,6 +15611,7 @@ function renderHouseholdObligationsAnalytics(spendingData, billData, compact) {
                 </div>
                 <div class="contrib-meta">
                   ${escHtml(formatLabel(provider.provider_type, 'Other'))}
+                  ${provider.service_types?.length ? ` · ${escHtml(formatBillServiceTypes(provider.service_types))}` : ''}
                   · ${provider.purchase_count ?? 0} purchase${provider.purchase_count === 1 ? '' : 's'}
                   ${provider.refund_count ? ` · ${provider.refund_count} refund${provider.refund_count === 1 ? '' : 's'}` : ''}
                   · Avg ${formatMoney(provider.average_monthly || 0)}
@@ -15633,6 +15643,7 @@ function renderHouseholdObligationsAnalytics(spendingData, billData, compact) {
                 <div class="contrib-meta">
                   ${escHtml(entry.billing_cycle_month || entry.date || '—')}
                   · ${escHtml(formatLabel(entry.provider_type, 'Other'))}
+                  ${entry.service_types?.length ? ` · ${escHtml(formatBillServiceTypes(entry.service_types))}` : ''}
                   · ${escHtml(formatLabel(entry.budget_category, 'Other Recurring'))}
                   ${entry.due_date ? ` · Due ${escHtml(entry.due_date)}` : ''}
                 </div>
@@ -15927,12 +15938,41 @@ const BILL_PROVIDER_TYPE_TO_BUDGET_CATEGORY = {
   gym: 'subscriptions', streaming: 'subscriptions', software: 'subscriptions', subscription: 'subscriptions',
   health: 'health',
 };
+const BILL_PROVIDER_TYPE_OPTIONS = [
+  ['electricity', 'Electricity'],
+  ['water', 'Water'],
+  ['sewage', 'Sewage'],
+  ['gas', 'Gas / Heating'],
+  ['internet', 'Internet'],
+  ['phone', 'Phone'],
+  ['cable', 'Cable / TV'],
+  ['trash', 'Trash'],
+  ['hoa', 'HOA'],
+  ['rent', 'Rent'],
+  ['mortgage', 'Mortgage'],
+  ['insurance', 'Insurance'],
+  ['daycare', 'Daycare'],
+  ['school', 'School'],
+  ['gym', 'Gym'],
+  ['streaming', 'Streaming'],
+  ['software', 'Software'],
+  ['subscription', 'Subscription'],
+  ['health', 'Health'],
+  ['other', 'Other'],
+];
 
 function ensureBillsObligationsMonth() {
   const el = document.getElementById('bills-obligations-month');
   if (!el || el.value) return;
   const now = new Date();
   el.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatBillServiceTypes(values = []) {
+  const serviceTypes = (Array.isArray(values) ? values : [])
+    .map(value => formatLabel(value, 'Other'))
+    .filter(Boolean);
+  return serviceTypes.join(', ');
 }
 
 async function loadBills() {
@@ -15995,13 +16035,20 @@ async function loadBills() {
             <div class="stat-card warning"><div class="stat-label">Outstanding</div><div class="stat-value">${summary.outstanding_count || 0}</div><div class="stat-sub">still missing this month</div></div>
             <div class="stat-card"><div class="stat-label">Variance</div><div class="stat-value">${fmt(summary.variance_total)}</div><div class="stat-sub">actual vs expected</div></div>
           </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <span class="chip">Fixed ${Number(summary.fixed_count || 0)}</span>
+            <span class="chip">Variable ${Number(summary.variable_count || 0)}</span>
+            <span class="chip">New ${Number(summary.new_count || 0)}</span>
+          </div>
           ${compact
             ? renderMobileMetricCards(obligations.map(item => ({
                 title: item.provider_name || 'Unknown',
                 value: item.status === 'outstanding' ? 'Outstanding' : 'Entered',
                 meta: [
                   formatLabel(item.provider_type, 'Other'),
+                  item.service_types?.length ? `Services ${formatBillServiceTypes(item.service_types)}` : '',
                   formatLabel(item.budget_category, 'Other Recurring'),
+                  formatLabel(item.amount_pattern, 'New'),
                   item.account_label || '',
                   item.last_seen_date ? `Last seen ${item.last_seen_date}` : '',
                   item.last_due_date ? `Last due ${item.last_due_date}` : ''
@@ -16024,6 +16071,8 @@ async function loadBills() {
                         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                           <strong>${escHtml(item.provider_name || 'Unknown')}</strong>
                           <span class="chip">${escHtml(formatLabel(item.provider_type, 'Other'))}</span>
+                          ${item.service_types?.length ? `<span class="chip">${escHtml(formatBillServiceTypes(item.service_types))}</span>` : ''}
+                          <span class="chip">${escHtml(formatLabel(item.amount_pattern, 'New'))}</span>
                           <span class="chip" style="${item.status === 'outstanding' ? 'color:var(--danger);border-color:rgba(255,95,143,0.35);background:rgba(255,95,143,0.12);' : ''}">${item.status === 'outstanding' ? 'Outstanding' : 'Entered'}</span>
                         </div>
                         <div class="contrib-meta">
@@ -16031,6 +16080,7 @@ async function loadBills() {
                           ${item.account_label ? ` · ${escHtml(item.account_label)}` : ''}
                           ${item.last_seen_date ? ` · Last seen ${escHtml(item.last_seen_date)}` : ''}
                           ${item.last_due_date ? ` · Last due ${escHtml(item.last_due_date)}` : ''}
+                          ${typeof item.amount_spread === 'number' && item.amount_pattern !== 'new' ? ` · Spread ${fmt(item.amount_spread)}` : ''}
                         </div>
                         ${item.history_preview?.length ? `
                           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
@@ -16141,6 +16191,37 @@ function handleReceiptEditorTypeChange(receiptId) {
   panel.style.display = isUtility ? '' : 'none';
 }
 
+function renderBillServiceTypeChecklist(containerId, selectedValues = []) {
+  const selected = new Set((Array.isArray(selectedValues) ? selectedValues : [])
+    .map(value => String(value || '').trim().toLowerCase())
+    .filter(Boolean));
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${BILL_PROVIDER_TYPE_OPTIONS.map(([value, label]) => `
+        <label class="chip" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:8px 10px">
+          <input type="checkbox" data-bill-service-type value="${escAttr(value)}" ${selected.has(value) ? 'checked' : ''} />
+          <span>${escHtml(label)}</span>
+        </label>
+      `).join('')}
+    </div>
+  `;
+}
+
+function getSelectedBillServiceTypes(containerId) {
+  return [...document.querySelectorAll(`#${CSS.escape(containerId)} [data-bill-service-type]:checked`)]
+    .map(el => el.value)
+    .filter(Boolean);
+}
+
+function ensureBillServiceTypeSelected(containerId, value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return;
+  const box = document.querySelector(`#${CSS.escape(containerId)} [data-bill-service-type][value="${CSS.escape(normalized)}"]`);
+  if (box) box.checked = true;
+}
+
 // When provider type changes, auto-assign budget category in the editor
 function handleBillProviderTypeChange(receiptId) {
   const ptEl = document.getElementById(`receipt-bill-provider-type-${receiptId}`);
@@ -16148,6 +16229,7 @@ function handleBillProviderTypeChange(receiptId) {
   if (!ptEl || !catEl) return;
   const ptype = ptEl.value;
   if (!ptype) return;
+  ensureBillServiceTypeSelected(`receipt-bill-service-types-${receiptId}`, ptype);
   const cat = BILL_PROVIDER_TYPE_TO_BUDGET_CATEGORY[ptype] || 'other_recurring';
   catEl.value = cat;
 }
@@ -16166,6 +16248,7 @@ function handleManualEntryTypeChange() {
 function handleManualBillProviderTypeChange() {
   const typeEl = document.getElementById('manual-entry-bill-provider-type');
   if (!typeEl) return;
+  ensureBillServiceTypeSelected('manual-entry-bill-service-types', typeEl.value);
   const providerNameEl = document.getElementById('manual-entry-bill-provider-name');
   if (!providerNameEl || providerNameEl.value?.trim()) return;
   const selectedText = typeEl.options?.[typeEl.selectedIndex]?.textContent?.trim();

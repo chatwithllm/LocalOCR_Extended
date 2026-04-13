@@ -288,6 +288,9 @@ Extended-specific runtime changes now in place:
     - expected / entered / outstanding / variance summary cards
     - obligation-level receipt jump-through support
     - fixes for lower Bills-page sections so recurring-obligation rendering no longer prevents Providers, Month-over-Month, and Recent Bills from loading
+    - provider-name normalization for bills analytics and recurring-obligation grouping so small OCR / casing / suffix variations do not fragment the same provider into multiple obligation rows
+    - combined-provider metadata support:
+      - `Service Types` now support multi-select bill services while preserving the existing primary `Provider Type` field for compatibility
   - intentionally deferred to later phases:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records

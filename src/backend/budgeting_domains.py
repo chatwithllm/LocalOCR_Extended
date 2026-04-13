@@ -78,6 +78,22 @@ UTILITY_PROVIDER_TYPES: list[str] = [
 ]
 
 
+def normalize_utility_service_types(
+    values,
+    provider_type: str | None = None,
+) -> list[str]:
+    normalized: list[str] = []
+    candidates = values if isinstance(values, (list, tuple, set)) else [values]
+    for value in candidates:
+        key = str(value or "").strip().lower()
+        if key and key in UTILITY_PROVIDER_TYPES and key not in normalized:
+            normalized.append(key)
+    fallback = str(provider_type or "").strip().lower()
+    if fallback and fallback in UTILITY_PROVIDER_TYPES and fallback not in normalized:
+        normalized.insert(0, fallback)
+    return normalized
+
+
 def normalize_spending_domain(value: str | None, default: str = "other") -> str:
     normalized = str(value or "").strip().lower()
     if normalized == "general expense":

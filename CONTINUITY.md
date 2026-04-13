@@ -254,6 +254,11 @@ This split gives you a clean safety net:
   - expected vs actual vs variance summary cards for the selected month
   - recurring-obligation cards with receipt jump-through support
   - a rendering fix so the recurring-obligations panel no longer stops the lower bills sections from loading when March-style recurring rows are present
+  - lightweight provider-name normalization in bill analytics / recurring-obligation grouping so obvious variants like casing, punctuation, and common provider suffix noise do not split the same household obligation into separate rows
+  - Phase 4 follow-through is now extending bill metadata for combined providers:
+    - `Provider Name` remains a single biller
+    - `Service Types` can now store multiple services such as water / sewer / gas for one provider
+    - existing single `Provider Type` remains as the primary compatibility field for budget/category logic
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`

@@ -269,6 +269,18 @@ A dedicated page or section that lists known recurring obligations, their last-s
 
 **Main risk:** This phase risks scope creep into full subscription management or bill payment tracking, which is out of scope for the current enhancement. Strict scope discipline is needed. The goal is visibility and planning, not payment orchestration.
 
+### Phase 4 Follow-Through: Combined Providers
+
+Some real-world providers issue a single statement that covers multiple services. Example: one provider may cover water, sewage, and gas on the same bill. That should not force the system to pretend there are multiple providers.
+
+Recommended refinement:
+- keep `Provider Name` as a single biller
+- keep the existing single `Provider Type` as the primary compatibility field
+- add `Service Types` as multi-select metadata for combined providers
+- defer true amount-splitting across multiple services unless a later planning need proves it is worth the added complexity
+
+This preserves compatibility with current budget logic while making combined-utility providers representable without data loss.
+
 ---
 
 ## 8. Backward Compatibility / Migration

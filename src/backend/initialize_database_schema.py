@@ -217,6 +217,7 @@ class BillMeta(Base):
     purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False, unique=True)
     provider_name = Column(String(255), nullable=True)      # "NIPSCO", "Comcast"
     provider_type = Column(String(60), nullable=True)       # "electricity", "internet", ...
+    service_types = Column(Text, nullable=True)             # JSON array of service types for combined bills
     account_label = Column(String(120), nullable=True)      # optional account nickname / last-4
     service_period_start = Column(Date, nullable=True)      # billing period start
     service_period_end = Column(Date, nullable=True)        # billing period end
@@ -776,6 +777,7 @@ def _ensure_runtime_columns(engine):
                     purchase_id INTEGER NOT NULL UNIQUE REFERENCES purchases(id),
                     provider_name VARCHAR(255),
                     provider_type VARCHAR(60),
+                    service_types TEXT,
                     account_label VARCHAR(120),
                     service_period_start DATE,
                     service_period_end DATE,
@@ -807,6 +809,7 @@ def _ensure_runtime_columns(engine):
             additions = [
                 ("provider_name", "VARCHAR(255)"),
                 ("provider_type", "VARCHAR(60)"),
+                ("service_types", "TEXT"),
                 ("account_label", "VARCHAR(120)"),
                 ("service_period_start", "DATE"),
                 ("service_period_end", "DATE"),

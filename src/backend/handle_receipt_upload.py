@@ -26,6 +26,7 @@ from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.budgeting_domains import (
     default_budget_category_for_spending_domain,
     derive_receipt_budget_defaults,
+    normalize_utility_service_types,
     normalize_budget_category,
     normalize_spending_domain,
 )
@@ -307,9 +308,18 @@ def _serialize_bill_meta(session, purchase_id: int | None) -> dict | None:
         meta = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
         if not meta:
             return None
+        service_types = []
+        if meta.service_types:
+            try:
+                parsed = json.loads(meta.service_types)
+                if isinstance(parsed, list):
+                    service_types = [str(value).strip() for value in parsed if str(value or "").strip()]
+            except Exception:
+                service_types = []
         return {
             "provider_name": meta.provider_name,
             "provider_type": meta.provider_type,
+            "service_types": service_types,
             "account_label": meta.account_label,
             "service_period_start": meta.service_period_start.isoformat() if meta.service_period_start else None,
             "service_period_end": meta.service_period_end.isoformat() if meta.service_period_end else None,
@@ -482,8 +492,13 @@ def _create_manual_receipt_entry(session, raw_payload: dict, payload: dict, rece
                 bill_data.get("provider_type"),
                 purchase.default_budget_category,
             )
+            service_types = normalize_utility_service_types(
+                bill_data.get("service_types"),
+                provider_type=raw_ptype or meta.provider_type,
+            )
+            primary_provider_type = service_types[0] if service_types else raw_ptype
             provider_name = str(bill_data.get("provider_name") or "").strip() or meta.provider_name or str(sanitized.get("store") or "").strip() or None
-            provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else (meta.provider_type or None)
+            provider_type = primary_provider_type if primary_provider_type in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or primary_provider_type == "other" else (meta.provider_type or None)
             account_label = str(bill_data.get("account_label") or "").strip() or meta.account_label or None
             service_period_start = _safe_date_parse(bill_data.get("service_period_start")) or meta.service_period_start
             service_period_end = _safe_date_parse(bill_data.get("service_period_end")) or meta.service_period_end
@@ -494,6 +509,7 @@ def _create_manual_receipt_entry(session, raw_payload: dict, payload: dict, rece
             ) or meta.billing_cycle_month
             meta.provider_name = provider_name
             meta.provider_type = provider_type
+            meta.service_types = json.dumps(service_types) if service_types else None
             meta.account_label = account_label
             meta.service_period_start = service_period_start
             meta.service_period_end = service_period_end
@@ -1188,8 +1204,13 @@ def update_receipt(receipt_id):
                 bill_data.get("provider_type"),
                 purchase.default_budget_category if purchase else None,
             )
+            service_types = normalize_utility_service_types(
+                bill_data.get("service_types"),
+                provider_type=raw_ptype or meta.provider_type,
+            )
+            primary_provider_type = service_types[0] if service_types else raw_ptype
             provider_name = str(bill_data.get("provider_name") or "").strip() or meta.provider_name or str(sanitized.get("store") or "").strip() or None
-            provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else (meta.provider_type or None)
+            provider_type = primary_provider_type if primary_provider_type in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or primary_provider_type == "other" else (meta.provider_type or None)
             account_label = str(bill_data.get("account_label") or "").strip() or meta.account_label or None
             service_period_start = _safe_date_parse(bill_data.get("service_period_start")) or meta.service_period_start
             service_period_end = _safe_date_parse(bill_data.get("service_period_end")) or meta.service_period_end
@@ -1200,6 +1221,7 @@ def update_receipt(receipt_id):
             ) or meta.billing_cycle_month
             meta.provider_name = provider_name
             meta.provider_type = provider_type
+            meta.service_types = json.dumps(service_types) if service_types else None
             meta.account_label = account_label
             meta.service_period_start = service_period_start
             meta.service_period_end = service_period_end

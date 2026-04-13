@@ -34,6 +34,7 @@ from src.backend.contribution_scores import validate_low_workflow
 from src.backend.budgeting_domains import (
     default_budget_category_for_spending_domain,
     derive_receipt_budget_defaults,
+    normalize_utility_service_types,
     normalize_budget_category,
     normalize_spending_domain,
 )
@@ -894,6 +895,11 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
         )
         raw_ptype = str(ocr_data.get("bill_provider_type") or "").strip().lower()
         meta.provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else None
+        service_types = normalize_utility_service_types(
+            ocr_data.get("bill_service_types"),
+            provider_type=meta.provider_type,
+        )
+        meta.service_types = json.dumps(service_types) if service_types else None
         meta.account_label = (
             str(ocr_data.get("bill_account_label") or "").strip() or None
         )

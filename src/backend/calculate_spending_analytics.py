@@ -8,6 +8,8 @@ price history trends, and deals captured (savings quantification).
 """
 
 import logging
+import re
+import json
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
@@ -23,6 +25,89 @@ from src.backend.budgeting_rollups import normalize_transaction_type, signed_pur
 logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
+
+_PROVIDER_ALIAS_STOPWORDS = {
+    "inc",
+    "llc",
+    "ltd",
+    "corp",
+    "corporation",
+    "company",
+    "co",
+    "services",
+    "service",
+    "billing",
+    "bill",
+    "payment",
+    "payments",
+    "portal",
+    "online",
+    "delivery",
+    "energy",
+    "utility",
+    "utilities",
+}
+
+_PROVIDER_LOCATION_STOPWORDS = {
+    "indiana",
+    "indianapolis",
+}
+
+
+def _provider_display_name(meta, store) -> str:
+    return ((getattr(meta, "provider_name", None) if meta else None) or (store.name if store else "") or "Unknown").strip() or "Unknown"
+
+
+def _canonical_provider_name(name: str | None) -> str:
+    normalized = str(name or "").strip().lower()
+    if not normalized:
+        return "unknown"
+    normalized = normalized.replace("&", "")
+    normalized = normalized.replace("'", "")
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    tokens = [token for token in normalized.split() if token]
+    if not tokens:
+        return "unknown"
+    filtered = [
+        token for token in tokens
+        if token not in _PROVIDER_ALIAS_STOPWORDS
+        and token not in _PROVIDER_LOCATION_STOPWORDS
+    ]
+    return " ".join(filtered or tokens)
+
+
+def _provider_group_key(provider_name: str | None, provider_type: str | None, account_label: str | None = None) -> str:
+    provider_token = _canonical_provider_name(provider_name)
+    provider_type_token = str(provider_type or "other").strip().lower() or "other"
+    account_token = str(account_label or "").strip().lower()
+    return f"{provider_token}|{provider_type_token}|{account_token}"
+
+
+def _service_types_from_meta(meta) -> list[str]:
+    raw = getattr(meta, "service_types", None) if meta else None
+    if not raw:
+        fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
+        return [fallback] if fallback else []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            values = [str(value or "").strip().lower() for value in parsed if str(value or "").strip()]
+            return values or ([str(getattr(meta, "provider_type", None) or "").strip().lower()] if getattr(meta, "provider_type", None) else [])
+    except Exception:
+        pass
+    fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
+    return [fallback] if fallback else []
+
+
+def _obligation_amount_pattern(amounts: list[float]) -> tuple[str, float]:
+    if not amounts:
+        return "new", 0.0
+    if len(amounts) == 1:
+        return "new", 0.0
+    avg_amount = sum(amounts) / len(amounts)
+    spread = max(amounts) - min(amounts)
+    tolerance = max(5.0, abs(avg_amount) * 0.05)
+    return ("fixed", round(spread, 2)) if spread <= tolerance else ("variable", round(spread, 2))
 
 
 def _transaction_counts(purchases):
@@ -581,8 +666,9 @@ def get_utility_summary():
         total_spend += signed_total
 
         is_recurring = bool(meta.is_recurring) if meta else True
-        provider_name = (meta.provider_name if meta and meta.provider_name else None) or (store.name if store else "Unknown")
+        provider_name = _provider_display_name(meta, store)
         provider_type = (meta.provider_type if meta else None) or "other"
+        service_types = _service_types_from_meta(meta)
         billing_cycle = (meta.billing_cycle_month if meta else None) or (
             purchase.date.strftime("%Y-%m") if purchase.date else None
         )
@@ -594,11 +680,16 @@ def get_utility_summary():
             one_off_total += signed_total
 
         # Per-provider aggregation
-        pkey = provider_name
+        pkey = _provider_group_key(
+            provider_name,
+            service_types[0] if service_types else provider_type,
+            getattr(meta, "account_label", None) if meta else None,
+        )
         if pkey not in provider_summary:
             provider_summary[pkey] = {
                 "provider_name": provider_name,
                 "provider_type": provider_type,
+                "service_types": service_types,
                 "total": 0.0,
                 "purchase_count": 0,
                 "refund_count": 0,
@@ -606,6 +697,9 @@ def get_utility_summary():
                 "monthly_breakdown": {},
             }
         ps = provider_summary[pkey]
+        for service_type in service_types:
+            if service_type and service_type not in ps["service_types"]:
+                ps["service_types"].append(service_type)
         ps["total"] += signed_total
         if transaction_type == "refund":
             ps["refund_count"] += 1
@@ -646,9 +740,10 @@ def get_utility_summary():
             if 0 <= days_until <= 14:
                 due_soon.append({
                     "purchase_id": purchase.id,
-                    "provider_name": provider_name,
-                    "provider_type": provider_type,
-                    "amount": round(signed_total, 2),
+                "provider_name": provider_name,
+                "provider_type": provider_type,
+                "service_types": service_types,
+                "amount": round(signed_total, 2),
                     "due_date": meta.due_date.isoformat(),
                     "days_until_due": days_until,
                     "billing_cycle_month": meta.billing_cycle_month,
@@ -658,6 +753,7 @@ def get_utility_summary():
             "purchase_id": purchase.id,
             "provider_name": provider_name,
             "provider_type": provider_type,
+            "service_types": service_types,
             "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
             "billing_cycle_month": billing_cycle,
             "amount": round(signed_total, 2),
@@ -673,6 +769,7 @@ def get_utility_summary():
             {
                 "provider_name": v["provider_name"],
                 "provider_type": v["provider_type"],
+                "service_types": v.get("service_types", []),
                 "total": round(v["total"], 2),
                 "purchase_count": v["purchase_count"],
                 "refund_count": v["refund_count"],
@@ -749,11 +846,12 @@ def get_recurring_obligations():
 
     obligations = {}
     for purchase, store, meta in rows:
-        provider_name = (meta.provider_name or (store.name if store else "") or "Unknown").strip() or "Unknown"
+        provider_name = _provider_display_name(meta, store)
         provider_type = (meta.provider_type or "other").strip() or "other"
+        service_types = _service_types_from_meta(meta)
         account_label = (meta.account_label or "").strip() or None
         budget_category = getattr(purchase, "default_budget_category", None) or "other_recurring"
-        key = f"{provider_name.lower()}|{provider_type.lower()}|{(account_label or '').lower()}"
+        key = _provider_group_key(provider_name, service_types[0] if service_types else provider_type, account_label)
         billing_cycle = (meta.billing_cycle_month or "").strip() or (purchase.date.strftime("%Y-%m") if purchase.date else None)
         transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
         signed_total = round(signed_purchase_total(purchase), 2)
@@ -761,6 +859,7 @@ def get_recurring_obligations():
         obligation = obligations.setdefault(key, {
             "provider_name": provider_name,
             "provider_type": provider_type,
+            "service_types": service_types,
             "account_label": account_label,
             "budget_category": budget_category,
             "history": [],
@@ -792,11 +891,15 @@ def get_recurring_obligations():
     entered_count = 0
     expected_total = 0.0
     actual_total = 0.0
+    fixed_count = 0
+    variable_count = 0
+    new_count = 0
 
     for obligation in obligations.values():
         non_refund_history = [entry for entry in obligation["history"] if entry["transaction_type"] != "refund"]
         recent_amounts = [abs(entry["amount"]) for entry in non_refund_history[:3] if entry["amount"] is not None]
         expected_amount = round(sum(recent_amounts) / len(recent_amounts), 2) if recent_amounts else 0.0
+        amount_pattern, amount_spread = _obligation_amount_pattern(recent_amounts)
         current_entry = obligation["current_entry"]
         actual_amount = round(current_entry["amount"], 2) if current_entry else 0.0
         variance = round(actual_amount - expected_amount, 2) if current_entry else round(-expected_amount, 2)
@@ -805,15 +908,24 @@ def get_recurring_obligations():
             entered_count += 1
         else:
             outstanding_count += 1
+        if amount_pattern == "fixed":
+            fixed_count += 1
+        elif amount_pattern == "variable":
+            variable_count += 1
+        else:
+            new_count += 1
         expected_total += expected_amount
         actual_total += actual_amount
 
         obligation_list.append({
             "provider_name": obligation["provider_name"],
             "provider_type": obligation["provider_type"],
+            "service_types": obligation.get("service_types", []),
             "account_label": obligation["account_label"],
             "budget_category": obligation["budget_category"],
             "status": status,
+            "amount_pattern": amount_pattern,
+            "amount_spread": amount_spread,
             "expected_amount": expected_amount,
             "actual_amount": actual_amount,
             "variance": variance,
@@ -835,6 +947,9 @@ def get_recurring_obligations():
             "count": len(obligation_list),
             "outstanding_count": outstanding_count,
             "entered_count": entered_count,
+            "fixed_count": fixed_count,
+            "variable_count": variable_count,
+            "new_count": new_count,
             "expected_total": round(expected_total, 2),
             "actual_total": round(actual_total, 2),
             "variance_total": round(actual_total - expected_total, 2),
