@@ -2226,8 +2226,12 @@
     .shopping-store-table td {
       vertical-align: top;
     }
+    .shopping-store-table {
+      width: 100%;
+      table-layout: fixed;
+    }
     .shopping-store-table .shopping-item-cell {
-      min-width: 260px;
+      min-width: 0;
     }
     .shopping-web-item-head {
       display: flex;
@@ -2240,23 +2244,31 @@
       flex: 1 1 auto;
     }
     .shopping-store-table .shopping-store-select {
-      min-width: 150px;
-      max-width: 180px;
+      min-width: 120px;
+      max-width: 150px;
       width: 100%;
     }
     .shopping-store-table .shopping-actions-cell {
-      min-width: 210px;
+      min-width: 112px;
+    }
+    .shopping-actions-stack {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
     }
     .shopping-store-table .shopping-item-actions-row {
-      min-width: 210px;
+      min-width: 112px;
       grid-template-columns: repeat(3, minmax(52px, 1fr));
     }
     .shopping-store-table .shopping-item-actions-row .btn {
       padding: 6px 8px;
       font-size: 0.74rem;
     }
+    .shopping-web-action-strip .btn {
+      padding: 6px 8px;
+      font-size: 0.74rem;
+    }
     .shopping-more-menu {
-      position: relative;
       width: 100%;
     }
     .shopping-more-menu summary {
@@ -2271,10 +2283,6 @@
       background: rgba(108, 99, 255, 0.12);
     }
     .shopping-more-panel {
-      position: absolute;
-      right: 0;
-      top: calc(100% + 8px);
-      z-index: 30;
       min-width: 156px;
       display: grid;
       gap: 6px;
@@ -2282,7 +2290,8 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       background: rgba(20, 24, 36, 0.98);
-      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      margin-top: 8px;
     }
     .shopping-more-panel .btn {
       width: 100%;
@@ -2300,23 +2309,75 @@
       width: 100%;
       box-shadow: none;
     }
+    .shopping-more-panel.web-inline {
+      position: static;
+      min-width: 168px;
+      width: 168px;
+      box-shadow: none;
+      margin-top: 0;
+    }
+    .image-lightbox-modal {
+      width: min(1040px, 96vw);
+      max-height: min(92vh, 980px);
+      background: rgba(14, 18, 28, 0.98);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+      display: grid;
+      gap: 12px;
+    }
+    .image-lightbox-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .image-lightbox-title {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+    .image-lightbox-frame {
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      min-height: 320px;
+      max-height: calc(92vh - 120px);
+    }
+    .image-lightbox-frame img {
+      display: block;
+      max-width: 100%;
+      max-height: calc(92vh - 150px);
+      object-fit: contain;
+      border-radius: 12px;
+    }
     .shopping-store-table .shopping-rename-row {
       justify-content: flex-start;
       margin-top: 6px;
     }
+    .shopping-web-edit-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      gap: 16px;
+      margin-top: 8px;
+      min-width: 0;
+      width: 100%;
+    }
     .shopping-web-edit-grid {
       display: grid;
       grid-template-columns:
-        minmax(96px, 0.9fr)
-        minmax(96px, 0.8fr)
-        minmax(160px, 1.3fr)
-        minmax(110px, 0.9fr)
-        auto
-        auto
-        auto;
+        minmax(104px, 116px)
+        minmax(104px, 116px)
+        minmax(180px, 220px)
+        minmax(120px, 132px);
       gap: 8px;
       align-items: end;
-      margin-top: 8px;
+      flex: 0 0 auto;
+      min-width: 0;
     }
     .shopping-web-edit-field {
       display: grid;
@@ -2338,13 +2399,35 @@
       height: 36px;
     }
     .shopping-web-edit-field.compact-store select {
-      min-width: 96px;
-      max-width: 132px;
+      min-width: 88px;
+      max-width: 116px;
     }
     .shopping-web-edit-grid .btn {
       height: 36px;
       align-self: end;
       white-space: nowrap;
+    }
+    .shopping-web-action-strip {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      flex-wrap: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+      justify-content: flex-start;
+    }
+    .shopping-web-action-strip:empty {
+      display: none;
+    }
+    .shopping-web-action-strip .btn {
+      height: 36px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .shopping-actions-stack {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
     }
     .shopping-mobile-compact-grid {
       display: grid;
@@ -5429,6 +5512,17 @@
       <div class="confirm-actions">
         <button type="button" id="input-cancel" class="btn btn-ghost">Cancel</button>
         <button type="button" id="input-ok" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="image-lightbox-overlay" class="confirm-overlay" aria-hidden="true" onclick="if(event.target===this) closeImageLightbox()">
+    <div class="image-lightbox-modal" role="dialog" aria-modal="true" aria-labelledby="image-lightbox-title">
+      <div class="image-lightbox-head">
+        <div id="image-lightbox-title" class="image-lightbox-title">Item Photo</div>
+        <button type="button" class="btn btn-ghost" onclick="closeImageLightbox()">Close</button>
+      </div>
+      <div class="image-lightbox-frame">
+        <img id="image-lightbox-img" alt="Item photo preview" />
       </div>
     </div>
   </div>
@@ -13060,6 +13154,75 @@ async function saveShoppingGroupUnitDefaults(itemIds, primaryProductId, key) {
   ]);
 }
 
+async function updateShoppingGroupDetails(itemIds, primaryProductId, key, preferredStore = '') {
+  if (SHOPPING_HELPER_MODE) return;
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+
+  const unitEl = document.getElementById(`shopping-unit-${key}`);
+  const sizeEl = document.getElementById(`shopping-size-${key}`);
+  const priceEl = document.getElementById(`shopping-price-${key}`);
+
+  const unit = unitEl?.value || 'each';
+  const sizeLabel = sizeEl?.value?.trim?.() || '';
+  const rawPrice = priceEl?.value?.trim?.() ?? '';
+  const unitPrice = rawPrice === '' ? null : Number(rawPrice);
+
+  if (rawPrice !== '' && (!Number.isFinite(unitPrice) || unitPrice < 0)) {
+    toast('Enter a valid unit price', 'error');
+    return;
+  }
+
+  if (primaryProductId) {
+    const productRes = await api(`/products/${primaryProductId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        default_unit: unit,
+        default_size_label: sizeLabel
+      })
+    });
+    const productPayload = await productRes.json().catch(() => ({}));
+    if (!productRes.ok) {
+      toast(productPayload.error || 'Could not update product defaults', 'error');
+      return;
+    }
+  }
+
+  const itemBody = {
+    preferred_store: preferredStore || '',
+    unit,
+    size_label: sizeLabel
+  };
+  if (unitPrice != null) {
+    itemBody.manual_estimated_price = unitPrice;
+    itemBody.persist_latest_price = true;
+    itemBody.price_store = preferredStore || '';
+  }
+
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(itemBody)
+  })));
+
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not update shopping item');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+
+  toast('Shopping item updated ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -13132,6 +13295,18 @@ function renderShoppingListTable() {
       <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
     `;
   };
+  const renderShoppingDesktopInlineActions = item => {
+    const lowLabel = item.primaryItem?.manual_low || item.primaryItem?.is_low ? 'Clear Low' : 'Low';
+    const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
+    const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
+    return `
+      <button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; selectShoppingSnapshotFile(${item.primaryItem?.id || item.ids[0] || 'null'})">Photo</button>
+      ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')">View</button>` : ''}
+      ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel === 'Reopen' ? 'Open' : 'No Stock'}</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+    `;
+  };
   const renderShoppingMoreMenu = (item, mobile = false) => {
     const menuId = `${item.key}-${mobile ? 'mobile' : 'web'}`;
     if (mobile) {
@@ -13150,14 +13325,7 @@ function renderShoppingListTable() {
           type="button"
           class="btn btn-sm btn-ghost"
           onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
-        >More</button>
-        <div
-          class="shopping-more-panel"
-          style="display:${shoppingMoreMenuOpen[menuId] ? 'grid' : 'none'}"
-          onclick="event.stopPropagation()"
-        >
-          ${renderShoppingMorePanelButtons(item)}
-        </div>
+        >${shoppingMoreMenuOpen[menuId] ? 'Collapse' : 'More'}</button>
       </div>
     `;
   };
@@ -13270,13 +13438,8 @@ function renderShoppingListTable() {
                   <button
                     type="button"
                     class="btn btn-sm btn-ghost"
-                    onclick="event.stopPropagation(); saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                  >Save Unit</button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-ghost"
-                    onclick="event.stopPropagation(); saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
-                  >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
+                    onclick="event.stopPropagation(); updateShoppingGroupDetails([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                  >Update</button>
                 </div>
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
@@ -13321,6 +13484,15 @@ function renderShoppingListTable() {
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table class="shopping-store-table">
+            <colgroup>
+              <col style="width:49%">
+              <col style="width:8%">
+              <col style="width:4%">
+              <col style="width:8%">
+              <col style="width:12%">
+              <col style="width:9%">
+              <col style="width:10%">
+            </colgroup>
             <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
@@ -13343,45 +13515,51 @@ function renderShoppingListTable() {
                       ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
                     </div>
                   </div>
-                  <div class="shopping-web-edit-grid">
-                    <div class="shopping-web-edit-field compact-store">
-                      <label>🏬</label>
-                      <select
-                        class="inline-select"
-                        title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
-                        onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
-                      >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                  <div class="shopping-web-edit-row">
+                    <div class="shopping-web-edit-grid">
+                      <div class="shopping-web-edit-field compact-store">
+                        <label>🏬</label>
+                        <select
+                          class="inline-select"
+                          title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                          onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                        >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Unit</label>
+                        <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Size Label</label>
+                        <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Unit Price</label>
+                        <input
+                          id="shopping-price-${escAttr(item.key)}"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Unit</label>
-                      <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                    <div class="shopping-web-action-stack">
+                      <div class="shopping-web-action-strip">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-ghost"
+                          onclick="updateShoppingGroupDetails([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                        >Update</button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-ghost"
+                          onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))"
+                        >Rename</button>
+                        ${renderShoppingDesktopInlineActions(item)}
+                      </div>
                     </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Size Label</label>
-                      <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
-                    </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Unit Price</label>
-                      <input
-                        id="shopping-price-${escAttr(item.key)}"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-ghost"
-                      onclick="saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                    >Save Unit</button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-ghost"
-                      onclick="saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
-                    >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
                   </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
@@ -13390,10 +13568,11 @@ function renderShoppingListTable() {
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
                 <td><span class="badge badge-${shoppingStatusBadgeClass(item.status)}">${escHtml(shoppingStatusLabel(item.status))}</span></td>
                 <td class="shopping-actions-cell">
-                  <div class="shopping-item-actions-row">
-                  <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  ${renderShoppingMoreMenu(item)}
+                  <div class="shopping-actions-stack">
+                    <div class="shopping-item-actions-row">
+                      <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
+                      <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                    </div>
                   </div>
                 </td>
               </tr>`).join('')}
@@ -13620,7 +13799,7 @@ async function uploadShoppingSnapshotFromPicker(event) {
 
 function openShoppingSnapshot(imageUrl) {
   if (!imageUrl) return;
-  window.open(`${API_BASE}${imageUrl}`, '_blank', 'noopener,noreferrer');
+  openImageLightbox(imageUrl, 'Shopping Item Photo');
 }
 
 async function toggleShoppingGroupItems(ids, status, options = {}) {
@@ -14450,7 +14629,27 @@ async function uploadReceiptItemSnapshotFromPicker(event) {
 
 function openReceiptItemSnapshot(imageUrl) {
   if (!imageUrl) return;
-  window.open(`${API_BASE}${imageUrl}`, '_blank', 'noopener,noreferrer');
+  openImageLightbox(imageUrl, 'Receipt Item Photo');
+}
+
+function openImageLightbox(imageUrl, title = 'Item Photo') {
+  const overlay = document.getElementById('image-lightbox-overlay');
+  const img = document.getElementById('image-lightbox-img');
+  const titleEl = document.getElementById('image-lightbox-title');
+  if (!overlay || !img || !titleEl || !imageUrl) return;
+  titleEl.textContent = title;
+  img.src = `${API_BASE}${imageUrl}`;
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeImageLightbox() {
+  const overlay = document.getElementById('image-lightbox-overlay');
+  const img = document.getElementById('image-lightbox-img');
+  if (!overlay || !img) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  img.removeAttribute('src');
 }
 
 function renderMobileMetricCards(rows = []) {
