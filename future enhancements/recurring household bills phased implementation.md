@@ -191,6 +191,20 @@ Phase 1 is officially:
 - map current provider-related bill metadata toward those canonical records
 - document how receipt editing will evolve to use these stable records
 
+### Phase 1 progress update
+
+Completed in the current implementation pass:
+- restored BillMeta save/load wiring in the receipt editor and manual entry flow
+- restored household-bill budget-domain helpers that were missing from the branch
+- added canonical `bill_providers` records
+- added canonical `bill_service_lines` records
+- added compatibility linkage from `bill_meta` into provider/service-line identities
+- added runtime backfill so existing bill metadata can attach to canonical provider/service-line rows
+
+Still remaining inside Phase 1:
+- stronger provider/service lookup behavior in the bill edit flow
+- operator smoke test of bill edit/save against a live local database
+
 ### Explicitly not in scope now
 
 - forecasting

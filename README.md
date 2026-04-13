@@ -552,6 +552,15 @@ INITIAL_ADMIN_EMAIL=admin@localhost
 INITIAL_ADMIN_PASSWORD=replace_with_a_strong_password
 SESSION_SECRET=replace_with_another_long_random_secret
 GEMINI_API_KEY=replace_with_your_gemini_api_key
+
+# Google OAuth (optional — enables invite-based login)
+# Get credentials at: https://console.cloud.google.com/apis/credentials
+GOOGLE_CLIENT_ID=replace_with_your_google_client_id
+GOOGLE_CLIENT_SECRET=replace_with_your_google_client_secret
+# Set to the public URL of this server (used for the OAuth redirect URI)
+OAUTH_REDIRECT_BASE_URL=https://yourdomain.com
+# Set to false to disable Google OAuth even if credentials are set
+GOOGLE_OAUTH_ENABLED=true
 ```
 
 Recommended defaults:

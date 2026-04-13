@@ -366,6 +366,12 @@ This is the repo where the following should happen next:
   - canonical service-line records
   - compatibility path from current bill metadata to canonical identity
   - clean base for planning-month derivation in the next phase
+- currently completed on `codex/recurring-bills-foundation`:
+  - restored full household-bill-aware budget domain helpers
+  - restored `BillMeta` persistence for provider fields plus `service_types`
+  - restored bill edit/manual-entry payload wiring so bill fields can save again
+  - added canonical `bill_providers` and `bill_service_lines` schema
+  - linked new and existing household bills toward canonical provider/service-line records
 - a dedicated operator runbook now exists for this area:
   - [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
 - trusted-device scope-specific runtime behavior:

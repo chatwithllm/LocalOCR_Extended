@@ -71,6 +71,7 @@ def build_app_config() -> dict:
         "ports": {
             "default_backend": int(os.getenv("FLASK_PORT", "8090")),
         },
+        "google_oauth_enabled": _is_google_oauth_configured(),
     }
 
 
@@ -268,6 +269,8 @@ def serialize_user(user: User) -> dict:
         "is_active": bool(user.is_active),
         "has_password": bool(user.password_hash),
         "has_api_token": bool(user.api_token_hash),
+        "has_google": bool(getattr(user, "google_sub", None)),
+        "google_email": getattr(user, "google_email", None),
         "password_reset_requested": bool(user.password_reset_requested_at),
         "password_reset_requested_at": (
             user.password_reset_requested_at.isoformat() if user.password_reset_requested_at else None
@@ -1308,3 +1311,476 @@ def update_user(user_id: int):
     g.db_session.commit()
     logger.info("User %s updated by admin %s", target.email, actor.email or actor.id)
     return jsonify({"user": serialize_user(target)}), 200
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth — helpers
+# ---------------------------------------------------------------------------
+
+def _is_google_oauth_configured() -> bool:
+    """Return True when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set."""
+    client_id = (os.getenv("GOOGLE_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("GOOGLE_CLIENT_SECRET") or "").strip()
+    enabled = os.getenv("GOOGLE_OAUTH_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+    return bool(client_id and client_secret and enabled)
+
+
+def _get_oauth_redirect_uri() -> str:
+    """Build the Google OAuth redirect URI from config or request context."""
+    base = (
+        os.getenv("OAUTH_REDIRECT_BASE_URL", "").strip().rstrip("/")
+        or os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+        or request.host_url.rstrip("/")
+    )
+    return f"{base}/auth/oauth/google/callback"
+
+
+def _build_oauth_state(invite_token: str | None) -> str:
+    """Create an HMAC-signed state string for CSRF protection."""
+    import hmac
+    from flask import current_app
+    nonce = secrets.token_urlsafe(16)
+    payload = f"{nonce}:{invite_token or ''}"
+    sig = hmac.new(
+        current_app.secret_key.encode() if isinstance(current_app.secret_key, str)
+        else current_app.secret_key,
+        payload.encode(),
+        "sha256",
+    ).hexdigest()
+    return f"{payload}:{sig}"
+
+
+def _verify_oauth_state(state: str) -> tuple[bool, str | None]:
+    """Verify HMAC state; returns (valid, invite_token | None)."""
+    import hmac
+    from flask import current_app
+    try:
+        parts = state.split(":")
+        if len(parts) < 3:
+            return False, None
+        sig = parts[-1]
+        payload = ":".join(parts[:-1])
+        expected = hmac.new(
+            current_app.secret_key.encode() if isinstance(current_app.secret_key, str)
+            else current_app.secret_key,
+            payload.encode(),
+            "sha256",
+        ).hexdigest()
+        if not hmac.compare_digest(sig, expected):
+            return False, None
+        # payload is  nonce:invite_token_or_empty
+        invite_token = parts[1] if len(parts) >= 3 and parts[1] else None
+        return True, invite_token
+    except Exception:
+        return False, None
+
+
+def _fetch_google_user_info(access_token: str) -> dict:
+    """Exchange access token for Google user info."""
+    import requests as _requests
+    resp = _requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _find_or_create_oauth_user(
+    session,
+    google_info: dict,
+    invite_token: str | None,
+) -> User | None:
+    """Resolve the User for a Google OAuth login.
+
+    Resolution order:
+      A. Existing user with matching google_sub  → log in directly
+      B. Existing user with matching email        → link google_sub
+      C. New user with a valid pending invite     → create + claim invite
+      D. None                                     → reject (403)
+    """
+    google_sub = str(google_info.get("sub") or "").strip()
+    google_email = str(google_info.get("email") or "").strip().lower()
+    google_name = str(google_info.get("name") or "").strip()
+
+    if not google_sub or not google_email:
+        logger.warning("Google OAuth: missing sub or email in userinfo response")
+        return None
+
+    # Path A — already linked
+    user = session.query(User).filter(
+        User.google_sub == google_sub,
+        User.is_active.is_(True),
+    ).first()
+    if user:
+        user.google_email = google_email
+        return user
+
+    # Path B — same email, link google_sub
+    user = session.query(User).filter(
+        User.email == google_email,
+        User.is_active.is_(True),
+    ).first()
+    if user:
+        user.google_sub = google_sub
+        user.google_email = google_email
+        logger.info("Google OAuth: linked google_sub to existing user %s", google_email)
+        return user
+
+    # Path C — new user via invite
+    if invite_token:
+        import json as _json
+        link = get_valid_access_link(invite_token, "google_invite")
+        if link:
+            meta = _json.loads(link.metadata_json or "{}")
+            invited_email = (meta.get("email") or "").strip().lower()
+            if invited_email and invited_email != google_email:
+                logger.warning(
+                    "Google OAuth: invite email (%s) does not match Google email (%s)",
+                    invited_email, google_email,
+                )
+                return None
+            role = (meta.get("role") or "user").strip().lower()
+            if role not in {"admin", "user"}:
+                role = "user"
+            name = (meta.get("name") or google_name or google_email).strip()
+            new_user = User(
+                name=name,
+                email=google_email,
+                role=role,
+                is_active=True,
+                google_sub=google_sub,
+                google_email=google_email,
+                avatar_emoji=pick_default_avatar(name),
+            )
+            session.add(new_user)
+            link.used_at = datetime.now(timezone.utc)
+            session.flush()
+            logger.info("Google OAuth: new user created via invite for %s", google_email)
+            return new_user
+
+    # Path D — no match
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth — invite management endpoints
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/invites", methods=["POST"])
+def create_invite():
+    """Admin: create a google_invite for a specific email address."""
+    import json as _json
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    name = (data.get("name") or "").strip()
+    role = (data.get("role") or "user").strip().lower()
+    expires_in_days = int(data.get("expires_in_days") or 7)
+
+    if not email or not is_valid_login_email(email):
+        return jsonify({"error": "A valid email address is required"}), 400
+    if role not in {"admin", "user"}:
+        return jsonify({"error": "Role must be 'admin' or 'user'"}), 400
+
+    # Block invite if there is already an active user with this email
+    existing = g.db_session.query(User).filter(
+        User.email == email, User.is_active.is_(True)
+    ).first()
+    if existing:
+        return jsonify({"error": "An active user with this email already exists"}), 409
+
+    # Expire any prior pending invite for the same email
+    prior_links = (
+        g.db_session.query(AccessLink)
+        .filter(
+            AccessLink.purpose == "google_invite",
+            AccessLink.used_at.is_(None),
+        )
+        .all()
+    )
+    for prior in prior_links:
+        try:
+            meta = _json.loads(prior.metadata_json or "{}")
+            if (meta.get("email") or "").strip().lower() == email:
+                prior.used_at = datetime.now(timezone.utc)  # mark consumed
+        except Exception:
+            pass
+
+    token, link = create_access_link(
+        purpose="google_invite",
+        created_by_id=actor.id,
+        expires_in_minutes=expires_in_days * 24 * 60,
+        metadata_json=_json.dumps({"email": email, "name": name, "role": role}),
+    )
+    g.db_session.commit()
+
+    invite_url = f"{build_public_base_url()}/auth/invite/{token}"
+    return jsonify({
+        "invite_url": invite_url,
+        "qr_image_url": f"{build_public_base_url()}/auth/qr-image?data={quote(invite_url, safe='')}",
+        "email": email,
+        "name": name,
+        "role": role,
+        "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+    }), 201
+
+
+@auth_bp.route("/invites", methods=["GET"])
+def list_invites():
+    """Admin: list pending (unused, unexpired) google invites."""
+    import json as _json
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    now = datetime.now(timezone.utc)
+    links = (
+        g.db_session.query(AccessLink)
+        .filter(
+            AccessLink.purpose == "google_invite",
+            AccessLink.used_at.is_(None),
+        )
+        .order_by(AccessLink.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for link in links:
+        expires_at = link.expires_at
+        compare_now = now.replace(tzinfo=None) if expires_at and expires_at.tzinfo is None else now
+        if expires_at and expires_at < compare_now:
+            continue  # skip expired
+        try:
+            meta = _json.loads(link.metadata_json or "{}")
+        except Exception:
+            meta = {}
+        result.append({
+            "id": link.id,
+            "email": meta.get("email"),
+            "name": meta.get("name"),
+            "role": meta.get("role", "user"),
+            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+            "created_at": link.created_at.isoformat() if link.created_at else None,
+        })
+
+    return jsonify({"invites": result, "count": len(result)}), 200
+
+
+@auth_bp.route("/invites/<int:invite_id>", methods=["DELETE"])
+def revoke_invite(invite_id: int):
+    """Admin: revoke a pending invite."""
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    link = g.db_session.query(AccessLink).filter_by(id=invite_id, purpose="google_invite").first()
+    if not link:
+        return jsonify({"error": "Invite not found"}), 404
+
+    link.used_at = datetime.now(timezone.utc)  # mark consumed = revoked
+    g.db_session.commit()
+    return jsonify({"status": "revoked"}), 200
+
+
+@auth_bp.route("/invite/<token>", methods=["GET"])
+def accept_invite_redirect(token: str):
+    """Validate invite token and redirect to the SPA invite landing page."""
+    link = get_valid_access_link(token, "google_invite")
+    if not link:
+        return redirect("/?invite_error=invalid")
+    return redirect(f"/?invite={token}")
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth — OAuth flow endpoints
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/oauth/google/status", methods=["GET"])
+def google_oauth_status():
+    """Return whether Google OAuth is configured on this server."""
+    return jsonify({"enabled": _is_google_oauth_configured()}), 200
+
+
+@auth_bp.route("/oauth/google", methods=["GET"])
+def google_oauth_start():
+    """Initiate Google OAuth flow. Accepts optional invite_token query param."""
+    if not _is_google_oauth_configured():
+        return jsonify({"error": "Google OAuth is not configured on this server"}), 503
+
+    try:
+        from authlib.integrations.requests_client import OAuth2Session
+    except ImportError:
+        return jsonify({"error": "authlib is not installed"}), 503
+
+    invite_token = (request.args.get("invite_token") or "").strip() or None
+    state = _build_oauth_state(invite_token)
+
+    client = OAuth2Session(
+        client_id=os.getenv("GOOGLE_CLIENT_ID"),
+        redirect_uri=_get_oauth_redirect_uri(),
+        scope="openid email profile",
+    )
+    authorization_url, _ = client.create_authorization_url(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        state=state,
+        access_type="online",
+        prompt="select_account",
+    )
+    return redirect(authorization_url)
+
+
+@auth_bp.route("/oauth/google/callback", methods=["GET"])
+def google_oauth_callback():
+    """Handle Google's redirect after user grants consent."""
+    if not _is_google_oauth_configured():
+        return redirect("/?oauth_error=not_configured")
+
+    try:
+        from authlib.integrations.requests_client import OAuth2Session
+    except ImportError:
+        return redirect("/?oauth_error=library_missing")
+
+    error = request.args.get("error")
+    if error:
+        logger.warning("Google OAuth returned an error: %s", error)
+        return redirect(f"/?oauth_error={quote(error, safe='')}")
+
+    state = request.args.get("state", "")
+    valid, invite_token = _verify_oauth_state(state)
+    if not valid:
+        logger.warning("Google OAuth: invalid state parameter (possible CSRF)")
+        return redirect("/?oauth_error=invalid_state")
+
+    code = request.args.get("code", "")
+    if not code:
+        return redirect("/?oauth_error=no_code")
+
+    # Exchange auth code for access token
+    try:
+        client = OAuth2Session(
+            client_id=os.getenv("GOOGLE_CLIENT_ID"),
+            client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+            redirect_uri=_get_oauth_redirect_uri(),
+        )
+        token_response = client.fetch_token(
+            "https://oauth2.googleapis.com/token",
+            code=code,
+        )
+        access_token = token_response.get("access_token")
+        if not access_token:
+            raise ValueError("No access_token in token response")
+    except Exception as exc:
+        logger.error("Google OAuth token exchange failed: %s", exc)
+        return redirect("/?oauth_error=token_exchange_failed")
+
+    # Fetch user info
+    try:
+        google_info = _fetch_google_user_info(access_token)
+    except Exception as exc:
+        logger.error("Google OAuth: failed to fetch user info: %s", exc)
+        return redirect("/?oauth_error=userinfo_failed")
+
+    # Check if this is a link-to-existing-account flow
+    if invite_token and str(invite_token).startswith("link:"):
+        try:
+            target_user_id = int(str(invite_token).split(":", 1)[1])
+        except (ValueError, IndexError):
+            return redirect("/?oauth_error=invalid_link_state")
+
+        db_session = g.db_session
+        target_user = db_session.query(User).filter_by(id=target_user_id, is_active=True).first()
+        if not target_user:
+            return redirect("/?oauth_error=user_not_found")
+
+        google_sub = str(google_info.get("sub") or "").strip()
+        google_email_val = str(google_info.get("email") or "").strip().lower()
+
+        # Ensure this google_sub isn't already claimed by another user
+        existing_owner = db_session.query(User).filter(
+            User.google_sub == google_sub,
+        ).first()
+        if existing_owner and existing_owner.id != target_user.id:
+            return redirect("/?oauth_error=google_already_linked")
+
+        target_user.google_sub = google_sub
+        target_user.google_email = google_email_val
+        db_session.commit()
+        _set_browser_session(target_user)
+        logger.info("Google OAuth: linked google account to user %s", target_user.email)
+        return redirect("/?oauth_success=linked")
+
+    # Resolve or create user (normal login / invite flow)
+    db_session = g.db_session
+    user = _find_or_create_oauth_user(db_session, google_info, invite_token)
+    if not user:
+        google_email = (google_info.get("email") or "").lower()
+        logger.warning("Google OAuth: no matching user or invite for %s", google_email)
+        return redirect("/?oauth_error=no_invite")
+
+    db_session.commit()
+    _set_browser_session(user)
+    logger.info("Google OAuth: user %s signed in via Google", user.email)
+    return redirect("/?oauth_success=1")
+
+
+# ---------------------------------------------------------------------------
+# Google Link / Unlink (for existing password users in Settings)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/oauth/google/link", methods=["GET"])
+def google_oauth_link_start():
+    """Start OAuth flow to link Google to an already-authenticated account."""
+    if not _is_google_oauth_configured():
+        return jsonify({"error": "Google OAuth is not configured on this server"}), 503
+
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    try:
+        from authlib.integrations.requests_client import OAuth2Session
+    except ImportError:
+        return jsonify({"error": "authlib is not installed"}), 503
+
+    # Encode user id into state so we know who to link after callback
+    state = _build_oauth_state(f"link:{user.id}")
+    client = OAuth2Session(
+        client_id=os.getenv("GOOGLE_CLIENT_ID"),
+        redirect_uri=_get_oauth_redirect_uri(),
+        scope="openid email profile",
+    )
+    authorization_url, _ = client.create_authorization_url(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        state=state,
+        access_type="online",
+        prompt="select_account",
+    )
+    return redirect(authorization_url)
+
+
+@auth_bp.route("/oauth/google/unlink", methods=["POST"])
+def google_oauth_unlink():
+    """Remove the Google link from the current user's account."""
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+    if not getattr(user, "google_sub", None):
+        return jsonify({"error": "No Google account is linked"}), 400
+    if not user.password_hash:
+        return jsonify({"error": "Set a password before unlinking Google to avoid being locked out"}), 400
+
+    user.google_sub = None
+    user.google_email = None
+    g.db_session.commit()
+    return jsonify({"status": "unlinked", "user": serialize_user(user)}), 200

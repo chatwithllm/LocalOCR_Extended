@@ -7,7 +7,9 @@ Analytics endpoints for spending reports: total by period, by category,
 price history trends, and deals captured (savings quantification).
 """
 
+import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
@@ -17,11 +19,94 @@ from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Purchase, ReceiptItem, Product, Store, PriceHistory
 )
+from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
 
 logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
+
+_PROVIDER_ALIAS_STOPWORDS = {
+    "inc",
+    "llc",
+    "ltd",
+    "corp",
+    "corporation",
+    "company",
+    "co",
+    "services",
+    "service",
+    "billing",
+    "bill",
+    "payment",
+    "payments",
+    "portal",
+    "online",
+    "delivery",
+    "energy",
+    "utility",
+    "utilities",
+}
+
+_PROVIDER_LOCATION_STOPWORDS = {
+    "indiana",
+    "indianapolis",
+}
+
+
+def _provider_display_name(meta, store) -> str:
+    return ((getattr(meta, "provider_name", None) if meta else None) or (store.name if store else "") or "Unknown").strip() or "Unknown"
+
+
+def _canonical_provider_name(name: str | None) -> str:
+    normalized = str(name or "").strip().lower()
+    if not normalized:
+        return "unknown"
+    normalized = normalized.replace("&", "")
+    normalized = normalized.replace("'", "")
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    tokens = [token for token in normalized.split() if token]
+    if not tokens:
+        return "unknown"
+    filtered = [
+        token for token in tokens
+        if token not in _PROVIDER_ALIAS_STOPWORDS
+        and token not in _PROVIDER_LOCATION_STOPWORDS
+    ]
+    return " ".join(filtered or tokens)
+
+
+def _provider_group_key(provider_name: str | None, provider_type: str | None, account_label: str | None = None) -> str:
+    provider_token = _canonical_provider_name(provider_name)
+    provider_type_token = str(provider_type or "other").strip().lower() or "other"
+    account_token = str(account_label or "").strip().lower()
+    return f"{provider_token}|{provider_type_token}|{account_token}"
+
+
+def _service_types_from_meta(meta) -> list[str]:
+    raw = getattr(meta, "service_types", None) if meta else None
+    if not raw:
+        fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
+        return [fallback] if fallback else []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            values = [str(value or "").strip().lower() for value in parsed if str(value or "").strip()]
+            fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
+            return values or ([fallback] if fallback else [])
+    except Exception:
+        pass
+    fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
+    return [fallback] if fallback else []
+
+
+def _obligation_amount_pattern(amounts: list[float]) -> tuple[str, float]:
+    if not amounts or len(amounts) == 1:
+        return "new", 0.0
+    avg_amount = sum(amounts) / len(amounts)
+    spread = max(amounts) - min(amounts)
+    tolerance = max(5.0, abs(avg_amount) * 0.05)
+    return ("fixed", round(spread, 2)) if spread <= tolerance else ("variable", round(spread, 2))
 
 
 def _transaction_counts(purchases):
@@ -529,6 +614,61 @@ def get_store_comparison():
         "comparison": comparison,
         "cheapest_store": comparison[0]["store"] if comparison else None,
     }), 200
+
+
+@analytics_bp.route("/utility-summary", methods=["GET"])
+@require_auth
+def get_utility_summary():
+    """Return utility & recurring bill spend analytics."""
+    from datetime import date as date_type
+    from src.backend.initialize_database_schema import BillMeta  # noqa: PLC0415
+
+    session = g.db_session
+    months_back = request.args.get("months", 12, type=int)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
+
+    rows = (
+        session.query(Purchase, Store, BillMeta)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .outerjoin(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(Purchase.domain.in_(["utility", "household_obligations"]), Purchase.date >= cutoff)
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+
+    total_spend = 0.0
+    recurring_total = 0.0
+    one_off_total = 0.0
+    provider_summary: dict = {}
+    category_summary: dict = {}
+    monthly_totals: dict = {}
+    recent_bills = []
+    today = date_type.today()
+    due_soon = []
+
+    for purchase, store, meta in rows:
+        signed_total = signed_purchase_total(purchase)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
+        total_spend += signed_total
+
+        is_recurring = bool(meta.is_recurring) if meta else True
+        provider_name = _provider_display_name(meta, store)
+        provider_type = (meta.provider_type if meta else None) or "other"
+        service_types = _service_types_from_meta(meta)
+        billing_cycle = (meta.billing_cycle_month if meta else None) or (
+            purchase.date.strftime("%Y-%m") if purchase.date else None
+        )
+        budget_category = getattr(purchase, "default_budget_category", None) or "other_recurring"
+
+        if is_recurring:
+            recurring_total += signed_total
+        else:
+            one_off_total += signed_total
+
+        pkey = _provider_group_key(
+            provider_name,
+            service_types[0] if service_types else provider_type,
+            getattr(meta, "account_label", None) if meta else None,
         )
         if pkey not in provider_summary:
             provider_summary[pkey] = {
@@ -557,7 +697,6 @@ def get_store_comparison():
                 ps["monthly_breakdown"].get(billing_cycle, 0.0) + signed_total, 2
             )
 
-        # Per-category aggregation for analytics rollups
         ckey = budget_category
         if ckey not in category_summary:
             category_summary[ckey] = {
@@ -573,22 +712,20 @@ def get_store_comparison():
         else:
             cs["purchase_count"] += 1
 
-        # Global month totals
         if billing_cycle:
             monthly_totals[billing_cycle] = round(
                 monthly_totals.get(billing_cycle, 0.0) + signed_total, 2
             )
 
-        # Due soon (next 14 days)
         if meta and meta.due_date:
             days_until = (meta.due_date - today).days
             if 0 <= days_until <= 14:
                 due_soon.append({
                     "purchase_id": purchase.id,
-                "provider_name": provider_name,
-                "provider_type": provider_type,
-                "service_types": service_types,
-                "amount": round(signed_total, 2),
+                    "provider_name": provider_name,
+                    "provider_type": provider_type,
+                    "service_types": service_types,
+                    "amount": round(signed_total, 2),
                     "due_date": meta.due_date.isoformat(),
                     "days_until_due": days_until,
                     "billing_cycle_month": meta.billing_cycle_month,
@@ -608,28 +745,27 @@ def get_store_comparison():
             "budget_category": budget_category,
         })
 
-    # Serialize provider summary
     provider_list = sorted(
         [
             {
-                "provider_name": v["provider_name"],
-                "provider_type": v["provider_type"],
-                "service_types": v.get("service_types", []),
-                "total": round(v["total"], 2),
-                "purchase_count": v["purchase_count"],
-                "refund_count": v["refund_count"],
+                "provider_name": value["provider_name"],
+                "provider_type": value["provider_type"],
+                "service_types": value.get("service_types", []),
+                "total": round(value["total"], 2),
+                "purchase_count": value["purchase_count"],
+                "refund_count": value["refund_count"],
                 "average_monthly": round(
-                    v["total"] / max(len(v["monthly_breakdown"]), 1), 2
+                    value["total"] / max(len(value["monthly_breakdown"]), 1), 2
                 ),
-                "latest_date": v["latest_date"].strftime("%Y-%m-%d") if v["latest_date"] else None,
-                "monthly_breakdown": v["monthly_breakdown"],
+                "latest_date": value["latest_date"].strftime("%Y-%m-%d") if value["latest_date"] else None,
+                "monthly_breakdown": value["monthly_breakdown"],
             }
-            for v in provider_summary.values()
+            for value in provider_summary.values()
         ],
-        key=lambda x: (-x["total"], x["provider_name"]),
+        key=lambda item: (-item["total"], item["provider_name"]),
     )
 
-    due_soon.sort(key=lambda x: x["days_until_due"])
+    due_soon.sort(key=lambda item: item["days_until_due"])
     category_list = sorted(
         [
             {
@@ -643,7 +779,7 @@ def get_store_comparison():
         key=lambda entry: (-abs(entry["total"]), entry["budget_category"]),
     )
 
-    purchase_count, refund_count = _transaction_counts([p for p, _, _ in rows])
+    purchase_count, refund_count = _transaction_counts([purchase for purchase, _, _ in rows])
     return jsonify({
         "months_back": months_back,
         "receipt_count": purchase_count + refund_count,
@@ -654,7 +790,7 @@ def get_store_comparison():
         "one_off_total": round(one_off_total, 2),
         "providers": provider_list,
         "category_breakdown": category_list,
-        "monthly_totals": {k: v for k, v in sorted(monthly_totals.items())},
+        "monthly_totals": {key: value for key, value in sorted(monthly_totals.items())},
         "due_soon": due_soon,
         "recent_bills": recent_bills[:20],
     }), 200

@@ -35,3 +35,6 @@ python-dotenv==1.0.1
 
 # QR Codes
 qrcode==7.4.2
+
+# OAuth 2.0 (Google Login)
+authlib>=1.3.0

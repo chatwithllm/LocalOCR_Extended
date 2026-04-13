@@ -28,6 +28,7 @@ from src.backend.budgeting_domains import (
     derive_receipt_budget_defaults,
     normalize_budget_category,
     normalize_spending_domain,
+    normalize_utility_service_types,
 )
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total
 from src.backend.create_flask_application import require_auth, require_write_access
@@ -144,6 +145,17 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
         "refund_note": receipt.get("refund_note"),
         "default_spending_domain": receipt.get("default_spending_domain") or "grocery",
         "default_budget_category": receipt.get("default_budget_category") or "grocery",
+        "bill_provider_name": receipt.get("bill_provider_name"),
+        "bill_provider_type": receipt.get("bill_provider_type"),
+        "bill_service_types": receipt.get("bill_service_types") or [],
+        "bill_account_label": receipt.get("bill_account_label"),
+        "bill_service_period_start": receipt.get("bill_service_period_start"),
+        "bill_service_period_end": receipt.get("bill_service_period_end"),
+        "bill_due_date": receipt.get("bill_due_date"),
+        "bill_billing_cycle_month": receipt.get("bill_billing_cycle_month"),
+        "bill_is_recurring": receipt.get("bill_is_recurring"),
+        "bill_provider_id": receipt.get("bill_provider_id"),
+        "bill_service_line_id": receipt.get("bill_service_line_id"),
         "items": items,
         "subtotal": receipt.get("total") or 0,
         "tax": 0,
@@ -193,6 +205,11 @@ def _build_editable_receipt_payload(receipt_record, purchase, store_name: str | 
 
 def _sanitize_receipt_payload(payload: dict) -> dict:
     """Normalize user-edited receipt payloads for persistence."""
+    bill_meta = payload.get("bill_meta") if isinstance(payload.get("bill_meta"), dict) else {}
+    bill_source = {**bill_meta, **payload}
+    provider_type = (
+        str(bill_source.get("bill_provider_type") or bill_source.get("provider_type") or "").strip().lower() or None
+    )
     sanitized = {
         "store": str(payload.get("store", "") or "").strip(),
         "store_location": (str(payload.get("store_location", "") or "").strip() or None),
@@ -203,6 +220,20 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "refund_note": (str(payload.get("refund_note", "") or "").strip() or None),
         "default_spending_domain": normalize_spending_domain(payload.get("default_spending_domain"), default="grocery"),
         "default_budget_category": None,
+        "bill_provider_name": (str(bill_source.get("bill_provider_name") or bill_source.get("provider_name") or "").strip() or None),
+        "bill_provider_type": provider_type,
+        "bill_service_types": normalize_utility_service_types(
+            bill_source.get("bill_service_types") if bill_source.get("bill_service_types") is not None else bill_source.get("service_types"),
+            provider_type=provider_type,
+        ),
+        "bill_account_label": (str(bill_source.get("bill_account_label") or bill_source.get("account_label") or "").strip() or None),
+        "bill_service_period_start": (str(bill_source.get("bill_service_period_start") or bill_source.get("service_period_start") or "").strip() or None),
+        "bill_service_period_end": (str(bill_source.get("bill_service_period_end") or bill_source.get("service_period_end") or "").strip() or None),
+        "bill_due_date": (str(bill_source.get("bill_due_date") or bill_source.get("due_date") or "").strip() or None),
+        "bill_billing_cycle_month": (str(bill_source.get("bill_billing_cycle_month") or bill_source.get("billing_cycle_month") or "").strip()[:7] or None),
+        "bill_is_recurring": bool(
+            bill_source.get("bill_is_recurring") if bill_source.get("bill_is_recurring") is not None else bill_source.get("is_recurring")
+        ) if (bill_source.get("bill_is_recurring") is not None or bill_source.get("is_recurring") is not None) else True,
         "subtotal": float(payload.get("subtotal") or 0),
         "tax": float(payload.get("tax") or 0),
         "tip": float(payload.get("tip") or 0),
@@ -297,6 +328,7 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
     """Create a manual purchase + receipt record so budgets stay accurate without an image."""
     from src.backend.active_inventory import rebuild_active_inventory
     from src.backend.contribution_scores import validate_low_workflow
+    from src.backend.extract_receipt_data import _save_bill_meta
     from src.backend.initialize_database_schema import (
         Purchase,
         ReceiptItem,
@@ -426,6 +458,8 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         purchase_id=purchase.id,
     )
     session.add(receipt_record)
+    if receipt_type in {"utility_bill", "household_bill"}:
+        _save_bill_meta(session, purchase.id, sanitized)
     session.commit()
 
     if purchase_domain == "grocery":
@@ -558,8 +592,8 @@ def upload_receipt():
         user_id = current_user.id
 
     receipt_intent = (request.form.get("receipt_intent") or "auto").strip().lower()
-    if receipt_intent not in {"auto", "grocery", "restaurant", "general_expense"}:
-        return jsonify({"error": "receipt_intent must be auto, grocery, restaurant, or general_expense"}), 400
+    if receipt_intent not in {"auto", "grocery", "restaurant", "general_expense", "utility_bill", "household_bill"}:
+        return jsonify({"error": "receipt_intent must be auto, grocery, restaurant, general_expense, utility_bill, or household_bill"}), 400
     receipt_type_hint = None if receipt_intent == "auto" else receipt_intent
 
     # Route to hybrid OCR processor
@@ -594,7 +628,7 @@ def upload_receipt():
 @require_auth
 def get_receipt(receipt_id):
     """Retrieve details for a specific receipt/purchase."""
-    from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, Product, TelegramReceipt
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, Product, TelegramReceipt, BillMeta
 
     session = g.db_session
     purchase = session.query(Purchase).filter_by(id=receipt_id).first()
@@ -648,6 +682,21 @@ def get_receipt(receipt_id):
             for item, product in items
         ],
     )
+    bill_meta = session.query(BillMeta).filter_by(purchase_id=purchase.id).first() if purchase else None
+    if bill_meta:
+        editable_data.update({
+            "bill_provider_name": bill_meta.provider_name,
+            "bill_provider_type": bill_meta.provider_type,
+            "bill_service_types": json.loads(bill_meta.service_types) if bill_meta.service_types else [],
+            "bill_account_label": bill_meta.account_label,
+            "bill_service_period_start": bill_meta.service_period_start.isoformat() if bill_meta.service_period_start else None,
+            "bill_service_period_end": bill_meta.service_period_end.isoformat() if bill_meta.service_period_end else None,
+            "bill_due_date": bill_meta.due_date.isoformat() if bill_meta.due_date else None,
+            "bill_billing_cycle_month": bill_meta.billing_cycle_month,
+            "bill_is_recurring": bool(bill_meta.is_recurring),
+            "bill_provider_id": bill_meta.provider_id,
+            "bill_service_line_id": bill_meta.service_line_id,
+        })
 
     return jsonify({
         "id": purchase.id if purchase else receipt_record.id,
@@ -915,8 +964,8 @@ def create_manual_receipt():
         return jsonify({"error": "Manual receipt data is required"}), 400
 
     receipt_type = str(payload.get("receipt_type") or data.get("receipt_type") or "grocery").strip().lower()
-    if receipt_type not in {"grocery", "restaurant", "general_expense"}:
-        return jsonify({"error": "Receipt type must be grocery, restaurant, or general_expense"}), 400
+    if receipt_type not in {"grocery", "restaurant", "general_expense", "utility_bill", "household_bill"}:
+        return jsonify({"error": "Receipt type must be grocery, restaurant, general_expense, utility_bill, or household_bill"}), 400
 
     sanitized = _sanitize_receipt_payload(data)
     missing = [field for field in ("store", "date", "total") if not sanitized.get(field)]
@@ -989,15 +1038,17 @@ def approve_receipt(receipt_id):
     if not isinstance(ocr_data, dict):
         return jsonify({"error": "No OCR data available for review approval"}), 400
 
-    missing = [field for field in ("store", "date", "items", "total") if not ocr_data.get(field)]
+    receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(ocr_data)
+    requires_items = str(receipt_type or "").strip().lower() not in {"utility_bill", "household_bill"}
+    required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
+    missing = [field for field in required_fields if not ocr_data.get(field)]
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
-    if not isinstance(ocr_data.get("items"), list) or not ocr_data["items"]:
+    if requires_items and (not isinstance(ocr_data.get("items"), list) or not ocr_data["items"]):
         return jsonify({"error": "At least one receipt item is required"}), 400
 
     current_user = getattr(g, "current_user", None)
     user_id = current_user.id if current_user else None
-    receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(ocr_data)
     purchase_id = _save_to_database(
         ocr_data,
         record.ocr_engine or "manual_review",
@@ -1038,10 +1089,13 @@ def update_receipt(receipt_id):
         return jsonify({"error": "Edited receipt data is required"}), 400
 
     sanitized = _sanitize_receipt_payload(ocr_data)
-    missing = [field for field in ("store", "date", "items", "total") if not sanitized.get(field)]
+    receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
+    requires_items = str(receipt_type or "").strip().lower() not in {"utility_bill", "household_bill"}
+    required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
+    missing = [field for field in required_fields if not sanitized.get(field)]
     if missing:
         return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
-    if not sanitized["items"]:
+    if requires_items and not sanitized["items"]:
         return jsonify({"error": "At least one receipt item is required"}), 400
 
     current_user = getattr(g, "current_user", None)
@@ -1051,7 +1105,6 @@ def update_receipt(receipt_id):
         _clear_purchase_detail_data(session, purchase)
         session.flush()
 
-    receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
     purchase_id = _save_to_database(
         sanitized,
         record.ocr_engine or "manual_review",
@@ -1133,88 +1186,24 @@ def rotate_receipt(receipt_id):
     return jsonify({"status": "rotated", "receipt_id": record.id, "direction": direction}), 200
 
 
-@receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])
-@require_write_access
-def delete_receipt(receipt_id):
-    """Delete a receipt record, its stored file, and any associated purchase data."""
-    from src.backend.initialize_database_schema import (
-        TelegramReceipt, Purchase, ReceiptItem, PriceHistory, Inventory
-    )
+@receipts_bp.route("/bill-providers", methods=["GET"])
+@require_auth
+def list_bill_providers():
+    """Return all known bill providers and their service lines for autocomplete lookup."""
+    from src.backend.initialize_database_schema import BillProvider
 
     session = g.db_session
-    record = _resolve_receipt_record(session, receipt_id)
-    purchase = session.query(Purchase).filter_by(id=receipt_id).first()
-    if not record and not purchase:
-        return jsonify({"error": "Receipt not found"}), 404
-
-    if not purchase and record and record.purchase_id:
-        purchase = session.query(Purchase).filter_by(id=record.purchase_id).first()
-
-    linked_records = []
-    if purchase:
-        linked_records = (
-            session.query(TelegramReceipt)
-            .filter(TelegramReceipt.purchase_id == purchase.id)
-            .all()
-        )
-    elif record:
-        linked_records = [record]
-
-    image_paths = [item.image_path for item in linked_records if item.image_path]
-    deleted_purchase_id = purchase.id if purchase else None
-    deleted_record_ids = [item.id for item in linked_records]
-
-    try:
-        if purchase:
-            receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
-            purchase_product_ids = {receipt_item.product_id for receipt_item in receipt_items}
-
-            if purchase_product_ids:
-                session.query(PriceHistory).filter(
-                    PriceHistory.product_id.in_(purchase_product_ids),
-                    PriceHistory.store_id == purchase.store_id,
-                    PriceHistory.date == purchase.date,
-                ).delete(synchronize_session=False)
-
-            session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
-            session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).delete(synchronize_session=False)
-            session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
-        elif linked_records:
-            session.query(TelegramReceipt).filter(
-                TelegramReceipt.id.in_(deleted_record_ids)
-            ).delete(synchronize_session=False)
-
-        session.flush()
-        rebuild_active_inventory(session)
-        session.commit()
-    except Exception as exc:
-        session.rollback()
-        logger.error("Failed to delete receipt %s: %s", receipt_id, exc)
-        return jsonify({"error": "Failed to delete receipt"}), 500
-
-    _cleanup_receipt_files(image_paths)
-
-    return jsonify({
-        "status": "deleted",
-        "receipt_id": receipt_id,
-        "deleted_record_ids": deleted_record_ids,
-        "deleted_purchase_id": deleted_purchase_id,
-    }), 200
-
-    data = request.get_json(silent=True) or {}
-    direction = (data.get("direction") or "right").strip().lower()
-    if direction not in {"left", "right"}:
-        return jsonify({"error": "direction must be left or right"}), 400
-
-    try:
-        _rotate_receipt_file(record.image_path, direction)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception as exc:
-        logger.error("Failed to rotate receipt %s: %s", receipt_id, exc)
-        return jsonify({"error": "Could not rotate receipt"}), 500
-
-    return jsonify({"status": "rotated", "receipt_id": record.id, "direction": direction}), 200
+    providers = session.query(BillProvider).filter_by(is_active=True).all()
+    results = []
+    for p in providers:
+        lines = [sl.service_type for sl in p.service_lines if sl.is_active and sl.service_type]
+        results.append({
+            "id": p.id,
+            "canonical_name": p.canonical_name,
+            "provider_type_hint": p.provider_type_hint,
+            "known_services": list(set(lines))
+        })
+    return jsonify({"providers": results}), 200
 
 
 @receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])

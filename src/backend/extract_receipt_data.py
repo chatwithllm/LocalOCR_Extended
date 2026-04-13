@@ -36,6 +36,7 @@ from src.backend.budgeting_domains import (
     derive_receipt_budget_defaults,
     normalize_budget_category,
     normalize_spending_domain,
+    normalize_utility_service_types,
 )
 from src.backend.budgeting_rollups import normalize_transaction_type
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
@@ -816,6 +817,9 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             f"{len(ocr_data.get('items', []))} items | purchase_id={purchase.id}"
         )
 
+        if str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}:
+            _save_bill_meta(session, purchase.id, ocr_data)
+
         if receipt_type == "grocery":
             rebuild_active_inventory(session)
             if purchase.transaction_type != "refund":
@@ -838,6 +842,86 @@ def _normalize_purchase_date(value: object) -> str:
     fallback = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     logger.warning("Falling back to current date because OCR returned invalid date: %s", value)
     return fallback
+
+
+def _safe_date_parse(value: str | None):
+    """Try to parse a YYYY-MM-DD string for household bill metadata."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
+    """Create or update the bill-meta sidecar for household bill receipts."""
+    try:
+        from src.backend.initialize_database_schema import BillMeta, BillProvider, BillServiceLine
+
+        provider_name = str(ocr_data.get("bill_provider_name") or ocr_data.get("store") or "").strip() or None
+        provider_type = str(ocr_data.get("bill_provider_type") or "").strip().lower() or None
+        service_types = normalize_utility_service_types(
+            ocr_data.get("bill_service_types"),
+            provider_type=provider_type,
+        )
+
+        existing = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
+        meta = existing or BillMeta(purchase_id=purchase_id)
+        if existing is None:
+            session.add(meta)
+
+        meta.provider_name = provider_name
+        meta.provider_type = provider_type
+        meta.service_types = json.dumps(service_types) if service_types else None
+        meta.account_label = (
+            str(ocr_data.get("bill_account_label") or "").strip() or None
+        )
+        meta.service_period_start = _safe_date_parse(ocr_data.get("bill_service_period_start"))
+        meta.service_period_end = _safe_date_parse(ocr_data.get("bill_service_period_end"))
+        meta.due_date = _safe_date_parse(ocr_data.get("bill_due_date"))
+        meta.billing_cycle_month = (
+            str(ocr_data.get("bill_billing_cycle_month") or "").strip()[:7] or None
+        )
+        is_recurring_raw = ocr_data.get("bill_is_recurring")
+        meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True
+
+        provider = None
+        if provider_name:
+            provider_key = provider_name.strip().lower()
+            provider = session.query(BillProvider).filter_by(normalized_key=provider_key).first()
+            if not provider:
+                provider = BillProvider(
+                    canonical_name=provider_name,
+                    normalized_key=provider_key,
+                    provider_type_hint=provider_type,
+                )
+                session.add(provider)
+                session.flush()
+            elif provider_type and not provider.provider_type_hint:
+                provider.provider_type_hint = provider_type
+
+        service_line = None
+        if provider:
+            service_line_key = f"{provider.normalized_key}::{provider_type or 'other'}::{meta.account_label or 'default'}"
+            service_line = session.query(BillServiceLine).filter_by(normalized_key=service_line_key).first()
+            if not service_line:
+                service_line = BillServiceLine(
+                    provider_id=provider.id,
+                    service_type=service_types[0] if service_types else provider_type,
+                    account_label=meta.account_label,
+                    normalized_key=service_line_key,
+                )
+                session.add(service_line)
+                session.flush()
+
+        meta.provider_id = provider.id if provider else None
+        meta.service_line_id = service_line.id if service_line else None
+
+        session.flush()
+        logger.info("Saved bill_meta for purchase_id=%s provider=%s", purchase_id, meta.provider_name)
+    except Exception as exc:
+        logger.warning("Failed to save bill_meta for purchase_id=%s: %s", purchase_id, exc)
 
 
 def _publish_inventory_updates(session, items):

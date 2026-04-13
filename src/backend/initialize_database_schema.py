@@ -84,6 +84,8 @@ class User(Base):
     api_token_hash = Column(String(255), nullable=True)
     password_reset_requested_at = Column(DateTime, nullable=True)
     session_version = Column(Integer, nullable=False, default=0)
+    google_sub = Column(String(255), nullable=True, unique=True)  # Google stable user ID
+    google_email = Column(String(255), nullable=True)             # Google account email (display)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -201,6 +203,83 @@ class Purchase(Base):
     store = relationship("Store", back_populates="purchases")
     user = relationship("User", back_populates="purchases")
     receipt_items = relationship("ReceiptItem", back_populates="purchase")
+
+
+class BillMeta(Base):
+    """Sidecar metadata for household bill purchases."""
+
+    __tablename__ = "bill_meta"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False, unique=True)
+    provider_name = Column(String(255), nullable=True)
+    provider_type = Column(String(60), nullable=True)
+    service_types = Column(Text, nullable=True)
+    account_label = Column(String(120), nullable=True)
+    provider_id = Column(Integer, ForeignKey("bill_providers.id"), nullable=True)
+    service_line_id = Column(Integer, ForeignKey("bill_service_lines.id"), nullable=True)
+    service_period_start = Column(Date, nullable=True)
+    service_period_end = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
+    billing_cycle_month = Column(String(7), nullable=True)
+    is_recurring = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_bill_meta_purchase_id", "purchase_id"),
+        Index("ix_bill_meta_billing_cycle_month", "billing_cycle_month"),
+        Index("ix_bill_meta_provider_name", "provider_name"),
+    )
+
+    purchase = relationship("Purchase", backref="bill_meta_record", uselist=False)
+    provider = relationship("BillProvider", back_populates="bill_meta_records")
+    service_line = relationship("BillServiceLine", back_populates="bill_meta_records")
+
+
+class BillProvider(Base):
+    """Canonical provider identity for recurring household bills."""
+
+    __tablename__ = "bill_providers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    canonical_name = Column(String(255), nullable=False)
+    normalized_key = Column(String(255), nullable=False, unique=True)
+    provider_type_hint = Column(String(60), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_bill_providers_normalized_key", "normalized_key"),
+        Index("ix_bill_providers_canonical_name", "canonical_name"),
+    )
+
+    service_lines = relationship("BillServiceLine", back_populates="provider")
+    bill_meta_records = relationship("BillMeta", back_populates="provider")
+
+
+class BillServiceLine(Base):
+    """Canonical provider service line such as electricity, water, or gas."""
+
+    __tablename__ = "bill_service_lines"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider_id = Column(Integer, ForeignKey("bill_providers.id"), nullable=False)
+    service_type = Column(String(60), nullable=True)
+    account_label = Column(String(120), nullable=True)
+    normalized_key = Column(String(255), nullable=False, unique=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_bill_service_lines_provider_id", "provider_id"),
+        Index("ix_bill_service_lines_normalized_key", "normalized_key"),
+    )
+
+    provider = relationship("BillProvider", back_populates="service_lines")
+    bill_meta_records = relationship("BillMeta", back_populates="service_line")
 
 
 class ReceiptItem(Base):
@@ -481,6 +560,10 @@ def _ensure_runtime_columns(engine):
         if engine.dialect.name != "sqlite":
             return
 
+        existing_tables = {
+            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        }
+
         inventory_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(inventory)"))
@@ -590,12 +673,174 @@ def _ensure_runtime_columns(engine):
                OR (default_budget_category = 'other' AND default_spending_domain IN ('restaurant', 'event'))
         """))
 
+        if "bill_meta" not in existing_tables:
+            conn.execute(text("""
+                CREATE TABLE bill_meta (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    purchase_id INTEGER NOT NULL UNIQUE REFERENCES purchases(id),
+                    provider_name VARCHAR(255),
+                    provider_type VARCHAR(60),
+                    service_types TEXT,
+                    account_label VARCHAR(120),
+                    provider_id INTEGER REFERENCES bill_providers(id),
+                    service_line_id INTEGER REFERENCES bill_service_lines(id),
+                    service_period_start DATE,
+                    service_period_end DATE,
+                    due_date DATE,
+                    billing_cycle_month VARCHAR(7),
+                    is_recurring BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_purchase_id ON bill_meta (purchase_id)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_billing_cycle_month ON bill_meta (billing_cycle_month)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_provider_name ON bill_meta (provider_name)"
+            ))
+        else:
+            bill_meta_columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(bill_meta)"))
+            }
+            if "provider_name" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN provider_name VARCHAR(255)"))
+            if "provider_type" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN provider_type VARCHAR(60)"))
+            if "service_types" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN service_types TEXT"))
+            if "account_label" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN account_label VARCHAR(120)"))
+            if "provider_id" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN provider_id INTEGER"))
+            if "service_line_id" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN service_line_id INTEGER"))
+            if "service_period_start" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN service_period_start DATE"))
+            if "service_period_end" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN service_period_end DATE"))
+            if "due_date" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN due_date DATE"))
+            if "billing_cycle_month" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN billing_cycle_month VARCHAR(7)"))
+            if "is_recurring" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN is_recurring BOOLEAN NOT NULL DEFAULT 1"))
+            if "created_at" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN created_at DATETIME"))
+            if "updated_at" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN updated_at DATETIME"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_purchase_id ON bill_meta (purchase_id)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_billing_cycle_month ON bill_meta (billing_cycle_month)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_provider_name ON bill_meta (provider_name)"
+            ))
+
+        if "bill_providers" not in existing_tables:
+            conn.execute(text("""
+                CREATE TABLE bill_providers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    canonical_name VARCHAR(255) NOT NULL,
+                    normalized_key VARCHAR(255) NOT NULL UNIQUE,
+                    provider_type_hint VARCHAR(60),
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+        if "bill_service_lines" not in existing_tables:
+            conn.execute(text("""
+                CREATE TABLE bill_service_lines (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider_id INTEGER NOT NULL REFERENCES bill_providers(id),
+                    service_type VARCHAR(60),
+                    account_label VARCHAR(120),
+                    normalized_key VARCHAR(255) NOT NULL UNIQUE,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_bill_providers_normalized_key ON bill_providers (normalized_key)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_bill_providers_canonical_name ON bill_providers (canonical_name)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_bill_service_lines_provider_id ON bill_service_lines (provider_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_bill_service_lines_normalized_key ON bill_service_lines (normalized_key)"
+        ))
+
+        conn.execute(text("""
+            INSERT OR IGNORE INTO bill_providers (canonical_name, normalized_key, provider_type_hint, is_active, created_at, updated_at)
+            SELECT
+                TRIM(provider_name) AS canonical_name,
+                LOWER(TRIM(provider_name)) AS normalized_key,
+                NULLIF(LOWER(TRIM(provider_type)), '') AS provider_type_hint,
+                1,
+                COALESCE(created_at, CURRENT_TIMESTAMP),
+                COALESCE(updated_at, CURRENT_TIMESTAMP)
+            FROM bill_meta
+            WHERE COALESCE(NULLIF(TRIM(provider_name), ''), '') <> ''
+        """))
+        conn.execute(text("""
+            UPDATE bill_meta
+            SET provider_id = (
+                SELECT bp.id
+                FROM bill_providers bp
+                WHERE bp.normalized_key = LOWER(TRIM(bill_meta.provider_name))
+                LIMIT 1
+            )
+            WHERE provider_id IS NULL
+              AND COALESCE(NULLIF(TRIM(provider_name), ''), '') <> ''
+        """))
+        conn.execute(text("""
+            INSERT OR IGNORE INTO bill_service_lines (provider_id, service_type, account_label, normalized_key, is_active, created_at, updated_at)
+            SELECT
+                bm.provider_id,
+                NULLIF(LOWER(TRIM(COALESCE(bm.provider_type, 'other'))), ''),
+                NULLIF(TRIM(bm.account_label), ''),
+                LOWER(
+                    TRIM(COALESCE(bm.provider_name, 'unknown'))
+                    || '::' || TRIM(COALESCE(bm.provider_type, 'other'))
+                    || '::' || TRIM(COALESCE(bm.account_label, 'default'))
+                ),
+                1,
+                COALESCE(bm.created_at, CURRENT_TIMESTAMP),
+                COALESCE(bm.updated_at, CURRENT_TIMESTAMP)
+            FROM bill_meta bm
+            WHERE bm.provider_id IS NOT NULL
+        """))
+        conn.execute(text("""
+            UPDATE bill_meta
+            SET service_line_id = (
+                SELECT bsl.id
+                FROM bill_service_lines bsl
+                WHERE bsl.normalized_key = LOWER(
+                    TRIM(COALESCE(bill_meta.provider_name, 'unknown'))
+                    || '::' || TRIM(COALESCE(bill_meta.provider_type, 'other'))
+                    || '::' || TRIM(COALESCE(bill_meta.account_label, 'default'))
+                )
+                LIMIT 1
+            )
+            WHERE service_line_id IS NULL
+              AND provider_id IS NOT NULL
+        """))
+
         receipt_item_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(receipt_items)"))
-        } if "receipt_items" in {
-            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        } else set()
+        } if "receipt_items" in existing_tables else set()
         if receipt_item_columns and "spending_domain" not in receipt_item_columns:
             conn.execute(text("ALTER TABLE receipt_items ADD COLUMN spending_domain VARCHAR(30)"))
         if receipt_item_columns and "budget_category" not in receipt_item_columns:
@@ -679,22 +924,22 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_requested_at DATETIME"))
         if "session_version" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0"))
+        if "google_sub" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255)"))
+        if "google_email" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_email VARCHAR(255)"))
 
         contribution_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(contribution_events)"))
-        } if "contribution_events" in {
-            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        } else set()
+        } if "contribution_events" in existing_tables else set()
         if contribution_columns and "status" not in contribution_columns:
             conn.execute(text("ALTER TABLE contribution_events ADD COLUMN status VARCHAR(30) NOT NULL DEFAULT 'finalized'"))
 
         shopping_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(shopping_list_items)"))
-        } if "shopping_list_items" in {
-            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        } else set()
+        } if "shopping_list_items" in existing_tables else set()
         if shopping_columns and "preferred_store" not in shopping_columns:
             conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN preferred_store VARCHAR(120)"))
         if shopping_columns and "manual_estimated_price" not in shopping_columns:
