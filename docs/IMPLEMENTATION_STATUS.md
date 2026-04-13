@@ -236,6 +236,76 @@ Extended-specific runtime changes now in place:
   - receipts history can later delete the entry to remove the amount
 - budget target changes are now admin-only in both backend enforcement and frontend controls
 - receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
+- recurring bills / household obligations Phase 1 is now in progress on:
+  - Phase 2 budget integration is now also active on the same branch
+  - `codex/household-bills`
+  - planning doc:
+    - `future enhancements/localocr_extended_recurring_bills_plan.md`
+  - current Phase 1 implementation now includes:
+    - `Household Bill` intake intent on upload
+    - manual entry type:
+      - `🏠 Household Bill`
+    - receipt editor type:
+      - `🏠 Household Bill`
+    - bill metadata capture and persistence:
+      - provider name
+      - provider type
+      - account label
+      - billing cycle month
+      - service period start/end
+      - due date
+      - recurring flag
+    - new spending-domain mapping:
+      - `household_obligations`
+    - new budget categories:
+      - `utilities`
+      - `other_recurring`
+    - bill receipts can now validate and save without line items
+    - bills analytics now include both:
+      - legacy `utility` domain records
+      - new `household_obligations` domain records
+  - compatibility strategy:
+    - legacy `utility_bill` values are still accepted by the backend
+    - legacy `utility` spend domain normalizes into Household Obligations behavior
+  - next verification step:
+    - smoke-test upload, manual entry, receipt edit, receipts filtering, and bills analytics on local `8090`
+  - current Phase 2 implementation now includes:
+    - a dedicated `Household Obligations` panel on the Budget page
+    - domain-level actuals-vs-target display for household bills
+    - `Committed This Month` from entered recurring household bills
+    - separation of recurring vs one-off household-bill spend
+    - fast jump buttons from the Household Obligations panel into the detailed obligation budget categories
+  - current Phase 3 analytics implementation now includes:
+    - a dedicated Household Obligations view on the shared Analytics page
+    - monthly obligation spend trends using the standard spending analytics feed
+    - bill budget-category breakdown from household bill receipts
+    - provider-level totals plus recent monthly trend chips
+    - recurring vs one-off obligation totals surfaced inside Analytics
+    - recent household bill activity embedded inside the analytics view
+  - current Phase 4 recurring-obligations implementation now includes:
+    - a Bills-page `Recurring Obligations` section with month picker
+    - derived known-obligation rows from recurring bill history
+    - expected / entered / outstanding / variance summary cards
+    - obligation-level receipt jump-through support
+    - fixes for lower Bills-page sections so recurring-obligation rendering no longer prevents Providers, Month-over-Month, and Recent Bills from loading
+    - provider-name normalization for bills analytics and recurring-obligation grouping so small OCR / casing / suffix variations do not fragment the same provider into multiple obligation rows
+    - combined-provider metadata support:
+      - `Service Types` now support multi-select bill services while preserving the existing primary `Provider Type` field for compatibility
+  - intentionally deferred to later phases:
+    - missing / outstanding recurring-bill detection
+    - canonical recurring-obligation records
+    - expected-vs-actual for obligations not yet entered this month
+  - planning consolidation:
+    - external architecture response captured in:
+      - `docs/LocalOCR Extended plan.md`
+    - codebase-tailored restart / implementation guide captured in:
+      - `future enhancements/recurring household bills consolidated plan.md`
+    - consolidated recommendation:
+      - keep receipts as the source of truth
+      - add canonical providers and service lines
+      - derive a first-class `planning_month`
+      - separate bill receipt state from payment-confirmed state
+      - let Gemini extract raw bill facts while app code derives planning logic
 
 ## Intended Parallel Deployment Shape
 

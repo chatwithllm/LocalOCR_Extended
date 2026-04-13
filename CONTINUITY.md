@@ -204,6 +204,61 @@ This split gives you a clean safety net:
   - `future enhancements/multi household.md`
   - `future enhancements/budget domains.md`
   - `future enhancements/units and size labels.md`
+- recurring household bills / obligations work now continues on:
+  - `codex/household-bills`
+- Household Bill Phase 1 foundation now includes:
+  - new receipt intake intent:
+    - `Household Bill`
+  - manual entry support for Household Bill receipts
+  - receipt editor support for Household Bill receipts
+  - bill metadata capture fields:
+    - provider name
+    - provider type
+    - account label
+    - billing cycle month
+    - service period start/end
+    - due date
+    - recurring flag
+  - new spending domain:
+    - `Household Obligations`
+  - new budget categories for recurring obligations:
+    - `utilities`
+    - `other_recurring`
+  - legacy `utility_bill` and `utility` data now normalize into the new household-bill path for compatibility
+  - bill receipts now save without requiring line items
+  - bills analytics now include both legacy utility rows and new household-obligation rows through the existing bills endpoint
+- Household Bill Phase 2 budget integration is now in progress on the same branch and currently includes:
+  - a dedicated `Household Obligations` summary section on the Budget page
+  - domain-level actuals-vs-target summary for household bills
+  - `Committed This Month` based on entered recurring bills
+  - one-off household-bill spend separated from recurring commitments
+  - obligation-category drill-in buttons for:
+    - utilities
+    - housing
+    - insurance
+    - childcare
+    - subscriptions
+    - health
+    - other recurring
+  - existing category cards remain intact below the new summary so detailed budget review still works
+- Household Bill Phase 3 analytics integration is now in progress on `codex/household-bills` and currently includes:
+  - a dedicated Household Obligations analytics rendering path on the main Analytics page
+  - monthly household-obligation spend trends using the shared analytics periods endpoint
+  - household-obligation budget category breakdown driven from bill receipts
+  - provider-level totals with recent month chips for fast trend inspection
+  - recurring vs one-off household bill totals surfaced directly in Analytics
+  - recent household bills list inside Analytics so the bills domain can be reviewed without leaving the page
+- Household Bill Phase 4 recurring-obligations module is now in progress on `codex/household-bills` and currently includes:
+  - a dedicated `Recurring Obligations` section on the Bills page with month selection
+  - derived obligation rows from recurring household-bill history
+  - expected vs actual vs variance summary cards for the selected month
+  - recurring-obligation cards with receipt jump-through support
+  - a rendering fix so the recurring-obligations panel no longer stops the lower bills sections from loading when March-style recurring rows are present
+  - lightweight provider-name normalization in bill analytics / recurring-obligation grouping so obvious variants like casing, punctuation, and common provider suffix noise do not split the same household obligation into separate rows
+  - Phase 4 follow-through is now extending bill metadata for combined providers:
+    - `Provider Name` remains a single biller
+    - `Service Types` can now store multiple services such as water / sewer / gas for one provider
+    - existing single `Provider Type` remains as the primary compatibility field for budget/category logic
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`
@@ -543,6 +598,27 @@ Operational and product items that are not fully closed yet:
     - AI suggestion/extraction from uploaded product photos
     - deeper product matching/merge automation during review
     - product-level snapshot history UI beyond the latest-photo shortcut
+- recurring bills and household obligations are now planned as the next dedicated stream:
+  - planning doc exists in `future enhancements/localocr_extended_recurring_bills_plan.md`
+  - dedicated implementation branch:
+    - `codex/household-bills-phase1`
+  - already complete before this stream starts:
+    - grocery / restaurant / general-expense receipt handling
+    - refund-aware receipt, budget, and analytics flows
+    - manual receipt entry
+    - budget allocation and budget history
+    - product snapshot capture and review
+  - currently being prepared on the new branch:
+    - Phase 1 foundation only
+  - Phase 1 target scope:
+    - add `Household Bill` as a new receipt type
+    - add `Household Obligations` as a new spending domain
+    - add bill-specific receipt fields for intake and review
+    - add upload-intent / manual-entry / receipt-filter support for household bills
+  - current state:
+    - planning complete
+    - implementation not started yet
+    - branch is being pushed first so GitHub can be verified before development begins
 
 ## 6. Planned Next
 
@@ -572,6 +648,11 @@ High-value next work from the current state:
   - add AI-assisted product-name / unit / size suggestions from uploaded item photos
   - improve admin review so a snapshot can create or match a product more directly
   - add clearer per-product snapshot history instead of only latest-photo behavior
+- begin recurring bills Phase 1 from `future enhancements/localocr_extended_recurring_bills_plan.md` after branch verification:
+  - `Household Bill` receipt type foundation
+  - `Household Obligations` domain foundation
+  - bill-specific intake / review / manual-entry fields
+  - receipt filtering support
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

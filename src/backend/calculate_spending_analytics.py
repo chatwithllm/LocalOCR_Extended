@@ -529,3 +529,274 @@ def get_store_comparison():
         "comparison": comparison,
         "cheapest_store": comparison[0]["store"] if comparison else None,
     }), 200
+        )
+        if pkey not in provider_summary:
+            provider_summary[pkey] = {
+                "provider_name": provider_name,
+                "provider_type": provider_type,
+                "service_types": service_types,
+                "total": 0.0,
+                "purchase_count": 0,
+                "refund_count": 0,
+                "latest_date": None,
+                "monthly_breakdown": {},
+            }
+        ps = provider_summary[pkey]
+        for service_type in service_types:
+            if service_type and service_type not in ps["service_types"]:
+                ps["service_types"].append(service_type)
+        ps["total"] += signed_total
+        if transaction_type == "refund":
+            ps["refund_count"] += 1
+        else:
+            ps["purchase_count"] += 1
+        if purchase.date and (ps["latest_date"] is None or purchase.date > ps["latest_date"]):
+            ps["latest_date"] = purchase.date
+        if billing_cycle:
+            ps["monthly_breakdown"][billing_cycle] = round(
+                ps["monthly_breakdown"].get(billing_cycle, 0.0) + signed_total, 2
+            )
+
+        # Per-category aggregation for analytics rollups
+        ckey = budget_category
+        if ckey not in category_summary:
+            category_summary[ckey] = {
+                "budget_category": ckey,
+                "total": 0.0,
+                "purchase_count": 0,
+                "refund_count": 0,
+            }
+        cs = category_summary[ckey]
+        cs["total"] += signed_total
+        if transaction_type == "refund":
+            cs["refund_count"] += 1
+        else:
+            cs["purchase_count"] += 1
+
+        # Global month totals
+        if billing_cycle:
+            monthly_totals[billing_cycle] = round(
+                monthly_totals.get(billing_cycle, 0.0) + signed_total, 2
+            )
+
+        # Due soon (next 14 days)
+        if meta and meta.due_date:
+            days_until = (meta.due_date - today).days
+            if 0 <= days_until <= 14:
+                due_soon.append({
+                    "purchase_id": purchase.id,
+                "provider_name": provider_name,
+                "provider_type": provider_type,
+                "service_types": service_types,
+                "amount": round(signed_total, 2),
+                    "due_date": meta.due_date.isoformat(),
+                    "days_until_due": days_until,
+                    "billing_cycle_month": meta.billing_cycle_month,
+                })
+
+        recent_bills.append({
+            "purchase_id": purchase.id,
+            "provider_name": provider_name,
+            "provider_type": provider_type,
+            "service_types": service_types,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "billing_cycle_month": billing_cycle,
+            "amount": round(signed_total, 2),
+            "transaction_type": transaction_type,
+            "is_recurring": is_recurring,
+            "due_date": meta.due_date.isoformat() if meta and meta.due_date else None,
+            "budget_category": budget_category,
+        })
+
+    # Serialize provider summary
+    provider_list = sorted(
+        [
+            {
+                "provider_name": v["provider_name"],
+                "provider_type": v["provider_type"],
+                "service_types": v.get("service_types", []),
+                "total": round(v["total"], 2),
+                "purchase_count": v["purchase_count"],
+                "refund_count": v["refund_count"],
+                "average_monthly": round(
+                    v["total"] / max(len(v["monthly_breakdown"]), 1), 2
+                ),
+                "latest_date": v["latest_date"].strftime("%Y-%m-%d") if v["latest_date"] else None,
+                "monthly_breakdown": v["monthly_breakdown"],
+            }
+            for v in provider_summary.values()
+        ],
+        key=lambda x: (-x["total"], x["provider_name"]),
+    )
+
+    due_soon.sort(key=lambda x: x["days_until_due"])
+    category_list = sorted(
+        [
+            {
+                "budget_category": value["budget_category"],
+                "total": round(value["total"], 2),
+                "purchase_count": value["purchase_count"],
+                "refund_count": value["refund_count"],
+            }
+            for value in category_summary.values()
+        ],
+        key=lambda entry: (-abs(entry["total"]), entry["budget_category"]),
+    )
+
+    purchase_count, refund_count = _transaction_counts([p for p, _, _ in rows])
+    return jsonify({
+        "months_back": months_back,
+        "receipt_count": purchase_count + refund_count,
+        "purchase_count": purchase_count,
+        "refund_count": refund_count,
+        "total_spend": round(total_spend, 2),
+        "recurring_total": round(recurring_total, 2),
+        "one_off_total": round(one_off_total, 2),
+        "providers": provider_list,
+        "category_breakdown": category_list,
+        "monthly_totals": {k: v for k, v in sorted(monthly_totals.items())},
+        "due_soon": due_soon,
+        "recent_bills": recent_bills[:20],
+    }), 200
+
+
+@analytics_bp.route("/recurring-obligations", methods=["GET"])
+@require_auth
+def get_recurring_obligations():
+    """Return a derived recurring-obligations planning view for a selected month."""
+    from src.backend.initialize_database_schema import BillMeta  # noqa: PLC0415
+
+    session = g.db_session
+    month = (request.args.get("month") or "").strip()
+    try:
+        target_month = datetime.strptime(month, "%Y-%m") if month else datetime.now(timezone.utc)
+    except ValueError:
+        return jsonify({"error": "Month must be in YYYY-MM format"}), 400
+
+    selected_month = target_month.strftime("%Y-%m")
+    cutoff = target_month - timedelta(days=400)
+
+    rows = (
+        session.query(Purchase, Store, BillMeta)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .join(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(
+            Purchase.domain.in_(["utility", "household_obligations"]),
+            Purchase.date >= cutoff,
+            BillMeta.is_recurring.is_(True),
+        )
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+
+    obligations = {}
+    for purchase, store, meta in rows:
+        provider_name = _provider_display_name(meta, store)
+        provider_type = (meta.provider_type or "other").strip() or "other"
+        service_types = _service_types_from_meta(meta)
+        account_label = (meta.account_label or "").strip() or None
+        budget_category = getattr(purchase, "default_budget_category", None) or "other_recurring"
+        key = _provider_group_key(provider_name, service_types[0] if service_types else provider_type, account_label)
+        billing_cycle = (meta.billing_cycle_month or "").strip() or (purchase.date.strftime("%Y-%m") if purchase.date else None)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
+        signed_total = round(signed_purchase_total(purchase), 2)
+
+        obligation = obligations.setdefault(key, {
+            "provider_name": provider_name,
+            "provider_type": provider_type,
+            "service_types": service_types,
+            "account_label": account_label,
+            "budget_category": budget_category,
+            "history": [],
+            "current_entry": None,
+            "latest_date": None,
+            "latest_due_date": None,
+        })
+
+        history_entry = {
+            "purchase_id": purchase.id,
+            "billing_cycle_month": billing_cycle,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "amount": signed_total,
+            "transaction_type": transaction_type,
+            "due_date": meta.due_date.isoformat() if meta.due_date else None,
+        }
+        obligation["history"].append(history_entry)
+
+        if billing_cycle == selected_month and obligation["current_entry"] is None:
+            obligation["current_entry"] = history_entry
+
+        if purchase.date and (obligation["latest_date"] is None or purchase.date > obligation["latest_date"]):
+            obligation["latest_date"] = purchase.date
+        if meta.due_date and (obligation["latest_due_date"] is None or meta.due_date > obligation["latest_due_date"]):
+            obligation["latest_due_date"] = meta.due_date
+
+    obligation_list = []
+    outstanding_count = 0
+    entered_count = 0
+    expected_total = 0.0
+    actual_total = 0.0
+    fixed_count = 0
+    variable_count = 0
+    new_count = 0
+
+    for obligation in obligations.values():
+        non_refund_history = [entry for entry in obligation["history"] if entry["transaction_type"] != "refund"]
+        recent_amounts = [abs(entry["amount"]) for entry in non_refund_history[:3] if entry["amount"] is not None]
+        expected_amount = round(sum(recent_amounts) / len(recent_amounts), 2) if recent_amounts else 0.0
+        amount_pattern, amount_spread = _obligation_amount_pattern(recent_amounts)
+        current_entry = obligation["current_entry"]
+        actual_amount = round(current_entry["amount"], 2) if current_entry else 0.0
+        variance = round(actual_amount - expected_amount, 2) if current_entry else round(-expected_amount, 2)
+        status = "entered" if current_entry else "outstanding"
+        if status == "entered":
+            entered_count += 1
+        else:
+            outstanding_count += 1
+        if amount_pattern == "fixed":
+            fixed_count += 1
+        elif amount_pattern == "variable":
+            variable_count += 1
+        else:
+            new_count += 1
+        expected_total += expected_amount
+        actual_total += actual_amount
+
+        obligation_list.append({
+            "provider_name": obligation["provider_name"],
+            "provider_type": obligation["provider_type"],
+            "service_types": obligation.get("service_types", []),
+            "account_label": obligation["account_label"],
+            "budget_category": obligation["budget_category"],
+            "status": status,
+            "amount_pattern": amount_pattern,
+            "amount_spread": amount_spread,
+            "expected_amount": expected_amount,
+            "actual_amount": actual_amount,
+            "variance": variance,
+            "selected_month": selected_month,
+            "purchase_id": current_entry["purchase_id"] if current_entry else (obligation["history"][0]["purchase_id"] if obligation["history"] else None),
+            "current_entry": current_entry,
+            "last_seen_date": obligation["latest_date"].strftime("%Y-%m-%d") if obligation["latest_date"] else None,
+            "last_due_date": obligation["latest_due_date"].isoformat() if obligation["latest_due_date"] else None,
+            "history_count": len(obligation["history"]),
+            "history_preview": obligation["history"][:4],
+        })
+
+    obligation_list.sort(key=lambda item: (0 if item["status"] == "outstanding" else 1, item["provider_name"].lower()))
+
+    return jsonify({
+        "month": selected_month,
+        "obligations": obligation_list,
+        "summary": {
+            "count": len(obligation_list),
+            "outstanding_count": outstanding_count,
+            "entered_count": entered_count,
+            "fixed_count": fixed_count,
+            "variable_count": variable_count,
+            "new_count": new_count,
+            "expected_total": round(expected_total, 2),
+            "actual_total": round(actual_total, 2),
+            "variance_total": round(actual_total - expected_total, 2),
+        },
+    }), 200

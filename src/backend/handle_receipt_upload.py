@@ -1200,3 +1200,89 @@ def delete_receipt(receipt_id):
         "deleted_record_ids": deleted_record_ids,
         "deleted_purchase_id": deleted_purchase_id,
     }), 200
+
+    data = request.get_json(silent=True) or {}
+    direction = (data.get("direction") or "right").strip().lower()
+    if direction not in {"left", "right"}:
+        return jsonify({"error": "direction must be left or right"}), 400
+
+    try:
+        _rotate_receipt_file(record.image_path, direction)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.error("Failed to rotate receipt %s: %s", receipt_id, exc)
+        return jsonify({"error": "Could not rotate receipt"}), 500
+
+    return jsonify({"status": "rotated", "receipt_id": record.id, "direction": direction}), 200
+
+
+@receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])
+@require_write_access
+def delete_receipt(receipt_id):
+    """Delete a receipt record, its stored file, and any associated purchase data."""
+    from src.backend.initialize_database_schema import (
+        TelegramReceipt, Purchase, ReceiptItem, PriceHistory, Inventory, BillMeta
+    )
+
+    session = g.db_session
+    record = _resolve_receipt_record(session, receipt_id)
+    purchase = session.query(Purchase).filter_by(id=receipt_id).first()
+    if not record and not purchase:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    if not purchase and record and record.purchase_id:
+        purchase = session.query(Purchase).filter_by(id=record.purchase_id).first()
+
+    linked_records = []
+    if purchase:
+        linked_records = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.purchase_id == purchase.id)
+            .all()
+        )
+    elif record:
+        linked_records = [record]
+
+    image_paths = [item.image_path for item in linked_records if item.image_path]
+    deleted_purchase_id = purchase.id if purchase else None
+    deleted_record_ids = [item.id for item in linked_records]
+
+    try:
+        if purchase:
+            receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
+            purchase_product_ids = {receipt_item.product_id for receipt_item in receipt_items}
+
+            if purchase_product_ids:
+                session.query(PriceHistory).filter(
+                    PriceHistory.product_id.in_(purchase_product_ids),
+                    PriceHistory.store_id == purchase.store_id,
+                    PriceHistory.date == purchase.date,
+                ).delete(synchronize_session=False)
+
+            # Delete bill_meta sidecar if present (utility bills)
+            session.query(BillMeta).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+            session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+            session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).delete(synchronize_session=False)
+            session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
+        elif linked_records:
+            session.query(TelegramReceipt).filter(
+                TelegramReceipt.id.in_(deleted_record_ids)
+            ).delete(synchronize_session=False)
+
+        session.flush()
+        rebuild_active_inventory(session)
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        logger.error("Failed to delete receipt %s: %s", receipt_id, exc)
+        return jsonify({"error": "Failed to delete receipt"}), 500
+
+    _cleanup_receipt_files(image_paths)
+
+    return jsonify({
+        "status": "deleted",
+        "receipt_id": receipt_id,
+        "deleted_record_ids": deleted_record_ids,
+        "deleted_purchase_id": deleted_purchase_id,
+    }), 200

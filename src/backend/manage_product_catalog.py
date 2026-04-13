@@ -16,7 +16,7 @@ from src.backend.create_flask_application import require_auth, require_write_acc
 from src.backend.contribution_scores import meaningful_text_change
 from src.backend.enrich_product_names import maybe_enrich_product, product_needs_review, should_enrich_product_name
 from src.backend.initialize_database_schema import (
-    Inventory, InventoryAdjustment, Product, PriceHistory, ReceiptItem, Purchase, Store, TelegramReceipt
+    Inventory, InventoryAdjustment, Product, ProductSnapshot, PriceHistory, ReceiptItem, Purchase, Store, TelegramReceipt
 )
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 
@@ -119,6 +119,22 @@ def _get_latest_product_price(session, product_id: int) -> dict | None:
     }
 
 
+def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
+    snapshot = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.product_id == product_id)
+        .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+        .first()
+    )
+    if not snapshot:
+        return None
+    return {
+        "id": snapshot.id,
+        "image_url": f"/product-snapshots/{snapshot.id}/image",
+        "created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
+    }
+
+
 def _serialize_product(session, product: Product) -> dict:
     recent_receipts = _get_product_receipt_links(session, product.id)
     latest_price = _get_latest_product_price(session, product.id)
@@ -142,6 +158,7 @@ def _serialize_product(session, product: Product) -> dict:
         "recent_receipts": recent_receipts,
         "last_purchase_date": recent_receipts[0]["date"] if recent_receipts else None,
         "latest_price": latest_price,
+        "latest_snapshot": _latest_snapshot_for_product(session, product.id),
         "inventory_item_id": inventory_item.id if inventory_item else None,
         "inventory_quantity": inventory_item.quantity if inventory_item else None,
         "inventory_threshold": inventory_item.threshold if inventory_item else None,

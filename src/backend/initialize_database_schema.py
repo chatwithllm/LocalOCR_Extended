@@ -740,3 +740,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     engine, Session = initialize_database()
     logger.info("Database tables created.")
+    logging.basicConfig(level=logging.INFO)
+    engine, Session = initialize_database()
+    logger.info("Database tables created.")

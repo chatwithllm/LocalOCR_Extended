@@ -18,8 +18,15 @@ It also supports a read-only guest demo experience for non-logged-in visitors, s
 The app currently supports these major household workflows:
 
 - receipt intake and correction
-  - upload grocery, restaurant, and general-expense receipts
+  - upload grocery, restaurant, general-expense, and household-bill receipts
   - OCR review with inline correction of store, date/time, totals, and line items
+  - bill-aware correction for recurring household obligations:
+    - provider name
+    - provider type
+    - billing cycle month
+    - service period
+    - due date
+    - recurring flag
   - mark receipts as `Purchase` or `Refund` with refund reason and refund note
   - refund-aware receipt review, refund-only filtering, and refund audit shortcuts
   - rotate, re-run OCR, and rebuild corrected receipts without losing the source image
@@ -47,6 +54,15 @@ The app currently supports these major household workflows:
   - review pending snapshots from Settings in an admin queue
 - budgeting and allocations
   - monthly targets by budget category
+  - Household Obligations spend domain for recurring bills and utilities
+  - recurring-bill budget categories including:
+    - utilities
+    - housing
+    - insurance
+    - childcare
+    - subscriptions
+    - health
+    - other recurring
   - line-item and receipt-level budget-category allocation
   - refund-aware spend rollups across budgets, expenses, restaurant, and analytics
   - contributing receipt breakdowns per active budget category
@@ -108,6 +124,12 @@ Compact mobile dashboard cards for low stock, top picks, and shopping awareness.
   - expense categories like beauty, health, fees, service, gift, and retail
   - separate expense budget
   - expense analytics and merchant history
+
+- `Household Bill`
+  - recurring household obligations like utilities, rent, insurance, subscriptions, and similar statements
+  - bill metadata capture for provider, billing period, due date, and recurrence
+  - separate Household Obligations domain mapping for budget and analytics
+  - legacy utility-bill data remains compatible with the new flow
 
 The app also includes a shared collaboration layer:
 
@@ -179,6 +201,7 @@ Operational note:
   - `Grocery`
   - `Restaurant`
   - `General Expense`
+  - `Household Bill`
 - OCR preview/result feedback
 - guest/demo mode keeps upload read-only until sign-in
 

@@ -55,3 +55,27 @@ def default_budget_category_for_spending_domain(spending_domain: str | None) -> 
 def derive_receipt_budget_defaults(receipt_type: str | None) -> tuple[str, str]:
     normalized_type = normalize_spending_domain(receipt_type, default="other")
     return normalized_type, default_budget_category_for_spending_domain(normalized_type)
+    if domain == "restaurant":
+        return "dining"
+    if domain == "event":
+        return "events"
+    if domain == "general_expense":
+        return "other"
+    if domain in {"utility", "household_obligations"}:
+        return default_budget_category_for_utility(provider_type)
+    return "other"
+
+
+def derive_receipt_budget_defaults(
+    receipt_type: str | None,
+    provider_type: str | None = None,
+) -> tuple[str, str]:
+    """Return (spending_domain, budget_category) defaults for a given receipt type."""
+    # Both the legacy utility_bill type and the new household_bill type map to
+    # the shared household obligations spending domain.
+    if str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}:
+        domain = "household_obligations"
+        category = default_budget_category_for_utility(provider_type)
+        return domain, category
+    normalized_type = normalize_spending_domain(receipt_type, default="other")
+    return normalized_type, default_budget_category_for_spending_domain(normalized_type)

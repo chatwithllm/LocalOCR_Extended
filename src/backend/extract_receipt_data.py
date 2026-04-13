@@ -961,3 +961,9 @@ def _send_telegram_error(chat_id: str):
         send_telegram_message(chat_id, "❌ Could not process receipt. Saved for manual review.")
     except Exception as e:
         logger.warning(f"Failed to send Telegram error: {e}")
+    """Send failure error to Telegram user."""
+    try:
+        from src.backend.handle_telegram_messages import send_telegram_message
+        send_telegram_message(chat_id, "❌ Could not process receipt. Saved for manual review.")
+    except Exception as e:
+        logger.warning(f"Failed to send Telegram error: {e}")
