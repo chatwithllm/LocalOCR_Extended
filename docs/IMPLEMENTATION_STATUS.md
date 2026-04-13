@@ -237,6 +237,7 @@ Extended-specific runtime changes now in place:
 - budget target changes are now admin-only in both backend enforcement and frontend controls
 - receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
 - recurring bills / household obligations Phase 1 is now in progress on:
+  - Phase 2 budget integration is now also active on the same branch
   - `codex/household-bills-phase1`
   - planning doc:
     - `future enhancements/localocr_extended_recurring_bills_plan.md`
@@ -268,6 +269,16 @@ Extended-specific runtime changes now in place:
     - legacy `utility` spend domain normalizes into Household Obligations behavior
   - next verification step:
     - smoke-test upload, manual entry, receipt edit, receipts filtering, and bills analytics on local `8090`
+  - current Phase 2 implementation now includes:
+    - a dedicated `Household Obligations` panel on the Budget page
+    - domain-level actuals-vs-target display for household bills
+    - `Committed This Month` from entered recurring household bills
+    - separation of recurring vs one-off household-bill spend
+    - fast jump buttons from the Household Obligations panel into the detailed obligation budget categories
+  - intentionally deferred to later phases:
+    - missing / outstanding recurring-bill detection
+    - canonical recurring-obligation records
+    - expected-vs-actual for obligations not yet entered this month
 
 ## Intended Parallel Deployment Shape
 

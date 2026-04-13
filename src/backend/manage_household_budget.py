@@ -28,12 +28,22 @@ from src.backend.budgeting_rollups import (
     signed_purchase_total,
 )
 from src.backend.create_flask_application import require_auth, require_write_access
-from src.backend.initialize_database_schema import Budget, BudgetChangeLog, Product, Purchase, ReceiptItem, Store
+from src.backend.initialize_database_schema import Budget, BudgetChangeLog, BillMeta, Product, Purchase, ReceiptItem, Store
 from src.backend.manage_authentication import is_admin
 
 logger = logging.getLogger(__name__)
 
 budget_bp = Blueprint("budget", __name__, url_prefix="/budget")
+
+HOUSEHOLD_OBLIGATION_CATEGORIES = [
+    "utilities",
+    "housing",
+    "insurance",
+    "childcare",
+    "subscriptions",
+    "health",
+    "other_recurring",
+]
 
 
 def _current_budget_owner_id():
@@ -82,6 +92,68 @@ def _build_category_status(month, budget_category, target_amount, spent_amount):
         "spent": round(spent_amount, 2),
         "remaining": round(remaining, 2),
         "percentage": round(percentage, 1),
+    }
+
+
+def _household_obligations_summary(month, computed, category_rows):
+    domain_spent = float(computed["domains"].get("household_obligations", 0) or 0)
+    category_map = {row["budget_category"]: row for row in category_rows}
+    obligation_rows = [category_map[category] for category in HOUSEHOLD_OBLIGATION_CATEGORIES if category in category_map]
+    target_total = sum(float(row.get("budget_amount", 0) or 0) for row in obligation_rows)
+    remaining = target_total - domain_spent
+    percentage = (domain_spent / target_total * 100) if target_total > 0 else 0
+
+    purchases = computed["purchases"]
+    household_purchase_ids = [
+        purchase.id
+        for purchase in purchases
+        if normalize_spending_domain(getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", None), default="other")
+        == "household_obligations"
+    ]
+
+    recurring_purchase_ids = set()
+    if household_purchase_ids:
+        recurring_purchase_ids = {
+            purchase_id
+            for (purchase_id,) in computed["session"].query(BillMeta.purchase_id)
+            .filter(
+                BillMeta.purchase_id.in_(household_purchase_ids),
+                BillMeta.is_recurring.is_(True),
+            )
+            .all()
+        }
+
+    recurring_total = 0.0
+    one_off_total = 0.0
+    recurring_count = 0
+    one_off_count = 0
+    for purchase in purchases:
+        normalized_domain = normalize_spending_domain(
+            getattr(purchase, "default_spending_domain", None) or getattr(purchase, "domain", None),
+            default="other",
+        )
+        if normalized_domain != "household_obligations":
+            continue
+        signed_total = signed_purchase_total(purchase)
+        if purchase.id in recurring_purchase_ids:
+            recurring_total += signed_total
+            recurring_count += 1
+        else:
+            one_off_total += signed_total
+            one_off_count += 1
+
+    return {
+        "domain": "household_obligations",
+        "label": "Household Obligations",
+        "spent": round(domain_spent, 2),
+        "target_total": round(target_total, 2),
+        "remaining": round(remaining, 2),
+        "percentage": round(percentage, 1),
+        "committed_this_month": round(recurring_total, 2),
+        "one_off_this_month": round(one_off_total, 2),
+        "recurring_count": recurring_count,
+        "one_off_count": one_off_count,
+        "categories": obligation_rows,
     }
 
 
@@ -258,6 +330,7 @@ def _compute_budget_rollups(session, month):
         for entry in rollups["domains"]
     }
     return {
+        "session": session,
         "purchases": purchases,
         "rollups": rollups,
         "categories": category_map,
@@ -344,6 +417,7 @@ def get_budget_category_summary():
 
     return jsonify({
         "month": month,
+        "household_obligations": _household_obligations_summary(month, computed, categories),
         "categories": active_categories + inactive_categories,
         "active_count": len(active_categories),
     }), 200

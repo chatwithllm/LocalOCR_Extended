@@ -227,6 +227,20 @@ This split gives you a clean safety net:
   - legacy `utility_bill` and `utility` data now normalize into the new household-bill path for compatibility
   - bill receipts now save without requiring line items
   - bills analytics now include both legacy utility rows and new household-obligation rows through the existing bills endpoint
+- Household Bill Phase 2 budget integration is now in progress on the same branch and currently includes:
+  - a dedicated `Household Obligations` summary section on the Budget page
+  - domain-level actuals-vs-target summary for household bills
+  - `Committed This Month` based on entered recurring bills
+  - one-off household-bill spend separated from recurring commitments
+  - obligation-category drill-in buttons for:
+    - utilities
+    - housing
+    - insurance
+    - childcare
+    - subscriptions
+    - health
+    - other recurring
+  - existing category cards remain intact below the new summary so detailed budget review still works
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`

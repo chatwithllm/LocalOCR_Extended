@@ -5207,11 +5207,12 @@
       <div class="card" id="budget-status-card">
         <div class="card-header">
           <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;width:100%">
-            <span class="card-title">This Month</span>
+            <span class="card-title" id="budget-status-title">This Month</span>
             <div id="budget-total-spent" style="font-weight:700;color:var(--text)"></div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">🔄</button>
         </div>
+        <div id="budget-household-obligations" style="margin-bottom:14px"></div>
         <div id="budget-status-body"></div>
       </div>
       <div class="card budget-section-shell" id="budget-targets-shell">
@@ -7838,6 +7839,16 @@ function formatDateTimeCompact(value, fallback = '—') {
     minute: '2-digit',
     hour12: true,
   });
+}
+
+function formatMonthYear(value, fallback = 'This Month') {
+  if (!value) return fallback;
+  const [year, month] = String(value).split('-');
+  const yearNum = Number(year);
+  const monthNum = Number(month);
+  if (!Number.isInteger(yearNum) || !Number.isInteger(monthNum) || monthNum < 1 || monthNum > 12) return fallback;
+  const date = new Date(yearNum, monthNum - 1, 1);
+  return date.toLocaleDateString([], { month: 'long', year: 'numeric' });
 }
 
 function formatRelativeTime(value, fallback = 'Never') {
@@ -15287,10 +15298,92 @@ async function loadBudgetHistory() {
   historyBody.innerHTML = renderBudgetHistoryRows(payload.history || []);
 }
 
-function syncBudgetCategorySelection(category) {
+async function syncBudgetCategorySelection(category) {
   const budgetCategory = document.getElementById('budget-category');
-  if (budgetCategory) budgetCategory.value = category;
-  loadBudgetEditorDefaults();
+  const editorShell = document.getElementById('budget-editor-shell');
+  if (budgetCategory) {
+    budgetCategory.value = category;
+    await loadBudgetEditorDefaults();
+  }
+  if (editorShell) {
+    toggleBudgetEditor(true);
+    editorShell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  const amountInput = document.getElementById('budget-amt');
+  if (amountInput) {
+    setTimeout(() => amountInput.focus(), 180);
+    setTimeout(() => amountInput.select?.(), 220);
+  }
+}
+
+function renderHouseholdObligationsBudget(obligations) {
+  if (!obligations) return '';
+  const spent = Number(obligations.spent || 0);
+  const target = Number(obligations.target_total || 0);
+  const committed = Number(obligations.committed_this_month || 0);
+  const oneOff = Number(obligations.one_off_this_month || 0);
+  const percentage = Number(obligations.percentage || 0);
+  const progressClass = percentage >= 90 ? 'danger' : percentage >= 70 ? 'warn' : 'ok';
+  const categories = Array.isArray(obligations.categories) ? obligations.categories : [];
+
+  return `
+    <details class="stat-card" style="padding:0;overflow:hidden;margin-bottom:12px">
+      <summary style="list-style:none;cursor:pointer;padding:14px 16px 12px;display:block">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-weight:700">Household Obligations</div>
+            <div style="font-size:0.82rem;color:var(--muted);margin-top:4px">Recurring bills, utilities, rent, insurance, and similar household obligations.</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;text-align:right">
+            <span style="font-size:0.82rem;color:var(--muted)">${percentage}%</span>
+            <span style="font-weight:700">${formatMoney(spent)}</span>
+            <span style="font-size:0.82rem;color:var(--muted)">${formatMoney(target)}</span>
+          </div>
+        </div>
+        <div class="progress-wrap" style="margin-top:10px"><div class="progress-bar ${progressClass}" style="width:${Math.min(Math.max(percentage, 0), 100)}%"></div></div>
+      </summary>
+      <div style="padding:0 16px 14px;border-top:1px solid var(--border);display:grid;gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px">
+          <div class="stat-card" style="padding:12px">
+            <div class="stat-label">Committed This Month</div>
+            <div class="stat-value" style="font-size:1.05rem">${formatMoney(committed)}</div>
+            <div class="stat-sub">${Number(obligations.recurring_count || 0)} recurring bill${Number(obligations.recurring_count || 0) === 1 ? '' : 's'} entered</div>
+          </div>
+          <div class="stat-card" style="padding:12px">
+            <div class="stat-label">One-Off Bills</div>
+            <div class="stat-value" style="font-size:1.05rem">${formatMoney(oneOff)}</div>
+            <div class="stat-sub">${Number(obligations.one_off_count || 0)} one-off receipt${Number(obligations.one_off_count || 0) === 1 ? '' : 's'} in this domain</div>
+          </div>
+          <div class="stat-card" style="padding:12px">
+            <div class="stat-label">Remaining To Target</div>
+            <div class="stat-value" style="font-size:1.05rem">${formatMoney(obligations.remaining || 0)}</div>
+            <div class="stat-sub">${formatMoney(target)} total target</div>
+          </div>
+        </div>
+        ${categories.length ? `
+          <div style="margin-top:2px">
+            <div style="font-weight:700;color:var(--text);margin-bottom:8px">Obligation Categories</div>
+            <div style="display:grid;gap:8px">
+              ${categories.map(item => `
+                <button
+                  type="button"
+                  class="btn btn-ghost"
+                  onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')"
+                  style="width:100%;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,0.02)"
+                >
+                  <span style="font-weight:700">${escHtml(formatLabel(item.budget_category, item.budget_category))}</span>
+                  <span style="display:flex;gap:12px;align-items:center;color:var(--muted);font-size:0.84rem;flex-wrap:wrap;justify-content:flex-end">
+                    <span>${Number(item.percentage || 0)}%</span>
+                    <span>${formatMoney(item.spent || 0)}</span>
+                    <span>${formatMoney(item.budget_amount || 0)}</span>
+                  </span>
+                </button>
+              `).join('')}
+            </div>
+          </div>` : '<div class="empty-state"><p>No household-obligation categories are active this month yet.</p></div>'}
+      </div>
+    </details>
+  `;
 }
 
 function renderBudgetStatusRow(item, selectedCategory) {
@@ -15366,14 +15459,22 @@ async function loadBudgetStatus() {
   const res = await api(`/budget/category-summary?month=${encodeURIComponent(month)}`);
   const body = document.getElementById('budget-status-body');
   const totalSpentEl = document.getElementById('budget-total-spent');
+  const obligationsEl = document.getElementById('budget-household-obligations');
+  const titleEl = document.getElementById('budget-status-title');
+  if (titleEl) titleEl.textContent = formatMonthYear(month, 'This Month');
   if (totalSpentEl) totalSpentEl.textContent = '';
-  if (!res.ok) { body.innerHTML = '<div class="empty-state"><p>No budget set for this month.</p></div>'; return; }
+  if (obligationsEl) obligationsEl.innerHTML = '';
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>No budget set for this month.</p></div>';
+    return;
+  }
   const payload = await res.json();
   const categories = Array.isArray(payload.categories) ? payload.categories : [];
   const active = categories.filter(item => Number(item.budget_amount || 0) > 0 || Number(item.spent || 0) > 0);
   const inactive = categories.filter(item => !(Number(item.budget_amount || 0) > 0 || Number(item.spent || 0) > 0));
   const totalSpent = categories.reduce((sum, item) => sum + Number(item.spent || 0), 0);
   if (totalSpentEl) totalSpentEl.textContent = formatMoney(totalSpent);
+  if (obligationsEl) obligationsEl.innerHTML = renderHouseholdObligationsBudget(payload.household_obligations);
   body.innerHTML = `
     ${active.length ? `
       <div style="margin-bottom:18px">
