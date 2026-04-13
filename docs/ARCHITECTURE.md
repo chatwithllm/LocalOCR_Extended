@@ -2,6 +2,8 @@
 
 ## System Overview
 
+This document still contains some legacy grocery-era labels, but the active Extended runtime is now centered on `8090` and the `localocr_extended` data paths.
+
 The Grocery Inventory & Savings Management System is a **local-first, privacy-first** application deployed via Docker Compose on a home server (Mac mini).
 
 ```
@@ -81,6 +83,14 @@ The Grocery Inventory & Savings Management System is a **local-first, privacy-fi
 7. Inventory auto-updated
 8. MQTT event published → Home Assistant updates in real-time
 
+### Product Snapshot Pipeline
+1. User adds a supporting item photo from a shopping row or receipt extracted-item row
+2. Image is stored under `/data/product_snapshots/`
+3. Snapshot metadata is stored in `product_snapshots`
+4. The related shopping item or receipt item exposes that snapshot as its `latest_snapshot`
+5. Shopping and receipt review surfaces switch from `Add Photo` to `View Photo`
+6. Admins can review pending snapshots from Settings and archive or resolve them into product context
+
 ### Real-Time Sync
 - Every inventory/alert/recommendation change publishes to MQTT
 - Home Assistant subscribes to MQTT topics
@@ -100,6 +110,7 @@ The Grocery Inventory & Savings Management System is a **local-first, privacy-fi
 | OCR Orchestrator | `extract_receipt_data.py` | Hybrid fallback logic |
 | Image Storage | `save_receipt_images.py` | Save + thumbnail + retention |
 | Products | `manage_product_catalog.py` | Product CRUD |
+| Product Snapshots | `manage_product_snapshots.py` | Upload, serve, and review supporting item photos |
 | Inventory | `manage_inventory.py` | Inventory CRUD + MQTT |
 | Alerts | `check_inventory_thresholds.py` | Low-stock detection |
 | Recommendations | `generate_recommendations.py` | Deal + seasonal detection |

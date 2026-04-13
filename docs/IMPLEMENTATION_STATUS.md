@@ -188,6 +188,17 @@ Extended-specific runtime changes now in place:
     - size label
     - price
   - shopping and product display layers now surface unit/size context in buyer-facing summaries where available
+- product snapshot capture is now implemented on the current branch:
+  - new `ProductSnapshot` persistence exists for shopping items, receipt items, purchases, stores, and optional product linkage
+  - shopping rows now support:
+    - `Add Photo`
+    - `View Photo` after a snapshot exists
+    - inline thumbnail preview of the latest saved photo
+  - receipt extracted items now support:
+    - `Add Photo`
+    - `View Photo`
+  - Settings now includes an admin snapshot review queue
+  - a dedicated `/data/product_snapshots` Docker volume persists uploaded item images
 - desktop Receipts inline review flow is now cleaner on the feature branch:
   - old dead right-hand detail column is removed during inline mode
   - inline receipts include an in-panel `Close Receipt` action
@@ -258,6 +269,8 @@ This is the repo where the following should happen next:
 - broader docs refresh beyond the core operator/handoff/product files
 - optional deeper backend deduplication/merge rules beyond the current grouped display behavior
 - stronger receipt/source affordances around manual entries versus uploaded receipts
+- AI-assisted extraction / suggestion from uploaded product photos
+- product-level snapshot history UI beyond the latest-photo shortcut in shopping and receipt review
 - recovery of receipt images that are physically missing from `/data/receipts`; those purchases still exist, but the image cannot be shown until the file is restored
 - the backup/restore workflow still has one major validation gap:
   - clean-machine restore drill from backup to healthy app

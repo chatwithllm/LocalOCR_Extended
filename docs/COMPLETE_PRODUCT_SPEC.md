@@ -209,6 +209,10 @@ UI expectations:
 - admins can verify current environment
 - admins can restore selected backup
 - backup cards should look like operator-ready product surfaces, not raw admin rows
+- Settings should also support admin review of uploaded product snapshots:
+  - pending supporting item photos captured from shopping or receipt review
+  - archive action
+  - product-context resolution path
 
 Verification expectations:
 
@@ -705,6 +709,10 @@ QR safety requirements:
 - login links should be short-lived and safer than password sharing
 - trusted-device pairing QR must carry only a short-lived pairing session, never the persistent device credential itself
 - persistent trusted-device credentials must only be issued after admin approval and must remain revocable from Settings
+- shopping and receipt review should also support supporting item-photo capture:
+  - shopping rows can add/view a latest product photo
+  - extracted receipt items can add/view a latest product photo
+  - product snapshot files must persist separately from receipt images
 
 ## 18. Operational Hardening
 

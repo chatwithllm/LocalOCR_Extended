@@ -2087,8 +2087,34 @@
       cursor: pointer;
       min-width: 0;
     }
-    .shopping-mobile-item-name {
+    .shopping-item-thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .shopping-item-thumb.placeholder {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .shopping-mobile-item-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
       flex: 1 1 auto;
+    }
+    .shopping-mobile-item-text {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .shopping-mobile-item-name {
       font-weight: 700;
       font-size: 0.92rem;
       line-height: 1.25;
@@ -2200,27 +2226,49 @@
     .shopping-store-table td {
       vertical-align: top;
     }
+    .shopping-store-table {
+      width: 100%;
+      table-layout: fixed;
+    }
     .shopping-store-table .shopping-item-cell {
-      min-width: 260px;
+      min-width: 0;
+    }
+    .shopping-web-item-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+    }
+    .shopping-web-item-text {
+      min-width: 0;
+      flex: 1 1 auto;
     }
     .shopping-store-table .shopping-store-select {
-      min-width: 150px;
-      max-width: 180px;
+      min-width: 120px;
+      max-width: 150px;
       width: 100%;
     }
     .shopping-store-table .shopping-actions-cell {
-      min-width: 210px;
+      min-width: 112px;
+    }
+    .shopping-actions-stack {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
     }
     .shopping-store-table .shopping-item-actions-row {
-      min-width: 210px;
+      min-width: 112px;
       grid-template-columns: repeat(3, minmax(52px, 1fr));
     }
     .shopping-store-table .shopping-item-actions-row .btn {
       padding: 6px 8px;
       font-size: 0.74rem;
     }
+    .shopping-web-action-strip .btn {
+      padding: 6px 8px;
+      font-size: 0.74rem;
+    }
     .shopping-more-menu {
-      position: relative;
       width: 100%;
     }
     .shopping-more-menu summary {
@@ -2235,10 +2283,6 @@
       background: rgba(108, 99, 255, 0.12);
     }
     .shopping-more-panel {
-      position: absolute;
-      right: 0;
-      top: calc(100% + 8px);
-      z-index: 30;
       min-width: 156px;
       display: grid;
       gap: 6px;
@@ -2246,7 +2290,8 @@
       border-radius: 12px;
       border: 1px solid var(--border);
       background: rgba(20, 24, 36, 0.98);
-      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+      margin-top: 8px;
     }
     .shopping-more-panel .btn {
       width: 100%;
@@ -2264,23 +2309,75 @@
       width: 100%;
       box-shadow: none;
     }
+    .shopping-more-panel.web-inline {
+      position: static;
+      min-width: 168px;
+      width: 168px;
+      box-shadow: none;
+      margin-top: 0;
+    }
+    .image-lightbox-modal {
+      width: min(1040px, 96vw);
+      max-height: min(92vh, 980px);
+      background: rgba(14, 18, 28, 0.98);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+      display: grid;
+      gap: 12px;
+    }
+    .image-lightbox-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .image-lightbox-title {
+      font-size: 1rem;
+      font-weight: 800;
+    }
+    .image-lightbox-frame {
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      min-height: 320px;
+      max-height: calc(92vh - 120px);
+    }
+    .image-lightbox-frame img {
+      display: block;
+      max-width: 100%;
+      max-height: calc(92vh - 150px);
+      object-fit: contain;
+      border-radius: 12px;
+    }
     .shopping-store-table .shopping-rename-row {
       justify-content: flex-start;
       margin-top: 6px;
     }
+    .shopping-web-edit-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      gap: 16px;
+      margin-top: 8px;
+      min-width: 0;
+      width: 100%;
+    }
     .shopping-web-edit-grid {
       display: grid;
       grid-template-columns:
-        minmax(96px, 0.9fr)
-        minmax(96px, 0.8fr)
-        minmax(160px, 1.3fr)
-        minmax(110px, 0.9fr)
-        auto
-        auto
-        auto;
+        minmax(104px, 116px)
+        minmax(104px, 116px)
+        minmax(180px, 220px)
+        minmax(120px, 132px);
       gap: 8px;
       align-items: end;
-      margin-top: 8px;
+      flex: 0 0 auto;
+      min-width: 0;
     }
     .shopping-web-edit-field {
       display: grid;
@@ -2302,13 +2399,35 @@
       height: 36px;
     }
     .shopping-web-edit-field.compact-store select {
-      min-width: 96px;
-      max-width: 132px;
+      min-width: 88px;
+      max-width: 116px;
     }
     .shopping-web-edit-grid .btn {
       height: 36px;
       align-self: end;
       white-space: nowrap;
+    }
+    .shopping-web-action-strip {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      flex-wrap: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+      justify-content: flex-start;
+    }
+    .shopping-web-action-strip:empty {
+      display: none;
+    }
+    .shopping-web-action-strip .btn {
+      height: 36px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .shopping-actions-stack {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
     }
     .shopping-mobile-compact-grid {
       display: grid;
@@ -4909,6 +5028,7 @@
           </div>
         </div>
         <div id="shopping-current-list-body" class="table-wrap"><div id="shopping-table-body"></div></div>
+        <input id="shopping-snapshot-input" type="file" accept="image/*" style="display:none" onchange="uploadShoppingSnapshotFromPicker(event)" />
       </div>
     </div>
 
@@ -5045,6 +5165,7 @@
         <div class="card">
           <div class="card-header"><span class="card-title">Receipt Details</span></div>
           <div id="receipt-detail-body"><div class="empty-state"><div class="icon">🧾</div><p>Select a receipt to inspect the extracted items and image.</p></div></div>
+          <input id="receipt-item-snapshot-input" type="file" accept="image/*" style="display:none" onchange="uploadReceiptItemSnapshotFromPicker(event)" />
         </div>
       </div>
     </div>
@@ -5253,6 +5374,16 @@
       </div>
       <div class="card">
         <div class="card-header">
+          <span class="card-title">📷 Snapshot Review</span>
+          <div class="table-toolbar">
+            <button class="btn btn-ghost btn-sm" onclick="loadSnapshotReviewQueue()">🔄</button>
+          </div>
+        </div>
+        <div id="snapshot-review-note" style="color:var(--muted);font-size:0.84rem">Only admins can review item photos and link them to products.</div>
+        <div id="snapshot-review-body" style="margin-top:16px"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
           <span class="card-title">💾 Environment Backup & Restore</span>
           <div class="table-toolbar">
             <button class="btn btn-ghost btn-sm" onclick="createEnvironmentBackup()">Create Backup</button>
@@ -5381,6 +5512,17 @@
       <div class="confirm-actions">
         <button type="button" id="input-cancel" class="btn btn-ghost">Cancel</button>
         <button type="button" id="input-ok" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="image-lightbox-overlay" class="confirm-overlay" aria-hidden="true" onclick="if(event.target===this) closeImageLightbox()">
+    <div class="image-lightbox-modal" role="dialog" aria-modal="true" aria-labelledby="image-lightbox-title">
+      <div class="image-lightbox-head">
+        <div id="image-lightbox-title" class="image-lightbox-title">Item Photo</div>
+        <button type="button" class="btn btn-ghost" onclick="closeImageLightbox()">Close</button>
+      </div>
+      <div class="image-lightbox-frame">
+        <img id="image-lightbox-img" alt="Item photo preview" />
       </div>
     </div>
   </div>
@@ -5701,6 +5843,8 @@ let selectedReceiptMonth = null;
 let selectedExpenseReceiptId = null;
 let latestReceiptSummary = {};
 let receiptBudgetRequestId = 0;
+let shoppingSnapshotTargetItemId = null;
+let receiptSnapshotTargetItem = null;
 let currentUserStats = { receipts_today: 0, receipts_month: 0, receipts_processed: 0, ocr_corrections: 0, ocr_corrections_month: 0, score: 0 };
 let householdLeaderboard = { month: '', leaders: [], current_user_rank: null, total_users: 0 };
 let contributionSummary = null;
@@ -6192,6 +6336,7 @@ function mergeShoppingDisplayItems(items = []) {
         productIds: new Set(),
         primaryItem: item,
         source: item.source,
+        latest_snapshot: item.latest_snapshot || null,
       });
     }
     const group = groups.get(key);
@@ -6212,6 +6357,15 @@ function mergeShoppingDisplayItems(items = []) {
     if (!group.effective_store && (item.effective_store || item.latest_price?.store)) {
       group.effective_store = item.effective_store || item.latest_price?.store || '';
     }
+    const currentSnapshotCapturedAt = group.latest_snapshot?.captured_at
+      ? new Date(group.latest_snapshot.captured_at).getTime()
+      : 0;
+    const nextSnapshotCapturedAt = item.latest_snapshot?.captured_at
+      ? new Date(item.latest_snapshot.captured_at).getTime()
+      : 0;
+    if (!group.latest_snapshot || nextSnapshotCapturedAt >= currentSnapshotCapturedAt) {
+      group.latest_snapshot = item.latest_snapshot || group.latest_snapshot;
+    }
     const currentPrice = Number(group.primaryItem?.latest_price?.price || 0);
     const nextPrice = Number(item.latest_price?.price || 0);
     const currentQty = Number(group.primaryItem?.quantity || 0);
@@ -6230,6 +6384,9 @@ function mergeShoppingDisplayItems(items = []) {
     primaryProductId: group.productIds.size === 1 ? [...group.productIds][0] : null,
     rawNames: [...group.rawNames],
     fullNames: [...group.fullNames],
+    latest_snapshot: group.latest_snapshot || group.primaryItem?.latest_snapshot || null,
+    unit: group.primaryItem?.unit || null,
+    size_label: group.primaryItem?.size_label || null,
   }));
 }
 
@@ -8929,6 +9086,7 @@ function nav(page, el) {
       loadTrustedDevices();
       loadEnvironmentBackups();
       loadReviewQueue();
+      loadSnapshotReviewQueue();
     }
   }
 }
@@ -9902,6 +10060,123 @@ async function loadTrustedDevices() {
       </div>
     `;
   }).join('');
+}
+
+async function loadSnapshotReviewQueue() {
+  const note = document.getElementById('snapshot-review-note');
+  const body = document.getElementById('snapshot-review-body');
+  if (!note || !body) return;
+  if (!currentUser) {
+    note.textContent = 'Sign in to review item photos.';
+    body.innerHTML = '<div class="empty-state"><p>Sign in to view the snapshot review queue.</p></div>';
+    return;
+  }
+  if (currentUser.role !== 'admin') {
+    note.textContent = 'Only admins can review item photos and link them to products.';
+    body.innerHTML = '<div class="empty-state"><p>Your account can use photos, but only admins can review the queue.</p></div>';
+    return;
+  }
+
+  note.textContent = 'Review item photos, link them to the right product name, or archive them when they are no longer useful.';
+  const res = await api('/product-snapshots/review-queue?status=pending&limit=50');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    body.innerHTML = '<div class="empty-state"><p>Could not load the snapshot review queue.</p></div>';
+    return;
+  }
+  const items = data.items || [];
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No pending item photos right now.</p></div>';
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="display:grid;gap:14px">
+      ${items.map(item => `
+        <div class="card" style="margin:0;padding:14px">
+          <div style="display:grid;grid-template-columns:minmax(140px,180px) minmax(0,1fr);gap:14px;align-items:start">
+            <div>
+              <a href="${API_BASE}${item.image_url}" target="_blank" rel="noopener noreferrer" style="display:block">
+                <img src="${API_BASE}${item.image_url}" alt="Snapshot ${item.id}" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:12px;border:1px solid var(--border);background:var(--surface2)" />
+              </a>
+            </div>
+            <div style="display:grid;gap:10px">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+                <div>
+                  <div style="font-weight:800">${escHtml(item.product_name || item.shopping_item_name || 'Unlinked snapshot')}</div>
+                  <div style="color:var(--muted);font-size:0.82rem;margin-top:4px">
+                    ${[
+                      item.store_name || null,
+                      item.source_context ? formatLabel(item.source_context.replaceAll('_', ' '), 'Unknown') : null,
+                      item.captured_at ? formatDateTime(item.captured_at, '—') : null,
+                      item.notes || null
+                    ].filter(Boolean).map(v => escHtml(v)).join(' · ')}
+                  </div>
+                </div>
+                <span class="badge badge-${item.status === 'linked' ? 'ok' : 'warning'}">${escHtml(formatLabel(item.status, 'Pending'))}</span>
+              </div>
+              <div class="form-grid" style="grid-template-columns:minmax(0,1.4fr) minmax(180px,.8fr)">
+                <div class="form-group" style="margin:0">
+                  <label>Product Name</label>
+                  <input id="snapshot-review-name-${item.id}" value="${escAttr(item.linked_product?.name || item.product_name || item.shopping_item_name || '')}" placeholder="Shopping-friendly product name" />
+                </div>
+                <div class="form-group" style="margin:0">
+                  <label>Category</label>
+                  <select id="snapshot-review-category-${item.id}">${renderProductCategoryOptionTags(item.linked_product?.category || 'other')}</select>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="saveSnapshotReview(${item.id})">Link Product</button>
+                <button class="btn btn-ghost btn-sm" onclick="window.open('${API_BASE}${item.image_url}', '_blank', 'noopener,noreferrer')">Open Photo</button>
+                <button class="btn btn-danger btn-sm" onclick="archiveSnapshotReview(${item.id})">Archive</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function saveSnapshotReview(snapshotId) {
+  const nameEl = document.getElementById(`snapshot-review-name-${snapshotId}`);
+  const categoryEl = document.getElementById(`snapshot-review-category-${snapshotId}`);
+  const productName = nameEl?.value?.trim() || '';
+  const category = categoryEl?.value || 'other';
+  if (!productName) {
+    toast('Enter a product name before linking the snapshot', 'error');
+    return;
+  }
+  const res = await api(`/product-snapshots/${snapshotId}/review`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      product_name: productName,
+      category,
+      status: 'linked',
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not review snapshot', 'error');
+    return;
+  }
+  toast('Snapshot linked to product ✅', 'success');
+  await Promise.allSettled([loadSnapshotReviewQueue(), loadShoppingList()]);
+  if (selectedReceiptId) await viewReceipt(selectedReceiptId, { scroll: false });
+}
+
+async function archiveSnapshotReview(snapshotId) {
+  const res = await api(`/product-snapshots/${snapshotId}/review`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'archived' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    toast(data.error || 'Could not archive snapshot', 'error');
+    return;
+  }
+  toast('Snapshot archived', 'success');
+  await loadSnapshotReviewQueue();
 }
 
 function animateTrustedDeviceRemoval(deviceId) {
@@ -12879,6 +13154,75 @@ async function saveShoppingGroupUnitDefaults(itemIds, primaryProductId, key) {
   ]);
 }
 
+async function updateShoppingGroupDetails(itemIds, primaryProductId, key, preferredStore = '') {
+  if (SHOPPING_HELPER_MODE) return;
+  const validIds = (itemIds || []).map(Number).filter(Boolean);
+  if (!validIds.length) return;
+
+  const unitEl = document.getElementById(`shopping-unit-${key}`);
+  const sizeEl = document.getElementById(`shopping-size-${key}`);
+  const priceEl = document.getElementById(`shopping-price-${key}`);
+
+  const unit = unitEl?.value || 'each';
+  const sizeLabel = sizeEl?.value?.trim?.() || '';
+  const rawPrice = priceEl?.value?.trim?.() ?? '';
+  const unitPrice = rawPrice === '' ? null : Number(rawPrice);
+
+  if (rawPrice !== '' && (!Number.isFinite(unitPrice) || unitPrice < 0)) {
+    toast('Enter a valid unit price', 'error');
+    return;
+  }
+
+  if (primaryProductId) {
+    const productRes = await api(`/products/${primaryProductId}/update`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        default_unit: unit,
+        default_size_label: sizeLabel
+      })
+    });
+    const productPayload = await productRes.json().catch(() => ({}));
+    if (!productRes.ok) {
+      toast(productPayload.error || 'Could not update product defaults', 'error');
+      return;
+    }
+  }
+
+  const itemBody = {
+    preferred_store: preferredStore || '',
+    unit,
+    size_label: sizeLabel
+  };
+  if (unitPrice != null) {
+    itemBody.manual_estimated_price = unitPrice;
+    itemBody.persist_latest_price = true;
+    itemBody.price_store = preferredStore || '';
+  }
+
+  const results = await Promise.all(validIds.map(id => api(`/shopping-list/items/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(itemBody)
+  })));
+
+  const failed = [];
+  for (const res of results) {
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      failed.push(payload.error || 'Could not update shopping item');
+    }
+  }
+  if (failed.length) {
+    toast(failed[0], 'error');
+    return;
+  }
+
+  toast('Shopping item updated ✅', 'success');
+  await Promise.all([
+    loadShoppingList(),
+    loadContributions()
+  ]);
+}
+
 function renderShoppingListTable() {
   const body = document.getElementById('shopping-table-body');
   if (!body) return;
@@ -12943,10 +13287,24 @@ function renderShoppingListTable() {
     const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
     const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
     return `
+      <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; selectShoppingSnapshotFile(${item.primaryItem?.id || item.ids[0] || 'null'})">Add Photo</button>
+      ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')">View Photo</button>` : ''}
       ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
       <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel}</button>
       <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
       <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
+    `;
+  };
+  const renderShoppingDesktopInlineActions = item => {
+    const lowLabel = item.primaryItem?.manual_low || item.primaryItem?.is_low ? 'Clear Low' : 'Low';
+    const outLabel = item.status === 'out_of_stock' ? 'Reopen' : 'Out of Stock';
+    const outNextStatus = item.status === 'out_of_stock' ? 'open' : 'out_of_stock';
+    return `
+      <button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; selectShoppingSnapshotFile(${item.primaryItem?.id || item.ids[0] || 'null'})">Photo</button>
+      ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')">View</button>` : ''}
+      ${item.primaryProductId ? `<button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; setProductLowStatus(${item.primaryProductId}, ${!(item.primaryItem?.manual_low || item.primaryItem?.is_low)})">${lowLabel}</button>` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" onclick="shoppingMoreMenuOpen = {}; toggleShoppingGroupItems([${item.ids.join(',')}], '${outNextStatus}')">${outLabel === 'Reopen' ? 'Open' : 'No Stock'}</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="shoppingMoreMenuOpen = {}; deleteShoppingGroupItems([${item.ids.join(',')}])">Delete</button>
     `;
   };
   const renderShoppingMoreMenu = (item, mobile = false) => {
@@ -12967,14 +13325,7 @@ function renderShoppingListTable() {
           type="button"
           class="btn btn-sm btn-ghost"
           onclick="event.stopPropagation(); toggleShoppingMoreMenu(decodeURIComponent('${encodeURIComponent(menuId)}'))"
-        >More</button>
-        <div
-          class="shopping-more-panel"
-          style="display:${shoppingMoreMenuOpen[menuId] ? 'grid' : 'none'}"
-          onclick="event.stopPropagation()"
-        >
-          ${renderShoppingMorePanelButtons(item)}
-        </div>
+        >${shoppingMoreMenuOpen[menuId] ? 'Collapse' : 'More'}</button>
       </div>
     `;
   };
@@ -13017,7 +13368,14 @@ function renderShoppingListTable() {
                 ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
-                  <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
+                  <div class="shopping-mobile-item-main">
+                    ${item.latest_snapshot?.image_url
+                      ? `<img class="shopping-item-thumb" src="${escAttr(item.latest_snapshot.image_url)}" alt="${escAttr(formatShoppingDisplayName(item))}" onclick="event.stopPropagation(); openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />`
+                      : `<div class="shopping-item-thumb placeholder" aria-hidden="true">📷</div>`}
+                    <div class="shopping-mobile-item-text">
+                      <div class="shopping-mobile-item-name">${escHtml(formatShoppingDisplayName(item))}</div>
+                    </div>
+                  </div>
                 <div class="shopping-mobile-item-estimate">
                   ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
                   <span class="shopping-mobile-item-chevron">▾</span>
@@ -13080,13 +13438,8 @@ function renderShoppingListTable() {
                   <button
                     type="button"
                     class="btn btn-sm btn-ghost"
-                    onclick="event.stopPropagation(); saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                  >Save Unit</button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-ghost"
-                    onclick="event.stopPropagation(); saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
-                  >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
+                    onclick="event.stopPropagation(); updateShoppingGroupDetails([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                  >Update</button>
                 </div>
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
@@ -13131,59 +13484,82 @@ function renderShoppingListTable() {
         </div>
         <div class="table-wrap" style="display:${collapsed ? 'none' : ''}">
           <table class="shopping-store-table">
+            <colgroup>
+              <col style="width:49%">
+              <col style="width:8%">
+              <col style="width:4%">
+              <col style="width:8%">
+              <col style="width:12%">
+              <col style="width:9%">
+              <col style="width:10%">
+            </colgroup>
             <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Estimate</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>${sortShoppingItems(storeItems).map(item => `
               <tr>
                 <td class="shopping-item-cell">
-                  <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
-                  <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
-                    ${[
-                      item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
-                      formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
-                      item.effective_store ? `Likely ${item.effective_store}` : null,
-                      item.note || null
-                    ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                  <div class="shopping-web-item-head">
+                    ${item.latest_snapshot?.image_url
+                      ? `<img class="shopping-item-thumb" src="${escAttr(item.latest_snapshot.image_url)}" alt="${escAttr(formatShoppingDisplayName(item))}" onclick="openShoppingSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />`
+                      : `<div class="shopping-item-thumb placeholder" aria-hidden="true">📷</div>`}
+                    <div class="shopping-web-item-text">
+                      <strong>${escHtml(formatShoppingDisplayName(item))}</strong>
+                      <div style="color:var(--muted);font-size:0.78rem;margin-top:4px">
+                        ${[
+                          item.mergedCount > 1 ? `${item.mergedCount} entries merged` : null,
+                          formatUnitSizeSummary(item.unit || item.primaryItem?.unit || '', item.size_label || item.primaryItem?.size_label || ''),
+                          item.effective_store ? `Likely ${item.effective_store}` : null,
+                          item.note || null,
+                          item.latest_snapshot?.count ? `${item.latest_snapshot.count} photo${item.latest_snapshot.count === 1 ? '' : 's'} saved` : null
+                        ].filter(Boolean).map(value => escHtml(value)).join(' · ')}
+                      </div>
+                      ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
+                    </div>
                   </div>
-                  ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ''}
-                  <div class="shopping-web-edit-grid">
-                    <div class="shopping-web-edit-field compact-store">
-                      <label>🏬</label>
-                      <select
-                        class="inline-select"
-                        title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
-                        onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
-                      >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                  <div class="shopping-web-edit-row">
+                    <div class="shopping-web-edit-grid">
+                      <div class="shopping-web-edit-field compact-store">
+                        <label>🏬</label>
+                        <select
+                          class="inline-select"
+                          title="${escAttr(item.preferred_store || item.effective_store || 'Any store')}"
+                          onchange="updateShoppingPreferredStoreGroup([${item.ids.join(',')}], this.value)"
+                        >${renderShoppingStoreOptionTags(item.preferred_store || item.effective_store || '')}</select>
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Unit</label>
+                        <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Size Label</label>
+                        <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
+                      </div>
+                      <div class="shopping-web-edit-field">
+                        <label>Unit Price</label>
+                        <input
+                          id="shopping-price-${escAttr(item.key)}"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
+                          placeholder="0.00"
+                        />
+                      </div>
                     </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Unit</label>
-                      <select id="shopping-unit-${escAttr(item.key)}" class="inline-select">${renderUnitOptionTags(item.unit || item.primaryItem?.unit || 'each')}</select>
+                    <div class="shopping-web-action-stack">
+                      <div class="shopping-web-action-strip">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-ghost"
+                          onclick="updateShoppingGroupDetails([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
+                        >Update</button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-ghost"
+                          onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))"
+                        >Rename</button>
+                        ${renderShoppingDesktopInlineActions(item)}
+                      </div>
                     </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Size Label</label>
-                      <input id="shopping-size-${escAttr(item.key)}" class="inline-input" value="${escAttr(item.size_label || item.primaryItem?.size_label || '')}" placeholder="18 count, 1 gal, 2.4 lb" />
-                    </div>
-                    <div class="shopping-web-edit-field">
-                      <label>Unit Price</label>
-                      <input
-                        id="shopping-price-${escAttr(item.key)}"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value="${escAttr(item.latest_price?.price ?? item.primaryItem?.manual_estimated_price ?? '')}"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-ghost"
-                      onclick="saveShoppingGroupUnitDefaults([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                    >Save Unit</button>
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-ghost"
-                      onclick="saveShoppingGroupPrice([${item.ids.join(',')}], decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || '')}'))"
-                    >${item.latest_price?.price != null ? 'Update Price' : 'Save Price'}</button>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="renameShoppingDisplayItem([${item.ids.join(',')}], ${item.primaryProductId || 'null'}, decodeURIComponent('${encodeURIComponent(item.name || '')}'))">Rename</button>
                   </div>
                 </td>
                 <td>${escHtml(formatLabel(item.category, 'Other'))}</td>
@@ -13192,10 +13568,11 @@ function renderShoppingListTable() {
                 <td>${escHtml(formatLabel(item.source, 'Manual'))}</td>
                 <td><span class="badge badge-${shoppingStatusBadgeClass(item.status)}">${escHtml(shoppingStatusLabel(item.status))}</span></td>
                 <td class="shopping-actions-cell">
-                  <div class="shopping-item-actions-row">
-                  <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
-                  <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
-                  ${renderShoppingMoreMenu(item)}
+                  <div class="shopping-actions-stack">
+                    <div class="shopping-item-actions-row">
+                      <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(',')}])">−1</button>
+                      <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(',')}], '${item.status === 'purchased' ? 'open' : 'purchased'}')">${item.status === 'purchased' ? 'Reopen' : 'Bought'}</button>
+                    </div>
                   </div>
                 </td>
               </tr>`).join('')}
@@ -13369,6 +13746,60 @@ async function toggleShoppingItem(id, status, options = {}) {
   if (!options.silent) toast(options.successMessage || shoppingStatusSuccessMessage(status), 'success');
   await loadShoppingList();
   if (typeof options.afterSuccess === 'function') options.afterSuccess();
+}
+
+function selectShoppingSnapshotFile(itemId) {
+  shoppingSnapshotTargetItemId = itemId;
+  const input = document.getElementById('shopping-snapshot-input');
+  if (!input || !itemId) return;
+  input.value = '';
+  input.click();
+}
+
+async function uploadShoppingSnapshotFromPicker(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  const itemId = shoppingSnapshotTargetItemId;
+  shoppingSnapshotTargetItemId = null;
+  if (!file || !itemId) return;
+
+  const item = shoppingListCache.find(entry => Number(entry.id) === Number(itemId));
+  if (!item) {
+    toast('Shopping item not found', 'error');
+    return;
+  }
+
+  const form = new FormData();
+  form.append('image', file);
+  form.append('shopping_list_item_id', String(itemId));
+  form.append('source_context', 'during_purchase');
+  if (item.product_id) form.append('product_id', String(item.product_id));
+  if (item.preferred_store || item.effective_store) {
+    form.append('notes', `Shopping item photo · ${item.preferred_store || item.effective_store}`);
+  }
+  try {
+    const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(false),
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || 'Could not save item photo', 'error');
+      return;
+    }
+    toast('Item photo saved ✅', 'success');
+    await loadShoppingList();
+  } catch (error) {
+    console.error(error);
+    toast('Could not save item photo', 'error');
+  }
+}
+
+function openShoppingSnapshot(imageUrl) {
+  if (!imageUrl) return;
+  openImageLightbox(imageUrl, 'Shopping Item Photo');
 }
 
 async function toggleShoppingGroupItems(ids, status, options = {}) {
@@ -14120,12 +14551,13 @@ function renderReceiptExtractedItems(receipt, items = []) {
               <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
               <span>${formatMoney(i.unit_price)}</span>
               <span>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</span>
+              ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? '' : 's'}</span>` : ''}
             </div>
           </div>
           <div class="receipt-detail-item-actions">
             ${i.product_id
-              ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>`
-              : '<span style="color:var(--muted)">—</span>'}
+              ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}`
+              : (i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : '<span style="color:var(--muted)">—</span>')}
           </div>
         </div>
       `).join('')}
@@ -14140,13 +14572,84 @@ function renderReceiptExtractedItems(receipt, items = []) {
             <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
             <span>${formatMoney(i.unit_price)}</span>
             <span>${escHtml(i.extracted_by || receipt.ocr_engine || 'AI')}</span>
+            ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? '' : 's'}</span>` : ''}
           </div>
           <div class="receipt-item-actions">
-            ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select>` : '<span style="color:var(--muted)">No product actions</span>'}
+            ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || '')}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || 'other')}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : (i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || '')}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ''}` : '<span style="color:var(--muted)">No product actions</span>')}
           </div>
         </div>
       </div>`).join('')}
   </div>`;
+}
+
+function selectReceiptItemSnapshotFile(receiptItemId, productId, encodedName) {
+  receiptSnapshotTargetItem = {
+    receiptItemId,
+    productId: productId || null,
+    itemName: decodeURIComponent(encodedName || ''),
+  };
+  const input = document.getElementById('receipt-item-snapshot-input');
+  if (!input || !receiptItemId) return;
+  input.value = '';
+  input.click();
+}
+
+async function uploadReceiptItemSnapshotFromPicker(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  const target = receiptSnapshotTargetItem;
+  receiptSnapshotTargetItem = null;
+  if (!file || !target?.receiptItemId) return;
+
+  const form = new FormData();
+  form.append('image', file);
+  form.append('receipt_item_id', String(target.receiptItemId));
+  form.append('source_context', 'receipt_backfill');
+  if (target.productId) form.append('product_id', String(target.productId));
+  if (target.itemName) form.append('notes', `Receipt item photo · ${target.itemName}`);
+  try {
+    const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getHeaders(false),
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || 'Could not save receipt item photo', 'error');
+      return;
+    }
+    toast('Receipt item photo saved ✅', 'success');
+    if (selectedReceiptId) await viewReceipt(selectedReceiptId, { scroll: false });
+  } catch (error) {
+    console.error(error);
+    toast('Could not save receipt item photo', 'error');
+  }
+}
+
+function openReceiptItemSnapshot(imageUrl) {
+  if (!imageUrl) return;
+  openImageLightbox(imageUrl, 'Receipt Item Photo');
+}
+
+function openImageLightbox(imageUrl, title = 'Item Photo') {
+  const overlay = document.getElementById('image-lightbox-overlay');
+  const img = document.getElementById('image-lightbox-img');
+  const titleEl = document.getElementById('image-lightbox-title');
+  if (!overlay || !img || !titleEl || !imageUrl) return;
+  titleEl.textContent = title;
+  img.src = `${API_BASE}${imageUrl}`;
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeImageLightbox() {
+  const overlay = document.getElementById('image-lightbox-overlay');
+  const img = document.getElementById('image-lightbox-img');
+  if (!overlay || !img) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  img.removeAttribute('src');
 }
 
 function renderMobileMetricCards(rows = []) {

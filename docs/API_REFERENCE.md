@@ -125,6 +125,73 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 ---
 
+### Product Snapshots
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/product-snapshots/upload` | Session or Bearer token | Upload a supporting product/item photo from shopping or receipt review |
+| GET | `/product-snapshots` | Session or Bearer token | List product snapshots |
+| GET | `/product-snapshots/{id}` | Session or Bearer token | Retrieve one snapshot record |
+| GET | `/product-snapshots/{id}/image` | Session or Bearer token | Stream the stored snapshot image |
+| GET | `/product-snapshots/review-queue` | Admin session or Bearer token | List pending/admin-review snapshots |
+| PUT | `/product-snapshots/{id}/review` | Admin session or Bearer token | Review, archive, or link a snapshot to product context |
+
+#### POST `/product-snapshots/upload`
+
+Upload a supporting image for either a shopping-list item or a receipt item.
+
+**Request:** `multipart/form-data`
+
+Example shopping-item upload:
+
+```bash
+curl -X POST http://localhost:8090/product-snapshots/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@item-photo.jpg" \
+  -F "shopping_list_item_id=42" \
+  -F "source_context=shopping"
+```
+
+Example receipt-item upload:
+
+```bash
+curl -X POST http://localhost:8090/product-snapshots/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "image=@receipt-item-photo.jpg" \
+  -F "receipt_item_id=315" \
+  -F "source_context=receipt_review"
+```
+
+**Response (201):**
+
+```json
+{
+  "snapshot": {
+    "id": 7,
+    "status": "pending",
+    "source_context": "shopping",
+    "shopping_list_item_id": 42,
+    "image_url": "/product-snapshots/7/image",
+    "captured_at": "2026-04-11T17:30:57Z"
+  }
+}
+```
+
+#### PUT `/product-snapshots/{id}/review`
+
+Admin review can archive a snapshot or attach it to an existing/new product workflow.
+
+```json
+{
+  "status": "reviewed",
+  "resolved_name": "Avocado Oil",
+  "resolved_category": "condiments",
+  "product_id": 18
+}
+```
+
+---
+
 ### Product Catalog
 
 | Method | Endpoint | Auth | Description |

@@ -311,6 +311,39 @@ class ShoppingListItem(Base):
     )
 
 
+class ProductSnapshot(Base):
+    __tablename__ = "product_snapshots"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    shopping_list_item_id = Column(Integer, ForeignKey("shopping_list_items.id"), nullable=True)
+    receipt_item_id = Column(Integer, ForeignKey("receipt_items.id"), nullable=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    source_context = Column(String(40), nullable=False, default="after_purchase")
+    status = Column(String(20), nullable=False, default="unreviewed")
+    notes = Column(String(500), nullable=True)
+    image_path = Column(String(1000), nullable=False)
+    captured_at = Column(DateTime, nullable=True)
+    ai_extracted_name = Column(String(255), nullable=True)
+    ai_brand = Column(String(120), nullable=True)
+    ai_size_label = Column(String(120), nullable=True)
+    ai_unit = Column(String(40), nullable=True)
+    ai_confidence = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_product_snapshot_product_id", "product_id"),
+        Index("ix_product_snapshot_shopping_list_item_id", "shopping_list_item_id"),
+        Index("ix_product_snapshot_receipt_item_id", "receipt_item_id"),
+        Index("ix_product_snapshot_purchase_id", "purchase_id"),
+        Index("ix_product_snapshot_status", "status"),
+        Index("ix_product_snapshot_source_context", "source_context"),
+    )
+
+
 class ContributionEvent(Base):
     __tablename__ = "contribution_events"
 

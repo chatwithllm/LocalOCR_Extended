@@ -353,11 +353,25 @@ Smoke-test target after Phase 1:
     - `Unit`
     - `Size Label`
   - payload serialization now preserves the new fields through receipt edits and shopping/manual flows
-- receipts desktop inline workflow was refined further:
+  - receipts desktop inline workflow was refined further:
   - desktop Receipts now uses a single-column inline-detail mode instead of reserving the old dead right-hand pane
   - opened inline receipts now include a `Close Receipt` action inside the expanded shell
   - extracted-items rows are denser on web
   - the web receipt editor now uses a split action lane for `Remove` instead of treating it like a full data column
+- product snapshot capture is now live on the branch:
+  - shopping rows can upload supporting item photos from the `More` menu
+  - shopping rows switch to `View Photo` once a latest snapshot exists
+  - shopping rows now also show the latest snapshot inline as a compact thumbnail preview
+  - receipt extracted items can upload supporting product photos directly from receipt review
+  - snapshot files now persist in `/data/product_snapshots`
+  - Settings now includes an admin `Snapshot Review` queue
+  - backend routes now support:
+    - upload
+    - list
+    - detail
+    - image serving
+    - review queue
+    - review/archive actions
 - refund Phase 2 presentation polish is now layered on top of the accounting foundation:
   - Budget category contribution rows now show an explicit refund/purchase badge
   - Restaurant recent-receipt cards now show refund state and signed totals instead of looking like normal visits
@@ -517,6 +531,18 @@ Operational and product items that are not fully closed yet:
   - still pending for the unit/size stream:
     - shopping display formatting
     - product-level defaults in the UI
+- the product snapshot stream now has its first usable branch milestone:
+  - implemented:
+    - snapshot data model and schema bootstrap
+    - shopping-item upload flow
+    - receipt-item upload flow
+    - latest-snapshot display in shopping and receipt detail
+    - admin review queue in Settings
+    - dedicated Docker volume for snapshot image persistence
+  - still intentionally pending:
+    - AI suggestion/extraction from uploaded product photos
+    - deeper product matching/merge automation during review
+    - product-level snapshot history UI beyond the latest-photo shortcut
 
 ## 6. Planned Next
 
@@ -542,6 +568,10 @@ High-value next work from the current state:
   - Phase 6: migration quality, recategorization helpers, and cleanup passes
 - continue the unit-and-size enhancement from `future enhancements/units and size labels.md`:
   - Phase 3: shopping/product display updates that use those fields
+- continue the product snapshot enhancement from the current branch milestone:
+  - add AI-assisted product-name / unit / size suggestions from uploaded item photos
+  - improve admin review so a snapshot can create or match a product more directly
+  - add clearer per-product snapshot history instead of only latest-photo behavior
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

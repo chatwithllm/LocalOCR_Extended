@@ -9,6 +9,7 @@ services:
     volumes:
       - extended-db:/data/db
       - extended-receipts:/data/receipts
+      - extended-product-snapshots:/data/product_snapshots
       - extended-backups:/data/backups
     env_file:
       - .env
@@ -76,6 +77,8 @@ volumes:
   extended-db:
     driver: local
   extended-receipts:
+    driver: local
+  extended-product-snapshots:
     driver: local
   extended-ollama:
     driver: local

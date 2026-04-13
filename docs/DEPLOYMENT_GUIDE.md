@@ -33,6 +33,7 @@ Reuse infrastructure where practical:
 - port: `8090`
 - DB: `sqlite:////data/db/localocr_extended.db`
 - receipt storage: `/data/receipts`
+- product snapshot storage: `/data/product_snapshots`
 - backups: `/data/backups`
 - service label: `localocr-extended-backend`
 - MQTT client id: `localocr-extended`
@@ -75,11 +76,17 @@ Extended defaults already separate storage:
 ```dotenv
 DATABASE_URL=sqlite:////data/db/localocr_extended.db
 RECEIPTS_DIR=/data/receipts
+PRODUCT_SNAPSHOTS_DIR=/data/product_snapshots
 BACKUP_DIR=/data/backups
 BACKUP_PREFIX=localocr_extended
 ```
 
 These live inside Extended's own volumes when you use the provided compose file.
+
+Snapshot note:
+
+- shopping-item and receipt-item supporting photos now persist separately from receipt images
+- keep the product snapshot volume with the rest of the environment when backing up or migrating this stack
 
 ## Step 4: Reuse Shared MQTT + Ollama
 
