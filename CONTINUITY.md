@@ -543,6 +543,27 @@ Operational and product items that are not fully closed yet:
     - AI suggestion/extraction from uploaded product photos
     - deeper product matching/merge automation during review
     - product-level snapshot history UI beyond the latest-photo shortcut
+- recurring bills and household obligations are now planned as the next dedicated stream:
+  - planning doc exists in `future enhancements/localocr_extended_recurring_bills_plan.md`
+  - dedicated implementation branch:
+    - `codex/household-bills-phase1`
+  - already complete before this stream starts:
+    - grocery / restaurant / general-expense receipt handling
+    - refund-aware receipt, budget, and analytics flows
+    - manual receipt entry
+    - budget allocation and budget history
+    - product snapshot capture and review
+  - currently being prepared on the new branch:
+    - Phase 1 foundation only
+  - Phase 1 target scope:
+    - add `Household Bill` as a new receipt type
+    - add `Household Obligations` as a new spending domain
+    - add bill-specific receipt fields for intake and review
+    - add upload-intent / manual-entry / receipt-filter support for household bills
+  - current state:
+    - planning complete
+    - implementation not started yet
+    - branch is being pushed first so GitHub can be verified before development begins
 
 ## 6. Planned Next
 
@@ -572,6 +593,11 @@ High-value next work from the current state:
   - add AI-assisted product-name / unit / size suggestions from uploaded item photos
   - improve admin review so a snapshot can create or match a product more directly
   - add clearer per-product snapshot history instead of only latest-photo behavior
+- begin recurring bills Phase 1 from `future enhancements/localocr_extended_recurring_bills_plan.md` after branch verification:
+  - `Household Bill` receipt type foundation
+  - `Household Obligations` domain foundation
+  - bill-specific intake / review / manual-entry fields
+  - receipt filtering support
 ## 7. What Still Belongs To Extended Next
 
 Primary product direction:

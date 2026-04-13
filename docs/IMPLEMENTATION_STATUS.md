@@ -236,6 +236,21 @@ Extended-specific runtime changes now in place:
   - receipts history can later delete the entry to remove the amount
 - budget target changes are now admin-only in both backend enforcement and frontend controls
 - receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
+- recurring bills / household obligations stream is now staged:
+  - planning doc:
+    - `future enhancements/localocr_extended_recurring_bills_plan.md`
+  - dedicated branch:
+    - `codex/household-bills-phase1`
+  - branch intent:
+    - start Phase 1 foundation for recurring household bills and utilities
+  - Phase 1 planned scope:
+    - add `Household Bill` receipt type
+    - add `Household Obligations` spending domain
+    - add bill-specific capture/review fields
+    - extend upload intent, manual entry, and receipt filtering
+  - current implementation state:
+    - not started yet
+    - branch exists so work can begin after GitHub confirmation
 
 ## Intended Parallel Deployment Shape
 
