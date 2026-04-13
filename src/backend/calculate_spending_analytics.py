@@ -17,6 +17,7 @@ from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Purchase, ReceiptItem, Product, Store, PriceHistory
 )
+from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
 
 logger = logging.getLogger(__name__)
@@ -295,7 +296,7 @@ def get_spending():
     period = request.args.get("period", "monthly")
     category = request.args.get("category")
     store_name = request.args.get("store")
-    domain = (request.args.get("domain") or "").strip().lower()
+    domain = normalize_spending_domain((request.args.get("domain") or "").strip().lower(), default="")
     months_back = request.args.get("months", 6, type=int)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
@@ -528,4 +529,159 @@ def get_store_comparison():
         "product_name": product.name if product else None,
         "comparison": comparison,
         "cheapest_store": comparison[0]["store"] if comparison else None,
+    }), 200
+
+
+@analytics_bp.route("/utility-summary", methods=["GET"])
+@require_auth
+def get_utility_summary():
+    """Return utility & recurring bill spend analytics.
+
+    Queries purchases with domain='utility' and joins bill_meta for provider
+    details.  Returns:
+      - spending by provider (all time within window)
+      - month-over-month totals per provider
+      - recurring vs one-off split
+      - bills with a due_date within the next 14 days
+    """
+    from src.backend.initialize_database_schema import TelegramReceipt
+    from datetime import date as date_type, timedelta as td
+
+    session = g.db_session
+    months_back = request.args.get("months", 12, type=int)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
+
+    # Import BillMeta here to avoid circular import at module load
+    from src.backend.initialize_database_schema import BillMeta  # noqa: PLC0415
+
+    rows = (
+        session.query(Purchase, Store, BillMeta)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .outerjoin(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(Purchase.domain.in_(["utility", "household_obligations"]), Purchase.date >= cutoff)
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+
+    # Aggregates
+    total_spend = 0.0
+    recurring_total = 0.0
+    one_off_total = 0.0
+    provider_summary: dict = {}
+    monthly_totals: dict = {}
+    recent_bills = []
+
+    today = date_type.today()
+    due_soon = []
+
+    for purchase, store, meta in rows:
+        signed_total = signed_purchase_total(purchase)
+        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
+        total_spend += signed_total
+
+        is_recurring = bool(meta.is_recurring) if meta else True
+        provider_name = (meta.provider_name if meta and meta.provider_name else None) or (store.name if store else "Unknown")
+        provider_type = (meta.provider_type if meta else None) or "other"
+        billing_cycle = (meta.billing_cycle_month if meta else None) or (
+            purchase.date.strftime("%Y-%m") if purchase.date else None
+        )
+
+        if is_recurring:
+            recurring_total += signed_total
+        else:
+            one_off_total += signed_total
+
+        # Per-provider aggregation
+        pkey = provider_name
+        if pkey not in provider_summary:
+            provider_summary[pkey] = {
+                "provider_name": provider_name,
+                "provider_type": provider_type,
+                "total": 0.0,
+                "purchase_count": 0,
+                "refund_count": 0,
+                "latest_date": None,
+                "monthly_breakdown": {},
+            }
+        ps = provider_summary[pkey]
+        ps["total"] += signed_total
+        if transaction_type == "refund":
+            ps["refund_count"] += 1
+        else:
+            ps["purchase_count"] += 1
+        if purchase.date and (ps["latest_date"] is None or purchase.date > ps["latest_date"]):
+            ps["latest_date"] = purchase.date
+        if billing_cycle:
+            ps["monthly_breakdown"][billing_cycle] = round(
+                ps["monthly_breakdown"].get(billing_cycle, 0.0) + signed_total, 2
+            )
+
+        # Global month totals
+        if billing_cycle:
+            monthly_totals[billing_cycle] = round(
+                monthly_totals.get(billing_cycle, 0.0) + signed_total, 2
+            )
+
+        # Due soon (next 14 days)
+        if meta and meta.due_date:
+            days_until = (meta.due_date - today).days
+            if 0 <= days_until <= 14:
+                due_soon.append({
+                    "purchase_id": purchase.id,
+                    "provider_name": provider_name,
+                    "provider_type": provider_type,
+                    "amount": round(signed_total, 2),
+                    "due_date": meta.due_date.isoformat(),
+                    "days_until_due": days_until,
+                    "billing_cycle_month": meta.billing_cycle_month,
+                })
+
+        recent_bills.append({
+            "purchase_id": purchase.id,
+            "provider_name": provider_name,
+            "provider_type": provider_type,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase.date else None,
+            "billing_cycle_month": billing_cycle,
+            "amount": round(signed_total, 2),
+            "transaction_type": transaction_type,
+            "is_recurring": is_recurring,
+            "due_date": meta.due_date.isoformat() if meta and meta.due_date else None,
+            "budget_category": getattr(purchase, "default_budget_category", None),
+        })
+
+    # Serialize provider summary
+    provider_list = sorted(
+        [
+            {
+                "provider_name": v["provider_name"],
+                "provider_type": v["provider_type"],
+                "total": round(v["total"], 2),
+                "purchase_count": v["purchase_count"],
+                "refund_count": v["refund_count"],
+                "average_monthly": round(
+                    v["total"] / max(len(v["monthly_breakdown"]), 1), 2
+                ),
+                "latest_date": v["latest_date"].strftime("%Y-%m-%d") if v["latest_date"] else None,
+                "monthly_breakdown": v["monthly_breakdown"],
+            }
+            for v in provider_summary.values()
+        ],
+        key=lambda x: (-x["total"], x["provider_name"]),
+    )
+
+    due_soon.sort(key=lambda x: x["days_until_due"])
+
+    purchase_count, refund_count = _transaction_counts([p for p, _, _ in rows])
+    return jsonify({
+        "months_back": months_back,
+        "receipt_count": purchase_count + refund_count,
+        "purchase_count": purchase_count,
+        "refund_count": refund_count,
+        "total_spend": round(total_spend, 2),
+        "recurring_total": round(recurring_total, 2),
+        "one_off_total": round(one_off_total, 2),
+        "providers": provider_list,
+        "monthly_totals": {k: v for k, v in sorted(monthly_totals.items())},
+        "due_soon": due_soon,
+        "recent_bills": recent_bills[:20],
     }), 200

@@ -204,6 +204,29 @@ This split gives you a clean safety net:
   - `future enhancements/multi household.md`
   - `future enhancements/budget domains.md`
   - `future enhancements/units and size labels.md`
+- recurring household bills / obligations Phase 1 is now actively implemented on:
+  - `codex/household-bills-phase1`
+- Household Bill Phase 1 foundation now includes:
+  - new receipt intake intent:
+    - `Household Bill`
+  - manual entry support for Household Bill receipts
+  - receipt editor support for Household Bill receipts
+  - bill metadata capture fields:
+    - provider name
+    - provider type
+    - account label
+    - billing cycle month
+    - service period start/end
+    - due date
+    - recurring flag
+  - new spending domain:
+    - `Household Obligations`
+  - new budget categories for recurring obligations:
+    - `utilities`
+    - `other_recurring`
+  - legacy `utility_bill` and `utility` data now normalize into the new household-bill path for compatibility
+  - bill receipts now save without requiring line items
+  - bills analytics now include both legacy utility rows and new household-obligation rows through the existing bills endpoint
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`

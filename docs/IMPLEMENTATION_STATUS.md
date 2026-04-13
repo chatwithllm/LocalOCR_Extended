@@ -236,21 +236,38 @@ Extended-specific runtime changes now in place:
   - receipts history can later delete the entry to remove the amount
 - budget target changes are now admin-only in both backend enforcement and frontend controls
 - receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
-- recurring bills / household obligations stream is now staged:
+- recurring bills / household obligations Phase 1 is now in progress on:
+  - `codex/household-bills-phase1`
   - planning doc:
     - `future enhancements/localocr_extended_recurring_bills_plan.md`
-  - dedicated branch:
-    - `codex/household-bills-phase1`
-  - branch intent:
-    - start Phase 1 foundation for recurring household bills and utilities
-  - Phase 1 planned scope:
-    - add `Household Bill` receipt type
-    - add `Household Obligations` spending domain
-    - add bill-specific capture/review fields
-    - extend upload intent, manual entry, and receipt filtering
-  - current implementation state:
-    - not started yet
-    - branch exists so work can begin after GitHub confirmation
+  - current Phase 1 implementation now includes:
+    - `Household Bill` intake intent on upload
+    - manual entry type:
+      - `🏠 Household Bill`
+    - receipt editor type:
+      - `🏠 Household Bill`
+    - bill metadata capture and persistence:
+      - provider name
+      - provider type
+      - account label
+      - billing cycle month
+      - service period start/end
+      - due date
+      - recurring flag
+    - new spending-domain mapping:
+      - `household_obligations`
+    - new budget categories:
+      - `utilities`
+      - `other_recurring`
+    - bill receipts can now validate and save without line items
+    - bills analytics now include both:
+      - legacy `utility` domain records
+      - new `household_obligations` domain records
+  - compatibility strategy:
+    - legacy `utility_bill` values are still accepted by the backend
+    - legacy `utility` spend domain normalizes into Household Obligations behavior
+  - next verification step:
+    - smoke-test upload, manual entry, receipt edit, receipts filtering, and bills analytics on local `8090`
 
 ## Intended Parallel Deployment Shape
 

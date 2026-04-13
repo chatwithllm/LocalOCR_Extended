@@ -3222,6 +3222,15 @@
       gap: 10px;
       margin-bottom: 12px;
     }
+    .receipt-bill-meta-panel {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin-top: 4px;
+      padding-top: 4px;
+      background: rgba(139,92,246,0.04);
+      border-radius: 8px;
+      padding: 10px 12px 14px;
+      margin-bottom: 14px;
+    }
     .receipt-editor-main-field {
       min-width: 0;
     }
@@ -4516,6 +4525,7 @@
     <div class="nav-item" id="nav-expenses" onclick="nav('expenses', this)"><span class="nav-icon">🧾</span> Expenses</div>
     <div class="nav-item" id="nav-budget" onclick="nav('budget', this)"><span class="nav-icon">💰</span> Budget</div>
     <div class="nav-item" id="nav-analytics" onclick="nav('analytics', this)"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item" id="nav-bills" onclick="nav('bills', this)"><span class="nav-icon">⚡</span> Bills</div>
     <div class="nav-item" onclick="nav('contributions', this)"><span class="nav-icon">🏅</span> Contribution</div>
     <div style="flex:1"></div>
     <div class="nav-item" onclick="nav('settings', this)"><span class="nav-icon">⚙️</span> Settings</div>
@@ -5034,7 +5044,7 @@
 
     <!-- Upload -->
     <div class="page" id="page-upload">
-      <div class="page-header"><h1>Upload Receipt</h1><p>Choose Auto, Grocery, Restaurant, or General Expense so OCR starts in the right mode.</p></div>
+      <div class="page-header"><h1>Upload Receipt</h1><p>Choose Auto, Grocery, Restaurant, General Expense, or Household Bill so OCR starts in the right mode.</p></div>
       <div class="card">
         <div class="upload-zone" id="drop-zone">
           <input type="file" id="file-input" accept="image/*,.pdf,application/pdf" onchange="previewFile(this)" />
@@ -5051,9 +5061,10 @@
             <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="grocery" onclick="setUploadIntent('grocery', this)">Grocery</button>
             <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="restaurant" onclick="setUploadIntent('restaurant', this)">Restaurant</button>
             <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="general_expense" onclick="setUploadIntent('general_expense', this)">General Expense</button>
+            <button type="button" class="btn btn-ghost upload-intent-btn" data-intent="household_bill" onclick="setUploadIntent('household_bill', this)">🏠 Household Bill</button>
           </div>
           <input type="hidden" id="upload-receipt-intent" value="auto" />
-          <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant` or `General Expense` when you already know the receipt type so review starts closer to the right result.</span>
+          <span style="font-size:0.82rem;color:var(--muted)">Use `Restaurant`, `General Expense`, or `Household Bill` when you already know the receipt type so review starts closer to the right result.</span>
         </div>
         <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
           <button class="btn btn-primary" id="upload-btn" onclick="uploadReceipt()" disabled>🚀 Auto Detect Receipt</button>
@@ -5238,6 +5249,7 @@
               <option value="grocery">Grocery</option>
               <option value="restaurant">Restaurant</option>
               <option value="general_expense">General Expense</option>
+              <option value="household_obligations">Household Obligations</option>
               <option value="">All Modules</option>
             </select>
             <label for="analytics-sort">Sort</label>
@@ -5256,6 +5268,48 @@
       <div class="card">
         <div class="card-header"><span class="card-title">💎 Deals Captured</span></div>
         <div id="deals-body"><div class="empty-state"><div class="icon">🏷️</div><p>No deals tracked yet.</p></div></div>
+      </div>
+    </div>
+
+    <!-- Bills & Utilities -->
+    <div class="page" id="page-bills">
+      <div class="page-header">
+        <div>
+          <h1>⚡ Bills &amp; Utilities</h1>
+          <p>Track recurring household bills, utilities, subscriptions, and rent. Bills are separate from general expenses and roll into the budget categories they belong to.</p>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent"><div class="stat-label">Bills Logged</div><div class="stat-value" id="bills-receipt-count">0</div><div class="stat-sub" id="bills-receipt-sub">in window</div></div>
+        <div class="stat-card success"><div class="stat-label">Total Spend</div><div class="stat-value" id="bills-total-spend">$0.00</div><div class="stat-sub">household bills &amp; recurring</div></div>
+        <div class="stat-card"><div class="stat-label">Recurring</div><div class="stat-value" id="bills-recurring-total">$0.00</div><div class="stat-sub">regular bills</div></div>
+        <div class="stat-card warning"><div class="stat-label">One-Off</div><div class="stat-value" id="bills-one-off-total">$0.00</div><div class="stat-sub">non-recurring</div></div>
+      </div>
+      <div class="card" id="bills-due-soon-card" style="display:none">
+        <div class="card-header"><span class="card-title">⏰ Due Soon</span><span style="font-size:0.82rem;color:var(--muted)">Next 14 days</span></div>
+        <div id="bills-due-soon-body"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Providers</span>
+          <div class="table-toolbar">
+            <select id="bills-period" onchange="loadBills()">
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12" selected>Last 12 months</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="loadBills()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="bills-providers-body"><div class="empty-state"><p>No household bills logged yet. Upload or manually enter one with the Household Bill intent.</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Month-over-Month</span></div>
+        <div id="bills-monthly-body"><div class="empty-state"><p>No monthly data yet.</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Recent Bills</span></div>
+        <div id="bills-recent-body"><div class="empty-state"><p>No bills yet.</p></div></div>
       </div>
     </div>
 
@@ -5531,7 +5585,7 @@
       <div id="manual-entry-title" class="confirm-title">Manual Entry</div>
       <div class="confirm-body">Add a purchase manually when the receipt image is missing. It will count in budget and receipts history. For grocery and restaurant entries, add at least one line item.</div>
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px">
-        <div><label>Type</label><select id="manual-entry-type"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option></select></div>
+        <div><label>Type</label><select id="manual-entry-type" onchange="handleManualEntryTypeChange()"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option></select></div>
         <div><label>Transaction</label><select id="manual-entry-transaction-type"><option value="purchase">Purchase</option><option value="refund">Refund</option></select></div>
         <div><label>Store</label><input id="manual-entry-store" placeholder="Store or merchant" /></div>
         <div><label>Date</label><input id="manual-entry-date" type="date" /></div>
@@ -5547,6 +5601,45 @@
         <div><label>Refund Reason</label><select id="manual-entry-refund-reason"></select></div>
         <div><label>Refund Note</label><input id="manual-entry-refund-note-text" placeholder="Returned damaged item, duplicate charge, price adjustment..." /></div>
       </div>
+      <div id="manual-entry-bill-section" class="receipt-bill-meta-panel" style="display:none;margin-top:16px">
+        <div class="card-header" style="padding:0 0 6px"><span class="card-title" style="font-size:0.95rem">Household Bill Details</span><span style="font-size:0.8rem;color:var(--muted)">Fill in what the statement shows</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+          <div><label>Provider Name</label><input id="manual-entry-bill-provider-name" placeholder="e.g. NIPSCO, Comcast" /></div>
+          <div><label>Provider Type</label><select id="manual-entry-bill-provider-type" onchange="handleManualBillProviderTypeChange()">
+            <option value="">— select type —</option>
+            <option value="electricity">Electricity</option>
+            <option value="water">Water</option>
+            <option value="sewage">Sewage</option>
+            <option value="gas">Gas / Heating</option>
+            <option value="internet">Internet</option>
+            <option value="phone">Phone</option>
+            <option value="cable">Cable / TV</option>
+            <option value="trash">Trash</option>
+            <option value="hoa">HOA</option>
+            <option value="rent">Rent</option>
+            <option value="mortgage">Mortgage</option>
+            <option value="insurance">Insurance</option>
+            <option value="daycare">Daycare</option>
+            <option value="school">School</option>
+            <option value="gym">Gym</option>
+            <option value="streaming">Streaming</option>
+            <option value="software">Software</option>
+            <option value="subscription">Subscription</option>
+            <option value="health">Health</option>
+            <option value="other">Other</option>
+          </select></div>
+          <div><label>Account Label</label><input id="manual-entry-bill-account-label" placeholder="Nickname or last 4 digits" /></div>
+          <div><label>Billing Cycle Month</label><input id="manual-entry-bill-billing-cycle-month" type="month" /></div>
+          <div><label>Service Period Start</label><input id="manual-entry-bill-service-period-start" type="date" /></div>
+          <div><label>Service Period End</label><input id="manual-entry-bill-service-period-end" type="date" /></div>
+          <div><label>Due Date</label><input id="manual-entry-bill-due-date" type="date" /></div>
+          <div style="display:flex;align-items:center;gap:8px;padding-top:18px">
+            <input id="manual-entry-bill-is-recurring" type="checkbox" checked />
+            <label for="manual-entry-bill-is-recurring" style="margin:0">Recurring monthly bill</label>
+          </div>
+        </div>
+      </div>
+      <div id="manual-entry-items-section">
       <div class="card-header" style="margin:16px 0 10px">
         <span class="card-title" style="font-size:0.95rem">Line Items</span>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addManualEntryRow()">Add Item</button>
@@ -5556,6 +5649,7 @@
           <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Category</th><th></th></tr></thead>
           <tbody id="manual-entry-items"></tbody>
         </table>
+      </div>
       </div>
       <div class="confirm-actions">
         <button type="button" id="manual-entry-cancel" class="btn btn-ghost">Cancel</button>
@@ -5750,6 +5844,7 @@ const PAGE_TITLES = {
   expenses: 'Expenses',
   budget: 'Budget',
   analytics: 'Analytics',
+  bills: '⚡ Bills',
   contributions: 'Contribution',
   settings: 'Settings',
   upload: 'Upload Receipt',
@@ -5855,8 +5950,8 @@ let secretQrHoldTimer = null;
 let recommendationHoldTimer = null;
 let authCheckComplete = false;
 const PRODUCT_CATEGORY_OPTIONS = ['produce', 'dairy', 'meat', 'seafood', 'bakery', 'grains', 'frozen', 'beverages', 'snacks', 'canned', 'condiments', 'household', 'personal_care', 'apparel', 'restaurant', 'beauty', 'health', 'gift', 'fees', 'service', 'retail', 'general_expense', 'other'];
-const SPENDING_DOMAIN_OPTIONS = ['grocery', 'restaurant', 'general_expense', 'event', 'other'];
-const BUDGET_CATEGORY_OPTIONS = ['grocery', 'dining', 'housing', 'insurance', 'childcare', 'health', 'subscriptions', 'household', 'retail', 'events', 'other'];
+const SPENDING_DOMAIN_OPTIONS = ['grocery', 'restaurant', 'general_expense', 'household_obligations', 'event', 'other'];
+const BUDGET_CATEGORY_OPTIONS = ['grocery', 'dining', 'utilities', 'housing', 'insurance', 'childcare', 'health', 'subscriptions', 'household', 'retail', 'events', 'other_recurring', 'other'];
 const UNIT_OPTIONS = ['each', 'bottle', 'can', 'bag', 'box', 'pack', 'roll', 'gal', 'oz', 'lb', 'count', 'dozen', 'bunch'];
 const DEMO_MONTH = '2026-04';
 const DEMO_USERS = [
@@ -7793,6 +7888,15 @@ function normalizeBadge(value, fallback = 'other') {
 function formatLabel(value, fallback = 'Other') {
   const text = String(value || '').trim();
   if (!text) return fallback;
+  const normalized = text.toLowerCase();
+  const labelMap = {
+    utility_bill: 'Household Bill',
+    household_bill: 'Household Bill',
+    household_obligations: 'Household Obligations',
+    utility: 'Household Obligations',
+    other_recurring: 'Other Recurring',
+  };
+  if (labelMap[normalized]) return labelMap[normalized];
   if (text === text.toUpperCase()) return text;
   return text
     .replace(/[_-]+/g, ' ')
@@ -9074,6 +9178,7 @@ function nav(page, el) {
   if (page === 'expenses') loadExpenses();
   if (page === 'budget') { setDefaultMonth(); loadBudgetStatus(); }
   if (page === 'analytics') loadAnalytics();
+  if (page === 'bills') loadBills();
   if (page === 'contributions') loadContributions();
   if (page === 'settings') {
     document.getElementById('settings-token').value = TOKEN;
@@ -11958,15 +12063,19 @@ function defaultBudgetCategoryForSpendingDomain(spendingDomain = 'other') {
   const normalized = String(spendingDomain || 'other').trim().toLowerCase() || 'other';
   if (normalized === 'grocery') return 'grocery';
   if (normalized === 'restaurant') return 'dining';
+  if (normalized === 'household_obligations' || normalized === 'utility') return 'utilities';
   if (normalized === 'event') return 'events';
   return 'other';
 }
 
 function deriveReceiptBudgetDefaults(receiptType = 'grocery') {
   const normalized = String(receiptType || 'grocery').trim().toLowerCase() || 'grocery';
-  const spendingDomain = SPENDING_DOMAIN_OPTIONS.includes(normalized)
+  let spendingDomain = SPENDING_DOMAIN_OPTIONS.includes(normalized)
     ? normalized
     : (normalized === 'unknown' ? 'other' : 'grocery');
+  if (['utility_bill', 'household_bill', 'utility'].includes(normalized)) {
+    spendingDomain = 'household_obligations';
+  }
   return {
     spendingDomain,
     budgetCategory: defaultBudgetCategoryForSpendingDomain(spendingDomain),
@@ -13885,6 +13994,7 @@ function getUploadIntentButtonLabel(intent) {
   if (intent === 'grocery') return 'Process Grocery Receipt';
   if (intent === 'restaurant') return 'Process Restaurant Receipt';
   if (intent === 'general_expense') return 'Process General Expense';
+  if (intent === 'household_bill' || intent === 'utility_bill') return 'Process Household Bill';
   return 'Auto Detect Receipt';
 }
 
@@ -14121,7 +14231,7 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
-        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="event">Event</option><option value="unknown">Unknown</option></select></div>
+        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}" onchange="handleReceiptEditorTypeChange(${receipt.id})"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option><option value="event">Event</option><option value="unknown">Unknown</option></select></div>
         <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">
@@ -14157,6 +14267,44 @@ function buildReceiptDetailHtml(receipt, items, imageHtml, options = {}) {
         <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
+      </div>
+      <div id="receipt-bill-meta-panel-${receipt.id}" class="receipt-bill-meta-panel" style="display:none">
+        <div class="card-header" style="padding:10px 0 6px"><span class="card-title" style="font-size:0.9rem">⚡ Bill Details</span><span style="font-size:0.8rem;color:var(--muted)">Optional — fill in what the bill shows</span></div>
+        <div class="receipt-editor-grid" style="gap:10px">
+          <div class="receipt-editor-main-field"><label>Provider Name</label><input id="receipt-bill-provider-name-${receipt.id}" placeholder="e.g. NIPSCO, Comcast" /></div>
+          <div class="receipt-editor-main-field"><label>Provider Type</label><select id="receipt-bill-provider-type-${receipt.id}" onchange="handleBillProviderTypeChange(${receipt.id})">
+            <option value="">— select type —</option>
+            <option value="electricity">Electricity</option>
+            <option value="water">Water</option>
+            <option value="sewage">Sewage</option>
+            <option value="gas">Gas / Heating</option>
+            <option value="internet">Internet</option>
+            <option value="phone">Phone</option>
+            <option value="cable">Cable / TV</option>
+            <option value="trash">Trash</option>
+            <option value="hoa">HOA</option>
+            <option value="rent">Rent</option>
+            <option value="mortgage">Mortgage</option>
+            <option value="insurance">Insurance</option>
+            <option value="daycare">Daycare</option>
+            <option value="school">School</option>
+            <option value="gym">Gym</option>
+            <option value="streaming">Streaming</option>
+            <option value="software">Software</option>
+            <option value="subscription">Subscription</option>
+            <option value="health">Health</option>
+            <option value="other">Other</option>
+          </select></div>
+          <div class="receipt-editor-main-field"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
+          <div class="receipt-editor-main-field"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
+          <div class="receipt-editor-main-field"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+            <input id="receipt-bill-is-recurring-${receipt.id}" type="checkbox" checked />
+            <label for="receipt-bill-is-recurring-${receipt.id}" style="margin:0">Recurring monthly bill</label>
+          </div>
+        </div>
       </div>
       <div id="receipt-refund-note-${receipt.id}" class="person-modal-pill refund-warning-pill" style="display:none;margin-bottom:12px;background:rgba(255,184,0,0.12);border-color:rgba(255,184,0,0.35);color:#ffd36a">
         Refund mode: reduces spend, skips price history, and will not count as a normal grocery purchase.
@@ -14434,7 +14582,7 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
   const itemsBody = document.getElementById(`receipt-editor-items-${receiptId}`);
   if (!itemsBody) return;
   const derivedDefaults = deriveReceiptBudgetDefaults(data.default_spending_domain || receiptType || 'grocery');
-  document.getElementById(`receipt-type-${receiptId}`).value = receiptType || 'unknown';
+  document.getElementById(`receipt-type-${receiptId}`).value = receiptType === 'utility_bill' ? 'household_bill' : (receiptType || 'unknown');
   const transactionTypeEl = document.getElementById(`receipt-transaction-type-${receiptId}`);
   if (transactionTypeEl) transactionTypeEl.value = normalizeReceiptTransactionType(data.transaction_type || 'purchase');
   const refundReasonEl = document.getElementById(`receipt-refund-reason-${receiptId}`);
@@ -14452,6 +14600,22 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
   document.getElementById(`receipt-total-${receiptId}`).value = data.total ?? 0;
   itemsBody.innerHTML = renderReceiptEditorRows(data.items || [], { mobile: isCompactMobileReceiptView(), showBudgeting: true });
   wireReceiptBudgetingControls(receiptId);
+
+  // Show bill details panel for household bills and pre-populate from bill_meta.
+  handleReceiptEditorTypeChange(receiptId);
+  if (['utility_bill', 'household_bill'].includes(receiptType) && data.bill_meta) {
+    const bm = data.bill_meta;
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v ?? true; };
+    setVal(`receipt-bill-provider-name-${receiptId}`, bm.provider_name);
+    setVal(`receipt-bill-provider-type-${receiptId}`, bm.provider_type);
+    setVal(`receipt-bill-account-label-${receiptId}`, bm.account_label);
+    setVal(`receipt-bill-billing-cycle-month-${receiptId}`, bm.billing_cycle_month);
+    setVal(`receipt-bill-service-period-start-${receiptId}`, bm.service_period_start);
+    setVal(`receipt-bill-service-period-end-${receiptId}`, bm.service_period_end);
+    setVal(`receipt-bill-due-date-${receiptId}`, bm.due_date);
+    setChk(`receipt-bill-is-recurring-${receiptId}`, bm.is_recurring ?? true);
+  }
 }
 
 function addReceiptEditorRow(receiptId) {
@@ -14484,7 +14648,9 @@ function openManualEntryModal() {
     ? 'restaurant'
     : selectedCategory === 'grocery'
       ? 'grocery'
-      : 'general_expense';
+      : ['utilities', 'housing', 'insurance', 'childcare', 'subscriptions', 'health', 'other_recurring'].includes(selectedCategory)
+        ? 'household_bill'
+        : 'general_expense';
   const manualTransactionTypeEl = document.getElementById('manual-entry-transaction-type');
   const manualRefundNoteEl = document.getElementById('manual-entry-refund-note');
   const manualRefundFieldsEl = document.getElementById('manual-entry-refund-fields');
@@ -14499,6 +14665,16 @@ function openManualEntryModal() {
   document.getElementById('manual-entry-tax').value = '0';
   document.getElementById('manual-entry-tip').value = '0';
   document.getElementById('manual-entry-total').value = '0';
+  const resetVal = id => { const el = document.getElementById(id); if (el) el.value = ''; };
+  const resetChk = (id, checked = true) => { const el = document.getElementById(id); if (el) el.checked = checked; };
+  resetVal('manual-entry-bill-provider-name');
+  resetVal('manual-entry-bill-provider-type');
+  resetVal('manual-entry-bill-account-label');
+  resetVal('manual-entry-bill-billing-cycle-month');
+  resetVal('manual-entry-bill-service-period-start');
+  resetVal('manual-entry-bill-service-period-end');
+  resetVal('manual-entry-bill-due-date');
+  resetChk('manual-entry-bill-is-recurring', true);
   if (manualRefundNoteEl) manualRefundNoteEl.style.display = 'none';
   if (manualRefundFieldsEl) manualRefundFieldsEl.style.display = 'none';
   if (manualRefundReasonEl) {
@@ -14518,6 +14694,7 @@ function openManualEntryModal() {
       }
     };
   }
+  handleManualEntryTypeChange();
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.getElementById('manual-entry-cancel').onclick = closeManualEntryModal;
@@ -14786,9 +14963,23 @@ function collectManualEntryData() {
   };
 }
 
+function collectManualBillMeta() {
+  return {
+    provider_name: document.getElementById('manual-entry-bill-provider-name')?.value?.trim() || null,
+    provider_type: document.getElementById('manual-entry-bill-provider-type')?.value || null,
+    account_label: document.getElementById('manual-entry-bill-account-label')?.value?.trim() || null,
+    billing_cycle_month: document.getElementById('manual-entry-bill-billing-cycle-month')?.value || null,
+    service_period_start: document.getElementById('manual-entry-bill-service-period-start')?.value || null,
+    service_period_end: document.getElementById('manual-entry-bill-service-period-end')?.value || null,
+    due_date: document.getElementById('manual-entry-bill-due-date')?.value || null,
+    is_recurring: document.getElementById('manual-entry-bill-is-recurring')?.checked ?? true,
+  };
+}
+
 async function saveManualEntry() {
   const receiptType = document.getElementById('manual-entry-type')?.value || 'grocery';
   const data = collectManualEntryData();
+  const billMeta = receiptType === 'household_bill' ? collectManualBillMeta() : null;
   if (!data.store || !data.date || !data.total) {
     toast('Enter store, date, and total', 'error');
     return;
@@ -14800,7 +14991,7 @@ async function saveManualEntry() {
 
   const res = await api('/receipts/manual', {
     method: 'POST',
-    body: JSON.stringify({ receipt_type: receiptType, data })
+    body: JSON.stringify({ receipt_type: receiptType, data, ...(billMeta ? { bill_meta: billMeta } : {}) })
   });
   const payload = await res.json();
   if (!res.ok) {
@@ -14883,9 +15074,25 @@ function collectReceiptEditorData(receiptId) {
 async function saveEditedReceipt(id) {
   const data = collectReceiptEditorData(id);
   const receiptType = document.getElementById(`receipt-type-${id}`)?.value || 'unknown';
+
+  // Collect bill_meta fields if this is a household bill receipt.
+  let billMeta = null;
+  if (['utility_bill', 'household_bill'].includes(receiptType)) {
+    billMeta = {
+      provider_name: document.getElementById(`receipt-bill-provider-name-${id}`)?.value?.trim() || null,
+      provider_type: document.getElementById(`receipt-bill-provider-type-${id}`)?.value || null,
+      account_label: document.getElementById(`receipt-bill-account-label-${id}`)?.value?.trim() || null,
+      billing_cycle_month: document.getElementById(`receipt-bill-billing-cycle-month-${id}`)?.value || null,
+      service_period_start: document.getElementById(`receipt-bill-service-period-start-${id}`)?.value || null,
+      service_period_end: document.getElementById(`receipt-bill-service-period-end-${id}`)?.value || null,
+      due_date: document.getElementById(`receipt-bill-due-date-${id}`)?.value || null,
+      is_recurring: document.getElementById(`receipt-bill-is-recurring-${id}`)?.checked ?? true,
+    };
+  }
+
   const res = await api(`/receipts/${id}/update`, {
     method: 'PUT',
-    body: JSON.stringify({ data, receipt_type: receiptType })
+    body: JSON.stringify({ data, receipt_type: receiptType, ...(billMeta ? { bill_meta: billMeta } : {}) })
   });
   const payload = await res.json();
   if (!res.ok) {
@@ -15434,6 +15641,169 @@ async function saveRestaurantBudget() {
   }
   toast('Restaurant budget saved ✅', 'success');
   await loadRestaurantBudget();
+}
+
+// ============================================================
+// ============================================================
+// Bills & Utilities
+// ============================================================
+const BILL_PROVIDER_TYPE_TO_BUDGET_CATEGORY = {
+  electricity: 'utilities', water: 'utilities', sewage: 'utilities', gas: 'utilities',
+  trash: 'utilities', internet: 'utilities', phone: 'utilities', cable: 'utilities',
+  rent: 'housing', mortgage: 'housing', hoa: 'housing',
+  insurance: 'insurance', daycare: 'childcare', school: 'childcare',
+  gym: 'subscriptions', streaming: 'subscriptions', software: 'subscriptions', subscription: 'subscriptions',
+  health: 'health',
+};
+
+async function loadBills() {
+  const months = document.getElementById('bills-period')?.value || '12';
+  const res = await api(`/analytics/utility-summary?months=${encodeURIComponent(months)}`);
+  if (!res.ok) {
+    document.getElementById('bills-providers-body').innerHTML = '<div class="empty-state"><p>Could not load bills data.</p></div>';
+    return;
+  }
+  const data = await res.json();
+
+  // Stat cards
+  const fmt = (v) => '$' + (v || 0).toFixed(2);
+  document.getElementById('bills-receipt-count').textContent = data.receipt_count || 0;
+  document.getElementById('bills-receipt-sub').textContent = `${months} months`;
+  document.getElementById('bills-total-spend').textContent = fmt(data.total_spend);
+  document.getElementById('bills-recurring-total').textContent = fmt(data.recurring_total);
+  document.getElementById('bills-one-off-total').textContent = fmt(data.one_off_total);
+
+  // Due soon
+  const dueSoonCard = document.getElementById('bills-due-soon-card');
+  const dueSoonBody = document.getElementById('bills-due-soon-body');
+  if (data.due_soon && data.due_soon.length > 0) {
+    dueSoonCard.style.display = '';
+    dueSoonBody.innerHTML = data.due_soon.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+        <div>
+          <strong>${escHtml(b.provider_name || '—')}</strong>
+          <span style="font-size:0.8rem;color:var(--muted);margin-left:6px">${escHtml(b.provider_type || '')}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:var(--accent)">${fmt(b.amount)}</div>
+          <div style="font-size:0.78rem;color:var(--muted)">Due ${escHtml(b.due_date)} · ${b.days_until_due === 0 ? 'today' : b.days_until_due + 'd'}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    dueSoonCard.style.display = 'none';
+  }
+
+  // Providers table
+  const providersBody = document.getElementById('bills-providers-body');
+  if (!data.providers || data.providers.length === 0) {
+    providersBody.innerHTML = '<div class="empty-state"><p>No household bills logged yet. Upload or manually enter one with the Household Bill intent.</p></div>';
+  } else {
+    const providerTypeEmoji = { electricity: '💡', water: '🚰', sewage: '🚰', gas: '🔥', internet: '📶', phone: '📱', cable: '📺', trash: '🗑️', hoa: '🏘️', rent: '🏠', mortgage: '🏠', insurance: '🛡️', daycare: '👶', school: '🏫', gym: '🏋️', streaming: '🎬', software: '💻', subscription: '🔁', health: '❤️', other: '📄' };
+    providersBody.innerHTML = `<div class="table-wrap"><table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="font-size:0.8rem;color:var(--muted);text-align:left">
+        <th style="padding:6px 8px">Provider</th>
+        <th style="padding:6px 8px">Type</th>
+        <th style="padding:6px 8px">Bills</th>
+        <th style="padding:6px 8px;text-align:right">Total</th>
+        <th style="padding:6px 8px;text-align:right">Avg/Mo</th>
+        <th style="padding:6px 8px">Last</th>
+      </tr></thead>
+      <tbody>
+        ${data.providers.map(p => `<tr style="border-top:1px solid rgba(255,255,255,0.05)">
+          <td style="padding:8px">${escHtml(p.provider_name || '—')}</td>
+          <td style="padding:8px;color:var(--muted);font-size:0.85rem">${providerTypeEmoji[p.provider_type] || '📄'} ${escHtml(p.provider_type || '—')}</td>
+          <td style="padding:8px">${p.purchase_count}</td>
+          <td style="padding:8px;text-align:right;font-weight:700">${fmt(p.total)}</td>
+          <td style="padding:8px;text-align:right;color:var(--muted)">${fmt(p.average_monthly)}</td>
+          <td style="padding:8px;color:var(--muted);font-size:0.82rem">${escHtml(p.latest_date || '—')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  // Month-over-month
+  const monthlyBody = document.getElementById('bills-monthly-body');
+  const monthlyKeys = Object.keys(data.monthly_totals || {}).sort();
+  if (monthlyKeys.length === 0) {
+    monthlyBody.innerHTML = '<div class="empty-state"><p>No monthly data yet.</p></div>';
+  } else {
+    const maxVal = Math.max(...monthlyKeys.map(k => Math.abs(data.monthly_totals[k])), 1);
+    monthlyBody.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">
+      ${monthlyKeys.reverse().map(k => {
+        const val = data.monthly_totals[k] || 0;
+        const pct = Math.round(Math.abs(val) / maxVal * 100);
+        return `<div style="display:flex;align-items:center;gap:10px;font-size:0.88rem">
+          <span style="width:58px;color:var(--muted);flex-shrink:0">${escHtml(k)}</span>
+          <div style="flex:1;height:12px;border-radius:6px;background:rgba(255,255,255,0.06);overflow:hidden">
+            <div style="width:${pct}%;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--primary),var(--accent))"></div>
+          </div>
+          <span style="width:64px;text-align:right;font-weight:600">${fmt(val)}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Recent bills
+  const recentBody = document.getElementById('bills-recent-body');
+  if (!data.recent_bills || data.recent_bills.length === 0) {
+    recentBody.innerHTML = '<div class="empty-state"><p>No bills yet.</p></div>';
+  } else {
+    recentBody.innerHTML = `<div style="display:flex;flex-direction:column;gap:0">
+      ${data.recent_bills.map(b => `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.88rem">
+        <div>
+          <strong>${escHtml(b.provider_name || '—')}</strong>
+          ${b.is_recurring ? '<span style="font-size:0.72rem;color:var(--primary);margin-left:5px">↺ recurring</span>' : ''}
+          <div style="font-size:0.78rem;color:var(--muted)">${escHtml(b.billing_cycle_month || b.date || '—')} · ${escHtml(b.provider_type || '')}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700">${fmt(b.amount)}</div>
+          ${b.due_date ? `<div style="font-size:0.76rem;color:var(--muted)">Due ${escHtml(b.due_date)}</div>` : ''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+}
+
+// Show/hide the Bill Details panel when receipt type changes in the editor
+function handleReceiptEditorTypeChange(receiptId) {
+  const typeEl = document.getElementById(`receipt-type-${receiptId}`);
+  const panel = document.getElementById(`receipt-bill-meta-panel-${receiptId}`);
+  if (!typeEl || !panel) return;
+  const isUtility = ['utility_bill', 'household_bill'].includes(typeEl.value);
+  panel.style.display = isUtility ? '' : 'none';
+}
+
+// When provider type changes, auto-assign budget category in the editor
+function handleBillProviderTypeChange(receiptId) {
+  const ptEl = document.getElementById(`receipt-bill-provider-type-${receiptId}`);
+  const catEl = document.getElementById(`receipt-default-category-${receiptId}`);
+  if (!ptEl || !catEl) return;
+  const ptype = ptEl.value;
+  if (!ptype) return;
+  const cat = BILL_PROVIDER_TYPE_TO_BUDGET_CATEGORY[ptype] || 'other_recurring';
+  catEl.value = cat;
+}
+
+// Show/hide the Bill Meta section in Manual Entry modal
+function handleManualEntryTypeChange() {
+  const typeEl = document.getElementById('manual-entry-type');
+  const itemsSection = document.getElementById('manual-entry-items-section');
+  const billSection = document.getElementById('manual-entry-bill-section');
+  if (!typeEl) return;
+  const isUtility = ['utility_bill', 'household_bill'].includes(typeEl.value);
+  if (itemsSection) itemsSection.style.display = isUtility ? 'none' : '';
+  if (billSection) billSection.style.display = isUtility ? '' : 'none';
+}
+
+function handleManualBillProviderTypeChange() {
+  const typeEl = document.getElementById('manual-entry-bill-provider-type');
+  if (!typeEl) return;
+  const providerNameEl = document.getElementById('manual-entry-bill-provider-name');
+  if (!providerNameEl || providerNameEl.value?.trim()) return;
+  const selectedText = typeEl.options?.[typeEl.selectedIndex]?.textContent?.trim();
+  if (selectedText && !selectedText.startsWith('—')) {
+    providerNameEl.placeholder = `e.g. ${selectedText} provider`;
+  }
 }
 
 // ============================================================
