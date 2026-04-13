@@ -23,7 +23,7 @@ from src.backend.contribution_scores import (
 )
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
-from src.backend.initialize_database_schema import Inventory, PriceHistory, Product
+from src.backend.initialize_database_schema import Inventory, PriceHistory, Product, ProductSnapshot
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
 
@@ -80,6 +80,22 @@ def _get_product_receipt_links(session, product_id: int, limit: int = 3) -> list
     return links
 
 
+def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
+    snapshot = (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.product_id == product_id)
+        .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+        .first()
+    )
+    if not snapshot:
+        return None
+    return {
+        "id": snapshot.id,
+        "image_url": f"/product-snapshots/{snapshot.id}/image",
+        "created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
+    }
+
+
 @inventory_bp.route("", methods=["GET"])
 @require_auth
 def list_inventory():
@@ -115,6 +131,7 @@ def list_inventory():
                 "brand": item.product.brand,
                 "category": item.product.category,
                 "latest_price": _get_latest_price(session, item.product_id),
+                "latest_snapshot": _latest_snapshot_for_product(session, item.product_id),
                 "recent_receipts": _get_product_receipt_links(session, item.product_id),
                 "quantity": item.quantity,
                 "location": item.location,

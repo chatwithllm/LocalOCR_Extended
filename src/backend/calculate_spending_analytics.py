@@ -8,8 +8,6 @@ price history trends, and deals captured (savings quantification).
 """
 
 import logging
-import re
-import json
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
@@ -19,95 +17,11 @@ from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Purchase, ReceiptItem, Product, Store, PriceHistory
 )
-from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
 
 logger = logging.getLogger(__name__)
 
 analytics_bp = Blueprint("analytics", __name__, url_prefix="/analytics")
-
-_PROVIDER_ALIAS_STOPWORDS = {
-    "inc",
-    "llc",
-    "ltd",
-    "corp",
-    "corporation",
-    "company",
-    "co",
-    "services",
-    "service",
-    "billing",
-    "bill",
-    "payment",
-    "payments",
-    "portal",
-    "online",
-    "delivery",
-    "energy",
-    "utility",
-    "utilities",
-}
-
-_PROVIDER_LOCATION_STOPWORDS = {
-    "indiana",
-    "indianapolis",
-}
-
-
-def _provider_display_name(meta, store) -> str:
-    return ((getattr(meta, "provider_name", None) if meta else None) or (store.name if store else "") or "Unknown").strip() or "Unknown"
-
-
-def _canonical_provider_name(name: str | None) -> str:
-    normalized = str(name or "").strip().lower()
-    if not normalized:
-        return "unknown"
-    normalized = normalized.replace("&", "")
-    normalized = normalized.replace("'", "")
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
-    tokens = [token for token in normalized.split() if token]
-    if not tokens:
-        return "unknown"
-    filtered = [
-        token for token in tokens
-        if token not in _PROVIDER_ALIAS_STOPWORDS
-        and token not in _PROVIDER_LOCATION_STOPWORDS
-    ]
-    return " ".join(filtered or tokens)
-
-
-def _provider_group_key(provider_name: str | None, provider_type: str | None, account_label: str | None = None) -> str:
-    provider_token = _canonical_provider_name(provider_name)
-    provider_type_token = str(provider_type or "other").strip().lower() or "other"
-    account_token = str(account_label or "").strip().lower()
-    return f"{provider_token}|{provider_type_token}|{account_token}"
-
-
-def _service_types_from_meta(meta) -> list[str]:
-    raw = getattr(meta, "service_types", None) if meta else None
-    if not raw:
-        fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
-        return [fallback] if fallback else []
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            values = [str(value or "").strip().lower() for value in parsed if str(value or "").strip()]
-            return values or ([str(getattr(meta, "provider_type", None) or "").strip().lower()] if getattr(meta, "provider_type", None) else [])
-    except Exception:
-        pass
-    fallback = str(getattr(meta, "provider_type", None) or "").strip().lower() if meta else ""
-    return [fallback] if fallback else []
-
-
-def _obligation_amount_pattern(amounts: list[float]) -> tuple[str, float]:
-    if not amounts:
-        return "new", 0.0
-    if len(amounts) == 1:
-        return "new", 0.0
-    avg_amount = sum(amounts) / len(amounts)
-    spread = max(amounts) - min(amounts)
-    tolerance = max(5.0, abs(avg_amount) * 0.05)
-    return ("fixed", round(spread, 2)) if spread <= tolerance else ("variable", round(spread, 2))
 
 
 def _transaction_counts(purchases):
@@ -381,7 +295,7 @@ def get_spending():
     period = request.args.get("period", "monthly")
     category = request.args.get("category")
     store_name = request.args.get("store")
-    domain = normalize_spending_domain((request.args.get("domain") or "").strip().lower(), default="")
+    domain = (request.args.get("domain") or "").strip().lower()
     months_back = request.args.get("months", 6, type=int)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
@@ -615,75 +529,6 @@ def get_store_comparison():
         "comparison": comparison,
         "cheapest_store": comparison[0]["store"] if comparison else None,
     }), 200
-
-
-@analytics_bp.route("/utility-summary", methods=["GET"])
-@require_auth
-def get_utility_summary():
-    """Return utility & recurring bill spend analytics.
-
-    Queries purchases with domain='utility' and joins bill_meta for provider
-    details.  Returns:
-      - spending by provider (all time within window)
-      - month-over-month totals per provider
-      - recurring vs one-off split
-      - bills with a due_date within the next 14 days
-    """
-    from src.backend.initialize_database_schema import TelegramReceipt
-    from datetime import date as date_type, timedelta as td
-
-    session = g.db_session
-    months_back = request.args.get("months", 12, type=int)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
-
-    # Import BillMeta here to avoid circular import at module load
-    from src.backend.initialize_database_schema import BillMeta  # noqa: PLC0415
-
-    rows = (
-        session.query(Purchase, Store, BillMeta)
-        .outerjoin(Store, Purchase.store_id == Store.id)
-        .outerjoin(BillMeta, BillMeta.purchase_id == Purchase.id)
-        .filter(Purchase.domain.in_(["utility", "household_obligations"]), Purchase.date >= cutoff)
-        .order_by(Purchase.date.desc())
-        .all()
-    )
-
-    # Aggregates
-    total_spend = 0.0
-    recurring_total = 0.0
-    one_off_total = 0.0
-    provider_summary: dict = {}
-    category_summary: dict = {}
-    monthly_totals: dict = {}
-    recent_bills = []
-
-    today = date_type.today()
-    due_soon = []
-
-    for purchase, store, meta in rows:
-        signed_total = signed_purchase_total(purchase)
-        transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
-        total_spend += signed_total
-
-        is_recurring = bool(meta.is_recurring) if meta else True
-        provider_name = _provider_display_name(meta, store)
-        provider_type = (meta.provider_type if meta else None) or "other"
-        service_types = _service_types_from_meta(meta)
-        billing_cycle = (meta.billing_cycle_month if meta else None) or (
-            purchase.date.strftime("%Y-%m") if purchase.date else None
-        )
-        budget_category = getattr(purchase, "default_budget_category", None) or "other_recurring"
-
-        if is_recurring:
-            recurring_total += signed_total
-        else:
-            one_off_total += signed_total
-
-        # Per-provider aggregation
-        pkey = _provider_group_key(
-            provider_name,
-            service_types[0] if service_types else provider_type,
-            getattr(meta, "account_label", None) if meta else None,
         )
         if pkey not in provider_summary:
             provider_summary[pkey] = {

@@ -295,6 +295,17 @@ Extended-specific runtime changes now in place:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records
     - expected-vs-actual for obligations not yet entered this month
+  - planning consolidation:
+    - external architecture response captured in:
+      - `docs/LocalOCR Extended plan.md`
+    - codebase-tailored restart / implementation guide captured in:
+      - `future enhancements/recurring household bills consolidated plan.md`
+    - consolidated recommendation:
+      - keep receipts as the source of truth
+      - add canonical providers and service lines
+      - derive a first-class `planning_month`
+      - separate bill receipt state from payment-confirmed state
+      - let Gemini extract raw bill facts while app code derives planning logic
 
 ## Intended Parallel Deployment Shape
 

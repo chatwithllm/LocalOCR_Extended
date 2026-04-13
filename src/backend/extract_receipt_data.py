@@ -34,7 +34,6 @@ from src.backend.contribution_scores import validate_low_workflow
 from src.backend.budgeting_domains import (
     default_budget_category_for_spending_domain,
     derive_receipt_budget_defaults,
-    normalize_utility_service_types,
     normalize_budget_category,
     normalize_spending_domain,
 )
@@ -191,7 +190,7 @@ def process_receipt(image_path: str, source: str = "upload",
         result["confidence"] = _safe_float(ocr_data.get("confidence", 0.0))
         result["receipt_type"] = _resolve_receipt_type(ocr_data, receipt_type_hint)
 
-        is_valid = _validate_receipt_data(ocr_data, receipt_type=result.get("receipt_type"))
+        is_valid = _validate_receipt_data(ocr_data)
 
         if is_valid and result["confidence"] >= CONFIDENCE_THRESHOLD:
             # High confidence — auto-process
@@ -464,18 +463,9 @@ def _score_restaurant_candidate(data: dict) -> float:
 # Validation
 # ---------------------------------------------------------------------------
 
-def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
-    """Validate that OCR output contains all required fields.
-
-    Household bill receipts don't require line items, so the items-required
-    check is bypassed when receipt_type is 'utility_bill' or 'household_bill'.
-    """
-    is_utility = str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}
-
-    required_fields = ["store", "date", "total"]
-    if not is_utility:
-        required_fields.append("items")
-
+def _validate_receipt_data(data: dict) -> bool:
+    """Validate that OCR output contains all required fields."""
+    required_fields = ["store", "date", "items", "total"]
     for field in required_fields:
         if field not in data or data[field] is None:
             logger.warning(f"Validation failed: missing field '{field}'")
@@ -489,19 +479,18 @@ def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
         logger.warning("Validation failed: OCR returned an invalid receipt date: %s", data.get("date"))
         return False
 
-    if not is_utility:
-        if not isinstance(data["items"], list) or len(data["items"]) == 0:
-            logger.warning("Validation failed: items must be a non-empty list")
-            return False
+    if not isinstance(data["items"], list) or len(data["items"]) == 0:
+        logger.warning("Validation failed: items must be a non-empty list")
+        return False
 
-        # Validate each item has at least name and unit_price
-        for i, item in enumerate(data["items"]):
-            if not item.get("name"):
-                logger.warning(f"Validation: item {i} missing 'name'")
-                return False
-            if item.get("unit_price") is None:
-                logger.warning(f"Validation: item {i} missing 'unit_price'")
-                # Don't fail — some items might be discounts at $0.00
+    # Validate each item has at least name and unit_price
+    for i, item in enumerate(data["items"]):
+        if not item.get("name"):
+            logger.warning(f"Validation: item {i} missing 'name'")
+            return False
+        if item.get("unit_price") is None:
+            logger.warning(f"Validation: item {i} missing 'unit_price'")
+            # Don't fail — some items might be discounts at $0.00
 
     return True
 
@@ -575,7 +564,7 @@ def classify_receipt_data(data: dict) -> str:
 
 def _normalize_receipt_type_hint(receipt_type_hint: str | None) -> str | None:
     hint = str(receipt_type_hint or "").strip().lower()
-    return hint if hint in {"grocery", "restaurant", "general_expense", "retail_items", "utility_bill", "household_bill"} else None
+    return hint if hint in {"grocery", "restaurant", "general_expense", "retail_items"} else None
 
 
 def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
@@ -585,10 +574,6 @@ def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
         return data
 
     hinted = dict(data or {})
-    # Bill receipts typically have no line items — don't forcibly add categories.
-    if hint in {"utility_bill", "household_bill"}:
-        hinted.setdefault("items", [])
-        return hinted
     items = []
     for item in hinted.get("items", []) or []:
         normalized_item = dict(item or {})
@@ -831,11 +816,6 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
             f"{len(ocr_data.get('items', []))} items | purchase_id={purchase.id}"
         )
 
-        # For household bill receipts, create the bill_meta sidecar row.
-        # This is additive and never blocks the purchase save.
-        if str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}:
-            _save_bill_meta(session, purchase.id, ocr_data)
-
         if receipt_type == "grocery":
             rebuild_active_inventory(session)
             if purchase.transaction_type != "refund":
@@ -858,64 +838,6 @@ def _normalize_purchase_date(value: object) -> str:
     fallback = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     logger.warning("Falling back to current date because OCR returned invalid date: %s", value)
     return fallback
-
-
-def _safe_date_parse(value: str | None) -> "date | None":
-    """Try to parse a YYYY-MM-DD string returned by OCR for bill_meta date fields."""
-    if not value:
-        return None
-    from datetime import date as date_type
-    try:
-        return datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        return None
-
-
-def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
-    """Create or update the bill_meta sidecar row for a household bill purchase.
-
-    All fields are optional — OCR misses are stored as NULL, and the user can
-    fill them in via the review editor.  This never raises so that it cannot
-    block the purchase save.
-    """
-    try:
-        from src.backend.initialize_database_schema import BillMeta
-        from src.backend.budgeting_domains import UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY
-
-        existing = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
-        if existing:
-            meta = existing
-        else:
-            meta = BillMeta(purchase_id=purchase_id)
-            session.add(meta)
-
-        # Provider fields — OCR returns these with bill_ prefix when using the utility prompt
-        meta.provider_name = (
-            str(ocr_data.get("bill_provider_name") or ocr_data.get("store") or "").strip() or None
-        )
-        raw_ptype = str(ocr_data.get("bill_provider_type") or "").strip().lower()
-        meta.provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else None
-        service_types = normalize_utility_service_types(
-            ocr_data.get("bill_service_types"),
-            provider_type=meta.provider_type,
-        )
-        meta.service_types = json.dumps(service_types) if service_types else None
-        meta.account_label = (
-            str(ocr_data.get("bill_account_label") or "").strip() or None
-        )
-        meta.service_period_start = _safe_date_parse(ocr_data.get("bill_service_period_start"))
-        meta.service_period_end = _safe_date_parse(ocr_data.get("bill_service_period_end"))
-        meta.due_date = _safe_date_parse(ocr_data.get("bill_due_date"))
-        meta.billing_cycle_month = (
-            str(ocr_data.get("bill_billing_cycle_month") or "").strip()[:7] or None
-        )
-        is_recurring_raw = ocr_data.get("bill_is_recurring")
-        meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True
-
-        session.flush()
-        logger.info("Saved bill_meta for purchase_id=%s provider=%s", purchase_id, meta.provider_name)
-    except Exception as exc:
-        logger.warning("Failed to save bill_meta for purchase_id=%s: %s", purchase_id, exc)
 
 
 def _publish_inventory_updates(session, items):
@@ -1033,6 +955,12 @@ def _send_telegram_warning(chat_id: str):
 
 
 def _send_telegram_error(chat_id: str):
+    """Send failure error to Telegram user."""
+    try:
+        from src.backend.handle_telegram_messages import send_telegram_message
+        send_telegram_message(chat_id, "❌ Could not process receipt. Saved for manual review.")
+    except Exception as e:
+        logger.warning(f"Failed to send Telegram error: {e}")
     """Send failure error to Telegram user."""
     try:
         from src.backend.handle_telegram_messages import send_telegram_message

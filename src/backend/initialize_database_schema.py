@@ -203,39 +203,6 @@ class Purchase(Base):
     receipt_items = relationship("ReceiptItem", back_populates="purchase")
 
 
-class BillMeta(Base):
-    """Sidecar metadata for household bill purchases.
-
-    Linked 1-to-1 with a Purchase row.  Stores provider details, billing
-    cycle, service period, and recurrence flag that don't fit cleanly into
-    the generic purchase model.  All fields are nullable so OCR misses
-    never block saving. Always NULL for non-bill purchases.
-    """
-    __tablename__ = "bill_meta"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False, unique=True)
-    provider_name = Column(String(255), nullable=True)      # "NIPSCO", "Comcast"
-    provider_type = Column(String(60), nullable=True)       # "electricity", "internet", ...
-    service_types = Column(Text, nullable=True)             # JSON array of service types for combined bills
-    account_label = Column(String(120), nullable=True)      # optional account nickname / last-4
-    service_period_start = Column(Date, nullable=True)      # billing period start
-    service_period_end = Column(Date, nullable=True)        # billing period end
-    due_date = Column(Date, nullable=True)                  # payment due date
-    billing_cycle_month = Column(String(7), nullable=True)  # "2026-04"
-    is_recurring = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, default=utcnow)
-    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
-
-    __table_args__ = (
-        Index("ix_bill_meta_purchase_id", "purchase_id"),
-        Index("ix_bill_meta_billing_cycle_month", "billing_cycle_month"),
-        Index("ix_bill_meta_provider_name", "provider_name"),
-    )
-
-    purchase = relationship("Purchase", backref="bill_meta_record", uselist=False)
-
-
 class ReceiptItem(Base):
     __tablename__ = "receipt_items"
 
@@ -764,69 +731,15 @@ def _ensure_runtime_columns(engine):
             "ON inventory_adjustments (created_at)"
         ))
 
-        # -----------------------------------------------------------------
-        # bill_meta — sidecar table for household bill / recurring bill purchases
-        # -----------------------------------------------------------------
-        existing_tables = {
-            row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-        }
-        if "bill_meta" not in existing_tables:
-            conn.execute(text("""
-                CREATE TABLE bill_meta (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    purchase_id INTEGER NOT NULL UNIQUE REFERENCES purchases(id),
-                    provider_name VARCHAR(255),
-                    provider_type VARCHAR(60),
-                    service_types TEXT,
-                    account_label VARCHAR(120),
-                    service_period_start DATE,
-                    service_period_end DATE,
-                    due_date DATE,
-                    billing_cycle_month VARCHAR(7),
-                    is_recurring BOOLEAN NOT NULL DEFAULT 1,
-                    created_at DATETIME,
-                    updated_at DATETIME
-                )
-            """))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_bill_meta_purchase_id "
-                "ON bill_meta (purchase_id)"
-            ))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_bill_meta_billing_cycle_month "
-                "ON bill_meta (billing_cycle_month)"
-            ))
-            conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS ix_bill_meta_provider_name "
-                "ON bill_meta (provider_name)"
-            ))
-        else:
-            # Ensure all columns exist if the table was created by an older version
-            bill_meta_columns = {
-                row[1]
-                for row in conn.execute(text("PRAGMA table_info(bill_meta)"))
-            }
-            additions = [
-                ("provider_name", "VARCHAR(255)"),
-                ("provider_type", "VARCHAR(60)"),
-                ("service_types", "TEXT"),
-                ("account_label", "VARCHAR(120)"),
-                ("service_period_start", "DATE"),
-                ("service_period_end", "DATE"),
-                ("due_date", "DATE"),
-                ("billing_cycle_month", "VARCHAR(7)"),
-                ("is_recurring", "BOOLEAN NOT NULL DEFAULT 1"),
-            ]
-            for col_name, col_def in additions:
-                if col_name not in bill_meta_columns:
-                    conn.execute(text(f"ALTER TABLE bill_meta ADD COLUMN {col_name} {col_def}"))
-
 
 # ---------------------------------------------------------------------------
 # Entry point for standalone initialization
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    engine, Session = initialize_database()
+    logger.info("Database tables created.")
     logging.basicConfig(level=logging.INFO)
     engine, Session = initialize_database()
     logger.info("Database tables created.")

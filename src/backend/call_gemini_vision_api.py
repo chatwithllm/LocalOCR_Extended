@@ -70,45 +70,6 @@ Rules:
 - Return ONLY valid JSON
 """
 
-UTILITY_BILL_EXTRACTION_PROMPT = """
-Analyze this utility bill or recurring bill document and extract the following information as JSON.
-Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
-
-{
-    "store": "Provider or company name (e.g. NIPSCO, Comcast, Planet Fitness)",
-    "store_location": "Provider address if visible, or null",
-    "date": "YYYY-MM-DD (bill date or statement date)",
-    "time": null,
-    "items": [],
-    "subtotal": 0.00,
-    "tax": 0.00,
-    "tip": 0.00,
-    "total": 0.00,
-    "confidence": 0.95,
-    "bill_provider_type": "one of: electricity, water, sewage, gas, internet, phone, cable, trash, hoa, rent, mortgage, insurance, daycare, school, gym, streaming, software, subscription, health, other",
-    "bill_account_label": "Account number, last 4 digits, or account nickname if visible, or null",
-    "bill_service_period_start": "YYYY-MM-DD or null",
-    "bill_service_period_end": "YYYY-MM-DD or null",
-    "bill_due_date": "YYYY-MM-DD or null",
-    "bill_billing_cycle_month": "YYYY-MM — month this bill covers, or null",
-    "bill_is_recurring": true
-}
-
-Rules:
-- store = provider or company name (e.g. "NIPSCO", "Comcast", "Planet Fitness")
-- date = bill issue date or statement date (not due date)
-- total = amount due / amount owed on this bill
-- items array should be EMPTY unless the bill explicitly lists separately charged services
-- bill_provider_type: choose the best matching type from the allowed list
-- bill_service_period_start / end: the period covered by this bill (e.g. March 1 to March 31)
-- bill_due_date: the payment due date shown on the bill
-- bill_billing_cycle_month: the YYYY-MM that this bill is for (usually the month before due date)
-- bill_is_recurring: true for regular monthly/annual bills, false for one-off charges
-- Confidence should reflect overall bill readability (0.0 to 1.0)
-- If you cannot read a field clearly, set it to null
-- Return ONLY valid JSON
-"""
-
 RECEIPT_SUMMARY_PROMPT = """
 Analyze this receipt image and extract ONLY the high-level summary fields as JSON.
 Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
@@ -269,9 +230,6 @@ def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: st
 
 def _build_prompt(base_prompt: str, supplemental_text: str | None, mode_hint: str | None = None) -> str:
     """Augment the OCR prompt with extracted PDF text when available."""
-    # Legacy utility_bill and the new household_bill flow share the same bill prompt.
-    if mode_hint in {"utility_bill", "household_bill"}:
-        base_prompt = UTILITY_BILL_EXTRACTION_PROMPT
     prompt = base_prompt
     if mode_hint == "restaurant":
         prompt += (
