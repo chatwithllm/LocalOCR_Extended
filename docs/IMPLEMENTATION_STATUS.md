@@ -238,7 +238,7 @@ Extended-specific runtime changes now in place:
 - receipt image serving now remaps legacy absolute local-machine receipt paths into the current receipts root when the underlying file still exists there
 - recurring bills / household obligations Phase 1 is now in progress on:
   - Phase 2 budget integration is now also active on the same branch
-  - `codex/household-bills-phase1`
+  - `codex/household-bills`
   - planning doc:
     - `future enhancements/localocr_extended_recurring_bills_plan.md`
   - current Phase 1 implementation now includes:
@@ -282,6 +282,12 @@ Extended-specific runtime changes now in place:
     - provider-level totals plus recent monthly trend chips
     - recurring vs one-off obligation totals surfaced inside Analytics
     - recent household bill activity embedded inside the analytics view
+  - current Phase 4 recurring-obligations implementation now includes:
+    - a Bills-page `Recurring Obligations` section with month picker
+    - derived known-obligation rows from recurring bill history
+    - expected / entered / outstanding / variance summary cards
+    - obligation-level receipt jump-through support
+    - fixes for lower Bills-page sections so recurring-obligation rendering no longer prevents Providers, Month-over-Month, and Recent Bills from loading
   - intentionally deferred to later phases:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records

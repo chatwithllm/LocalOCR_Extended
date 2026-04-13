@@ -5292,6 +5292,15 @@
       </div>
       <div class="card">
         <div class="card-header">
+          <span class="card-title">Recurring Obligations</span>
+          <div class="table-toolbar">
+            <input type="month" id="bills-obligations-month" onchange="loadBills()" style="width:160px" />
+          </div>
+        </div>
+        <div id="bills-obligations-body"><div class="empty-state"><p>No recurring obligation history yet.</p></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
           <span class="card-title">Providers</span>
           <div class="table-toolbar">
             <select id="bills-period" onchange="loadBills()">
@@ -15914,9 +15923,22 @@ const BILL_PROVIDER_TYPE_TO_BUDGET_CATEGORY = {
   health: 'health',
 };
 
+function ensureBillsObligationsMonth() {
+  const el = document.getElementById('bills-obligations-month');
+  if (!el || el.value) return;
+  const now = new Date();
+  el.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 async function loadBills() {
+  ensureBillsObligationsMonth();
+  const compact = isCompactMobileReceiptView();
   const months = document.getElementById('bills-period')?.value || '12';
-  const res = await api(`/analytics/utility-summary?months=${encodeURIComponent(months)}`);
+  const obligationsMonth = document.getElementById('bills-obligations-month')?.value || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const [res, obligationsRes] = await Promise.all([
+    api(`/analytics/utility-summary?months=${encodeURIComponent(months)}`),
+    api(`/analytics/recurring-obligations?month=${encodeURIComponent(obligationsMonth)}`),
+  ]);
   if (!res.ok) {
     document.getElementById('bills-providers-body').innerHTML = '<div class="empty-state"><p>Could not load bills data.</p></div>';
     return;
@@ -15949,6 +15971,89 @@ async function loadBills() {
       </div>`).join('');
   } else {
     dueSoonCard.style.display = 'none';
+  }
+
+  // Recurring obligations planning view
+  const obligationsBody = document.getElementById('bills-obligations-body');
+  if (obligationsBody) {
+    if (!obligationsRes.ok) {
+      obligationsBody.innerHTML = '<div class="empty-state"><p>Could not load recurring obligations.</p></div>';
+    } else {
+      const obligationsData = await obligationsRes.json();
+      const summary = obligationsData.summary || {};
+      const obligations = Array.isArray(obligationsData.obligations) ? obligationsData.obligations : [];
+      obligationsBody.innerHTML = obligations.length ? `
+        <div style="display:grid;gap:12px">
+          <div class="stats-grid">
+            <div class="stat-card accent"><div class="stat-label">Expected</div><div class="stat-value">${fmt(summary.expected_total)}</div><div class="stat-sub">${summary.count || 0} known obligations</div></div>
+            <div class="stat-card success"><div class="stat-label">Entered</div><div class="stat-value">${fmt(summary.actual_total)}</div><div class="stat-sub">${summary.entered_count || 0} entered for ${escHtml(obligationsData.month || obligationsMonth)}</div></div>
+            <div class="stat-card warning"><div class="stat-label">Outstanding</div><div class="stat-value">${summary.outstanding_count || 0}</div><div class="stat-sub">still missing this month</div></div>
+            <div class="stat-card"><div class="stat-label">Variance</div><div class="stat-value">${fmt(summary.variance_total)}</div><div class="stat-sub">actual vs expected</div></div>
+          </div>
+          ${compact
+            ? renderMobileMetricCards(obligations.map(item => ({
+                title: item.provider_name || 'Unknown',
+                value: item.status === 'outstanding' ? 'Outstanding' : 'Entered',
+                meta: [
+                  formatLabel(item.provider_type, 'Other'),
+                  formatLabel(item.budget_category, 'Other Recurring'),
+                  item.account_label || '',
+                  item.last_seen_date ? `Last seen ${item.last_seen_date}` : '',
+                  item.last_due_date ? `Last due ${item.last_due_date}` : ''
+                ].filter(Boolean).join(' · '),
+                cells: [
+                  { label: 'Expected', value: fmt(item.expected_amount) },
+                  { label: 'Actual', value: fmt(item.actual_amount) },
+                  { label: 'Variance', value: fmt(item.variance) }
+                ],
+                actions: `
+                  ${item.history_preview?.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${item.history_preview.map(entry => `<span class="chip">${escHtml(entry.billing_cycle_month || entry.date || '—')} · ${fmt(entry.amount)}</span>`).join('')}</div>` : ''}
+                  ${item.purchase_id ? `<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" style="width:100%" onclick="jumpToReceipt(${Number(item.purchase_id)})">${item.status === 'outstanding' ? 'Open Last Receipt' : 'Open Receipt'}</button></div>` : ''}
+                `
+              })))
+            : `<div class="contrib-list">
+                ${obligations.map(item => `
+                  <div class="contrib-list-item">
+                    <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                          <strong>${escHtml(item.provider_name || 'Unknown')}</strong>
+                          <span class="chip">${escHtml(formatLabel(item.provider_type, 'Other'))}</span>
+                          <span class="chip" style="${item.status === 'outstanding' ? 'color:var(--danger);border-color:rgba(255,95,143,0.35);background:rgba(255,95,143,0.12);' : ''}">${item.status === 'outstanding' ? 'Outstanding' : 'Entered'}</span>
+                        </div>
+                        <div class="contrib-meta">
+                          ${escHtml(formatLabel(item.budget_category, 'Other Recurring'))}
+                          ${item.account_label ? ` · ${escHtml(item.account_label)}` : ''}
+                          ${item.last_seen_date ? ` · Last seen ${escHtml(item.last_seen_date)}` : ''}
+                          ${item.last_due_date ? ` · Last due ${escHtml(item.last_due_date)}` : ''}
+                        </div>
+                        ${item.history_preview?.length ? `
+                          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+                            ${item.history_preview.map(entry => `<span class="chip">${escHtml(entry.billing_cycle_month || entry.date || '—')} · ${fmt(entry.amount)}</span>`).join('')}
+                          </div>` : ''}
+                      </div>
+                      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+                        <div style="text-align:right">
+                          <div class="contrib-points">${fmt(item.expected_amount)}</div>
+                          <div class="contrib-meta">Expected</div>
+                        </div>
+                        <div style="text-align:right">
+                          <div class="contrib-points">${fmt(item.actual_amount)}</div>
+                          <div class="contrib-meta">Actual</div>
+                        </div>
+                        <div style="text-align:right">
+                          <div class="contrib-points">${fmt(item.variance)}</div>
+                          <div class="contrib-meta">Variance</div>
+                        </div>
+                        ${item.purchase_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${Number(item.purchase_id)})">${item.status === 'outstanding' ? 'Last Receipt' : 'Open Receipt'}</button>` : ''}
+                      </div>
+                    </div>
+                  </div>`).join('')}
+              </div>`
+          }
+        </div>
+      ` : '<div class="empty-state"><p>No recurring household obligations derived yet. Mark household bills as recurring to build this planning view.</p></div>';
+    }
   }
 
   // Providers table

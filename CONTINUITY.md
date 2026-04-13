@@ -204,8 +204,8 @@ This split gives you a clean safety net:
   - `future enhancements/multi household.md`
   - `future enhancements/budget domains.md`
   - `future enhancements/units and size labels.md`
-- recurring household bills / obligations Phase 1 is now actively implemented on:
-  - `codex/household-bills-phase1`
+- recurring household bills / obligations work now continues on:
+  - `codex/household-bills`
 - Household Bill Phase 1 foundation now includes:
   - new receipt intake intent:
     - `Household Bill`
@@ -248,6 +248,12 @@ This split gives you a clean safety net:
   - provider-level totals with recent month chips for fast trend inspection
   - recurring vs one-off household bill totals surfaced directly in Analytics
   - recent household bills list inside Analytics so the bills domain can be reviewed without leaving the page
+- Household Bill Phase 4 recurring-obligations module is now in progress on `codex/household-bills` and currently includes:
+  - a dedicated `Recurring Obligations` section on the Bills page with month selection
+  - derived obligation rows from recurring household-bill history
+  - expected vs actual vs variance summary cards for the selected month
+  - recurring-obligation cards with receipt jump-through support
+  - a rendering fix so the recurring-obligations panel no longer stops the lower bills sections from loading when March-style recurring rows are present
 - budgeting Phase 1 foundation is now implemented:
   - purchases now persist:
     - `default_spending_domain`
