@@ -349,6 +349,23 @@ This is the repo where the following should happen next:
     - rotating environment secrets after restore
     - changing domain/base URL after restore
     - verifying restored receipt-file completeness before operators cut over traffic
+
+## Recurring Bills Next Track
+
+- merged to `main`:
+  - current household-bill intake, analytics, recurring-obligation summaries, and compatibility behavior
+- new implementation branch:
+  - `codex/recurring-bills-foundation`
+- active phase planning docs:
+  - `future enhancements/recurring household bills consolidated plan.md`
+  - `future enhancements/recurring household bills phased implementation.md`
+- active phase:
+  - Phase 1 — Canonical Provider And Service-Line Foundation
+- expected Phase 1 outcome:
+  - canonical provider records
+  - canonical service-line records
+  - compatibility path from current bill metadata to canonical identity
+  - clean base for planning-month derivation in the next phase
 - a dedicated operator runbook now exists for this area:
   - [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
 - trusted-device scope-specific runtime behavior:
