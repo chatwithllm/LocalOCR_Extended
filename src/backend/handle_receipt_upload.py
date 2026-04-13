@@ -478,14 +478,27 @@ def _create_manual_receipt_entry(session, raw_payload: dict, payload: dict, rece
             meta = existing_meta or BillMeta(purchase_id=purchase.id)
             if not existing_meta:
                 session.add(meta)
-            raw_ptype = str(bill_data.get("provider_type") or "").strip().lower()
-            meta.provider_name = str(bill_data.get("provider_name") or sanitized.get("store") or "").strip() or None
-            meta.provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else None
-            meta.account_label = str(bill_data.get("account_label") or "").strip() or None
-            meta.service_period_start = _safe_date_parse(bill_data.get("service_period_start"))
-            meta.service_period_end = _safe_date_parse(bill_data.get("service_period_end"))
-            meta.due_date = _safe_date_parse(bill_data.get("due_date"))
-            meta.billing_cycle_month = str(bill_data.get("billing_cycle_month") or "").strip()[:7] or None
+            raw_ptype = _fallback_bill_provider_type(
+                bill_data.get("provider_type"),
+                purchase.default_budget_category,
+            )
+            provider_name = str(bill_data.get("provider_name") or "").strip() or meta.provider_name or str(sanitized.get("store") or "").strip() or None
+            provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else (meta.provider_type or None)
+            account_label = str(bill_data.get("account_label") or "").strip() or meta.account_label or None
+            service_period_start = _safe_date_parse(bill_data.get("service_period_start")) or meta.service_period_start
+            service_period_end = _safe_date_parse(bill_data.get("service_period_end")) or meta.service_period_end
+            due_date = _safe_date_parse(bill_data.get("due_date")) or meta.due_date
+            billing_cycle_month = _billing_cycle_month_fallback(
+                bill_data.get("billing_cycle_month"),
+                purchase.date,
+            ) or meta.billing_cycle_month
+            meta.provider_name = provider_name
+            meta.provider_type = provider_type
+            meta.account_label = account_label
+            meta.service_period_start = service_period_start
+            meta.service_period_end = service_period_end
+            meta.due_date = due_date
+            meta.billing_cycle_month = billing_cycle_month
             is_rec = bill_data.get("is_recurring")
             meta.is_recurring = bool(is_rec) if is_rec is not None else True
 
@@ -516,6 +529,36 @@ def _cleanup_receipt_files(image_paths: list[str]):
                 parent = parent.parent
         except Exception as exc:
             logger.warning("Failed to remove stored receipt file %s: %s", resolved, exc)
+
+
+def _fallback_bill_provider_type(
+    raw_provider_type: str | None,
+    budget_category: str | None,
+) -> str | None:
+    normalized = str(raw_provider_type or "").strip().lower()
+    if normalized:
+        return normalized
+    category = str(budget_category or "").strip().lower()
+    if category == "insurance":
+        return "insurance"
+    if category == "health":
+        return "health"
+    if category == "subscriptions":
+        return "subscription"
+    if category == "childcare":
+        return "daycare"
+    if category == "other_recurring":
+        return "other"
+    return None
+
+
+def _billing_cycle_month_fallback(value: str | None, receipt_date) -> str | None:
+    normalized = str(value or "").strip()[:7]
+    if normalized:
+        return normalized
+    if receipt_date:
+        return receipt_date.strftime("%Y-%m")
+    return None
 
 
 def _latest_snapshot_for_receipt_item(session, receipt_item_id: int) -> dict | None:
@@ -1141,14 +1184,27 @@ def update_receipt(receipt_id):
             meta = existing_meta or BillMeta(purchase_id=purchase_id)
             if not existing_meta:
                 session.add(meta)
-            raw_ptype = str(bill_data.get("provider_type") or "").strip().lower()
-            meta.provider_name = str(bill_data.get("provider_name") or "").strip() or None
-            meta.provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else None
-            meta.account_label = str(bill_data.get("account_label") or "").strip() or None
-            meta.service_period_start = _safe_date_parse(bill_data.get("service_period_start"))
-            meta.service_period_end = _safe_date_parse(bill_data.get("service_period_end"))
-            meta.due_date = _safe_date_parse(bill_data.get("due_date"))
-            meta.billing_cycle_month = str(bill_data.get("billing_cycle_month") or "").strip()[:7] or None
+            raw_ptype = _fallback_bill_provider_type(
+                bill_data.get("provider_type"),
+                purchase.default_budget_category if purchase else None,
+            )
+            provider_name = str(bill_data.get("provider_name") or "").strip() or meta.provider_name or str(sanitized.get("store") or "").strip() or None
+            provider_type = raw_ptype if raw_ptype in UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY or raw_ptype == "other" else (meta.provider_type or None)
+            account_label = str(bill_data.get("account_label") or "").strip() or meta.account_label or None
+            service_period_start = _safe_date_parse(bill_data.get("service_period_start")) or meta.service_period_start
+            service_period_end = _safe_date_parse(bill_data.get("service_period_end")) or meta.service_period_end
+            due_date = _safe_date_parse(bill_data.get("due_date")) or meta.due_date
+            billing_cycle_month = _billing_cycle_month_fallback(
+                bill_data.get("billing_cycle_month"),
+                purchase.date if purchase else None,
+            ) or meta.billing_cycle_month
+            meta.provider_name = provider_name
+            meta.provider_type = provider_type
+            meta.account_label = account_label
+            meta.service_period_start = service_period_start
+            meta.service_period_end = service_period_end
+            meta.due_date = due_date
+            meta.billing_cycle_month = billing_cycle_month
             is_rec = bill_data.get("is_recurring")
             meta.is_recurring = bool(is_rec) if is_rec is not None else True
 

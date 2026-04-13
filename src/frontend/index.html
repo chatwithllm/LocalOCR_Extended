@@ -14457,7 +14457,12 @@ async function viewReceipt(id, options = {}) {
   });
 
   if (canEditReceipt) {
-    hydrateReceiptEditor(receipt.id, receipt.receipt_type || 'unknown', editableReceiptData);
+    hydrateReceiptEditor(
+      receipt.id,
+      receipt.receipt_type || 'unknown',
+      editableReceiptData,
+      receipt.bill_meta || null,
+    );
   }
 
   const detail = body;
@@ -14598,7 +14603,7 @@ function wireReceiptBudgetingControls(receiptId) {
   }
 }
 
-function hydrateReceiptEditor(receiptId, receiptType, data) {
+function hydrateReceiptEditor(receiptId, receiptType, data, billMeta = null) {
   const itemsBody = document.getElementById(`receipt-editor-items-${receiptId}`);
   if (!itemsBody) return;
   const derivedDefaults = deriveReceiptBudgetDefaults(data.default_spending_domain || receiptType || 'grocery');
@@ -14623,8 +14628,8 @@ function hydrateReceiptEditor(receiptId, receiptType, data) {
 
   // Show bill details panel for household bills and pre-populate from bill_meta.
   handleReceiptEditorTypeChange(receiptId);
-  if (['utility_bill', 'household_bill'].includes(receiptType) && data.bill_meta) {
-    const bm = data.bill_meta;
+  if (['utility_bill', 'household_bill'].includes(receiptType) && billMeta) {
+    const bm = billMeta;
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
     const setChk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = v ?? true; };
     setVal(`receipt-bill-provider-name-${receiptId}`, bm.provider_name);
