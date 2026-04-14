@@ -48,6 +48,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 3 — Interaction & Motion | 8 | Accepted | 0 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Bills → Log Cash / Transfer polish | 1 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Apple-style Payee picker | 2 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Log Cash flow coherence | 3 |
 
 ---
 
@@ -210,3 +211,16 @@ User feedback: "Payee dropdown in Log Cash should look like Apple scroll, if ent
 - **Apple aesthetic** — translucent surface (`rgba(22,26,36,0.94)` + `backdrop-filter: blur(20px) saturate(140%)`), `--radius-lg`, `--shadow-lg`, 42vh max scroll, slim 6px custom scrollbar, momentum scroll (`-webkit-overflow-scrolling: touch`), 44px rows with `--accent-soft` hover/active, provider category rendered as a small uppercase hint on the right, fade-up enter over `--duration-base`.
 - **Keyboard** — ArrowUp/Down navigates, Enter selects, Escape closes. Accessible `role="combobox"` / `role="listbox"` / `role="option"` / `aria-expanded` / `aria-controls` wiring.
 - **Mobile** — inside the bottom-sheet modal, the picker is constrained by the sheet's scroll container; momentum scrolling works natively. Hint text stays compact.
+
+### Phase 4 — Revision 3 (Log Cash flow coherence)
+
+User feedback: "Make Log Cash visually consistent — design should feel like one flow — cells aren't right size / aren't consistent." Applied a flow-coherence pass that consolidates visual rhythm and fixes the specific inconsistencies:
+
+- **Flattened three stacked cards into one continuous form** — `.cash-section` no longer has background / border / shadow; only a 1px top hairline divider separates sections. Section headings demoted to uppercase **eyebrows** (small, muted, letter-spaced) so nothing competes with the Fraunces modal title. *Skill: "controlled density; one rhythm over many nested boxes."*
+- **Unified every grid gap** to `--space-4` (16px). Inline `margin-top: 14px` on stacked `.cash-grid.two` pairs replaced by a tokenised `.cash-section .cash-grid + .cash-grid` rule — every row now shares the same rhythm.
+- **`.cash-grid.four` auto-fits** via `repeat(auto-fit, minmax(150px, 1fr))` — keeps 4 cells on a 760px modal, drops to 2 automatically on narrow viewports. No more ~150px cramped selects.
+- **Overrode the legacy aggressive 1100px → 1fr collapse** — now `≥1101px` keeps the native layout, `641–1100px` uses 2-column, `≤640px` stacks to 1 column. Tablet users no longer get a waste-of-space single column.
+- **Inline buttons equalised** — `.cash-inline-button` has `min-width: 132px` and `justify-content: center`, so "New Provider" and "New Service" render at identical width → the adjacent Payee & Service input fields are now exactly the same width.
+- **File-upload shell normalised** — `.cash-file-shell` now matches the 44px input baseline with `padding: 6px 12px` and aligned `file-selector-button`. No more mismatched-height row next to Notes.
+- **Textarea tighter minimum** (96px) so Notes + Photo row has a sensible height balance.
+- **Action row (Cancel / Save Payment)** gets its own padding + top hairline so it reads as the end of the flow rather than attached to "Optional".

@@ -7554,6 +7554,175 @@
         letter-spacing: 0.04em;
         text-transform: uppercase;
       }
+
+      /* =========================================================
+         Phase 4 revision 3 — Log Cash flow coherence.
+         Unify the three stacked cards into one continuous form,
+         stabilise cell widths, match dropzone height to inputs,
+         equalise inline button widths, fix the 1100px aggressive
+         single-column collapse.
+         ========================================================= */
+
+      /* Flatten section cards into continuous flow with subtle
+         hairline dividers + eyebrow headings instead of boxes. */
+      .cash-modal-body {
+        padding: 20px 26px 26px;
+        gap: 0;
+      }
+      .cash-section {
+        padding: 22px 0;
+        margin: 0;
+        border-radius: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-top: 1px solid var(--border);
+      }
+      .cash-section:first-of-type {
+        border-top: none;
+        padding-top: 4px;
+      }
+
+      /* Eyebrow-style heading: small, uppercase, muted — reads as
+         a section marker, not a second nested title. */
+      .cash-section-header {
+        margin-bottom: 14px;
+      }
+      .cash-section-title {
+        font-family: var(--font-body);
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        color: var(--text-subtle);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      /* Detail panel titles (New provider / New service) follow
+         the same eyebrow pattern so nothing competes with the
+         modal title. */
+      .cash-detail-panel .cash-section-title {
+        color: var(--text);
+      }
+
+      /* Consistent row rhythm across every grid inside the modal. */
+      .cash-grid {
+        gap: var(--space-4);
+      }
+      .cash-grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .cash-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      /* auto-fit so the 760px modal keeps cells legible: 4 cols
+         when there's room, 2 cols on narrower viewports. */
+      .cash-grid.four {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      /* Replace the inline margin-top:14px on stacked cash-grids
+         with a tokenised rule so every row has the same gap. */
+      .cash-section .cash-grid + .cash-grid {
+        margin-top: var(--space-4) !important;
+      }
+
+      /* Inline actions: equalise button widths so the two adjacent
+         fields (Payee/Service) end up identical width. */
+      .cash-inline-actions {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--space-3);
+      }
+      .cash-inline-button {
+        min-width: 132px;
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      /* File-upload shell now matches the 44px input baseline and
+         sits on the same horizontal rhythm as every other field. */
+      .cash-file-shell {
+        min-height: 44px;
+        padding: 6px 12px;
+        gap: 10px;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+      }
+      .cash-file-shell input[type="file"] {
+        font-size: var(--fs-sm);
+        min-height: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+      .cash-file-shell input[type="file"]::file-selector-button {
+        padding: 6px 12px;
+        font-size: var(--fs-xs);
+      }
+      .cash-file-shell .stat-sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: var(--fs-sm);
+        color: var(--text-subtle);
+      }
+
+      /* Textarea: tighter minimum so the Notes/Photo row doesn't
+         create a huge height imbalance with the dropzone. */
+      .cash-modal textarea {
+        min-height: 96px;
+      }
+
+      /* Override the legacy 1100px "collapse everything to 1fr"
+         rule — that was too aggressive for tablets. Now:
+           ≥1101px : cash-grid.two=2, three=3, four=auto-fit
+           641–1100px : everything to 2fr (readable on tablet)
+           ≤640px : everything to 1fr (mobile stacks)
+      */
+      @media (max-width: 1100px) and (min-width: 641px) {
+        .cash-grid.two,
+        .cash-grid.three,
+        .cash-grid.four {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .cash-inline-actions {
+          grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .cash-inline-button {
+          min-width: 120px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .cash-modal-body {
+          padding: 18px 18px 22px;
+        }
+        .cash-section {
+          padding: 18px 0;
+        }
+        .cash-section:first-of-type {
+          padding-top: 4px;
+        }
+        .cash-grid.two,
+        .cash-grid.three,
+        .cash-grid.four {
+          grid-template-columns: 1fr;
+        }
+        .cash-inline-actions {
+          grid-template-columns: 1fr;
+        }
+        .cash-inline-button {
+          width: 100%;
+          min-width: 0;
+        }
+      }
+
+      /* Confirm-actions (Cancel / Save Payment) — own its own row
+         with a divider, so the save button feels like the end of
+         the flow rather than an afterthought stuck to "Optional". */
+      .cash-modal .confirm-actions {
+        padding-top: 20px;
+        margin-top: 0;
+        border-top: 1px solid var(--border);
+      }
     </style>
   </head>
 
