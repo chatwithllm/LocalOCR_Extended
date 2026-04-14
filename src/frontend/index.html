@@ -11801,13 +11801,47 @@
               >
                 🚀 Auto Detect Receipt
               </button>
-              <div id="upload-spinner" style="display: none">
-                <div class="spinner"></div>
-              </div>
               <span
                 id="upload-status"
-                style="color: var(--muted); font-size: 0.88rem"
+                style="display: none"
+                aria-hidden="true"
               ></span>
+            </div>
+            <div
+              class="scan-progress"
+              id="upload-scan-progress"
+              data-variant="indeterminate"
+              hidden
+              style="margin-top: var(--space-4)"
+            >
+              <div class="scan-progress__head">
+                <span class="scan-progress__phase" id="upload-scan-phase">
+                  Ready
+                </span>
+                <span
+                  class="scan-progress__meta"
+                  id="upload-scan-meta"
+                ></span>
+              </div>
+              <div class="scan-progress__track">
+                <div class="scan-progress__bar"></div>
+              </div>
+              <div class="scan-progress__foot">
+                <span
+                  class="scan-progress__model-chip"
+                  id="upload-scan-model"
+                  hidden
+                ></span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost"
+                  id="upload-scan-retry"
+                  style="display: none"
+                  onclick="uploadReceipt()"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           </div>
           <div class="card" id="ocr-result-card" style="display: none">
@@ -28071,9 +28105,12 @@
           document.getElementById("upload-receipt-intent")?.value || "auto";
 
         document.getElementById("upload-btn").disabled = true;
-        document.getElementById("upload-spinner").style.display = "block";
-        document.getElementById("upload-status").textContent =
-          "Uploading and processing…";
+        setUploadScanState({
+          phase: "Uploading and processing…",
+          meta: "",
+          state: "running",
+          variant: "indeterminate",
+        });
 
         const form = new FormData();
         form.append("image", file);
@@ -28083,7 +28120,7 @@
           (entry) => Number(entry.id) === Number(modelId || 0),
         );
         if (selectedModel && !modelMatchesCurrentUploadFile(selectedModel)) {
-          document.getElementById("upload-spinner").style.display = "none";
+          hideUploadScanPanel();
           document.getElementById("upload-btn").disabled = false;
           toast(
             `The selected model does not support this ${getCurrentUploadFileInfo().label.toLowerCase()}. Pick a compatible model or use the default fallback.`,
@@ -28103,7 +28140,6 @@
             body: form,
           });
           const data = await res.json();
-          document.getElementById("upload-spinner").style.display = "none";
           document.getElementById("upload-btn").disabled = false;
 
           if (res.ok) {
@@ -28123,8 +28159,17 @@
               data.status || "processed",
               "Processed",
             );
-            document.getElementById("upload-status").textContent =
-              `✅ ${statusLabel} · ${intentLabel}${store}${total}${warningText}`;
+            const engine = data.ocr_engine ?? data.engine ?? selectedModel?.display_name ?? "";
+            const confPct = Math.round((data.confidence ?? 0) * 100);
+            setUploadScanState({
+              phase: `✓ ${statusLabel}${store}${total}`,
+              meta: confPct ? `${confPct}%` : "",
+              state: data.status === "review" ? "retrying" : "success",
+              variant: "determinate",
+              barPct: 100,
+              modelChip: engine || null,
+              showRetry: false,
+            });
             toast(
               data.status === "review"
                 ? "Receipt saved for review ⚠️"
@@ -28142,17 +28187,67 @@
               : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
             loadReceipts();
           } else {
-            document.getElementById("upload-status").textContent =
-              "❌ " + (data.error || "Failed");
+            setUploadScanState({
+              phase: `✕ ${data.error || "Failed"}`,
+              meta: "",
+              state: "failed",
+              variant: "determinate",
+              barPct: 36,
+              showRetry: true,
+            });
             toast(data.error || "Upload failed", "error");
           }
         } catch (e) {
-          document.getElementById("upload-spinner").style.display = "none";
           document.getElementById("upload-btn").disabled = false;
-          document.getElementById("upload-status").textContent =
-            "❌ Network error";
+          setUploadScanState({
+            phase: "✕ Network error",
+            meta: "Is the server running?",
+            state: "failed",
+            variant: "determinate",
+            barPct: 10,
+            showRetry: true,
+          });
           toast("Network error — is the server running?", "error");
         }
+      }
+
+      // ---- Upload scan-progress helpers (Phase 4b) ----
+      function setUploadScanState(opts) {
+        const panel = document.getElementById("upload-scan-progress");
+        if (!panel) return;
+        panel.removeAttribute("hidden");
+        const phase = document.getElementById("upload-scan-phase");
+        const meta = document.getElementById("upload-scan-meta");
+        const chip = document.getElementById("upload-scan-model");
+        const retry = document.getElementById("upload-scan-retry");
+        const bar = panel.querySelector(".scan-progress__bar");
+        if (phase) phase.textContent = opts.phase || "";
+        if (meta) meta.textContent = opts.meta || "";
+        if (opts.variant === "indeterminate") {
+          panel.setAttribute("data-variant", "indeterminate");
+          if (bar) bar.style.width = "";
+        } else {
+          panel.removeAttribute("data-variant");
+          if (bar && opts.barPct != null) bar.style.width = opts.barPct + "%";
+        }
+        if (opts.state) panel.setAttribute("data-state", opts.state);
+        else panel.removeAttribute("data-state");
+        if (chip) {
+          if (opts.modelChip) {
+            chip.textContent = opts.modelChip;
+            chip.removeAttribute("hidden");
+          } else {
+            chip.setAttribute("hidden", "");
+          }
+        }
+        if (retry) {
+          retry.style.display = opts.showRetry ? "" : "none";
+        }
+      }
+
+      function hideUploadScanPanel() {
+        const panel = document.getElementById("upload-scan-progress");
+        if (panel) panel.setAttribute("hidden", "");
       }
 
       // ============================================================
