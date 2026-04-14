@@ -2485,50 +2485,31 @@
         }
       }
 
-      /* ---- Upload Zone ---- */
-      .upload-zone {
-        border: 2px dashed var(--border);
-        border-radius: 14px;
-        padding: 48px 24px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        position: relative;
-      }
-
-      .upload-zone:hover,
-      .upload-zone.drag-over {
-        border-color: var(--accent);
-        background: rgba(108, 99, 255, 0.05);
-      }
-
-      .upload-zone input[type="file"] {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        cursor: pointer;
-      }
-
-      .upload-icon {
-        font-size: 2.5rem;
-        margin-bottom: 12px;
-      }
-
-      .upload-zone p {
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      .upload-zone strong {
-        color: var(--text);
-      }
-
-      #preview-img {
-        max-width: 300px;
-        max-height: 300px;
-        border-radius: 10px;
-        margin-top: 16px;
+      /* ---- Upload: drop-zone preview area (Phase 4a) ---- */
+      .drop-zone__preview {
         display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-2);
+        margin-top: var(--space-4);
+      }
+      .drop-zone__preview.is-visible {
+        display: flex;
+      }
+      #preview-img {
+        max-width: 320px;
+        max-height: 320px;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-1);
+        display: none;
+      }
+      #preview-img.is-visible {
+        display: block;
+      }
+      .drop-zone__preview-meta {
+        margin: 0;
+        font-size: var(--font-xs);
+        color: var(--color-text-secondary);
       }
 
       /* ---- Progress Bar ---- */
@@ -6971,10 +6952,6 @@
 
         .page-header {
           margin-bottom: 20px;
-        }
-
-        .upload-zone {
-          padding: 32px 18px;
         }
 
         .shopping-page-head {
@@ -11674,32 +11651,32 @@
               in the right mode.
             </p>
           </div>
-          <div class="card">
-            <div class="upload-zone" id="drop-zone">
+          <div class="card card--padded-lg">
+            <label
+              class="drop-zone"
+              id="drop-zone"
+              for="file-input"
+              tabindex="0"
+            >
               <input
                 type="file"
                 id="file-input"
                 accept="image/*,.pdf,application/pdf"
                 onchange="previewFile(this)"
+                hidden
               />
-              <div class="upload-icon">📸</div>
-              <p>
-                <strong>Click or drag & drop</strong> a receipt image or PDF
-              </p>
-              <p style="margin-top: 6px; font-size: 0.8rem">
-                JPG, PNG, WEBP, PDF — max 10MB
-              </p>
-              <img id="preview-img" />
-              <p
-                id="preview-meta"
-                style="
-                  margin-top: 12px;
-                  font-size: 0.82rem;
-                  color: var(--muted);
-                  display: none;
-                "
-              ></p>
-            </div>
+              <div class="drop-zone__icon" aria-hidden="true">📸</div>
+              <div class="drop-zone__title">
+                Click or drag &amp; drop a receipt
+              </div>
+              <div class="drop-zone__hint">
+                JPG, PNG, WEBP, PDF · up to 10 MB
+              </div>
+              <div id="preview-wrap" class="drop-zone__preview">
+                <img id="preview-img" alt="Receipt preview" />
+                <p id="preview-meta" class="drop-zone__preview-meta"></p>
+              </div>
+            </label>
             <div
               style="
                 margin-top: 16px;
@@ -27399,17 +27376,18 @@
         if (!file) return;
         const img = document.getElementById("preview-img");
         const meta = document.getElementById("preview-meta");
-        meta.style.display = "block";
+        const wrap = document.getElementById("preview-wrap");
+        if (wrap) wrap.classList.add("is-visible");
         meta.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
-        if (
+        const isPdf =
           file.type === "application/pdf" ||
-          file.name.toLowerCase().endsWith(".pdf")
-        ) {
+          file.name.toLowerCase().endsWith(".pdf");
+        if (isPdf) {
           img.removeAttribute("src");
-          img.style.display = "none";
+          img.classList.remove("is-visible");
         } else {
           img.src = URL.createObjectURL(file);
-          img.style.display = "block";
+          img.classList.add("is-visible");
         }
         document.getElementById("upload-btn").disabled = false;
         updateUploadIntentUI();
@@ -30141,19 +30119,25 @@
 
       // Drag & drop
       const dz = document.getElementById("drop-zone");
+      const clearDzState = () => dz.removeAttribute("data-state");
       dz.addEventListener("dragover", (e) => {
         e.preventDefault();
-        dz.classList.add("drag-over");
+        dz.setAttribute("data-state", "dragover");
       });
-      dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+      dz.addEventListener("dragleave", clearDzState);
       dz.addEventListener("drop", (e) => {
         e.preventDefault();
-        dz.classList.remove("drag-over");
+        clearDzState();
         const file = e.dataTransfer.files[0];
-        if (file) {
-          document.getElementById("file-input").files = e.dataTransfer.files;
-          previewFile({ files: [file] });
+        if (!file) return;
+        const supported = /^(image\/|application\/pdf)/.test(file.type || "");
+        if (!supported) {
+          dz.setAttribute("data-state", "invalid");
+          setTimeout(clearDzState, 800);
+          return;
         }
+        document.getElementById("file-input").files = e.dataTransfer.files;
+        previewFile({ files: [file] });
       });
 
       // ============================================================
