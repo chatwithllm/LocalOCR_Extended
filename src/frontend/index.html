@@ -134,10 +134,44 @@
         color: var(--text);
         margin-bottom: 32px;
         padding: 0 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
       }
 
       .logo span {
         color: var(--accent);
+      }
+
+      .sidebar-collapse-btn {
+        appearance: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.95rem;
+        line-height: 1;
+        transition:
+          background 0.15s ease,
+          color 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .sidebar-collapse-btn:hover {
+        background: var(--surface2);
+        color: var(--text);
+        border-color: var(--border);
+      }
+
+      /* Hide the floating mobile hamburger while the sidebar drawer is open */
+      body:has(.sidebar.mobile-open) .mobile-menu-btn {
+        visibility: hidden;
       }
 
       .nav-item {
@@ -192,18 +226,18 @@
       }
 
       body.sidebar-collapsed .page-header {
-        padding-left: 56px;
+        padding-left: 52px;
       }
 
       .desktop-sidebar-toggle {
         position: fixed;
         top: 18px;
-        left: 246px;
+        left: 18px;
         z-index: 55;
-        width: 42px;
-        height: 42px;
+        width: 36px;
+        height: 36px;
         border-radius: 10px;
-        display: inline-flex;
+        display: none;
         align-items: center;
         justify-content: center;
         background: var(--surface2);
@@ -211,9 +245,9 @@
         border: 1px solid var(--border);
         cursor: pointer;
         transition:
-          left 0.22s ease,
           background 0.2s ease,
-          border-color 0.2s ease;
+          border-color 0.2s ease,
+          opacity 0.2s ease;
       }
 
       .desktop-sidebar-toggle:hover {
@@ -222,7 +256,7 @@
       }
 
       body.sidebar-collapsed .desktop-sidebar-toggle {
-        left: 18px;
+        display: inline-flex;
       }
 
       .mobile-header {
@@ -493,6 +527,763 @@
       .bill-slot-card.anomaly {
         background: rgba(255, 179, 71, 0.05);
         border-color: rgba(255, 179, 71, 0.3);
+      }
+
+      /* ---- Bills Workspace (Redesign) ---- */
+      #bills-body {
+        position: relative;
+      }
+      .bills-sticky-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-3) 0 var(--space-3);
+        margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .bills-sticky-bar__row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        align-items: center;
+        justify-content: space-between;
+      }
+      .bills-sticky-bar__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        align-items: center;
+      }
+      .bills-sticky-bar__month {
+        min-width: 160px;
+      }
+
+      .bills-tab-bar {
+        display: inline-flex;
+        gap: 2px;
+        padding: 4px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        overflow-x: auto;
+        max-width: 100%;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      .bills-tab-bar::-webkit-scrollbar {
+        display: none;
+      }
+      .bills-tab {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.88rem;
+        padding: var(--space-2) var(--space-4);
+        min-height: 34px;
+        border-radius: var(--radius-pill);
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          color var(--duration-fast) var(--ease-out),
+          background var(--duration-fast) var(--ease-out);
+      }
+      .bills-tab:hover {
+        color: var(--text);
+      }
+      .bills-tab[aria-selected="true"] {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .bills-hero {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: var(--space-4);
+        padding: var(--space-5);
+        background: linear-gradient(
+          135deg,
+          var(--surface) 0%,
+          var(--surface2) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-4);
+      }
+      .bills-hero__stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .bills-hero__label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .bills-hero__value {
+        font-family: var(--font-display);
+        font-size: 1.65rem;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
+      }
+      .bills-hero__sub {
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .bills-hero__value.is-warning {
+        color: var(--warning);
+      }
+      .bills-hero__value.is-danger {
+        color: var(--danger);
+      }
+
+      .bills-section {
+        display: grid;
+        gap: var(--space-3);
+        margin-bottom: var(--space-5);
+      }
+      .bills-section__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+      }
+      .bills-section__head h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        font-family: var(--font-display);
+        letter-spacing: -0.01em;
+      }
+      .bills-section__count {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .bill-alert {
+        display: flex;
+        gap: var(--space-3);
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: var(--space-3) var(--space-4);
+        margin-bottom: var(--space-3);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        border-left: 3px solid var(--muted);
+        flex-wrap: wrap;
+      }
+      .bill-alert--warning {
+        border-left-color: var(--warning);
+        background: rgba(255, 179, 71, 0.06);
+      }
+      .bill-alert--danger {
+        border-left-color: var(--danger);
+        background: rgba(255, 101, 132, 0.06);
+      }
+      .bill-alert--info {
+        border-left-color: var(--accent);
+        background: rgba(108, 99, 255, 0.06);
+      }
+      .bill-alert__body {
+        flex: 1 1 240px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .bill-alert__title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .bill-alert__detail {
+        font-size: 0.85rem;
+        color: var(--text-subtle);
+      }
+
+      .bills-spotlight {
+        display: flex;
+        gap: var(--space-3);
+        overflow-x: auto;
+        padding: var(--space-1) var(--space-2) var(--space-3);
+        margin: 0 calc(-1 * var(--space-2)) var(--space-4);
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+      }
+      .bills-spotlight__item {
+        flex: 0 0 auto;
+        width: min(280px, 78vw);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-4);
+        background: linear-gradient(
+          135deg,
+          var(--surface2),
+          var(--surface)
+        );
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        scroll-snap-align: start;
+      }
+      .bills-spotlight__item[data-bill-status="overdue"] {
+        border-color: rgba(255, 101, 132, 0.35);
+      }
+      .bills-spotlight__item[data-bill-status="due-soon"] {
+        border-color: rgba(255, 179, 71, 0.35);
+      }
+      .bills-spotlight__provider {
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .bills-spotlight__days {
+        font-size: 0.72rem;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .bills-spotlight__amount {
+        font-family: var(--font-display);
+        font-size: 1.35rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .bills-spotlight__actions {
+        display: flex;
+        gap: var(--space-2);
+        margin-top: auto;
+      }
+
+      .bills-grid {
+        display: grid;
+        gap: var(--space-3);
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+      .bills-grid--providers {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .bill-card {
+        --status-color: var(--muted);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--status-color);
+        border-radius: var(--radius-md);
+        transition:
+          transform var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .bill-card:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+      .bill-card[data-bill-status="paid"] {
+        --status-color: var(--success);
+      }
+      .bill-card[data-bill-status="upcoming"] {
+        --status-color: var(--accent);
+      }
+      .bill-card[data-bill-status="due-soon"] {
+        --status-color: var(--warning);
+      }
+      .bill-card[data-bill-status="overdue"] {
+        --status-color: var(--danger);
+      }
+      .bill-card[data-bill-status="missing"] {
+        --status-color: var(--danger);
+        border-style: dashed;
+      }
+      .bill-card[data-bill-status="anomaly"] {
+        --status-color: var(--warning);
+        box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.28);
+      }
+      .bill-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+      .bill-card__title-btn {
+        appearance: none;
+        border: none;
+        background: transparent;
+        padding: 0;
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        font-size: 1.02rem;
+        text-align: left;
+        cursor: pointer;
+      }
+      .bill-card__title-btn:hover {
+        color: var(--accent);
+      }
+      .bill-card__meta {
+        margin-top: 2px;
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .bill-card__pill {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+        border-radius: var(--radius-pill);
+        color: var(--status-color);
+        background: color-mix(
+          in srgb,
+          var(--status-color) 16%,
+          transparent
+        );
+        white-space: nowrap;
+      }
+      .bill-card__stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+      }
+      .bill-card__stat-label {
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 600;
+      }
+      .bill-card__stat-value {
+        font-family: var(--font-display);
+        font-size: 1.15rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+      }
+      .bill-card__stat-sub {
+        font-size: 0.76rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .bill-card__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--border);
+      }
+      .bill-card__footer-meta {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .bill-card__actions {
+        display: flex;
+        gap: var(--space-2);
+        flex-wrap: wrap;
+      }
+
+      .provider-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        transition: border-color var(--duration-fast) var(--ease-out);
+      }
+      .provider-card:hover {
+        border-color: var(--border-strong);
+      }
+      .provider-card__head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+      .provider-card__name {
+        appearance: none;
+        border: none;
+        background: transparent;
+        padding: 0;
+        color: var(--text);
+        font: inherit;
+        font-weight: 700;
+        font-size: 1rem;
+        text-align: left;
+        cursor: pointer;
+      }
+      .provider-card__name:hover {
+        color: var(--accent);
+      }
+      .provider-card__spark {
+        display: block;
+        flex-shrink: 0;
+        color: var(--accent);
+      }
+      .provider-card__tags {
+        font-size: 0.76rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .provider-card__totals {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+      }
+      .provider-card__foot {
+        font-size: 0.76rem;
+        color: var(--muted);
+        border-top: 1px solid var(--border);
+        padding-top: var(--space-2);
+      }
+
+      .mom-chart {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .mom-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--space-1) var(--space-3);
+        align-items: center;
+      }
+      .mom-row__label {
+        font-weight: 600;
+        font-size: 0.92rem;
+        grid-column: 1;
+      }
+      .mom-row__amount {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.95rem;
+        grid-column: 2;
+        text-align: right;
+      }
+      .mom-row__track {
+        grid-column: 1 / -1;
+        height: 8px;
+        background: var(--surface2);
+        border-radius: 99px;
+        overflow: hidden;
+      }
+      .mom-row__bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-radius: 99px;
+        transition: width var(--duration-base) var(--ease-out);
+      }
+
+      .bill-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        flex-wrap: wrap;
+      }
+      .bill-row__main {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1 1 220px;
+        min-width: 0;
+      }
+      .bill-row__provider {
+        font-weight: 700;
+      }
+      .bill-row__meta {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .bill-row__right {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+      }
+      .bill-row__amount {
+        text-align: right;
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .bill-row__sub {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      .bills-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: var(--space-8) var(--space-4);
+        gap: var(--space-2);
+        background: var(--surface);
+        border: 1px dashed var(--border);
+        border-radius: var(--radius-md);
+      }
+      .bills-empty__icon {
+        font-size: 2rem;
+        opacity: 0.7;
+      }
+      .bills-empty__title {
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .bills-empty__sub {
+        font-size: 0.85rem;
+        color: var(--muted);
+        max-width: 42ch;
+      }
+
+      .bills-skel {
+        display: grid;
+        gap: var(--space-3);
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      .bills-skel__card {
+        height: 168px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(
+          90deg,
+          var(--surface) 0%,
+          var(--surface2) 50%,
+          var(--surface) 100%
+        );
+        background-size: 200% 100%;
+        animation: bills-shimmer 1.6s linear infinite;
+      }
+      @keyframes bills-shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      .bills-expander {
+        display: flex;
+        justify-content: center;
+        margin-top: var(--space-2);
+      }
+      .bills-expander button {
+        min-width: 180px;
+      }
+
+      .bills-ptr {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translate(-50%, -18px);
+        pointer-events: none;
+        opacity: 0;
+        transition:
+          opacity var(--duration-fast) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+        font-size: 0.8rem;
+        color: var(--muted);
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        z-index: 4;
+      }
+      .bills-ptr.is-pulling {
+        opacity: 1;
+        transform: translate(-50%, 4px);
+      }
+      .bills-ptr.is-loading {
+        opacity: 1;
+        transform: translate(-50%, 8px);
+      }
+      .bills-ptr__spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: bills-spin 0.9s linear infinite;
+      }
+      @keyframes bills-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .bill-provider-detail__sticky-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: var(--space-3) var(--space-4);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+      }
+
+      @media (max-width: 1024px) {
+        .bills-hero {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 640px) {
+        .bills-sticky-bar {
+          padding: var(--space-2) 0;
+        }
+        .bills-sticky-bar__row {
+          gap: var(--space-2);
+        }
+        .bills-sticky-bar__actions {
+          width: 100%;
+        }
+        .bills-sticky-bar__actions .btn {
+          flex: 1 1 auto;
+          min-height: 44px;
+        }
+        .bills-sticky-bar__month {
+          flex: 1 1 100%;
+          min-height: 44px;
+        }
+        .bills-tab-bar {
+          width: 100%;
+        }
+
+        .bills-hero {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          padding: var(--space-4);
+          gap: var(--space-3);
+        }
+        .bills-hero__value {
+          font-size: 1.3rem;
+        }
+
+        .bills-grid,
+        .bills-grid--providers {
+          grid-template-columns: 1fr;
+        }
+
+        .bill-card__actions .btn,
+        .bill-row .btn {
+          min-height: 44px;
+        }
+        .bill-row {
+          flex-direction: column;
+          align-items: stretch;
+          gap: var(--space-2);
+        }
+        .bill-row__right {
+          justify-content: space-between;
+        }
+        .bill-row__amount,
+        .bill-row__sub {
+          text-align: left;
+        }
+      }
+      @media (max-width: 380px) {
+        .bills-hero {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media print {
+        .sidebar,
+        .topbar,
+        .mobile-menu,
+        .mobile-menu-btn,
+        .bills-sticky-bar,
+        .bill-card__actions,
+        .bills-expander,
+        .bills-spotlight__actions,
+        .header-actions,
+        .bills-ptr,
+        .bill-alert__actions,
+        .btn {
+          display: none !important;
+        }
+        .page:not(.active),
+        .page:not(#page-bills) {
+          display: none !important;
+        }
+        body,
+        .main,
+        main {
+          background: #fff !important;
+          color: #000 !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        #page-bills {
+          display: block !important;
+          padding: 0;
+          background: #fff !important;
+          color: #000 !important;
+        }
+        #page-bills [role="tabpanel"] {
+          display: block !important;
+        }
+        .bills-hero,
+        .bill-card,
+        .provider-card,
+        .mom-chart,
+        .bill-row,
+        .bill-alert,
+        .bills-spotlight__item {
+          background: #fff !important;
+          border: 1px solid #ccc !important;
+          color: #000 !important;
+          page-break-inside: avoid;
+          box-shadow: none !important;
+        }
+        .bills-hero *,
+        .bill-card *,
+        .provider-card *,
+        .mom-chart *,
+        .bill-row *,
+        .bill-alert * {
+          color: #000 !important;
+        }
       }
 
       .pill {
@@ -8006,8 +8797,20 @@
 
       <!-- Sidebar -->
       <nav class="sidebar" id="sidebar">
-        <div class="logo" id="brand-secret-trigger">
-          🛒 <span id="brand-title">Extended</span>
+        <div class="logo">
+          <span id="brand-secret-trigger">
+            🛒 <span id="brand-title">Extended</span>
+          </span>
+          <button
+            type="button"
+            class="sidebar-collapse-btn"
+            id="sidebar-collapse-btn"
+            onclick="handleSidebarCollapse()"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
+            ‹
+          </button>
         </div>
         <div
           class="nav-item active"
@@ -10260,52 +11063,155 @@
 
         <!-- Bills Workspace -->
         <div class="page" id="page-bills">
-          <div class="view-header">
-            <div class="header-main">
+          <div class="page-header">
+            <div>
               <h1>Household Bills</h1>
-              <p class="header-sub">
+              <p id="bills-month-label">
                 Manage recurring obligations and projections
               </p>
-            </div>
-            <div class="header-actions">
-              <input
-                type="month"
-                id="bills-filter-month"
-                class="btn btn-ghost"
-                onchange="loadBills()"
-              />
-              <button
-                type="button"
-                class="btn btn-primary"
-                onclick="openManualEntryModal('household_bill')"
-              >
-                ＋ New Bill
-              </button>
-              <button
-                type="button"
-                class="btn btn-ghost"
-                onclick="openCashTransactionModal()"
-              >
-                💸 Log Cash / Transfer
-              </button>
             </div>
           </div>
 
           <div id="bills-body" class="workspace-scroll">
-            <div id="bills-alerts-container"></div>
+            <div
+              class="bills-ptr"
+              id="bills-ptr"
+              aria-hidden="true"
+            >
+              <span class="bills-ptr__spinner"></span>
+              <span class="bills-ptr__label">Release to refresh</span>
+            </div>
 
-            <div class="dashboard-grid">
-              <div class="card stat-card-wide" id="bills-projection-summary">
-                <!-- Data goes here -->
+            <div class="bills-sticky-bar">
+              <div class="bills-sticky-bar__row">
+                <input
+                  type="month"
+                  id="bills-filter-month"
+                  class="btn btn-ghost bills-sticky-bar__month"
+                  onchange="loadBills()"
+                  aria-label="Filter by month"
+                />
+                <div
+                  class="bills-tab-bar"
+                  role="tablist"
+                  aria-label="Bills views"
+                >
+                  <button
+                    type="button"
+                    class="bills-tab"
+                    role="tab"
+                    aria-selected="true"
+                    data-bills-tab="overview"
+                    onclick="setBillsTab('overview')"
+                  >
+                    Overview
+                  </button>
+                  <button
+                    type="button"
+                    class="bills-tab"
+                    role="tab"
+                    aria-selected="false"
+                    data-bills-tab="providers"
+                    onclick="setBillsTab('providers')"
+                  >
+                    Providers
+                  </button>
+                  <button
+                    type="button"
+                    class="bills-tab"
+                    role="tab"
+                    aria-selected="false"
+                    data-bills-tab="history"
+                    onclick="setBillsTab('history')"
+                  >
+                    History
+                  </button>
+                </div>
+                <div class="bills-sticky-bar__actions">
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    onclick="openManualEntryModal('household_bill')"
+                    title="Add a new household bill (n)"
+                  >
+                    ＋ New Bill
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    onclick="openCashTransactionModal()"
+                    title="Log a cash or transfer payment (l)"
+                  >
+                    💸 Log Cash
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    id="bills-export-csv"
+                    onclick="exportBillsCsv()"
+                    title="Export month as CSV"
+                  >
+                    ⬇ CSV
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    onclick="window.print()"
+                    title="Print monthly statement"
+                  >
+                    🖨 Print
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="section-divider">
-              <h3 id="bills-month-label">Upcoming & Recent Obligations</h3>
+            <div id="bills-alerts-container"></div>
+
+            <div
+              id="bills-panel-overview"
+              class="bills-tab-panel"
+              role="tabpanel"
+              aria-labelledby="overview-tab"
+            >
+              <div id="bills-hero-container"></div>
+              <div id="bills-spotlight-container"></div>
+              <div id="bills-obligations-container">
+                <div class="bills-skel">
+                  <div class="bills-skel__card"></div>
+                  <div class="bills-skel__card"></div>
+                  <div class="bills-skel__card"></div>
+                </div>
+              </div>
             </div>
 
-            <div id="bills-list-container">
-              <div class="empty-state"><p>Loading bills workspace...</p></div>
+            <div
+              id="bills-panel-providers"
+              class="bills-tab-panel"
+              role="tabpanel"
+              hidden
+            >
+              <div id="bills-providers-container">
+                <div class="bills-skel">
+                  <div class="bills-skel__card"></div>
+                  <div class="bills-skel__card"></div>
+                  <div class="bills-skel__card"></div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="bills-panel-history"
+              class="bills-tab-panel"
+              role="tabpanel"
+              hidden
+            >
+              <div id="bills-mom-container"></div>
+              <div id="bills-recent-container">
+                <div class="bills-skel">
+                  <div class="bills-skel__card"></div>
+                  <div class="bills-skel__card"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -11924,28 +12830,203 @@
           width: min(720px, 100%);
           max-height: min(90vh, 920px);
           overflow: auto;
+          padding: 0;
         "
       >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-          "
-        >
+        <div class="bill-provider-detail__sticky-head">
           <div id="bill-provider-detail-title" class="confirm-title">
             Provider Details
           </div>
           <button
             type="button"
-            class="btn btn-ghost"
+            class="btn btn-ghost btn-sm"
             onclick="closeBillProviderDetail()"
           >
             Close
           </button>
         </div>
-        <div id="bill-provider-detail-body" style="margin-top: 16px"></div>
+        <div
+          id="bill-provider-detail-body"
+          style="padding: var(--space-4)"
+        ></div>
+      </div>
+    </div>
+    <div id="bill-edit-overlay" class="confirm-overlay" aria-hidden="true">
+      <div
+        class="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bill-edit-title"
+        style="
+          width: min(560px, 100%);
+          max-height: min(90vh, 820px);
+          overflow: auto;
+          padding: 0;
+        "
+      >
+        <div class="bill-provider-detail__sticky-head">
+          <div id="bill-edit-title" class="confirm-title">Edit Bill</div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick="closeBillEditModal()"
+          >
+            Close
+          </button>
+        </div>
+        <form
+          id="bill-edit-form"
+          onsubmit="event.preventDefault(); saveBillEdit();"
+          style="padding: var(--space-4); display: grid; gap: var(--space-3)"
+        >
+          <input type="hidden" id="bill-edit-mode" value="service_line" />
+          <input type="hidden" id="bill-edit-service-line-id" value="" />
+          <input type="hidden" id="bill-edit-provider-id" value="" />
+          <input
+            type="hidden"
+            id="bill-edit-merge-with-id"
+            value=""
+          />
+
+          <label class="form-group">
+            <span>Provider name</span>
+            <input
+              type="text"
+              id="bill-edit-provider-name"
+              required
+              autocomplete="off"
+            />
+          </label>
+
+          <div id="bill-edit-service-fields" style="display: grid; gap: var(--space-3)">
+            <label class="form-group">
+              <span>Service type</span>
+              <input
+                type="text"
+                id="bill-edit-service-type"
+                placeholder="tutoring, cleaning, etc."
+                autocomplete="off"
+              />
+            </label>
+            <label class="form-group">
+              <span>Account label</span>
+              <input
+                type="text"
+                id="bill-edit-account-label"
+                placeholder="e.g. child name or unit"
+                autocomplete="off"
+              />
+            </label>
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3)"
+            >
+              <label class="form-group">
+                <span>Expected amount</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  id="bill-edit-typical-amount"
+                />
+              </label>
+              <label class="form-group">
+                <span>Expected day (1–31)</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  id="bill-edit-expected-day"
+                />
+              </label>
+            </div>
+            <div
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3)"
+            >
+              <label class="form-group">
+                <span>Payment method</span>
+                <select id="bill-edit-payment-method">
+                  <option value="cash">Cash</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="check">Check</option>
+                  <option value="app_transfer">App transfer</option>
+                  <option value="autopay">Autopay</option>
+                  <option value="card">Card</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label class="form-group">
+                <span>Planning month rule</span>
+                <select id="bill-edit-planning-rule">
+                  <option value="paid_date_month">Paid date</option>
+                  <option value="due_date_month">Due date</option>
+                  <option value="statement_month">Statement month</option>
+                  <option value="service_end_month">Service end</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3)"
+          >
+            <label class="form-group">
+              <span>Category</span>
+              <select id="bill-edit-category">
+                <option value="personal_service">Personal service</option>
+                <option value="utility">Utility</option>
+                <option value="subscription">Subscription</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="form-group">
+              <span>Preferred contact</span>
+              <select id="bill-edit-contact-method">
+                <option value="">—</option>
+                <option value="phone">Phone</option>
+                <option value="text">Text</option>
+                <option value="app">App</option>
+                <option value="email">Email</option>
+                <option value="in_person">In person</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="form-group">
+            <span>Payment handle (phone, username, etc.)</span>
+            <input type="text" id="bill-edit-payment-handle" autocomplete="off" />
+          </label>
+
+          <div
+            id="bill-edit-merge-notice"
+            class="bill-alert bill-alert--warning"
+            style="display: none; margin: 0"
+          >
+            <div class="bill-alert__body">
+              <div class="bill-alert__title">
+                Provider already exists
+              </div>
+              <div
+                id="bill-edit-merge-detail"
+                class="bill-alert__detail"
+              ></div>
+            </div>
+          </div>
+
+          <div
+            style="display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2)"
+          >
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeBillEditModal()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" id="bill-edit-save-btn">
+              Save
+            </button>
+          </div>
+        </form>
       </div>
     </div>
     <div
@@ -14409,17 +15490,24 @@
 
       function updateDesktopSidebarToggle() {
         const toggle = document.getElementById("desktop-sidebar-toggle");
-        if (!toggle) return;
+        const inline = document.getElementById("sidebar-collapse-btn");
         const collapsed = document.body.classList.contains("sidebar-collapsed");
-        toggle.textContent = collapsed ? "☰" : "✕";
-        toggle.setAttribute(
-          "aria-label",
-          collapsed ? "Show sidebar" : "Hide sidebar",
-        );
-        toggle.setAttribute(
-          "title",
-          collapsed ? "Show sidebar" : "Hide sidebar",
-        );
+        if (toggle) {
+          toggle.textContent = "☰";
+          toggle.setAttribute("aria-label", "Show sidebar");
+          toggle.setAttribute("title", "Show sidebar");
+        }
+        if (inline) {
+          inline.textContent = collapsed ? "›" : "‹";
+          inline.setAttribute(
+            "aria-label",
+            collapsed ? "Expand sidebar" : "Collapse sidebar",
+          );
+          inline.setAttribute(
+            "title",
+            collapsed ? "Expand sidebar" : "Collapse sidebar",
+          );
+        }
       }
 
       function applyDesktopSidebarPreference() {
@@ -14434,12 +15522,20 @@
           toggle.style.display = "none";
           return;
         }
-        toggle.style.display = "inline-flex";
+        toggle.style.removeProperty("display");
         document.body.classList.toggle(
           "sidebar-collapsed",
           isDesktopSidebarCollapsed(),
         );
         updateDesktopSidebarToggle();
+      }
+
+      function handleSidebarCollapse() {
+        if (isMobileViewport()) {
+          closeMobileMenu();
+          return;
+        }
+        toggleDesktopSidebar();
       }
 
       function toggleDesktopSidebar() {
@@ -28350,6 +29446,192 @@
         overlay.onclick = null;
       }
 
+      // ---- Bill edit modal ----
+      window.__billEditState = null;
+
+      function openBillEditModal(encoded) {
+        let obligation;
+        try {
+          obligation = JSON.parse(decodeURIComponent(encoded));
+        } catch (e) {
+          console.error("bill edit: bad payload", e);
+          return;
+        }
+        const overlay = document.getElementById("bill-edit-overlay");
+        if (!overlay) return;
+        const hasServiceLine = Boolean(obligation.service_line_id);
+        const mode = hasServiceLine ? "service_line" : "provider";
+        window.__billEditState = { obligation, mode };
+
+        document.getElementById("bill-edit-mode").value = mode;
+        document.getElementById("bill-edit-service-line-id").value =
+          obligation.service_line_id || "";
+        document.getElementById("bill-edit-provider-id").value =
+          obligation.provider_id || "";
+        document.getElementById("bill-edit-merge-with-id").value = "";
+        document.getElementById("bill-edit-merge-notice").style.display =
+          "none";
+
+        document.getElementById("bill-edit-title").textContent = hasServiceLine
+          ? "Edit Personal Service"
+          : "Edit Provider";
+
+        document.getElementById("bill-edit-provider-name").value =
+          obligation.provider_name || "";
+        document.getElementById("bill-edit-service-type").value =
+          (Array.isArray(obligation.service_types) &&
+            obligation.service_types[0]) ||
+          obligation.provider_type ||
+          "";
+        document.getElementById("bill-edit-account-label").value =
+          obligation.account_label || "";
+        document.getElementById("bill-edit-typical-amount").value =
+          obligation.expected_amount != null
+            ? Number(obligation.expected_amount)
+            : "";
+        document.getElementById("bill-edit-expected-day").value =
+          obligation.expected_payment_day || "";
+        document.getElementById("bill-edit-payment-method").value =
+          obligation.preferred_payment_method || "cash";
+        document.getElementById("bill-edit-planning-rule").value =
+          obligation.planning_month_rule || "paid_date_month";
+        document.getElementById("bill-edit-category").value =
+          obligation.provider_category ||
+          (hasServiceLine ? "personal_service" : "other");
+        document.getElementById("bill-edit-contact-method").value =
+          obligation.preferred_contact_method || "";
+        document.getElementById("bill-edit-payment-handle").value =
+          obligation.payment_handle || "";
+
+        document.getElementById("bill-edit-service-fields").style.display =
+          hasServiceLine ? "grid" : "none";
+
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+        overlay.onclick = (e) => {
+          if (e.target === overlay) closeBillEditModal();
+        };
+        setTimeout(() => {
+          document.getElementById("bill-edit-provider-name")?.focus();
+        }, 40);
+      }
+
+      function closeBillEditModal() {
+        const overlay = document.getElementById("bill-edit-overlay");
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.onclick = null;
+        window.__billEditState = null;
+      }
+
+      async function saveBillEdit() {
+        const state = window.__billEditState;
+        if (!state) return;
+        const mode = document.getElementById("bill-edit-mode").value;
+        const serviceLineId = document.getElementById(
+          "bill-edit-service-line-id",
+        ).value;
+        const providerId = document.getElementById(
+          "bill-edit-provider-id",
+        ).value;
+        const mergeWithId = document.getElementById(
+          "bill-edit-merge-with-id",
+        ).value;
+        const saveBtn = document.getElementById("bill-edit-save-btn");
+
+        const body = {
+          provider_name: document
+            .getElementById("bill-edit-provider-name")
+            .value.trim(),
+          provider_category: document.getElementById("bill-edit-category")
+            .value,
+          preferred_contact_method:
+            document.getElementById("bill-edit-contact-method").value || null,
+          payment_handle:
+            document.getElementById("bill-edit-payment-handle").value.trim() ||
+            null,
+        };
+        if (mergeWithId) body.merge_with_provider_id = Number(mergeWithId);
+
+        let url;
+        if (mode === "service_line") {
+          if (!serviceLineId) {
+            billsNotify("Missing service line id");
+            return;
+          }
+          body.service_type = document
+            .getElementById("bill-edit-service-type")
+            .value.trim()
+            .toLowerCase();
+          body.account_label = document
+            .getElementById("bill-edit-account-label")
+            .value.trim();
+          body.typical_amount =
+            document.getElementById("bill-edit-typical-amount").value || null;
+          body.expected_payment_day =
+            document.getElementById("bill-edit-expected-day").value || null;
+          body.preferred_payment_method = document.getElementById(
+            "bill-edit-payment-method",
+          ).value;
+          body.planning_month_rule = document.getElementById(
+            "bill-edit-planning-rule",
+          ).value;
+          url = `/bill-service-lines/${encodeURIComponent(serviceLineId)}`;
+          // Provider rename uses canonical_name for provider endpoint;
+          // for service_line endpoint it uses provider_name (already set)
+        } else {
+          if (!providerId) {
+            billsNotify("Missing provider id");
+            return;
+          }
+          body.canonical_name = body.provider_name;
+          delete body.provider_name;
+          url = `/bill-providers/${encodeURIComponent(providerId)}`;
+        }
+
+        saveBtn.disabled = true;
+        try {
+          const res = await api(url, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (res.status === 409) {
+            const payload = await res.json().catch(() => ({}));
+            const candidate = payload.merge_candidate;
+            if (candidate) {
+              const notice = document.getElementById("bill-edit-merge-notice");
+              const detail = document.getElementById("bill-edit-merge-detail");
+              detail.textContent = `"${candidate.canonical_name}" already exists. Click Save again to merge this record into it.`;
+              notice.style.display = "";
+              document.getElementById("bill-edit-merge-with-id").value =
+                candidate.id;
+              saveBtn.textContent = "Merge & Save";
+              saveBtn.disabled = false;
+              return;
+            }
+            billsNotify(payload.error || "Conflict saving bill");
+            saveBtn.disabled = false;
+            return;
+          }
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            billsNotify(payload.error || "Could not save");
+            saveBtn.disabled = false;
+            return;
+          }
+          closeBillEditModal();
+          saveBtn.textContent = "Save";
+          if (typeof loadBills === "function") loadBills({ showSkeleton: false });
+          billsNotify("Saved");
+        } catch (e) {
+          console.error("bill edit save failed", e);
+          billsNotify("Could not save");
+          saveBtn.disabled = false;
+        }
+      }
+
       function copyTextToClipboard(value, successMessage = "Copied ✅") {
         navigator.clipboard
           ?.writeText(String(value || ""))
@@ -28855,25 +30137,77 @@
       // ============================================================
       // Bills
       // ============================================================
-      async function loadBills() {
-        const container = document.getElementById("bills-list-container");
+      window.__billsCache = window.__billsCache || null;
+      const BILLS_TAB_STORAGE_KEY = "bills:lastTab";
+      const BILLS_DEFAULT_TAB = "overview";
+      const BILLS_EXPANDED = {
+        obligations: false,
+        providers: false,
+        recent: false,
+      };
+      const BILLS_EXPAND_THRESHOLD = 12;
+
+      function getBillsTab() {
+        try {
+          return (
+            localStorage.getItem(BILLS_TAB_STORAGE_KEY) || BILLS_DEFAULT_TAB
+          );
+        } catch (_) {
+          return BILLS_DEFAULT_TAB;
+        }
+      }
+
+      function setBillsTab(name) {
+        const valid = ["overview", "providers", "history"];
+        if (!valid.includes(name)) name = BILLS_DEFAULT_TAB;
+        try {
+          localStorage.setItem(BILLS_TAB_STORAGE_KEY, name);
+        } catch (_) {}
+        document.querySelectorAll(".bills-tab").forEach((el) => {
+          const active = el.getAttribute("data-bills-tab") === name;
+          el.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        const panels = {
+          overview: "bills-panel-overview",
+          providers: "bills-panel-providers",
+          history: "bills-panel-history",
+        };
+        Object.entries(panels).forEach(([key, id]) => {
+          const panel = document.getElementById(id);
+          if (!panel) return;
+          if (key === name) panel.removeAttribute("hidden");
+          else panel.setAttribute("hidden", "");
+        });
+        const exportBtn = document.getElementById("bills-export-csv");
+        if (exportBtn) {
+          exportBtn.style.display = name === "history" ? "" : "none";
+        }
+      }
+
+      async function loadBills(options) {
+        const monthInput = document.getElementById("bills-filter-month");
+        const monthLabel = document.getElementById("bills-month-label");
+        if (!monthInput) return;
+
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(
+          now.getMonth() + 1,
+        ).padStart(2, "0")}`;
+        if (!monthInput.value) monthInput.value = currentMonth;
+        const selectedMonth = monthInput.value;
+        if (monthLabel) {
+          monthLabel.textContent = `${formatMonthLabel(selectedMonth)} · recurring obligations & payment projections`;
+        }
+
+        setBillsTab(getBillsTab());
+
+        if (!options || options.showSkeleton !== false) {
+          renderBillsSkeleton();
+        }
+
         const alertsContainer = document.getElementById(
           "bills-alerts-container",
         );
-        const summaryContainer = document.getElementById(
-          "bills-projection-summary",
-        );
-        const monthInput = document.getElementById("bills-filter-month");
-        const monthLabel = document.getElementById("bills-month-label");
-
-        if (!container) return;
-
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        if (!monthInput.value) monthInput.value = currentMonth;
-
-        const selectedMonth = monthInput.value;
-        monthLabel.textContent = `Recurring Obligations for ${formatMonthLabel(selectedMonth)}`;
 
         try {
           const [obligationsRes, utilityRes, projectionsRes] =
@@ -28897,30 +30231,128 @@
               projectionsRes.json(),
             ]);
 
-          renderBillsWorkspace({
+          BILLS_EXPANDED.obligations = false;
+          BILLS_EXPANDED.providers = false;
+          BILLS_EXPANDED.recent = false;
+          window.__billsCache = {
             selectedMonth,
             obligationsData,
             utilityData,
             projectionsData,
-          });
+          };
+          renderBillsWorkspace(window.__billsCache);
         } catch (e) {
           console.error(e);
-          alertsContainer.innerHTML = "";
-          summaryContainer.innerHTML = "";
-          container.innerHTML =
-            '<div class="empty-state"><p>Could not load bills. Please try again.</p></div>';
+          if (alertsContainer) alertsContainer.innerHTML = "";
+          ["bills-hero-container",
+           "bills-spotlight-container",
+           "bills-obligations-container",
+           "bills-providers-container",
+           "bills-mom-container",
+           "bills-recent-container"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = "";
+          });
+          const oblig = document.getElementById("bills-obligations-container");
+          if (oblig) {
+            oblig.innerHTML = renderBillsEmpty({
+              icon: "⚠️",
+              title: "Could not load bills",
+              sub: "Please check your connection and try again.",
+            });
+          }
         }
       }
 
-      function renderBillsWorkspace(data) {
-        const container = document.getElementById("bills-list-container");
-        const alertsContainer = document.getElementById(
-          "bills-alerts-container",
-        );
-        const summaryContainer = document.getElementById(
-          "bills-projection-summary",
-        );
+      function renderBillsSkeleton() {
+        const targets = [
+          "bills-obligations-container",
+          "bills-providers-container",
+          "bills-recent-container",
+        ];
+        targets.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = `
+            <div class="bills-skel">
+              <div class="bills-skel__card"></div>
+              <div class="bills-skel__card"></div>
+              <div class="bills-skel__card"></div>
+            </div>`;
+        });
+        ["bills-hero-container",
+         "bills-spotlight-container",
+         "bills-mom-container",
+         "bills-alerts-container"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = "";
+        });
+      }
 
+      function renderBillsEmpty({ icon, title, sub, actionHtml }) {
+        return `
+          <div class="bills-empty">
+            <div class="bills-empty__icon">${escHtml(icon || "📭")}</div>
+            <div class="bills-empty__title">${escHtml(title || "Nothing here yet")}</div>
+            ${sub ? `<div class="bills-empty__sub">${escHtml(sub)}</div>` : ""}
+            ${actionHtml || ""}
+          </div>`;
+      }
+
+      function billStatusFor(obligation) {
+        if (!obligation) return "upcoming";
+        const status = (obligation.status || "").toLowerCase();
+        if (status === "entered" || status === "paid") return "paid";
+        if (status === "overdue") return "overdue";
+        if (status === "outstanding") {
+          const due = obligation.last_due_date
+            ? new Date(obligation.last_due_date)
+            : null;
+          if (due && !Number.isNaN(due.getTime())) {
+            const days = Math.ceil((due - new Date()) / 86400000);
+            if (days < 0) return "overdue";
+            if (days <= 7) return "due-soon";
+          }
+          return "due-soon";
+        }
+        if (status === "upcoming") return "upcoming";
+        return "upcoming";
+      }
+
+      function billStatusLabel(status) {
+        switch (status) {
+          case "paid":
+            return { text: "✓ Entered", cls: "paid" };
+          case "overdue":
+            return { text: "❗ Overdue", cls: "overdue" };
+          case "due-soon":
+            return { text: "⏰ Due Soon", cls: "due-soon" };
+          case "missing":
+            return { text: "❗ Missing", cls: "missing" };
+          case "anomaly":
+            return { text: "⚠ Anomaly", cls: "anomaly" };
+          case "upcoming":
+          default:
+            return { text: "↻ Upcoming", cls: "upcoming" };
+        }
+      }
+
+      function buildSparkPath(series, width = 72, height = 22) {
+        if (!Array.isArray(series) || series.length === 0) return "";
+        const max = Math.max(...series, 1);
+        const min = Math.min(...series, 0);
+        const range = max - min || 1;
+        const step = series.length > 1 ? width / (series.length - 1) : width;
+        return series
+          .map((v, i) => {
+            const x = i * step;
+            const y = height - ((v - min) / range) * height;
+            return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+          })
+          .join(" ");
+      }
+
+      function renderBillsWorkspace(data) {
         const obligationsPayload = data.obligationsData || {};
         const utilityPayload = data.utilityData || {};
         const projectionsPayload = data.projectionsData || {};
@@ -28929,336 +30361,819 @@
         const utilityProviders = utilityPayload.providers || [];
         const recentBills = utilityPayload.recent_bills || [];
         const monthlyTotals = utilityPayload.monthly_totals || {};
+        const monthlyByProvider =
+          utilityPayload.monthly_totals_by_provider || {};
         const dueSoon = utilityPayload.due_soon || [];
         const projectionSlots = projectionsPayload.slots || [];
         const projectionSummary = projectionsPayload.summary || {};
-
-        let alertsHtml = "";
         const anomalies = projectionSlots.filter((s) => s.is_anomaly);
         const missing = projectionSlots.filter(
-          (s) => s.slot_type === "projected" && s.payment_status === "missing",
+          (s) =>
+            s.slot_type === "projected" && s.payment_status === "missing",
         );
 
-        if (dueSoon.length > 0) {
-          alertsHtml += `
-        <div class="alert alert-warning" style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
-            <div>
-              <strong>Due Soon</strong>
-              <div style="font-size:0.85rem">${escHtml(
-                dueSoon
-                  .slice(0, 3)
-                  .map(
-                    (item) =>
-                      `${item.provider_name} · due ${item.due_date} · ${item.days_until_due} day${item.days_until_due === 1 ? "" : "s"}`,
-                  )
-                  .join(" • "),
-              )}</div>
-            </div>
-            ${
-              dueSoon[0]?.purchase_id
-                ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${dueSoon[0].purchase_id})">Open Next Due</button>`
-                : ""
-            }
-          </div>
-        </div>`;
-        }
+        renderBillsAlerts({ dueSoon, anomalies, missing, data });
+        renderBillsHero({
+          obligationsSummary,
+          projectionSummary,
+          dueSoon,
+          utilityProviders,
+          recentBills,
+        });
+        renderDueThisWeekStrip(dueSoon);
+        renderObligationsSection(obligations, data);
+        renderProvidersSection(utilityProviders, monthlyByProvider);
+        renderMoMSection(monthlyTotals);
+        renderRecentSection(recentBills);
+      }
 
-        if (anomalies.length > 0) {
-          alertsHtml += anomalies
-            .map(
-              (s) => `
-          <div class="alert alert-warning" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center">
-            <div>
-              <strong>⚠️ Anomaly detected: ${escHtml(s.provider_name)}</strong>
-              <div style="font-size:0.85rem">${escHtml(s.anomaly_reason)}</div>
-            </div>
-            <button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${s.purchase_id})">Inspect</button>
-          </div>
-        `,
-            )
-            .join("");
-        }
-
-        if (missing.length > 0) {
-          alertsHtml += missing
-            .map(
-              (s) => `
-          <div class="alert alert-danger" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center">
-            <div>
-              <strong>❗ Missing bill arrival: ${escHtml(s.provider_name)}</strong>
-              <div style="font-size:0.85rem">Expected around this time based on history.</div>
-            </div>
-            <button class="btn btn-sm btn-ghost" onclick="openManualEntryModalFromEncoded('${escAttr(encodeURIComponent(JSON.stringify({ type: "household_bill", provider_name: s.provider_name || "", provider_type: s.provider_type || "", account_label: s.account_label || "", expected_amount: Number(s.amount || 0), planning_month: s.planning_month || data.selectedMonth || "", billing_cycle: s.billing_cycle || "monthly" })))}')">Add Now</button>
-          </div>
-        `,
-            )
-            .join("");
-        }
-        alertsContainer.innerHTML = alertsHtml;
-
-        summaryContainer.innerHTML = `
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; width: 100%">
-          <div>
-            <div class="stat-label">Tracked Obligations</div>
-            <div class="stat-value">${escHtml(String(obligationsSummary.count || 0))}</div>
-            <div class="stat-sub">${escHtml(String(obligationsSummary.fixed_count || 0))} fixed · ${escHtml(String(obligationsSummary.variable_count || 0))} variable</div>
-          </div>
-          <div>
-            <div class="stat-label">Entered This Month</div>
-            <div class="stat-value">${escHtml(String(obligationsSummary.entered_count || 0))}</div>
-            <div class="stat-sub">${escHtml(String(obligationsSummary.outstanding_count || 0))} outstanding</div>
-          </div>
-          <div>
-            <div class="stat-label">Expected vs Actual</div>
-            <div class="stat-value">${formatMoney(obligationsSummary.expected_total || 0)}</div>
-            <div class="stat-sub">Actual ${formatMoney(obligationsSummary.actual_total || 0)} · Variance ${formatMoney(obligationsSummary.variance_total || 0)}</div>
-          </div>
-          <div>
-            <div class="stat-label">Planning Alerts</div>
-            <div class="stat-value ${projectionSummary.missing_count > 0 ? "color-danger" : projectionSummary.anomaly_count > 0 ? "color-warning" : ""}">${escHtml(String((projectionSummary.missing_count || 0) + (projectionSummary.anomaly_count || 0)))}</div>
-            <div class="stat-sub">${escHtml(String(projectionSummary.missing_count || 0))} missing · ${escHtml(String(projectionSummary.anomaly_count || 0))} anomalies</div>
-          </div>
-          <div>
-            <div class="stat-label">Due Soon</div>
-            <div class="stat-value">${escHtml(String(dueSoon.length || 0))}</div>
-            <div class="stat-sub">${escHtml(String(utilityProviders.length || 0))} providers · ${escHtml(String(recentBills.length || 0))} recent bills</div>
-          </div>
-        </div>
-      `;
-
-        if (
-          !obligations.length &&
-          !utilityProviders.length &&
-          !recentBills.length
-        ) {
-          container.innerHTML =
-            '<div class="empty-state"><p>No recurring obligations tracked yet. Add your first household bill via the Upload or Manual Entry views.</p></div>';
+      function renderBillsAlerts({ dueSoon, anomalies, missing, data }) {
+        const el = document.getElementById("bills-alerts-container");
+        if (!el) return;
+        const total = (anomalies.length || 0) + (missing.length || 0);
+        if (!dueSoon.length && !total) {
+          el.innerHTML = "";
           return;
         }
-
-        const monthSeries = Object.entries(monthlyTotals)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .slice(-6);
-        const maxMonthTotal = Math.max(
-          1,
-          ...monthSeries.map(([, value]) => Number(value || 0)),
-        );
-
-        container.innerHTML = `
-        <div style="display:grid; gap:18px">
-          <div class="section-divider">
-            <h3>Recurring Obligations</h3>
-          </div>
-          ${
-            obligations.length
-              ? `<div style="display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))">
-          ${obligations
+        const parts = [];
+        if (dueSoon.length > 0) {
+          const preview = dueSoon
+            .slice(0, 3)
             .map(
-              (obligation) => `
-            <div class="card" style="border-left: 4px solid ${obligation.status === "entered" ? "var(--success)" : obligation.status === "outstanding" ? "var(--warning)" : "var(--border)"}">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
-                <div>
-                  <button type="button" class="btn btn-link" style="padding:0;font-weight:600;font-size:1.05rem" onclick="openBillProviderDetail('${escAttr(obligation.provider_name)}')">${escHtml(obligation.provider_name)}</button>
-                  <div style="font-size:0.8rem; color:var(--muted)">${escHtml(
-                    [
-                      obligation.provider_category
-                        ? formatLabel(
-                            obligation.provider_category,
-                            obligation.provider_category,
-                          )
-                        : "",
-                      formatLabel(obligation.provider_type || "other", "Other"),
-                      obligation.account_label,
-                      Array.isArray(obligation.service_types) &&
-                      obligation.service_types.length
-                        ? obligation.service_types
-                            .map((type) => formatLabel(type, type))
-                            .join(", ")
-                        : "",
-                      obligation.billing_cycle
-                        ? formatLabel(
-                            obligation.billing_cycle,
-                            obligation.billing_cycle,
-                          )
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · "),
-                  )}</div>
-                </div>
+              (item) =>
+                `${escHtml(item.provider_name)} · due ${escHtml(item.due_date)} · ${item.days_until_due} day${item.days_until_due === 1 ? "" : "s"}`,
+            )
+            .join(" • ");
+          const cta = dueSoon[0]?.purchase_id
+            ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${dueSoon[0].purchase_id})">Open Next</button>`
+            : "";
+          parts.push(`
+            <div class="bill-alert bill-alert--warning" role="status">
+              <div class="bill-alert__body">
+                <div class="bill-alert__title">⏰ Due Soon · ${dueSoon.length}</div>
+                <div class="bill-alert__detail">${preview}</div>
+              </div>
+              ${cta}
+            </div>`);
+        }
+        if (total > 0) {
+          const detailBits = [];
+          if (missing.length)
+            detailBits.push(
+              `${missing.length} missing bill${missing.length === 1 ? "" : "s"}`,
+            );
+          if (anomalies.length)
+            detailBits.push(
+              `${anomalies.length} anomal${anomalies.length === 1 ? "y" : "ies"}`,
+            );
+          const kind = missing.length ? "danger" : "warning";
+          parts.push(`
+            <div class="bill-alert bill-alert--${kind}" role="alert">
+              <div class="bill-alert__body">
+                <div class="bill-alert__title">${missing.length ? "❗" : "⚠️"} ${total} issue${total === 1 ? "" : "s"} need attention</div>
+                <div class="bill-alert__detail">${escHtml(detailBits.join(" · "))}</div>
+              </div>
+              <div class="bill-alert__actions">
                 ${
-                  obligation.status === "entered"
-                    ? `<div class="pill pill-success">Entered</div>`
-                    : obligation.status === "outstanding" ||
-                        obligation.status === "overdue"
-                      ? `<div class="pill pill-ghost">Outstanding</div>`
-                      : obligation.status === "upcoming"
-                        ? `<div class="pill pill-ghost">Upcoming</div>`
-                        : `<div class="pill pill-ghost">Not Due</div>`
+                  anomalies[0]?.purchase_id
+                    ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${anomalies[0].purchase_id})">Inspect Anomaly</button>`
+                    : ""
                 }
-              </div>
-
-              <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:16px">
-                <div>
-                  <div class="stat-label">Expected</div>
-                  <div class="stat-value" style="font-size:1.1rem">${formatMoney(obligation.expected_amount || 0)}</div>
-                  <div class="stat-sub">${escHtml(formatLabel(obligation.amount_pattern || "new", "New"))}</div>
-                </div>
-                <div>
-                  <div class="stat-label">Actual</div>
-                  <div class="stat-value" style="font-size:1.1rem">${formatMoney(obligation.actual_amount || 0)}</div>
-                  <div class="stat-sub">Variance ${formatMoney(obligation.variance || 0)}</div>
-                </div>
-              </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px">
-                <div class="stat-sub">Last seen ${escHtml(obligation.last_seen_date || "—")} · Due ${escHtml(obligation.last_due_date || "—")}</div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap">
-                  ${
-                    obligation.purchase_id
-                      ? obligation.provider_category === "personal_service"
-                        ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(obligation.provider_name || "")}')">View Payments</button>`
-                        : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${obligation.purchase_id})">Open Receipt</button>`
-                      : ""
-                  }
-                  ${
-                    obligation.provider_category === "personal_service"
-                      ? `<button class="btn btn-sm btn-primary" onclick="openCashTransactionModal({ provider_name: '${escAttr(obligation.provider_name || "")}', service_line_id: ${Number(obligation.service_line_id || 0) || "null"}, expected_amount: ${Number(obligation.expected_amount || 0)}, service_type: '${escAttr((obligation.service_types || [])[0] || obligation.provider_type || "")}', account_label: '${escAttr(obligation.account_label || "")}', force_new_service: ${obligation.service_line_id ? "false" : "true"} })">Mark Paid</button>`
-                      : obligation.status === "outstanding"
-                        ? `<button class="btn btn-sm btn-primary" onclick="openManualEntryModalFromEncoded('${escAttr(encodeURIComponent(JSON.stringify({ type: "household_bill", provider_name: obligation.provider_name || "", provider_type: obligation.provider_type || "", service_types: obligation.service_types || [], account_label: obligation.account_label || "", expected_amount: Number(obligation.expected_amount || 0), planning_month: obligation.selected_month || data.selectedMonth || "", due_date: obligation.last_due_date || "", billing_cycle: obligation.billing_cycle || "monthly", is_recurring: true })))}')">Enter Bill</button>`
-                        : ""
-                  }
-                </div>
-              </div>
-            </div>
-          `,
-            )
-            .join("")}
-        </div>`
-              : '<div class="empty-state"><p>No recurring obligations found for this month yet.</p></div>'
-          }
-
-          <div class="section-divider">
-            <h3>Providers</h3>
-          </div>
-          ${
-            utilityProviders.length
-              ? `<div style="display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
-          ${utilityProviders
-            .slice(0, 12)
-            .map(
-              (provider) => `
-            <div class="card">
-              <button type="button" class="btn btn-link" style="padding:0;font-weight:600" onclick="openBillProviderDetail('${escAttr(provider.provider_name)}')">${escHtml(provider.provider_name)}</button>
-              <div class="stat-sub" style="margin-top:4px">${escHtml(
-                (provider.service_types || [])
-                  .map((type) => formatLabel(type, type))
-                  .join(", ") ||
-                  formatLabel(provider.provider_type || "other", "Other"),
-              )}</div>
-              <div class="stat-sub">${escHtml(formatLabel(provider.provider_category || "other", "Other"))}</div>
-              <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:14px">
-                <div>
-                  <div class="stat-label">12-Month Total</div>
-                  <div class="stat-value" style="font-size:1rem">${formatMoney(provider.total || 0)}</div>
-                </div>
-                <div>
-                  <div class="stat-label">Avg Monthly</div>
-                  <div class="stat-value" style="font-size:1rem">${formatMoney(provider.average_monthly || 0)}</div>
-                </div>
-              </div>
-              <div class="stat-sub" style="margin-top:12px">${escHtml(String(provider.purchase_count || 0))} purchases · ${escHtml(String(provider.refund_count || 0))} refunds · latest ${escHtml(provider.latest_date || "—")}</div>
-            </div>
-          `,
-            )
-            .join("")}
-        </div>`
-              : '<div class="empty-state"><p>No provider history available yet.</p></div>'
-          }
-
-          <div class="section-divider">
-            <h3>Month-over-Month</h3>
-          </div>
-          ${
-            monthSeries.length
-              ? `<div class="card">
-            <div style="display:grid; gap:12px">
-              ${monthSeries
-                .map(
-                  ([month, total]) => `
-                <div>
-                  <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:6px">
-                    <span style="font-weight:600">${escHtml(formatMonthLabel(month))}</span>
-                    <span>${formatMoney(total || 0)}</span>
-                  </div>
-                  <div class="progress-wrap"><div class="progress-bar ok" style="width:${Math.max(6, Math.round((Number(total || 0) / maxMonthTotal) * 100))}%"></div></div>
-                </div>
-              `,
-                )
-                .join("")}
-            </div>
-          </div>`
-              : '<div class="empty-state"><p>No month-over-month totals yet.</p></div>'
-          }
-
-          <div class="section-divider">
-            <h3>Recent Bills</h3>
-          </div>
-          ${
-            recentBills.length
-              ? `<div style="display:grid; gap:14px">
-          ${recentBills
-            .slice(0, 12)
-            .map(
-              (bill) => `
-            <div class="card" style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap">
-              <div>
-                <div style="font-weight:600">${escHtml(bill.provider_name)}</div>
-                <div class="stat-sub">${escHtml(
-                  [
-                    bill.date,
-                    bill.billing_cycle_month
-                      ? `Counts toward ${bill.billing_cycle_month}`
-                      : "",
-                    bill.source_type === "cash_transaction"
-                      ? "Cash / Transfer"
-                      : "Receipt",
-                    bill.due_date ? `Due ${bill.due_date}` : "",
-                    formatLabel(
-                      bill.budget_category || "other_recurring",
-                      "Other Recurring",
-                    ),
-                  ]
-                    .filter(Boolean)
-                    .join(" · "),
-                )}</div>
-              </div>
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
-                <div style="text-align:right">
-                  <div style="font-weight:700">${formatMoney(bill.amount || 0)}</div>
-                  <div class="stat-sub">${escHtml(
-                    bill.is_recurring ? "Recurring" : "One-off",
-                  )}</div>
-                </div>
                 ${
-                  bill.purchase_id
-                    ? bill.source_type === "cash_transaction"
-                      ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(bill.provider_name || "")}')">View Payments</button>`
-                      : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${bill.purchase_id})">Open Receipt</button>`
+                  missing[0]
+                    ? `<button class="btn btn-sm btn-primary" onclick="openManualEntryModalFromEncoded('${escAttr(
+                        encodeURIComponent(
+                          JSON.stringify({
+                            type: "household_bill",
+                            provider_name: missing[0].provider_name || "",
+                            provider_type: missing[0].provider_type || "",
+                            account_label: missing[0].account_label || "",
+                            expected_amount: Number(missing[0].amount || 0),
+                            planning_month:
+                              missing[0].planning_month ||
+                              data.selectedMonth ||
+                              "",
+                            billing_cycle:
+                              missing[0].billing_cycle || "monthly",
+                          }),
+                        ),
+                      )}')">Add Missing</button>`
                     : ""
                 }
               </div>
-            </div>
-          `,
-            )
-            .join("")}
-        </div>`
-              : '<div class="empty-state"><p>No recent bills yet.</p></div>'
-          }
-        </div>
-      `;
+            </div>`);
+        }
+        el.innerHTML = parts.join("");
       }
+
+      function renderBillsHero({
+        obligationsSummary,
+        projectionSummary,
+        dueSoon,
+        utilityProviders,
+        recentBills,
+      }) {
+        const el = document.getElementById("bills-hero-container");
+        if (!el) return;
+        const missingCount = projectionSummary.missing_count || 0;
+        const anomalyCount = projectionSummary.anomaly_count || 0;
+        const alertTotal = missingCount + anomalyCount;
+        const alertClass = missingCount
+          ? "is-danger"
+          : anomalyCount
+            ? "is-warning"
+            : "";
+        el.innerHTML = `
+          <div class="bills-hero">
+            <div class="bills-hero__stat">
+              <div class="bills-hero__label">Tracked</div>
+              <div class="bills-hero__value">${escHtml(String(obligationsSummary.count || 0))}</div>
+              <div class="bills-hero__sub">${escHtml(String(obligationsSummary.fixed_count || 0))} fixed · ${escHtml(String(obligationsSummary.variable_count || 0))} variable</div>
+            </div>
+            <div class="bills-hero__stat">
+              <div class="bills-hero__label">Entered</div>
+              <div class="bills-hero__value">${escHtml(String(obligationsSummary.entered_count || 0))}</div>
+              <div class="bills-hero__sub">${escHtml(String(obligationsSummary.outstanding_count || 0))} outstanding</div>
+            </div>
+            <div class="bills-hero__stat">
+              <div class="bills-hero__label">Expected</div>
+              <div class="bills-hero__value">${formatMoney(obligationsSummary.expected_total || 0)}</div>
+              <div class="bills-hero__sub">Actual ${formatMoney(obligationsSummary.actual_total || 0)} · Δ ${formatMoney(obligationsSummary.variance_total || 0)}</div>
+            </div>
+            <div class="bills-hero__stat">
+              <div class="bills-hero__label">Alerts</div>
+              <div class="bills-hero__value ${alertClass}">${escHtml(String(alertTotal))}</div>
+              <div class="bills-hero__sub">${escHtml(String(missingCount))} missing · ${escHtml(String(anomalyCount))} anomaly</div>
+            </div>
+            <div class="bills-hero__stat">
+              <div class="bills-hero__label">Due Soon</div>
+              <div class="bills-hero__value">${escHtml(String(dueSoon.length || 0))}</div>
+              <div class="bills-hero__sub">${escHtml(String(utilityProviders.length || 0))} providers · ${escHtml(String(recentBills.length || 0))} recent</div>
+            </div>
+          </div>`;
+      }
+
+      function renderDueThisWeekStrip(dueSoon) {
+        const el = document.getElementById("bills-spotlight-container");
+        if (!el) return;
+        if (!Array.isArray(dueSoon) || dueSoon.length === 0) {
+          el.innerHTML = "";
+          return;
+        }
+        const items = dueSoon
+          .slice(0, 8)
+          .map((item) => {
+            const days = Number(item.days_until_due || 0);
+            const status = days < 0 ? "overdue" : days <= 3 ? "due-soon" : "upcoming";
+            const daysLabel =
+              days < 0
+                ? `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue`
+                : days === 0
+                  ? "Due today"
+                  : `In ${days} day${days === 1 ? "" : "s"}`;
+            const action = item.purchase_id
+              ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${item.purchase_id})">Open</button>`
+              : "";
+            return `
+              <div class="bills-spotlight__item" data-bill-status="${status}">
+                <div>
+                  <div class="bills-spotlight__days">${escHtml(daysLabel)}</div>
+                  <div class="bills-spotlight__provider">${escHtml(item.provider_name || "—")}</div>
+                </div>
+                <div class="bills-spotlight__amount">${formatMoney(item.amount || 0)}</div>
+                <div class="bills-spotlight__meta stat-sub">Due ${escHtml(item.due_date || "—")}</div>
+                <div class="bills-spotlight__actions">${action}</div>
+              </div>`;
+          })
+          .join("");
+        el.innerHTML = `
+          <section class="bills-section" aria-labelledby="bills-spotlight-head">
+            <div class="bills-section__head">
+              <h3 id="bills-spotlight-head">Due This Week</h3>
+              <span class="bills-section__count">${dueSoon.length} total</span>
+            </div>
+            <div class="bills-spotlight">${items}</div>
+          </section>`;
+      }
+
+      function renderObligationsSection(obligations, data) {
+        const el = document.getElementById("bills-obligations-container");
+        if (!el) return;
+        if (!obligations.length) {
+          el.innerHTML = `
+            <section class="bills-section">
+              <div class="bills-section__head"><h3>Recurring Obligations</h3></div>
+              ${renderBillsEmpty({
+                icon: "🧾",
+                title: "No obligations this month",
+                sub: "Add a household bill via +New Bill, or upload a receipt.",
+              })}
+            </section>`;
+          return;
+        }
+        const total = obligations.length;
+        const visibleN = BILLS_EXPANDED.obligations
+          ? total
+          : Math.min(total, BILLS_EXPAND_THRESHOLD);
+        const visible = obligations.slice(0, visibleN);
+        const cards = visible
+          .map((o) => renderObligationCard(o, data))
+          .join("");
+        const expander =
+          total > BILLS_EXPAND_THRESHOLD
+            ? renderBillsExpander("obligations", visibleN, total)
+            : "";
+        el.innerHTML = `
+          <section class="bills-section" aria-labelledby="bills-obligations-head">
+            <div class="bills-section__head">
+              <h3 id="bills-obligations-head">Recurring Obligations</h3>
+              <span class="bills-section__count">${visibleN} of ${total}</span>
+            </div>
+            <div class="bills-grid">${cards}</div>
+            ${expander}
+          </section>`;
+      }
+
+      function renderObligationCard(obligation, data) {
+        const status = billStatusFor(obligation);
+        const label = billStatusLabel(status);
+        const metaBits = [
+          obligation.provider_category
+            ? formatLabel(
+                obligation.provider_category,
+                obligation.provider_category,
+              )
+            : "",
+          formatLabel(obligation.provider_type || "other", "Other"),
+          obligation.account_label,
+          Array.isArray(obligation.service_types) &&
+          obligation.service_types.length
+            ? obligation.service_types
+                .map((t) => formatLabel(t, t))
+                .join(", ")
+            : "",
+          obligation.billing_cycle
+            ? formatLabel(obligation.billing_cycle, obligation.billing_cycle)
+            : "",
+        ].filter(Boolean);
+        const isPersonal = obligation.provider_category === "personal_service";
+        const editPayload = encodeURIComponent(
+          JSON.stringify({
+            service_line_id: obligation.service_line_id || null,
+            provider_id: obligation.provider_id || null,
+            provider_name: obligation.provider_name || "",
+            provider_category: obligation.provider_category || "",
+            provider_type: obligation.provider_type || "",
+            service_types: obligation.service_types || [],
+            account_label: obligation.account_label || "",
+            expected_amount: obligation.expected_amount || 0,
+            expected_payment_day: obligation.expected_payment_day || null,
+            preferred_payment_method:
+              obligation.preferred_payment_method || null,
+            preferred_contact_method:
+              obligation.preferred_contact_method || null,
+            payment_handle: obligation.payment_handle || null,
+            planning_month_rule: obligation.planning_month_rule || null,
+          }),
+        );
+        const editBtn =
+          obligation.service_line_id || obligation.provider_id
+            ? `<button class="btn btn-sm btn-ghost" onclick="openBillEditModal('${escAttr(editPayload)}')" title="Edit">✎ Edit</button>`
+            : "";
+        const openBtn = obligation.purchase_id
+          ? isPersonal
+            ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(obligation.provider_name || "")}')">View Payments</button>`
+            : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${obligation.purchase_id})">Open Receipt</button>`
+          : "";
+        const currentCashTxId =
+          isPersonal &&
+          obligation.current_entry &&
+          obligation.current_entry.source_type === "cash_transaction"
+            ? obligation.current_entry.cash_transaction_id || null
+            : null;
+        const primaryBtn = isPersonal
+          ? currentCashTxId
+            ? `<button class="btn btn-sm btn-ghost" onclick="markBillUnpaid(${currentCashTxId}, '${escAttr(obligation.provider_name || "")}')" title="Undo this month's payment">↺ Mark Unpaid</button>`
+            : `<button class="btn btn-sm btn-primary" onclick="openCashTransactionModal({ provider_name: '${escAttr(obligation.provider_name || "")}', service_line_id: ${Number(obligation.service_line_id || 0) || "null"}, expected_amount: ${Number(obligation.expected_amount || 0)}, service_type: '${escAttr((obligation.service_types || [])[0] || obligation.provider_type || "")}', account_label: '${escAttr(obligation.account_label || "")}', force_new_service: ${obligation.service_line_id ? "false" : "true"} })">Mark Paid</button>`
+          : status === "overdue" || status === "due-soon"
+            ? `<button class="btn btn-sm btn-primary" onclick="openManualEntryModalFromEncoded('${escAttr(
+                encodeURIComponent(
+                  JSON.stringify({
+                    type: "household_bill",
+                    provider_name: obligation.provider_name || "",
+                    provider_type: obligation.provider_type || "",
+                    service_types: obligation.service_types || [],
+                    account_label: obligation.account_label || "",
+                    expected_amount: Number(obligation.expected_amount || 0),
+                    planning_month:
+                      obligation.selected_month ||
+                      (data && data.selectedMonth) ||
+                      "",
+                    due_date: obligation.last_due_date || "",
+                    billing_cycle: obligation.billing_cycle || "monthly",
+                    is_recurring: true,
+                  }),
+                ),
+              )}')">Enter Bill</button>`
+            : "";
+        return `
+          <article class="bill-card" data-bill-status="${status}">
+            <header class="bill-card__head">
+              <div style="min-width:0">
+                <button type="button" class="bill-card__title-btn" onclick="openBillProviderDetail('${escAttr(obligation.provider_name)}')">${escHtml(obligation.provider_name)}</button>
+                <div class="bill-card__meta">${escHtml(metaBits.join(" · "))}</div>
+              </div>
+              <span class="bill-card__pill">${escHtml(label.text)}</span>
+            </header>
+            <div class="bill-card__stats">
+              <div>
+                <div class="bill-card__stat-label">Expected</div>
+                <div class="bill-card__stat-value">${formatMoney(obligation.expected_amount || 0)}</div>
+                <div class="bill-card__stat-sub">${escHtml(formatLabel(obligation.amount_pattern || "new", "New"))}</div>
+              </div>
+              <div>
+                <div class="bill-card__stat-label">Actual</div>
+                <div class="bill-card__stat-value">${formatMoney(obligation.actual_amount || 0)}</div>
+                <div class="bill-card__stat-sub">Δ ${formatMoney(obligation.variance || 0)}</div>
+              </div>
+            </div>
+            <footer class="bill-card__footer">
+              <div class="bill-card__footer-meta">Last seen ${escHtml(obligation.last_seen_date || "—")} · Due ${escHtml(obligation.last_due_date || "—")}</div>
+              <div class="bill-card__actions">${editBtn}${openBtn}${primaryBtn}</div>
+            </footer>
+          </article>`;
+      }
+
+      function renderProvidersSection(providers, monthlyByProvider) {
+        const el = document.getElementById("bills-providers-container");
+        if (!el) return;
+        if (!providers.length) {
+          el.innerHTML = `
+            <section class="bills-section">
+              <div class="bills-section__head"><h3>Providers</h3></div>
+              ${renderBillsEmpty({
+                icon: "🏷️",
+                title: "No provider history yet",
+                sub: "Once you enter a bill or upload a receipt, providers will appear here.",
+              })}
+            </section>`;
+          return;
+        }
+        const total = providers.length;
+        const visibleN = BILLS_EXPANDED.providers
+          ? total
+          : Math.min(total, BILLS_EXPAND_THRESHOLD);
+        const visible = providers.slice(0, visibleN);
+        const cards = visible
+          .map((p) => renderProviderCard(p, monthlyByProvider))
+          .join("");
+        const expander =
+          total > BILLS_EXPAND_THRESHOLD
+            ? renderBillsExpander("providers", visibleN, total)
+            : "";
+        el.innerHTML = `
+          <section class="bills-section" aria-labelledby="bills-providers-head">
+            <div class="bills-section__head">
+              <h3 id="bills-providers-head">Providers</h3>
+              <span class="bills-section__count">${visibleN} of ${total} · 12-month view</span>
+            </div>
+            <div class="bills-grid bills-grid--providers">${cards}</div>
+            ${expander}
+          </section>`;
+      }
+
+      function renderProviderCard(provider, monthlyByProvider) {
+        const name = provider.provider_name || "";
+        const series =
+          (monthlyByProvider && monthlyByProvider[name]) ||
+          provider.monthly_series ||
+          [];
+        const seriesNums = Array.isArray(series)
+          ? series.map((v) => Number(v) || 0)
+          : [];
+        const spark = seriesNums.length
+          ? `<svg class="provider-card__spark" width="72" height="22" viewBox="0 0 72 22" aria-hidden="true"><path d="${buildSparkPath(seriesNums)}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></path></svg>`
+          : "";
+        const tags = (provider.service_types || [])
+          .map((t) => formatLabel(t, t))
+          .join(", ");
+        const categoryLabel = formatLabel(
+          provider.provider_category || "other",
+          "Other",
+        );
+        return `
+          <article class="provider-card">
+            <header class="provider-card__head">
+              <div style="min-width:0">
+                <button type="button" class="provider-card__name" onclick="openBillProviderDetail('${escAttr(name)}')">${escHtml(name)}</button>
+                <div class="provider-card__tags">${escHtml(tags || categoryLabel)}</div>
+              </div>
+              ${spark}
+            </header>
+            <div class="provider-card__totals">
+              <div>
+                <div class="bill-card__stat-label">12-Month Total</div>
+                <div class="bill-card__stat-value">${formatMoney(provider.total || 0)}</div>
+              </div>
+              <div>
+                <div class="bill-card__stat-label">Avg / Month</div>
+                <div class="bill-card__stat-value">${formatMoney(provider.average_monthly || 0)}</div>
+              </div>
+            </div>
+            <div class="provider-card__foot">${escHtml(String(provider.purchase_count || 0))} purchases · ${escHtml(String(provider.refund_count || 0))} refunds · latest ${escHtml(provider.latest_date || "—")}</div>
+          </article>`;
+      }
+
+      function renderMoMSection(monthlyTotals) {
+        const el = document.getElementById("bills-mom-container");
+        if (!el) return;
+        const monthSeries = Object.entries(monthlyTotals || {})
+          .sort(([a], [b]) => a.localeCompare(b))
+          .slice(-6);
+        if (!monthSeries.length) {
+          el.innerHTML = `
+            <section class="bills-section">
+              <div class="bills-section__head"><h3>Month-over-Month</h3></div>
+              ${renderBillsEmpty({
+                icon: "📊",
+                title: "No month-over-month totals yet",
+                sub: "After a few months of history, trends will appear here.",
+              })}
+            </section>`;
+          return;
+        }
+        const maxTotal = Math.max(
+          1,
+          ...monthSeries.map(([, v]) => Number(v || 0)),
+        );
+        const rows = monthSeries
+          .map(([month, total]) => {
+            const pct = Math.max(
+              6,
+              Math.round((Number(total || 0) / maxTotal) * 100),
+            );
+            return `
+              <div class="mom-row">
+                <span class="mom-row__label">${escHtml(formatMonthLabel(month))}</span>
+                <span class="mom-row__amount">${formatMoney(total || 0)}</span>
+                <div class="mom-row__track"><div class="mom-row__bar" style="width:${pct}%"></div></div>
+              </div>`;
+          })
+          .join("");
+        el.innerHTML = `
+          <section class="bills-section" aria-labelledby="bills-mom-head">
+            <div class="bills-section__head">
+              <h3 id="bills-mom-head">Month-over-Month</h3>
+              <span class="bills-section__count">${monthSeries.length} month${monthSeries.length === 1 ? "" : "s"}</span>
+            </div>
+            <div class="mom-chart">${rows}</div>
+          </section>`;
+      }
+
+      function renderRecentSection(recentBills) {
+        const el = document.getElementById("bills-recent-container");
+        if (!el) return;
+        if (!recentBills.length) {
+          el.innerHTML = `
+            <section class="bills-section">
+              <div class="bills-section__head"><h3>Recent Bills</h3></div>
+              ${renderBillsEmpty({
+                icon: "📭",
+                title: "No recent bills",
+                sub: "Uploaded receipts and logged cash payments appear here.",
+              })}
+            </section>`;
+          return;
+        }
+        const total = recentBills.length;
+        const visibleN = BILLS_EXPANDED.recent
+          ? total
+          : Math.min(total, BILLS_EXPAND_THRESHOLD);
+        const visible = recentBills.slice(0, visibleN);
+        const rows = visible.map((b) => renderRecentBillRow(b)).join("");
+        const expander =
+          total > BILLS_EXPAND_THRESHOLD
+            ? renderBillsExpander("recent", visibleN, total)
+            : "";
+        el.innerHTML = `
+          <section class="bills-section" aria-labelledby="bills-recent-head">
+            <div class="bills-section__head">
+              <h3 id="bills-recent-head">Recent Bills</h3>
+              <span class="bills-section__count">${visibleN} of ${total}</span>
+            </div>
+            <div style="display:grid;gap:var(--space-2)">${rows}</div>
+            ${expander}
+          </section>`;
+      }
+
+      function renderRecentBillRow(bill) {
+        const metaBits = [
+          bill.date,
+          bill.billing_cycle_month
+            ? `Counts toward ${bill.billing_cycle_month}`
+            : "",
+          bill.source_type === "cash_transaction"
+            ? "Cash / Transfer"
+            : "Receipt",
+          bill.due_date ? `Due ${bill.due_date}` : "",
+          formatLabel(
+            bill.budget_category || "other_recurring",
+            "Other Recurring",
+          ),
+        ].filter(Boolean);
+        const action = bill.purchase_id
+          ? bill.source_type === "cash_transaction"
+            ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(bill.provider_name || "")}')">View</button>`
+            : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${bill.purchase_id})">Open</button>`
+          : "";
+        return `
+          <div class="bill-row">
+            <div class="bill-row__main">
+              <div class="bill-row__provider">${escHtml(bill.provider_name)}</div>
+              <div class="bill-row__meta">${escHtml(metaBits.join(" · "))}</div>
+            </div>
+            <div class="bill-row__right">
+              <div>
+                <div class="bill-row__amount">${formatMoney(bill.amount || 0)}</div>
+                <div class="bill-row__sub">${escHtml(bill.is_recurring ? "Recurring" : "One-off")}</div>
+              </div>
+              ${action}
+            </div>
+          </div>`;
+      }
+
+      function renderBillsExpander(section, visible, total) {
+        return `
+          <div class="bills-expander">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="expandBillsSection('${section}')">
+              Show all ${total}
+              ${visible < total ? `<span class="stat-sub" style="margin-left:6px">(+${total - visible} more)</span>` : ""}
+            </button>
+          </div>`;
+      }
+
+      function expandBillsSection(section) {
+        if (!Object.prototype.hasOwnProperty.call(BILLS_EXPANDED, section))
+          return;
+        BILLS_EXPANDED[section] = true;
+        if (window.__billsCache) renderBillsWorkspace(window.__billsCache);
+      }
+
+      function billsNotify(msg) {
+        if (typeof showToast === "function") {
+          showToast(msg);
+          return;
+        }
+        const bar = document.querySelector(".bills-sticky-bar");
+        if (!bar) {
+          console.info("[bills]", msg);
+          return;
+        }
+        let n = bar.querySelector(".bills-inline-note");
+        if (!n) {
+          n = document.createElement("div");
+          n.className = "bills-inline-note status-pill";
+          n.style.cssText =
+            "margin-top:8px;font-size:0.82rem;color:var(--muted);";
+          bar.appendChild(n);
+        }
+        n.textContent = msg;
+        clearTimeout(window.__billsNoteTimer);
+        window.__billsNoteTimer = setTimeout(() => {
+          if (n && n.parentNode) n.parentNode.removeChild(n);
+        }, 2800);
+      }
+
+      function exportBillsCsv() {
+        const cache = window.__billsCache;
+        if (!cache) {
+          billsNotify("No bills loaded yet");
+          return;
+        }
+        const bills = (cache.utilityData || {}).recent_bills || [];
+        if (!bills.length) {
+          billsNotify("No recent bills to export");
+          return;
+        }
+        const headers = [
+          "date",
+          "provider",
+          "source",
+          "billing_cycle_month",
+          "due_date",
+          "budget_category",
+          "amount",
+          "recurring",
+        ];
+        const esc = (v) => {
+          const s = v == null ? "" : String(v);
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const rows = bills.map((b) =>
+          [
+            b.date,
+            b.provider_name,
+            b.source_type,
+            b.billing_cycle_month,
+            b.due_date,
+            b.budget_category,
+            b.amount,
+            b.is_recurring ? "yes" : "no",
+          ]
+            .map(esc)
+            .join(","),
+        );
+        const csv = [headers.join(","), ...rows].join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `bills-${cache.selectedMonth || "export"}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        billsNotify("Exported " + bills.length + " bills");
+      }
+
+      async function markBillUnpaid(cashTransactionId, providerName) {
+        if (!cashTransactionId) return;
+        const label = providerName || "this payment";
+        if (
+          !confirm(
+            `Undo this month's payment for ${label}? The cash transaction will be deleted.`,
+          )
+        ) {
+          return;
+        }
+        try {
+          const res = await api(
+            `/cash-transactions/${encodeURIComponent(cashTransactionId)}`,
+            { method: "DELETE" },
+          );
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            billsNotify(payload.error || "Could not undo payment");
+            return;
+          }
+          billsNotify(`${label} marked unpaid`);
+          if (typeof loadBills === "function")
+            loadBills({ showSkeleton: false });
+        } catch (e) {
+          console.error("markBillUnpaid failed", e);
+          billsNotify("Could not undo payment");
+        }
+      }
+
+      function stepBillsMonth(delta) {
+        const input = document.getElementById("bills-filter-month");
+        if (!input || !input.value) return;
+        const [y, m] = input.value.split("-").map(Number);
+        const d = new Date(y, m - 1 + delta, 1);
+        const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        input.value = next;
+        loadBills();
+      }
+
+      (function initBillsEnhancements() {
+        if (window.__billsEnhancementsInit) return;
+        window.__billsEnhancementsInit = true;
+
+        const isTypingTarget = (el) => {
+          if (!el) return false;
+          const tag = (el.tagName || "").toLowerCase();
+          if (tag === "input" || tag === "textarea" || tag === "select")
+            return true;
+          if (el.isContentEditable) return true;
+          return false;
+        };
+        const billsIsActive = () =>
+          document
+            .getElementById("page-bills")
+            ?.classList.contains("active");
+
+        let lastG = 0;
+        document.addEventListener("keydown", (e) => {
+          if (isTypingTarget(e.target)) return;
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+          if (e.key === "g") {
+            lastG = Date.now();
+            return;
+          }
+          if (e.key === "b" && Date.now() - lastG < 800) {
+            lastG = 0;
+            if (typeof nav === "function") {
+              const navEl = document.getElementById("nav-bills");
+              nav("bills", navEl);
+              e.preventDefault();
+            }
+            return;
+          }
+
+          if (!billsIsActive()) return;
+          switch (e.key) {
+            case "1":
+              setBillsTab("overview");
+              e.preventDefault();
+              break;
+            case "2":
+              setBillsTab("providers");
+              e.preventDefault();
+              break;
+            case "3":
+              setBillsTab("history");
+              e.preventDefault();
+              break;
+            case "n":
+              if (typeof openManualEntryModal === "function") {
+                openManualEntryModal("household_bill");
+                e.preventDefault();
+              }
+              break;
+            case "l":
+              if (typeof openCashTransactionModal === "function") {
+                openCashTransactionModal();
+                e.preventDefault();
+              }
+              break;
+            case "ArrowLeft":
+              stepBillsMonth(-1);
+              e.preventDefault();
+              break;
+            case "ArrowRight":
+              stepBillsMonth(1);
+              e.preventDefault();
+              break;
+          }
+        });
+
+        const body = document.getElementById("bills-body");
+        const ptr = document.getElementById("bills-ptr");
+        if (body && ptr && "ontouchstart" in window) {
+          let startY = 0;
+          let pulling = false;
+          let active = false;
+          const THRESHOLD = 72;
+          body.addEventListener(
+            "touchstart",
+            (e) => {
+              if (body.scrollTop > 0) {
+                active = false;
+                return;
+              }
+              active = true;
+              startY = e.touches[0].clientY;
+              pulling = false;
+            },
+            { passive: true },
+          );
+          body.addEventListener(
+            "touchmove",
+            (e) => {
+              if (!active) return;
+              const dy = e.touches[0].clientY - startY;
+              if (dy > 8) {
+                pulling = true;
+                ptr.classList.toggle("is-pulling", dy < THRESHOLD);
+                const label = ptr.querySelector(".bills-ptr__label");
+                if (label)
+                  label.textContent =
+                    dy < THRESHOLD
+                      ? "Pull to refresh"
+                      : "Release to refresh";
+              }
+            },
+            { passive: true },
+          );
+          body.addEventListener("touchend", () => {
+            if (!active) return;
+            active = false;
+            const dy =
+              (ptr.getBoundingClientRect().top || 0) -
+              (body.getBoundingClientRect().top || 0);
+            const shouldRefresh =
+              pulling && ptr.classList.contains("is-pulling")
+                ? false
+                : pulling;
+            ptr.classList.remove("is-pulling");
+            if (shouldRefresh) {
+              ptr.classList.add("is-loading");
+              const label = ptr.querySelector(".bills-ptr__label");
+              if (label) label.textContent = "Refreshing…";
+              Promise.resolve(loadBills({ showSkeleton: false })).finally(
+                () => {
+                  setTimeout(
+                    () => ptr.classList.remove("is-loading"),
+                    400,
+                  );
+                },
+              );
+            }
+            pulling = false;
+          });
+        }
+      })();
 
       function formatMonthLabel(val) {
         if (!val) return "—";

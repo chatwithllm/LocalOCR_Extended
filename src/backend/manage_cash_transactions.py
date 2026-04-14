@@ -22,6 +22,7 @@ from src.backend.normalize_store_names import canonicalize_store_name, find_matc
 logger = logging.getLogger(__name__)
 
 cash_transactions_bp = Blueprint("cash_transactions", __name__, url_prefix="/cash-transactions")
+bill_edit_bp = Blueprint("bill_edit", __name__)
 
 ALLOWED_PROVIDER_CATEGORIES = {"utility", "personal_service", "subscription", "other"}
 ALLOWED_CONTACT_METHODS = {"phone", "text", "app", "email", "in_person"}
@@ -566,3 +567,232 @@ def delete_cash_transaction(transaction_id: int):
             "purchase_id": purchase_id,
         }
     ), 200
+
+
+# ---- Bill edit endpoints ----------------------------------------------------
+
+def _find_merge_candidate(session, new_name: str, exclude_id: int | None):
+    """Return a BillProvider with matching normalized_key, excluding the given id."""
+    normalized = str(new_name or "").strip().lower()
+    if not normalized:
+        return None
+    q = session.query(BillProvider).filter(BillProvider.normalized_key == normalized)
+    if exclude_id is not None:
+        q = q.filter(BillProvider.id != int(exclude_id))
+    return q.first()
+
+
+def _reassign_provider_links(session, from_provider_id: int, to_provider_id: int) -> None:
+    """Move bill_meta, bill_service_lines, bill_meta.provider_name references from one provider to another."""
+    if from_provider_id == to_provider_id:
+        return
+    target = session.query(BillProvider).filter_by(id=to_provider_id).first()
+    if not target:
+        return
+    session.query(BillServiceLine).filter_by(provider_id=from_provider_id).update(
+        {BillServiceLine.provider_id: to_provider_id}, synchronize_session=False
+    )
+    session.query(BillMeta).filter_by(provider_id=from_provider_id).update(
+        {BillMeta.provider_id: to_provider_id, BillMeta.provider_name: target.canonical_name},
+        synchronize_session=False,
+    )
+
+
+@bill_edit_bp.route("/bill-providers/<int:provider_id>", methods=["PUT"])
+@require_auth
+@require_write_access
+def update_bill_provider(provider_id: int):
+    session = g.db_session
+    provider = session.query(BillProvider).filter_by(id=provider_id).first()
+    if not provider:
+        return jsonify({"error": "Provider not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    new_name = str(data.get("canonical_name") or "").strip()
+    merge_with_id = data.get("merge_with_provider_id")
+
+    if new_name and new_name.lower() != (provider.canonical_name or "").lower():
+        conflict = _find_merge_candidate(session, new_name, exclude_id=provider.id)
+        if conflict:
+            if merge_with_id and int(merge_with_id) == conflict.id:
+                _reassign_provider_links(session, provider.id, conflict.id)
+                session.flush()
+                # Merge provider-level fields preferring non-empty new values
+                if data.get("provider_category"):
+                    conflict.provider_category = normalize_provider_category(
+                        data.get("provider_category"),
+                        default=conflict.provider_category or "other",
+                    )
+                if data.get("preferred_contact_method"):
+                    conflict.preferred_contact_method = (
+                        normalize_contact_method(data.get("preferred_contact_method"))
+                        or conflict.preferred_contact_method
+                    )
+                if data.get("payment_handle"):
+                    conflict.payment_handle = str(data.get("payment_handle")).strip() or conflict.payment_handle
+                # Remove now-orphaned provider
+                session.delete(provider)
+                session.commit()
+                return jsonify({"merged_into": serialize_bill_provider(conflict)}), 200
+            return jsonify({
+                "error": "A provider with this name already exists.",
+                "merge_candidate": {"id": conflict.id, "canonical_name": conflict.canonical_name},
+            }), 409
+        # No conflict: rename in place
+        provider.canonical_name = new_name
+        provider.normalized_key = new_name.lower()
+        # Keep bill_meta.provider_name text in sync
+        session.query(BillMeta).filter_by(provider_id=provider.id).update(
+            {BillMeta.provider_name: new_name}, synchronize_session=False
+        )
+
+    if "provider_category" in data:
+        provider.provider_category = normalize_provider_category(
+            data.get("provider_category"),
+            default=provider.provider_category or "other",
+        )
+    if "provider_type_hint" in data:
+        hint = str(data.get("provider_type_hint") or "").strip().lower() or None
+        provider.provider_type_hint = hint
+    if "preferred_contact_method" in data:
+        provider.preferred_contact_method = normalize_contact_method(
+            data.get("preferred_contact_method")
+        )
+    if "payment_handle" in data:
+        provider.payment_handle = str(data.get("payment_handle") or "").strip() or None
+
+    session.commit()
+    return jsonify({"provider": serialize_bill_provider(provider)}), 200
+
+
+@bill_edit_bp.route("/bill-service-lines/<int:service_line_id>", methods=["PUT"])
+@require_auth
+@require_write_access
+def update_bill_service_line(service_line_id: int):
+    session = g.db_session
+    service_line = session.query(BillServiceLine).filter_by(id=service_line_id).first()
+    if not service_line:
+        return jsonify({"error": "Service line not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    provider = session.query(BillProvider).filter_by(id=service_line.provider_id).first()
+    if not provider:
+        return jsonify({"error": "Linked provider missing"}), 500
+
+    new_provider_name = str(data.get("provider_name") or "").strip()
+    merge_with_id = data.get("merge_with_provider_id")
+
+    if new_provider_name and new_provider_name.lower() != (provider.canonical_name or "").lower():
+        conflict = _find_merge_candidate(session, new_provider_name, exclude_id=provider.id)
+        if conflict:
+            if merge_with_id and int(merge_with_id) == conflict.id:
+                service_line.provider_id = conflict.id
+                session.query(BillMeta).filter_by(provider_id=provider.id).update(
+                    {BillMeta.provider_id: conflict.id, BillMeta.provider_name: conflict.canonical_name},
+                    synchronize_session=False,
+                )
+                session.flush()
+                # delete old provider if now empty
+                remaining_lines = (
+                    session.query(BillServiceLine.id)
+                    .filter(BillServiceLine.provider_id == provider.id)
+                    .count()
+                )
+                remaining_meta = (
+                    session.query(BillMeta.id)
+                    .filter(BillMeta.provider_id == provider.id)
+                    .count()
+                )
+                if remaining_lines == 0 and remaining_meta == 0:
+                    session.delete(provider)
+                provider = conflict
+            else:
+                return jsonify({
+                    "error": "A provider with this name already exists.",
+                    "merge_candidate": {"id": conflict.id, "canonical_name": conflict.canonical_name},
+                }), 409
+        else:
+            provider.canonical_name = new_provider_name
+            provider.normalized_key = new_provider_name.lower()
+            session.query(BillMeta).filter_by(provider_id=provider.id).update(
+                {BillMeta.provider_name: new_provider_name}, synchronize_session=False
+            )
+
+    if "service_type" in data:
+        new_service_type = str(data.get("service_type") or "").strip().lower() or service_line.service_type
+        service_line.service_type = new_service_type
+    if "account_label" in data:
+        raw = data.get("account_label")
+        service_line.account_label = str(raw).strip() if raw not in (None, "") else None
+    if "preferred_payment_method" in data:
+        service_line.preferred_payment_method = normalize_payment_method(
+            data.get("preferred_payment_method"),
+            default=service_line.preferred_payment_method or "cash",
+        )
+    if "expected_payment_day" in data:
+        raw = data.get("expected_payment_day")
+        if raw in (None, ""):
+            service_line.expected_payment_day = None
+        else:
+            try:
+                day = int(raw)
+                if 1 <= day <= 31:
+                    service_line.expected_payment_day = day
+            except (TypeError, ValueError):
+                return jsonify({"error": "Invalid expected_payment_day"}), 400
+    if "planning_month_rule" in data:
+        service_line.planning_month_rule = normalize_planning_month_rule(
+            data.get("planning_month_rule"),
+            default=service_line.planning_month_rule or "paid_date_month",
+        )
+    if "typical_amount" in data:
+        raw = data.get("typical_amount")
+        if raw in (None, ""):
+            service_line.typical_amount_min = None
+            service_line.typical_amount_max = None
+        else:
+            try:
+                amount = round(float(raw), 2)
+                service_line.typical_amount_min = amount
+                service_line.typical_amount_max = amount
+            except (TypeError, ValueError):
+                return jsonify({"error": "Invalid typical_amount"}), 400
+    if "provider_category" in data:
+        provider.provider_category = normalize_provider_category(
+            data.get("provider_category"),
+            default=provider.provider_category or "personal_service",
+        )
+    if "provider_type_hint" in data:
+        hint = str(data.get("provider_type_hint") or "").strip().lower() or None
+        provider.provider_type_hint = hint
+    if "preferred_contact_method" in data:
+        provider.preferred_contact_method = normalize_contact_method(
+            data.get("preferred_contact_method")
+        )
+    if "payment_handle" in data:
+        provider.payment_handle = str(data.get("payment_handle") or "").strip() or None
+
+    # Recompute service_line normalized_key if identity fields changed
+    new_key = _normalized_service_line_key(
+        provider.canonical_name, service_line.service_type, service_line.account_label
+    )
+    if new_key != service_line.normalized_key:
+        existing = (
+            session.query(BillServiceLine)
+            .filter(
+                BillServiceLine.normalized_key == new_key,
+                BillServiceLine.id != service_line.id,
+            )
+            .first()
+        )
+        if existing:
+            return jsonify({
+                "error": "Another service line already exists with this provider/service/account combination.",
+            }), 409
+        service_line.normalized_key = new_key
+
+    session.commit()
+    return jsonify({
+        "service_line": serialize_service_line(service_line),
+        "provider": serialize_bill_provider(provider),
+    }), 200
