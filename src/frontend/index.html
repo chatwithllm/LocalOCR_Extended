@@ -7931,6 +7931,58 @@
       .field-helper.error {
         color: var(--danger);
       }
+
+      /* =========================================================
+         Phase 5 revision — Payee picker row legibility.
+         The picker used to live inside .cash-input-wrap (narrow)
+         with the category hint fighting the provider name for
+         horizontal space. Now it spans the full inline-actions
+         row and each row stacks the name above a muted hint —
+         Apple Contacts / Settings-style.
+         ========================================================= */
+
+      /* Widen the picker: span the whole Payee + button row. */
+      .cash-inline-actions.cash-inline-actions--picker-host {
+        position: relative;
+      }
+      .cash-inline-actions.cash-inline-actions--picker-host > .apple-picker {
+        left: 0;
+        right: 0;
+      }
+
+      /* Stack each row: name full-width on top, hint muted below.
+         Always the name gets priority; hint truncates first. */
+      .apple-picker-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        padding: 10px 14px;
+      }
+      .apple-picker-name {
+        width: 100%;
+        font-size: var(--fs-base);
+        font-weight: 500;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .apple-picker-hint {
+        width: 100%;
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        color: var(--text-subtle);
+        letter-spacing: 0.02em;
+        text-transform: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Hide hint when it's empty so we don't render a 2nd line
+         with just whitespace. */
+      .apple-picker-hint:empty {
+        display: none;
+      }
     </style>
   </head>
 
@@ -11571,7 +11623,7 @@
                     >Payee <span class="cash-required-mark">*</span></label
                   >
                 </div>
-                <div class="cash-inline-actions">
+                <div class="cash-inline-actions cash-inline-actions--picker-host">
                   <div class="cash-input-wrap">
                     <input
                       id="cash-transaction-provider-name"
@@ -11586,14 +11638,6 @@
                       aria-controls="cash-provider-picker"
                       aria-expanded="false"
                     />
-                    <div
-                      id="cash-provider-picker"
-                      class="apple-picker"
-                      role="listbox"
-                      aria-hidden="true"
-                    >
-                      <div class="apple-picker-scroll"></div>
-                    </div>
                   </div>
                   <div class="cash-inline-buttons">
                     <button
@@ -11603,6 +11647,14 @@
                     >
                       New Provider
                     </button>
+                  </div>
+                  <div
+                    id="cash-provider-picker"
+                    class="apple-picker"
+                    role="listbox"
+                    aria-hidden="true"
+                  >
+                    <div class="apple-picker-scroll"></div>
                   </div>
                 </div>
               </div>

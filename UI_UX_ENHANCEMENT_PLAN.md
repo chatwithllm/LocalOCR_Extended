@@ -50,6 +50,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Apple-style Payee picker | 2 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Log Cash flow coherence | 3 |
 | Phase 4 — Mobile Experience | 8 | Accepted (after 3 revisions) | 3 |
+| Phase 5 — Final Pass | — | 🔁 Revision Requested: Payee picker row legibility | 1 |
 
 ---
 
@@ -242,3 +243,12 @@ User feedback: "Make Log Cash visually consistent — design should feel like on
 - **Field helper pattern** — `.field-helper` / `.field-helper.error` for inline hint + validation messages; reserved for future form adoption (not wired yet).
 - **Contrast audit** — all primary token pairs pass WCAG AA; key ratios documented in the plan's task table.
 - **Skill alignment review** — the five guiding principles from the plan's Design Principles section were checked one by one and all pass.
+
+### Phase 5 — Revision 1 (Payee picker row legibility)
+
+User feedback: "Payee in Log Cash on web is not clear — the category hint shows clearly but the payee name gets cramped." Root cause: the picker was a child of the narrow `.cash-input-wrap` (sharing width with the adjacent "New Provider" button column), and each row laid out `name | hint` side-by-side so wide categories like "Personal Service" pushed the name into an ellipsis.
+
+- **HTML** — moved `#cash-provider-picker` out of `.cash-input-wrap` so it's now a sibling of `.cash-input-wrap` + `.cash-inline-buttons` inside `.cash-inline-actions`, which carries a new `--picker-host` modifier class with `position: relative`. The picker's existing `position: absolute; left: 0; right: 0` now spans the full Payee + button row instead of just the input column.
+- **CSS** — each `.apple-picker-item` stacks to a **column layout**: name on top (`--fs-base`, weight 500, full-width, truncates on overflow), hint below in muted `--text-subtle` (no uppercase, softer letter-spacing). `:empty` hint rows collapse so the row height stays uniform when no category is present.
+
+*Skill:* "consistency over cleverness — if a cell isn't legible, widen the container and prioritise the signal that matters." *Why:* for picking a payee, the name is the signal; the category is an orientation cue. The previous layout inverted that priority on narrow containers.
