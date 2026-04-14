@@ -2155,64 +2155,57 @@
         font-weight: 600;
       }
 
+      /* Inventory category badges — map to existing category tokens
+       * so they remain distinct by hue but flip with the theme. */
       .badge-dairy {
-        background: #1a3a5c;
-        color: #7dc4ff;
+        background: color-mix(in srgb, var(--color-cat-utility) 14%, transparent);
+        color: var(--color-cat-utility);
       }
-
       .badge-meat {
-        background: #3a1a1a;
-        color: #ff8888;
+        background: color-mix(in srgb, var(--color-error) 14%, transparent);
+        color: var(--color-error);
       }
-
       .badge-other {
-        background: #2a2a3a;
-        color: #aab;
+        background: var(--color-surface-3);
+        color: var(--color-text-secondary);
       }
-
       .badge-apparel {
-        background: #2d1737;
-        color: #f0abfc;
+        background: color-mix(in srgb, var(--color-cat-personal-service) 14%, transparent);
+        color: var(--color-cat-personal-service);
       }
-
       .badge-grains {
-        background: #3a2d14;
-        color: #facc15;
+        background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+        color: var(--color-warning);
       }
-
       .badge-fridge {
-        background: #0d2a2a;
-        color: #00d4aa;
+        background: color-mix(in srgb, var(--color-success) 14%, transparent);
+        color: var(--color-success);
       }
-
       .badge-pantry {
-        background: #2a2a0d;
-        color: #d4c400;
+        background: color-mix(in srgb, var(--color-cat-subscription) 14%, transparent);
+        color: var(--color-cat-subscription);
       }
-
       .badge-freezer {
-        background: #0d1a2a;
-        color: #6ac0ff;
+        background: color-mix(in srgb, var(--color-info) 14%, transparent);
+        color: var(--color-info);
       }
 
+      /* Semantic status badges */
       .badge-low {
         background: color-mix(in srgb, var(--color-error) 15%, transparent);
-        color: var(--danger);
+        color: var(--color-error);
       }
-
       .badge-ok {
-        background: color-mix(in srgb, var(--color-success) 10%, transparent);
-        color: var(--success);
+        background: color-mix(in srgb, var(--color-success) 12%, transparent);
+        color: var(--color-success);
       }
-
       .badge-warning {
-        background: rgba(250, 204, 21, 0.14);
-        color: #facc15;
+        background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+        color: var(--color-warning);
       }
-
       .badge-info {
-        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
-        color: #b8b4ff;
+        background: color-mix(in srgb, var(--color-info) 14%, transparent);
+        color: var(--color-info);
       }
 
       /* ---- Buttons ---- */
