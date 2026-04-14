@@ -181,11 +181,11 @@
     },
     "dark": {
       "0": "none",
-      "1": "rgba(0, 0, 0, 0.40) 0px 0px 0px 1px, rgba(0, 0, 0, 0.40) 0px 4px 12px",
-      "2": "rgba(0, 0, 0, 0.44) 0px 0px 0px 1px, rgba(0, 0, 0, 0.48) 0px 8px 20px",
-      "3": "rgba(0, 0, 0, 0.48) 0px 0px 0px 1px, rgba(0, 0, 0, 0.56) 0px 12px 32px",
-      "4": "rgba(0, 0, 0, 0.50) 0px 0px 0px 1px, rgba(0, 0, 0, 0.64) 0px 20px 48px",
-      "5": "rgba(0, 0, 0, 0.56) 0px 0px 0px 1px, rgba(0, 0, 0, 0.72) 0px 32px 80px"
+      "1": "rgba(0, 0, 0, 0.32) 0px 0px 0px 1px, rgba(0, 0, 0, 0.32) 0px 4px 12px",
+      "2": "rgba(0, 0, 0, 0.34) 0px 0px 0px 1px, rgba(0, 0, 0, 0.38) 0px 8px 20px",
+      "3": "rgba(0, 0, 0, 0.36) 0px 0px 0px 1px, rgba(0, 0, 0, 0.46) 0px 12px 32px",
+      "4": "rgba(0, 0, 0, 0.38) 0px 0px 0px 1px, rgba(0, 0, 0, 0.54) 0px 20px 48px",
+      "5": "rgba(0, 0, 0, 0.42) 0px 0px 0px 1px, rgba(0, 0, 0, 0.62) 0px 32px 80px"
     }
   },
   "motion": {

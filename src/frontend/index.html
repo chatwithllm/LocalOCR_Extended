@@ -280,20 +280,20 @@
       [data-theme="dark"] {
         --shadow-0: none;
         --shadow-1:
-          rgba(0, 0, 0, 0.4) 0px 0px 0px 1px,
-          rgba(0, 0, 0, 0.4) 0px 4px 12px;
+          rgba(0, 0, 0, 0.32) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.32) 0px 4px 12px;
         --shadow-2:
-          rgba(0, 0, 0, 0.44) 0px 0px 0px 1px,
-          rgba(0, 0, 0, 0.48) 0px 8px 20px;
+          rgba(0, 0, 0, 0.34) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.38) 0px 8px 20px;
         --shadow-3:
-          rgba(0, 0, 0, 0.48) 0px 0px 0px 1px,
-          rgba(0, 0, 0, 0.56) 0px 12px 32px;
+          rgba(0, 0, 0, 0.36) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.46) 0px 12px 32px;
         --shadow-4:
-          rgba(0, 0, 0, 0.5) 0px 0px 0px 1px,
-          rgba(0, 0, 0, 0.64) 0px 20px 48px;
+          rgba(0, 0, 0, 0.38) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.54) 0px 20px 48px;
         --shadow-5:
-          rgba(0, 0, 0, 0.56) 0px 0px 0px 1px,
-          rgba(0, 0, 0, 0.72) 0px 32px 80px;
+          rgba(0, 0, 0, 0.42) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.62) 0px 32px 80px;
       }
 
       /* Legacy aliases — existing components continue working against
@@ -5235,17 +5235,6 @@
       }
 
       /* ---- Empty State ---- */
-      .empty-state {
-        text-align: center;
-        padding: 48px 24px;
-        color: var(--muted);
-      }
-
-      .empty-state .icon {
-        font-size: 3rem;
-        margin-bottom: 12px;
-      }
-
       /* ---- Spinner ---- */
       .spinner {
         width: 20px;
@@ -9805,32 +9794,42 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        padding: 56px 24px;
-        color: var(--text-subtle);
+        gap: var(--space-2);
+        padding: var(--space-12) var(--space-6);
+        color: var(--color-text-secondary);
         text-align: center;
       }
       .empty-state .icon {
-        font-size: 2.4rem;
-        margin-bottom: 6px;
-        opacity: 0.75;
-        filter: grayscale(0.15);
+        font-size: 2.6rem;
+        line-height: 1;
+        margin-bottom: 2px;
+        opacity: 0.85;
+        filter: grayscale(0.1);
       }
-      .empty-state .empty-state-title {
+      .empty-state .empty-state-title,
+      .empty-state__title {
         font-family: var(--font-display);
-        font-size: var(--fs-lg);
-        font-weight: 600;
-        color: var(--text);
-        letter-spacing: -0.01em;
+        font-size: var(--font-xl);
+        font-weight: var(--font-xl-weight);
+        letter-spacing: var(--font-xl-tracking);
+        line-height: var(--font-xl-lh);
+        color: var(--color-text-primary);
       }
-      .empty-state .empty-state-sub {
-        font-size: var(--fs-sm);
-        color: var(--text-subtle);
-        max-width: 32ch;
-        line-height: var(--lh-base);
+      .empty-state .empty-state-sub,
+      .empty-state__sub,
+      .empty-state p {
+        font-size: var(--font-sm);
+        color: var(--color-text-secondary);
+        max-width: 42ch;
+        line-height: var(--font-sm-lh);
+        margin: 0;
       }
-      .empty-state .empty-state-action {
+      .empty-state .empty-state-action,
+      .empty-state__action {
         margin-top: var(--space-3);
+      }
+      .card .empty-state {
+        padding: var(--space-10) var(--space-4);
       }
 
       /* --- Inline alert pattern (success / warning / error / info) ---

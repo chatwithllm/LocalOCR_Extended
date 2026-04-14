@@ -27,8 +27,9 @@ A **privacy-first, self-hosted household operations platform** that turns grocer
 15. [Integrations Setup](#integrations-setup)
 16. [Development Guide](#development-guide)
 17. [Documentation Index](#documentation-index)
-18. [Recent UI/UX Phases](#recent-uiux-phases)
-19. [License](#license)
+18. [Design System](#design-system)
+19. [Recent UI/UX Phases](#recent-uiux-phases)
+20. [License](#license)
 
 ---
 
@@ -852,6 +853,63 @@ The entire SPA is in `src/frontend/index.html`. It's served statically by Flask 
 | `PRD.md` | Product | Product requirements |
 | `UI_UX_ENHANCEMENT_PLAN.md` | Design / frontend | Active UX phase plan |
 | `CONTINUITY.md` | Contributors | Development continuity notes |
+
+---
+
+## Design System
+
+LocalOCR Extended ships with a full design system adapted from an Airbnb-inspired foundation and tuned for a local-first OCR tool.
+
+### Where the canonical values live
+
+| Path | Role |
+|---|---|
+| `design/design.md` | Full spec — 11 sections: philosophy, color, typography, spacing/grid, elevation, radius, components, iconography, motion, accessibility, rollout roadmap |
+| `design/design-tokens.json` | Source of truth for every token (colors light+dark, typography scale, spacing, radius, stroke, shadows, motion, icon sizes) |
+| `design/Design System Inspired by Airbnb` | The reference doc the adaptation was built against |
+| `scripts/build_tokens.py` | Compiles the JSON into CSS custom properties |
+| `src/frontend/styles/tokens.generated.css` | Committed output — regenerate after editing the JSON |
+
+Re-build the token CSS after any JSON edit:
+
+```bash
+python3 scripts/build_tokens.py
+# then paste the contents of src/frontend/styles/tokens.generated.css into
+# the main <style> block in src/frontend/index.html (near the top, under
+# "Design tokens — generated from design/design-tokens.json").
+```
+
+### Themes
+
+The app supports **light** and **dark** themes. A pre-paint script in `<head>` sets `data-theme` on `<html>` from `localStorage["theme"]` (if set) or `prefers-color-scheme` (otherwise). The sidebar has a **Light / Dark** toggle at the bottom that flips the attribute and persists to localStorage.
+
+### Design Gallery
+
+Every primitive is live in the app at `http://localhost:8090/#gallery` (or press `g` then `g` anywhere outside a text field). Includes:
+
+- Color swatches (all 35 `--color-*` tokens, re-read on theme flip)
+- Buttons — primary, secondary, ghost, danger, success, tonal, link, icon — all sizes and states
+- Badges — semantic, confidence, category
+- Cards — default, interactive, selected, flat
+- Typography — 11-step scale from `--font-4xl` display to `--font-xs` meta
+- Elevation — `--shadow-0` through `--shadow-5`
+- OCR composites — drop zone, scan progress, confidence ring, result card, toolbar
+
+### Keyboard shortcuts
+
+Press `?` anywhere (outside a text field) to open the full cheat sheet. Highlights:
+
+- `g <letter>` → jump to any page (`g d` dashboard, `g r` receipts, `g b` bills, `g g` gallery, …)
+- `1` / `2` / `3` on the Bills page → switch tabs
+- `n` → new bill · `l` → log cash · `←` / `→` → month nav
+- `Esc` → close any modal
+
+### Writing a new component
+
+1. Open the spec at `design/design.md` §7 — find or add the component section.
+2. Use tokens from `design/design-tokens.json` — never hard-code a color, radius, spacing, or duration.
+3. Add variants + states to the design gallery at `#page-design-gallery` (inside `src/frontend/index.html`) so regressions show up visually.
+4. Re-run `python3 scripts/build_tokens.py` if you touched the JSON.
 
 ---
 
