@@ -531,7 +531,7 @@
 
       .desktop-sidebar-toggle:hover {
         background: var(--border);
-        border-color: rgba(108, 99, 255, 0.35);
+        border-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
       }
 
       body.sidebar-collapsed .desktop-sidebar-toggle {
@@ -795,7 +795,7 @@
       .bill-slot-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-        border-color: rgba(108, 99, 255, 0.4);
+        border-color: color-mix(in srgb, var(--color-brand) 40%, transparent);
       }
 
       .bill-slot-card.projected {
@@ -804,8 +804,8 @@
       }
 
       .bill-slot-card.anomaly {
-        background: rgba(255, 179, 71, 0.05);
-        border-color: rgba(255, 179, 71, 0.3);
+        background: color-mix(in srgb, var(--color-warning) 5%, transparent);
+        border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
       }
 
       /* ---- Bills Workspace (Redesign) ---- */
@@ -967,15 +967,15 @@
       }
       .bill-alert--warning {
         border-left-color: var(--warning);
-        background: rgba(255, 179, 71, 0.06);
+        background: color-mix(in srgb, var(--color-warning) 6%, transparent);
       }
       .bill-alert--danger {
         border-left-color: var(--danger);
-        background: rgba(255, 101, 132, 0.06);
+        background: color-mix(in srgb, var(--color-error) 6%, transparent);
       }
       .bill-alert--info {
         border-left-color: var(--accent);
-        background: rgba(108, 99, 255, 0.06);
+        background: color-mix(in srgb, var(--color-brand) 6%, transparent);
       }
       .bill-alert__body {
         flex: 1 1 240px;
@@ -1023,10 +1023,10 @@
         scroll-snap-align: start;
       }
       .bills-spotlight__item[data-bill-status="overdue"] {
-        border-color: rgba(255, 101, 132, 0.35);
+        border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
       }
       .bills-spotlight__item[data-bill-status="due-soon"] {
-        border-color: rgba(255, 179, 71, 0.35);
+        border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
       }
       .bills-spotlight__provider {
         font-weight: 700;
@@ -1098,7 +1098,7 @@
       }
       .bill-card[data-bill-status="anomaly"] {
         --status-color: var(--warning);
-        box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.28);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-warning) 28%, transparent);
       }
       .bill-card__head {
         display: flex;
@@ -1577,11 +1577,11 @@
       }
 
       .pill-success {
-        background: rgba(0, 212, 170, 0.15);
+        background: color-mix(in srgb, var(--color-success) 15%, transparent);
         color: var(--success);
       }
       .pill-danger {
-        background: rgba(255, 101, 132, 0.15);
+        background: color-mix(in srgb, var(--color-error) 15%, transparent);
         color: var(--danger);
       }
       .pill-ghost {
@@ -2196,12 +2196,12 @@
       }
 
       .badge-low {
-        background: rgba(255, 101, 132, 0.15);
+        background: color-mix(in srgb, var(--color-error) 15%, transparent);
         color: var(--danger);
       }
 
       .badge-ok {
-        background: rgba(0, 212, 170, 0.1);
+        background: color-mix(in srgb, var(--color-success) 10%, transparent);
         color: var(--success);
       }
 
@@ -2211,7 +2211,7 @@
       }
 
       .badge-info {
-        background: rgba(108, 99, 255, 0.16);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
         color: #b8b4ff;
       }
 
@@ -2250,25 +2250,25 @@
       }
 
       .btn-tonal-accent {
-        background: rgba(108, 99, 255, 0.12);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
         color: #c9c5ff;
-        border: 1px solid rgba(108, 99, 255, 0.24);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
 
       .btn-tonal-accent:hover {
-        background: rgba(108, 99, 255, 0.18);
-        border-color: rgba(108, 99, 255, 0.34);
+        background: color-mix(in srgb, var(--color-brand) 18%, transparent);
+        border-color: color-mix(in srgb, var(--color-brand) 34%, transparent);
       }
 
       .btn-tonal-success {
-        background: rgba(0, 212, 170, 0.1);
+        background: color-mix(in srgb, var(--color-success) 10%, transparent);
         color: #8ff3df;
-        border: 1px solid rgba(0, 212, 170, 0.22);
+        border: 1px solid color-mix(in srgb, var(--color-success) 22%, transparent);
       }
 
       .btn-tonal-success:hover {
-        background: rgba(0, 212, 170, 0.16);
-        border-color: rgba(0, 212, 170, 0.32);
+        background: color-mix(in srgb, var(--color-success) 16%, transparent);
+        border-color: color-mix(in srgb, var(--color-success) 32%, transparent);
       }
 
       .btn-danger {
@@ -2278,7 +2278,7 @@
       }
 
       .btn-danger:hover {
-        background: rgba(255, 101, 132, 0.1);
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
       }
 
       .btn-sm {
@@ -2607,8 +2607,8 @@
       }
 
       .action-toast-button {
-        border: 1px solid rgba(108, 99, 255, 0.35);
-        background: rgba(108, 99, 255, 0.12);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 35%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
         color: #fff;
         border-radius: 999px;
         padding: 6px 12px;
@@ -2618,7 +2618,7 @@
       }
 
       .action-toast-button:hover {
-        background: rgba(108, 99, 255, 0.2);
+        background: color-mix(in srgb, var(--color-brand) 20%, transparent);
       }
 
       .action-toast-progress {
@@ -3017,7 +3017,7 @@
 
       /* ---- Auth Banner ---- */
       #auth-banner {
-        background: rgba(255, 101, 132, 0.1);
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
         border: 1px solid var(--danger);
         border-radius: 12px;
         padding: 16px 20px;
@@ -3065,7 +3065,7 @@
       .dashboard-score-card.spotlight {
         position: relative;
         animation: dashboardCardGlow 3.8s ease-in-out infinite;
-        box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.12);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 12%, transparent);
       }
 
       .dashboard-score-card.admin {
@@ -3082,15 +3082,15 @@
         100% {
           transform: translateY(0);
           box-shadow:
-            0 0 0 1px rgba(108, 99, 255, 0.1),
+            0 0 0 1px color-mix(in srgb, var(--color-brand) 10%, transparent),
             0 10px 24px rgba(0, 0, 0, 0.18);
         }
 
         50% {
           transform: translateY(-2px);
           box-shadow:
-            0 0 0 1px rgba(108, 99, 255, 0.18),
-            0 14px 30px rgba(108, 99, 255, 0.14);
+            0 0 0 1px color-mix(in srgb, var(--color-brand) 18%, transparent),
+            0 14px 30px color-mix(in srgb, var(--color-brand) 14%, transparent);
         }
       }
 
@@ -3154,12 +3154,12 @@
 
       .dashboard-stat-link:hover {
         transform: translateY(-1px);
-        border-color: rgba(108, 99, 255, 0.28);
+        border-color: color-mix(in srgb, var(--color-brand) 28%, transparent);
         box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
       }
 
       .dashboard-stat-link:focus-visible {
-        outline: 2px solid rgba(108, 99, 255, 0.6);
+        outline: 2px solid color-mix(in srgb, var(--color-brand) 60%, transparent);
         outline-offset: 2px;
       }
 
@@ -3170,21 +3170,21 @@
       }
 
       .demo-hero {
-        border: 1px solid rgba(108, 99, 255, 0.28);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 28%, transparent);
         background:
           radial-gradient(
             circle at top right,
-            rgba(0, 212, 170, 0.12),
+            color-mix(in srgb, var(--color-success) 12%, transparent),
             transparent 38%
           ),
           radial-gradient(
             circle at bottom left,
-            rgba(108, 99, 255, 0.16),
+            color-mix(in srgb, var(--color-brand) 16%, transparent),
             transparent 42%
           ),
           linear-gradient(
             180deg,
-            rgba(108, 99, 255, 0.1),
+            color-mix(in srgb, var(--color-brand) 10%, transparent),
             rgba(255, 255, 255, 0.02)
           );
         border-radius: 18px;
@@ -3222,8 +3222,8 @@
         gap: 8px;
         padding: 7px 12px;
         border-radius: 999px;
-        border: 1px solid rgba(108, 99, 255, 0.3);
-        background: rgba(108, 99, 255, 0.1);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 30%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 10%, transparent);
         color: #ddd8ff;
         font-size: 0.78rem;
         font-weight: 700;
@@ -3477,13 +3477,13 @@
       }
 
       .leaderboard-row.me {
-        border-color: rgba(108, 99, 255, 0.32);
+        border-color: color-mix(in srgb, var(--color-brand) 32%, transparent);
         background: linear-gradient(
           180deg,
-          rgba(108, 99, 255, 0.1),
+          color-mix(in srgb, var(--color-brand) 10%, transparent),
           rgba(255, 255, 255, 0.02)
         );
-        box-shadow: 0 14px 30px rgba(108, 99, 255, 0.16);
+        box-shadow: 0 14px 30px color-mix(in srgb, var(--color-brand) 16%, transparent);
         transform: translateY(-2px);
       }
 
@@ -3727,8 +3727,8 @@
       }
 
       .inventory-sort-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.14);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 14%, transparent);
         color: var(--text);
       }
 
@@ -3849,8 +3849,8 @@
       }
 
       .inventory-unit-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.16);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
         color: var(--text);
       }
 
@@ -3887,13 +3887,13 @@
       }
 
       button.shopping-summary-pill:hover {
-        border-color: rgba(108, 99, 255, 0.35);
+        border-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
         background: rgba(255, 255, 255, 0.035);
       }
 
       .shopping-summary-pill.is-active {
-        border-color: rgba(108, 99, 255, 0.55);
-        box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.16) inset;
+        border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 16%, transparent) inset;
       }
 
       .shopping-summary-pill .value {
@@ -3993,8 +3993,8 @@
         min-width: 36px;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(108, 99, 255, 0.16);
-        border: 1px solid rgba(108, 99, 255, 0.35);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 35%, transparent);
         color: #d9d6ff;
         font-size: 0.82rem;
         font-weight: 800;
@@ -4056,8 +4056,8 @@
       }
 
       .shopping-sort-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.14);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 14%, transparent);
         color: var(--text);
       }
 
@@ -4131,8 +4131,8 @@
 
       .card.low-stock-ok {
         background: rgba(255, 255, 255, 0.01);
-        border-color: rgba(0, 212, 170, 0.28);
-        box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.08);
+        border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success) 8%, transparent);
       }
 
       .card.low-stock-ok .card-header-inline-stat {
@@ -4140,10 +4140,10 @@
       }
 
       .card.low-stock-warn {
-        border-color: rgba(255, 179, 71, 0.45);
+        border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
         box-shadow:
-          0 0 0 1px rgba(255, 179, 71, 0.1),
-          0 0 0 rgba(255, 179, 71, 0);
+          0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent),
+          0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
         animation: lowStockPulseWarn 2.2s ease-in-out infinite;
       }
 
@@ -4152,10 +4152,10 @@
       }
 
       .card.low-stock-critical {
-        border-color: rgba(255, 101, 132, 0.5);
+        border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
         box-shadow:
-          0 0 0 1px rgba(255, 101, 132, 0.14),
-          0 0 0 rgba(255, 101, 132, 0);
+          0 0 0 1px color-mix(in srgb, var(--color-error) 14%, transparent),
+          0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
         animation: lowStockPulseCritical 1.05s ease-in-out infinite;
       }
 
@@ -4171,14 +4171,14 @@
         0%,
         100% {
           box-shadow:
-            0 0 0 1px rgba(255, 179, 71, 0.1),
-            0 0 0 rgba(255, 179, 71, 0);
+            0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent),
+            0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
         }
 
         50% {
           box-shadow:
-            0 0 0 1px rgba(255, 179, 71, 0.18),
-            0 0 0 5px rgba(255, 179, 71, 0.08);
+            0 0 0 1px color-mix(in srgb, var(--color-warning) 18%, transparent),
+            0 0 0 5px color-mix(in srgb, var(--color-warning) 8%, transparent);
         }
       }
 
@@ -4186,14 +4186,14 @@
         0%,
         100% {
           box-shadow:
-            0 0 0 1px rgba(255, 101, 132, 0.16),
-            0 0 0 rgba(255, 101, 132, 0);
+            0 0 0 1px color-mix(in srgb, var(--color-error) 16%, transparent),
+            0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
         }
 
         50% {
           box-shadow:
-            0 0 0 1px rgba(255, 101, 132, 0.26),
-            0 0 0 6px rgba(255, 101, 132, 0.12);
+            0 0 0 1px color-mix(in srgb, var(--color-error) 26%, transparent),
+            0 0 0 6px color-mix(in srgb, var(--color-error) 12%, transparent);
         }
       }
 
@@ -4801,8 +4801,8 @@
       }
 
       .shopping-more-menu[open] summary {
-        border-color: rgba(108, 99, 255, 0.42);
-        background: rgba(108, 99, 255, 0.12);
+        border-color: color-mix(in srgb, var(--color-brand) 42%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
       }
 
       .shopping-more-panel {
@@ -5033,11 +5033,11 @@
       }
 
       .helper-header-card {
-        border: 1px solid rgba(108, 99, 255, 0.25);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 25%, transparent);
         background: linear-gradient(
           180deg,
-          rgba(108, 99, 255, 0.12),
-          rgba(108, 99, 255, 0.03)
+          color-mix(in srgb, var(--color-brand) 12%, transparent),
+          color-mix(in srgb, var(--color-brand) 3%, transparent)
         );
       }
 
@@ -5325,11 +5325,11 @@
         gap: 16px;
         padding: 18px 20px;
         border-radius: 16px;
-        border: 1px solid rgba(108, 99, 255, 0.18);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 18%, transparent);
         background:
           radial-gradient(
             circle at top right,
-            rgba(108, 99, 255, 0.14),
+            color-mix(in srgb, var(--color-brand) 14%, transparent),
             transparent 34%
           ),
           linear-gradient(
@@ -5749,9 +5749,9 @@
       }
 
       .month-bar.active {
-        border-color: rgba(108, 99, 255, 0.7);
+        border-color: color-mix(in srgb, var(--color-brand) 70%, transparent);
         box-shadow:
-          0 0 0 2px rgba(108, 99, 255, 0.18),
+          0 0 0 2px color-mix(in srgb, var(--color-brand) 18%, transparent),
           inset 0 1px 0 rgba(255, 255, 255, 0.14);
       }
 
@@ -6425,8 +6425,8 @@
       }
 
       .filter-chip.active {
-        background: rgba(108, 99, 255, 0.16);
-        border-color: rgba(108, 99, 255, 0.5);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+        border-color: color-mix(in srgb, var(--color-brand) 50%, transparent);
         color: var(--text);
       }
 
@@ -7723,10 +7723,10 @@
       }
 
       .btn-tonal-accent:active:not(:disabled) {
-        background: rgba(108, 99, 255, 0.24);
+        background: color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
       .btn-tonal-success:active:not(:disabled) {
-        background: rgba(0, 212, 170, 0.22);
+        background: color-mix(in srgb, var(--color-success) 22%, transparent);
       }
 
       .btn-sm {
@@ -9339,7 +9339,7 @@
         font-weight: 600;
       }
       .cash-file-shell input[type="file"]::file-selector-button:hover {
-        background: rgba(108, 99, 255, 0.24);
+        background: color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
 
       /* C) Save / Cancel buttons — aligned to primary button language */
@@ -9773,7 +9773,7 @@
         margin-bottom: 2px;
       }
       .alert.alert-success {
-        border-color: rgba(0, 212, 170, 0.35);
+        border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
         background: var(--success-soft);
       }
       .alert.alert-success .alert-icon {
@@ -9781,7 +9781,7 @@
         color: #002;
       }
       .alert.alert-warning {
-        border-color: rgba(255, 179, 71, 0.35);
+        border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
         background: var(--warning-soft);
       }
       .alert.alert-warning .alert-icon {
@@ -9789,7 +9789,7 @@
         color: #3a2a08;
       }
       .alert.alert-error {
-        border-color: rgba(255, 101, 132, 0.35);
+        border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
         background: var(--danger-soft);
       }
       .alert.alert-error .alert-icon {
@@ -15446,7 +15446,7 @@
               width: 56px;
               height: 56px;
               border-radius: 999px;
-              border: 3px solid rgba(108, 99, 255, 0.2);
+              border: 3px solid color-mix(in srgb, var(--color-brand) 20%, transparent);
               border-top-color: var(--primary);
               animation: spin 0.9s linear infinite;
             "
@@ -17874,7 +17874,7 @@
             const translate = Math.min(dx, 84);
             summary.style.transform = `translateX(${translate}px)`;
             summary.style.transition = "none";
-            summary.style.background = "rgba(0,212,170,0.08)";
+            summary.style.background = "color-mix(in srgb, var(--color-success) 8%, transparent)";
           }
           event.preventDefault();
         }
