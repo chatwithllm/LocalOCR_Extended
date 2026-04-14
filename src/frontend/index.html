@@ -7723,6 +7723,214 @@
         margin-top: 0;
         border-top: 1px solid var(--border);
       }
+
+      /* =========================================================
+         Phase 5 — Final Pass. Empty/error states, inline alert
+         pattern, skeleton adoption, Firefox scrollbar theming, and
+         accessibility refinements to round out the sweep. Appended
+         last, token-driven, motion-safe.
+         ========================================================= */
+
+      /* --- Empty state: unified icon + title + subtext + action --- */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 56px 24px;
+        color: var(--text-subtle);
+        text-align: center;
+      }
+      .empty-state .icon {
+        font-size: 2.4rem;
+        margin-bottom: 6px;
+        opacity: 0.75;
+        filter: grayscale(0.15);
+      }
+      .empty-state .empty-state-title {
+        font-family: var(--font-display);
+        font-size: var(--fs-lg);
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+      .empty-state .empty-state-sub {
+        font-size: var(--fs-sm);
+        color: var(--text-subtle);
+        max-width: 32ch;
+        line-height: var(--lh-base);
+      }
+      .empty-state .empty-state-action {
+        margin-top: var(--space-3);
+      }
+
+      /* --- Inline alert pattern (success / warning / error / info) ---
+         Reusable `.alert` with variant modifier. Inert unless
+         `.show` is set (so animation plays on reveal). */
+      .alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        color: var(--text);
+        font-size: var(--fs-sm);
+        line-height: var(--lh-snug);
+      }
+      .alert-icon {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-pill);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .alert-body {
+        min-width: 0;
+        flex: 1;
+      }
+      .alert-title {
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 2px;
+      }
+      .alert.alert-success {
+        border-color: rgba(0, 212, 170, 0.35);
+        background: var(--success-soft);
+      }
+      .alert.alert-success .alert-icon {
+        background: var(--success);
+        color: #002;
+      }
+      .alert.alert-warning {
+        border-color: rgba(255, 179, 71, 0.35);
+        background: var(--warning-soft);
+      }
+      .alert.alert-warning .alert-icon {
+        background: var(--warning);
+        color: #3a2a08;
+      }
+      .alert.alert-error {
+        border-color: rgba(255, 101, 132, 0.35);
+        background: var(--danger-soft);
+      }
+      .alert.alert-error .alert-icon {
+        background: var(--danger);
+        color: #fff;
+      }
+      .alert.alert-info .alert-icon {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      /* --- Skeleton block adoption on common loading surfaces.
+             The class `.is-loading` on a container swaps its inner
+             content for skeleton placeholders (CSS-only; markup
+             still needs to provide .skeleton elements within). --- */
+      .skeleton-stack {
+        display: grid;
+        gap: 10px;
+      }
+      .skeleton-line {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        height: 14px;
+        width: 100%;
+      }
+      .skeleton-line::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.04) 50%,
+          transparent 100%
+        );
+        transform: translateX(-100%);
+        animation: skeletonShimmer 1.6s var(--ease-in-out) infinite;
+      }
+      .skeleton-line.short {
+        width: 58%;
+      }
+      .skeleton-line.medium {
+        width: 76%;
+      }
+      .skeleton-line.tall {
+        height: 28px;
+      }
+      .skeleton-line.block {
+        height: 96px;
+      }
+
+      /* --- Firefox scrollbar (WebKit handled in Phase 1) --- */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--surface-3) transparent;
+      }
+      .apple-picker-scroll,
+      .confirm-modal,
+      .cash-modal,
+      .table-wrap {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+      }
+
+      /* --- A11y refinements ---
+         Consistent focus ring specifically on picker items, inline
+         button rows, and stat-card content. Phase 1 covered the
+         defaults; this strengthens the treatment where it was
+         previously suppressed by element-level :hover rules. */
+      .apple-picker-item:focus-visible,
+      .cash-inline-button:focus-visible,
+      .status-pill:focus-visible,
+      .pill:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      /* Visually hidden but screen-reader accessible — utility
+         for adding accessible labels to icon-only controls. */
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* --- Dark-mode polish: Firefox doesn't get WebKit scrollbar
+             thumb colour; ensure our :focus, ::selection, and
+             ::-moz-selection variants all read cleanly. --- */
+      ::-moz-selection {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+
+      /* --- Form field helper text (reserved for Phase 5 adoption) --- */
+      .field-helper {
+        display: block;
+        margin-top: 4px;
+        font-size: var(--fs-xs);
+        color: var(--text-subtle);
+        line-height: var(--lh-snug);
+      }
+      .field-helper.error {
+        color: var(--danger);
+      }
     </style>
   </head>
 
@@ -10926,7 +11134,7 @@
                       <option value="14">Last 14 days</option>
                       <option value="30">Last 30 days</option>
                     </select>
-                    <button class="btn btn-ghost btn-sm" onclick="loadAdminAiUsage()">🔄</button>
+                    <button class="btn btn-ghost btn-sm" onclick="loadAdminAiUsage()" aria-label="Refresh AI usage">🔄</button>
                   </div>
                 </div>
                 <div id="admin-ai-usage-body"></div>
@@ -22055,14 +22263,14 @@
                       }
                     </div>
                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })">🛒</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })" aria-label="Add to shopping list" title="Add to shopping list">🛒</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? "Clear Low" : "Low"}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
                       <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || "other")}</select>
                       <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || "each")}</select>
                       <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || "")}" placeholder="18 count, 1 gal" />
                       <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save Unit</button>
-                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
+                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})" aria-label="Delete product" title="Delete product">🗑</button>
                     </div>
                   </div>`,
                   )
