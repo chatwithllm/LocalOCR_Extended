@@ -4,9 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🛒 Grocery Manager</title>
+    <script>
+      // Pre-paint theme setter. Runs before stylesheets load so the first
+      // painted frame already has the correct data-theme, avoiding the
+      // "flash of wrong theme" when the user prefers light.
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var prefersLight =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: light)").matches;
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : prefersLight
+                ? "light"
+                : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -18,71 +41,288 @@
         padding: 0;
       }
 
+      /* -----------------------------------------------------------------
+       * Design tokens — generated from design/design-tokens.json by
+       * scripts/build_tokens.py. Do not hand-edit; re-run the generator
+       * and paste the output of tokens.generated.css here.
+       * ----------------------------------------------------------------- */
+
+      :root,
+      [data-theme="light"] {
+        --color-brand: #ff385c;
+        --color-brand-hover: #e00b41;
+        --color-brand-pressed: #b80635;
+        --color-brand-soft: #fff0f3;
+        --color-brand-contrast: #ffffff;
+        --color-bg: #ffffff;
+        --color-surface: #ffffff;
+        --color-surface-2: #f7f7f7;
+        --color-surface-3: #f2f2f2;
+        --color-surface-inverse: #222222;
+        --color-overlay: rgba(17, 17, 20, 0.56);
+        --color-overlay-soft: rgba(17, 17, 20, 0.18);
+        --color-text-primary: #222222;
+        --color-text-secondary: #6a6a6a;
+        --color-text-muted: #929292;
+        --color-text-disabled: rgba(0, 0, 0, 0.24);
+        --color-text-inverse: #ffffff;
+        --color-text-link: #428bff;
+        --color-text-brand: #ff385c;
+        --color-border: #ebebeb;
+        --color-border-strong: #c1c1c1;
+        --color-border-focus: #222222;
+        --color-border-brand: #ff385c;
+        --color-success: #008a05;
+        --color-success-soft: #e7f6e4;
+        --color-warning: #c58100;
+        --color-warning-soft: #fff6e0;
+        --color-error: #c13515;
+        --color-error-soft: #fbeae6;
+        --color-error-hover: #b32505;
+        --color-info: #428bff;
+        --color-info-soft: #e7f0ff;
+        --color-confidence-high: #008a05;
+        --color-confidence-high-soft: #e7f6e4;
+        --color-confidence-medium: #c58100;
+        --color-confidence-medium-soft: #fff6e0;
+        --color-confidence-low: #c13515;
+        --color-confidence-low-soft: #fbeae6;
+        --color-cat-grocery: #2e8b57;
+        --color-cat-restaurant: #d35400;
+        --color-cat-utility: #1b72b2;
+        --color-cat-personal-service: #7b2cbf;
+        --color-cat-subscription: #0a8ea0;
+        --color-cat-other: #6a6a6a;
+      }
+
+      [data-theme="dark"] {
+        --color-brand: #ff4d6d;
+        --color-brand-hover: #ff6b81;
+        --color-brand-pressed: #e04262;
+        --color-brand-soft: rgba(255, 77, 109, 0.14);
+        --color-brand-contrast: #ffffff;
+        --color-bg: #0f0f10;
+        --color-surface: #17171a;
+        --color-surface-2: #1f1f23;
+        --color-surface-3: #28282d;
+        --color-surface-inverse: #ededed;
+        --color-overlay: rgba(0, 0, 0, 0.68);
+        --color-overlay-soft: rgba(0, 0, 0, 0.32);
+        --color-text-primary: #ededed;
+        --color-text-secondary: #a3a3a3;
+        --color-text-muted: #717175;
+        --color-text-disabled: rgba(255, 255, 255, 0.28);
+        --color-text-inverse: #0f0f10;
+        --color-text-link: #6ea6ff;
+        --color-text-brand: #ff4d6d;
+        --color-border: #2a2a2e;
+        --color-border-strong: #3b3b40;
+        --color-border-focus: #ededed;
+        --color-border-brand: #ff4d6d;
+        --color-success: #2fcf34;
+        --color-success-soft: rgba(47, 207, 52, 0.14);
+        --color-warning: #f5b946;
+        --color-warning-soft: rgba(245, 185, 70, 0.16);
+        --color-error: #ff6b4a;
+        --color-error-soft: rgba(255, 107, 74, 0.16);
+        --color-error-hover: #ff876b;
+        --color-info: #6ea6ff;
+        --color-info-soft: rgba(110, 166, 255, 0.14);
+        --color-confidence-high: #2fcf34;
+        --color-confidence-high-soft: rgba(47, 207, 52, 0.14);
+        --color-confidence-medium: #f5b946;
+        --color-confidence-medium-soft: rgba(245, 185, 70, 0.16);
+        --color-confidence-low: #ff6b4a;
+        --color-confidence-low-soft: rgba(255, 107, 74, 0.16);
+        --color-cat-grocery: #46c08f;
+        --color-cat-restaurant: #ff9a4d;
+        --color-cat-utility: #5bb0e6;
+        --color-cat-personal-service: #b47dff;
+        --color-cat-subscription: #2ec6d6;
+        --color-cat-other: #a3a3a3;
+      }
+
       :root {
-        /* --- Existing color tokens (preserved for backwards compatibility) --- */
-        --bg: #0d0f14;
-        --surface: #161a24;
-        --surface2: #1e2330;
-        --border: #2a3040;
-        --accent: #6c63ff;
-        --accent2: #00d4aa;
-        --accent3: #ff6584;
-        --text: #e8eaf0;
-        --muted: #7a8094;
-        --success: #00d4aa;
-        --warning: #ffb347;
-        --danger: #ff6584;
+        --font-sans: "Airbnb Cereal VF", "Cereal", "Inter", -apple-system,
+          BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+          sans-serif;
+        --font-display: "Fraunces", "Source Serif Pro", Georgia, serif;
+        --font-mono: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
 
-        /* --- Phase 1: extended color layer --- */
-        --surface-3: #262c3b;
-        --border-strong: #3a4257;
-        --text-subtle: #b3b8c8;
-        --accent-hover: #7b74ff;
-        --accent-pressed: #5a52e0;
-        --accent-soft: rgba(108, 99, 255, 0.14);
-        --success-soft: rgba(0, 212, 170, 0.14);
-        --warning-soft: rgba(255, 179, 71, 0.16);
-        --danger-soft: rgba(255, 101, 132, 0.16);
-        --ring: rgba(108, 99, 255, 0.55);
-        --overlay: rgba(5, 7, 12, 0.72);
+        --font-4xl: 2.5rem;
+        --font-4xl-weight: 700;
+        --font-4xl-lh: 1.1;
+        --font-4xl-tracking: -0.5px;
+        --font-3xl: 1.75rem;
+        --font-3xl-weight: 700;
+        --font-3xl-lh: 1.18;
+        --font-3xl-tracking: -0.44px;
+        --font-2xl: 1.38rem;
+        --font-2xl-weight: 600;
+        --font-2xl-lh: 1.2;
+        --font-2xl-tracking: -0.4px;
+        --font-xl: 1.25rem;
+        --font-xl-weight: 600;
+        --font-xl-lh: 1.25;
+        --font-xl-tracking: -0.18px;
+        --font-lg: 1.13rem;
+        --font-lg-weight: 600;
+        --font-lg-lh: 1.33;
+        --font-lg-tracking: -0.1px;
+        --font-md: 1rem;
+        --font-md-weight: 500;
+        --font-md-lh: 1.25;
+        --font-md-tracking: 0;
+        --font-sm: 0.88rem;
+        --font-sm-weight: 400;
+        --font-sm-lh: 1.43;
+        --font-sm-tracking: 0;
+        --font-xs: 0.81rem;
+        --font-xs-weight: 400;
+        --font-xs-lh: 1.23;
+        --font-xs-tracking: 0;
+        --font-2xs: 0.75rem;
+        --font-2xs-weight: 500;
+        --font-2xs-lh: 1.33;
+        --font-2xs-tracking: 0;
+        --font-3xs: 0.69rem;
+        --font-3xs-weight: 600;
+        --font-3xs-lh: 1.18;
+        --font-3xs-tracking: 0.08px;
+        --font-micro: 0.5rem;
+        --font-micro-weight: 700;
+        --font-micro-lh: 1.25;
+        --font-micro-tracking: 0.32px;
+      }
 
-        /* --- Phase 1: spacing scale --- */
-        --space-1: 4px;
-        --space-2: 8px;
-        --space-3: 12px;
-        --space-4: 16px;
-        --space-5: 20px;
-        --space-6: 24px;
-        --space-8: 32px;
-        --space-10: 40px;
-        --space-12: 48px;
+      :root {
+        --space-0: 0;
+        --space-px: 1px;
+        --space-1: 0.25rem;
+        --space-1-5: 0.375rem;
+        --space-2: 0.5rem;
+        --space-2-5: 0.625rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-8: 2rem;
+        --space-10: 2.5rem;
+        --space-12: 3rem;
+        --space-16: 4rem;
+        --space-20: 5rem;
+        --space-24: 6rem;
+        --space-32: 8rem;
 
-        /* --- Phase 1: radius scale --- */
+        --radius-0: 0;
         --radius-xs: 4px;
-        --radius-sm: 6px;
-        --radius-md: 10px;
+        --radius-sm: 8px;
+        --radius-md: 12px;
         --radius-lg: 14px;
         --radius-xl: 20px;
-        --radius-pill: 999px;
+        --radius-2xl: 28px;
+        --radius-3xl: 32px;
+        --radius-pill: 9999px;
+        --radius-full: 50%;
 
-        /* --- Phase 1: shadow scale (tuned for dark canvas) --- */
-        --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
-        --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.36);
-        --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.38);
-        --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+        --stroke-0: 0;
+        --stroke-1: 1px;
+        --stroke-1-5: 1.5px;
+        --stroke-2: 2px;
+        --stroke-3: 3px;
+        --stroke-4: 4px;
 
-        /* --- Phase 1: motion tokens --- */
-        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --icon-xs: 12px;
+        --icon-sm: 16px;
+        --icon-md: 20px;
+        --icon-lg: 24px;
+        --icon-xl: 32px;
+        --icon-2xl: 48px;
+
+        --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
         --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+        --duration-instant: 80ms;
         --duration-fast: 120ms;
         --duration-base: 200ms;
         --duration-slow: 320ms;
+        --duration-elaborate: 480ms;
+        --duration-scan-loop: 1600ms;
+      }
 
-        /* --- Phase 1: typography tokens --- */
-        --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
-        --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      :root,
+      [data-theme="light"] {
+        --shadow-0: none;
+        --shadow-1:
+          rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.04) 0px 2px 6px,
+          rgba(0, 0, 0, 0.1) 0px 4px 8px;
+        --shadow-2:
+          rgba(0, 0, 0, 0.03) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.06) 0px 4px 12px,
+          rgba(0, 0, 0, 0.12) 0px 8px 20px;
+        --shadow-3:
+          rgba(0, 0, 0, 0.04) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.08) 0px 6px 16px,
+          rgba(0, 0, 0, 0.14) 0px 12px 32px;
+        --shadow-4:
+          rgba(0, 0, 0, 0.04) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.1) 0px 10px 24px,
+          rgba(0, 0, 0, 0.18) 0px 20px 48px;
+        --shadow-5:
+          rgba(0, 0, 0, 0.06) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.14) 0px 16px 32px,
+          rgba(0, 0, 0, 0.24) 0px 32px 80px;
+      }
 
+      [data-theme="dark"] {
+        --shadow-0: none;
+        --shadow-1:
+          rgba(0, 0, 0, 0.4) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.4) 0px 4px 12px;
+        --shadow-2:
+          rgba(0, 0, 0, 0.44) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.48) 0px 8px 20px;
+        --shadow-3:
+          rgba(0, 0, 0, 0.48) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.56) 0px 12px 32px;
+        --shadow-4:
+          rgba(0, 0, 0, 0.5) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.64) 0px 20px 48px;
+        --shadow-5:
+          rgba(0, 0, 0, 0.56) 0px 0px 0px 1px,
+          rgba(0, 0, 0, 0.72) 0px 32px 80px;
+      }
+
+      /* Legacy aliases — existing components continue working against
+       * the new token system. Remove entries as components migrate. */
+      :root {
+        --bg: var(--color-bg);
+        --surface: var(--color-surface);
+        --surface2: var(--color-surface-2);
+        --surface-3: var(--color-surface-3);
+        --border: var(--color-border);
+        --border-strong: var(--color-border-strong);
+        --text: var(--color-text-primary);
+        --text-subtle: var(--color-text-secondary);
+        --muted: var(--color-text-muted);
+        --accent: var(--color-brand);
+        --accent-hover: var(--color-brand-hover);
+        --accent-pressed: var(--color-brand-pressed);
+        --accent-soft: var(--color-brand-soft);
+        --accent2: var(--color-success);
+        --accent3: var(--color-error);
+        --success: var(--color-success);
+        --success-soft: var(--color-success-soft);
+        --warning: var(--color-warning);
+        --warning-soft: var(--color-warning-soft);
+        --danger: var(--color-error);
+        --danger-soft: var(--color-error-soft);
+        --ring: var(--color-border-brand);
+        --overlay: var(--color-overlay);
+        --font-body: var(--font-sans);
         --fs-xs: 0.72rem;
         --fs-sm: 0.82rem;
         --fs-base: 0.92rem;
@@ -91,10 +331,13 @@
         --fs-xl: 1.4rem;
         --fs-2xl: 1.85rem;
         --fs-3xl: 2.4rem;
-
         --lh-tight: 1.15;
         --lh-snug: 1.3;
         --lh-base: 1.5;
+        --shadow-xs: var(--shadow-1);
+        --shadow-sm: var(--shadow-1);
+        --shadow-md: var(--shadow-2);
+        --shadow-lg: var(--shadow-3);
       }
 
       body {
@@ -103,6 +346,42 @@
         color: var(--text);
         min-height: 100vh;
         overflow-x: hidden;
+      }
+
+      /* ---- Theme toggle ---- */
+      .theme-toggle {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--color-text-secondary);
+        border: 1px solid transparent;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-align: left;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .theme-toggle:hover {
+        background: var(--color-surface-3);
+        color: var(--color-text-primary);
+        border-color: var(--color-border);
+      }
+      .theme-toggle:focus-visible {
+        outline: var(--stroke-2) solid var(--color-border-focus);
+        outline-offset: 2px;
+      }
+      .theme-toggle__icon {
+        font-size: 1rem;
+        line-height: 1;
       }
 
       /* ---- Sidebar ---- */
@@ -8866,6 +9145,17 @@
         <div class="nav-item" onclick="nav('settings', this)">
           <span class="nav-icon">⚙️</span> Settings
         </div>
+        <button
+          type="button"
+          class="theme-toggle"
+          id="theme-toggle"
+          onclick="toggleTheme()"
+          aria-label="Toggle color theme"
+          title="Toggle color theme"
+        >
+          <span class="theme-toggle__icon" aria-hidden="true">🌙</span>
+          <span class="theme-toggle__label">Dark</span>
+        </button>
       </nav>
 
       <!-- Main -->
@@ -15529,6 +15819,44 @@
         );
         updateDesktopSidebarToggle();
       }
+
+      // ---- Theme toggle ----
+      function currentTheme() {
+        return (
+          document.documentElement.getAttribute("data-theme") || "dark"
+        );
+      }
+
+      function applyThemeToggleLabel() {
+        const btn = document.getElementById("theme-toggle");
+        if (!btn) return;
+        const theme = currentTheme();
+        const icon = btn.querySelector(".theme-toggle__icon");
+        const label = btn.querySelector(".theme-toggle__label");
+        if (theme === "dark") {
+          if (icon) icon.textContent = "🌙";
+          if (label) label.textContent = "Dark";
+          btn.setAttribute("aria-label", "Switch to light theme");
+          btn.setAttribute("title", "Switch to light theme");
+        } else {
+          if (icon) icon.textContent = "☀️";
+          if (label) label.textContent = "Light";
+          btn.setAttribute("aria-label", "Switch to dark theme");
+          btn.setAttribute("title", "Switch to dark theme");
+        }
+      }
+
+      function toggleTheme() {
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try {
+          localStorage.setItem("theme", next);
+        } catch (_) {}
+        applyThemeToggleLabel();
+      }
+
+      // Keep label in sync with whatever the pre-paint script set.
+      document.addEventListener("DOMContentLoaded", applyThemeToggleLabel);
 
       function handleSidebarCollapse() {
         if (isMobileViewport()) {
