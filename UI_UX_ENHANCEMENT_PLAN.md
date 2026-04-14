@@ -49,6 +49,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Bills → Log Cash / Transfer polish | 1 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Apple-style Payee picker | 2 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Log Cash flow coherence | 3 |
+| Phase 4 — Mobile Experience | 8 | Accepted (after 3 revisions) | 3 |
 
 ---
 
