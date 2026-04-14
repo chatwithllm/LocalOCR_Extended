@@ -222,13 +222,20 @@ class BillMeta(Base):
     service_period_end = Column(Date, nullable=True)
     due_date = Column(Date, nullable=True)
     billing_cycle_month = Column(String(7), nullable=True)
+    billing_cycle = Column(String(20), nullable=False, default="monthly")
+    planning_month = Column(String(7), nullable=True)
     is_recurring = Column(Boolean, nullable=False, default=True)
+    payment_status = Column(String(20), nullable=False, default="upcoming")
+    payment_confirmed_at = Column(DateTime, nullable=True)
+    payment_confirmed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         Index("ix_bill_meta_purchase_id", "purchase_id"),
         Index("ix_bill_meta_billing_cycle_month", "billing_cycle_month"),
+        Index("ix_bill_meta_planning_month", "planning_month"),
+        Index("ix_bill_meta_payment_status", "payment_status"),
         Index("ix_bill_meta_provider_name", "provider_name"),
     )
 
@@ -280,6 +287,17 @@ class BillServiceLine(Base):
 
     provider = relationship("BillProvider", back_populates="service_lines")
     bill_meta_records = relationship("BillMeta", back_populates="service_line")
+
+
+class BillAllocation(Base):
+    """Link a single bill purchase to multiple service lines with specific amounts."""
+    __tablename__ = "bill_allocations"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False)
+    service_line_id = Column(Integer, ForeignKey("bill_service_lines.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class ReceiptItem(Base):
@@ -688,10 +706,16 @@ def _ensure_runtime_columns(engine):
                     service_period_end DATE,
                     due_date DATE,
                     billing_cycle_month VARCHAR(7),
+                    billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly',
+                    planning_month VARCHAR(7),
                     is_recurring BOOLEAN NOT NULL DEFAULT 1,
+                    payment_status VARCHAR(20) NOT NULL DEFAULT 'upcoming',
+                    payment_confirmed_at DATETIME,
+                    payment_confirmed_by_id INTEGER,
                     created_at DATETIME,
-                    updated_at DATETIME
-                )
+                    updated_at DATETIME,
+                    FOREIGN KEY(purchase_id) REFERENCES purchases (id),
+                    FOREIGN KEY(payment_confirmed_by_id) REFERENCES users (id))
             """))
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_bill_meta_purchase_id ON bill_meta (purchase_id)"
@@ -701,6 +725,15 @@ def _ensure_runtime_columns(engine):
             ))
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_bill_meta_provider_name ON bill_meta (provider_name)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_planning_month ON bill_meta (planning_month)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_payment_status ON bill_meta (payment_status)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bill_meta_payment_status ON bill_meta (payment_status)"
             ))
         else:
             bill_meta_columns = {
@@ -727,12 +760,23 @@ def _ensure_runtime_columns(engine):
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN due_date DATE"))
             if "billing_cycle_month" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN billing_cycle_month VARCHAR(7)"))
+            if "billing_cycle" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly'"))
+            if "planning_month" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN planning_month VARCHAR(7)"))
             if "is_recurring" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN is_recurring BOOLEAN NOT NULL DEFAULT 1"))
             if "created_at" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN created_at DATETIME"))
             if "updated_at" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN updated_at DATETIME"))
+            if "payment_status" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN payment_status VARCHAR(20) NOT NULL DEFAULT 'upcoming'"))
+            if "payment_confirmed_at" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN payment_confirmed_at DATETIME"))
+            if "payment_confirmed_by_id" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN payment_confirmed_by_id INTEGER REFERENCES users(id)"))
+
             conn.execute(text(
                 "CREATE INDEX IF NOT EXISTS ix_bill_meta_purchase_id ON bill_meta (purchase_id)"
             ))

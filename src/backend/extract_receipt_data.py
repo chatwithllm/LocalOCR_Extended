@@ -39,6 +39,7 @@ from src.backend.budgeting_domains import (
     normalize_utility_service_types,
 )
 from src.backend.budgeting_rollups import normalize_transaction_type
+from src.backend.bill_cadence import normalize_billing_cycle
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
 
 logger = logging.getLogger(__name__)
@@ -191,7 +192,7 @@ def process_receipt(image_path: str, source: str = "upload",
         result["confidence"] = _safe_float(ocr_data.get("confidence", 0.0))
         result["receipt_type"] = _resolve_receipt_type(ocr_data, receipt_type_hint)
 
-        is_valid = _validate_receipt_data(ocr_data)
+        is_valid = _validate_receipt_data(ocr_data, receipt_type=result["receipt_type"])
 
         if is_valid and result["confidence"] >= CONFIDENCE_THRESHOLD:
             # High confidence — auto-process
@@ -464,9 +465,13 @@ def _score_restaurant_candidate(data: dict) -> float:
 # Validation
 # ---------------------------------------------------------------------------
 
-def _validate_receipt_data(data: dict) -> bool:
+def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
     """Validate that OCR output contains all required fields."""
-    required_fields = ["store", "date", "items", "total"]
+    required_fields = ["store", "date", "total"]
+    # For non-bill receipts, items are required
+    if receipt_type not in {"utility_bill", "household_bill"}:
+        required_fields.append("items")
+
     for field in required_fields:
         if field not in data or data[field] is None:
             logger.warning(f"Validation failed: missing field '{field}'")
@@ -479,6 +484,9 @@ def _validate_receipt_data(data: dict) -> bool:
     if not _is_valid_receipt_date(data.get("date")):
         logger.warning("Validation failed: OCR returned an invalid receipt date: %s", data.get("date"))
         return False
+
+    if receipt_type in {"utility_bill", "household_bill"}:
+        return True
 
     if not isinstance(data["items"], list) or len(data["items"]) == 0:
         logger.warning("Validation failed: items must be a non-empty list")
@@ -565,7 +573,8 @@ def classify_receipt_data(data: dict) -> str:
 
 def _normalize_receipt_type_hint(receipt_type_hint: str | None) -> str | None:
     hint = str(receipt_type_hint or "").strip().lower()
-    return hint if hint in {"grocery", "restaurant", "general_expense", "retail_items"} else None
+    valid_hints = {"grocery", "restaurant", "general_expense", "retail_items", "utility_bill", "household_bill"}
+    return hint if hint in valid_hints else None
 
 
 def _apply_receipt_type_hint(data: dict, receipt_type_hint: str | None) -> dict:
@@ -677,10 +686,12 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                        user_id: int = None, receipt_type: str = "grocery",
                        existing_purchase=None) -> int:
     """Save validated OCR data to purchases, receipt_items, and price_history."""
+    session = None
     try:
         from src.backend.initialize_database_schema import (
             Purchase, ReceiptItem, Product, Store, PriceHistory
         )
+        from src.backend.bill_planning import derive_planning_month
         session = g.db_session
 
         purchase_domain, purchase_budget_category = derive_receipt_budget_defaults(
@@ -818,7 +829,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         )
 
         if str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}:
-            _save_bill_meta(session, purchase.id, ocr_data)
+            _save_bill_meta(session, purchase.id, ocr_data, purchase_date=purchase.date)
 
         if receipt_type == "grocery":
             rebuild_active_inventory(session)
@@ -854,10 +865,11 @@ def _safe_date_parse(value: str | None):
         return None
 
 
-def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
+def _save_bill_meta(session, purchase_id: int, ocr_data: dict, purchase_date=None) -> None:
     """Create or update the bill-meta sidecar for household bill receipts."""
     try:
         from src.backend.initialize_database_schema import BillMeta, BillProvider, BillServiceLine
+        from src.backend.bill_planning import derive_planning_month
 
         provider_name = str(ocr_data.get("bill_provider_name") or ocr_data.get("store") or "").strip() or None
         provider_type = str(ocr_data.get("bill_provider_type") or "").strip().lower() or None
@@ -883,8 +895,18 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
         meta.billing_cycle_month = (
             str(ocr_data.get("bill_billing_cycle_month") or "").strip()[:7] or None
         )
+        meta.billing_cycle = normalize_billing_cycle(ocr_data.get("bill_billing_cycle"))
         is_recurring_raw = ocr_data.get("bill_is_recurring")
         meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True
+
+        # Derive planning month deterministic fallbacks
+        receipt_date_str = purchase_date.strftime("%Y-%m-%d") if purchase_date else None
+        meta.planning_month = derive_planning_month(
+            due_date=meta.due_date.strftime("%Y-%m-%d") if meta.due_date else None,
+            service_period_end=meta.service_period_end.strftime("%Y-%m-%d") if meta.service_period_end else None,
+            receipt_date=receipt_date_str,
+            billing_cycle_month=meta.billing_cycle_month,
+        )
 
         provider = None
         if provider_name:
@@ -917,6 +939,40 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict) -> None:
 
         meta.provider_id = provider.id if provider else None
         meta.service_line_id = service_line.id if service_line else None
+
+        # Phase 7: Handle multi-service allocations
+        allocations_raw = ocr_data.get("bill_allocations")
+        if isinstance(allocations_raw, list) and allocations_raw:
+            from src.backend.initialize_database_schema import BillAllocation
+            # Clear existing allocations for this purchase if updating
+            session.query(BillAllocation).filter_by(purchase_id=purchase_id).delete()
+            
+            for alloc_data in allocations_raw:
+                s_type = str(alloc_data.get("service_type") or "").strip().lower()
+                amt = _safe_float(alloc_data.get("amount"), 0.0)
+                if not s_type or amt <= 0:
+                    continue
+                
+                # Find or create service line for this allocation
+                a_service_line_key = f"{provider.normalized_key if provider else 'unknown'}::{s_type}::{meta.account_label or 'default'}"
+                a_service_line = session.query(BillServiceLine).filter_by(normalized_key=a_service_line_key).first()
+                if not a_service_line and provider:
+                    a_service_line = BillServiceLine(
+                        provider_id=provider.id,
+                        service_type=s_type,
+                        account_label=meta.account_label,
+                        normalized_key=a_service_line_key,
+                    )
+                    session.add(a_service_line)
+                    session.flush()
+                
+                if a_service_line:
+                    session.add(BillAllocation(
+                        purchase_id=purchase_id,
+                        service_line_id=a_service_line.id,
+                        amount=amt,
+                        description=alloc_data.get("description")
+                    ))
 
         session.flush()
         logger.info("Saved bill_meta for purchase_id=%s provider=%s", purchase_id, meta.provider_name)

@@ -23,10 +23,12 @@ The app currently supports these major household workflows:
   - bill-aware correction for recurring household obligations:
     - provider name
     - provider type
+    - billing cadence
     - billing cycle month
     - service period
     - due date
     - recurring flag
+  - Bills workspace drill-down now opens matching receipt history without losing older receipts to the default recent-date filter
   - mark receipts as `Purchase` or `Refund` with refund reason and refund note
   - refund-aware receipt review, refund-only filtering, and refund audit shortcuts
   - rotate, re-run OCR, and rebuild corrected receipts without losing the source image
@@ -55,6 +57,7 @@ The app currently supports these major household workflows:
 - budgeting and allocations
   - monthly targets by budget category
   - Household Obligations spend domain for recurring bills and utilities
+  - Bills workspace with recurring obligation planning, provider summaries, month-over-month totals, and recent bill history
   - recurring-bill budget categories including:
     - utilities
     - housing
@@ -127,7 +130,7 @@ Compact mobile dashboard cards for low stock, top picks, and shopping awareness.
 
 - `Household Bill`
   - recurring household obligations like utilities, rent, insurance, subscriptions, and similar statements
-  - bill metadata capture for provider, billing period, due date, and recurrence
+  - bill metadata capture for provider, billing period, due date, recurrence, and billing cadence
   - separate Household Obligations domain mapping for budget and analytics
   - legacy utility-bill data remains compatible with the new flow
 
@@ -184,6 +187,13 @@ Operational note:
 
 - dashboard budget cards now show the saved target in the label and current spend usage in the value
 - only admins can change budget targets
+
+### Bills
+
+- recurring obligations by selected month
+- cadence-aware support for monthly, bimonthly, quarterly, semiannual, and annual bills
+- provider summaries and recent bill history
+- direct drill-down into the matching receipt from obligation cards
 
 ### Products
 

@@ -555,7 +555,15 @@ def delete_shopping_item(item_id):
     if not item:
         return jsonify({"error": "Shopping list item not found"}), 404
 
+    from src.backend.initialize_database_schema import ProductSnapshot
+
     reverse_shopping_item_contributions(session, shopping_item_id=item.id)
+    
+    # Unlink any product snapshots attached to this item before deleting to prevent IntegrityError
+    session.query(ProductSnapshot).filter(
+        ProductSnapshot.shopping_list_item_id == item.id
+    ).update({"shopping_list_item_id": None})
+
     session.delete(item)
     session.commit()
     return jsonify({"message": "Shopping list item deleted"}), 200

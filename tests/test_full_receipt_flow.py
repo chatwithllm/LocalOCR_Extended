@@ -61,7 +61,7 @@ class TestHealthCheck:
         assert response.status_code == 200
         data = response.get_json()
         assert data["status"] == "healthy"
-        assert data["service"] == "grocery-backend"
+        assert data["service"] == "localocr-extended-backend"
 
 
 # ---------------------------------------------------------------------------

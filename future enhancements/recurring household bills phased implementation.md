@@ -3,7 +3,7 @@
 This document turns the consolidated recurring-bills plan into an execution sequence for the new implementation branch.
 
 Current implementation branch:
-- `codex/recurring-bills-foundation`
+- `codex/planning-month-foundation`
 
 This document is the working phase guide for the next build cycle.
 
@@ -178,20 +178,11 @@ The execution order should be:
 
 This keeps the highest-risk forecasting work off the table until the underlying records are stable.
 
-## 5. Phase 1 Scope We Are Starting Now
+## 5. Current Branch Progress
 
-Phase 1 is officially:
-- **Canonical Provider And Service-Line Foundation**
+This branch has moved beyond the original Phase 1-only starting point.
 
-### In scope now
-
-- add canonical provider records
-- add canonical service-line records
-- keep current bill metadata fields for compatibility
-- map current provider-related bill metadata toward those canonical records
-- document how receipt editing will evolve to use these stable records
-
-### Phase 1 progress update
+### Phase 1 — Canonical Provider And Service-Line Foundation
 
 Completed in the current implementation pass:
 - restored BillMeta save/load wiring in the receipt editor and manual entry flow
@@ -201,9 +192,71 @@ Completed in the current implementation pass:
 - added compatibility linkage from `bill_meta` into provider/service-line identities
 - added runtime backfill so existing bill metadata can attach to canonical provider/service-line rows
 
-Still remaining inside Phase 1:
+Verified in the current implementation pass:
 - stronger provider/service lookup behavior in the bill edit flow
 - operator smoke test of bill edit/save against a live local database
+
+### Phase 2 — Planning Month Foundation
+
+Completed in the current implementation pass:
+- deterministic planning-month derivation is implemented
+- fallback order is now:
+  - due date month
+  - service period end month
+  - legacy stored billing-cycle month
+  - receipt month fallback
+- planning month persists through upload, manual entry, and receipt edit flows
+- receipt detail shows a visible `Counts toward` explanation in Bill Planning
+
+### Phase 3 — Bill Lifecycle And Paid-State Model
+
+Completed in the current implementation pass:
+- receipt detail now supports bill payment-status actions
+- analytics distinguish entered obligations from outstanding ones
+- Bills workspace can show `Not Due` for obligations outside the selected cadence month
+
+Still remaining inside Phase 3:
+- richer overdue/upcoming lifecycle states
+- explicit payment-confirmation timestamp/history
+
+### Phase 4 — Monthly Obligation Slots
+
+Completed in the current implementation pass:
+- Bills workspace renders recurring obligations against the selected month
+- obligation cards support direct receipt jump-through
+- lower Bills sections remain available:
+  - Providers
+  - Month-over-Month
+  - Recent Bills
+
+### Phase 6 — Estimation And Missing Detection
+
+Completed in the current implementation pass:
+- projection logic now respects non-monthly bill cadence
+- supported billing cycles now include:
+  - monthly
+  - every 2 months
+  - quarterly
+  - every 6 months
+  - annual
+- recurring-obligation status now distinguishes:
+  - entered
+  - outstanding
+  - not due
+- Bills workspace carries cadence through:
+  - obligation cards
+  - manual-entry shortcuts
+  - receipt detail summaries
+- projection logic uses cadence-aware month matching before surfacing missing/outstanding bills
+- Progressive insurance was verified locally as a semiannual recurring bill example
+
+Additional operator fixes completed alongside these phases:
+- store canonicalization now merges duplicate provider/store variants such as:
+  - AES Indiana / Aes Indiana
+  - McDonald's receipt-number variants
+  - India Bazar naming variants
+- `Receipts By Store` cards are clickable and open filtered Receipts results
+- Bills-to-Receipts jump-through now bypasses the default last-60-days receipt filter once, so older bills like `2026-01-19` Progressive can still open from the Bills workspace
 
 ### Explicitly not in scope now
 
@@ -214,15 +267,17 @@ Still remaining inside Phase 1:
 - Gemini extraction redesign
 - allocation of one bill across multiple services
 
-## 6. Expected Output Of Phase 1
+## 6. Expected Output Of This Branch Track
 
-When Phase 1 is complete, we should have:
+This branch now provides:
 
 - a stable provider object
 - a stable service-line object
 - a migration/backfill approach for current household bills
 - a clear compatibility path from current `provider_name` / `provider_type` bill metadata to canonical records
-- the codebase ready for `planning_month` work in Phase 2
+- planning-month derivation and persistence
+- cadence-aware recurring-obligation projections
+- a Bills workspace that supports drill-down into matching receipt history
 
 ## 7. Restart Point
 

@@ -31,6 +31,7 @@ from src.backend.budgeting_domains import (
     normalize_utility_service_types,
 )
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total
+from src.backend.bill_cadence import normalize_billing_cycle
 from src.backend.create_flask_application import require_auth, require_write_access
 
 logger = logging.getLogger(__name__)
@@ -49,10 +50,22 @@ def _get_receipts_root() -> str:
     """
     configured = os.getenv("RECEIPTS_DIR")
     if configured:
-        return configured
+        configured_path = Path(configured)
+        if configured_path.exists():
+            return str(configured_path)
+        if configured_path.parent.exists() and os.access(configured_path.parent, os.W_OK):
+            return str(configured_path)
+        logger.warning(
+            "Configured RECEIPTS_DIR is not usable on this host; falling back to repo-local storage: %s",
+            configured,
+        )
 
     container_path = Path("/data/receipts")
-    if container_path.parent.exists():
+    # Only prefer the container volume when it already exists. In containerized
+    # deployments this path is normally created by the mounted volume or image
+    # setup. Local/dev runs should fall back to the repo-local data directory
+    # unless RECEIPTS_DIR is explicitly configured.
+    if container_path.exists():
         return str(container_path)
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -153,6 +166,7 @@ def _receipt_payload_from_purchase(receipt: dict) -> dict:
         "bill_service_period_end": receipt.get("bill_service_period_end"),
         "bill_due_date": receipt.get("bill_due_date"),
         "bill_billing_cycle_month": receipt.get("bill_billing_cycle_month"),
+        "bill_billing_cycle": receipt.get("bill_billing_cycle") or "monthly",
         "bill_is_recurring": receipt.get("bill_is_recurring"),
         "bill_provider_id": receipt.get("bill_provider_id"),
         "bill_service_line_id": receipt.get("bill_service_line_id"),
@@ -231,6 +245,9 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "bill_service_period_end": (str(bill_source.get("bill_service_period_end") or bill_source.get("service_period_end") or "").strip() or None),
         "bill_due_date": (str(bill_source.get("bill_due_date") or bill_source.get("due_date") or "").strip() or None),
         "bill_billing_cycle_month": (str(bill_source.get("bill_billing_cycle_month") or bill_source.get("billing_cycle_month") or "").strip()[:7] or None),
+        "bill_billing_cycle": normalize_billing_cycle(
+            bill_source.get("bill_billing_cycle") or bill_source.get("billing_cycle")
+        ),
         "bill_is_recurring": bool(
             bill_source.get("bill_is_recurring") if bill_source.get("bill_is_recurring") is not None else bill_source.get("is_recurring")
         ) if (bill_source.get("bill_is_recurring") is not None or bill_source.get("is_recurring") is not None) else True,
@@ -617,6 +634,16 @@ def upload_receipt():
 
     except Exception as e:
         logger.error(f"OCR processing failed: {e}")
+        error_text = str(e)
+        if (
+            "Failed to render PDF receipt" in error_text
+            or "require 'pdftoppm' to be installed" in error_text
+        ):
+            return jsonify({
+                "error": "Unsupported or unreadable PDF receipt",
+                "message": error_text,
+                "image_path": save_path,
+            }), 400
         return jsonify({
             "error": "OCR processing failed",
             "message": str(e),
@@ -683,6 +710,7 @@ def get_receipt(receipt_id):
         ],
     )
     bill_meta = session.query(BillMeta).filter_by(purchase_id=purchase.id).first() if purchase else None
+    bill_payload = {}
     if bill_meta:
         editable_data.update({
             "bill_provider_name": bill_meta.provider_name,
@@ -693,12 +721,30 @@ def get_receipt(receipt_id):
             "bill_service_period_end": bill_meta.service_period_end.isoformat() if bill_meta.service_period_end else None,
             "bill_due_date": bill_meta.due_date.isoformat() if bill_meta.due_date else None,
             "bill_billing_cycle_month": bill_meta.billing_cycle_month,
+            "bill_billing_cycle": bill_meta.billing_cycle,
             "bill_is_recurring": bool(bill_meta.is_recurring),
             "bill_provider_id": bill_meta.provider_id,
             "bill_service_line_id": bill_meta.service_line_id,
         })
+        bill_payload = {
+            "bill_provider_name": bill_meta.provider_name,
+            "bill_provider_type": bill_meta.provider_type,
+            "bill_service_types": json.loads(bill_meta.service_types) if bill_meta.service_types else [],
+            "bill_account_label": bill_meta.account_label,
+            "bill_service_period_start": bill_meta.service_period_start.isoformat() if bill_meta.service_period_start else None,
+            "bill_service_period_end": bill_meta.service_period_end.isoformat() if bill_meta.service_period_end else None,
+            "bill_due_date": bill_meta.due_date.isoformat() if bill_meta.due_date else None,
+            "bill_billing_cycle_month": bill_meta.billing_cycle_month,
+            "bill_billing_cycle": bill_meta.billing_cycle,
+            "bill_planning_month": bill_meta.planning_month,
+            "bill_is_recurring": bool(bill_meta.is_recurring),
+            "bill_provider_id": bill_meta.provider_id,
+            "bill_service_line_id": bill_meta.service_line_id,
+            "bill_payment_status": bill_meta.payment_status,
+            "bill_payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
+        }
 
-    return jsonify({
+    response_payload = {
         "id": purchase.id if purchase else receipt_record.id,
         "store": store.name if store else None,
         "total": purchase.total_amount if purchase else None,
@@ -736,7 +782,10 @@ def get_receipt(receipt_id):
             }
             for item, product in items
         ],
-    }), 200
+    }
+    response_payload.update(bill_payload)
+
+    return jsonify(response_payload), 200
 
 
 @receipts_bp.route("", methods=["GET"])
@@ -752,6 +801,7 @@ def list_receipts():
         Product,
         Store,
     )
+    from src.backend.normalize_store_names import canonicalize_store_name
 
     session = g.db_session
     limit = request.args.get("limit", 50, type=int)
@@ -772,7 +822,8 @@ def list_receipts():
     )
 
     if store_filter:
-        query = query.filter(Store.name == store_filter)
+        canonical_store = canonicalize_store_name(store_filter)
+        query = query.filter(func.lower(Store.name) == canonical_store.lower())
     if status_filter:
         query = query.filter(TelegramReceipt.status == status_filter)
     if receipt_type_filter:
@@ -801,7 +852,9 @@ def list_receipts():
     limited_records = records[:max(1, min(limit, 200))]
 
     stores = sorted({
-        row[0] for row in session.query(Store.name).filter(Store.name.isnot(None)).distinct().all() if row[0]
+        canonicalize_store_name(row[0])
+        for row in session.query(Store.name).filter(Store.name.isnot(None)).distinct().all()
+        if row[0]
     })
 
     store_counts = {}
@@ -810,7 +863,7 @@ def list_receipts():
     purchase_count = 0
     refund_total = 0.0
     for record, purchase, store in records:
-        store_name = store.name if store else "Unknown"
+        store_name = canonicalize_store_name(store.name) if store and store.name else "Unknown"
         store_counts[store_name] = store_counts.get(store_name, 0) + 1
         if purchase:
             if normalize_transaction_type(getattr(purchase, "transaction_type", None)) == "refund":
@@ -892,7 +945,7 @@ def list_receipts():
                 "id": purchase.id if purchase else record.id,
                 "record_id": record.id,
                 "purchase_id": purchase.id if purchase else None,
-                "store": store.name if store else None,
+                "store": canonicalize_store_name(store.name) if store and store.name else None,
                 "total": purchase.total_amount if purchase else None,
                 "signed_total": signed_purchase_total(purchase) if purchase else None,
                 "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
@@ -1087,8 +1140,14 @@ def update_receipt(receipt_id):
     ocr_data = payload.get("data") or {}
     if not isinstance(ocr_data, dict):
         return jsonify({"error": "Edited receipt data is required"}), 400
+    bill_meta = payload.get("bill_meta") or {}
+    if bill_meta and not isinstance(bill_meta, dict):
+        return jsonify({"error": "bill_meta must be an object"}), 400
+    merged_ocr_data = dict(ocr_data)
+    if bill_meta:
+        merged_ocr_data.update(bill_meta)
 
-    sanitized = _sanitize_receipt_payload(ocr_data)
+    sanitized = _sanitize_receipt_payload(merged_ocr_data)
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
     requires_items = str(receipt_type or "").strip().lower() not in {"utility_bill", "household_bill"}
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
@@ -1159,6 +1218,54 @@ def reprocess_receipt(receipt_id):
     return jsonify(result), 200
 
 
+@receipts_bp.route("/<int:receipt_id>/bill-status", methods=["PUT"])
+@require_write_access
+def update_receipt_bill_status(receipt_id):
+    """Update the payment lifecycle status of a household or utility bill."""
+    from src.backend.initialize_database_schema import Base, BillMeta
+    from datetime import timezone
+
+    session = g.db_session
+    record = _resolve_receipt_record(session, receipt_id)
+    if not record:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    new_status = (payload.get("payment_status") or "").strip().lower()
+
+    valid_statuses = {"upcoming", "overdue", "paid", "estimated", "missing", "not_yet_entered"}
+    if new_status not in valid_statuses:
+        return jsonify({"error": f"Invalid payment_status. Must be one of {valid_statuses}"}), 400
+
+    # Locate the Purchase because BillMeta ties to purchase_id
+    purchase_id = getattr(record, "purchase_id", None) or getattr(record, "id", None)
+    if not purchase_id:
+        return jsonify({"error": "Receipt is not yet converted to a saved purchase"}), 400
+
+    bill_meta = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
+    if not bill_meta:
+        return jsonify({"error": "This purchase is not configured as a household bill"}), 400
+
+    bill_meta.payment_status = new_status
+    if new_status == "paid":
+        # Do not overwrite if it was already paid earlier
+        if not bill_meta.payment_confirmed_at:
+            bill_meta.payment_confirmed_at = datetime.now(timezone.utc)
+            bill_meta.payment_confirmed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+    else:
+        # If toggled out of paid, clear payment confirmation
+        bill_meta.payment_confirmed_at = None
+        bill_meta.payment_confirmed_by_id = None
+
+    session.commit()
+    
+    return jsonify({
+        "message": "Bill status updated successfully",
+        "payment_status": bill_meta.payment_status,
+        "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None
+    }), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/rotate", methods=["PUT"])
 @require_write_access
 def rotate_receipt(receipt_id):
@@ -1204,6 +1311,31 @@ def list_bill_providers():
             "known_services": list(set(lines))
         })
     return jsonify({"providers": results}), 200
+
+
+@receipts_bp.route("/bills/projection/<string:month>", methods=["GET"])
+@require_auth
+def get_bill_projection(month):
+    """
+    Get the obligation projection slots for a specific planning month.
+    Month format should be YYYY-MM.
+    """
+    import re
+    if not re.match(r"^\d{4}-\d{2}$", month):
+        return jsonify({"error": "Month must be in YYYY-MM format"}), 400
+
+    from src.backend.generate_bill_projections import generate_monthly_obligation_slots
+
+    try:
+        session = g.db_session
+        slots = generate_monthly_obligation_slots(session, month)
+        return jsonify({
+            "planning_month": month,
+            "slots": slots
+        }), 200
+    except Exception as exc:
+        logger.error("Failed to generate bill projections for %s: %s", month, exc)
+        return jsonify({"error": "Failed to generate projections"}), 500
 
 
 @receipts_bp.route("/<int:receipt_id>", methods=["DELETE"])

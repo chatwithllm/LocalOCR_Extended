@@ -21,6 +21,8 @@ from src.backend.initialize_database_schema import (
 )
 from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
+from src.backend.bill_cadence import month_matches_billing_cycle, normalize_billing_cycle
+from src.backend.generate_bill_projections import generate_monthly_obligation_slots
 
 logger = logging.getLogger(__name__)
 
@@ -843,6 +845,8 @@ def get_recurring_obligations():
             "service_types": service_types,
             "account_label": account_label,
             "budget_category": budget_category,
+            "billing_cycle": normalize_billing_cycle(getattr(meta, "billing_cycle", None)),
+            "anchor_month": (meta.planning_month or meta.billing_cycle_month or "").strip() or None,
             "history": [],
             "current_entry": None,
             "latest_date": None,
@@ -883,11 +887,16 @@ def get_recurring_obligations():
         amount_pattern, amount_spread = _obligation_amount_pattern(recent_amounts)
         current_entry = obligation["current_entry"]
         actual_amount = round(current_entry["amount"], 2) if current_entry else 0.0
+        is_due = month_matches_billing_cycle(
+            selected_month,
+            obligation.get("anchor_month"),
+            obligation.get("billing_cycle"),
+        )
         variance = round(actual_amount - expected_amount, 2) if current_entry else round(-expected_amount, 2)
-        status = "entered" if current_entry else "outstanding"
+        status = "entered" if current_entry else ("outstanding" if is_due else "not_due")
         if status == "entered":
             entered_count += 1
-        else:
+        elif status == "outstanding":
             outstanding_count += 1
         if amount_pattern == "fixed":
             fixed_count += 1
@@ -904,6 +913,7 @@ def get_recurring_obligations():
             "service_types": obligation.get("service_types", []),
             "account_label": obligation["account_label"],
             "budget_category": obligation["budget_category"],
+            "billing_cycle": obligation["billing_cycle"],
             "status": status,
             "amount_pattern": amount_pattern,
             "amount_spread": amount_spread,
@@ -919,7 +929,12 @@ def get_recurring_obligations():
             "history_preview": obligation["history"][:4],
         })
 
-    obligation_list.sort(key=lambda item: (0 if item["status"] == "outstanding" else 1, item["provider_name"].lower()))
+    obligation_list.sort(
+        key=lambda item: (
+            0 if item["status"] == "outstanding" else 1 if item["status"] == "entered" else 2,
+            item["provider_name"].lower(),
+        )
+    )
 
     return jsonify({
         "month": selected_month,
@@ -936,3 +951,37 @@ def get_recurring_obligations():
             "variance_total": round(actual_total - expected_total, 2),
         },
     }), 200
+
+
+@analytics_bp.route("/bill-projections", methods=["GET"])
+@require_auth
+def get_bill_projections():
+    """Expose the Phase 6 analytical projection engine to the frontend."""
+    session = g.db_session
+    month = (request.args.get("month") or "").strip()
+    if not month:
+        month = datetime.now(timezone.utc).strftime("%Y-%m")
+
+    user_id = getattr(g, "current_user", None).id if getattr(g, "current_user", None) else None
+    
+    try:
+        slots = generate_monthly_obligation_slots(session, month, user_id=user_id)
+        
+        # Add summary stats for the frontend dashboard
+        summary = {
+            "total_count": len(slots),
+            "actual_count": sum(1 for s in slots if s["slot_type"] == "actual"),
+            "projected_count": sum(1 for s in slots if s["slot_type"] == "projected"),
+            "missing_count": sum(1 for s in slots if s["slot_type"] == "projected" and s["payment_status"] == "missing"),
+            "anomaly_count": sum(1 for s in slots if s["is_anomaly"]),
+            "total_expected_value": round(sum(s["amount"] for s in slots), 2)
+        }
+        
+        return jsonify({
+            "month": month,
+            "slots": slots,
+            "summary": summary
+        }), 200
+    except Exception as e:
+        logger.error(f"Failed to generate bill projections: {e}")
+        return jsonify({"error": str(e)}), 500

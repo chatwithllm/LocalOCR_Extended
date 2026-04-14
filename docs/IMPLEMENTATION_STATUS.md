@@ -291,6 +291,23 @@ Extended-specific runtime changes now in place:
     - provider-name normalization for bills analytics and recurring-obligation grouping so small OCR / casing / suffix variations do not fragment the same provider into multiple obligation rows
     - combined-provider metadata support:
       - `Service Types` now support multi-select bill services while preserving the existing primary `Provider Type` field for compatibility
+    - `Receipts By Store` summary cards can now deep-link into Receipts with the chosen store filter applied
+    - receipt jumps from Bills/store summary views now suppress the default last-60-days receipt filter once so older receipts can still open
+  - current Phase 6 cadence/estimation implementation now includes:
+    - explicit bill `billing_cycle` persistence in schema, upload, manual entry, and receipt edit flows
+    - cadence-aware obligation matching for:
+      - monthly
+      - bimonthly
+      - quarterly
+      - semiannual
+      - annual
+    - recurring-obligation states that can now surface:
+      - `entered`
+      - `outstanding`
+      - `not_due`
+    - Bills UI frequency display in both receipt detail and recurring-obligation cards
+    - cadence-aware `Enter Bill` / `Add Now` shortcuts so non-monthly obligations prefill correctly
+    - local verification that Progressive insurance can be modeled as a semiannual bill
   - intentionally deferred to later phases:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records
@@ -355,23 +372,24 @@ This is the repo where the following should happen next:
 - merged to `main`:
   - current household-bill intake, analytics, recurring-obligation summaries, and compatibility behavior
 - new implementation branch:
-  - `codex/recurring-bills-foundation`
+  - `codex/planning-month-foundation`
 - active phase planning docs:
   - `future enhancements/recurring household bills consolidated plan.md`
   - `future enhancements/recurring household bills phased implementation.md`
-- active phase:
-  - Phase 1 — Canonical Provider And Service-Line Foundation
-- expected Phase 1 outcome:
-  - canonical provider records
-  - canonical service-line records
-  - compatibility path from current bill metadata to canonical identity
-  - clean base for planning-month derivation in the next phase
-- currently completed on `codex/recurring-bills-foundation`:
+- active branch focus:
+  - Phase 1 through Phase 4 foundations, plus cadence-aware Phase 6 groundwork
+- currently completed on `codex/planning-month-foundation`:
   - restored full household-bill-aware budget domain helpers
   - restored `BillMeta` persistence for provider fields plus `service_types`
   - restored bill edit/manual-entry payload wiring so bill fields can save again
   - added canonical `bill_providers` and `bill_service_lines` schema
   - linked new and existing household bills toward canonical provider/service-line records
+  - implemented planning-month derivation and persistence
+  - added payment-status controls in bill receipt detail
+  - rebuilt the Bills workspace around recurring obligations, providers, monthly history, and recent bills
+  - added cadence-aware recurring-obligation projections for non-monthly bills
+  - normalized duplicate store/provider names for AES Indiana, McDonald's variants, and India Bazar variants
+  - fixed older bill receipt drill-down from Bills into Receipts
 - a dedicated operator runbook now exists for this area:
   - [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
 - trusted-device scope-specific runtime behavior:

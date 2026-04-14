@@ -93,6 +93,41 @@ Rules:
 - Return ONLY valid JSON
 """
 
+BILL_EXTRACTION_PROMPT = """
+Analyze this household bill or utility statement image and extract the following information as JSON.
+Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
+
+{
+    "bill_provider_name": "Company name, e.g. 'Comcast' or 'Duke Energy'",
+    "bill_provider_type": "one of: electricity, water, gas, internet, trash, rent, mortgage, insurance, medical, tax, other",
+    "bill_service_types": ["electricity", "gas", etc],
+    "bill_account_label": "Last 4 digits of account or address hint, e.g. '...1234' or '123 Main St'",
+    "bill_service_period_start": "YYYY-MM-DD or null",
+    "bill_service_period_end": "YYYY-MM-DD or null",
+    "bill_due_date": "YYYY-MM-DD (Date payment is due)",
+    "bill_billing_cycle_month": "YYYY-MM (The month this bill applies to, often the previous month)",
+    "bill_is_recurring": true,
+    "bill_allocations": [
+        {"service_type": "water", "amount": 45.50, "description": "Water service"},
+        {"service_type": "sewer", "amount": 32.00, "description": "Sewer usage"}
+    ],
+    "date": "YYYY-MM-DD (The statement or bill date found in header)",
+    "total": 0.00,
+    "store": "Bill Provider Name (repeat the provider name here)",
+    "items": [],
+    "confidence": 0.95
+}
+
+Rules:
+- This is a recurring household bill, not a grocery store receipt.
+- For bill_provider_name, use the main company branding found in the header.
+- For bill_service_period, look for 'billing period' or 'usage from/to' dates.
+- For total, use the 'Amount Due', 'New Balance', or 'Total amount to pay'.
+- If a date is in MM/DD/YY format, normalize to YYYY-MM-DD.
+- Keep "items" as an empty list [].
+- Return ONLY valid JSON.
+"""
+
 # ---------------------------------------------------------------------------
 # Gemini OCR Function
 # ---------------------------------------------------------------------------
@@ -231,7 +266,10 @@ def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: st
 def _build_prompt(base_prompt: str, supplemental_text: str | None, mode_hint: str | None = None) -> str:
     """Augment the OCR prompt with extracted PDF text when available."""
     prompt = base_prompt
-    if mode_hint == "restaurant":
+    
+    if mode_hint in {"utility_bill", "household_bill"}:
+        prompt = BILL_EXTRACTION_PROMPT
+    elif mode_hint == "restaurant":
         prompt += (
             "\n\nRestaurant-specific guidance:\n"
             "- This upload is intentionally marked as a restaurant receipt.\n"
