@@ -958,6 +958,8 @@ def get_recurring_obligations():
             "current_entry": None,
             "latest_date": None,
             "latest_due_date": None,
+            "provider_id": meta.provider_id,
+            "service_line_id": meta.service_line_id,
         })
 
         history_entry = {
@@ -1035,6 +1037,8 @@ def get_recurring_obligations():
             "history_count": len(obligation["history"]),
             "history_preview": obligation["history"][:4],
             "provider_category": "utility",
+            "provider_id": obligation.get("provider_id"),
+            "service_line_id": obligation.get("service_line_id"),
         })
 
     personal_status_map = reconcile_personal_service_slots(session, selected_month)
@@ -1059,6 +1063,7 @@ def get_recurring_obligations():
         history = [
             {
                 "purchase_id": tx.purchase_id,
+                "cash_transaction_id": tx.id,
                 "billing_cycle_month": tx.planning_month,
                 "date": tx.transaction_date.isoformat() if tx.transaction_date else None,
                 "amount": round(float(tx.amount or 0), 2),
@@ -1126,6 +1131,13 @@ def get_recurring_obligations():
             "history_preview": history[:4],
             "transaction_history_count": len(history),
             "source_type": "cash_transaction",
+            "service_line_id": service_line.id,
+            "provider_id": provider.id,
+            "expected_payment_day": service_line.expected_payment_day,
+            "preferred_payment_method": service_line.preferred_payment_method,
+            "planning_month_rule": service_line.planning_month_rule,
+            "preferred_contact_method": provider.preferred_contact_method,
+            "payment_handle": provider.payment_handle,
         })
 
     obligation_list.sort(
