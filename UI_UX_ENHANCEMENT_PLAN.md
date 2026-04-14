@@ -45,6 +45,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 |-------|-------|---------|----------------|
 | Phase 1 — Foundation | Accepted ("all good lets move on") | Accepted | 0 |
 | Phase 2 — Component Polish | 8 | Accepted | 0 |
+| Phase 3 — Interaction & Motion | 8 | Accepted | 0 |
 
 ---
 
