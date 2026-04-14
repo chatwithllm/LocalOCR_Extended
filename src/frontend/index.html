@@ -8548,6 +8548,109 @@
         gap: 2px;
       }
 
+      /* --- Phase 5a: Keyboard shortcut cheat sheet ------------------ */
+      .shortcut-group {
+        display: grid;
+        gap: var(--space-2);
+      }
+      .shortcut-group__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--font-lg);
+        font-weight: var(--font-lg-weight);
+        letter-spacing: var(--font-lg-tracking);
+        line-height: var(--font-lg-lh);
+        color: var(--color-text-primary);
+      }
+      .shortcut-group__context {
+        font-family: var(--font-sans);
+        font-size: var(--font-xs);
+        font-weight: 500;
+        color: var(--color-text-muted);
+        margin-left: var(--space-2);
+      }
+      .shortcut-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: var(--space-1);
+      }
+      .shortcut-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .shortcut-row:hover {
+        background: var(--color-surface-2);
+      }
+      .shortcut-keys {
+        display: inline-flex;
+        gap: 3px;
+        min-width: 72px;
+        flex-shrink: 0;
+      }
+      .shortcut-keys kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 24px;
+        padding: 0 6px;
+        font-family: var(--font-mono);
+        font-size: var(--font-xs);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        background: var(--color-surface-2);
+        border: 1px solid var(--color-border);
+        border-bottom-width: 2px;
+        border-radius: var(--radius-xs);
+        line-height: 1;
+      }
+      .shortcut-label {
+        font-size: var(--font-sm);
+        color: var(--color-text-secondary);
+      }
+      .shortcut-footnote {
+        margin: 0;
+        padding-top: var(--space-3);
+        font-size: var(--font-xs);
+        color: var(--color-text-muted);
+        border-top: 1px solid var(--color-border);
+      }
+      .shortcut-footnote kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 20px;
+        padding: 0 5px;
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        background: var(--color-surface-2);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-xs);
+      }
+
+      /* --- Phase 5b: Scan-complete spring ---------------------------- */
+      .scan-progress[data-state="success"] .scan-progress__phase {
+        animation: scan-pop var(--duration-elaborate) var(--ease-spring);
+        transform-origin: left center;
+      }
+      @keyframes scan-pop {
+        0%   { transform: scale(0.92); }
+        50%  { transform: scale(1.04); }
+        100% { transform: scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .scan-progress[data-state="success"] .scan-progress__phase {
+          animation: none;
+        }
+      }
+
       /* --- Phase 4d: Dashboard polish (token-driven overrides) ------
        * Replaces hardcoded rgba values in demo-hero, demo-chip,
        * demo-hero-stat, demo-mini-card, and dashboard-combo-item
@@ -15057,6 +15160,165 @@
       class="confirm-overlay"
       aria-hidden="true"
     ></div>
+
+    <!-- Phase 5a: Keyboard shortcut cheat sheet -->
+    <div
+      id="shortcut-cheatsheet-overlay"
+      class="confirm-overlay"
+      aria-hidden="true"
+      onclick="if (event.target === this) closeShortcutCheatsheet()"
+    >
+      <div
+        class="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcut-cheatsheet-title"
+        style="
+          width: min(640px, 100%);
+          max-height: min(85vh, 820px);
+          overflow: auto;
+          padding: 0;
+        "
+      >
+        <div class="bill-provider-detail__sticky-head">
+          <div id="shortcut-cheatsheet-title" class="confirm-title">
+            Keyboard shortcuts
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick="closeShortcutCheatsheet()"
+          >
+            Close
+          </button>
+        </div>
+        <div
+          style="padding: var(--space-5) var(--space-5) var(--space-6); display: grid; gap: var(--space-5)"
+        >
+          <section class="shortcut-group">
+            <h3 class="shortcut-group__title">Navigate</h3>
+            <div class="shortcut-grid">
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>d</kbd>
+                </span>
+                <span class="shortcut-label">Dashboard</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>r</kbd>
+                </span>
+                <span class="shortcut-label">Receipts</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>i</kbd>
+                </span>
+                <span class="shortcut-label">Inventory</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>u</kbd>
+                </span>
+                <span class="shortcut-label">Upload Receipt</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>p</kbd>
+                </span>
+                <span class="shortcut-label">Shopping List</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>b</kbd>
+                </span>
+                <span class="shortcut-label">Bills</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>x</kbd>
+                </span>
+                <span class="shortcut-label">Expenses</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>a</kbd>
+                </span>
+                <span class="shortcut-label">Analytics</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>s</kbd>
+                </span>
+                <span class="shortcut-label">Settings</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys">
+                  <kbd>g</kbd><kbd>g</kbd>
+                </span>
+                <span class="shortcut-label">Design gallery</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="shortcut-group">
+            <h3 class="shortcut-group__title">
+              Bills page
+              <span class="shortcut-group__context">(only when Bills is active)</span>
+            </h3>
+            <div class="shortcut-grid">
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>1</kbd></span>
+                <span class="shortcut-label">Overview tab</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>2</kbd></span>
+                <span class="shortcut-label">Providers tab</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>3</kbd></span>
+                <span class="shortcut-label">History tab</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>n</kbd></span>
+                <span class="shortcut-label">New bill</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>l</kbd></span>
+                <span class="shortcut-label">Log cash / transfer</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>←</kbd></span>
+                <span class="shortcut-label">Previous month</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>→</kbd></span>
+                <span class="shortcut-label">Next month</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="shortcut-group">
+            <h3 class="shortcut-group__title">Universal</h3>
+            <div class="shortcut-grid">
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>?</kbd></span>
+                <span class="shortcut-label">Open this cheat sheet</span>
+              </div>
+              <div class="shortcut-row">
+                <span class="shortcut-keys"><kbd>Esc</kbd></span>
+                <span class="shortcut-label">Close modal / dialog</span>
+              </div>
+            </div>
+          </section>
+
+          <p class="shortcut-footnote">
+            Shortcuts are ignored while you're typing in a text field. Press
+            <kbd>?</kbd> anywhere else to re-open this sheet.
+          </p>
+        </div>
+      </div>
+    </div>
     <div id="device-pairing-overlay" class="confirm-overlay" aria-hidden="true">
       <div
         class="confirm-modal"
@@ -17590,6 +17852,95 @@
 
       // Keep label in sync with whatever the pre-paint script set.
       document.addEventListener("DOMContentLoaded", applyThemeToggleLabel);
+
+      // ---- Phase 5a: Keyboard shortcut cheat sheet + global shortcuts ----
+      function openShortcutCheatsheet() {
+        const overlay = document.getElementById(
+          "shortcut-cheatsheet-overlay",
+        );
+        if (!overlay) return;
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+      }
+
+      function closeShortcutCheatsheet() {
+        const overlay = document.getElementById(
+          "shortcut-cheatsheet-overlay",
+        );
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+      }
+
+      // Nav shortcut map — `g <letter>` jumps to the named page.
+      const GLOBAL_NAV_SHORTCUTS = {
+        d: "dashboard",
+        r: "receipts",
+        i: "inventory",
+        u: "upload",
+        p: "shopping",
+        b: "bills",
+        x: "expenses",
+        a: "analytics",
+        s: "settings",
+        // "g" handled separately for design gallery; see below
+      };
+
+      (function initGlobalShortcuts() {
+        if (window.__globalShortcutsInit) return;
+        window.__globalShortcutsInit = true;
+        let lastG = 0;
+        document.addEventListener("keydown", (e) => {
+          const t = e.target;
+          const tag = (t && t.tagName) || "";
+          if (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            tag === "SELECT" ||
+            (t && t.isContentEditable) ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.altKey
+          )
+            return;
+
+          if (e.key === "Escape") {
+            const openSheet = document.getElementById(
+              "shortcut-cheatsheet-overlay",
+            );
+            if (openSheet && openSheet.classList.contains("show")) {
+              closeShortcutCheatsheet();
+              e.preventDefault();
+              return;
+            }
+          }
+
+          if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+            openShortcutCheatsheet();
+            e.preventDefault();
+            return;
+          }
+
+          // `g` prefix
+          if (e.key === "g") {
+            lastG = Date.now();
+            return;
+          }
+          if (Date.now() - lastG < 800) {
+            lastG = 0;
+            if (e.key === "g") {
+              // already handled by gallery init; swallow to avoid double-open
+              return;
+            }
+            const target = GLOBAL_NAV_SHORTCUTS[e.key];
+            if (target && typeof nav === "function") {
+              const navEl = document.getElementById("nav-" + target);
+              nav(target, navEl);
+              e.preventDefault();
+            }
+          }
+        });
+      })();
 
       // ---- Design Gallery (dev-only access via #gallery or 'g g' key) ----
       const GALLERY_COLOR_KEYS = [
