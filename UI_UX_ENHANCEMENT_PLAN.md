@@ -47,6 +47,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 2 — Component Polish | 8 | Accepted | 0 |
 | Phase 3 — Interaction & Motion | 8 | Accepted | 0 |
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Bills → Log Cash / Transfer polish | 1 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Apple-style Payee picker | 2 |
 
 ---
 
@@ -198,3 +199,14 @@ User feedback: the Bills → `Log Cash / Transfer` flow needed polish. Applied a
 - **(E) Mobile density** — input min-height 52→44, section padding 22→18 (14 on mobile), modal body gap 24→18 (12 on mobile), inline buttons migrated to 44 baseline. Less wall-of-form on small screens.
 
 *Skill guideline:* "consistency over cleverness — if a new pattern exists, apply it everywhere." *Why:* the cash modal was a visual island — stronger shadows, richer colors, different typography. After this pass it belongs to the same family as every other modal while still feeling polished.
+
+### Phase 4 — Revision 2 (Apple-style Payee picker)
+
+User feedback: "Payee dropdown in Log Cash should look like Apple scroll, if entering manual should be clean." Replaced the native `<datalist>` with a custom dropdown that shares the same data source (`knownBillProviders`) and integrates with existing handlers.
+
+- **HTML** — `src/frontend/index.html:10846` removed `list="cash-provider-options"` from the Payee `<input>`; added `onfocus`, `onblur`, `onkeydown`, and ARIA combobox attributes; appended a sibling `<div id="cash-provider-picker" class="apple-picker" role="listbox">…</div>` inside `.cash-input-wrap`. The original `<datalist>` remains in DOM (unreferenced), so `renderCashProviderDatalist()` still works — makes rollback trivial.
+- **JS** — added `cashProviderPickerCandidates()`, `renderCashProviderPicker()`, `showCashProviderPicker()`, `hideCashProviderPickerSoon()`, `handleCashProviderPickerKeydown()`. The `oninput` handler now calls `handleCashProviderLookup()` **and** `renderCashProviderPicker(this.value)` so the picker filters live. Clicking an option sets the input value and fires `handleCashProviderLookup(value)` — same flow as typing the exact name, so existing selection logic (hide "new provider" fields, load service lines) works unchanged.
+- **Clean manual entry** — the picker auto-hides when: there are no matches, OR the typed text exactly matches a single provider. So typing a brand-new name ("Johnny's Tutor") silently closes the picker and leaves a clean field; the "New Provider" button remains the discoverable escape hatch (behavior unchanged).
+- **Apple aesthetic** — translucent surface (`rgba(22,26,36,0.94)` + `backdrop-filter: blur(20px) saturate(140%)`), `--radius-lg`, `--shadow-lg`, 42vh max scroll, slim 6px custom scrollbar, momentum scroll (`-webkit-overflow-scrolling: touch`), 44px rows with `--accent-soft` hover/active, provider category rendered as a small uppercase hint on the right, fade-up enter over `--duration-base`.
+- **Keyboard** — ArrowUp/Down navigates, Enter selects, Escape closes. Accessible `role="combobox"` / `role="listbox"` / `role="option"` / `aria-expanded` / `aria-controls` wiring.
+- **Mobile** — inside the bottom-sheet modal, the picker is constrained by the sheet's scroll container; momentum scrolling works natively. Hint text stays compact.

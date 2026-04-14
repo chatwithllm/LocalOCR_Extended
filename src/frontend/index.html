@@ -7454,6 +7454,106 @@
           justify-content: center;
         }
       }
+
+      /* =========================================================
+         Phase 4 revision 2 — Apple-style Payee picker.
+         Replaces the native <datalist> dropdown on the
+         Log Cash / Transfer Payee input with a custom dropdown
+         that matches the app's tokens and behaves cleanly whether
+         the user is picking from the list or typing manually.
+         ========================================================= */
+      .apple-picker {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: rgba(22, 26, 36, 0.94);
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-4px) scale(0.985);
+        transform-origin: top;
+        pointer-events: none;
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .apple-picker.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+      }
+      .apple-picker-scroll {
+        max-height: min(280px, 42vh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px;
+        scroll-padding: 6px;
+      }
+      .apple-picker-scroll::-webkit-scrollbar {
+        width: 6px;
+      }
+      .apple-picker-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .apple-picker-scroll::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: var(--radius-pill);
+      }
+      .apple-picker-item {
+        width: 100%;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: var(--fs-base);
+        font-weight: 500;
+        text-align: left;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out);
+      }
+      .apple-picker-item + .apple-picker-item {
+        margin-top: 2px;
+      }
+      .apple-picker-item:hover,
+      .apple-picker-item.active,
+      .apple-picker-item:focus-visible {
+        background: var(--accent-soft);
+        outline: none;
+      }
+      .apple-picker-item:active {
+        transform: scale(0.98);
+      }
+      .apple-picker-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+      }
+      .apple-picker-hint {
+        color: var(--text-subtle);
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        white-space: nowrap;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
     </style>
   </head>
 
@@ -11098,11 +11198,25 @@
                   <div class="cash-input-wrap">
                     <input
                       id="cash-transaction-provider-name"
-                      list="cash-provider-options"
-                      oninput="handleCashProviderLookup()"
+                      oninput="handleCashProviderLookup(); renderCashProviderPicker(this.value);"
+                      onfocus="showCashProviderPicker()"
+                      onblur="hideCashProviderPickerSoon()"
+                      onkeydown="handleCashProviderPickerKeydown(event)"
                       placeholder="Tutor, dance studio, coach"
                       autocomplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-controls="cash-provider-picker"
+                      aria-expanded="false"
                     />
+                    <div
+                      id="cash-provider-picker"
+                      class="apple-picker"
+                      role="listbox"
+                      aria-hidden="true"
+                    >
+                      <div class="apple-picker-scroll"></div>
+                    </div>
                   </div>
                   <div class="cash-inline-buttons">
                     <button
@@ -27143,6 +27257,125 @@
               `<option value="${escAttr(provider.canonical_name)}"></option>`,
           )
           .join("");
+      }
+
+      // --- Apple-style Payee picker (replaces native <datalist>) ---
+      function cashProviderPickerCandidates(filter = "") {
+        const showAll =
+          document.getElementById("cash-transaction-show-all-providers")
+            ?.checked ?? false;
+        const lower = String(filter || "").trim().toLowerCase();
+        return knownBillProviders.filter((p) => {
+          if (!showAll && (p.provider_category || "other") !== "personal_service")
+            return false;
+          if (!lower) return true;
+          return p.canonical_name.toLowerCase().includes(lower);
+        });
+      }
+
+      function renderCashProviderPicker(filter = "") {
+        const picker = document.getElementById("cash-provider-picker");
+        const input = document.getElementById("cash-transaction-provider-name");
+        if (!picker || !input) return;
+        const scroll = picker.querySelector(".apple-picker-scroll");
+        if (!scroll) return;
+        const lower = String(filter || "").trim().toLowerCase();
+        const candidates = cashProviderPickerCandidates(filter);
+        const exactMatch =
+          candidates.length === 1 &&
+          candidates[0].canonical_name.toLowerCase() === lower;
+
+        if (candidates.length === 0 || exactMatch) {
+          picker.classList.remove("show");
+          picker.setAttribute("aria-hidden", "true");
+          input.setAttribute("aria-expanded", "false");
+          scroll.innerHTML = "";
+          return;
+        }
+
+        scroll.innerHTML = candidates
+          .slice(0, 80)
+          .map(
+            (p) => `
+              <button type="button" class="apple-picker-item" role="option" data-value="${escAttr(p.canonical_name)}">
+                <span class="apple-picker-name">${escHtml(p.canonical_name)}</span>
+                <span class="apple-picker-hint">${escHtml(formatLabel(p.provider_category || "other", ""))}</span>
+              </button>
+            `,
+          )
+          .join("");
+
+        scroll.querySelectorAll(".apple-picker-item").forEach((btn) => {
+          btn.addEventListener("mousedown", (e) => e.preventDefault());
+          btn.addEventListener("click", () => {
+            const value = btn.getAttribute("data-value") || "";
+            input.value = value;
+            handleCashProviderLookup(value);
+            picker.classList.remove("show");
+            picker.setAttribute("aria-hidden", "true");
+            input.setAttribute("aria-expanded", "false");
+          });
+        });
+
+        picker.classList.add("show");
+        picker.setAttribute("aria-hidden", "false");
+        input.setAttribute("aria-expanded", "true");
+      }
+
+      function showCashProviderPicker() {
+        const input = document.getElementById("cash-transaction-provider-name");
+        renderCashProviderPicker(input?.value || "");
+      }
+
+      let cashProviderPickerHideTimer = null;
+      function hideCashProviderPickerSoon() {
+        if (cashProviderPickerHideTimer)
+          clearTimeout(cashProviderPickerHideTimer);
+        cashProviderPickerHideTimer = setTimeout(() => {
+          const picker = document.getElementById("cash-provider-picker");
+          const input = document.getElementById(
+            "cash-transaction-provider-name",
+          );
+          if (picker) {
+            picker.classList.remove("show");
+            picker.setAttribute("aria-hidden", "true");
+          }
+          if (input) input.setAttribute("aria-expanded", "false");
+        }, 150);
+      }
+
+      function handleCashProviderPickerKeydown(event) {
+        const picker = document.getElementById("cash-provider-picker");
+        if (!picker || !picker.classList.contains("show")) return;
+        const items = [...picker.querySelectorAll(".apple-picker-item")];
+        if (!items.length) return;
+        const current = picker.querySelector(".apple-picker-item.active");
+        const currentIdx = current ? items.indexOf(current) : -1;
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          const next = items[Math.min(currentIdx + 1, items.length - 1)];
+          items.forEach((it) => it.classList.remove("active"));
+          next.classList.add("active");
+          next.scrollIntoView({ block: "nearest" });
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          const prev = items[Math.max(currentIdx - 1, 0)];
+          items.forEach((it) => it.classList.remove("active"));
+          prev.classList.add("active");
+          prev.scrollIntoView({ block: "nearest" });
+        } else if (event.key === "Enter") {
+          if (current) {
+            event.preventDefault();
+            current.click();
+          }
+        } else if (event.key === "Escape") {
+          picker.classList.remove("show");
+          picker.setAttribute("aria-hidden", "true");
+          const input = document.getElementById(
+            "cash-transaction-provider-name",
+          );
+          if (input) input.setAttribute("aria-expanded", "false");
+        }
       }
 
       function openCashTransactionModal(prefill = {}) {
