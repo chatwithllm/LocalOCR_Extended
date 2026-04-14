@@ -100,7 +100,14 @@ def _looks_like_prompt_echo(result: dict) -> bool:
     return echo_hits >= 2
 
 
-def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) -> dict:
+def extract_receipt_via_ollama(
+    image_path: str,
+    mode_hint: str | None = None,
+    *,
+    model_name: str | None = None,
+    base_url: str | None = None,
+    include_meta: bool = False,
+) -> dict:
     """Extract receipt data from an image using Ollama LLaVA.
 
     Args:
@@ -112,6 +119,8 @@ def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) ->
     Raises:
         Exception: On API errors or connection failures.
     """
+    resolved_model = (model_name or OLLAMA_MODEL or "").strip()
+    resolved_base_url = (base_url or OLLAMA_ENDPOINT or "").rstrip("/")
     # Read and encode image as base64
     with open(image_path, "rb") as f:
         image_base64 = base64.b64encode(f.read()).decode("utf-8")
@@ -127,7 +136,7 @@ def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) ->
         )
 
     payload = {
-        "model": OLLAMA_MODEL,
+        "model": resolved_model,
         "prompt": prompt,
         "images": [image_base64],
         "stream": False,
@@ -137,16 +146,17 @@ def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) ->
         },
     }
 
-    logger.info(f"Sending receipt to Ollama model '{OLLAMA_MODEL}' for OCR...")
+    logger.info(f"Sending receipt to Ollama model '{resolved_model}' for OCR...")
 
     response = requests.post(
-        f"{OLLAMA_ENDPOINT}/api/generate",
+        f"{resolved_base_url}/api/generate",
         json=payload,
         timeout=int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "180")),
     )
     response.raise_for_status()
 
-    result_text = response.json().get("response", "")
+    response_payload = response.json()
+    result_text = response_payload.get("response", "")
 
     # Strip markdown code fences if present
     text = result_text.strip()
@@ -176,8 +186,29 @@ def extract_receipt_via_ollama(image_path: str, mode_hint: str | None = None) ->
         f"Ollama OCR: {result.get('store', '?')} | "
         f"${_safe_float(result.get('total', 0)):.2f} | "
         f"{len(result.get('items', []))} items | "
-        f"confidence: {_safe_float(result.get('confidence', 0)):.2f}"
+        f"confidence: {_safe_float(result.get('confidence', 0)):.2f} | "
+        f"model: {resolved_model}"
     )
+
+    if include_meta:
+        prompt_tokens = response_payload.get("prompt_eval_count")
+        output_tokens = response_payload.get("eval_count")
+        total_tokens = None
+        if prompt_tokens is not None or output_tokens is not None:
+            total_tokens = int(prompt_tokens or 0) + int(output_tokens or 0)
+        return {
+            "data": result,
+            "usage": {
+                "input_tokens": prompt_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens,
+            },
+            "finish_reason": response_payload.get("done_reason"),
+            "response_meta": {
+                "total_duration": response_payload.get("total_duration"),
+                "load_duration": response_payload.get("load_duration"),
+            },
+        }
 
     return result
 

@@ -130,7 +130,8 @@ def _is_valid_receipt_date(value: object) -> bool:
 def process_receipt(image_path: str, source: str = "upload",
                     chat_id: str = None, user_id: int = None,
                     receipt_record_id: int | None = None,
-                    receipt_type_hint: str | None = None) -> dict:
+                    receipt_type_hint: str | None = None,
+                    model_config_id: int | None = None) -> dict:
     """Process a receipt image through the hybrid OCR pipeline.
 
     Args:
@@ -150,20 +151,24 @@ def process_receipt(image_path: str, source: str = "upload",
         "data": None,
         "confidence": 0.0,
         "error": None,
+        "warnings": [],
     }
 
     ocr_data = None
     engine_used = None
+    model_used = None
     ocr_input_path = image_path
 
     try:
         ocr_input_path = _prepare_ocr_input(image_path)
         try:
-            ocr_data, engine_used = _extract_best_receipt_candidate(
+            ocr_data, engine_used, model_used, warnings = _extract_best_receipt_candidate(
                 ocr_input_path=ocr_input_path,
                 source_file_path=image_path,
                 receipt_type_hint=receipt_type_hint,
+                model_config_id=model_config_id,
             )
+            result["warnings"] = warnings or []
         except Exception as exc:
             logger.error("All OCR engines failed: %s", exc)
             result["status"] = "failed"
@@ -189,6 +194,7 @@ def process_receipt(image_path: str, source: str = "upload",
         ocr_data = _apply_receipt_type_hint(ocr_data, receipt_type_hint)
         result["data"] = ocr_data
         result["ocr_engine"] = engine_used
+        result["model_used"] = model_used
         result["confidence"] = _safe_float(ocr_data.get("confidence", 0.0))
         result["receipt_type"] = _resolve_receipt_type(ocr_data, receipt_type_hint)
 
@@ -251,32 +257,36 @@ def _extract_best_receipt_candidate(
     ocr_input_path: str,
     source_file_path: str,
     receipt_type_hint: str | None = None,
-) -> tuple[dict, str]:
+    model_config_id: int | None = None,
+) -> tuple[dict, str, str | None, list[str]]:
     """Run OCR, optionally trying multiple rotated restaurant candidates and selecting the best one."""
     mode_hint = _normalize_receipt_type_hint(receipt_type_hint)
-    ocr_data, engine_used = _run_ocr_with_fallback(
+    ocr_data, engine_used, model_used, warnings = _run_ocr_with_fallback(
         image_path=ocr_input_path,
         source_file_path=source_file_path,
         mode_hint=mode_hint,
+        model_config_id=model_config_id,
     )
 
     if not _should_run_restaurant_candidate_assist(ocr_data, mode_hint):
-        return ocr_data, engine_used
+        return ocr_data, engine_used, model_used, warnings
 
     candidate_specs = [{"label": "base", "rotation": 0, "path": ocr_input_path}]
     candidate_specs.extend(_build_rotated_restaurant_candidates(ocr_input_path))
 
     best_data = ocr_data
     best_engine = engine_used
+    best_model = model_used
     best_score = _score_restaurant_candidate(ocr_data)
     best_label = "base"
 
     for candidate in candidate_specs[1:]:
         try:
-            candidate_data, candidate_engine = _run_ocr_with_fallback(
+            candidate_data, candidate_engine, candidate_model, _candidate_warnings = _run_ocr_with_fallback(
                 image_path=candidate["path"],
                 source_file_path=source_file_path,
                 mode_hint="restaurant",
+                model_config_id=model_config_id,
             )
         except Exception as exc:
             logger.info("Restaurant OCR candidate %s failed: %s", candidate["label"], exc)
@@ -294,6 +304,7 @@ def _extract_best_receipt_candidate(
         if candidate_score > best_score:
             best_data = candidate_data
             best_engine = candidate_engine
+            best_model = candidate_model
             best_score = candidate_score
             best_label = candidate["label"]
 
@@ -307,12 +318,42 @@ def _extract_best_receipt_candidate(
     for candidate in candidate_specs[1:]:
         _cleanup_ocr_input(candidate["path"])
 
-    return best_data, best_engine
+    return best_data, best_engine, best_model, warnings
 
 
-def _run_ocr_with_fallback(image_path: str, source_file_path: str, mode_hint: str | None = None) -> tuple[dict, str]:
+def _run_ocr_with_fallback(
+    image_path: str,
+    source_file_path: str,
+    mode_hint: str | None = None,
+    model_config_id: int | None = None,
+) -> tuple[dict, str, str | None, list[str]]:
     """Run the OCR provider chain and return the first successful result."""
+    from src.backend.route_ai_inference import resolve_ai_model_selection, route_receipt_inference
+
     errors: list[str] = []
+    warnings: list[str] = []
+    session = getattr(g, "db_session", None)
+    current_user = getattr(g, "current_user", None)
+
+    if session is not None:
+        selected_model, warnings = resolve_ai_model_selection(
+            session,
+            requested_model_id=model_config_id,
+            user=current_user,
+        )
+        if selected_model:
+            routed = route_receipt_inference(
+                image_path=image_path,
+                source_file_path=source_file_path,
+                mode_hint=mode_hint,
+                model=selected_model,
+            )
+            logger.info(
+                "Selected OCR provider succeeded: %s (%s)",
+                routed["provider"],
+                routed["model_string"],
+            )
+            return routed["data"], routed["provider"], routed["model_string"], warnings
 
     try:
         from src.backend.call_gemini_vision_api import extract_receipt_via_gemini
@@ -323,7 +364,7 @@ def _run_ocr_with_fallback(image_path: str, source_file_path: str, mode_hint: st
             mode_hint=mode_hint,
         )
         logger.info("Gemini OCR succeeded.")
-        return data, "gemini"
+        return data, "gemini", None, warnings
     except Exception as exc:
         errors.append(f"Gemini: {exc}")
         logger.warning("Gemini OCR failed: %s. Falling back to OpenAI.", exc)
@@ -333,7 +374,7 @@ def _run_ocr_with_fallback(image_path: str, source_file_path: str, mode_hint: st
 
         data = extract_receipt_via_openai(image_path, mode_hint=mode_hint)
         logger.info("OpenAI OCR fallback succeeded.")
-        return data, "openai"
+        return data, "openai", None, warnings
     except Exception as exc:
         errors.append(f"OpenAI: {exc}")
         logger.warning("OpenAI OCR failed: %s. Falling back to Ollama.", exc)
@@ -343,7 +384,7 @@ def _run_ocr_with_fallback(image_path: str, source_file_path: str, mode_hint: st
 
         data = extract_receipt_via_ollama(image_path, mode_hint=mode_hint)
         logger.info("Ollama OCR fallback succeeded.")
-        return data, "ollama"
+        return data, "ollama", None, warnings
     except Exception as exc:
         errors.append(f"Ollama: {exc}")
         raise RuntimeError("; ".join(errors)) from exc

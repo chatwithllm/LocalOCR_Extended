@@ -8271,6 +8271,59 @@
             </div>
             <div
               style="
+                margin-top: 16px;
+                display: grid;
+                gap: 8px;
+              "
+            >
+              <label
+                for="upload-ai-model"
+                style="font-size: 0.85rem; color: var(--muted)"
+                >OCR Model</label
+              >
+              <div
+                style="
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 12px;
+                  align-items: center;
+                "
+              >
+                <select
+                  id="upload-ai-model"
+                  class="input"
+                  style="min-width: 280px; max-width: 100%"
+                  onchange="changeAiModelSelection(this.value)"
+                >
+                  <option value="">Default OCR fallback</option>
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  onclick="toggleAiModelBrowser()"
+                >
+                  Browse Models
+                </button>
+                <span
+                  id="upload-ai-model-meta"
+                  style="font-size: 0.82rem; color: var(--muted)"
+                  >Using server default OCR fallback.</span
+                >
+              </div>
+              <div
+                id="upload-ai-model-browser"
+                style="
+                  display: none;
+                  margin-top: 6px;
+                  padding: 14px;
+                  border: 1px solid var(--border);
+                  border-radius: 16px;
+                  background: rgba(255, 255, 255, 0.02);
+                "
+              ></div>
+            </div>
+            <div
+              style="
                 margin-top: 20px;
                 display: flex;
                 align-items: center;
@@ -9412,6 +9465,202 @@
             </div>
             <div class="table-wrap" style="margin-top: 16px">
               <div id="review-queue-body"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">🤖 AI Model Registry</span>
+              <div class="table-toolbar">
+                <button
+                  class="btn btn-ghost btn-sm"
+                  onclick="resetAdminAiModelForm()"
+                >
+                  New Model
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  onclick="loadAdminAiModels()"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div
+              id="admin-ai-models-note"
+              style="color: var(--muted); font-size: 0.84rem"
+            >
+              Only admins can manage the OCR model catalog.
+            </div>
+            <div id="admin-ai-models-panel" style="display: none; margin-top: 16px">
+              <div
+                class="card"
+                style="
+                  margin: 0 0 16px;
+                  padding: 16px;
+                  border: 1px solid rgba(124, 92, 255, 0.25);
+                  background: rgba(124, 92, 255, 0.05);
+                "
+              >
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 12px;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    margin-bottom: 14px;
+                  "
+                >
+                  <div>
+                    <div style="font-weight: 800">Model Editor</div>
+                    <div
+                      id="admin-ai-model-editor-subtitle"
+                      style="color: var(--muted); font-size: 0.84rem; margin-top: 4px"
+                    >
+                      Create a new OCR model entry or update an existing one.
+                    </div>
+                  </div>
+                  <div
+                    id="admin-ai-model-editing-pill"
+                    class="badge badge-info"
+                    style="display: none"
+                  >
+                    Editing existing model
+                  </div>
+                </div>
+                <input id="admin-ai-model-id" type="hidden" />
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Name</label>
+                    <input id="admin-ai-model-name" placeholder="Gemini Flash" />
+                  </div>
+                  <div class="form-group">
+                    <label>Provider</label>
+                    <select id="admin-ai-model-provider">
+                      <option value="gemini">Gemini</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="openrouter">OpenRouter</option>
+                      <option value="ollama">Ollama</option>
+                      <option value="anthropic">Anthropic</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Model String</label>
+                    <input
+                      id="admin-ai-model-string"
+                      placeholder="provider-native model id"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Price Tier</label>
+                    <select id="admin-ai-model-price-tier">
+                      <option value="free">Free</option>
+                      <option value="premium">Premium</option>
+                      <option value="pro">Pro</option>
+                      <option value="enterprise">Enterprise</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Credential Mode</label>
+                    <select id="admin-ai-model-credential-mode">
+                      <option value="env">Env</option>
+                      <option value="stored_key">Stored Key</option>
+                      <option value="no_key_required">No Key Required</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Base URL</label>
+                    <input id="admin-ai-model-base-url" placeholder="Optional" />
+                  </div>
+                  <div class="form-group" style="grid-column: 1 / -1">
+                    <label>Description</label>
+                    <input
+                      id="admin-ai-model-description"
+                      placeholder="Short label shown in the model picker"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Stored API Key</label>
+                    <input
+                      id="admin-ai-model-api-key"
+                      type="password"
+                      placeholder="Leave blank to keep current stored key"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Sort Order</label>
+                    <input
+                      id="admin-ai-model-sort-order"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="100"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Input $ / 1M Tokens</label>
+                    <input
+                      id="admin-ai-model-input-cost"
+                      type="number"
+                      min="0"
+                      step="0.000001"
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Output $ / 1M Tokens</label>
+                    <input
+                      id="admin-ai-model-output-cost"
+                      type="number"
+                      min="0"
+                      step="0.000001"
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 14px;
+                    flex-wrap: wrap;
+                    margin-top: 8px;
+                  "
+                >
+                  <label><input id="admin-ai-model-enabled" type="checkbox" checked /> Enabled</label>
+                  <label><input id="admin-ai-model-visible" type="checkbox" checked /> Visible</label>
+                  <label><input id="admin-ai-model-supports-vision" type="checkbox" checked /> Vision</label>
+                  <label><input id="admin-ai-model-supports-pdf" type="checkbox" /> PDF</label>
+                  <label><input id="admin-ai-model-supports-json" type="checkbox" /> JSON</label>
+                  <label><input id="admin-ai-model-supports-image" type="checkbox" checked /> Image Input</label>
+                  <label><input id="admin-ai-model-clear-key" type="checkbox" /> Clear stored key</label>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px">
+                  <button class="btn btn-primary" onclick="saveAdminAiModel()">
+                    Save Model
+                  </button>
+                  <button class="btn btn-ghost" onclick="resetAdminAiModelForm()">
+                    Clear
+                  </button>
+                </div>
+              </div>
+              <div id="admin-ai-models-body"></div>
+              <div
+                class="card"
+                style="margin: 16px 0 0; padding: 16px"
+              >
+                <div class="card-header" style="margin-bottom: 12px">
+                  <span class="card-title">📈 AI Usage</span>
+                  <div class="table-toolbar">
+                    <select id="admin-ai-usage-days" onchange="loadAdminAiUsage()">
+                      <option value="7" selected>Last 7 days</option>
+                      <option value="14">Last 14 days</option>
+                      <option value="30">Last 30 days</option>
+                    </select>
+                    <button class="btn btn-ghost btn-sm" onclick="loadAdminAiUsage()">🔄</button>
+                  </div>
+                </div>
+                <div id="admin-ai-usage-body"></div>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -10654,6 +10903,11 @@
       let shoppingSort = "name_asc";
       let receiptSort = "date_desc";
       let receiptStoreSort = "count_desc";
+      const AI_MODEL_STORAGE_KEY = "active_ai_model_config_id";
+      let availableAiModels = [];
+      let activeAiModelConfigId = Number(localStorage.getItem(AI_MODEL_STORAGE_KEY) || "") || null;
+      let adminAiModels = [];
+      let adminAiUsage = { models: [], daily: [], totals: {} };
       let receiptFiltersCollapsed =
         localStorage.getItem("receipt_filters_collapsed") !== "false";
       let analyticsSort = "period_desc";
@@ -15865,6 +16119,13 @@
             loadEnvironmentBackups();
             loadReviewQueue();
             loadSnapshotReviewQueue();
+            loadAdminAiModels();
+            loadAdminAiUsage();
+          } else {
+            adminAiModels = [];
+            adminAiUsage = { models: [], daily: [], totals: {} };
+            renderAdminAiModels();
+            renderAdminAiUsage();
           }
         }
       }
@@ -16214,6 +16475,7 @@
             banner.classList.remove("show");
             authCheckComplete = true;
             updateDemoModeUi();
+            await loadAiModels();
             maybeHandlePairingClaimResult();
             maybeHandleDeviceApprovalLink();
             return true;
@@ -16274,6 +16536,7 @@
               banner.classList.remove("show");
               authCheckComplete = true;
               updateDemoModeUi();
+              await loadAiModels();
               maybeHandlePairingClaimResult();
               maybeHandleDeviceApprovalLink();
               return true;
@@ -18130,6 +18393,9 @@
         banner.classList.remove("show");
         toast("Signed in ✅", "success");
         updateDemoModeUi();
+        await loadAiModels();
+        await loadAdminAiModels();
+        await loadAdminAiUsage();
         maybeHandleDeviceApprovalLink();
         loadDashboard();
       }
@@ -18262,6 +18528,15 @@
         if (tokenInput) tokenInput.value = "";
         saveLastPage("dashboard");
         toast("Signed out", "success");
+        availableAiModels = [];
+        activeAiModelConfigId = null;
+        adminAiModels = [];
+        adminAiUsage = { models: [], daily: [], totals: {} };
+        localStorage.removeItem(AI_MODEL_STORAGE_KEY);
+        renderAiModelSelector();
+        renderAdminAiModels();
+        renderAdminAiUsage();
+        resetAdminAiModelForm();
         checkAuth().then(() => loadDashboard());
       }
 
@@ -22412,6 +22687,7 @@
         }
         document.getElementById("upload-btn").disabled = false;
         updateUploadIntentUI();
+        renderAiModelSelector();
       }
 
       function getUploadIntentButtonLabel(intent) {
@@ -22443,6 +22719,640 @@
         updateUploadIntentUI();
       }
 
+      function getSelectedAiModelId() {
+        return Number(activeAiModelConfigId || 0) || null;
+      }
+
+      function getCurrentUploadFileInfo() {
+        const file = document.getElementById("file-input")?.files?.[0];
+        if (!file) return { hasFile: false, isPdf: false, label: "" };
+        const isPdf =
+          file.type === "application/pdf" ||
+          String(file.name || "").toLowerCase().endsWith(".pdf");
+        return { hasFile: true, isPdf, label: isPdf ? "PDF" : "Image" };
+      }
+
+      function modelMatchesCurrentUploadFile(model) {
+        const fileInfo = getCurrentUploadFileInfo();
+        if (!fileInfo.hasFile) return true;
+        if (fileInfo.isPdf) return !!model.supports_pdf;
+        return !!model.supports_image_input;
+      }
+
+      function toggleAiModelBrowser(force) {
+        const container = document.getElementById("upload-ai-model-browser");
+        if (!container) return;
+        const shouldShow =
+          typeof force === "boolean"
+            ? force
+            : container.style.display === "none" || !container.style.display;
+        container.style.display = shouldShow ? "grid" : "none";
+        if (shouldShow) renderAiModelBrowser();
+      }
+
+      function formatAiCapabilityBadges(model) {
+        const badges = [];
+        if (model.supports_vision) badges.push("Vision");
+        if (model.supports_pdf) badges.push("PDF");
+        if (model.supports_json_mode) badges.push("JSON");
+        if (model.provider) badges.push(formatLabel(model.provider, model.provider));
+        return badges;
+      }
+
+      function renderAiModelBrowser() {
+        const container = document.getElementById("upload-ai-model-browser");
+        if (!container) return;
+        const fileInfo = getCurrentUploadFileInfo();
+        if (!currentUser) {
+          container.innerHTML =
+            '<div style="color: var(--muted); font-size: 0.88rem;">Sign in to browse and unlock OCR models.</div>';
+          return;
+        }
+        if (!availableAiModels.length) {
+          container.innerHTML =
+            '<div style="color: var(--muted); font-size: 0.88rem;">No OCR models are available right now.</div>';
+          return;
+        }
+        container.innerHTML = `
+          <div style="display:grid;gap:12px">
+            ${availableAiModels
+              .map((model) => {
+                const active = Number(model.id) === Number(activeAiModelConfigId || 0);
+                const badges = formatAiCapabilityBadges(model);
+                const compatibleWithFile = modelMatchesCurrentUploadFile(model);
+                const action = active
+                  ? `<button type="button" class="btn btn-sm btn-primary" disabled>Selected</button>`
+                  : model.selectable && compatibleWithFile
+                    ? `<button type="button" class="btn btn-sm btn-primary" onclick="changeAiModelSelection(${Number(model.id)})">Use This Model</button>`
+                    : model.can_unlock
+                      ? `<button type="button" class="btn btn-sm btn-ghost" onclick="unlockAiModel(${Number(model.id)})">Unlock</button>`
+                      : `<button type="button" class="btn btn-sm btn-ghost" disabled>${!compatibleWithFile ? `No ${fileInfo.label || "File"} Support` : !model.credentials_available ? "Server Setup Needed" : "Unavailable"}</button>`;
+                return `
+                  <div style="display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,0.02)">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+                      <div style="display:grid;gap:6px">
+                        <div style="font-weight:700">${escHtml(model.name || "Model")}</div>
+                        <div style="font-size:0.84rem;color:var(--muted)">${escHtml(model.description || "Receipt OCR model")}</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                          ${badges
+                            .map(
+                              (badge) =>
+                                `<span class="person-modal-pill finalized" style="font-size:0.72rem">${escHtml(badge)}</span>`,
+                            )
+                            .join("")}
+                          <span class="person-modal-pill confirmed" style="font-size:0.72rem">${escHtml(formatLabel(model.price_tier || "free", "Free"))}</span>
+                          ${
+                            model.locked
+                              ? '<span class="person-modal-pill pending" style="font-size:0.72rem">Locked</span>'
+                              : ""
+                          }
+                          ${
+                            !compatibleWithFile && fileInfo.hasFile
+                              ? `<span class="person-modal-pill pending" style="font-size:0.72rem">No ${escHtml(fileInfo.label)} Support</span>`
+                              : ""
+                          }
+                        </div>
+                      </div>
+                      <div style="display:grid;gap:8px;justify-items:end">
+                        ${action}
+                        <div style="font-size:0.76rem;color:var(--muted)">${escHtml(model.model_string || "")}</div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
+      function renderAiModelSelector() {
+        const select = document.getElementById("upload-ai-model");
+        const meta = document.getElementById("upload-ai-model-meta");
+        if (!select || !meta) return;
+        const fileInfo = getCurrentUploadFileInfo();
+
+        const previousValue = String(activeAiModelConfigId || "");
+        const options = [`<option value="">Default OCR fallback</option>`];
+        for (const model of availableAiModels) {
+          const flags = [];
+          if (model.provider) flags.push(formatLabel(model.provider, model.provider));
+          if (model.price_tier) flags.push(formatLabel(model.price_tier, model.price_tier));
+          if (!model.credentials_available) flags.push("Not configured");
+          if (!model.unlocked) flags.push("Locked");
+          if (fileInfo.hasFile && !modelMatchesCurrentUploadFile(model)) {
+            flags.push(`No ${fileInfo.label}`);
+          }
+          const disabled =
+            !model.selectable || (fileInfo.hasFile && !modelMatchesCurrentUploadFile(model))
+              ? " disabled"
+              : "";
+          options.push(
+            `<option value="${model.id}"${disabled}>${escHtml(model.name)}${flags.length ? ` · ${escHtml(flags.join(" · "))}` : ""}</option>`,
+          );
+        }
+        select.innerHTML = options.join("");
+        select.value = previousValue;
+        if (select.value !== previousValue) {
+          select.value = "";
+          activeAiModelConfigId = null;
+          localStorage.removeItem(AI_MODEL_STORAGE_KEY);
+        }
+
+        const activeModel = availableAiModels.find(
+          (model) => Number(model.id) === Number(activeAiModelConfigId || 0),
+        );
+        if (!currentUser) {
+          select.disabled = true;
+          meta.textContent = "Sign in to choose a model.";
+        } else {
+          select.disabled = false;
+          if (activeModel) {
+            meta.textContent = `${activeModel.provider ? formatLabel(activeModel.provider, activeModel.provider) : "Model"} · ${activeModel.model_string || activeModel.name}`;
+            if (fileInfo.hasFile && !modelMatchesCurrentUploadFile(activeModel)) {
+              meta.textContent += ` · This ${fileInfo.label.toLowerCase()} is not supported by the selected model.`;
+            }
+          } else {
+            meta.textContent = fileInfo.hasFile
+              ? `Using server default OCR fallback for this ${fileInfo.label.toLowerCase()}.`
+              : "Using server default OCR fallback.";
+          }
+        }
+        renderAiModelBrowser();
+      }
+
+      async function loadAiModels() {
+        const select = document.getElementById("upload-ai-model");
+        if (!select) return;
+        if (!currentUser || isDemoMode()) {
+          availableAiModels = [];
+          activeAiModelConfigId = null;
+          localStorage.removeItem(AI_MODEL_STORAGE_KEY);
+          renderAiModelSelector();
+          return;
+        }
+        try {
+          const res = await api("/api/models");
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            availableAiModels = [];
+            renderAiModelSelector();
+            return;
+          }
+          availableAiModels = Array.isArray(payload.models) ? payload.models : [];
+          activeAiModelConfigId = Number(payload.active_model_config_id || 0) || null;
+          if (activeAiModelConfigId) {
+            localStorage.setItem(AI_MODEL_STORAGE_KEY, String(activeAiModelConfigId));
+          } else {
+            localStorage.removeItem(AI_MODEL_STORAGE_KEY);
+          }
+          renderAiModelSelector();
+        } catch (error) {
+          console.error("Failed to load AI models", error);
+          availableAiModels = [];
+          renderAiModelSelector();
+        }
+      }
+
+      async function changeAiModelSelection(value) {
+        const nextId = Number(value || 0) || null;
+        try {
+          const res = await api("/api/models/select", {
+            method: "POST",
+            body: JSON.stringify({ model_id: nextId }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not update OCR model", "error");
+            await loadAiModels();
+            return;
+          }
+          activeAiModelConfigId = Number(payload.active_model_config_id || 0) || null;
+          if (activeAiModelConfigId) {
+            localStorage.setItem(AI_MODEL_STORAGE_KEY, String(activeAiModelConfigId));
+          } else {
+            localStorage.removeItem(AI_MODEL_STORAGE_KEY);
+          }
+          renderAiModelSelector();
+          toggleAiModelBrowser(true);
+          toast(
+            activeAiModelConfigId
+              ? "OCR model updated ✅"
+              : "Using default OCR fallback ✅",
+            "success",
+          );
+        } catch (error) {
+          console.error("Failed to update OCR model", error);
+          toast("Could not update OCR model", "error");
+          await loadAiModels();
+        }
+      }
+
+      async function unlockAiModel(modelId) {
+        try {
+          const res = await api("/api/models/unlock", {
+            method: "POST",
+            body: JSON.stringify({ model_id: Number(modelId) }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not unlock model", "error");
+            return;
+          }
+          toast("Model unlocked ✅", "success");
+          await loadAiModels();
+          await changeAiModelSelection(Number(modelId));
+        } catch (error) {
+          console.error("Failed to unlock model", error);
+          toast("Could not unlock model", "error");
+        }
+      }
+
+      function resetAdminAiModelForm() {
+        const defaults = {
+          "admin-ai-model-id": "",
+          "admin-ai-model-name": "",
+          "admin-ai-model-string": "",
+          "admin-ai-model-description": "",
+          "admin-ai-model-base-url": "",
+          "admin-ai-model-api-key": "",
+          "admin-ai-model-sort-order": "100",
+          "admin-ai-model-input-cost": "",
+          "admin-ai-model-output-cost": "",
+        };
+        Object.entries(defaults).forEach(([id, value]) => {
+          const el = document.getElementById(id);
+          if (el) el.value = value;
+        });
+        const providerEl = document.getElementById("admin-ai-model-provider");
+        if (providerEl) providerEl.value = "gemini";
+        const priceTierEl = document.getElementById("admin-ai-model-price-tier");
+        if (priceTierEl) priceTierEl.value = "free";
+        const credentialModeEl = document.getElementById(
+          "admin-ai-model-credential-mode",
+        );
+        if (credentialModeEl) credentialModeEl.value = "env";
+        const checkboxes = {
+          "admin-ai-model-enabled": true,
+          "admin-ai-model-visible": true,
+          "admin-ai-model-supports-vision": true,
+          "admin-ai-model-supports-pdf": false,
+          "admin-ai-model-supports-json": false,
+          "admin-ai-model-supports-image": true,
+          "admin-ai-model-clear-key": false,
+        };
+        Object.entries(checkboxes).forEach(([id, checked]) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = checked;
+        });
+        const pill = document.getElementById("admin-ai-model-editing-pill");
+        const subtitle = document.getElementById(
+          "admin-ai-model-editor-subtitle",
+        );
+        if (pill) pill.style.display = "none";
+        if (subtitle)
+          subtitle.textContent =
+            "Create a new OCR model entry or update an existing one.";
+      }
+
+      function populateAdminAiModelForm(model) {
+        if (!model) {
+          resetAdminAiModelForm();
+          return;
+        }
+        const setValue = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.value = value ?? "";
+        };
+        setValue("admin-ai-model-id", model.id || "");
+        setValue("admin-ai-model-name", model.name || "");
+        setValue("admin-ai-model-provider", model.provider || "gemini");
+        setValue("admin-ai-model-string", model.model_string || "");
+        setValue("admin-ai-model-price-tier", model.price_tier || "free");
+        setValue(
+          "admin-ai-model-credential-mode",
+          model.credential_mode || "env",
+        );
+        setValue("admin-ai-model-base-url", model.base_url || "");
+        setValue("admin-ai-model-description", model.description || "");
+        setValue("admin-ai-model-api-key", "");
+        setValue("admin-ai-model-sort-order", String(model.sort_order ?? 100));
+        setValue("admin-ai-model-input-cost", model.input_cost_per_million ?? "");
+        setValue("admin-ai-model-output-cost", model.output_cost_per_million ?? "");
+        const checks = {
+          "admin-ai-model-enabled": !!model.is_enabled,
+          "admin-ai-model-visible": !!model.is_visible,
+          "admin-ai-model-supports-vision": !!model.supports_vision,
+          "admin-ai-model-supports-pdf": !!model.supports_pdf,
+          "admin-ai-model-supports-json": !!model.supports_json_mode,
+          "admin-ai-model-supports-image": !!model.supports_image_input,
+          "admin-ai-model-clear-key": false,
+        };
+        Object.entries(checks).forEach(([id, checked]) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = checked;
+        });
+        const pill = document.getElementById("admin-ai-model-editing-pill");
+        const subtitle = document.getElementById(
+          "admin-ai-model-editor-subtitle",
+        );
+        if (pill) pill.style.display = "";
+        if (subtitle) {
+          subtitle.textContent = model.has_stored_key
+            ? "Editing an existing model. Leave API key blank to keep the stored key."
+            : "Editing an existing model. Add a stored API key only if this model should carry its own credentials.";
+        }
+      }
+
+      function renderAdminAiModels() {
+        const body = document.getElementById("admin-ai-models-body");
+        const panel = document.getElementById("admin-ai-models-panel");
+        const note = document.getElementById("admin-ai-models-note");
+        if (!body || !panel || !note) return;
+        if (!currentUser) {
+          panel.style.display = "none";
+          note.textContent = "Sign in to manage the OCR model catalog.";
+          return;
+        }
+        if (currentUser.role !== "admin") {
+          panel.style.display = "none";
+          note.textContent = "Only admins can manage the OCR model catalog.";
+          return;
+        }
+        panel.style.display = "";
+        note.textContent =
+          "Control which OCR models are available, visible, and selectable across the household.";
+        if (!adminAiModels.length) {
+          body.innerHTML =
+            '<div class="empty-state"><p>No AI models are registered yet.</p></div>';
+          return;
+        }
+        body.innerHTML = `
+          <div style="display:grid;gap:12px">
+            ${adminAiModels
+              .map((model) => {
+                const badges = [
+                  model.provider ? formatLabel(model.provider, model.provider) : "",
+                  model.price_tier ? formatLabel(model.price_tier, model.price_tier) : "",
+                  model.credential_mode
+                    ? formatLabel(
+                        String(model.credential_mode).replaceAll("_", " "),
+                        model.credential_mode,
+                      )
+                    : "",
+                ].filter(Boolean);
+                const caps = [
+                  model.supports_vision ? "Vision" : "",
+                  model.supports_pdf ? "PDF" : "",
+                  model.supports_json_mode ? "JSON" : "",
+                  model.supports_image_input ? "Image" : "",
+                ].filter(Boolean);
+                return `
+                  <div class="card" style="margin:0;padding:14px 16px">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+                      <div style="display:grid;gap:8px;min-width:260px;flex:1">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                          <strong>${escHtml(model.name || "Model")}</strong>
+                          <span class="badge badge-${model.is_enabled ? "ok" : "low"}">${model.is_enabled ? "Enabled" : "Disabled"}</span>
+                          <span class="badge badge-${model.is_visible ? "info" : "warning"}">${model.is_visible ? "Visible" : "Hidden"}</span>
+                          ${model.has_stored_key ? '<span class="badge badge-pantry">Stored Key</span>' : ""}
+                        </div>
+                        <div style="color:var(--muted);font-size:0.84rem">${escHtml(model.description || "Receipt OCR model")}</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap">
+                          ${badges
+                            .map(
+                              (badge) =>
+                                `<span class="person-modal-pill confirmed" style="font-size:0.72rem">${escHtml(badge)}</span>`,
+                            )
+                            .join("")}
+                          ${caps
+                            .map(
+                              (badge) =>
+                                `<span class="person-modal-pill finalized" style="font-size:0.72rem">${escHtml(badge)}</span>`,
+                            )
+                            .join("")}
+                        </div>
+                        <div style="font-size:0.78rem;color:var(--muted)">
+                          ${escHtml(model.model_string || "")}
+                          ${model.base_url ? ` · ${escHtml(model.base_url)}` : ""}
+                          ${
+                            model.input_cost_per_million != null || model.output_cost_per_million != null
+                              ? ` · $${escHtml(String(model.input_cost_per_million ?? 0))}/1M in · $${escHtml(String(model.output_cost_per_million ?? 0))}/1M out`
+                              : ""
+                          }
+                        </div>
+                      </div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <button class="btn btn-sm btn-ghost" onclick="populateAdminAiModelForm(adminAiModels.find((entry) => Number(entry.id) === ${Number(model.id)}))">Edit</button>
+                        <button class="btn btn-sm ${model.is_enabled ? "btn-danger" : "btn-primary"}" onclick="quickToggleAdminAiModel(${Number(model.id)}, ${model.is_enabled ? "false" : "true"})">${model.is_enabled ? "Disable" : "Enable"}</button>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        `;
+      }
+
+      async function loadAdminAiModels() {
+        const body = document.getElementById("admin-ai-models-body");
+        if (!body) return;
+        if (!currentUser || currentUser.role !== "admin") {
+          adminAiModels = [];
+          renderAdminAiModels();
+          return;
+        }
+        try {
+          const res = await api("/api/admin/models");
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            body.innerHTML =
+              '<div class="empty-state"><p>Could not load AI models.</p></div>';
+            return;
+          }
+          adminAiModels = Array.isArray(data.models) ? data.models : [];
+          renderAdminAiModels();
+        } catch (error) {
+          console.error("Failed to load admin AI models", error);
+          body.innerHTML =
+            '<div class="empty-state"><p>Could not load AI models.</p></div>';
+        }
+      }
+
+      function renderAdminAiUsage() {
+        const body = document.getElementById("admin-ai-usage-body");
+        if (!body) return;
+        if (!currentUser || currentUser.role !== "admin") {
+          body.innerHTML =
+            '<div class="empty-state"><p>Admin access required to view AI usage.</p></div>';
+          return;
+        }
+        const models = Array.isArray(adminAiUsage.models) ? adminAiUsage.models : [];
+        const totals = adminAiUsage.totals || {};
+        if (!models.length) {
+          body.innerHTML =
+            '<div class="empty-state"><p>No AI model usage recorded yet.</p></div>';
+          return;
+        }
+        body.innerHTML = `
+          <div class="environment-backup-stat-grid" style="margin-bottom: 14px">
+            <div class="environment-backup-stat"><strong>${escHtml(String(totals.request_count || 0))}</strong><span>Requests</span></div>
+            <div class="environment-backup-stat"><strong>${escHtml(String(totals.token_count || 0))}</strong><span>Tokens</span></div>
+            <div class="environment-backup-stat"><strong>${formatMoney(Number(totals.estimated_cost_usd || 0))}</strong><span>Estimated Cost</span></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Model</th><th>Requests</th><th>Tokens</th><th>Avg Latency</th><th>Est. Cost</th><th>Last Used</th></tr>
+              </thead>
+              <tbody>
+                ${models
+                  .map(
+                    (row) => `
+                    <tr>
+                      <td>
+                        <div style="font-weight:700">${escHtml(row.name || "Model")}</div>
+                        <div style="color:var(--muted);font-size:0.78rem">${escHtml(row.provider || "")}${row.model_string ? ` · ${escHtml(row.model_string)}` : ""}</div>
+                      </td>
+                      <td>${escHtml(String(row.request_count || 0))}</td>
+                      <td>${escHtml(String(row.token_count || 0))}</td>
+                      <td>${escHtml(String(row.avg_latency_ms || 0))} ms</td>
+                      <td>${formatMoney(Number(row.estimated_cost_usd || 0))}</td>
+                      <td>${escHtml(row.last_used_at ? formatDateTime(row.last_used_at, "—") : "—")}</td>
+                    </tr>`,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      async function loadAdminAiUsage() {
+        const body = document.getElementById("admin-ai-usage-body");
+        if (!body) return;
+        if (!currentUser || currentUser.role !== "admin") {
+          adminAiUsage = { models: [], daily: [], totals: {} };
+          renderAdminAiUsage();
+          return;
+        }
+        const days =
+          document.getElementById("admin-ai-usage-days")?.value || "7";
+        try {
+          const res = await api(`/api/admin/models/usage?days=${encodeURIComponent(days)}`);
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            body.innerHTML =
+              '<div class="empty-state"><p>Could not load AI usage.</p></div>';
+            return;
+          }
+          adminAiUsage = data || { models: [], daily: [], totals: {} };
+          renderAdminAiUsage();
+        } catch (error) {
+          console.error("Failed to load AI usage", error);
+          body.innerHTML =
+            '<div class="empty-state"><p>Could not load AI usage.</p></div>';
+        }
+      }
+
+      function getAdminAiModelFormPayload() {
+        const valueOf = (id) => document.getElementById(id)?.value?.trim() || "";
+        const checkedOf = (id) => !!document.getElementById(id)?.checked;
+        return {
+          name: valueOf("admin-ai-model-name"),
+          provider: valueOf("admin-ai-model-provider"),
+          model_string: valueOf("admin-ai-model-string"),
+          description: valueOf("admin-ai-model-description") || null,
+          price_tier: valueOf("admin-ai-model-price-tier"),
+          credential_mode: valueOf("admin-ai-model-credential-mode"),
+          base_url: valueOf("admin-ai-model-base-url") || null,
+          api_key: valueOf("admin-ai-model-api-key") || null,
+          clear_stored_key: checkedOf("admin-ai-model-clear-key"),
+          sort_order: Number(valueOf("admin-ai-model-sort-order") || 100),
+          input_cost_per_million: valueOf("admin-ai-model-input-cost") || null,
+          output_cost_per_million: valueOf("admin-ai-model-output-cost") || null,
+          is_enabled: checkedOf("admin-ai-model-enabled"),
+          is_visible: checkedOf("admin-ai-model-visible"),
+          supports_vision: checkedOf("admin-ai-model-supports-vision"),
+          supports_pdf: checkedOf("admin-ai-model-supports-pdf"),
+          supports_json_mode: checkedOf("admin-ai-model-supports-json"),
+          supports_image_input: checkedOf("admin-ai-model-supports-image"),
+        };
+      }
+
+      async function saveAdminAiModel() {
+        if (!currentUser || currentUser.role !== "admin") {
+          toast("Admin access required", "error");
+          return;
+        }
+        const modelId = Number(
+          document.getElementById("admin-ai-model-id")?.value || "",
+        );
+        const payload = getAdminAiModelFormPayload();
+        if (!payload.name || !payload.provider || !payload.model_string) {
+          toast("Name, provider, and model string are required", "error");
+          return;
+        }
+        const path = modelId ? `/api/admin/models/${modelId}` : "/api/admin/models";
+        const method = modelId ? "PATCH" : "POST";
+        try {
+          const res = await api(path, {
+            method,
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not save model", "error");
+            return;
+          }
+          toast(modelId ? "AI model updated ✅" : "AI model created ✅", "success");
+          resetAdminAiModelForm();
+          await Promise.allSettled([loadAdminAiModels(), loadAiModels(), loadAdminAiUsage()]);
+        } catch (error) {
+          console.error("Failed to save admin AI model", error);
+          toast("Could not save model", "error");
+        }
+      }
+
+      async function quickToggleAdminAiModel(modelId, nextEnabled) {
+        const model = adminAiModels.find((entry) => Number(entry.id) === Number(modelId));
+        if (!model) return;
+        try {
+          const res = await api(`/api/admin/models/${modelId}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              name: model.name,
+              provider: model.provider,
+              model_string: model.model_string,
+              description: model.description,
+              price_tier: model.price_tier,
+              credential_mode: model.credential_mode,
+              base_url: model.base_url,
+              sort_order: model.sort_order,
+              input_cost_per_million: model.input_cost_per_million,
+              output_cost_per_million: model.output_cost_per_million,
+              is_enabled: !!nextEnabled,
+              is_visible: !!model.is_visible,
+              supports_vision: !!model.supports_vision,
+              supports_pdf: !!model.supports_pdf,
+              supports_json_mode: !!model.supports_json_mode,
+              supports_image_input: !!model.supports_image_input,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not update model", "error");
+            return;
+          }
+          toast(`Model ${nextEnabled ? "enabled" : "disabled"} ✅`, "success");
+          await Promise.allSettled([loadAdminAiModels(), loadAiModels(), loadAdminAiUsage()]);
+        } catch (error) {
+          console.error("Failed to toggle model", error);
+          toast("Could not update model", "error");
+        }
+      }
+
       async function uploadReceipt() {
         if (isDemoMode()) {
           toast("Sign in to upload a real receipt", "error");
@@ -22464,6 +23374,22 @@
         const form = new FormData();
         form.append("image", file);
         form.append("receipt_intent", receiptIntent);
+        const modelId = getSelectedAiModelId();
+        const selectedModel = availableAiModels.find(
+          (entry) => Number(entry.id) === Number(modelId || 0),
+        );
+        if (selectedModel && !modelMatchesCurrentUploadFile(selectedModel)) {
+          document.getElementById("upload-spinner").style.display = "none";
+          document.getElementById("upload-btn").disabled = false;
+          toast(
+            `The selected model does not support this ${getCurrentUploadFileInfo().label.toLowerCase()}. Pick a compatible model or use the default fallback.`,
+            "error",
+          );
+          return;
+        }
+        if (modelId) {
+          form.append("model_id", String(modelId));
+        }
 
         try {
           const res = await fetch(API_BASE + "/receipts/upload", {
@@ -22486,12 +23412,15 @@
               receiptIntent === "auto"
                 ? "Auto"
                 : formatLabel(receiptIntent, receiptIntent);
+            const warningText = Array.isArray(data?.warnings) && data.warnings.length
+              ? ` · ${data.warnings[0]}`
+              : "";
             const statusLabel = formatLabel(
               data.status || "processed",
               "Processed",
             );
             document.getElementById("upload-status").textContent =
-              `✅ ${statusLabel} · ${intentLabel}${store}${total}`;
+              `✅ ${statusLabel} · ${intentLabel}${store}${total}${warningText}`;
             toast(
               data.status === "review"
                 ? "Receipt saved for review ⚠️"
@@ -24406,11 +25335,19 @@
       }
 
       async function reprocessReceipt(id) {
-        const res = await api(`/receipts/${id}/reprocess`, { method: "POST" });
+        const modelId = getSelectedAiModelId();
+        const body = modelId ? { model_id: modelId } : {};
+        const res = await api(`/receipts/${id}/reprocess`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
         const payload = await res.json();
         if (!res.ok) {
           toast(payload.error || "Could not re-run OCR", "error");
           return;
+        }
+        if (Array.isArray(payload.warnings) && payload.warnings.length) {
+          toast(payload.warnings[0], "info");
         }
         toast(
           `OCR re-run complete · ${formatLabel(payload.status, "Updated")} ✅`,

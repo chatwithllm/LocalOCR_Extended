@@ -8,6 +8,7 @@ A full environment backup bundle includes:
 
 - SQLite database snapshot
 - full receipts file tree
+- full product snapshot file tree
 - env snapshot
 - manifest metadata
 - compose snapshot when available
@@ -36,8 +37,9 @@ What bootstrap does:
 2. optionally prompts for machine-specific overrides
 3. builds and starts the backend
 4. restores database and receipts from the bundle
-5. restarts the backend
-6. runs validation automatically
+5. restores product snapshots from the bundle
+6. restarts the backend
+7. runs validation automatically
 
 ### B. In-App Restore
 
@@ -153,12 +155,15 @@ When restoring from the UI:
    - users
    - purchases
    - receipt files
+   - product snapshot files
    - receipt images
 
 Important:
 
 - every UI restore creates a safety backup first
 - if the latest backup is marked as a safety backup, it was auto-created by a restore
+- local backup creation now keeps the newest 3 backup archives by default
+- increase `KEEP_BACKUP_COUNT` in env if you want to keep more than 3 locally
 
 ## 5. Post-Restore Checks
 
@@ -170,6 +175,7 @@ After any restore, confirm:
 - users count matches expectation
 - purchases count matches expectation
 - receipt rows and files look correct
+- product snapshot rows and files look correct
 - missing image count is acceptable or zero
 
 If `Environment Config` was restored, also verify:
@@ -186,6 +192,7 @@ Before declaring the target machine production-ready:
 - restore verification passes
 - app login works
 - receipt images resolve
+- product/item photos resolve
 - budget and analytics load
 - backup creation still works on the restored machine
 - DNS / reverse proxy points at the correct host
@@ -210,6 +217,7 @@ It does **not** yet support true row-level restore such as:
 ## 8. Best Practices
 
 - always keep the newest backup archive off-machine too
+- treat local retention as convenience, not disaster recovery
 - do not rely only on Docker volumes as “the backup”
 - prefer fresh backups before risky changes
 - keep LAN/domain hosts pointed at the same backend/DB only if you truly want shared state

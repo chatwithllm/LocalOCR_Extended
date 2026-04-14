@@ -148,6 +148,13 @@ Manual backup:
 docker exec localocr-extended-backend /app/scripts/backup_database_and_volumes.sh
 ```
 
+This backup now includes:
+
+- database
+- receipt files
+- product snapshot/item-photo files
+- env snapshot + manifest metadata
+
 Restore:
 
 ```bash

@@ -146,6 +146,9 @@ def extract_receipt_via_gemini(
     image_path: str,
     source_file_path: str | None = None,
     mode_hint: str | None = None,
+    api_key: str | None = None,
+    model_name: str | None = None,
+    include_meta: bool = False,
 ) -> dict:
     """Extract receipt data from an image using Google Gemini Vision API.
 
@@ -159,21 +162,29 @@ def extract_receipt_via_gemini(
         ValueError: If GEMINI_API_KEY is not configured.
         Exception: On API errors (caller should handle fallback to Ollama).
     """
-    if not GEMINI_API_KEY:
+    resolved_api_key = (api_key or GEMINI_API_KEY or "").strip()
+    resolved_model = (model_name or GEMINI_MODEL or "").strip()
+    if not resolved_api_key:
         raise ValueError("GEMINI_API_KEY not configured")
 
     # Load and compress image if needed
     image_bytes, mime_type = _load_and_compress_image(image_path)
     supplemental_text = _extract_pdf_text(source_file_path or image_path)
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=resolved_api_key)
     result = _generate_gemini_json(
         client=client,
         image_bytes=image_bytes,
         mime_type=mime_type,
         prompt=_build_prompt(RECEIPT_EXTRACTION_PROMPT, supplemental_text, mode_hint=mode_hint),
         max_output_tokens=8192,
+        model_name=resolved_model,
+        include_meta=include_meta,
     )
+    usage_payload = None
+    if include_meta:
+        usage_payload = result
+        result = usage_payload.get("data") or {}
     result = _merge_summary_fields(result, _extract_summary_from_pdf_text(supplemental_text))
 
     # Validate required fields
@@ -189,6 +200,7 @@ def extract_receipt_via_gemini(
             mime_type=mime_type,
             supplemental_text=supplemental_text,
             mode_hint=mode_hint,
+            model_name=resolved_model,
         )
         result = _merge_summary_fields(result, summary)
 
@@ -197,9 +209,12 @@ def extract_receipt_via_gemini(
         f"${_safe_float(result.get('total', 0)):.2f} | "
         f"{len(result.get('items', []))} items | "
         f"confidence: {_safe_float(result.get('confidence', 0)):.2f} | "
-        f"model: {GEMINI_MODEL}"
+        f"model: {resolved_model}"
     )
 
+    if include_meta:
+        usage_payload["data"] = result
+        return usage_payload
     return result
 
 
@@ -210,30 +225,41 @@ def extract_receipt_summary_via_gemini(
     mime_type: str | None = None,
     supplemental_text: str | None = None,
     mode_hint: str | None = None,
+    api_key: str | None = None,
+    model_name: str | None = None,
+    include_meta: bool = False,
 ) -> dict:
     """Run a focused Gemini pass for summary/header/footer fields."""
-    if not GEMINI_API_KEY:
+    resolved_api_key = (api_key or GEMINI_API_KEY or "").strip()
+    resolved_model = (model_name or GEMINI_MODEL or "").strip()
+    if not resolved_api_key:
         raise ValueError("GEMINI_API_KEY not configured")
 
     if image_bytes is None or mime_type is None:
         image_bytes, mime_type = _load_and_compress_image(image_path)
 
-    client = client or genai.Client(api_key=GEMINI_API_KEY)
+    client = client or genai.Client(api_key=resolved_api_key)
     result = _generate_gemini_json(
         client=client,
         image_bytes=image_bytes,
         mime_type=mime_type,
         prompt=_build_prompt(RECEIPT_SUMMARY_PROMPT, supplemental_text, mode_hint=mode_hint),
         max_output_tokens=1024,
+        model_name=resolved_model,
+        include_meta=include_meta,
     )
+    if include_meta:
+        payload = result
+        payload["data"].setdefault("confidence", 0.85)
+        return payload
     result.setdefault("confidence", 0.85)
     return result
 
 
-def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: str, max_output_tokens: int) -> dict:
+def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: str, max_output_tokens: int, model_name: str | None = None, include_meta: bool = False) -> dict:
     """Send a structured OCR request to Gemini and parse the JSON response."""
     response = client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=(model_name or GEMINI_MODEL),
         contents=[
             prompt,
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
@@ -245,8 +271,9 @@ def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: st
         ),
     )
 
-    if hasattr(response, "usage_metadata") and response.usage_metadata:
-        _track_api_usage(response.usage_metadata)
+    usage_metadata = getattr(response, "usage_metadata", None)
+    if usage_metadata:
+        _track_api_usage(usage_metadata)
 
     text = response.text.strip()
     if text.startswith("```"):
@@ -257,7 +284,19 @@ def _generate_gemini_json(client, image_bytes: bytes, mime_type: str, prompt: st
             text = text[4:].strip()
 
     try:
-        return json.loads(text)
+        payload = json.loads(text)
+        if include_meta:
+            return {
+                "data": payload,
+                "usage": {
+                    "input_tokens": getattr(usage_metadata, "prompt_token_count", None),
+                    "output_tokens": getattr(usage_metadata, "candidates_token_count", None),
+                    "total_tokens": getattr(usage_metadata, "total_token_count", None),
+                } if usage_metadata else None,
+                "finish_reason": None,
+                "response_meta": {},
+            }
+        return payload
     except json.JSONDecodeError as e:
         logger.error(f"Gemini returned invalid JSON: {e}\nRaw: {text[:500]}")
         raise ValueError(f"Gemini OCR returned invalid JSON: {e}")

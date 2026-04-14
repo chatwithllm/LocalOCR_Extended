@@ -172,6 +172,7 @@ def register_blueprints(app):
     from src.backend.manage_environment_ops import environment_ops_bp
     from src.backend.manage_product_snapshots import product_snapshots_bp
     from src.backend.manage_cash_transactions import cash_transactions_bp
+    from src.backend.manage_ai_models import ai_models_bp, admin_ai_models_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
@@ -186,6 +187,8 @@ def register_blueprints(app):
     app.register_blueprint(environment_ops_bp)
     app.register_blueprint(product_snapshots_bp)
     app.register_blueprint(cash_transactions_bp)
+    app.register_blueprint(ai_models_bp)
+    app.register_blueprint(admin_ai_models_bp)
 
     logger.info("All blueprints registered.")
 
