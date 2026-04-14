@@ -8210,6 +8210,422 @@
         gap: var(--space-4);
       }
 
+      /* --- Phase 3: Drop Zone ---------------------------------------
+       * Source: design/design.md §7.1.
+       */
+      .drop-zone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        min-height: 280px;
+        padding: var(--space-8) var(--space-6);
+        border: 1.5px dashed var(--color-border-strong);
+        border-radius: var(--radius-xl);
+        background: var(--color-surface-2);
+        color: var(--color-text-secondary);
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .drop-zone:hover {
+        border-color: var(--color-border-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+      }
+      .drop-zone:focus-visible {
+        outline: var(--stroke-2) solid var(--color-border-focus);
+        outline-offset: 4px;
+      }
+      .drop-zone[data-state="dragover"] {
+        border: var(--stroke-2) solid var(--color-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+      }
+      .drop-zone[data-state="invalid"] {
+        border-color: var(--color-error);
+        background: var(--color-error-soft);
+        color: var(--color-error);
+        animation: dz-shake 240ms var(--ease-in-out);
+      }
+      .drop-zone[data-state="uploading"] {
+        cursor: progress;
+        border-color: var(--color-border);
+      }
+      .drop-zone[data-state="disabled"],
+      .drop-zone[aria-disabled="true"] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .drop-zone--compact {
+        min-height: 160px;
+        padding: var(--space-6) var(--space-5);
+        border-radius: var(--radius-lg);
+      }
+      .drop-zone--batch-row {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        min-height: 72px;
+        padding: var(--space-3) var(--space-4);
+        border-style: solid;
+        gap: var(--space-3);
+      }
+      .drop-zone__icon {
+        font-size: 2rem;
+        line-height: 1;
+      }
+      .drop-zone__title {
+        font-size: var(--font-md);
+        font-weight: 600;
+        color: var(--color-text-primary);
+      }
+      .drop-zone__hint {
+        font-size: var(--font-sm);
+        color: var(--color-text-secondary);
+      }
+      .drop-zone__progress {
+        position: absolute;
+        left: var(--space-4);
+        right: var(--space-4);
+        bottom: var(--space-3);
+        height: 3px;
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+      }
+      .drop-zone__progress-bar {
+        height: 100%;
+        background: var(--color-brand);
+        border-radius: var(--radius-pill);
+        transition: width var(--duration-base) var(--ease-out);
+      }
+      @keyframes dz-shake {
+        0%, 100% { transform: translateX(0); }
+        25%      { transform: translateX(-4px); }
+        75%      { transform: translateX(4px); }
+      }
+
+      /* --- Phase 3: Scan Progress -----------------------------------
+       * Source: design/design.md §7.2.
+       */
+      .scan-progress {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-4);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+      }
+      .scan-progress__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        font-size: var(--font-sm);
+      }
+      .scan-progress__phase {
+        font-weight: 500;
+        color: var(--color-text-primary);
+      }
+      .scan-progress__meta {
+        font-size: var(--font-xs);
+        color: var(--color-text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+      .scan-progress__track {
+        position: relative;
+        height: 6px;
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+      }
+      .scan-progress__bar {
+        height: 100%;
+        background: var(--color-brand);
+        border-radius: var(--radius-pill);
+        transition: width var(--duration-fast) var(--ease-out);
+      }
+      .scan-progress[data-state="retrying"] .scan-progress__bar {
+        background: var(--color-warning);
+      }
+      .scan-progress[data-state="success"] .scan-progress__bar {
+        background: var(--color-success);
+      }
+      .scan-progress[data-state="failed"] .scan-progress__bar {
+        background: var(--color-error);
+      }
+      /* Indeterminate shimmer */
+      .scan-progress[data-variant="indeterminate"] .scan-progress__bar {
+        width: 40%;
+        animation: sp-indet var(--duration-scan-loop) ease-in-out infinite;
+      }
+      @keyframes sp-indet {
+        0%   { transform: translateX(-120%); }
+        100% { transform: translateX(250%); }
+      }
+      .scan-progress__foot {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-top: var(--space-1);
+      }
+      .scan-progress__model-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px var(--space-2);
+        font-size: var(--font-2xs);
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+      }
+      .scan-progress__model-chip::before {
+        content: "✨";
+        font-size: 0.8em;
+      }
+      .scan-progress--compact {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-3);
+      }
+      .scan-progress--compact .scan-progress__track {
+        flex: 1;
+      }
+      .scan-progress--full {
+        padding: var(--space-8) var(--space-6);
+      }
+
+      /* --- Phase 3: Confidence Ring ---------------------------------
+       * SVG primitive. Use with `<svg class="conf-ring" ...>`.
+       */
+      .conf-ring {
+        display: inline-block;
+        width: var(--conf-ring-size, 24px);
+        height: var(--conf-ring-size, 24px);
+        vertical-align: middle;
+      }
+      .conf-ring__track {
+        stroke: var(--color-surface-3);
+        fill: none;
+      }
+      .conf-ring__fill {
+        fill: none;
+        stroke: var(--color-confidence-high);
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+        transition:
+          stroke-dashoffset var(--duration-slow) var(--ease-out),
+          stroke var(--duration-base) var(--ease-out);
+      }
+      .conf-ring[data-confidence="medium"] .conf-ring__fill {
+        stroke: var(--color-confidence-medium);
+      }
+      .conf-ring[data-confidence="low"] .conf-ring__fill {
+        stroke: var(--color-confidence-low);
+      }
+      .conf-ring__label {
+        fill: var(--color-text-primary);
+        font-family: var(--font-mono);
+        font-size: 0.55em;
+        font-weight: 700;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+      .conf-ring--sm { --conf-ring-size: 18px; }
+      .conf-ring--md { --conf-ring-size: 24px; }
+      .conf-ring--lg { --conf-ring-size: 36px; }
+
+      /* --- Phase 3: Result Card -------------------------------------
+       * Source: design/design.md §7.3.
+       */
+      .result-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-1);
+        transition:
+          transform var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out);
+      }
+      .result-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-2);
+      }
+      .result-card__media {
+        position: relative;
+        aspect-ratio: 3 / 4;
+        background: var(--color-surface-2);
+        overflow: hidden;
+      }
+      .result-card__media img,
+      .result-card__media > picture > img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .result-card__media::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 48px;
+        background: linear-gradient(
+          to bottom,
+          rgba(0, 0, 0, 0),
+          rgba(0, 0, 0, 0.18)
+        );
+        pointer-events: none;
+      }
+      .result-card__overlay {
+        position: absolute;
+        top: var(--space-2);
+        left: var(--space-2);
+        right: var(--space-2);
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-2);
+        pointer-events: none;
+      }
+      .result-card__overlay > * {
+        pointer-events: auto;
+      }
+      .result-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--space-4);
+      }
+      .result-card__title {
+        font-family: var(--font-sans);
+        font-size: var(--font-md);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        line-height: 1.25;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .result-card__meta {
+        font-size: var(--font-sm);
+        color: var(--color-text-secondary);
+      }
+      .result-card__amount {
+        margin-top: var(--space-2);
+        font-family: var(--font-display);
+        font-size: var(--font-lg);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+      .result-card__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border);
+      }
+      .result-card__footer-link {
+        font-size: var(--font-sm);
+        font-weight: 600;
+        color: var(--color-brand);
+        cursor: pointer;
+      }
+      .result-card[data-state="processing"] .result-card__media {
+        animation: rc-shimmer var(--duration-scan-loop) linear infinite;
+        background: linear-gradient(
+          90deg,
+          var(--color-surface-2) 0%,
+          var(--color-surface-3) 50%,
+          var(--color-surface-2) 100%
+        );
+        background-size: 200% 100%;
+      }
+      @keyframes rc-shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      .result-card--row {
+        flex-direction: row;
+        align-items: stretch;
+      }
+      .result-card--row .result-card__media {
+        width: 72px;
+        aspect-ratio: 1 / 1;
+        flex-shrink: 0;
+      }
+      .result-card--row .result-card__body {
+        flex: 1;
+        padding: var(--space-3) var(--space-4);
+        gap: 2px;
+      }
+
+      /* --- Phase 3: Toolbar / Action Bar ----------------------------
+       * Source: design/design.md §7.6.
+       */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-2);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-2);
+      }
+      .toolbar__divider {
+        width: 1px;
+        height: 24px;
+        background: var(--color-border);
+        margin: 0 var(--space-1);
+      }
+      .toolbar--sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        width: 100%;
+        height: 56px;
+        border-radius: 0;
+        padding: var(--space-2) var(--space-4);
+        border-right: none;
+        border-left: none;
+      }
+      .toolbar--floating {
+        position: fixed;
+        right: var(--space-4);
+        bottom: var(--space-4);
+        z-index: 40;
+        box-shadow: var(--shadow-3);
+      }
+      @media (max-width: 640px) {
+        .toolbar--floating {
+          right: var(--space-3);
+          bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+        }
+      }
+      .toolbar .btn-icon.toolbar__danger-hover:hover:not(:disabled) {
+        background: var(--color-error-soft);
+        color: var(--color-error);
+      }
+
       /* --- Inputs / selects / textareas: unified states --- */
       input,
       select,
@@ -13155,6 +13571,520 @@
                   style="text-align: center; box-shadow: var(--shadow-5)"
                 >
                   Level 5
+                </div>
+              </div>
+            </section>
+
+            <!-- Drop Zone -->
+            <section class="gallery__section">
+              <div class="gallery__section-head">
+                <h2>Drop Zone</h2>
+                <p>
+                  Default, compact, and batch-row variants. Use
+                  <code>data-state</code> to switch among hover / dragover /
+                  invalid / uploading / disabled.
+                </p>
+              </div>
+              <div
+                style="display: grid; gap: var(--space-4); grid-template-columns: 1fr 1fr"
+              >
+                <div class="drop-zone" tabindex="0">
+                  <div class="drop-zone__icon">⬆</div>
+                  <div class="drop-zone__title">
+                    Drop a receipt or click to browse
+                  </div>
+                  <div class="drop-zone__hint">
+                    JPEG, PNG, HEIC, PDF · up to 10 MB
+                  </div>
+                </div>
+                <div class="drop-zone" data-state="dragover" tabindex="0">
+                  <div class="drop-zone__icon">✓</div>
+                  <div class="drop-zone__title">Release to upload</div>
+                  <div class="drop-zone__hint">3 files ready</div>
+                </div>
+                <div class="drop-zone" data-state="invalid" tabindex="0">
+                  <div class="drop-zone__icon">✕</div>
+                  <div class="drop-zone__title">File type not supported</div>
+                  <div class="drop-zone__hint">
+                    Accepts JPEG, PNG, HEIC, PDF only
+                  </div>
+                </div>
+                <div class="drop-zone" data-state="uploading" tabindex="0">
+                  <div class="drop-zone__icon">…</div>
+                  <div class="drop-zone__title">
+                    Uploading receipt-001.jpg
+                  </div>
+                  <div class="drop-zone__hint">2 of 4</div>
+                  <div class="drop-zone__progress">
+                    <div
+                      class="drop-zone__progress-bar"
+                      style="width: 64%"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Compact</div>
+                <div class="drop-zone drop-zone--compact" style="flex: 1">
+                  <div class="drop-zone__icon">⬆</div>
+                  <div class="drop-zone__hint">Replace receipt image</div>
+                </div>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Batch row</div>
+                <div
+                  class="drop-zone drop-zone--batch-row"
+                  style="flex: 1"
+                  data-state="uploading"
+                >
+                  <div class="drop-zone__icon" style="font-size: 1.2rem">
+                    📄
+                  </div>
+                  <div style="flex: 1">
+                    <div class="drop-zone__title">costco-2026-04-14.jpg</div>
+                    <div class="drop-zone__hint">2.4 MB · 64%</div>
+                  </div>
+                  <span class="badge badge--warning">Uploading</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Scan Progress -->
+            <section class="gallery__section">
+              <div class="gallery__section-head">
+                <h2>Scan Progress</h2>
+                <p>
+                  Determinate bars with a phase label and a model chip, plus
+                  an indeterminate shimmer variant.
+                </p>
+              </div>
+
+              <div class="gallery__row">
+                <div class="gallery__label">Running</div>
+                <div class="scan-progress" style="flex: 1">
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">Extracting fields</span>
+                    <span class="scan-progress__meta">Step 2 of 4 · 62%</span>
+                  </div>
+                  <div class="scan-progress__track">
+                    <div
+                      class="scan-progress__bar"
+                      style="width: 62%"
+                    ></div>
+                  </div>
+                  <div class="scan-progress__foot">
+                    <span class="scan-progress__model-chip">
+                      Gemini 2.5 Flash
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gallery__row">
+                <div class="gallery__label">Retrying</div>
+                <div
+                  class="scan-progress"
+                  data-state="retrying"
+                  style="flex: 1"
+                >
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">Retry 2 of 3</span>
+                    <span class="scan-progress__meta">Switching models</span>
+                  </div>
+                  <div class="scan-progress__track">
+                    <div
+                      class="scan-progress__bar"
+                      style="width: 20%"
+                    ></div>
+                  </div>
+                  <div class="scan-progress__foot">
+                    <span class="scan-progress__model-chip">Ollama Llava 7B</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gallery__row">
+                <div class="gallery__label">Indeterminate</div>
+                <div
+                  class="scan-progress"
+                  data-variant="indeterminate"
+                  style="flex: 1"
+                >
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">Reading image</span>
+                    <span class="scan-progress__meta">—</span>
+                  </div>
+                  <div class="scan-progress__track">
+                    <div class="scan-progress__bar"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gallery__row">
+                <div class="gallery__label">Success</div>
+                <div
+                  class="scan-progress"
+                  data-state="success"
+                  style="flex: 1"
+                >
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">
+                      ✓ Extracted 14 fields
+                    </span>
+                    <span class="scan-progress__meta">8.4s</span>
+                  </div>
+                  <div class="scan-progress__track">
+                    <div
+                      class="scan-progress__bar"
+                      style="width: 100%"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gallery__row">
+                <div class="gallery__label">Failed</div>
+                <div
+                  class="scan-progress"
+                  data-state="failed"
+                  style="flex: 1"
+                >
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">
+                      ✕ OCR failed — blurry image
+                    </span>
+                    <span class="scan-progress__meta">Retry?</span>
+                  </div>
+                  <div class="scan-progress__track">
+                    <div
+                      class="scan-progress__bar"
+                      style="width: 36%"
+                    ></div>
+                  </div>
+                  <div class="scan-progress__foot">
+                    <button class="btn btn-sm btn-ghost">Retry</button>
+                    <button class="btn btn-sm btn-link">Use different model</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Confidence Ring -->
+            <section class="gallery__section">
+              <div class="gallery__section-head">
+                <h2>Confidence Ring</h2>
+                <p>
+                  SVG ring that draws in on appear. Sizes sm / md / lg.
+                  Color tracks confidence bucket.
+                </p>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">High (0.94)</div>
+                <svg
+                  class="conf-ring conf-ring--sm"
+                  viewBox="0 0 40 40"
+                  data-confidence="high"
+                >
+                  <circle
+                    class="conf-ring__track"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                  />
+                  <circle
+                    class="conf-ring__fill"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                    stroke-dasharray="100.5"
+                    stroke-dashoffset="6.03"
+                  />
+                </svg>
+                <svg
+                  class="conf-ring conf-ring--md"
+                  viewBox="0 0 40 40"
+                  data-confidence="high"
+                >
+                  <circle
+                    class="conf-ring__track"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                  />
+                  <circle
+                    class="conf-ring__fill"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                    stroke-dasharray="100.5"
+                    stroke-dashoffset="6.03"
+                  />
+                  <text class="conf-ring__label" x="20" y="20">.94</text>
+                </svg>
+                <svg
+                  class="conf-ring conf-ring--lg"
+                  viewBox="0 0 40 40"
+                  data-confidence="high"
+                >
+                  <circle
+                    class="conf-ring__track"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                  />
+                  <circle
+                    class="conf-ring__fill"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                    stroke-dasharray="100.5"
+                    stroke-dashoffset="6.03"
+                  />
+                  <text class="conf-ring__label" x="20" y="20">.94</text>
+                </svg>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Medium (0.72)</div>
+                <svg
+                  class="conf-ring conf-ring--md"
+                  viewBox="0 0 40 40"
+                  data-confidence="medium"
+                >
+                  <circle
+                    class="conf-ring__track"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                  />
+                  <circle
+                    class="conf-ring__fill"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                    stroke-dasharray="100.5"
+                    stroke-dashoffset="28.14"
+                  />
+                  <text class="conf-ring__label" x="20" y="20">.72</text>
+                </svg>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Low (0.41)</div>
+                <svg
+                  class="conf-ring conf-ring--md"
+                  viewBox="0 0 40 40"
+                  data-confidence="low"
+                >
+                  <circle
+                    class="conf-ring__track"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                  />
+                  <circle
+                    class="conf-ring__fill"
+                    cx="20"
+                    cy="20"
+                    r="16"
+                    stroke-width="4"
+                    stroke-dasharray="100.5"
+                    stroke-dashoffset="59.29"
+                  />
+                  <text class="conf-ring__label" x="20" y="20">.41</text>
+                </svg>
+              </div>
+            </section>
+
+            <!-- Result Card -->
+            <section class="gallery__section">
+              <div class="gallery__section-head">
+                <h2>Result Card</h2>
+                <p>
+                  Image-first card with confidence badge and category pill
+                  overlays. Hover lifts.
+                </p>
+              </div>
+              <div class="gallery__card-grid">
+                <article class="result-card">
+                  <div class="result-card__media">
+                    <div
+                      style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); color: var(--color-text-muted); background: var(--color-surface-3)"
+                    >
+                      receipt-preview
+                    </div>
+                    <div class="result-card__overlay">
+                      <span class="badge badge--cat-grocery">Grocery</span>
+                      <span class="badge badge--confidence-high" data-dot>
+                        0.94
+                      </span>
+                    </div>
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">Costco Wholesale</h3>
+                    <div class="result-card__meta">
+                      Apr 14, 2026 · 18 items
+                    </div>
+                    <div class="result-card__amount">$247.83</div>
+                    <div class="result-card__footer">
+                      <span class="result-card__footer-link">
+                        Open receipt →
+                      </span>
+                      <button
+                        class="btn btn-icon btn-sm"
+                        aria-label="More"
+                      >
+                        ⋯
+                      </button>
+                    </div>
+                  </div>
+                </article>
+                <article class="result-card">
+                  <div class="result-card__media">
+                    <div
+                      style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); color: var(--color-text-muted); background: var(--color-surface-3)"
+                    >
+                      receipt-preview
+                    </div>
+                    <div class="result-card__overlay">
+                      <span class="badge badge--cat-restaurant">
+                        Restaurant
+                      </span>
+                      <span class="badge badge--confidence-medium" data-dot>
+                        0.72
+                      </span>
+                    </div>
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">India Bazar Café</h3>
+                    <div class="result-card__meta">Apr 11, 2026 · 4 items</div>
+                    <div class="result-card__amount">$64.20</div>
+                    <div class="result-card__footer">
+                      <span class="result-card__footer-link">
+                        Review fields →
+                      </span>
+                    </div>
+                  </div>
+                </article>
+                <article class="result-card" data-state="processing">
+                  <div class="result-card__media"></div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">Processing…</h3>
+                    <div class="result-card__meta">OCR in flight</div>
+                  </div>
+                </article>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Row variant</div>
+                <article
+                  class="result-card result-card--row"
+                  style="flex: 1"
+                >
+                  <div class="result-card__media">
+                    <div
+                      style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: var(--font-xs); color: var(--color-text-muted); background: var(--color-surface-3)"
+                    >
+                      thumb
+                    </div>
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">AES Indiana</h3>
+                    <div class="result-card__meta">
+                      Utility · Electricity · Apr 2026
+                    </div>
+                  </div>
+                  <div
+                    style="padding: var(--space-3); display: flex; align-items: center; gap: var(--space-2)"
+                  >
+                    <span class="badge badge--confidence-low" data-dot>
+                      0.41
+                    </span>
+                    <button class="btn btn-sm btn-ghost">Review</button>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <!-- Toolbar -->
+            <section class="gallery__section">
+              <div class="gallery__section-head">
+                <h2>Toolbar / Action Bar</h2>
+                <p>
+                  Clustered circular icon buttons. Floating anchors
+                  bottom-right; sticky-top fills the container.
+                </p>
+              </div>
+              <div class="gallery__row">
+                <div class="gallery__label">Floating</div>
+                <div class="toolbar">
+                  <button
+                    class="btn btn-icon btn-primary"
+                    aria-label="Scan"
+                    title="Scan (s)"
+                  >
+                    ⎙
+                  </button>
+                  <button class="btn btn-icon" aria-label="Crop" title="Crop">
+                    ⌗
+                  </button>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Rotate"
+                    title="Rotate"
+                  >
+                    ↻
+                  </button>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Zoom in"
+                    title="Zoom in"
+                  >
+                    ＋
+                  </button>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Zoom out"
+                    title="Zoom out"
+                  >
+                    －
+                  </button>
+                  <div class="toolbar__divider" aria-hidden="true"></div>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Copy text"
+                    title="Copy extracted text"
+                  >
+                    ⎘
+                  </button>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Export"
+                    title="Export"
+                  >
+                    ↧
+                  </button>
+                  <button
+                    class="btn btn-icon"
+                    aria-label="Retry OCR"
+                    title="Retry OCR"
+                  >
+                    ↻
+                  </button>
+                  <div class="toolbar__divider" aria-hidden="true"></div>
+                  <button
+                    class="btn btn-icon toolbar__danger-hover"
+                    aria-label="Delete"
+                    title="Delete"
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
             </section>
