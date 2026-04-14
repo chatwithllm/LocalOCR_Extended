@@ -308,6 +308,17 @@ Extended-specific runtime changes now in place:
     - Bills UI frequency display in both receipt detail and recurring-obligation cards
     - cadence-aware `Enter Bill` / `Add Now` shortcuts so non-monthly obligations prefill correctly
     - local verification that Progressive insurance can be modeled as a semiannual bill
+  - personal-service cash / transfer support is now live inside the same Bills + Budget system:
+    - canonical bill providers/service lines now also carry personal-service metadata
+    - manual payments persist in new `cash_transactions` rows plus linked lightweight `Purchase` rows
+    - Bills workspace now supports `Log Cash / Transfer`
+    - personal-service obligations now appear beside utility bills in recurring-obligation views
+    - provider detail now shows cash / transfer history for personal-service providers
+    - mistaken cash / transfer entries can now be deleted from payment history
+    - deleting the last test-only cash payment also cleans up empty personal-service provider/service-line rows
+    - future-dated cash payments no longer count as already-paid current spend
+    - cash / transfer cards now open payment history instead of routing to the receipt viewer
+    - the cash / transfer modal has been redesigned into a cleaner dark-mode, mobile-safe form
   - intentionally deferred to later phases:
     - missing / outstanding recurring-bill detection
     - canonical recurring-obligation records
@@ -390,6 +401,9 @@ This is the repo where the following should happen next:
   - added cadence-aware recurring-obligation projections for non-monthly bills
   - normalized duplicate store/provider names for AES Indiana, McDonald's variants, and India Bazar variants
   - fixed older bill receipt drill-down from Bills into Receipts
+  - added manual personal-service cash / transfer logging with linked budget compatibility
+  - added personal-service reconciliation for upcoming / overdue / missing month states
+  - added personal-service provider payment-history detail and delete support
 - a dedicated operator runbook now exists for this area:
   - [BACKUP_RESTORE_RUNBOOK.md](BACKUP_RESTORE_RUNBOOK.md)
 - trusted-device scope-specific runtime behavior:

@@ -6,7 +6,7 @@
     <title>🛒 Grocery Manager</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -34,7 +34,7 @@
       }
 
       body {
-        font-family: "Inter", sans-serif;
+        font-family: "Manrope", sans-serif;
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
@@ -1527,9 +1527,11 @@
         background: rgba(5, 8, 14, 0.72);
         z-index: 1200;
         display: none;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
         padding: 20px;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
 
       .confirm-overlay.show {
@@ -1562,6 +1564,340 @@
         justify-content: flex-end;
         gap: 10px;
         margin-top: 18px;
+      }
+
+      .cash-modal {
+        width: min(760px, calc(100vw - 40px));
+        max-height: none;
+        overflow: visible;
+        overflow-x: hidden;
+        padding: 0;
+        border-radius: 24px;
+        border: 1px solid rgba(76, 86, 112, 0.42);
+        background: linear-gradient(
+          180deg,
+          rgba(26, 31, 46, 0.98),
+          rgba(20, 24, 37, 0.99)
+        );
+        box-shadow:
+          0 28px 90px rgba(3, 6, 18, 0.62),
+          0 1px 0 rgba(255, 255, 255, 0.03) inset;
+        animation: cashModalRise 180ms ease-out;
+        margin: auto 0;
+      }
+
+      @keyframes cashModalRise {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.985);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .cash-modal-top {
+        padding: 28px 28px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .cash-modal-title {
+        font-family: "Manrope", sans-serif;
+        font-size: 1.6rem;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+        color: #f5f7ff;
+        font-weight: 800;
+      }
+
+      .cash-modal-body {
+        padding: 24px 28px 28px;
+        display: grid;
+        gap: 24px;
+        overflow-x: hidden;
+      }
+
+      .cash-section {
+        padding: 22px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow:
+          0 10px 32px rgba(2, 6, 23, 0.26),
+          0 1px 0 rgba(255, 255, 255, 0.02) inset;
+      }
+
+      .cash-section-header {
+        margin-bottom: 16px;
+      }
+
+      .cash-section-title {
+        color: #eef2ff;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .cash-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .cash-grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cash-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .cash-grid.four {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .cash-field {
+        min-width: 0;
+      }
+
+      .cash-label-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+
+      .cash-label-row label {
+        margin: 0;
+        color: #cfd6ec;
+        font-size: 0.88rem;
+        font-weight: 700;
+      }
+
+      .cash-required-mark {
+        color: #dc2626;
+        font-weight: 800;
+      }
+
+      .cash-input-wrap {
+        position: relative;
+      }
+
+      .cash-modal input:not([type="checkbox"]):not([type="file"]),
+      .cash-modal select,
+      .cash-modal textarea {
+        min-height: 52px;
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(111, 125, 160, 0.24);
+        background: rgba(10, 14, 24, 0.66);
+        color: #edf2ff;
+        padding: 13px 14px;
+        font-size: 0.97rem;
+        font-weight: 500;
+        transition:
+          border-color 0.18s ease,
+          box-shadow 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .cash-modal textarea {
+        min-height: 124px;
+        resize: vertical;
+        line-height: 1.55;
+      }
+
+      .cash-modal input::placeholder,
+      .cash-modal textarea::placeholder {
+        color: #7e89a8;
+        font-weight: 500;
+      }
+
+      .cash-modal input:not([type="checkbox"]):not([type="file"]):hover,
+      .cash-modal select:hover,
+      .cash-modal textarea:hover {
+        border-color: rgba(137, 151, 190, 0.34);
+        background: rgba(12, 17, 29, 0.84);
+      }
+
+      .cash-modal input:not([type="checkbox"]):not([type="file"]):focus,
+      .cash-modal select:focus,
+      .cash-modal textarea:focus {
+        outline: none;
+        border-color: rgba(105, 120, 255, 0.88);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.16);
+        background: rgba(12, 17, 29, 0.96);
+      }
+
+      .cash-inline-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: end;
+        min-width: 0;
+      }
+
+      .cash-inline-buttons {
+        display: inline-flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        max-width: 100%;
+      }
+
+      .cash-inline-button {
+        min-height: 52px;
+        padding: 0 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(111, 125, 160, 0.22);
+        background: rgba(255, 255, 255, 0.04);
+        color: #dfe5f8;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition:
+          transform 0.18s ease,
+          border-color 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .cash-inline-button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(124, 140, 186, 0.36);
+        background: rgba(255, 255, 255, 0.07);
+      }
+
+      .cash-detail-panel {
+        margin-top: 14px;
+        padding: 16px;
+        border-radius: 16px;
+        background: rgba(7, 11, 20, 0.44);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .cash-file-shell {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px dashed rgba(127, 142, 180, 0.34);
+        background: rgba(9, 13, 22, 0.5);
+        min-width: 0;
+      }
+
+      .cash-file-shell input[type="file"] {
+        max-width: 100%;
+        color: #c7d0e8;
+      }
+
+      .cash-file-shell input[type="file"]::file-selector-button {
+        margin-right: 12px;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: rgba(99, 102, 241, 0.22);
+        color: #e7e9ff;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.18s ease;
+      }
+
+      .cash-file-shell input[type="file"]::file-selector-button:hover {
+        background: rgba(99, 102, 241, 0.34);
+      }
+
+      .cash-modal .confirm-actions {
+        margin-top: 2px;
+        padding-top: 8px;
+      }
+
+      .cash-modal .btn {
+        min-height: 52px;
+        border-radius: 14px;
+        padding: 0 22px;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .cash-modal .btn-primary {
+        background: linear-gradient(135deg, #6b63ff, #4e8cff);
+        box-shadow: 0 14px 28px rgba(78, 140, 255, 0.26);
+      }
+
+      .cash-modal .btn-primary:hover {
+        box-shadow: 0 18px 32px rgba(78, 140, 255, 0.3);
+      }
+
+      .cash-modal .btn-ghost {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(111, 125, 160, 0.22);
+        color: #d6ddf3;
+      }
+
+      .cash-modal .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(124, 140, 186, 0.34);
+      }
+
+      @media (max-width: 1100px) {
+        .cash-grid.two,
+        .cash-grid.three,
+        .cash-grid.four {
+          grid-template-columns: 1fr;
+        }
+
+        .cash-inline-actions {
+          grid-template-columns: 1fr;
+        }
+
+        .cash-inline-buttons {
+          width: 100%;
+        }
+
+        .cash-inline-button {
+          width: 100%;
+        }
+
+        .cash-file-shell {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .confirm-overlay {
+          padding: 10px;
+        }
+
+        .cash-modal-top,
+        .cash-modal-body {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+
+        .cash-modal-top {
+          padding-top: 16px;
+          padding-bottom: 14px;
+        }
+
+        .cash-section {
+          padding: 14px;
+          border-radius: 16px;
+        }
+
+        .cash-modal-title {
+          font-size: 1.35rem;
+        }
+
+        .cash-modal .confirm-actions {
+          flex-direction: column-reverse;
+        }
+
+        .cash-modal .confirm-actions .btn {
+          width: 100%;
+        }
       }
 
       /* ---- Auth Banner ---- */
@@ -8236,6 +8572,16 @@
               >
                 ✍️ Manual Entry
               </button>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                onclick="
+                  event.stopPropagation();
+                  openCashTransactionModal();
+                "
+              >
+                💸 Log Cash / Transfer
+              </button>
             </div>
             <div class="budget-editor-body">
               <div class="budget-editor-grid">
@@ -8351,6 +8697,13 @@
                 onclick="openManualEntryModal('household_bill')"
               >
                 ＋ New Bill
+              </button>
+              <button
+                type="button"
+                class="btn btn-ghost"
+                onclick="openCashTransactionModal()"
+              >
+                💸 Log Cash / Transfer
               </button>
             </div>
           </div>
@@ -9454,6 +9807,355 @@
       </div>
     </div>
     <div
+      id="cash-transaction-overlay"
+      class="confirm-overlay"
+      aria-hidden="true"
+    >
+      <div
+        class="confirm-modal cash-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cash-transaction-title"
+      >
+        <div class="cash-modal-top">
+          <div id="cash-transaction-title" class="cash-modal-title">
+            Log Cash / Transfer
+          </div>
+        </div>
+        <div class="cash-modal-body">
+          <section class="cash-section" aria-labelledby="cash-paying-title">
+            <div class="cash-section-header">
+              <div id="cash-paying-title" class="cash-section-title">
+                Who are you paying?
+              </div>
+            </div>
+
+            <input
+              id="cash-transaction-show-all-providers"
+              type="checkbox"
+              onchange="renderCashProviderDatalist()"
+              hidden
+            />
+
+            <div class="cash-grid two">
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-provider-name"
+                    >Payee <span class="cash-required-mark">*</span></label
+                  >
+                </div>
+                <div class="cash-inline-actions">
+                  <div class="cash-input-wrap">
+                    <input
+                      id="cash-transaction-provider-name"
+                      list="cash-provider-options"
+                      oninput="handleCashProviderLookup()"
+                      placeholder="Tutor, dance studio, coach"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="cash-inline-buttons">
+                    <button
+                      type="button"
+                      class="cash-inline-button"
+                      onclick="prepareNewCashProvider()"
+                    >
+                      New Provider
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-service-line"
+                    >Service <span class="cash-required-mark">*</span></label
+                  >
+                </div>
+                <div class="cash-inline-actions">
+                  <div class="cash-input-wrap">
+                    <select
+                      id="cash-transaction-service-line"
+                      onchange="handleCashServiceLineChange()"
+                    ></select>
+                  </div>
+                  <div class="cash-inline-buttons">
+                    <button
+                      type="button"
+                      class="cash-inline-button"
+                      onclick="prepareNewCashServiceLine()"
+                    >
+                      New Service
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="cash-transaction-new-provider-fields"
+              class="cash-detail-panel"
+              style="display: none"
+            >
+              <div class="cash-section-header" style="margin-bottom: 12px">
+                <div class="cash-section-title">New provider</div>
+              </div>
+              <div class="cash-grid three">
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-provider-category"
+                      >Provider category</label
+                    >
+                  </div>
+                  <select id="cash-transaction-provider-category">
+                    <option value="personal_service">Personal Service</option>
+                    <option value="utility">Utility</option>
+                    <option value="subscription">Subscription</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-contact-method"
+                      >Preferred contact</label
+                    >
+                  </div>
+                  <select id="cash-transaction-contact-method">
+                    <option value="">Choose contact method</option>
+                    <option value="phone">Phone</option>
+                    <option value="text">Text</option>
+                    <option value="app">App</option>
+                    <option value="email">Email</option>
+                    <option value="in_person">In Person</option>
+                  </select>
+                </div>
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-payment-handle"
+                      >Payment handle</label
+                    >
+                  </div>
+                  <input
+                    id="cash-transaction-payment-handle"
+                    placeholder="@venmo, Zelle phone, PayPal email"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div
+              id="cash-transaction-new-service-fields"
+              class="cash-detail-panel"
+              style="display: none"
+            >
+              <div class="cash-section-header" style="margin-bottom: 12px">
+                <div class="cash-section-title">New service</div>
+              </div>
+              <div class="cash-grid four">
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-service-type"
+                      >Service type
+                      <span class="cash-required-mark">*</span></label
+                    >
+                  </div>
+                  <select id="cash-transaction-service-type"></select>
+                </div>
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-account-label"
+                      >Account label</label
+                    >
+                  </div>
+                  <input
+                    id="cash-transaction-account-label"
+                    placeholder="Student name, nickname, or plan label"
+                  />
+                </div>
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-expected-payment-day"
+                      >Expected day</label
+                    >
+                  </div>
+                  <input
+                    id="cash-transaction-expected-payment-day"
+                    type="number"
+                    min="1"
+                    max="28"
+                    placeholder="Example: 1"
+                  />
+                </div>
+                <div class="cash-field">
+                  <div class="cash-label-row">
+                    <label for="cash-transaction-planning-month-rule"
+                      >Planning rule</label
+                    >
+                  </div>
+                  <select id="cash-transaction-planning-month-rule">
+                    <option value="paid_date_month">Paid Date Month</option>
+                    <option value="due_date_month">Due Date Month</option>
+                    <option value="statement_month">Statement Month</option>
+                    <option value="service_end_month">Service End Month</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="cash-section" aria-labelledby="cash-payment-title">
+            <div class="cash-section-header">
+              <div id="cash-payment-title" class="cash-section-title">
+                Payment details
+              </div>
+            </div>
+
+            <div class="cash-grid two">
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-amount"
+                    >Amount <span class="cash-required-mark">*</span></label
+                  >
+                </div>
+                <input
+                  id="cash-transaction-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputmode="decimal"
+                  placeholder="125.00"
+                />
+              </div>
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-date"
+                    >Transaction Date
+                    <span class="cash-required-mark">*</span></label
+                  >
+                </div>
+                <input id="cash-transaction-date" type="date" />
+              </div>
+            </div>
+
+            <div class="cash-grid two" style="margin-top: 14px">
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-payment-method"
+                    >Payment Method
+                    <span class="cash-required-mark">*</span></label
+                  >
+                </div>
+                <select id="cash-transaction-payment-method"></select>
+              </div>
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-reference"
+                    >Transfer Reference</label
+                  >
+                </div>
+                <input
+                  id="cash-transaction-reference"
+                  placeholder="Venmo note, check number"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="cash-section" aria-labelledby="cash-context-title">
+            <div class="cash-section-header">
+              <div id="cash-context-title" class="cash-section-title">
+                Optional
+              </div>
+            </div>
+
+            <div class="cash-grid two">
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-notes">Notes</label>
+                </div>
+                <textarea
+                  id="cash-transaction-notes"
+                  rows="4"
+                  placeholder="Optional note"
+                ></textarea>
+              </div>
+              <div class="cash-field">
+                <div class="cash-label-row">
+                  <label for="cash-transaction-photo-input">Photo upload</label>
+                </div>
+                <div class="cash-file-shell">
+                  <input
+                    id="cash-transaction-photo-input"
+                    type="file"
+                    accept="image/*"
+                  />
+                  <span id="cash-transaction-photo-name" class="stat-sub"
+                    >No photo selected</span
+                  >
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <datalist id="cash-provider-options"></datalist>
+          <div class="confirm-actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              onclick="closeCashTransactionModal()"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="saveCashTransaction()"
+            >
+              Save Payment
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="bill-provider-detail-overlay"
+      class="confirm-overlay"
+      aria-hidden="true"
+    >
+      <div
+        class="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bill-provider-detail-title"
+        style="
+          width: min(720px, 100%);
+          max-height: min(90vh, 920px);
+          overflow: auto;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+          "
+        >
+          <div id="bill-provider-detail-title" class="confirm-title">
+            Provider Details
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            onclick="closeBillProviderDetail()"
+          >
+            Close
+          </button>
+        </div>
+        <div id="bill-provider-detail-body" style="margin-top: 16px"></div>
+      </div>
+    </div>
+    <div
       id="secret-qr-overlay"
       class="confirm-overlay"
       aria-hidden="true"
@@ -9891,6 +10593,31 @@
       let receiptImageObjectUrl = null;
       let currentUser = null;
       let knownBillProviders = [];
+      let selectedCashProvider = null;
+      let selectedCashServiceLine = null;
+      let cashTransactionSnapshotId = null;
+      const CASH_SERVICE_TYPE_OPTIONS = [
+        "tutoring",
+        "lessons_music",
+        "lessons_dance",
+        "lessons_sports",
+        "childcare_personal",
+        "cleaning",
+        "lawn_care",
+        "pet_care",
+        "personal_training",
+        "therapy_personal",
+        "other_personal_service",
+      ];
+      const CASH_PAYMENT_METHOD_OPTIONS = [
+        "cash",
+        "bank_transfer",
+        "check",
+        "app_transfer",
+        "autopay",
+        "card",
+        "other",
+      ];
       let currentAuthContext = { source: "anonymous", trusted_device: null };
       let bootstrapEmail = "admin@localhost";
       let appConfig = {
@@ -24444,6 +25171,592 @@
         }
       }
 
+      function renderCashPaymentMethodOptions(selected = "cash") {
+        return CASH_PAYMENT_METHOD_OPTIONS.map(
+          (value) =>
+            `<option value="${escAttr(value)}"${value === selected ? " selected" : ""}>${escHtml(formatLabel(value, value))}</option>`,
+        ).join("");
+      }
+
+      function renderCashServiceTypeOptions(selected = "") {
+        return [
+          '<option value="">— select service —</option>',
+          ...CASH_SERVICE_TYPE_OPTIONS.map(
+            (value) =>
+              `<option value="${escAttr(value)}"${value === selected ? " selected" : ""}>${escHtml(formatLabel(value, value))}</option>`,
+          ),
+        ].join("");
+      }
+
+      function renderCashProviderDatalist() {
+        const datalist = document.getElementById("cash-provider-options");
+        if (!datalist) return;
+        const showAll =
+          document.getElementById("cash-transaction-show-all-providers")
+            ?.checked ?? false;
+        const providers = knownBillProviders.filter(
+          (provider) =>
+            showAll ||
+            (provider.provider_category || "other") === "personal_service",
+        );
+        datalist.innerHTML = providers
+          .map(
+            (provider) =>
+              `<option value="${escAttr(provider.canonical_name)}"></option>`,
+          )
+          .join("");
+      }
+
+      function openCashTransactionModal(prefill = {}) {
+        const overlay = document.getElementById("cash-transaction-overlay");
+        if (!overlay) return;
+        selectedCashProvider = null;
+        selectedCashServiceLine = null;
+        cashTransactionSnapshotId = null;
+        renderCashProviderDatalist();
+        document.getElementById("cash-transaction-provider-name").value =
+          prefill.provider_name || "";
+        document.getElementById("cash-transaction-service-line").innerHTML =
+          '<option value="">Select a provider first</option>';
+        document.getElementById("cash-transaction-service-type").innerHTML =
+          renderCashServiceTypeOptions(prefill.service_type || "");
+        document.getElementById("cash-transaction-payment-method").innerHTML =
+          renderCashPaymentMethodOptions(prefill.payment_method || "cash");
+        document.getElementById("cash-transaction-provider-category").value =
+          prefill.provider_category || "personal_service";
+        document.getElementById("cash-transaction-contact-method").value =
+          prefill.preferred_contact_method || "";
+        document.getElementById("cash-transaction-payment-handle").value =
+          prefill.payment_handle || "";
+        document.getElementById("cash-transaction-account-label").value =
+          prefill.account_label || "";
+        document.getElementById("cash-transaction-expected-payment-day").value =
+          prefill.expected_payment_day || "";
+        document.getElementById("cash-transaction-planning-month-rule").value =
+          prefill.planning_month_rule || "paid_date_month";
+        document.getElementById("cash-transaction-amount").value = String(
+          Number(prefill.expected_amount || prefill.amount || 0) || "",
+        );
+        const today = new Date();
+        document.getElementById("cash-transaction-date").value =
+          prefill.transaction_date ||
+          `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        document.getElementById("cash-transaction-reference").value =
+          prefill.transfer_reference || "";
+        document.getElementById("cash-transaction-notes").value =
+          prefill.notes || "";
+        document.getElementById("cash-transaction-photo-input").value = "";
+        document.getElementById("cash-transaction-photo-name").textContent =
+          "No photo selected";
+        document.getElementById(
+          "cash-transaction-new-provider-fields",
+        ).style.display = prefill.force_new_provider ? "block" : "none";
+        document.getElementById(
+          "cash-transaction-new-service-fields",
+        ).style.display = prefill.force_new_service ? "block" : "none";
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+        overlay.onclick = (event) => {
+          if (event.target === overlay) closeCashTransactionModal();
+        };
+        document.getElementById("cash-transaction-photo-input").onchange = (
+          event,
+        ) => {
+          const file = event.target.files?.[0];
+          document.getElementById("cash-transaction-photo-name").textContent =
+            file?.name || "No photo selected";
+        };
+        if (prefill.provider_name) {
+          handleCashProviderLookup(prefill.provider_name);
+          const matchingLine =
+            selectedCashProvider?.service_lines?.find(
+              (line) =>
+                (prefill.service_line_id &&
+                  Number(line.id) === Number(prefill.service_line_id)) ||
+                (String(line.service_type || "").toLowerCase() ===
+                  String(prefill.service_type || "").toLowerCase() &&
+                  String(line.account_label || "") ===
+                    String(prefill.account_label || "")),
+            ) || null;
+          if (matchingLine) {
+            document.getElementById("cash-transaction-service-line").value =
+              String(matchingLine.id);
+            handleCashServiceLineChange();
+          }
+        }
+      }
+
+      function closeCashTransactionModal() {
+        const overlay = document.getElementById("cash-transaction-overlay");
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.onclick = null;
+      }
+
+      function prepareNewCashProvider() {
+        selectedCashProvider = null;
+        selectedCashServiceLine = null;
+        const providerInput = document.getElementById(
+          "cash-transaction-provider-name",
+        );
+        const serviceSelect = document.getElementById(
+          "cash-transaction-service-line",
+        );
+        if (providerInput) providerInput.focus();
+        if (serviceSelect) {
+          serviceSelect.innerHTML =
+            '<option value="">Create new service line</option>';
+          serviceSelect.value = "";
+        }
+        document.getElementById(
+          "cash-transaction-new-provider-fields",
+        ).style.display = "block";
+        document.getElementById(
+          "cash-transaction-new-service-fields",
+        ).style.display = "block";
+        document.getElementById("cash-transaction-provider-category").value =
+          "personal_service";
+        document.getElementById("cash-transaction-service-type").innerHTML =
+          renderCashServiceTypeOptions("");
+        document.getElementById("cash-transaction-account-label").value = "";
+        document.getElementById("cash-transaction-expected-payment-day").value =
+          "";
+        document.getElementById("cash-transaction-planning-month-rule").value =
+          "paid_date_month";
+      }
+
+      function prepareNewCashServiceLine() {
+        selectedCashServiceLine = null;
+        const serviceSelect = document.getElementById(
+          "cash-transaction-service-line",
+        );
+        if (serviceSelect) serviceSelect.value = "";
+        document.getElementById(
+          "cash-transaction-new-service-fields",
+        ).style.display = "block";
+        document.getElementById("cash-transaction-service-type").innerHTML =
+          renderCashServiceTypeOptions("");
+        document.getElementById("cash-transaction-account-label").value = "";
+        document.getElementById("cash-transaction-expected-payment-day").value =
+          "";
+        document.getElementById("cash-transaction-planning-month-rule").value =
+          "paid_date_month";
+      }
+
+      function handleCashProviderLookup(rawValue = null) {
+        const input = document.getElementById("cash-transaction-provider-name");
+        const selectedValue = String(rawValue || input?.value || "")
+          .trim()
+          .toLowerCase();
+        selectedCashProvider =
+          knownBillProviders.find(
+            (provider) =>
+              provider.canonical_name.toLowerCase() === selectedValue,
+          ) || null;
+        document.getElementById(
+          "cash-transaction-new-provider-fields",
+        ).style.display = selectedCashProvider ? "none" : "block";
+        const serviceSelect = document.getElementById(
+          "cash-transaction-service-line",
+        );
+        if (!serviceSelect) return;
+        const serviceLines = selectedCashProvider?.service_lines || [];
+        serviceSelect.innerHTML = [
+          '<option value="">Select service line</option>',
+          ...serviceLines.map(
+            (line) =>
+              `<option value="${Number(line.id)}">${escHtml(
+                [
+                  formatLabel(
+                    line.service_type,
+                    line.service_type || "Service",
+                  ),
+                  line.account_label,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              )}</option>`,
+          ),
+        ].join("");
+        selectedCashServiceLine = null;
+        if (!selectedCashProvider) {
+          document.getElementById(
+            "cash-transaction-new-service-fields",
+          ).style.display = "block";
+          document.getElementById("cash-transaction-service-type").innerHTML =
+            renderCashServiceTypeOptions("");
+          document.getElementById("cash-transaction-account-label").value = "";
+          document.getElementById(
+            "cash-transaction-expected-payment-day",
+          ).value = "";
+          document.getElementById(
+            "cash-transaction-planning-month-rule",
+          ).value = "paid_date_month";
+        }
+        if (serviceLines.length === 1) {
+          serviceSelect.value = String(serviceLines[0].id);
+          handleCashServiceLineChange();
+        }
+      }
+
+      function handleCashServiceLineChange() {
+        const select = document.getElementById("cash-transaction-service-line");
+        const lineId = Number(select?.value || 0);
+        selectedCashServiceLine =
+          selectedCashProvider?.service_lines?.find(
+            (line) => Number(line.id) === lineId,
+          ) || null;
+        document.getElementById(
+          "cash-transaction-new-service-fields",
+        ).style.display = selectedCashServiceLine ? "none" : "block";
+        if (!selectedCashServiceLine) return;
+        if (!document.getElementById("cash-transaction-amount").value) {
+          document.getElementById("cash-transaction-amount").value = String(
+            Number(selectedCashServiceLine.typical_amount_max || 0) || "",
+          );
+        }
+        document.getElementById("cash-transaction-payment-method").innerHTML =
+          renderCashPaymentMethodOptions(
+            selectedCashServiceLine.preferred_payment_method || "cash",
+          );
+        document.getElementById("cash-transaction-service-type").innerHTML =
+          renderCashServiceTypeOptions(
+            selectedCashServiceLine.service_type || "",
+          );
+        document.getElementById("cash-transaction-account-label").value =
+          selectedCashServiceLine.account_label || "";
+        document.getElementById("cash-transaction-expected-payment-day").value =
+          selectedCashServiceLine.expected_payment_day || "";
+        document.getElementById("cash-transaction-planning-month-rule").value =
+          selectedCashServiceLine.planning_month_rule || "paid_date_month";
+      }
+
+      async function uploadCashTransactionSnapshot(purchaseId) {
+        const input = document.getElementById("cash-transaction-photo-input");
+        const file = input?.files?.[0];
+        if (!file || !purchaseId) return null;
+        const form = new FormData();
+        form.append("image", file);
+        form.append("purchase_id", String(purchaseId));
+        form.append("source_context", "after_purchase");
+        try {
+          const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+            method: "POST",
+            headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
+            body: form,
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not save payment photo", "error");
+            return null;
+          }
+          return data.snapshot?.id || null;
+        } catch (error) {
+          toast("Could not save payment photo", "error");
+          return null;
+        }
+      }
+
+      async function saveCashTransaction() {
+        const providerName =
+          document
+            .getElementById("cash-transaction-provider-name")
+            ?.value?.trim() || "";
+        const amount = Number(
+          document.getElementById("cash-transaction-amount")?.value || 0,
+        );
+        const transactionDate =
+          document.getElementById("cash-transaction-date")?.value || "";
+        if (!providerName || !amount || !transactionDate) {
+          toast("Enter payee, amount, and transaction date", "error");
+          return;
+        }
+        const payload = {
+          amount,
+          transaction_date: transactionDate,
+          payment_method:
+            document.getElementById("cash-transaction-payment-method")?.value ||
+            "cash",
+          transfer_reference:
+            document
+              .getElementById("cash-transaction-reference")
+              ?.value?.trim() || "",
+          notes:
+            document.getElementById("cash-transaction-notes")?.value?.trim() ||
+            "",
+          provider: selectedCashProvider
+            ? { provider_id: selectedCashProvider.id }
+            : {
+                provider_name: providerName,
+                provider_category:
+                  document.getElementById("cash-transaction-provider-category")
+                    ?.value || "personal_service",
+                preferred_contact_method:
+                  document.getElementById("cash-transaction-contact-method")
+                    ?.value || "",
+                payment_handle:
+                  document
+                    .getElementById("cash-transaction-payment-handle")
+                    ?.value?.trim() || "",
+              },
+          service_line: selectedCashServiceLine
+            ? { service_line_id: selectedCashServiceLine.id }
+            : {
+                service_type:
+                  document.getElementById("cash-transaction-service-type")
+                    ?.value || "",
+                account_label:
+                  document
+                    .getElementById("cash-transaction-account-label")
+                    ?.value?.trim() || "",
+                expected_payment_day:
+                  document.getElementById(
+                    "cash-transaction-expected-payment-day",
+                  )?.value || "",
+                planning_month_rule:
+                  document.getElementById(
+                    "cash-transaction-planning-month-rule",
+                  )?.value || "paid_date_month",
+                preferred_payment_method:
+                  document.getElementById("cash-transaction-payment-method")
+                    ?.value || "cash",
+              },
+        };
+        const res = await api("/cash-transactions", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not save cash transaction", "error");
+          return;
+        }
+        const snapshotId = await uploadCashTransactionSnapshot(
+          data.transaction?.purchase_id,
+        );
+        if (snapshotId) cashTransactionSnapshotId = snapshotId;
+        closeCashTransactionModal();
+        toast("Cash / transfer payment saved ✅", "success");
+        await Promise.allSettled([
+          fetchBillProviders(),
+          loadBills(),
+          loadBudgetStatus(),
+          loadAnalytics(),
+          loadReceipts(),
+        ]);
+      }
+
+      async function deleteCashTransaction(transactionId, providerName = "") {
+        if (!transactionId) return;
+        const confirmed = confirm(
+          "Delete this cash / transfer payment? This cannot be undone.",
+        );
+        if (!confirmed) return;
+
+        const res = await api(`/cash-transactions/${transactionId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not delete payment", "error");
+          return;
+        }
+
+        toast("Cash / transfer payment deleted", "success");
+        await Promise.allSettled([
+          fetchBillProviders(),
+          loadBills(),
+          loadBudgetStatus(),
+          loadAnalytics(),
+          loadReceipts(),
+        ]);
+
+        if (providerName) {
+          const providerStillExists = knownBillProviders.find(
+            (row) => row.canonical_name === providerName,
+          );
+          if (providerStillExists) {
+            await openBillProviderDetail(providerName);
+          } else {
+            closeBillProviderDetail();
+          }
+        }
+      }
+
+      async function openBillProviderDetail(providerName) {
+        const provider = knownBillProviders.find(
+          (row) => row.canonical_name === providerName,
+        );
+        const overlay = document.getElementById("bill-provider-detail-overlay");
+        const body = document.getElementById("bill-provider-detail-body");
+        const title = document.getElementById("bill-provider-detail-title");
+        if (!overlay || !body || !title || !provider) return;
+        title.textContent = provider.canonical_name;
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+        overlay.onclick = (event) => {
+          if (event.target === overlay) closeBillProviderDetail();
+        };
+        const serviceLineIds = (provider.service_lines || []).map(
+          (line) => line.id,
+        );
+        const historyRequests = await Promise.all(
+          serviceLineIds.map((id) =>
+            api(`/cash-transactions?service_line_id=${encodeURIComponent(id)}`),
+          ),
+        );
+        const historyPayloads = await Promise.all(
+          historyRequests.map((response) =>
+            response.ok
+              ? response.json()
+              : Promise.resolve({ transactions: [] }),
+          ),
+        );
+        const mergedHistory = historyPayloads
+          .flatMap((payload) => payload.transactions || [])
+          .sort((left, right) =>
+            String(right.transaction_date || "").localeCompare(
+              String(left.transaction_date || ""),
+            ),
+          );
+        const contactMethod = provider.preferred_contact_method || "";
+        const paymentHandle = provider.payment_handle || "";
+        body.innerHTML = `
+          <div style="display:grid;gap:14px">
+            <div class="card" style="margin-bottom:0">
+              <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+                <div>
+                  <div style="font-weight:700">${escHtml(provider.canonical_name)}</div>
+                  <div class="stat-sub">${escHtml(formatLabel(provider.provider_category || "other", "Other"))}</div>
+                </div>
+                ${
+                  paymentHandle
+                    ? `<button type="button" class="btn btn-sm btn-ghost" onclick="copyTextToClipboard('${escAttr(paymentHandle)}', 'Payment handle copied ✅')">Copy Handle</button>`
+                    : ""
+                }
+              </div>
+              ${
+                paymentHandle
+                  ? `<div style="margin-top:12px"><div class="stat-label">${escHtml(contactMethod ? formatLabel(contactMethod, contactMethod) : "Payment Handle")}</div><div style="font-weight:600">${escHtml(paymentHandle)}</div></div>`
+                  : ""
+              }
+              ${
+                contactMethod
+                  ? `<div class="stat-sub" style="margin-top:10px">${escHtml(
+                      contactMethod === "in_person"
+                        ? "Pay in person"
+                        : `Preferred contact: ${formatLabel(contactMethod, contactMethod)}`,
+                    )}</div>`
+                  : ""
+              }
+            </div>
+            <div class="card" style="margin-bottom:0">
+              <div class="card-title" style="margin-bottom:10px">Service Lines</div>
+              ${
+                (provider.service_lines || []).length
+                  ? provider.service_lines
+                      .map(
+                        (line) => `
+                    <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+                      <div>
+                        <div style="font-weight:600">${escHtml(formatLabel(line.service_type || "service", line.service_type || "Service"))}</div>
+                        <div class="stat-sub">${escHtml(
+                          [
+                            line.account_label,
+                            line.expected_payment_day
+                              ? `Expected day ${line.expected_payment_day}`
+                              : "",
+                            line.preferred_payment_method
+                              ? formatLabel(
+                                  line.preferred_payment_method,
+                                  line.preferred_payment_method,
+                                )
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · "),
+                        )}</div>
+                      </div>
+                      <div style="text-align:right">
+                        <div style="font-weight:700">${
+                          line.typical_amount_max
+                            ? formatMoney(line.typical_amount_max)
+                            : "—"
+                        }</div>
+                        <div class="stat-sub">${
+                          line.typical_amount_min != null &&
+                          line.typical_amount_max != null &&
+                          line.typical_amount_min !== line.typical_amount_max
+                            ? `${formatMoney(line.typical_amount_min)} to ${formatMoney(line.typical_amount_max)}`
+                            : "Typical"
+                        }</div>
+                      </div>
+                    </div>
+                  `,
+                      )
+                      .join("")
+                  : '<div class="empty-state"><p>No active service lines yet.</p></div>'
+              }
+            </div>
+            <div class="card" style="margin-bottom:0">
+              <div class="card-title" style="margin-bottom:10px">Payment History</div>
+              ${
+                mergedHistory.length
+                  ? mergedHistory
+                      .slice(0, 8)
+                      .map(
+                        (entry) => `
+                    <div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);align-items:flex-start;flex-wrap:wrap">
+                      <div>
+                        <div style="font-weight:600">${escHtml(entry.transaction_date || "—")}</div>
+                        <div class="stat-sub">${escHtml(
+                          [
+                            formatLabel(
+                              entry.service_type || "service",
+                              entry.service_type || "Service",
+                            ),
+                            entry.account_label,
+                            formatLabel(
+                              entry.payment_method || "cash",
+                              entry.payment_method || "Cash",
+                            ),
+                          ]
+                            .filter(Boolean)
+                            .join(" · "),
+                        )}</div>
+                      </div>
+                      <div style="text-align:right;display:grid;gap:8px;justify-items:end">
+                        <div style="font-weight:700">${formatMoney(entry.amount || 0)}</div>
+                        <div class="stat-sub">${escHtml(entry.planning_month || "—")}</div>
+                        <button type="button" class="btn btn-sm btn-ghost" onclick="deleteCashTransaction(${Number(entry.id || 0)}, '${escAttr(provider.canonical_name)}')">Delete</button>
+                      </div>
+                    </div>
+                  `,
+                      )
+                      .join("")
+                  : '<div class="empty-state"><p>No cash / transfer history yet.</p></div>'
+              }
+            </div>
+          </div>
+        `;
+      }
+
+      function closeBillProviderDetail() {
+        const overlay = document.getElementById("bill-provider-detail-overlay");
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.onclick = null;
+      }
+
+      function copyTextToClipboard(value, successMessage = "Copied ✅") {
+        navigator.clipboard
+          ?.writeText(String(value || ""))
+          .then(() => toast(successMessage, "success"))
+          .catch(() => toast("Could not copy", "error"));
+      }
+
       // ============================================================
       // Expenses
       // ============================================================
@@ -25146,9 +26459,15 @@
             <div class="card" style="border-left: 4px solid ${obligation.status === "entered" ? "var(--success)" : obligation.status === "outstanding" ? "var(--warning)" : "var(--border)"}">
               <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
                 <div>
-                  <div style="font-weight:600; font-size:1.05rem">${escHtml(obligation.provider_name)}</div>
+                  <button type="button" class="btn btn-link" style="padding:0;font-weight:600;font-size:1.05rem" onclick="openBillProviderDetail('${escAttr(obligation.provider_name)}')">${escHtml(obligation.provider_name)}</button>
                   <div style="font-size:0.8rem; color:var(--muted)">${escHtml(
                     [
+                      obligation.provider_category
+                        ? formatLabel(
+                            obligation.provider_category,
+                            obligation.provider_category,
+                          )
+                        : "",
                       formatLabel(obligation.provider_type || "other", "Other"),
                       obligation.account_label,
                       Array.isArray(obligation.service_types) &&
@@ -25171,9 +26490,12 @@
                 ${
                   obligation.status === "entered"
                     ? `<div class="pill pill-success">Entered</div>`
-                    : obligation.status === "outstanding"
+                    : obligation.status === "outstanding" ||
+                        obligation.status === "overdue"
                       ? `<div class="pill pill-ghost">Outstanding</div>`
-                      : `<div class="pill pill-ghost">Not Due</div>`
+                      : obligation.status === "upcoming"
+                        ? `<div class="pill pill-ghost">Upcoming</div>`
+                        : `<div class="pill pill-ghost">Not Due</div>`
                 }
               </div>
 
@@ -25195,13 +26517,17 @@
                 <div style="display:flex; gap:8px; flex-wrap:wrap">
                   ${
                     obligation.purchase_id
-                      ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${obligation.purchase_id})">Open Receipt</button>`
+                      ? obligation.provider_category === "personal_service"
+                        ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(obligation.provider_name || "")}')">View Payments</button>`
+                        : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${obligation.purchase_id})">Open Receipt</button>`
                       : ""
                   }
                   ${
-                    obligation.status === "outstanding"
-                      ? `<button class="btn btn-sm btn-primary" onclick="openManualEntryModalFromEncoded('${escAttr(encodeURIComponent(JSON.stringify({ type: "household_bill", provider_name: obligation.provider_name || "", provider_type: obligation.provider_type || "", service_types: obligation.service_types || [], account_label: obligation.account_label || "", expected_amount: Number(obligation.expected_amount || 0), planning_month: obligation.selected_month || data.selectedMonth || "", due_date: obligation.last_due_date || "", billing_cycle: obligation.billing_cycle || "monthly", is_recurring: true })))}')">Enter Bill</button>`
-                      : ""
+                    obligation.provider_category === "personal_service"
+                      ? `<button class="btn btn-sm btn-primary" onclick="openCashTransactionModal({ provider_name: '${escAttr(obligation.provider_name || "")}', service_line_id: ${Number(obligation.service_line_id || 0) || "null"}, expected_amount: ${Number(obligation.expected_amount || 0)}, service_type: '${escAttr((obligation.service_types || [])[0] || obligation.provider_type || "")}', account_label: '${escAttr(obligation.account_label || "")}', force_new_service: ${obligation.service_line_id ? "false" : "true"} })">Mark Paid</button>`
+                      : obligation.status === "outstanding"
+                        ? `<button class="btn btn-sm btn-primary" onclick="openManualEntryModalFromEncoded('${escAttr(encodeURIComponent(JSON.stringify({ type: "household_bill", provider_name: obligation.provider_name || "", provider_type: obligation.provider_type || "", service_types: obligation.service_types || [], account_label: obligation.account_label || "", expected_amount: Number(obligation.expected_amount || 0), planning_month: obligation.selected_month || data.selectedMonth || "", due_date: obligation.last_due_date || "", billing_cycle: obligation.billing_cycle || "monthly", is_recurring: true })))}')">Enter Bill</button>`
+                        : ""
                   }
                 </div>
               </div>
@@ -25224,13 +26550,14 @@
             .map(
               (provider) => `
             <div class="card">
-              <div style="font-weight:600">${escHtml(provider.provider_name)}</div>
+              <button type="button" class="btn btn-link" style="padding:0;font-weight:600" onclick="openBillProviderDetail('${escAttr(provider.provider_name)}')">${escHtml(provider.provider_name)}</button>
               <div class="stat-sub" style="margin-top:4px">${escHtml(
                 (provider.service_types || [])
                   .map((type) => formatLabel(type, type))
                   .join(", ") ||
                   formatLabel(provider.provider_type || "other", "Other"),
               )}</div>
+              <div class="stat-sub">${escHtml(formatLabel(provider.provider_category || "other", "Other"))}</div>
               <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:14px">
                 <div>
                   <div class="stat-label">12-Month Total</div>
@@ -25294,6 +26621,9 @@
                     bill.billing_cycle_month
                       ? `Counts toward ${bill.billing_cycle_month}`
                       : "",
+                    bill.source_type === "cash_transaction"
+                      ? "Cash / Transfer"
+                      : "Receipt",
                     bill.due_date ? `Due ${bill.due_date}` : "",
                     formatLabel(
                       bill.budget_category || "other_recurring",
@@ -25313,7 +26643,9 @@
                 </div>
                 ${
                   bill.purchase_id
-                    ? `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${bill.purchase_id})">Open Receipt</button>`
+                    ? bill.source_type === "cash_transaction"
+                      ? `<button class="btn btn-sm btn-ghost" onclick="openBillProviderDetail('${escAttr(bill.provider_name || "")}')">View Payments</button>`
+                      : `<button class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${bill.purchase_id})">Open Receipt</button>`
                     : ""
                 }
               </div>

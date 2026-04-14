@@ -250,10 +250,12 @@ def get_budget_status():
 
     # Calculate actual spending for the month
     start_date, end_date = month_bounds(month)
+    now_dt = datetime.now(timezone.utc)
 
     purchases = session.query(Purchase).filter(
         Purchase.date >= start_date,
         Purchase.date < end_date,
+        Purchase.date <= now_dt,
         Purchase.domain == domain,
     ).all()
 
@@ -290,9 +292,11 @@ def get_budget_status():
 
 def _compute_budget_rollups(session, month):
     start_date, end_date = month_bounds(month)
+    now_dt = datetime.now(timezone.utc)
     purchases = session.query(Purchase).filter(
         Purchase.date >= start_date,
         Purchase.date < end_date,
+        Purchase.date <= now_dt,
     ).all()
     store_ids = {purchase.store_id for purchase in purchases if getattr(purchase, "store_id", None)}
     stores_by_id = {}

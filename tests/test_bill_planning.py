@@ -1,4 +1,9 @@
-from src.backend.bill_planning import derive_planning_month
+from types import SimpleNamespace
+
+from src.backend.bill_planning import (
+    derive_planning_month,
+    derive_planning_month_for_cash_transaction,
+)
 
 
 def test_derive_from_due_date_month():
@@ -53,3 +58,23 @@ def test_edge_case_invalid_dates():
         receipt_date="invalid-date",
         billing_cycle_month="invalid-month",
     ) is None
+
+
+def test_cash_transaction_derive_from_paid_date_month():
+    service_line = SimpleNamespace(planning_month_rule="paid_date_month", expected_payment_day=None)
+    assert derive_planning_month_for_cash_transaction("2026-04-10", service_line) == "2026-04"
+
+
+def test_cash_transaction_derive_from_due_date_month():
+    service_line = SimpleNamespace(planning_month_rule="due_date_month", expected_payment_day=1)
+    assert derive_planning_month_for_cash_transaction("2026-04-10", service_line) == "2026-04"
+
+
+def test_cash_transaction_derive_fallback_to_transaction_month():
+    service_line = SimpleNamespace(planning_month_rule=None, expected_payment_day=None)
+    assert derive_planning_month_for_cash_transaction("2026-04-10", service_line) == "2026-04"
+
+
+def test_cash_transaction_cross_month_advances_for_first_of_month_services():
+    service_line = SimpleNamespace(planning_month_rule="due_date_month", expected_payment_day=1)
+    assert derive_planning_month_for_cash_transaction("2026-02-28", service_line) == "2026-03"
