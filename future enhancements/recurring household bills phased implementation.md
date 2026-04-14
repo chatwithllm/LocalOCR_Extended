@@ -258,6 +258,33 @@ Additional operator fixes completed alongside these phases:
 - `Receipts By Store` cards are clickable and open filtered Receipts results
 - Bills-to-Receipts jump-through now bypasses the default last-60-days receipt filter once, so older bills like `2026-01-19` Progressive can still open from the Bills workspace
 
+## 6. Personal-Service Cash / Transfer Track
+
+This implementation branch also moved beyond receipt-only household obligations and now supports recurring personal-service payments inside the same Bills + Budget surfaces.
+
+Completed in the current implementation pass:
+- added personal-service metadata on canonical bill providers and service lines
+- added `cash_transactions` as the manual-payment persistence layer
+- linked each saved cash / transfer payment to a lightweight `Purchase` for budget/reporting compatibility
+- added planning-month derivation for manual cash / transfer entries
+- extended recurring-obligation generation to include personal-service lines
+- added month-state reconciliation for personal-service obligations:
+  - upcoming
+  - overdue
+  - missing
+  - paid
+- added Bills entry points for:
+  - `Log Cash / Transfer`
+  - `Mark Paid` on personal-service obligations
+- added provider payment-history detail for personal-service providers
+- added delete support for mistaken manual cash / transfer entries
+
+Important implementation notes:
+- future-dated manual payments are now treated as upcoming instead of immediately counting as paid
+- personal-service cash rows now route to payment history rather than the receipt viewer
+- deleting the last orphaned test payment also removes the now-empty provider/service-line records when they are not linked to real bill metadata
+- the cash / transfer modal has been restyled into a darker, cleaner, mobile-safer form to match the app shell
+
 ### Explicitly not in scope now
 
 - forecasting

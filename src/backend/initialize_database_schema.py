@@ -253,6 +253,9 @@ class BillProvider(Base):
     canonical_name = Column(String(255), nullable=False)
     normalized_key = Column(String(255), nullable=False, unique=True)
     provider_type_hint = Column(String(60), nullable=True)
+    provider_category = Column(String(30), nullable=False, default="other")
+    preferred_contact_method = Column(String(20), nullable=True)
+    payment_handle = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
@@ -275,6 +278,11 @@ class BillServiceLine(Base):
     provider_id = Column(Integer, ForeignKey("bill_providers.id"), nullable=False)
     service_type = Column(String(60), nullable=True)
     account_label = Column(String(120), nullable=True)
+    preferred_payment_method = Column(String(20), nullable=True)
+    expected_payment_day = Column(Integer, nullable=True)
+    planning_month_rule = Column(String(30), nullable=True)
+    typical_amount_min = Column(Float, nullable=True)
+    typical_amount_max = Column(Float, nullable=True)
     normalized_key = Column(String(255), nullable=False, unique=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=utcnow)
@@ -287,6 +295,36 @@ class BillServiceLine(Base):
 
     provider = relationship("BillProvider", back_populates="service_lines")
     bill_meta_records = relationship("BillMeta", back_populates="service_line")
+
+
+class CashTransaction(Base):
+    __tablename__ = "cash_transactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False, unique=True)
+    service_line_id = Column(Integer, ForeignKey("bill_service_lines.id"), nullable=False)
+    planning_month = Column(String(7), nullable=False)
+    transaction_date = Column(Date, nullable=False)
+    amount = Column(Float, nullable=False)
+    payment_method = Column(String(20), nullable=False, default="cash")
+    transfer_reference = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    snapshot_id = Column(Integer, ForeignKey("product_snapshots.id"), nullable=True)
+    status = Column(String(20), nullable=False, default="paid")
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_cash_transactions_service_line_id", "service_line_id"),
+        Index("ix_cash_transactions_planning_month", "planning_month"),
+        Index("ix_cash_transactions_transaction_date", "transaction_date"),
+    )
+
+    purchase = relationship("Purchase", backref="cash_transaction_record", uselist=False)
+    service_line = relationship("BillServiceLine")
+    snapshot = relationship("ProductSnapshot")
+    created_by = relationship("User")
 
 
 class BillAllocation(Base):
@@ -794,6 +832,9 @@ def _ensure_runtime_columns(engine):
                     canonical_name VARCHAR(255) NOT NULL,
                     normalized_key VARCHAR(255) NOT NULL UNIQUE,
                     provider_type_hint VARCHAR(60),
+                    provider_category VARCHAR(30) NOT NULL DEFAULT 'other',
+                    preferred_contact_method VARCHAR(20),
+                    payment_handle VARCHAR(255),
                     is_active BOOLEAN NOT NULL DEFAULT 1,
                     created_at DATETIME,
                     updated_at DATETIME
@@ -806,12 +847,68 @@ def _ensure_runtime_columns(engine):
                     provider_id INTEGER NOT NULL REFERENCES bill_providers(id),
                     service_type VARCHAR(60),
                     account_label VARCHAR(120),
+                    preferred_payment_method VARCHAR(20),
+                    expected_payment_day INTEGER,
+                    planning_month_rule VARCHAR(30),
+                    typical_amount_min FLOAT,
+                    typical_amount_max FLOAT,
                     normalized_key VARCHAR(255) NOT NULL UNIQUE,
                     is_active BOOLEAN NOT NULL DEFAULT 1,
                     created_at DATETIME,
                     updated_at DATETIME
                 )
             """))
+        bill_provider_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(bill_providers)"))
+        } if "bill_providers" in existing_tables else {
+            "id",
+            "canonical_name",
+            "normalized_key",
+            "provider_type_hint",
+            "provider_category",
+            "preferred_contact_method",
+            "payment_handle",
+            "is_active",
+            "created_at",
+            "updated_at",
+        }
+        if "provider_category" not in bill_provider_columns:
+            conn.execute(text("ALTER TABLE bill_providers ADD COLUMN provider_category VARCHAR(30) NOT NULL DEFAULT 'other'"))
+        if "preferred_contact_method" not in bill_provider_columns:
+            conn.execute(text("ALTER TABLE bill_providers ADD COLUMN preferred_contact_method VARCHAR(20)"))
+        if "payment_handle" not in bill_provider_columns:
+            conn.execute(text("ALTER TABLE bill_providers ADD COLUMN payment_handle VARCHAR(255)"))
+
+        bill_service_line_columns = {
+            row[1]
+            for row in conn.execute(text("PRAGMA table_info(bill_service_lines)"))
+        } if "bill_service_lines" in existing_tables else {
+            "id",
+            "provider_id",
+            "service_type",
+            "account_label",
+            "preferred_payment_method",
+            "expected_payment_day",
+            "planning_month_rule",
+            "typical_amount_min",
+            "typical_amount_max",
+            "normalized_key",
+            "is_active",
+            "created_at",
+            "updated_at",
+        }
+        if "preferred_payment_method" not in bill_service_line_columns:
+            conn.execute(text("ALTER TABLE bill_service_lines ADD COLUMN preferred_payment_method VARCHAR(20)"))
+        if "expected_payment_day" not in bill_service_line_columns:
+            conn.execute(text("ALTER TABLE bill_service_lines ADD COLUMN expected_payment_day INTEGER"))
+        if "planning_month_rule" not in bill_service_line_columns:
+            conn.execute(text("ALTER TABLE bill_service_lines ADD COLUMN planning_month_rule VARCHAR(30)"))
+        if "typical_amount_min" not in bill_service_line_columns:
+            conn.execute(text("ALTER TABLE bill_service_lines ADD COLUMN typical_amount_min FLOAT"))
+        if "typical_amount_max" not in bill_service_line_columns:
+            conn.execute(text("ALTER TABLE bill_service_lines ADD COLUMN typical_amount_max FLOAT"))
+
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_bill_providers_normalized_key ON bill_providers (normalized_key)"
         ))
@@ -879,6 +976,64 @@ def _ensure_runtime_columns(engine):
             )
             WHERE service_line_id IS NULL
               AND provider_id IS NOT NULL
+        """))
+        conn.execute(text("""
+            UPDATE bill_providers
+            SET provider_category = CASE
+                WHEN LOWER(COALESCE(provider_type_hint, '')) IN ('internet', 'electricity', 'gas', 'water', 'trash', 'utility', 'utilities', 'insurance', 'housing')
+                    THEN 'utility'
+                WHEN LOWER(COALESCE(provider_type_hint, '')) IN ('subscription', 'streaming', 'phone')
+                    THEN 'subscription'
+                ELSE COALESCE(NULLIF(provider_category, ''), 'other')
+            END
+        """))
+
+        if "cash_transactions" not in existing_tables:
+            conn.execute(text("""
+                CREATE TABLE cash_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    purchase_id INTEGER NOT NULL UNIQUE REFERENCES purchases(id),
+                    service_line_id INTEGER NOT NULL REFERENCES bill_service_lines(id),
+                    planning_month VARCHAR(7) NOT NULL,
+                    transaction_date DATE NOT NULL,
+                    amount FLOAT NOT NULL,
+                    payment_method VARCHAR(20) NOT NULL DEFAULT 'cash',
+                    transfer_reference VARCHAR(255),
+                    notes TEXT,
+                    snapshot_id INTEGER REFERENCES product_snapshots(id),
+                    status VARCHAR(20) NOT NULL DEFAULT 'paid',
+                    created_by_id INTEGER REFERENCES users(id),
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_cash_transactions_service_line_id ON cash_transactions (service_line_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_cash_transactions_planning_month ON cash_transactions (planning_month)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_cash_transactions_transaction_date ON cash_transactions (transaction_date)"
+        ))
+        conn.execute(text("""
+            UPDATE cash_transactions
+            SET status = 'upcoming',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'paid'
+              AND DATE(transaction_date) > DATE('now')
+        """))
+        conn.execute(text("""
+            UPDATE bill_service_lines
+            SET planning_month_rule = 'paid_date_month',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE provider_id IN (
+                SELECT id
+                FROM bill_providers
+                WHERE provider_category = 'personal_service'
+            )
+              AND COALESCE(expected_payment_day, 0) = 0
+              AND COALESCE(NULLIF(TRIM(planning_month_rule), ''), 'due_date_month') = 'due_date_month'
         """))
 
         receipt_item_columns = {

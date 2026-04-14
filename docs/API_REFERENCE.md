@@ -125,6 +125,71 @@ Approves a review receipt using either the stored OCR payload or an edited paylo
 
 ---
 
+### Cash / Transfer Payments
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/cash-transactions` | Session or Bearer token with write access | Create a manual cash / transfer payment linked into Bills and Budget |
+| GET | `/cash-transactions` | Session or Bearer token | List cash / transfer payments, optionally filtered by service line or month |
+| DELETE | `/cash-transactions/{id}` | Session or Bearer token with write access | Delete a mistaken cash / transfer payment and clean up linked records when empty |
+
+#### POST `/cash-transactions`
+
+Create a manual personal-service payment without going through receipt OCR.
+
+```json
+{
+  "amount": 100.0,
+  "transaction_date": "2026-04-21",
+  "payment_method": "cash",
+  "transfer_reference": "",
+  "notes": "April tutor payment",
+  "provider": {
+    "provider_name": "Smoke Test Tutor",
+    "provider_category": "personal_service"
+  },
+  "service_line": {
+    "service_type": "tutoring",
+    "planning_month_rule": "paid_date_month",
+    "preferred_payment_method": "cash"
+  }
+}
+```
+
+Key behavior:
+
+- creates or reuses canonical bill provider/service-line records
+- derives a `planning_month` for Bills/Budget attribution
+- creates a linked lightweight `Purchase` row in `household_obligations`
+- stores the manual payment in `cash_transactions`
+
+#### GET `/cash-transactions`
+
+Supported query parameters:
+
+- `service_line_id`
+- `month`
+
+Example:
+
+```bash
+curl -X GET "http://localhost:8090/cash-transactions?service_line_id=5" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### DELETE `/cash-transactions/{id}`
+
+Deletes a manual cash / transfer payment.
+
+Key behavior:
+
+- removes the `cash_transactions` row
+- removes its linked lightweight `Purchase`
+- recalculates rolling amount estimates for the service line
+- removes empty personal-service test/provider records when no linked bill or cash rows remain
+
+---
+
 ### Product Snapshots
 
 | Method | Endpoint | Auth | Description |

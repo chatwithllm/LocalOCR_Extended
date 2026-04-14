@@ -12,7 +12,8 @@ from datetime import datetime
 from typing import Any
 
 from src.backend.bill_cadence import month_matches_billing_cycle, normalize_billing_cycle
-from src.backend.initialize_database_schema import BillMeta, Purchase
+from src.backend.initialize_database_schema import BillMeta, BillProvider, BillServiceLine, CashTransaction, Purchase
+from src.backend.manage_cash_transactions import reconcile_personal_service_slots
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,33 @@ def generate_monthly_obligation_slots(session, target_month: str, user_id: int |
             "anomaly_reason": anomaly,
             "purchase_date": date_obj.isoformat() if date_obj else None,
             "purchase_id": bill.purchase_id,
+            "source_type": "bill_receipt",
+        })
+
+    cash_actuals = _load_actual_cash_transactions(session, target_month, user_id=user_id)
+    for transaction, service_line, provider in cash_actuals:
+        obligation = _personal_service_obligation_descriptor(service_line, provider)
+        fulfilled_keys.add(obligation["key"])
+        slots.append({
+            "slot_type": "actual",
+            "obligation_key": obligation["key"],
+            "service_line_id": obligation["service_line_id"],
+            "provider_name": obligation["provider_name"],
+            "provider_type": obligation["provider_type"],
+            "provider_category": obligation["provider_category"],
+            "account_label": obligation["account_label"],
+            "billing_cycle": obligation["billing_cycle"],
+            "planning_month": transaction.planning_month,
+            "payment_status": transaction.status,
+            "due_date": None,
+            "amount": float(transaction.amount or 0),
+            "average_amount": float(service_line.typical_amount_max or 0),
+            "is_anomaly": False,
+            "anomaly_reason": None,
+            "purchase_date": transaction.transaction_date.isoformat() if transaction.transaction_date else None,
+            "purchase_id": transaction.purchase_id,
+            "transaction_count": 1,
+            "source_type": "cash_transaction",
         })
 
     for key in sorted(set(known_obligations) - fulfilled_keys):
@@ -88,6 +116,42 @@ def generate_monthly_obligation_slots(session, target_month: str, user_id: int |
             "anomaly_reason": None,
             "purchase_date": None,
             "purchase_id": None,
+            "source_type": "bill_receipt",
+        })
+
+    personal_service_lines = _load_active_personal_service_lines(session)
+    personal_status_map = reconcile_personal_service_slots(session, target_month)
+    for service_line, provider in personal_service_lines:
+        obligation = _personal_service_obligation_descriptor(service_line, provider)
+        if obligation["key"] in fulfilled_keys:
+            continue
+        status_info = personal_status_map.get(service_line.id, {})
+        amount = float(service_line.typical_amount_max or 0)
+        slots.append({
+            "slot_type": "projected",
+            "obligation_key": obligation["key"],
+            "service_line_id": obligation["service_line_id"],
+            "provider_name": obligation["provider_name"],
+            "provider_type": obligation["provider_type"],
+            "provider_category": obligation["provider_category"],
+            "account_label": obligation["account_label"],
+            "billing_cycle": obligation["billing_cycle"],
+            "planning_month": target_month,
+            "payment_status": status_info.get("status", "upcoming"),
+            "due_date": (
+                f"{target_month}-{int(service_line.expected_payment_day):02d}"
+                if service_line.expected_payment_day
+                else None
+            ),
+            "amount": amount,
+            "average_amount": amount,
+            "is_anomaly": False,
+            "anomaly_reason": None,
+            "purchase_date": None,
+            "purchase_id": None,
+            "provider_category": "personal_service",
+            "transaction_count": status_info.get("count", 0),
+            "source_type": "cash_transaction",
         })
 
     slots.sort(key=lambda slot: (slot["slot_type"] == "projected", slot["provider_name"], slot["provider_type"] or ""))
@@ -116,6 +180,36 @@ def _load_actual_bills(session, target_month: str, user_id: int | None = None):
     return query.all()
 
 
+def _load_actual_cash_transactions(session, target_month: str, user_id: int | None = None):
+    today = datetime.now().date()
+    query = (
+        session.query(CashTransaction, BillServiceLine, BillProvider)
+        .join(BillServiceLine, BillServiceLine.id == CashTransaction.service_line_id)
+        .join(BillProvider, BillProvider.id == BillServiceLine.provider_id)
+        .join(Purchase, Purchase.id == CashTransaction.purchase_id)
+        .filter(
+            CashTransaction.planning_month == target_month,
+            CashTransaction.status == "paid",
+            CashTransaction.transaction_date <= today,
+        )
+    )
+    if user_id is not None:
+        query = query.filter(Purchase.user_id == user_id)
+    return query.all()
+
+
+def _load_active_personal_service_lines(session):
+    return (
+        session.query(BillServiceLine, BillProvider)
+        .join(BillProvider, BillProvider.id == BillServiceLine.provider_id)
+        .filter(
+            BillProvider.provider_category == "personal_service",
+            BillServiceLine.is_active.is_(True),
+        )
+        .all()
+    )
+
+
 def _obligation_descriptor(bill: BillMeta) -> dict[str, Any]:
     provider_name = (bill.provider_name or "Unknown Provider").strip() or "Unknown Provider"
     provider_type = (bill.provider_type or getattr(getattr(bill, "service_line", None), "service_type", None) or "").strip() or None
@@ -131,9 +225,23 @@ def _obligation_descriptor(bill: BillMeta) -> dict[str, Any]:
         "service_line_id": bill.service_line_id,
         "provider_name": provider_name,
         "provider_type": provider_type,
+        "provider_category": getattr(getattr(bill, "provider", None), "provider_category", "utility"),
         "account_label": account_label,
         "billing_cycle": normalize_billing_cycle(getattr(bill, "billing_cycle", None)),
         "anchor_month": (bill.planning_month or bill.billing_cycle_month or "").strip() or None,
+    }
+
+
+def _personal_service_obligation_descriptor(service_line: BillServiceLine, provider: BillProvider) -> dict[str, Any]:
+    return {
+        "key": f"service_line:{service_line.id}",
+        "service_line_id": service_line.id,
+        "provider_name": provider.canonical_name,
+        "provider_type": service_line.service_type or provider.provider_type_hint or "other_personal_service",
+        "provider_category": provider.provider_category or "personal_service",
+        "account_label": (service_line.account_label or "").strip() or None,
+        "billing_cycle": normalize_billing_cycle("monthly"),
+        "anchor_month": None,
     }
 
 

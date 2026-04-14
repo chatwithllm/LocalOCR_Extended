@@ -1298,18 +1298,11 @@ def rotate_receipt(receipt_id):
 def list_bill_providers():
     """Return all known bill providers and their service lines for autocomplete lookup."""
     from src.backend.initialize_database_schema import BillProvider
+    from src.backend.manage_cash_transactions import serialize_bill_provider
 
     session = g.db_session
     providers = session.query(BillProvider).filter_by(is_active=True).all()
-    results = []
-    for p in providers:
-        lines = [sl.service_type for sl in p.service_lines if sl.is_active and sl.service_type]
-        results.append({
-            "id": p.id,
-            "canonical_name": p.canonical_name,
-            "provider_type_hint": p.provider_type_hint,
-            "known_services": list(set(lines))
-        })
+    results = [serialize_bill_provider(provider) for provider in providers]
     return jsonify({"providers": results}), 200
 
 
