@@ -7013,6 +7013,194 @@
         background: var(--danger-soft);
         color: var(--danger);
       }
+
+      /* =========================================================
+         Phase 4 — Mobile Experience. Appended last. Targets:
+           - ≥44px touch surfaces at ≤900px
+           - kill horizontal scroll in the 8-column receipt line-item
+             editor between 641–1100px (the audited dead zone)
+           - bottom-sheet presentation for modals on ≤640px
+           - safe-area inset padding for iOS notch / home-bar
+         No JS, no class renames.
+         ========================================================= */
+
+      /* --- Receipt editor line-item: split 8-column row into two
+             stacked rows between 641–1100px. Order in source:
+             1 Item | 2 Qty | 3 Line Total | 4 Unit | 5 Size Label |
+             6 Item Group | 7 Budget Category | 8 Remove
+             Target layout (row1/row2):
+             [ Item (span 1) | Qty | Line Total | Remove ]
+             [ Unit | Size Label | Item Group | Budget Category ]
+             --- */
+      @media (max-width: 1100px) and (min-width: 641px) {
+        .receipt-editor-web-main {
+          grid-template-columns: minmax(0, 2.2fr) minmax(64px, 0.75fr) minmax(84px, 0.95fr) minmax(84px, 0.9fr);
+          grid-template-rows: auto auto;
+          column-gap: 10px;
+          row-gap: 12px;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(1) {
+          grid-row: 1;
+          grid-column: 1;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(2) {
+          grid-row: 1;
+          grid-column: 2;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(3) {
+          grid-row: 1;
+          grid-column: 3;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(8) {
+          grid-row: 1;
+          grid-column: 4;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(4) {
+          grid-row: 2;
+          grid-column: 1;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(5) {
+          grid-row: 2;
+          grid-column: 2;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(6) {
+          grid-row: 2;
+          grid-column: 3;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(7) {
+          grid-row: 2;
+          grid-column: 4;
+        }
+        /* When budget-category slot is rendered as a plain empty
+           <div></div> (showBudgeting === false), collapse it so row 2
+           stays visually aligned. */
+        .receipt-editor-web-main > div:not(.receipt-editor-web-field):nth-child(7) {
+          grid-row: 2;
+          grid-column: 4;
+        }
+      }
+
+      /* --- ≥44px touch surfaces on mobile & tablet --- */
+      @media (max-width: 900px) {
+        .btn {
+          min-height: 44px;
+        }
+        .btn-sm {
+          min-height: 40px;
+          padding: 8px 14px;
+          font-size: var(--fs-sm);
+        }
+        .btn-lg {
+          min-height: 48px;
+        }
+        .inline-select {
+          min-height: 40px;
+          height: 40px;
+          padding: 8px 12px;
+        }
+        input[type="checkbox"],
+        input[type="radio"] {
+          min-width: 22px;
+          min-height: 22px;
+        }
+        .nav-item {
+          min-height: 44px;
+          padding: 10px 14px;
+        }
+      }
+
+      /* --- Bottom-sheet modals on small viewports. Promote any
+             .confirm-overlay + .confirm-modal pair into a sheet
+             pinned to the bottom of the viewport, with a drag-handle
+             affordance and a slide-up entrance. Preserves existing
+             markup — CSS-only. --- */
+      @media (max-width: 640px) {
+        .confirm-overlay {
+          align-items: flex-end;
+          padding: 0;
+        }
+        .confirm-modal {
+          width: 100%;
+          max-width: 100%;
+          border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+          padding: 28px 20px max(20px, env(safe-area-inset-bottom)) 20px;
+          box-shadow: var(--shadow-lg);
+          animation: sheetModalRise var(--duration-slow) var(--ease-out);
+          position: relative;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        .confirm-modal::before {
+          content: "";
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 42px;
+          height: 4px;
+          border-radius: var(--radius-pill);
+          background: var(--border-strong);
+          opacity: 0.7;
+        }
+        .confirm-actions {
+          flex-direction: column-reverse;
+          gap: 10px;
+        }
+        .confirm-actions .btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+      @keyframes sheetModalRise {
+        from {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* --- iOS safe-area inset padding on fixed-position chrome --- */
+      .sidebar {
+        padding-top: max(24px, env(safe-area-inset-top));
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      #action-toast {
+        bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+        left: max(24px, calc(env(safe-area-inset-left) + 16px));
+      }
+
+      /* --- Keep long filter panels & table wrappers from overflowing
+             horizontally on small viewports. .table-wrap already scrolls
+             intentionally, but the outer containers shouldn't. --- */
+      @media (max-width: 640px) {
+        .page,
+        .card,
+        .form-grid {
+          max-width: 100%;
+          min-width: 0;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+      }
+
+      /* --- Sticky search affordance for long lists on mobile.
+             Inert until an element adopts .mobile-sticky-search. --- */
+      @media (max-width: 640px) {
+        .mobile-sticky-search {
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          background: var(--surface);
+          padding: 8px 0;
+          margin-bottom: 8px;
+          border-bottom: 1px solid var(--border);
+        }
+      }
     </style>
   </head>
 

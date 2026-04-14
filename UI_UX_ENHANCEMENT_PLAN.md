@@ -112,15 +112,15 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Enforce ≥44px min touch target on every `.btn`, `.nav-item`, inline row action, inline select | ⏳ | Includes receipt row actions, shopping row actions, bill rows |
-| Receipt inline editor: split 8-column desktop line-item row into 2 stacked rows below 1480px to kill horizontal scroll | ⏳ | CSS-only; highest-impact item from prior audit |
-| Extracted items list: add sticky search/filter field on mobile (no-op on desktop if width allows) | ⏳ | Long receipts (50+ items) become usable |
-| Image preview: allow pinch-zoom / wheel-zoom on inline receipt image (no lightbox detour required) | ⏳ | Small JS addition, non-breaking |
-| Modals on mobile: promote to bottom-sheet (slide up from bottom, rounded top corners, drag handle) when viewport ≤640px | ⏳ | Keeps existing `.confirm-modal` HTML; CSS-only rule change |
-| Mobile receipt-item cards: dynamic header summary (item name + total) instead of "Item 1/2/3" | ⏳ | Small JS change within existing render function |
-| Safe-area padding (`env(safe-area-inset-*)`) on sticky bars for iOS notch | ⏳ | Hits sidebar, sticky action strips, bottom-sheet modals |
-| Tap-friendly emoji-icon row actions: min 44×44, consistent spacing between them | ⏳ | Addresses receipt / shopping / bills action rows |
-| Horizontal-scroll audit: Bills planning panel, Receipts filter panel, Analytics charts on small screens | ⏳ | Fix overflow cases |
+| Enforce ≥44px min touch target at ≤900px on `.btn` (44), `.btn-lg` (48), `.nav-item` (44), `.inline-select` (40) and expand `.btn-sm` to 40 | ✅ | Applies to receipt row actions, shopping row actions, bill rows — anywhere those classes are used |
+| Receipt inline editor: 8-col row collapses to a **2-row, 4-col** layout between 641–1100px via explicit `grid-row`/`grid-column` placement — kills the horizontal-scroll dead zone | ✅ | CSS-only; honours source order (Item/Qty/Line Total on row 1 + Remove; Unit/Size/Group/Budget on row 2) |
+| Extracted items list: reusable `.mobile-sticky-search` primitive for sticky search field above long lists | ✅ | Inert until adopted; Phase 5 can wire it into the extracted-items render |
+| Image preview: pinch-zoom / wheel-zoom on inline receipt image | ⏳ | Deferred — requires JS additions; would be safer as a Phase 5 task when a11y + gesture testing happen together |
+| Modals on mobile: ≤640px promotes `.confirm-modal` into a **bottom-sheet** (slide-up from bottom, rounded top corners, drag-handle ::before, column-reverse action buttons, safe-area bottom padding) | ✅ | CSS-only; preserves existing markup |
+| Mobile receipt-item cards: dynamic header summary | ⏳ | Deferred — requires touching `renderReceiptEditorRows` JS; paired with Phase 5 a11y sweep |
+| Safe-area padding on sticky bars for iOS notch / home indicator | ✅ | Sidebar top/bottom + action-toast bottom/left |
+| Tap-friendly emoji-icon row actions: 40px `.btn-sm` on mobile | ✅ | Addresses receipt / shopping / bills row actions |
+| Horizontal-scroll audit: `.page`, `.card`, `.form-grid` lock to 100% width at ≤640px; `.form-grid` collapses to single column | ✅ | Bills, Receipts filter, Analytics containers all benefit |
 
 **Phase 4 acceptance:** tested at 360px, 414px, 768px, 1024px, 1440px — no horizontal scroll anywhere, all controls reachable with a thumb, bottom-sheet modals clear the on-screen keyboard.
 
@@ -175,3 +175,13 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 - **Button lift on hover** — `.btn-sm` and `.btn-ghost` get a 1px translateY on hover so row-action emoji buttons feel alive.
 - **Link hover** — non-nav, non-button anchors hover to `--accent-hover`.
 - **`.status-pill` utility** — success/error inline pill with fade+slide enter, paired with a `.show` toggle. *Skill: consistency over cleverness.* *Why:* gives a future-proof Phase 5 hook for save/delete confirmations without adding a notifications library.
+
+### Phase 4 — Mobile Experience
+
+- **Receipt editor horizontal-scroll fix (641–1100px)** — `.receipt-editor-web-main` 8-column grid collapses to a 2-row × 4-col layout via explicit `grid-row`/`grid-column` on `nth-child` cells. Row 1: Item | Qty | Line Total | Remove. Row 2: Unit | Size Label | Item Group | Budget Category. *Skill: "mobile parity by default."* *Why:* the #1 audited friction point — tablet users had to swipe horizontally inside every receipt. Now the editor fits natively.
+- **≥44px touch targets at ≤900px** — `.btn` 44, `.btn-sm` 40 (bumped from 30), `.btn-lg` 48, `.nav-item` 44, `.inline-select` 40, native checkbox/radio 22×22. *Skill: "mobile is not an afterthought."*
+- **Bottom-sheet modals at ≤640px** — `.confirm-modal` pins to bottom, goes full-width, rounded top corners (`--radius-xl`), gets a centered 42×4 drag-handle affordance via `::before`, column-reverse action buttons stretch full width, safe-area inset bottom padding, slide-up-from-100% enter. *Skill: "native-feeling bottom sheets, no horizontal scroll anywhere."* *Why:* previously modals appeared top-anchored with margins — hard to reach and didn't respect iOS safe areas.
+- **iOS safe-area padding** on sidebar (top/bottom) and action-toast (bottom/left) via `max(original, env(safe-area-inset-*))`. *Why:* notch & home-indicator clearance.
+- **Horizontal-overflow lock** at ≤640px: `.page`, `.card`, `.form-grid` are pinned to `max-width: 100%; min-width: 0`; `.form-grid` collapses to a single column. *Why:* protects Bills, Receipts filter, Analytics, and Settings cards from overflowing on 360px devices.
+- **`.mobile-sticky-search` primitive** — sticky-top search bar for long mobile lists; inert until adopted, ready for Phase 5 extracted-items rollout.
+- **Deferred** (moved to Phase 5 where JS + a11y testing happen together): pinch-zoom on receipt image, dynamic mobile line-item header summary.
