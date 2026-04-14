@@ -46,6 +46,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 1 — Foundation | Accepted ("all good lets move on") | Accepted | 0 |
 | Phase 2 — Component Polish | 8 | Accepted | 0 |
 | Phase 3 — Interaction & Motion | 8 | Accepted | 0 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Bills → Log Cash / Transfer polish | 1 |
 
 ---
 
@@ -185,3 +186,15 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 - **Horizontal-overflow lock** at ≤640px: `.page`, `.card`, `.form-grid` are pinned to `max-width: 100%; min-width: 0`; `.form-grid` collapses to a single column. *Why:* protects Bills, Receipts filter, Analytics, and Settings cards from overflowing on 360px devices.
 - **`.mobile-sticky-search` primitive** — sticky-top search bar for long mobile lists; inert until adopted, ready for Phase 5 extracted-items rollout.
 - **Deferred** (moved to Phase 5 where JS + a11y testing happen together): pinch-zoom on receipt image, dynamic mobile line-item header summary.
+
+### Phase 4 — Revision 1 (Log Cash / Transfer modal)
+
+User feedback: the Bills → `Log Cash / Transfer` flow needed polish. Applied a full consistency pass to `#cash-transaction-overlay` / `.cash-modal` (which had its own hand-tuned CSS at `:1633-1964` that predated the token system):
+
+- **(A) Typography & tokens** — `.cash-modal-title` now uses `--font-display` (Fraunces) + display-font size/weight; section titles match. Inputs/selects/textareas migrated to token radii, colors, focus ring (`--accent-soft`), padding, font. Header gets a subtle `--accent-soft → transparent` gradient stripe instead of a raw hairline.
+- **(B) True bottom-sheet on ≤640px** — overrides the legacy cash-modal mobile rule: slides up from the bottom, drag-handle affordance via `::before`, safe-area inset bottom padding, column-reverse stacked action buttons, 92vh max-height with internal scroll.
+- **(C) Save button normalized** — gradient `linear-gradient(135deg, #6b63ff, #4e8cff)` with custom glow replaced by the app-standard primary button (`--accent` / `--accent-hover` / `--accent-pressed`, token radius, no gradient). Cancel/Ghost button likewise migrated.
+- **(D) Smooth reveal** on `#cash-transaction-new-provider-fields` / `#cash-transaction-new-service-fields` — `cashPanelReveal` fade-up with scaleY(0.985) via the `.cash-detail-panel` class. Previously these reveal panels appeared instantly.
+- **(E) Mobile density** — input min-height 52→44, section padding 22→18 (14 on mobile), modal body gap 24→18 (12 on mobile), inline buttons migrated to 44 baseline. Less wall-of-form on small screens.
+
+*Skill guideline:* "consistency over cleverness — if a new pattern exists, apply it everywhere." *Why:* the cash modal was a visual island — stronger shadows, richer colors, different typography. After this pass it belongs to the same family as every other modal while still feeling polished.
