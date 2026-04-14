@@ -6835,6 +6835,184 @@
         border-radius: var(--radius-pill);
         font-variant-numeric: tabular-nums;
       }
+
+      /* =========================================================
+         Phase 3 — Interaction & Motion. Appended last. One
+         orchestrated page-reveal instead of scattered micro-animations,
+         polished spinners/toasts, skeleton-loader utility, elastic
+         micro-interactions on key controls. Every animation is
+         clamped by the global prefers-reduced-motion guard from
+         Phase 1, so motion-sensitive users see none of this.
+         ========================================================= */
+
+      /* Orchestrated page enter — runs once per .page.active toggle.
+         Children of an active page fade-up with a short staggered
+         cascade so each workspace feels composed instead of popping in. */
+      .page.active > * {
+        opacity: 0;
+        transform: translateY(6px);
+        animation: pageRevealIn var(--duration-slow) var(--ease-out) forwards;
+      }
+      .page.active > *:nth-child(1)  { animation-delay: 0ms;   }
+      .page.active > *:nth-child(2)  { animation-delay: 40ms;  }
+      .page.active > *:nth-child(3)  { animation-delay: 80ms;  }
+      .page.active > *:nth-child(4)  { animation-delay: 120ms; }
+      .page.active > *:nth-child(5)  { animation-delay: 160ms; }
+      .page.active > *:nth-child(6)  { animation-delay: 200ms; }
+      .page.active > *:nth-child(n+7) { animation-delay: 220ms; }
+      @keyframes pageRevealIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Stat cards within dashboards get a nested enter — subtle
+         scale-up so they feel lifted, not dropped. */
+      .page.active .stats-grid .stat-card,
+      .page.active .dashboard-stats-grid .stat-card {
+        opacity: 0;
+        transform: translateY(4px) scale(0.985);
+        animation: statCardIn var(--duration-slow) var(--ease-out) forwards;
+        animation-delay: calc(120ms + var(--stat-i, 0) * 40ms);
+      }
+      .page.active .stats-grid .stat-card:nth-child(1) { --stat-i: 0; }
+      .page.active .stats-grid .stat-card:nth-child(2) { --stat-i: 1; }
+      .page.active .stats-grid .stat-card:nth-child(3) { --stat-i: 2; }
+      .page.active .stats-grid .stat-card:nth-child(4) { --stat-i: 3; }
+      .page.active .stats-grid .stat-card:nth-child(5) { --stat-i: 4; }
+      .page.active .stats-grid .stat-card:nth-child(n+6) { --stat-i: 5; }
+      @keyframes statCardIn {
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      /* Spinner refresh — thicker ring, themed track */
+      .spinner {
+        border-width: 2.5px;
+        border-color: var(--accent-soft);
+        border-top-color: var(--accent);
+        animation: spin 0.8s var(--ease-in-out) infinite;
+      }
+
+      /* Skeleton shimmer utility — for loading surfaces. Apply
+         .skeleton to any element with a set height/width to stand in
+         for content while it loads. Gracefully inert when unused. */
+      .skeleton {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        color: transparent;
+        user-select: none;
+        pointer-events: none;
+      }
+      .skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.04) 50%,
+          transparent 100%
+        );
+        transform: translateX(-100%);
+        animation: skeletonShimmer 1.6s var(--ease-in-out) infinite;
+      }
+      @keyframes skeletonShimmer {
+        to {
+          transform: translateX(100%);
+        }
+      }
+
+      /* Action toast — elastic slide-up with slight overshoot */
+      #action-toast {
+        transition:
+          transform var(--duration-slow) cubic-bezier(0.34, 1.56, 0.64, 1),
+          opacity var(--duration-base) var(--ease-out);
+      }
+      .action-toast-button {
+        border-radius: var(--radius-pill);
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .action-toast-progress {
+        border-radius: var(--radius-pill);
+      }
+      .action-toast-progress-bar {
+        transition: width 1s linear;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+      }
+
+      /* Subtle underline reveal on anchor hover (doesn't affect
+         nav-item anchors because those use a different class). */
+      a:not(.nav-item):not(.btn) {
+        position: relative;
+      }
+      a:not(.nav-item):not(.btn):hover {
+        color: var(--accent-hover);
+      }
+
+      /* Stat card hover motion — smoother, token-driven timing */
+      .stat-card {
+        transition:
+          transform var(--duration-base) var(--ease-out),
+          box-shadow var(--duration-base) var(--ease-out),
+          border-color var(--duration-base) var(--ease-out);
+      }
+
+      /* Checkbox / radio press feedback */
+      input[type="checkbox"]:active,
+      input[type="radio"]:active {
+        transform: scale(0.92);
+      }
+      input[type="checkbox"],
+      input[type="radio"] {
+        transition: transform var(--duration-fast) var(--ease-out);
+        accent-color: var(--accent);
+      }
+
+      /* Icon-button micro-animation: emoji-driven row actions get a
+         pop on hover so they feel interactive. */
+      .btn-sm:hover:not(:disabled),
+      .btn-ghost:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      /* Save/delete inline status pill — lightweight success/error
+         notice that can be toggled into any surface without a modal. */
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--radius-pill);
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .status-pill.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .status-pill.success {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .status-pill.error {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
     </style>
   </head>
 

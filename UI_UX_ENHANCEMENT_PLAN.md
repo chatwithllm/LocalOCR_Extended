@@ -91,14 +91,17 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Standardise hover / active / focus-visible / disabled states on all interactive elements via tokens | ⏳ | Replace ad-hoc `:hover` rules that use bare color literals |
-| Workspace page enter: staggered reveal of stat cards / header (`animation-delay` children) — once per route, not on every re-render | ⏳ | `@media (prefers-reduced-motion: reduce)` respected |
-| Modal open/close: fade scrim + scale-from-95 panel; 200ms `--ease-out` | ⏳ | Replaces abrupt appearance |
-| Loading spinners: align to accent; skeleton rows for receipt/extracted-items loads | ⏳ | Skeleton is a thin polish over existing spinner usage |
-| Swipe-bought undo toast: slide-up from bottom with elastic ease, auto-dismiss progress bar | ⏳ | Non-destructive enhancement of existing behavior |
-| Button press: subtle scale(0.98) + color darken via `--accent-pressed` | ⏳ | Feels tactile on mobile |
-| Save-success / delete confirmations: brief inline status pill with fade-out instead of silent success | ⏳ | No new notification library; CSS + class toggle |
-| Respect `prefers-reduced-motion` globally | ⏳ | Wrap motion tokens in a reduced-motion media query |
+| Standardise hover / active / focus-visible / disabled states on all interactive elements via tokens | ✅ | Completed mostly in Phase 2; Phase 3 adds `.btn-sm`/`.btn-ghost` subtle translateY on hover |
+| Workspace page enter: staggered reveal of direct children (40ms step) + nested stat-card stagger | ✅ | Runs on `.page.active` toggle; re-renders of same element don't re-animate thanks to CSS-only animation-once semantics |
+| Modal open/close: fade scrim + scale-from-97 panel; `--duration-base` `--ease-out` | ✅ | Delivered in Phase 2 for `.confirm-modal`; Phase 3 does not alter it |
+| Spinner refresh: thicker ring, `--accent-soft` track, themed timing | ✅ | |
+| Skeleton shimmer utility (`.skeleton`) | ✅ | Inert when unused; ready for Phase 4/5 to apply to loading surfaces |
+| Action toast: elastic slide-up (cubic-bezier overshoot), token timing, accent→accent2 progress gradient | ✅ | Enhances existing swipe-bought undo UX |
+| Button press scale + ghost/sm hover lift | ✅ | Completed in Phase 2 (scale) + Phase 3 (hover lift) |
+| Save-success inline `.status-pill` utility (CSS-only, no JS) | ✅ | Reserved for Phase 5 surface adoption |
+| Checkbox/radio press feedback + accent-color | ✅ | Native controls now feel responsive |
+| Anchor hover colour (excluding nav and button-shaped anchors) | ✅ | |
+| Respect `prefers-reduced-motion` globally | ✅ | Covered by the Phase 1 global guard |
 
 **Phase 3 acceptance:** interactions feel intentional and consistent; no animation that interferes with keyboard/screen-reader flow; reduced-motion users get a static experience.
 
@@ -160,3 +163,14 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 - **Modals** — `.confirm-overlay` now uses `--overlay` + 2px backdrop blur; `.confirm-modal` uses `--shadow-lg` + `--radius-lg`; added `confirmModalRise` scale-from-0.97 + fade-up entrance at `--duration-base`; title migrated to display font. *Skill: "Motion for high-impact moments."*
 - **Tables** — `tbody tr:nth-child(even)` gets a 1.5%-white zebra tone; `tr:hover` uses `--surface2`; `th` colour migrated to `--text-subtle`. *Skill: "Controlled density."*
 - **Pills** — radius token `--radius-pill` applied, `font-variant-numeric: tabular-nums` for counts.
+
+### Phase 3 — Interaction & Motion
+
+- **Page reveal stagger** — children of `.page.active` fade-up with a 40ms cascading delay (caps at 7th child so long workspaces don't feel laggy); stat-card grids get a nested scale-0.985→1 sub-stagger on top of the parent reveal. *Skill: "one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions."* *Why:* before, workspaces popped in instantly; now they compose themselves like an editorial layout.
+- **Spinner refresh** — ring track now `--accent-soft` with an `--accent` head, slightly thicker (2.5px), themed easing. *Skill: motion tokens, not ad-hoc timings.*
+- **Skeleton shimmer utility** — `.skeleton` class defines a loading placeholder with a 1.6s shimmer gradient. *Why:* available for Phase 4/5 to use on slow surfaces without another round-trip.
+- **Action toast** — transition now uses a `cubic-bezier(0.34, 1.56, 0.64, 1)` elastic curve over `--duration-slow`; progress bar is an accent→accent2 gradient; button uses `--radius-pill`. *Skill: "motion for high-impact moments."*
+- **Checkbox/radio** — `accent-color` tied to `--accent`; press scale(0.92) for tactile feedback. *Why:* native controls previously felt disconnected from the theme.
+- **Button lift on hover** — `.btn-sm` and `.btn-ghost` get a 1px translateY on hover so row-action emoji buttons feel alive.
+- **Link hover** — non-nav, non-button anchors hover to `--accent-hover`.
+- **`.status-pill` utility** — success/error inline pill with fade+slide enter, paired with a `.show` toggle. *Skill: consistency over cleverness.* *Why:* gives a future-proof Phase 5 hook for save/delete confirmations without adding a notifications library.
