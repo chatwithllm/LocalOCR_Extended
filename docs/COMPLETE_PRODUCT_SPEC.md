@@ -183,6 +183,7 @@ The backup bundle must contain:
 
 - SQLite DB snapshot
 - receipts storage tree
+- product snapshot storage tree
 - env snapshot
 - compose snapshot when available
 - manifest metadata
@@ -196,6 +197,7 @@ Manifest expectations:
 - purchase count
 - receipt-row count
 - receipt file count
+- product snapshot file count
 - active trusted-device count
 - total trusted-device row count
 - total receipt bytes
@@ -223,6 +225,8 @@ Verification expectations:
 - active trusted-device count
 - receipt-row count
 - receipt file count
+- product snapshot row count
+- product snapshot file count
 - missing receipt-image count
 - sample missing-image paths when failures exist
 

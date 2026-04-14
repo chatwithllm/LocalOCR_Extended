@@ -79,9 +79,16 @@ RECEIPTS_DIR=/data/receipts
 PRODUCT_SNAPSHOTS_DIR=/data/product_snapshots
 BACKUP_DIR=/data/backups
 BACKUP_PREFIX=localocr_extended
+KEEP_BACKUP_COUNT=3
 ```
 
 These live inside Extended's own volumes when you use the provided compose file.
+
+Backup retention note:
+
+- backup creation now keeps the newest `KEEP_BACKUP_COUNT` archives automatically
+- default local retention is `3`
+- set `KEEP_BACKUP_COUNT` higher if you want a deeper local history
 
 Snapshot note:
 

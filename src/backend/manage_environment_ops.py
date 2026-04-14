@@ -30,6 +30,7 @@ def _script_env() -> dict:
     env.setdefault("DB_PATH", "/data/db/localocr_extended.db")
     env.setdefault("RECEIPTS_DIR", "/data/receipts")
     env.setdefault("BACKUP_PREFIX", "localocr_extended")
+    env.setdefault("KEEP_BACKUP_COUNT", "3")
     return env
 
 

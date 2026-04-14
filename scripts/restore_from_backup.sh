@@ -31,6 +31,7 @@ done
 BACKUP_DIR="${BACKUP_DIR:-/data/backups}"
 DB_PATH="${DB_PATH:-/data/db/localocr_extended.db}"
 RECEIPTS_DIR="${RECEIPTS_DIR:-/data/receipts}"
+PRODUCT_SNAPSHOTS_DIR="${PRODUCT_SNAPSHOTS_DIR:-/data/product_snapshots}"
 BACKUP_PREFIX="${BACKUP_PREFIX:-localocr_extended}"
 RESTORE_DIR="$(mktemp -d)"
 trap 'rm -rf "${RESTORE_DIR}"' EXIT
@@ -79,6 +80,11 @@ if [ "${RESTORE_RECEIPTS}" = "1" ]; then
   if [ -d "${RESTORE_DIR}/receipts" ]; then
     cp -R "${RESTORE_DIR}/receipts/." "${RECEIPTS_DIR}/"
   fi
+  mkdir -p "${PRODUCT_SNAPSHOTS_DIR}"
+  find "${PRODUCT_SNAPSHOTS_DIR}" -mindepth 1 -exec rm -rf {} +
+  if [ -d "${RESTORE_DIR}/product_snapshots" ]; then
+    cp -R "${RESTORE_DIR}/product_snapshots/." "${PRODUCT_SNAPSHOTS_DIR}/"
+  fi
   sync || true
 fi
 
@@ -87,7 +93,7 @@ if [ "${RESTORE_ENV}" = "1" ] && [ -n "${TARGET_ENV_FILE}" ] && [ -f "${RESTORE_
   cp "${RESTORE_DIR}/meta/env.snapshot" "${TARGET_ENV_FILE}"
 fi
 
-RESTORE_REPORT="$(python3 - <<'PY' "${DB_PATH}" "${RECEIPTS_DIR}" "$(basename "${BACKUP_FILE}")" "${TARGET_ENV_FILE}" "${RESTORE_DB}" "${RESTORE_RECEIPTS}" "${RESTORE_ENV}"
+RESTORE_REPORT="$(python3 - <<'PY' "${DB_PATH}" "${RECEIPTS_DIR}" "${PRODUCT_SNAPSHOTS_DIR}" "$(basename "${BACKUP_FILE}")" "${TARGET_ENV_FILE}" "${RESTORE_DB}" "${RESTORE_RECEIPTS}" "${RESTORE_ENV}"
 import json
 import sqlite3
 import sys
@@ -96,8 +102,9 @@ from pathlib import Path
 
 db_path = Path(sys.argv[1])
 receipts_root = Path(sys.argv[2])
-backup_file = sys.argv[3]
-target_env_file = sys.argv[4]
+snapshots_root = Path(sys.argv[3])
+backup_file = sys.argv[4]
+target_env_file = sys.argv[5]
 
 conn = sqlite3.connect(db_path)
 conn.row_factory = sqlite3.Row
@@ -121,23 +128,27 @@ for row in receipt_refs:
         missing.append(rel.as_posix())
 
 receipt_file_count = sum(1 for path in receipts_root.rglob("*") if path.is_file()) if receipts_root.exists() else 0
+snapshot_file_count = sum(1 for path in snapshots_root.rglob("*") if path.is_file()) if snapshots_root.exists() else 0
 report = {
     "status": "restored",
     "backup_file": backup_file,
     "restored_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "db_path": str(db_path),
     "receipts_dir": str(receipts_root),
+    "product_snapshots_dir": str(snapshots_root),
     "target_env_file": target_env_file,
     "restored_sections": {
-        "database": sys.argv[5] == "1",
-        "receipts": sys.argv[6] == "1",
-        "env": sys.argv[7] == "1",
+        "database": sys.argv[6] == "1",
+        "receipts": sys.argv[7] == "1",
+        "env": sys.argv[8] == "1",
     },
     "users": scalar("select count(*) from users"),
     "purchases": scalar("select count(*) from purchases"),
     "trusted_devices": scalar("select count(*) from trusted_devices where status = 'active'"),
     "receipt_rows": scalar("select count(*) from telegram_receipts"),
     "receipt_files": receipt_file_count,
+    "product_snapshot_rows": scalar("select count(*) from product_snapshots"),
+    "product_snapshot_files": snapshot_file_count,
     "missing_receipt_images": len(missing),
     "missing_receipt_samples": missing[:10],
 }
