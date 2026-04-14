@@ -71,15 +71,16 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Buttons: unify `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.btn-sm`, `.btn-lg` to token-driven padding / radius / weight | ⏳ | Min-height 36px desktop / 44px mobile |
-| Inputs & selects: unified height, padding, border, focus ring; consistent disabled styling | ⏳ | Phase 2 does *not* alter form validation behavior |
-| `.form-group` / `.form-grid`: consistent label size, spacing, helper-text slot | ⏳ | Labels promoted from 0.74rem to `--fs-sm` (0.82rem), sentence-case |
-| Cards / stat cards / summary tiles: unify padding, radius, border, hover elevation | ⏳ | Same visual language across dashboard, receipts summary, bills, analytics |
-| Sidebar & nav-item: refresh active state (subtle left accent bar instead of full fill), improve hover | ⏳ | Keep existing selectors |
-| Modals / overlays: unified `.confirm-modal` base — scrim uses `--overlay`, panel uses `--surface-2`, radius `--radius-lg`, `--shadow-lg` | ⏳ | Applies to all 6+ overlays (`confirm-overlay`, `image-lightbox-overlay`, `manual-entry-overlay`, `cash-transaction-overlay`, `bill-provider-detail-overlay`, `device-pairing-overlay`, `secret-qr-overlay`) |
-| Tables / list rows: zebra tone via `--surface-2`, consistent row height, truncation rules | ⏳ | Receipts table + extracted items + shopping rows |
-| Pills / badges / chips (refund pill, budget chips, transaction type): one token-driven family | ⏳ | Shapes and contrast ratios consistent |
-| Emoji-icon buttons: pair each with `aria-label`, adopt consistent circular button frame | ⏳ | Does not change symbols |
+| Buttons: radius from token, add `:active` press and `:disabled` states, `--accent-hover` / `--accent-pressed`, new `.btn-lg` size (44px) | ✅ | `.btn-sm`/`.btn-lg` both honour min-height constraints |
+| Font-family migration: kill unused `"Inter"` references on `.btn`, `.inline-select`, `input`, `select` — route to `var(--font-body)` | ✅ | Inter was never loaded, so controls were system-fallback before |
+| Inputs & selects: unified hover/focus/disabled states, focus ring via `--accent-soft`, read-only styling | ✅ | No validation behavior changed |
+| Labels: colour migrated to `--text-subtle` for softer hierarchy while keeping 0.8rem size | ✅ | Form-group spacing unchanged |
+| Cards / stat cards: token-driven radius (`--radius-lg`), hover elevation via `--shadow-md`, border-strong on hover | ✅ | Consistent across dashboard, receipts summary, bills |
+| Sidebar nav active: refined from full accent fill to soft tint + 3px left accent bar, accent-coloured icon | ✅ | More editorial, less heavy |
+| Modals: `.confirm-overlay` uses `--overlay` + backdrop blur; `.confirm-modal` uses `--shadow-lg` + `--radius-lg`; scale+fade entrance; title uses display font | ✅ | `.cash-modal` retains its custom gradient framing — unchanged to avoid regression |
+| Tables: zebra striping via `tbody tr:nth-child(even)`, `tr:hover` uses `--surface2`, `th` colour via `--text-subtle` | ✅ | |
+| Pills: radius via `--radius-pill`, tabular numerals on pill contents | ✅ | Shape unified across refund / budget / transaction-type pills |
+| Emoji-icon buttons: aria-label sweep deferred to Phase 5 (a11y) — cosmetic-only work in Phase 2 | ⏳ | Scope move, logged here |
 
 **Phase 2 acceptance:** components look coherent across every workspace; no mixed old/new button or card on the same screen.
 
@@ -146,3 +147,15 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 - **`src/frontend/index.html` (`:root` block, lines 21–98)** — extended the existing 13 color tokens with a full design-system layer: elevation (`--surface-3`), structural contrast (`--border-strong`, `--text-subtle`), interaction states (`--accent-hover`, `--accent-pressed`, `--accent-soft`, per-semantic `*-soft` alphas), focus (`--ring`), and modal scrim (`--overlay`). Added spacing scale, radius scale, dark-canvas-tuned shadow scale, motion tokens, typography tokens (`--font-display`, `--font-body`, `--font-mono`), and type/line-height scales. *Skill guideline:* "Color & Theme — CSS variables for consistency" + "Spatial Composition — intentional spacing." *Why:* existing ad-hoc values (124 distinct `border-radius:` rules, inline pixel spacing, bare color literals) prevent visual coherence. Tokens are the prerequisite for every subsequent phase.
 - **`src/frontend/index.html` (line 100, `body`)** — `font-family` migrated from `"Manrope", sans-serif` to `var(--font-body)` with a richer fallback stack. *Why:* future-proofs font swaps and matches the token system.
 - **`src/frontend/index.html` (end of `<style>`, ~line 6520 onward)** — Phase 1 base-element rules placed at end of style block so they definitively win the cascade: Fraunces display font applied to `h1/h2/h3`, `.page-header h1`, `.stat-value`, `.card-title` with negative letter-spacing and tabular numerals for stat values. Added unified `:focus-visible` ring using `--ring`, themed `::selection` using `--accent-soft`, themed WebKit scrollbars, global `prefers-reduced-motion` guard, tabular numerals on all table cells. *Skill guideline:* "Typography — distinctive display + refined body pair; avoid generic Inter/system-only." *Why:* Fraunces was already loaded from Google Fonts but never used — wiring it up gives the editorial hierarchy the skill calls for at zero network cost.
+
+### Phase 2 — Component Polish
+
+- **`src/frontend/index.html` (end of `<style>`, Phase 2 block)** — Buttons: token-driven radius, 36px min-height default / 30px `.btn-sm` / 44px `.btn-lg`, `:active` scale(0.98) press, `:disabled` state, primary hover via `--accent-hover`, pressed via `--accent-pressed`. *Skill: "Motion as signal; tactile interaction."* *Why:* the app had zero press or disabled feedback — common friction on mobile.
+- **Font-family migration** for `.btn`, `.inline-select`, `input`, `select`, `textarea`, `button` — pre-existing `"Inter", sans-serif` fallback was referenced at 4 sites but Inter was never loaded. Route everything to `var(--font-body)` so Manrope actually renders. *Why:* silent system-font fallback was a bug; fix is free.
+- **Inputs** — unified hover (`--border-strong`), focus (3px `--accent-soft` ring via `box-shadow`), disabled dim, read-only muted. *Skill: "Consistency over cleverness."*
+- **Labels** — migrated colour to `--text-subtle` for softer hierarchy without changing size.
+- **Cards / stat cards** — radius bumped to `--radius-lg`, hover lifts with `--shadow-md` + `--border-strong` border. *Skill: "Backgrounds & depth — atmosphere, not solid panels."*
+- **Sidebar `.nav-item.active`** — refactored from heavy full-accent fill to a refined treatment: 3px accent left-bar (rounded right) + `--accent-soft` tinted background + accent-coloured icon + regular text. *Skill: "Dominant neutrals with sharp accents."* *Why:* the previous fill made every navigation state feel identical in weight; the refined version reads as an *indicator*, not a block.
+- **Modals** — `.confirm-overlay` now uses `--overlay` + 2px backdrop blur; `.confirm-modal` uses `--shadow-lg` + `--radius-lg`; added `confirmModalRise` scale-from-0.97 + fade-up entrance at `--duration-base`; title migrated to display font. *Skill: "Motion for high-impact moments."*
+- **Tables** — `tbody tr:nth-child(even)` gets a 1.5%-white zebra tone; `tr:hover` uses `--surface2`; `th` colour migrated to `--text-subtle`. *Skill: "Controlled density."*
+- **Pills** — radius token `--radius-pill` applied, `font-variant-numeric: tabular-nums` for counts.

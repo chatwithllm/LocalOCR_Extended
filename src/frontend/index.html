@@ -6614,6 +6614,227 @@
           scroll-behavior: auto !important;
         }
       }
+
+      /* =========================================================
+         Phase 2 — Component Polish. Appended last so it wins the
+         cascade against earlier component rules. All pre-existing
+         class names and IDs are preserved; only adds/overrides
+         cosmetic properties.
+         ========================================================= */
+
+      /* --- Font-family migration: "Inter" was referenced at 4 sites
+         but was never actually loaded, so controls silently fell
+         through to system sans. Route them to --font-body. --- */
+      .btn,
+      .inline-select,
+      input,
+      select,
+      textarea,
+      button {
+        font-family: var(--font-body);
+      }
+
+      /* --- Buttons: interaction states + token-driven radius --- */
+      .btn {
+        border-radius: var(--radius-md);
+        min-height: 36px;
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+        -webkit-tap-highlight-color: transparent;
+      }
+      .btn:active:not(:disabled) {
+        transform: translateY(0) scale(0.98);
+      }
+      .btn:disabled,
+      .btn[aria-disabled="true"] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+        box-shadow: none !important;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-primary:active:not(:disabled) {
+        background: var(--accent-pressed);
+      }
+
+      .btn-danger:active:not(:disabled) {
+        background: var(--danger-soft);
+      }
+
+      .btn-ghost {
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover {
+        border-color: var(--border-strong);
+      }
+
+      .btn-tonal-accent:active:not(:disabled) {
+        background: rgba(108, 99, 255, 0.24);
+      }
+      .btn-tonal-success:active:not(:disabled) {
+        background: rgba(0, 212, 170, 0.22);
+      }
+
+      .btn-sm {
+        min-height: 30px;
+        border-radius: var(--radius-sm);
+      }
+      .btn-lg {
+        padding: 12px 22px;
+        min-height: 44px;
+        font-size: var(--fs-md);
+        border-radius: var(--radius-md);
+      }
+
+      /* --- Inputs / selects / textareas: unified states --- */
+      input,
+      select,
+      textarea {
+        border-radius: var(--radius-md);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out);
+      }
+      input:hover:not(:disabled):not(:focus),
+      select:hover:not(:disabled):not(:focus),
+      textarea:hover:not(:disabled):not(:focus) {
+        border-color: var(--border-strong);
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      input:disabled,
+      select:disabled,
+      textarea:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        background: var(--surface);
+      }
+      input:read-only:not([type="checkbox"]):not([type="radio"]),
+      textarea:read-only {
+        background: var(--surface);
+        color: var(--text-subtle);
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--muted);
+        opacity: 0.85;
+      }
+      .inline-select {
+        border-radius: var(--radius-sm);
+      }
+
+      /* Labels: slight weight tweak, stay in sync with body font */
+      label {
+        color: var(--text-subtle);
+        letter-spacing: 0.01em;
+      }
+
+      /* --- Cards: unified hover elevation via shadow token --- */
+      .card {
+        transition:
+          border-color var(--duration-base) var(--ease-out),
+          box-shadow var(--duration-base) var(--ease-out);
+      }
+
+      .stat-card {
+        border-radius: var(--radius-lg);
+      }
+      .stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--border-strong);
+      }
+      .stat-label {
+        color: var(--text-subtle);
+        letter-spacing: 0.08em;
+      }
+
+      /* --- Modals: overlay + panel tokens, gentle enter motion --- */
+      .confirm-overlay {
+        background: var(--overlay);
+        backdrop-filter: blur(2px);
+      }
+      .confirm-overlay.show {
+        animation: confirmOverlayFade var(--duration-base) var(--ease-out);
+      }
+      .confirm-modal {
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        animation: confirmModalRise var(--duration-base) var(--ease-out);
+      }
+      @keyframes confirmOverlayFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes confirmModalRise {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .confirm-title {
+        font-family: var(--font-display);
+        letter-spacing: -0.01em;
+        font-size: var(--fs-lg);
+      }
+
+      /* --- Sidebar: refined active state (left accent bar + tint) --- */
+      .nav-item {
+        border-radius: var(--radius-md);
+        position: relative;
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .nav-item.active {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+      .nav-item.active::before {
+        content: "";
+        position: absolute;
+        left: -16px;
+        top: 8px;
+        bottom: 8px;
+        width: 3px;
+        border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+        background: var(--accent);
+      }
+      .nav-item.active .nav-icon {
+        color: var(--accent);
+      }
+
+      /* --- Tables: zebra striping + hover highlight --- */
+      tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.015);
+      }
+      tr:hover td {
+        background: var(--surface2);
+      }
+      th {
+        color: var(--text-subtle);
+      }
+
+      /* --- Pills: unified radius/padding across variants --- */
+      .pill {
+        border-radius: var(--radius-pill);
+        font-variant-numeric: tabular-nums;
+      }
     </style>
   </head>
 
