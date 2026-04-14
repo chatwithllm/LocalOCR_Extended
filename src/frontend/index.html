@@ -8555,6 +8555,68 @@
         gap: 2px;
       }
 
+      /* --- Phase 4d: Dashboard polish (token-driven overrides) ------
+       * Replaces hardcoded rgba values in demo-hero, demo-chip,
+       * demo-hero-stat, demo-mini-card, and dashboard-combo-item
+       * dividers so both themes render correctly.
+       */
+      .demo-hero {
+        border-color: var(--color-border-brand);
+        background:
+          radial-gradient(
+            circle at top right,
+            var(--color-success-soft),
+            transparent 38%
+          ),
+          radial-gradient(
+            circle at bottom left,
+            var(--color-brand-soft),
+            transparent 42%
+          ),
+          linear-gradient(
+            180deg,
+            var(--color-brand-soft),
+            var(--color-surface) 80%
+          );
+        border-radius: var(--radius-xl);
+      }
+      .demo-chip {
+        border-color: var(--color-border-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+      }
+      .demo-hero-copy {
+        color: var(--color-text-secondary);
+      }
+      .demo-hero-stat {
+        border-color: var(--color-border);
+        background: var(--color-surface);
+        border-radius: var(--radius-lg);
+      }
+      .demo-hero-stat .label {
+        color: var(--color-text-muted);
+      }
+      .demo-hero-stat .value {
+        color: var(--color-text-primary);
+      }
+      .demo-mini-card {
+        border-color: var(--color-border);
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+      }
+      .demo-mini-label {
+        color: var(--color-text-muted);
+      }
+      .demo-mini-value {
+        color: var(--color-text-primary);
+      }
+      .demo-readonly-note {
+        color: var(--color-text-muted);
+      }
+      .dashboard-combo-item + .dashboard-combo-item {
+        border-left: 1px solid var(--color-border);
+      }
+
       /* --- Phase 3: Toolbar / Action Bar ----------------------------
        * Source: design/design.md §7.6.
        */
