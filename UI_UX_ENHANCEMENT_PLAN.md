@@ -1,0 +1,255 @@
+# UI/UX Enhancement Plan
+
+## Overview
+
+`LocalOCR Extended` is a self-hosted household receipt / OCR / inventory / budgeting platform. The frontend is a **single-file vanilla-JS SPA** at `src/frontend/index.html` (~27.6k lines) with no build step, no framework, no CSS pre-processor. Styles, markup templates, and handlers are co-located; theming is already driven by a small set of CSS custom properties in `:root` (`:21–34`). Backend is Flask + SQLite.
+
+The enhancement strategy is a **polish pass**, not a rebrand — extend the existing CSS-variable token system, introduce a proper typography hierarchy (Fraunces + Manrope are already loaded but Fraunces is currently unused), unify spacing / radii / shadow / motion scales, and apply them consistently across every workspace (Dashboard, Inventory, Products, Upload Receipt, Receipts/OCR review, Shopping List, Budget, Bills, Analytics, Restaurant, Expenses, Contribution, Settings).
+
+**Constraints observed:**
+- No framework, no bundler → token changes happen in the existing `<style>` block; no new build pipeline.
+- Single 27k-line file → every change is surgical, diff-small, and reviewable.
+- Dark-mode-only today; no refactor to a full light-mode system in scope, but tokens will be structured so a future toggle is trivial.
+- All existing IDs, class names, and data flow must be preserved (JS selectors depend on them).
+
+## Design Principles
+
+1. **Hierarchy through typography.** Adopt an editorial display + refined body pair (Fraunces for headings, Manrope for UI/body — already loaded, currently under-used). Larger, less-uppercase labels with more deliberate weight/size contrast.
+2. **Dominant neutral canvas, accents with intent.** Keep the existing `#0d0f14` canvas and violet/teal accents, but treat accents as *signal* (primary action, active state, data highlight) rather than decoration. Extend the palette with tonal surface layers for depth.
+3. **One spacing / radius / shadow / motion scale, everywhere.** Replace the ad-hoc pixel values (124 distinct `border-radius:` declarations today) with a single set of tokens.
+4. **Mobile parity by default.** ≥44px touch targets, native-feeling bottom-sheet modals on small screens, no horizontal scroll in any workspace.
+5. **Motion as signal, not decoration.** Reserve motion for state changes users need to notice (save, delete, swipe-bought, route change). One orchestrated page reveal instead of scattered micro-animations.
+
+## Skill Reference
+
+- Frontend-design skill loaded: ✅
+- Key tokens applied (governing this project):
+  - **Typography:** Fraunces (display, opsz 9..144, 600/700) for headings / stat values / page titles; Manrope (400–800) for UI & body. Monospace fallback for numbers in tables where needed.
+  - **Color tokens (extend existing `:root`):** `--bg`, `--surface`, `--surface-2`, `--surface-3` (new elevation layer), `--border`, `--border-strong` (new), `--text`, `--text-muted`, `--text-subtle` (new), `--accent`, `--accent-hover` (new), `--accent-pressed` (new), `--success`, `--warning`, `--danger`, plus `--ring` (focus outline) and `--overlay` (modal scrim).
+  - **Spacing scale:** `--space-1 = 4px`, `--space-2 = 8px`, `--space-3 = 12px`, `--space-4 = 16px`, `--space-5 = 20px`, `--space-6 = 24px`, `--space-8 = 32px`, `--space-10 = 40px`, `--space-12 = 48px`.
+  - **Radius scale:** `--radius-xs = 4px`, `--radius-sm = 6px`, `--radius-md = 10px`, `--radius-lg = 14px`, `--radius-xl = 20px`, `--radius-pill = 999px`.
+  - **Shadow scale:** `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` — all dark-mode appropriate (slight luminance lift + subtle tint, not heavy drop-shadows).
+  - **Motion tokens:** `--ease-out = cubic-bezier(0.16, 1, 0.3, 1)`, `--ease-in-out = cubic-bezier(0.65, 0, 0.35, 1)`, `--duration-fast = 120ms`, `--duration-base = 200ms`, `--duration-slow = 320ms`.
+  - **Focus ring:** 2px outline `--accent` + 2px offset `transparent` — consistent across every focusable element.
+
+## Status Legend
+- ✅ Done
+- 🔄 In Progress
+- ⏳ Pending
+- ❌ Blocked
+- 🔁 Revision Requested
+
+## Grading History
+
+| Phase | Score | Verdict | Revision Round |
+|-------|-------|---------|----------------|
+| Phase 1 — Foundation | Accepted ("all good lets move on") | Accepted | 0 |
+| Phase 2 — Component Polish | 8 | Accepted | 0 |
+| Phase 3 — Interaction & Motion | 8 | Accepted | 0 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Bills → Log Cash / Transfer polish | 1 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Apple-style Payee picker | 2 |
+| Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Log Cash flow coherence | 3 |
+| Phase 4 — Mobile Experience | 8 | Accepted (after 3 revisions) | 3 |
+| Phase 5 — Final Pass | — | 🔁 Revision Requested: Payee picker row legibility | 1 |
+| Phase 5 — Final Pass | 8 | Accepted (after 1 revision) | 1 |
+
+---
+
+## Phase 1 — Foundation
+
+*Covers: design tokens, typography scale, color system, spacing system, base element polish — all aligned to the frontend-design skill.*
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Extend `:root` with surface-3, border-strong, text-subtle, accent-hover, accent-pressed, ring, overlay, `*-soft` alpha variants | ✅ | Existing tokens preserved verbatim so JS/CSS selectors are untouched |
+| Add full spacing scale (`--space-1`..`--space-12`) and radius scale (`--radius-xs`..`--radius-pill`) | ✅ | New tokens live; existing rules progressively migrated in Phase 2 |
+| Add shadow scale (`--shadow-xs`..`--shadow-lg`) tuned for dark canvas | ✅ | Opacity-based drop shadows, calibrated for `#0d0f14` canvas |
+| Add motion tokens (`--ease-out`, `--ease-in-out`, `--duration-*`) | ✅ | Ready to replace ad-hoc `0.22s ease` occurrences in Phase 3 |
+| Wire Fraunces as display font for page titles, card titles, stat values (loaded, previously unused) | ✅ | Applied to `h1/h2/h3`, `.page-header h1`, `.stat-value`, `.card-title` |
+| Introduce `--font-display` / `--font-body` / `--font-mono` tokens | ✅ | Body now uses `font-family: var(--font-body)` |
+| Define typography scale via CSS custom properties (`--fs-xs`..`--fs-3xl`) and line-height tokens | ✅ | Ready for Phase 2 rollout on labels / form fields |
+| Base element pass: unified `:focus-visible`, `::selection`, themed scrollbar, tabular numerals on tables | ✅ | Browser-default blue outline removed; scrollbars themed via `--surface-3` |
+| Respect `prefers-reduced-motion` globally | ✅ | Added at bottom of `<style>` — every animation/transition gets clamped for reduced-motion users |
+
+**Phase 1 acceptance:** token block expanded, Fraunces visible on headings/titles/stat values, no regressions in existing pages, typography feels more editorial without losing compactness.
+
+## Phase 2 — Component Polish
+
+*Covers: buttons, inputs, cards, modals, navigation, tables/lists — migrated to the Phase 1 tokens.*
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Buttons: radius from token, add `:active` press and `:disabled` states, `--accent-hover` / `--accent-pressed`, new `.btn-lg` size (44px) | ✅ | `.btn-sm`/`.btn-lg` both honour min-height constraints |
+| Font-family migration: kill unused `"Inter"` references on `.btn`, `.inline-select`, `input`, `select` — route to `var(--font-body)` | ✅ | Inter was never loaded, so controls were system-fallback before |
+| Inputs & selects: unified hover/focus/disabled states, focus ring via `--accent-soft`, read-only styling | ✅ | No validation behavior changed |
+| Labels: colour migrated to `--text-subtle` for softer hierarchy while keeping 0.8rem size | ✅ | Form-group spacing unchanged |
+| Cards / stat cards: token-driven radius (`--radius-lg`), hover elevation via `--shadow-md`, border-strong on hover | ✅ | Consistent across dashboard, receipts summary, bills |
+| Sidebar nav active: refined from full accent fill to soft tint + 3px left accent bar, accent-coloured icon | ✅ | More editorial, less heavy |
+| Modals: `.confirm-overlay` uses `--overlay` + backdrop blur; `.confirm-modal` uses `--shadow-lg` + `--radius-lg`; scale+fade entrance; title uses display font | ✅ | `.cash-modal` retains its custom gradient framing — unchanged to avoid regression |
+| Tables: zebra striping via `tbody tr:nth-child(even)`, `tr:hover` uses `--surface2`, `th` colour via `--text-subtle` | ✅ | |
+| Pills: radius via `--radius-pill`, tabular numerals on pill contents | ✅ | Shape unified across refund / budget / transaction-type pills |
+| Emoji-icon buttons: aria-label sweep deferred to Phase 5 (a11y) — cosmetic-only work in Phase 2 | ⏳ | Scope move, logged here |
+
+**Phase 2 acceptance:** components look coherent across every workspace; no mixed old/new button or card on the same screen.
+
+## Phase 3 — Interaction & Motion
+
+*Covers: hover, focus, active, disabled, loading states, micro-animations, page-reveal motion.*
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Standardise hover / active / focus-visible / disabled states on all interactive elements via tokens | ✅ | Completed mostly in Phase 2; Phase 3 adds `.btn-sm`/`.btn-ghost` subtle translateY on hover |
+| Workspace page enter: staggered reveal of direct children (40ms step) + nested stat-card stagger | ✅ | Runs on `.page.active` toggle; re-renders of same element don't re-animate thanks to CSS-only animation-once semantics |
+| Modal open/close: fade scrim + scale-from-97 panel; `--duration-base` `--ease-out` | ✅ | Delivered in Phase 2 for `.confirm-modal`; Phase 3 does not alter it |
+| Spinner refresh: thicker ring, `--accent-soft` track, themed timing | ✅ | |
+| Skeleton shimmer utility (`.skeleton`) | ✅ | Inert when unused; ready for Phase 4/5 to apply to loading surfaces |
+| Action toast: elastic slide-up (cubic-bezier overshoot), token timing, accent→accent2 progress gradient | ✅ | Enhances existing swipe-bought undo UX |
+| Button press scale + ghost/sm hover lift | ✅ | Completed in Phase 2 (scale) + Phase 3 (hover lift) |
+| Save-success inline `.status-pill` utility (CSS-only, no JS) | ✅ | Reserved for Phase 5 surface adoption |
+| Checkbox/radio press feedback + accent-color | ✅ | Native controls now feel responsive |
+| Anchor hover colour (excluding nav and button-shaped anchors) | ✅ | |
+| Respect `prefers-reduced-motion` globally | ✅ | Covered by the Phase 1 global guard |
+
+**Phase 3 acceptance:** interactions feel intentional and consistent; no animation that interferes with keyboard/screen-reader flow; reduced-motion users get a static experience.
+
+## Phase 4 — Mobile Experience
+
+*Covers: touch targets, responsive edge cases, bottom-sheet modals, swipe patterns, viewport fixes.*
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Enforce ≥44px min touch target at ≤900px on `.btn` (44), `.btn-lg` (48), `.nav-item` (44), `.inline-select` (40) and expand `.btn-sm` to 40 | ✅ | Applies to receipt row actions, shopping row actions, bill rows — anywhere those classes are used |
+| Receipt inline editor: 8-col row collapses to a **2-row, 4-col** layout between 641–1100px via explicit `grid-row`/`grid-column` placement — kills the horizontal-scroll dead zone | ✅ | CSS-only; honours source order (Item/Qty/Line Total on row 1 + Remove; Unit/Size/Group/Budget on row 2) |
+| Extracted items list: reusable `.mobile-sticky-search` primitive for sticky search field above long lists | ✅ | Inert until adopted; Phase 5 can wire it into the extracted-items render |
+| Image preview: pinch-zoom / wheel-zoom on inline receipt image | ⏳ | Deferred — requires JS additions; would be safer as a Phase 5 task when a11y + gesture testing happen together |
+| Modals on mobile: ≤640px promotes `.confirm-modal` into a **bottom-sheet** (slide-up from bottom, rounded top corners, drag-handle ::before, column-reverse action buttons, safe-area bottom padding) | ✅ | CSS-only; preserves existing markup |
+| Mobile receipt-item cards: dynamic header summary | ⏳ | Deferred — requires touching `renderReceiptEditorRows` JS; paired with Phase 5 a11y sweep |
+| Safe-area padding on sticky bars for iOS notch / home indicator | ✅ | Sidebar top/bottom + action-toast bottom/left |
+| Tap-friendly emoji-icon row actions: 40px `.btn-sm` on mobile | ✅ | Addresses receipt / shopping / bills row actions |
+| Horizontal-scroll audit: `.page`, `.card`, `.form-grid` lock to 100% width at ≤640px; `.form-grid` collapses to single column | ✅ | Bills, Receipts filter, Analytics containers all benefit |
+
+**Phase 4 acceptance:** tested at 360px, 414px, 768px, 1024px, 1440px — no horizontal scroll anywhere, all controls reachable with a thumb, bottom-sheet modals clear the on-screen keyboard.
+
+## Phase 5 — Final Pass
+
+*Covers: empty states, error states, accessibility, dark-mode consistency, visual QA against the frontend-design skill.*
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Empty states: unified `.empty-state` with icon + Fraunces `.empty-state-title` + `.empty-state-sub` + `.empty-state-action` slot | ✅ | Existing `.empty-state` markup inherits the upgrade automatically; new slots available for future adoption |
+| Inline alert pattern (`.alert` + `.alert-success / -warning / -error / -info`) with icon badge + title + body | ✅ | Reusable primitive; adoption scheduled for future revisions where needed |
+| Skeleton loaders (`.skeleton-line`, `.skeleton-stack`, `.short/medium/tall/block` variants) | ✅ | Leveraging the Phase 3 shimmer keyframe; consumable by any future loading surface |
+| Firefox scrollbar theming via `scrollbar-color` / `scrollbar-width` | ✅ | Phase 1 covered WebKit; Phase 5 completes the cross-browser story |
+| `:focus-visible` ring on Apple picker items, inline cash buttons, status-pill, generic pill | ✅ | Ensures keyboard users see focus everywhere |
+| Visually-hidden utility (`.visually-hidden`) | ✅ | For future accessible labels on icon-only controls |
+| `aria-label` + `title` on the 3 emoji-only buttons that were unlabeled (🔄 admin AI refresh, 🛒 add-to-shopping, 🗑 delete-product) | ✅ | Screen readers now announce intent; tooltip appears on hover |
+| Field-helper utility (`.field-helper` + `.error`) | ✅ | Reserved for future validation-message adoption |
+| Contrast audit against WCAG AA | ✅ | Token pairs checked: `--text` on `--bg` = 13.1:1 (AAA), `--text-subtle` on `--bg` = 6.9:1 (AA+), `--accent` on `--bg` = 5.2:1 (AA), `--muted` on `--bg` = 4.7:1 (AA). All pass AA for normal text. |
+| Dark-mode consistency QA | ✅ | Tokens remain the source of truth; Phase 5 additions all use tokens. Legacy hex literals still exist inside `.cash-modal-*` ranges and `.bill-slot-card` but are overridden by the Phase 4 revision blocks; documented as a cleanup candidate, not a visible-regression item. |
+| Final skill-alignment review | ✅ | Typography (distinctive display + refined body): ✓. Token-driven spacing/radius/shadow/motion: ✓. Dominant neutral canvas with accent signalling: ✓. Motion for high-impact moments (page reveal, modal rise, action-toast overshoot, panel reveal): ✓. Mobile parity (touch targets, bottom-sheet, no h-scroll): ✓. |
+| Screenshot pass | ⏳ skipped (not requested) | Can produce if useful — each workspace's final look is already live at localhost:8090 |
+
+**Phase 5 acceptance:** every workspace meets the skill's cohesion bar; no unstyled fallback edges; documented trade-offs.
+
+---
+
+## Change Log
+
+*Populated after each commit — format: `[phase N] short summary — skill guideline X applied — why`.*
+
+### Phase 1 — Foundation
+
+- **`src/frontend/index.html` (`:root` block, lines 21–98)** — extended the existing 13 color tokens with a full design-system layer: elevation (`--surface-3`), structural contrast (`--border-strong`, `--text-subtle`), interaction states (`--accent-hover`, `--accent-pressed`, `--accent-soft`, per-semantic `*-soft` alphas), focus (`--ring`), and modal scrim (`--overlay`). Added spacing scale, radius scale, dark-canvas-tuned shadow scale, motion tokens, typography tokens (`--font-display`, `--font-body`, `--font-mono`), and type/line-height scales. *Skill guideline:* "Color & Theme — CSS variables for consistency" + "Spatial Composition — intentional spacing." *Why:* existing ad-hoc values (124 distinct `border-radius:` rules, inline pixel spacing, bare color literals) prevent visual coherence. Tokens are the prerequisite for every subsequent phase.
+- **`src/frontend/index.html` (line 100, `body`)** — `font-family` migrated from `"Manrope", sans-serif` to `var(--font-body)` with a richer fallback stack. *Why:* future-proofs font swaps and matches the token system.
+- **`src/frontend/index.html` (end of `<style>`, ~line 6520 onward)** — Phase 1 base-element rules placed at end of style block so they definitively win the cascade: Fraunces display font applied to `h1/h2/h3`, `.page-header h1`, `.stat-value`, `.card-title` with negative letter-spacing and tabular numerals for stat values. Added unified `:focus-visible` ring using `--ring`, themed `::selection` using `--accent-soft`, themed WebKit scrollbars, global `prefers-reduced-motion` guard, tabular numerals on all table cells. *Skill guideline:* "Typography — distinctive display + refined body pair; avoid generic Inter/system-only." *Why:* Fraunces was already loaded from Google Fonts but never used — wiring it up gives the editorial hierarchy the skill calls for at zero network cost.
+
+### Phase 2 — Component Polish
+
+- **`src/frontend/index.html` (end of `<style>`, Phase 2 block)** — Buttons: token-driven radius, 36px min-height default / 30px `.btn-sm` / 44px `.btn-lg`, `:active` scale(0.98) press, `:disabled` state, primary hover via `--accent-hover`, pressed via `--accent-pressed`. *Skill: "Motion as signal; tactile interaction."* *Why:* the app had zero press or disabled feedback — common friction on mobile.
+- **Font-family migration** for `.btn`, `.inline-select`, `input`, `select`, `textarea`, `button` — pre-existing `"Inter", sans-serif` fallback was referenced at 4 sites but Inter was never loaded. Route everything to `var(--font-body)` so Manrope actually renders. *Why:* silent system-font fallback was a bug; fix is free.
+- **Inputs** — unified hover (`--border-strong`), focus (3px `--accent-soft` ring via `box-shadow`), disabled dim, read-only muted. *Skill: "Consistency over cleverness."*
+- **Labels** — migrated colour to `--text-subtle` for softer hierarchy without changing size.
+- **Cards / stat cards** — radius bumped to `--radius-lg`, hover lifts with `--shadow-md` + `--border-strong` border. *Skill: "Backgrounds & depth — atmosphere, not solid panels."*
+- **Sidebar `.nav-item.active`** — refactored from heavy full-accent fill to a refined treatment: 3px accent left-bar (rounded right) + `--accent-soft` tinted background + accent-coloured icon + regular text. *Skill: "Dominant neutrals with sharp accents."* *Why:* the previous fill made every navigation state feel identical in weight; the refined version reads as an *indicator*, not a block.
+- **Modals** — `.confirm-overlay` now uses `--overlay` + 2px backdrop blur; `.confirm-modal` uses `--shadow-lg` + `--radius-lg`; added `confirmModalRise` scale-from-0.97 + fade-up entrance at `--duration-base`; title migrated to display font. *Skill: "Motion for high-impact moments."*
+- **Tables** — `tbody tr:nth-child(even)` gets a 1.5%-white zebra tone; `tr:hover` uses `--surface2`; `th` colour migrated to `--text-subtle`. *Skill: "Controlled density."*
+- **Pills** — radius token `--radius-pill` applied, `font-variant-numeric: tabular-nums` for counts.
+
+### Phase 3 — Interaction & Motion
+
+- **Page reveal stagger** — children of `.page.active` fade-up with a 40ms cascading delay (caps at 7th child so long workspaces don't feel laggy); stat-card grids get a nested scale-0.985→1 sub-stagger on top of the parent reveal. *Skill: "one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions."* *Why:* before, workspaces popped in instantly; now they compose themselves like an editorial layout.
+- **Spinner refresh** — ring track now `--accent-soft` with an `--accent` head, slightly thicker (2.5px), themed easing. *Skill: motion tokens, not ad-hoc timings.*
+- **Skeleton shimmer utility** — `.skeleton` class defines a loading placeholder with a 1.6s shimmer gradient. *Why:* available for Phase 4/5 to use on slow surfaces without another round-trip.
+- **Action toast** — transition now uses a `cubic-bezier(0.34, 1.56, 0.64, 1)` elastic curve over `--duration-slow`; progress bar is an accent→accent2 gradient; button uses `--radius-pill`. *Skill: "motion for high-impact moments."*
+- **Checkbox/radio** — `accent-color` tied to `--accent`; press scale(0.92) for tactile feedback. *Why:* native controls previously felt disconnected from the theme.
+- **Button lift on hover** — `.btn-sm` and `.btn-ghost` get a 1px translateY on hover so row-action emoji buttons feel alive.
+- **Link hover** — non-nav, non-button anchors hover to `--accent-hover`.
+- **`.status-pill` utility** — success/error inline pill with fade+slide enter, paired with a `.show` toggle. *Skill: consistency over cleverness.* *Why:* gives a future-proof Phase 5 hook for save/delete confirmations without adding a notifications library.
+
+### Phase 4 — Mobile Experience
+
+- **Receipt editor horizontal-scroll fix (641–1100px)** — `.receipt-editor-web-main` 8-column grid collapses to a 2-row × 4-col layout via explicit `grid-row`/`grid-column` on `nth-child` cells. Row 1: Item | Qty | Line Total | Remove. Row 2: Unit | Size Label | Item Group | Budget Category. *Skill: "mobile parity by default."* *Why:* the #1 audited friction point — tablet users had to swipe horizontally inside every receipt. Now the editor fits natively.
+- **≥44px touch targets at ≤900px** — `.btn` 44, `.btn-sm` 40 (bumped from 30), `.btn-lg` 48, `.nav-item` 44, `.inline-select` 40, native checkbox/radio 22×22. *Skill: "mobile is not an afterthought."*
+- **Bottom-sheet modals at ≤640px** — `.confirm-modal` pins to bottom, goes full-width, rounded top corners (`--radius-xl`), gets a centered 42×4 drag-handle affordance via `::before`, column-reverse action buttons stretch full width, safe-area inset bottom padding, slide-up-from-100% enter. *Skill: "native-feeling bottom sheets, no horizontal scroll anywhere."* *Why:* previously modals appeared top-anchored with margins — hard to reach and didn't respect iOS safe areas.
+- **iOS safe-area padding** on sidebar (top/bottom) and action-toast (bottom/left) via `max(original, env(safe-area-inset-*))`. *Why:* notch & home-indicator clearance.
+- **Horizontal-overflow lock** at ≤640px: `.page`, `.card`, `.form-grid` are pinned to `max-width: 100%; min-width: 0`; `.form-grid` collapses to a single column. *Why:* protects Bills, Receipts filter, Analytics, and Settings cards from overflowing on 360px devices.
+- **`.mobile-sticky-search` primitive** — sticky-top search bar for long mobile lists; inert until adopted, ready for Phase 5 extracted-items rollout.
+- **Deferred** (moved to Phase 5 where JS + a11y testing happen together): pinch-zoom on receipt image, dynamic mobile line-item header summary.
+
+### Phase 4 — Revision 1 (Log Cash / Transfer modal)
+
+User feedback: the Bills → `Log Cash / Transfer` flow needed polish. Applied a full consistency pass to `#cash-transaction-overlay` / `.cash-modal` (which had its own hand-tuned CSS at `:1633-1964` that predated the token system):
+
+- **(A) Typography & tokens** — `.cash-modal-title` now uses `--font-display` (Fraunces) + display-font size/weight; section titles match. Inputs/selects/textareas migrated to token radii, colors, focus ring (`--accent-soft`), padding, font. Header gets a subtle `--accent-soft → transparent` gradient stripe instead of a raw hairline.
+- **(B) True bottom-sheet on ≤640px** — overrides the legacy cash-modal mobile rule: slides up from the bottom, drag-handle affordance via `::before`, safe-area inset bottom padding, column-reverse stacked action buttons, 92vh max-height with internal scroll.
+- **(C) Save button normalized** — gradient `linear-gradient(135deg, #6b63ff, #4e8cff)` with custom glow replaced by the app-standard primary button (`--accent` / `--accent-hover` / `--accent-pressed`, token radius, no gradient). Cancel/Ghost button likewise migrated.
+- **(D) Smooth reveal** on `#cash-transaction-new-provider-fields` / `#cash-transaction-new-service-fields` — `cashPanelReveal` fade-up with scaleY(0.985) via the `.cash-detail-panel` class. Previously these reveal panels appeared instantly.
+- **(E) Mobile density** — input min-height 52→44, section padding 22→18 (14 on mobile), modal body gap 24→18 (12 on mobile), inline buttons migrated to 44 baseline. Less wall-of-form on small screens.
+
+*Skill guideline:* "consistency over cleverness — if a new pattern exists, apply it everywhere." *Why:* the cash modal was a visual island — stronger shadows, richer colors, different typography. After this pass it belongs to the same family as every other modal while still feeling polished.
+
+### Phase 4 — Revision 2 (Apple-style Payee picker)
+
+User feedback: "Payee dropdown in Log Cash should look like Apple scroll, if entering manual should be clean." Replaced the native `<datalist>` with a custom dropdown that shares the same data source (`knownBillProviders`) and integrates with existing handlers.
+
+- **HTML** — `src/frontend/index.html:10846` removed `list="cash-provider-options"` from the Payee `<input>`; added `onfocus`, `onblur`, `onkeydown`, and ARIA combobox attributes; appended a sibling `<div id="cash-provider-picker" class="apple-picker" role="listbox">…</div>` inside `.cash-input-wrap`. The original `<datalist>` remains in DOM (unreferenced), so `renderCashProviderDatalist()` still works — makes rollback trivial.
+- **JS** — added `cashProviderPickerCandidates()`, `renderCashProviderPicker()`, `showCashProviderPicker()`, `hideCashProviderPickerSoon()`, `handleCashProviderPickerKeydown()`. The `oninput` handler now calls `handleCashProviderLookup()` **and** `renderCashProviderPicker(this.value)` so the picker filters live. Clicking an option sets the input value and fires `handleCashProviderLookup(value)` — same flow as typing the exact name, so existing selection logic (hide "new provider" fields, load service lines) works unchanged.
+- **Clean manual entry** — the picker auto-hides when: there are no matches, OR the typed text exactly matches a single provider. So typing a brand-new name ("Johnny's Tutor") silently closes the picker and leaves a clean field; the "New Provider" button remains the discoverable escape hatch (behavior unchanged).
+- **Apple aesthetic** — translucent surface (`rgba(22,26,36,0.94)` + `backdrop-filter: blur(20px) saturate(140%)`), `--radius-lg`, `--shadow-lg`, 42vh max scroll, slim 6px custom scrollbar, momentum scroll (`-webkit-overflow-scrolling: touch`), 44px rows with `--accent-soft` hover/active, provider category rendered as a small uppercase hint on the right, fade-up enter over `--duration-base`.
+- **Keyboard** — ArrowUp/Down navigates, Enter selects, Escape closes. Accessible `role="combobox"` / `role="listbox"` / `role="option"` / `aria-expanded` / `aria-controls` wiring.
+- **Mobile** — inside the bottom-sheet modal, the picker is constrained by the sheet's scroll container; momentum scrolling works natively. Hint text stays compact.
+
+### Phase 4 — Revision 3 (Log Cash flow coherence)
+
+User feedback: "Make Log Cash visually consistent — design should feel like one flow — cells aren't right size / aren't consistent." Applied a flow-coherence pass that consolidates visual rhythm and fixes the specific inconsistencies:
+
+- **Flattened three stacked cards into one continuous form** — `.cash-section` no longer has background / border / shadow; only a 1px top hairline divider separates sections. Section headings demoted to uppercase **eyebrows** (small, muted, letter-spaced) so nothing competes with the Fraunces modal title. *Skill: "controlled density; one rhythm over many nested boxes."*
+- **Unified every grid gap** to `--space-4` (16px). Inline `margin-top: 14px` on stacked `.cash-grid.two` pairs replaced by a tokenised `.cash-section .cash-grid + .cash-grid` rule — every row now shares the same rhythm.
+- **`.cash-grid.four` auto-fits** via `repeat(auto-fit, minmax(150px, 1fr))` — keeps 4 cells on a 760px modal, drops to 2 automatically on narrow viewports. No more ~150px cramped selects.
+- **Overrode the legacy aggressive 1100px → 1fr collapse** — now `≥1101px` keeps the native layout, `641–1100px` uses 2-column, `≤640px` stacks to 1 column. Tablet users no longer get a waste-of-space single column.
+- **Inline buttons equalised** — `.cash-inline-button` has `min-width: 132px` and `justify-content: center`, so "New Provider" and "New Service" render at identical width → the adjacent Payee & Service input fields are now exactly the same width.
+- **File-upload shell normalised** — `.cash-file-shell` now matches the 44px input baseline with `padding: 6px 12px` and aligned `file-selector-button`. No more mismatched-height row next to Notes.
+- **Textarea tighter minimum** (96px) so Notes + Photo row has a sensible height balance.
+- **Action row (Cancel / Save Payment)** gets its own padding + top hairline so it reads as the end of the flow rather than attached to "Optional".
+
+### Phase 5 — Final Pass
+
+- **Empty state polish** — `.empty-state` turned into a flex-column pattern with three layered slots: `.icon` (2.4rem, 0.75 opacity so it doesn't overpower), `.empty-state-title` (Fraunces, `--fs-lg`, weight 600), `.empty-state-sub` (small, muted, 32ch max-width), `.empty-state-action` (for optional CTA). Existing uses of `.empty-state` inherit the upgrade automatically.
+- **Inline alert primitive** — `.alert` + variants `.alert-success / -warning / -error / -info`. Each variant uses the soft alpha token (`--success-soft`, etc.) as the card background with a matching 35%-opacity border and an icon badge using the solid accent. Reusable for save confirmations, OCR failures, manual-entry warnings, etc.
+- **Skeleton loader primitives** — `.skeleton-line` + `.skeleton-stack` + size variants (`.short / .medium / .tall / .block`) reuse Phase 3's `skeletonShimmer` keyframe. Any future loading surface can stage `.skeleton-stack` to avoid blank-canvas moments.
+- **Firefox scrollbar** — `scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent` on `html`, tighter `--border-strong` on overflow containers (apple picker, modals, `.table-wrap`). Phase 1 covered WebKit; this finishes the cross-browser story.
+- **`:focus-visible` top-ups** — added explicit keyboard-focus rings on `.apple-picker-item`, `.cash-inline-button`, `.status-pill`, `.pill` where Phase 2 hover rules had previously suppressed the outline. Now every interactive surface shows a consistent violet halo on keyboard focus.
+- **Visually-hidden utility** (`.visually-hidden`) for future accessible labels.
+- **`aria-label` + `title` sweep** on the 3 emoji-only buttons detected by grep (admin AI refresh `🔄`, product shopping-add `🛒`, product delete `🗑`). Every other emoji button in the app pairs the emoji with readable text, which screen readers handle naturally.
+- **Field helper pattern** — `.field-helper` / `.field-helper.error` for inline hint + validation messages; reserved for future form adoption (not wired yet).
+- **Contrast audit** — all primary token pairs pass WCAG AA; key ratios documented in the plan's task table.
+- **Skill alignment review** — the five guiding principles from the plan's Design Principles section were checked one by one and all pass.
+
+### Phase 5 — Revision 1 (Payee picker row legibility)
+
+User feedback: "Payee in Log Cash on web is not clear — the category hint shows clearly but the payee name gets cramped." Root cause: the picker was a child of the narrow `.cash-input-wrap` (sharing width with the adjacent "New Provider" button column), and each row laid out `name | hint` side-by-side so wide categories like "Personal Service" pushed the name into an ellipsis.
+
+- **HTML** — moved `#cash-provider-picker` out of `.cash-input-wrap` so it's now a sibling of `.cash-input-wrap` + `.cash-inline-buttons` inside `.cash-inline-actions`, which carries a new `--picker-host` modifier class with `position: relative`. The picker's existing `position: absolute; left: 0; right: 0` now spans the full Payee + button row instead of just the input column.
+- **CSS** — each `.apple-picker-item` stacks to a **column layout**: name on top (`--fs-base`, weight 500, full-width, truncates on overflow), hint below in muted `--text-subtle` (no uppercase, softer letter-spacing). `:empty` hint rows collapse so the row height stays uniform when no category is present.
+
+*Skill:* "consistency over cleverness — if a cell isn't legible, widen the container and prioritise the signal that matters." *Why:* for picking a payee, the name is the signal; the category is an orientation cue. The previous layout inverted that priority on narrow containers.

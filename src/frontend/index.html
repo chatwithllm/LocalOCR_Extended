@@ -19,6 +19,7 @@
       }
 
       :root {
+        /* --- Existing color tokens (preserved for backwards compatibility) --- */
         --bg: #0d0f14;
         --surface: #161a24;
         --surface2: #1e2330;
@@ -31,10 +32,73 @@
         --success: #00d4aa;
         --warning: #ffb347;
         --danger: #ff6584;
+
+        /* --- Phase 1: extended color layer --- */
+        --surface-3: #262c3b;
+        --border-strong: #3a4257;
+        --text-subtle: #b3b8c8;
+        --accent-hover: #7b74ff;
+        --accent-pressed: #5a52e0;
+        --accent-soft: rgba(108, 99, 255, 0.14);
+        --success-soft: rgba(0, 212, 170, 0.14);
+        --warning-soft: rgba(255, 179, 71, 0.16);
+        --danger-soft: rgba(255, 101, 132, 0.16);
+        --ring: rgba(108, 99, 255, 0.55);
+        --overlay: rgba(5, 7, 12, 0.72);
+
+        /* --- Phase 1: spacing scale --- */
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-10: 40px;
+        --space-12: 48px;
+
+        /* --- Phase 1: radius scale --- */
+        --radius-xs: 4px;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --radius-xl: 20px;
+        --radius-pill: 999px;
+
+        /* --- Phase 1: shadow scale (tuned for dark canvas) --- */
+        --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
+        --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.36);
+        --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.38);
+        --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+
+        /* --- Phase 1: motion tokens --- */
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+        --duration-slow: 320ms;
+
+        /* --- Phase 1: typography tokens --- */
+        --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+        --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+        --fs-xs: 0.72rem;
+        --fs-sm: 0.82rem;
+        --fs-base: 0.92rem;
+        --fs-md: 1rem;
+        --fs-lg: 1.15rem;
+        --fs-xl: 1.4rem;
+        --fs-2xl: 1.85rem;
+        --fs-3xl: 2.4rem;
+
+        --lh-tight: 1.15;
+        --lh-snug: 1.3;
+        --lh-base: 1.5;
       }
 
       body {
-        font-family: "Manrope", sans-serif;
+        font-family: var(--font-body);
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
@@ -6453,6 +6517,1472 @@
           font-size: 1.05rem;
         }
       }
+
+      /* =========================================================
+         Phase 1 — Foundation (base element polish, unified focus,
+         selection, scrollbar, reduced-motion). Placed at the end of
+         <style> so it wins the cascade against earlier declarations.
+         Only adds properties that were previously unset or that we
+         intentionally override (typography family/letter-spacing).
+         ========================================================= */
+
+      /* Typography — display font for headings, stat values, titles */
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        line-height: var(--lh-snug);
+      }
+
+      .page-header h1 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+        line-height: var(--lh-tight);
+      }
+
+      .stat-value {
+        font-family: var(--font-display);
+        letter-spacing: -0.015em;
+        font-variant-numeric: tabular-nums;
+        line-height: var(--lh-tight);
+      }
+
+      .card-title {
+        font-family: var(--font-display);
+        letter-spacing: -0.005em;
+      }
+
+      /* Numbers across tables should be tabular for easier scanning */
+      td,
+      th {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Unified focus ring (keyboard-only) */
+      :focus {
+        outline: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+      a:focus-visible,
+      button:focus-visible,
+      [role="button"]:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible,
+      summary:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      /* Text selection */
+      ::selection {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+
+      /* Scrollbars (WebKit) — quieter, themed */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--surface-3);
+        border-radius: var(--radius-pill);
+        border: 2px solid var(--bg);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--border-strong);
+      }
+
+      /* Respect user reduced-motion preference globally */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      /* =========================================================
+         Phase 2 — Component Polish. Appended last so it wins the
+         cascade against earlier component rules. All pre-existing
+         class names and IDs are preserved; only adds/overrides
+         cosmetic properties.
+         ========================================================= */
+
+      /* --- Font-family migration: "Inter" was referenced at 4 sites
+         but was never actually loaded, so controls silently fell
+         through to system sans. Route them to --font-body. --- */
+      .btn,
+      .inline-select,
+      input,
+      select,
+      textarea,
+      button {
+        font-family: var(--font-body);
+      }
+
+      /* --- Buttons: interaction states + token-driven radius --- */
+      .btn {
+        border-radius: var(--radius-md);
+        min-height: 36px;
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+        -webkit-tap-highlight-color: transparent;
+      }
+      .btn:active:not(:disabled) {
+        transform: translateY(0) scale(0.98);
+      }
+      .btn:disabled,
+      .btn[aria-disabled="true"] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+        box-shadow: none !important;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-primary:active:not(:disabled) {
+        background: var(--accent-pressed);
+      }
+
+      .btn-danger:active:not(:disabled) {
+        background: var(--danger-soft);
+      }
+
+      .btn-ghost {
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover {
+        border-color: var(--border-strong);
+      }
+
+      .btn-tonal-accent:active:not(:disabled) {
+        background: rgba(108, 99, 255, 0.24);
+      }
+      .btn-tonal-success:active:not(:disabled) {
+        background: rgba(0, 212, 170, 0.22);
+      }
+
+      .btn-sm {
+        min-height: 30px;
+        border-radius: var(--radius-sm);
+      }
+      .btn-lg {
+        padding: 12px 22px;
+        min-height: 44px;
+        font-size: var(--fs-md);
+        border-radius: var(--radius-md);
+      }
+
+      /* --- Inputs / selects / textareas: unified states --- */
+      input,
+      select,
+      textarea {
+        border-radius: var(--radius-md);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out);
+      }
+      input:hover:not(:disabled):not(:focus),
+      select:hover:not(:disabled):not(:focus),
+      textarea:hover:not(:disabled):not(:focus) {
+        border-color: var(--border-strong);
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      input:disabled,
+      select:disabled,
+      textarea:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        background: var(--surface);
+      }
+      input:read-only:not([type="checkbox"]):not([type="radio"]),
+      textarea:read-only {
+        background: var(--surface);
+        color: var(--text-subtle);
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--muted);
+        opacity: 0.85;
+      }
+      .inline-select {
+        border-radius: var(--radius-sm);
+      }
+
+      /* Labels: slight weight tweak, stay in sync with body font */
+      label {
+        color: var(--text-subtle);
+        letter-spacing: 0.01em;
+      }
+
+      /* --- Cards: unified hover elevation via shadow token --- */
+      .card {
+        transition:
+          border-color var(--duration-base) var(--ease-out),
+          box-shadow var(--duration-base) var(--ease-out);
+      }
+
+      .stat-card {
+        border-radius: var(--radius-lg);
+      }
+      .stat-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: var(--border-strong);
+      }
+      .stat-label {
+        color: var(--text-subtle);
+        letter-spacing: 0.08em;
+      }
+
+      /* --- Modals: overlay + panel tokens, gentle enter motion --- */
+      .confirm-overlay {
+        background: var(--overlay);
+        backdrop-filter: blur(2px);
+      }
+      .confirm-overlay.show {
+        animation: confirmOverlayFade var(--duration-base) var(--ease-out);
+      }
+      .confirm-modal {
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        animation: confirmModalRise var(--duration-base) var(--ease-out);
+      }
+      @keyframes confirmOverlayFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes confirmModalRise {
+        from {
+          opacity: 0;
+          transform: translateY(8px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .confirm-title {
+        font-family: var(--font-display);
+        letter-spacing: -0.01em;
+        font-size: var(--fs-lg);
+      }
+
+      /* --- Sidebar: refined active state (left accent bar + tint) --- */
+      .nav-item {
+        border-radius: var(--radius-md);
+        position: relative;
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .nav-item.active {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+      .nav-item.active::before {
+        content: "";
+        position: absolute;
+        left: -16px;
+        top: 8px;
+        bottom: 8px;
+        width: 3px;
+        border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+        background: var(--accent);
+      }
+      .nav-item.active .nav-icon {
+        color: var(--accent);
+      }
+
+      /* --- Tables: zebra striping + hover highlight --- */
+      tbody tr:nth-child(even) td {
+        background: rgba(255, 255, 255, 0.015);
+      }
+      tr:hover td {
+        background: var(--surface2);
+      }
+      th {
+        color: var(--text-subtle);
+      }
+
+      /* --- Pills: unified radius/padding across variants --- */
+      .pill {
+        border-radius: var(--radius-pill);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* =========================================================
+         Phase 3 — Interaction & Motion. Appended last. One
+         orchestrated page-reveal instead of scattered micro-animations,
+         polished spinners/toasts, skeleton-loader utility, elastic
+         micro-interactions on key controls. Every animation is
+         clamped by the global prefers-reduced-motion guard from
+         Phase 1, so motion-sensitive users see none of this.
+         ========================================================= */
+
+      /* Orchestrated page enter — runs once per .page.active toggle.
+         Children of an active page fade-up with a short staggered
+         cascade so each workspace feels composed instead of popping in. */
+      .page.active > * {
+        opacity: 0;
+        transform: translateY(6px);
+        animation: pageRevealIn var(--duration-slow) var(--ease-out) forwards;
+      }
+      .page.active > *:nth-child(1)  { animation-delay: 0ms;   }
+      .page.active > *:nth-child(2)  { animation-delay: 40ms;  }
+      .page.active > *:nth-child(3)  { animation-delay: 80ms;  }
+      .page.active > *:nth-child(4)  { animation-delay: 120ms; }
+      .page.active > *:nth-child(5)  { animation-delay: 160ms; }
+      .page.active > *:nth-child(6)  { animation-delay: 200ms; }
+      .page.active > *:nth-child(n+7) { animation-delay: 220ms; }
+      @keyframes pageRevealIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Stat cards within dashboards get a nested enter — subtle
+         scale-up so they feel lifted, not dropped. */
+      .page.active .stats-grid .stat-card,
+      .page.active .dashboard-stats-grid .stat-card {
+        opacity: 0;
+        transform: translateY(4px) scale(0.985);
+        animation: statCardIn var(--duration-slow) var(--ease-out) forwards;
+        animation-delay: calc(120ms + var(--stat-i, 0) * 40ms);
+      }
+      .page.active .stats-grid .stat-card:nth-child(1) { --stat-i: 0; }
+      .page.active .stats-grid .stat-card:nth-child(2) { --stat-i: 1; }
+      .page.active .stats-grid .stat-card:nth-child(3) { --stat-i: 2; }
+      .page.active .stats-grid .stat-card:nth-child(4) { --stat-i: 3; }
+      .page.active .stats-grid .stat-card:nth-child(5) { --stat-i: 4; }
+      .page.active .stats-grid .stat-card:nth-child(n+6) { --stat-i: 5; }
+      @keyframes statCardIn {
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      /* Spinner refresh — thicker ring, themed track */
+      .spinner {
+        border-width: 2.5px;
+        border-color: var(--accent-soft);
+        border-top-color: var(--accent);
+        animation: spin 0.8s var(--ease-in-out) infinite;
+      }
+
+      /* Skeleton shimmer utility — for loading surfaces. Apply
+         .skeleton to any element with a set height/width to stand in
+         for content while it loads. Gracefully inert when unused. */
+      .skeleton {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        color: transparent;
+        user-select: none;
+        pointer-events: none;
+      }
+      .skeleton::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.04) 50%,
+          transparent 100%
+        );
+        transform: translateX(-100%);
+        animation: skeletonShimmer 1.6s var(--ease-in-out) infinite;
+      }
+      @keyframes skeletonShimmer {
+        to {
+          transform: translateX(100%);
+        }
+      }
+
+      /* Action toast — elastic slide-up with slight overshoot */
+      #action-toast {
+        transition:
+          transform var(--duration-slow) cubic-bezier(0.34, 1.56, 0.64, 1),
+          opacity var(--duration-base) var(--ease-out);
+      }
+      .action-toast-button {
+        border-radius: var(--radius-pill);
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .action-toast-progress {
+        border-radius: var(--radius-pill);
+      }
+      .action-toast-progress-bar {
+        transition: width 1s linear;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+      }
+
+      /* Subtle underline reveal on anchor hover (doesn't affect
+         nav-item anchors because those use a different class). */
+      a:not(.nav-item):not(.btn) {
+        position: relative;
+      }
+      a:not(.nav-item):not(.btn):hover {
+        color: var(--accent-hover);
+      }
+
+      /* Stat card hover motion — smoother, token-driven timing */
+      .stat-card {
+        transition:
+          transform var(--duration-base) var(--ease-out),
+          box-shadow var(--duration-base) var(--ease-out),
+          border-color var(--duration-base) var(--ease-out);
+      }
+
+      /* Checkbox / radio press feedback */
+      input[type="checkbox"]:active,
+      input[type="radio"]:active {
+        transform: scale(0.92);
+      }
+      input[type="checkbox"],
+      input[type="radio"] {
+        transition: transform var(--duration-fast) var(--ease-out);
+        accent-color: var(--accent);
+      }
+
+      /* Icon-button micro-animation: emoji-driven row actions get a
+         pop on hover so they feel interactive. */
+      .btn-sm:hover:not(:disabled),
+      .btn-ghost:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      /* Save/delete inline status pill — lightweight success/error
+         notice that can be toggled into any surface without a modal. */
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--radius-pill);
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .status-pill.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .status-pill.success {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .status-pill.error {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      /* =========================================================
+         Phase 4 — Mobile Experience. Appended last. Targets:
+           - ≥44px touch surfaces at ≤900px
+           - kill horizontal scroll in the 8-column receipt line-item
+             editor between 641–1100px (the audited dead zone)
+           - bottom-sheet presentation for modals on ≤640px
+           - safe-area inset padding for iOS notch / home-bar
+         No JS, no class renames.
+         ========================================================= */
+
+      /* --- Receipt editor line-item: split 8-column row into two
+             stacked rows between 641–1100px. Order in source:
+             1 Item | 2 Qty | 3 Line Total | 4 Unit | 5 Size Label |
+             6 Item Group | 7 Budget Category | 8 Remove
+             Target layout (row1/row2):
+             [ Item (span 1) | Qty | Line Total | Remove ]
+             [ Unit | Size Label | Item Group | Budget Category ]
+             --- */
+      @media (max-width: 1100px) and (min-width: 641px) {
+        .receipt-editor-web-main {
+          grid-template-columns: minmax(0, 2.2fr) minmax(64px, 0.75fr) minmax(84px, 0.95fr) minmax(84px, 0.9fr);
+          grid-template-rows: auto auto;
+          column-gap: 10px;
+          row-gap: 12px;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(1) {
+          grid-row: 1;
+          grid-column: 1;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(2) {
+          grid-row: 1;
+          grid-column: 2;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(3) {
+          grid-row: 1;
+          grid-column: 3;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(8) {
+          grid-row: 1;
+          grid-column: 4;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(4) {
+          grid-row: 2;
+          grid-column: 1;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(5) {
+          grid-row: 2;
+          grid-column: 2;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(6) {
+          grid-row: 2;
+          grid-column: 3;
+        }
+        .receipt-editor-web-main > .receipt-editor-web-field:nth-child(7) {
+          grid-row: 2;
+          grid-column: 4;
+        }
+        /* When budget-category slot is rendered as a plain empty
+           <div></div> (showBudgeting === false), collapse it so row 2
+           stays visually aligned. */
+        .receipt-editor-web-main > div:not(.receipt-editor-web-field):nth-child(7) {
+          grid-row: 2;
+          grid-column: 4;
+        }
+      }
+
+      /* --- ≥44px touch surfaces on mobile & tablet --- */
+      @media (max-width: 900px) {
+        .btn {
+          min-height: 44px;
+        }
+        .btn-sm {
+          min-height: 40px;
+          padding: 8px 14px;
+          font-size: var(--fs-sm);
+        }
+        .btn-lg {
+          min-height: 48px;
+        }
+        .inline-select {
+          min-height: 40px;
+          height: 40px;
+          padding: 8px 12px;
+        }
+        input[type="checkbox"],
+        input[type="radio"] {
+          min-width: 22px;
+          min-height: 22px;
+        }
+        .nav-item {
+          min-height: 44px;
+          padding: 10px 14px;
+        }
+      }
+
+      /* --- Bottom-sheet modals on small viewports. Promote any
+             .confirm-overlay + .confirm-modal pair into a sheet
+             pinned to the bottom of the viewport, with a drag-handle
+             affordance and a slide-up entrance. Preserves existing
+             markup — CSS-only. --- */
+      @media (max-width: 640px) {
+        .confirm-overlay {
+          align-items: flex-end;
+          padding: 0;
+        }
+        .confirm-modal {
+          width: 100%;
+          max-width: 100%;
+          border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+          padding: 28px 20px max(20px, env(safe-area-inset-bottom)) 20px;
+          box-shadow: var(--shadow-lg);
+          animation: sheetModalRise var(--duration-slow) var(--ease-out);
+          position: relative;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        .confirm-modal::before {
+          content: "";
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 42px;
+          height: 4px;
+          border-radius: var(--radius-pill);
+          background: var(--border-strong);
+          opacity: 0.7;
+        }
+        .confirm-actions {
+          flex-direction: column-reverse;
+          gap: 10px;
+        }
+        .confirm-actions .btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+      @keyframes sheetModalRise {
+        from {
+          opacity: 0;
+          transform: translateY(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* --- iOS safe-area inset padding on fixed-position chrome --- */
+      .sidebar {
+        padding-top: max(24px, env(safe-area-inset-top));
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+      }
+      #action-toast {
+        bottom: max(24px, calc(env(safe-area-inset-bottom) + 16px));
+        left: max(24px, calc(env(safe-area-inset-left) + 16px));
+      }
+
+      /* --- Keep long filter panels & table wrappers from overflowing
+             horizontally on small viewports. .table-wrap already scrolls
+             intentionally, but the outer containers shouldn't. --- */
+      @media (max-width: 640px) {
+        .page,
+        .card,
+        .form-grid {
+          max-width: 100%;
+          min-width: 0;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+      }
+
+      /* --- Sticky search affordance for long lists on mobile.
+             Inert until an element adopts .mobile-sticky-search. --- */
+      @media (max-width: 640px) {
+        .mobile-sticky-search {
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          background: var(--surface);
+          padding: 8px 0;
+          margin-bottom: 8px;
+          border-bottom: 1px solid var(--border);
+        }
+      }
+
+      /* =========================================================
+         Phase 4 revision — Log Cash / Transfer modal polish.
+         Aligns #cash-transaction-overlay with the tokens and
+         patterns from Phases 1–4. Appended at end so it wins the
+         cascade against the original cash-modal rules at :1633+.
+         Changes:
+           A) Typography tokens (title uses display font)
+           B) True bottom-sheet on ≤640px
+           C) Save button normalized to primary button language
+           D) Smooth reveal animation on New Provider / New Service
+           E) Tighter mobile density + 44px input baseline
+         ========================================================= */
+
+      /* A) Modal shell + header */
+      .cash-modal {
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow-lg);
+      }
+      .cash-modal-top {
+        padding: 22px 26px 18px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--accent-soft), transparent);
+      }
+      .cash-modal-title {
+        font-family: var(--font-display);
+        font-size: var(--fs-2xl);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--text);
+      }
+      .cash-modal-body {
+        padding: 20px 26px 24px;
+        gap: 18px;
+      }
+
+      /* A) Section cards aligned to token surfaces */
+      .cash-section {
+        padding: 18px;
+        border-radius: var(--radius-lg);
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-xs);
+      }
+      .cash-section-title {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: var(--fs-lg);
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+
+      /* A + E) Labels & fields — token-driven, 44px baseline */
+      .cash-label-row label {
+        color: var(--text-subtle);
+        font-weight: 600;
+        font-size: var(--fs-sm);
+        letter-spacing: 0.01em;
+        text-transform: none;
+      }
+      .cash-required-mark {
+        color: var(--danger);
+      }
+      .cash-modal input:not([type="checkbox"]):not([type="file"]),
+      .cash-modal select,
+      .cash-modal textarea {
+        min-height: 44px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: var(--fs-base);
+        font-weight: 500;
+        font-family: var(--font-body);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out);
+      }
+      .cash-modal textarea {
+        min-height: 96px;
+      }
+      .cash-modal input::placeholder,
+      .cash-modal textarea::placeholder {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .cash-modal input:not([type="checkbox"]):not([type="file"]):hover:not(:focus),
+      .cash-modal select:hover:not(:focus),
+      .cash-modal textarea:hover:not(:focus) {
+        border-color: var(--border-strong);
+        background: var(--surface);
+      }
+      .cash-modal input:not([type="checkbox"]):not([type="file"]):focus,
+      .cash-modal select:focus,
+      .cash-modal textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+        background: var(--surface);
+      }
+
+      /* A) Inline "New Provider" / "New Service" buttons */
+      .cash-inline-button {
+        min-height: 44px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-weight: 600;
+        font-size: var(--fs-sm);
+        font-family: var(--font-body);
+        padding: 10px 14px;
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .cash-inline-button:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--text);
+        transform: translateY(-1px);
+      }
+      .cash-inline-button:active {
+        transform: translateY(0) scale(0.98);
+      }
+
+      /* D) Smooth reveal on New Provider / New Service panels */
+      .cash-detail-panel {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        animation: cashPanelReveal var(--duration-slow) var(--ease-out);
+        transform-origin: top;
+      }
+      @keyframes cashPanelReveal {
+        from {
+          opacity: 0;
+          transform: translateY(-4px) scaleY(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scaleY(1);
+        }
+      }
+
+      /* File-upload shell — token colors */
+      .cash-file-shell {
+        background: var(--surface);
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+      }
+      .cash-file-shell input[type="file"]::file-selector-button {
+        background: var(--accent-soft);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        font-weight: 600;
+      }
+      .cash-file-shell input[type="file"]::file-selector-button:hover {
+        background: rgba(108, 99, 255, 0.24);
+      }
+
+      /* C) Save / Cancel buttons — aligned to primary button language */
+      .cash-modal .btn {
+        min-height: 44px;
+        border-radius: var(--radius-md);
+        padding: 0 18px;
+        font-size: var(--fs-sm);
+        font-weight: 600;
+        font-family: var(--font-body);
+      }
+      .cash-modal .btn-primary {
+        background: var(--accent);
+        box-shadow: none;
+      }
+      .cash-modal .btn-primary:hover {
+        background: var(--accent-hover);
+        box-shadow: none;
+      }
+      .cash-modal .btn-primary:active:not(:disabled) {
+        background: var(--accent-pressed);
+      }
+      .cash-modal .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .cash-modal .btn-ghost:hover {
+        background: var(--surface2);
+        border-color: var(--border-strong);
+      }
+
+      /* B) True bottom-sheet on mobile — overrides the original
+             cash-modal 640px rule at :1933 */
+      @media (max-width: 640px) {
+        #cash-transaction-overlay {
+          align-items: flex-end;
+          padding: 0;
+        }
+        .cash-modal {
+          width: 100%;
+          max-width: 100%;
+          border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+          max-height: 92vh;
+          overflow-y: auto;
+          padding-bottom: max(20px, env(safe-area-inset-bottom));
+          animation: sheetModalRise var(--duration-slow) var(--ease-out);
+          position: relative;
+          margin: 0;
+        }
+        .cash-modal::before {
+          content: "";
+          position: absolute;
+          top: 10px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 42px;
+          height: 4px;
+          border-radius: var(--radius-pill);
+          background: var(--border-strong);
+          opacity: 0.7;
+          z-index: 1;
+        }
+        .cash-modal-top {
+          padding: 28px 18px 14px;
+        }
+        .cash-modal-title {
+          font-size: var(--fs-xl);
+        }
+        .cash-modal-body {
+          padding: 14px 18px 18px;
+          gap: 12px;
+        }
+        .cash-section {
+          padding: 14px;
+          border-radius: var(--radius-md);
+        }
+        .cash-modal .confirm-actions {
+          flex-direction: column-reverse;
+          gap: 10px;
+        }
+        .cash-modal .confirm-actions .btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+
+      /* =========================================================
+         Phase 4 revision 2 — Apple-style Payee picker.
+         Replaces the native <datalist> dropdown on the
+         Log Cash / Transfer Payee input with a custom dropdown
+         that matches the app's tokens and behaves cleanly whether
+         the user is picking from the list or typing manually.
+         ========================================================= */
+      .apple-picker {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: rgba(22, 26, 36, 0.94);
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-4px) scale(0.985);
+        transform-origin: top;
+        pointer-events: none;
+        transition:
+          opacity var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .apple-picker.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+      }
+      .apple-picker-scroll {
+        max-height: min(280px, 42vh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px;
+        scroll-padding: 6px;
+      }
+      .apple-picker-scroll::-webkit-scrollbar {
+        width: 6px;
+      }
+      .apple-picker-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .apple-picker-scroll::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: var(--radius-pill);
+      }
+      .apple-picker-item {
+        width: 100%;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: var(--fs-base);
+        font-weight: 500;
+        text-align: left;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          transform var(--duration-fast) var(--ease-out);
+      }
+      .apple-picker-item + .apple-picker-item {
+        margin-top: 2px;
+      }
+      .apple-picker-item:hover,
+      .apple-picker-item.active,
+      .apple-picker-item:focus-visible {
+        background: var(--accent-soft);
+        outline: none;
+      }
+      .apple-picker-item:active {
+        transform: scale(0.98);
+      }
+      .apple-picker-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+      }
+      .apple-picker-hint {
+        color: var(--text-subtle);
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        white-space: nowrap;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      /* =========================================================
+         Phase 4 revision 3 — Log Cash flow coherence.
+         Unify the three stacked cards into one continuous form,
+         stabilise cell widths, match dropzone height to inputs,
+         equalise inline button widths, fix the 1100px aggressive
+         single-column collapse.
+         ========================================================= */
+
+      /* Flatten section cards into continuous flow with subtle
+         hairline dividers + eyebrow headings instead of boxes. */
+      .cash-modal-body {
+        padding: 20px 26px 26px;
+        gap: 0;
+      }
+      .cash-section {
+        padding: 22px 0;
+        margin: 0;
+        border-radius: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-top: 1px solid var(--border);
+      }
+      .cash-section:first-of-type {
+        border-top: none;
+        padding-top: 4px;
+      }
+
+      /* Eyebrow-style heading: small, uppercase, muted — reads as
+         a section marker, not a second nested title. */
+      .cash-section-header {
+        margin-bottom: 14px;
+      }
+      .cash-section-title {
+        font-family: var(--font-body);
+        font-size: var(--fs-xs);
+        font-weight: 700;
+        color: var(--text-subtle);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      /* Detail panel titles (New provider / New service) follow
+         the same eyebrow pattern so nothing competes with the
+         modal title. */
+      .cash-detail-panel .cash-section-title {
+        color: var(--text);
+      }
+
+      /* Consistent row rhythm across every grid inside the modal. */
+      .cash-grid {
+        gap: var(--space-4);
+      }
+      .cash-grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .cash-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      /* auto-fit so the 760px modal keeps cells legible: 4 cols
+         when there's room, 2 cols on narrower viewports. */
+      .cash-grid.four {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+
+      /* Replace the inline margin-top:14px on stacked cash-grids
+         with a tokenised rule so every row has the same gap. */
+      .cash-section .cash-grid + .cash-grid {
+        margin-top: var(--space-4) !important;
+      }
+
+      /* Inline actions: equalise button widths so the two adjacent
+         fields (Payee/Service) end up identical width. */
+      .cash-inline-actions {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--space-3);
+      }
+      .cash-inline-button {
+        min-width: 132px;
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      /* File-upload shell now matches the 44px input baseline and
+         sits on the same horizontal rhythm as every other field. */
+      .cash-file-shell {
+        min-height: 44px;
+        padding: 6px 12px;
+        gap: 10px;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+      }
+      .cash-file-shell input[type="file"] {
+        font-size: var(--fs-sm);
+        min-height: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+      .cash-file-shell input[type="file"]::file-selector-button {
+        padding: 6px 12px;
+        font-size: var(--fs-xs);
+      }
+      .cash-file-shell .stat-sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: var(--fs-sm);
+        color: var(--text-subtle);
+      }
+
+      /* Textarea: tighter minimum so the Notes/Photo row doesn't
+         create a huge height imbalance with the dropzone. */
+      .cash-modal textarea {
+        min-height: 96px;
+      }
+
+      /* Override the legacy 1100px "collapse everything to 1fr"
+         rule — that was too aggressive for tablets. Now:
+           ≥1101px : cash-grid.two=2, three=3, four=auto-fit
+           641–1100px : everything to 2fr (readable on tablet)
+           ≤640px : everything to 1fr (mobile stacks)
+      */
+      @media (max-width: 1100px) and (min-width: 641px) {
+        .cash-grid.two,
+        .cash-grid.three,
+        .cash-grid.four {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .cash-inline-actions {
+          grid-template-columns: minmax(0, 1fr) auto;
+        }
+        .cash-inline-button {
+          min-width: 120px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .cash-modal-body {
+          padding: 18px 18px 22px;
+        }
+        .cash-section {
+          padding: 18px 0;
+        }
+        .cash-section:first-of-type {
+          padding-top: 4px;
+        }
+        .cash-grid.two,
+        .cash-grid.three,
+        .cash-grid.four {
+          grid-template-columns: 1fr;
+        }
+        .cash-inline-actions {
+          grid-template-columns: 1fr;
+        }
+        .cash-inline-button {
+          width: 100%;
+          min-width: 0;
+        }
+      }
+
+      /* Confirm-actions (Cancel / Save Payment) — own its own row
+         with a divider, so the save button feels like the end of
+         the flow rather than an afterthought stuck to "Optional". */
+      .cash-modal .confirm-actions {
+        padding-top: 20px;
+        margin-top: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      /* =========================================================
+         Phase 5 — Final Pass. Empty/error states, inline alert
+         pattern, skeleton adoption, Firefox scrollbar theming, and
+         accessibility refinements to round out the sweep. Appended
+         last, token-driven, motion-safe.
+         ========================================================= */
+
+      /* --- Empty state: unified icon + title + subtext + action --- */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 56px 24px;
+        color: var(--text-subtle);
+        text-align: center;
+      }
+      .empty-state .icon {
+        font-size: 2.4rem;
+        margin-bottom: 6px;
+        opacity: 0.75;
+        filter: grayscale(0.15);
+      }
+      .empty-state .empty-state-title {
+        font-family: var(--font-display);
+        font-size: var(--fs-lg);
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+      .empty-state .empty-state-sub {
+        font-size: var(--fs-sm);
+        color: var(--text-subtle);
+        max-width: 32ch;
+        line-height: var(--lh-base);
+      }
+      .empty-state .empty-state-action {
+        margin-top: var(--space-3);
+      }
+
+      /* --- Inline alert pattern (success / warning / error / info) ---
+         Reusable `.alert` with variant modifier. Inert unless
+         `.show` is set (so animation plays on reveal). */
+      .alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        color: var(--text);
+        font-size: var(--fs-sm);
+        line-height: var(--lh-snug);
+      }
+      .alert-icon {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-pill);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .alert-body {
+        min-width: 0;
+        flex: 1;
+      }
+      .alert-title {
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 2px;
+      }
+      .alert.alert-success {
+        border-color: rgba(0, 212, 170, 0.35);
+        background: var(--success-soft);
+      }
+      .alert.alert-success .alert-icon {
+        background: var(--success);
+        color: #002;
+      }
+      .alert.alert-warning {
+        border-color: rgba(255, 179, 71, 0.35);
+        background: var(--warning-soft);
+      }
+      .alert.alert-warning .alert-icon {
+        background: var(--warning);
+        color: #3a2a08;
+      }
+      .alert.alert-error {
+        border-color: rgba(255, 101, 132, 0.35);
+        background: var(--danger-soft);
+      }
+      .alert.alert-error .alert-icon {
+        background: var(--danger);
+        color: #fff;
+      }
+      .alert.alert-info .alert-icon {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      /* --- Skeleton block adoption on common loading surfaces.
+             The class `.is-loading` on a container swaps its inner
+             content for skeleton placeholders (CSS-only; markup
+             still needs to provide .skeleton elements within). --- */
+      .skeleton-stack {
+        display: grid;
+        gap: 10px;
+      }
+      .skeleton-line {
+        display: block;
+        position: relative;
+        overflow: hidden;
+        background: var(--surface2);
+        border-radius: var(--radius-sm);
+        height: 14px;
+        width: 100%;
+      }
+      .skeleton-line::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.04) 50%,
+          transparent 100%
+        );
+        transform: translateX(-100%);
+        animation: skeletonShimmer 1.6s var(--ease-in-out) infinite;
+      }
+      .skeleton-line.short {
+        width: 58%;
+      }
+      .skeleton-line.medium {
+        width: 76%;
+      }
+      .skeleton-line.tall {
+        height: 28px;
+      }
+      .skeleton-line.block {
+        height: 96px;
+      }
+
+      /* --- Firefox scrollbar (WebKit handled in Phase 1) --- */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--surface-3) transparent;
+      }
+      .apple-picker-scroll,
+      .confirm-modal,
+      .cash-modal,
+      .table-wrap {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+      }
+
+      /* --- A11y refinements ---
+         Consistent focus ring specifically on picker items, inline
+         button rows, and stat-card content. Phase 1 covered the
+         defaults; this strengthens the treatment where it was
+         previously suppressed by element-level :hover rules. */
+      .apple-picker-item:focus-visible,
+      .cash-inline-button:focus-visible,
+      .status-pill:focus-visible,
+      .pill:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      /* Visually hidden but screen-reader accessible — utility
+         for adding accessible labels to icon-only controls. */
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* --- Dark-mode polish: Firefox doesn't get WebKit scrollbar
+             thumb colour; ensure our :focus, ::selection, and
+             ::-moz-selection variants all read cleanly. --- */
+      ::-moz-selection {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+
+      /* --- Form field helper text (reserved for Phase 5 adoption) --- */
+      .field-helper {
+        display: block;
+        margin-top: 4px;
+        font-size: var(--fs-xs);
+        color: var(--text-subtle);
+        line-height: var(--lh-snug);
+      }
+      .field-helper.error {
+        color: var(--danger);
+      }
+
+      /* =========================================================
+         Phase 5 revision — Payee picker row legibility.
+         The picker used to live inside .cash-input-wrap (narrow)
+         with the category hint fighting the provider name for
+         horizontal space. Now it spans the full inline-actions
+         row and each row stacks the name above a muted hint —
+         Apple Contacts / Settings-style.
+         ========================================================= */
+
+      /* Widen the picker: span the whole Payee + button row. */
+      .cash-inline-actions.cash-inline-actions--picker-host {
+        position: relative;
+      }
+      .cash-inline-actions.cash-inline-actions--picker-host > .apple-picker {
+        left: 0;
+        right: 0;
+      }
+
+      /* Stack each row: name full-width on top, hint muted below.
+         Always the name gets priority; hint truncates first. */
+      .apple-picker-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        padding: 10px 14px;
+      }
+      .apple-picker-name {
+        width: 100%;
+        font-size: var(--fs-base);
+        font-weight: 500;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .apple-picker-hint {
+        width: 100%;
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        color: var(--text-subtle);
+        letter-spacing: 0.02em;
+        text-transform: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Hide hint when it's empty so we don't render a 2nd line
+         with just whitespace. */
+      .apple-picker-hint:empty {
+        display: none;
+      }
     </style>
   </head>
 
@@ -9656,7 +11186,7 @@
                       <option value="14">Last 14 days</option>
                       <option value="30">Last 30 days</option>
                     </select>
-                    <button class="btn btn-ghost btn-sm" onclick="loadAdminAiUsage()">🔄</button>
+                    <button class="btn btn-ghost btn-sm" onclick="loadAdminAiUsage()" aria-label="Refresh AI usage">🔄</button>
                   </div>
                 </div>
                 <div id="admin-ai-usage-body"></div>
@@ -10093,14 +11623,20 @@
                     >Payee <span class="cash-required-mark">*</span></label
                   >
                 </div>
-                <div class="cash-inline-actions">
+                <div class="cash-inline-actions cash-inline-actions--picker-host">
                   <div class="cash-input-wrap">
                     <input
                       id="cash-transaction-provider-name"
-                      list="cash-provider-options"
-                      oninput="handleCashProviderLookup()"
+                      oninput="handleCashProviderLookup(); renderCashProviderPicker(this.value);"
+                      onfocus="showCashProviderPicker()"
+                      onblur="hideCashProviderPickerSoon()"
+                      onkeydown="handleCashProviderPickerKeydown(event)"
                       placeholder="Tutor, dance studio, coach"
                       autocomplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-controls="cash-provider-picker"
+                      aria-expanded="false"
                     />
                   </div>
                   <div class="cash-inline-buttons">
@@ -10111,6 +11647,14 @@
                     >
                       New Provider
                     </button>
+                  </div>
+                  <div
+                    id="cash-provider-picker"
+                    class="apple-picker"
+                    role="listbox"
+                    aria-hidden="true"
+                  >
+                    <div class="apple-picker-scroll"></div>
                   </div>
                 </div>
               </div>
@@ -20771,14 +22315,14 @@
                       }
                     </div>
                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })">🛒</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })" aria-label="Add to shopping list" title="Add to shopping list">🛒</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? "Clear Low" : "Low"}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
                       <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || "other")}</select>
                       <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || "each")}</select>
                       <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || "")}" placeholder="18 count, 1 gal" />
                       <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save Unit</button>
-                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})">🗑</button>
+                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})" aria-label="Delete product" title="Delete product">🗑</button>
                     </div>
                   </div>`,
                   )
@@ -26142,6 +27686,125 @@
               `<option value="${escAttr(provider.canonical_name)}"></option>`,
           )
           .join("");
+      }
+
+      // --- Apple-style Payee picker (replaces native <datalist>) ---
+      function cashProviderPickerCandidates(filter = "") {
+        const showAll =
+          document.getElementById("cash-transaction-show-all-providers")
+            ?.checked ?? false;
+        const lower = String(filter || "").trim().toLowerCase();
+        return knownBillProviders.filter((p) => {
+          if (!showAll && (p.provider_category || "other") !== "personal_service")
+            return false;
+          if (!lower) return true;
+          return p.canonical_name.toLowerCase().includes(lower);
+        });
+      }
+
+      function renderCashProviderPicker(filter = "") {
+        const picker = document.getElementById("cash-provider-picker");
+        const input = document.getElementById("cash-transaction-provider-name");
+        if (!picker || !input) return;
+        const scroll = picker.querySelector(".apple-picker-scroll");
+        if (!scroll) return;
+        const lower = String(filter || "").trim().toLowerCase();
+        const candidates = cashProviderPickerCandidates(filter);
+        const exactMatch =
+          candidates.length === 1 &&
+          candidates[0].canonical_name.toLowerCase() === lower;
+
+        if (candidates.length === 0 || exactMatch) {
+          picker.classList.remove("show");
+          picker.setAttribute("aria-hidden", "true");
+          input.setAttribute("aria-expanded", "false");
+          scroll.innerHTML = "";
+          return;
+        }
+
+        scroll.innerHTML = candidates
+          .slice(0, 80)
+          .map(
+            (p) => `
+              <button type="button" class="apple-picker-item" role="option" data-value="${escAttr(p.canonical_name)}">
+                <span class="apple-picker-name">${escHtml(p.canonical_name)}</span>
+                <span class="apple-picker-hint">${escHtml(formatLabel(p.provider_category || "other", ""))}</span>
+              </button>
+            `,
+          )
+          .join("");
+
+        scroll.querySelectorAll(".apple-picker-item").forEach((btn) => {
+          btn.addEventListener("mousedown", (e) => e.preventDefault());
+          btn.addEventListener("click", () => {
+            const value = btn.getAttribute("data-value") || "";
+            input.value = value;
+            handleCashProviderLookup(value);
+            picker.classList.remove("show");
+            picker.setAttribute("aria-hidden", "true");
+            input.setAttribute("aria-expanded", "false");
+          });
+        });
+
+        picker.classList.add("show");
+        picker.setAttribute("aria-hidden", "false");
+        input.setAttribute("aria-expanded", "true");
+      }
+
+      function showCashProviderPicker() {
+        const input = document.getElementById("cash-transaction-provider-name");
+        renderCashProviderPicker(input?.value || "");
+      }
+
+      let cashProviderPickerHideTimer = null;
+      function hideCashProviderPickerSoon() {
+        if (cashProviderPickerHideTimer)
+          clearTimeout(cashProviderPickerHideTimer);
+        cashProviderPickerHideTimer = setTimeout(() => {
+          const picker = document.getElementById("cash-provider-picker");
+          const input = document.getElementById(
+            "cash-transaction-provider-name",
+          );
+          if (picker) {
+            picker.classList.remove("show");
+            picker.setAttribute("aria-hidden", "true");
+          }
+          if (input) input.setAttribute("aria-expanded", "false");
+        }, 150);
+      }
+
+      function handleCashProviderPickerKeydown(event) {
+        const picker = document.getElementById("cash-provider-picker");
+        if (!picker || !picker.classList.contains("show")) return;
+        const items = [...picker.querySelectorAll(".apple-picker-item")];
+        if (!items.length) return;
+        const current = picker.querySelector(".apple-picker-item.active");
+        const currentIdx = current ? items.indexOf(current) : -1;
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          const next = items[Math.min(currentIdx + 1, items.length - 1)];
+          items.forEach((it) => it.classList.remove("active"));
+          next.classList.add("active");
+          next.scrollIntoView({ block: "nearest" });
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          const prev = items[Math.max(currentIdx - 1, 0)];
+          items.forEach((it) => it.classList.remove("active"));
+          prev.classList.add("active");
+          prev.scrollIntoView({ block: "nearest" });
+        } else if (event.key === "Enter") {
+          if (current) {
+            event.preventDefault();
+            current.click();
+          }
+        } else if (event.key === "Escape") {
+          picker.classList.remove("show");
+          picker.setAttribute("aria-hidden", "true");
+          const input = document.getElementById(
+            "cash-transaction-provider-name",
+          );
+          if (input) input.setAttribute("aria-expanded", "false");
+        }
       }
 
       function openCashTransactionModal(prefill = {}) {
