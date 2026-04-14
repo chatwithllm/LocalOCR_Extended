@@ -53,15 +53,15 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Extend `:root` with surface-3, border-strong, text-subtle, accent-hover, accent-pressed, ring, overlay | ⏳ | Keep existing token names untouched to avoid JS breakage |
-| Add full spacing scale (`--space-1`..`--space-12`) and radius scale (`--radius-xs`..`--radius-pill`) | ⏳ | New tokens; existing rules progressively migrated in Phase 2 |
-| Add shadow scale (`--shadow-xs`..`--shadow-lg`) tuned for dark canvas | ⏳ | Luminance-lift approach, not heavy drops |
-| Add motion tokens (`--ease-out`, `--ease-in-out`, `--duration-*`) | ⏳ | Replace ad-hoc `0.22s ease` occurrences in Phase 3 |
-| Wire Fraunces as display font for page titles, card titles, stat values (currently loaded but unused) | ⏳ | `font-family: "Fraunces", Georgia, serif;` applied only to `h1`, `h2`, `.stat-value`, `.page-title`, `.card-title` |
-| Introduce `--font-display` / `--font-body` / `--font-mono` tokens and use via CSS var | ⏳ | Future-proofs font swaps |
-| Define typography scale via CSS custom properties (`--fs-xs`..`--fs-3xl`) and line-height tokens | ⏳ | Replace sub-0.8rem uppercase labels (currently 0.74rem) with min 0.8rem non-uppercase or uppercase w/ letter-spacing |
-| Base element pass: `body`, `h1`–`h6`, `p`, `a`, `hr`, `::selection`, scrollbar | ⏳ | Consistent colors; accessible `::selection` on accent |
-| Re-theme default focus outline to `--ring` tokens on all focusable tags (`:focus-visible` selector) | ⏳ | Kill browser-default blue outlines; ensure a11y |
+| Extend `:root` with surface-3, border-strong, text-subtle, accent-hover, accent-pressed, ring, overlay, `*-soft` alpha variants | ✅ | Existing tokens preserved verbatim so JS/CSS selectors are untouched |
+| Add full spacing scale (`--space-1`..`--space-12`) and radius scale (`--radius-xs`..`--radius-pill`) | ✅ | New tokens live; existing rules progressively migrated in Phase 2 |
+| Add shadow scale (`--shadow-xs`..`--shadow-lg`) tuned for dark canvas | ✅ | Opacity-based drop shadows, calibrated for `#0d0f14` canvas |
+| Add motion tokens (`--ease-out`, `--ease-in-out`, `--duration-*`) | ✅ | Ready to replace ad-hoc `0.22s ease` occurrences in Phase 3 |
+| Wire Fraunces as display font for page titles, card titles, stat values (loaded, previously unused) | ✅ | Applied to `h1/h2/h3`, `.page-header h1`, `.stat-value`, `.card-title` |
+| Introduce `--font-display` / `--font-body` / `--font-mono` tokens | ✅ | Body now uses `font-family: var(--font-body)` |
+| Define typography scale via CSS custom properties (`--fs-xs`..`--fs-3xl`) and line-height tokens | ✅ | Ready for Phase 2 rollout on labels / form fields |
+| Base element pass: unified `:focus-visible`, `::selection`, themed scrollbar, tabular numerals on tables | ✅ | Browser-default blue outline removed; scrollbars themed via `--surface-3` |
+| Respect `prefers-reduced-motion` globally | ✅ | Added at bottom of `<style>` — every animation/transition gets clamped for reduced-motion users |
 
 **Phase 1 acceptance:** token block expanded, Fraunces visible on headings/titles/stat values, no regressions in existing pages, typography feels more editorial without losing compactness.
 
@@ -140,3 +140,9 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 ## Change Log
 
 *Populated after each commit — format: `[phase N] short summary — skill guideline X applied — why`.*
+
+### Phase 1 — Foundation
+
+- **`src/frontend/index.html` (`:root` block, lines 21–98)** — extended the existing 13 color tokens with a full design-system layer: elevation (`--surface-3`), structural contrast (`--border-strong`, `--text-subtle`), interaction states (`--accent-hover`, `--accent-pressed`, `--accent-soft`, per-semantic `*-soft` alphas), focus (`--ring`), and modal scrim (`--overlay`). Added spacing scale, radius scale, dark-canvas-tuned shadow scale, motion tokens, typography tokens (`--font-display`, `--font-body`, `--font-mono`), and type/line-height scales. *Skill guideline:* "Color & Theme — CSS variables for consistency" + "Spatial Composition — intentional spacing." *Why:* existing ad-hoc values (124 distinct `border-radius:` rules, inline pixel spacing, bare color literals) prevent visual coherence. Tokens are the prerequisite for every subsequent phase.
+- **`src/frontend/index.html` (line 100, `body`)** — `font-family` migrated from `"Manrope", sans-serif` to `var(--font-body)` with a richer fallback stack. *Why:* future-proofs font swaps and matches the token system.
+- **`src/frontend/index.html` (end of `<style>`, ~line 6520 onward)** — Phase 1 base-element rules placed at end of style block so they definitively win the cascade: Fraunces display font applied to `h1/h2/h3`, `.page-header h1`, `.stat-value`, `.card-title` with negative letter-spacing and tabular numerals for stat values. Added unified `:focus-visible` ring using `--ring`, themed `::selection` using `--accent-soft`, themed WebKit scrollbars, global `prefers-reduced-motion` guard, tabular numerals on all table cells. *Skill guideline:* "Typography — distinctive display + refined body pair; avoid generic Inter/system-only." *Why:* Fraunces was already loaded from Google Fonts but never used — wiring it up gives the editorial hierarchy the skill calls for at zero network cost.

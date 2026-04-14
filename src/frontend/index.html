@@ -19,6 +19,7 @@
       }
 
       :root {
+        /* --- Existing color tokens (preserved for backwards compatibility) --- */
         --bg: #0d0f14;
         --surface: #161a24;
         --surface2: #1e2330;
@@ -31,10 +32,73 @@
         --success: #00d4aa;
         --warning: #ffb347;
         --danger: #ff6584;
+
+        /* --- Phase 1: extended color layer --- */
+        --surface-3: #262c3b;
+        --border-strong: #3a4257;
+        --text-subtle: #b3b8c8;
+        --accent-hover: #7b74ff;
+        --accent-pressed: #5a52e0;
+        --accent-soft: rgba(108, 99, 255, 0.14);
+        --success-soft: rgba(0, 212, 170, 0.14);
+        --warning-soft: rgba(255, 179, 71, 0.16);
+        --danger-soft: rgba(255, 101, 132, 0.16);
+        --ring: rgba(108, 99, 255, 0.55);
+        --overlay: rgba(5, 7, 12, 0.72);
+
+        /* --- Phase 1: spacing scale --- */
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-10: 40px;
+        --space-12: 48px;
+
+        /* --- Phase 1: radius scale --- */
+        --radius-xs: 4px;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --radius-xl: 20px;
+        --radius-pill: 999px;
+
+        /* --- Phase 1: shadow scale (tuned for dark canvas) --- */
+        --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
+        --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.36);
+        --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.38);
+        --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+
+        /* --- Phase 1: motion tokens --- */
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+        --duration-slow: 320ms;
+
+        /* --- Phase 1: typography tokens --- */
+        --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+        --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+        --fs-xs: 0.72rem;
+        --fs-sm: 0.82rem;
+        --fs-base: 0.92rem;
+        --fs-md: 1rem;
+        --fs-lg: 1.15rem;
+        --fs-xl: 1.4rem;
+        --fs-2xl: 1.85rem;
+        --fs-3xl: 2.4rem;
+
+        --lh-tight: 1.15;
+        --lh-snug: 1.3;
+        --lh-base: 1.5;
       }
 
       body {
-        font-family: "Manrope", sans-serif;
+        font-family: var(--font-body);
         background: var(--bg);
         color: var(--text);
         min-height: 100vh;
@@ -6451,6 +6515,103 @@
 
         .helper-summary-value {
           font-size: 1.05rem;
+        }
+      }
+
+      /* =========================================================
+         Phase 1 — Foundation (base element polish, unified focus,
+         selection, scrollbar, reduced-motion). Placed at the end of
+         <style> so it wins the cascade against earlier declarations.
+         Only adds properties that were previously unset or that we
+         intentionally override (typography family/letter-spacing).
+         ========================================================= */
+
+      /* Typography — display font for headings, stat values, titles */
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        line-height: var(--lh-snug);
+      }
+
+      .page-header h1 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+        line-height: var(--lh-tight);
+      }
+
+      .stat-value {
+        font-family: var(--font-display);
+        letter-spacing: -0.015em;
+        font-variant-numeric: tabular-nums;
+        line-height: var(--lh-tight);
+      }
+
+      .card-title {
+        font-family: var(--font-display);
+        letter-spacing: -0.005em;
+      }
+
+      /* Numbers across tables should be tabular for easier scanning */
+      td,
+      th {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Unified focus ring (keyboard-only) */
+      :focus {
+        outline: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+      a:focus-visible,
+      button:focus-visible,
+      [role="button"]:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible,
+      summary:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+      }
+
+      /* Text selection */
+      ::selection {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+
+      /* Scrollbars (WebKit) — quieter, themed */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--surface-3);
+        border-radius: var(--radius-pill);
+        border: 2px solid var(--bg);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--border-strong);
+      }
+
+      /* Respect user reduced-motion preference globally */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
         }
       }
     </style>
