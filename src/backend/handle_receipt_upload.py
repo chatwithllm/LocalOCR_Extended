@@ -303,6 +303,11 @@ def _delete_purchase_data(session, purchase):
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
     session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
+    session.flush()
+    try:
+        session.expunge(purchase)
+    except Exception:
+        pass
 
 
 def _clear_purchase_detail_data(session, purchase):
@@ -612,6 +617,13 @@ def upload_receipt():
     if receipt_intent not in {"auto", "grocery", "restaurant", "general_expense", "utility_bill", "household_bill"}:
         return jsonify({"error": "receipt_intent must be auto, grocery, restaurant, general_expense, utility_bill, or household_bill"}), 400
     receipt_type_hint = None if receipt_intent == "auto" else receipt_intent
+    raw_model_id = (request.form.get("model_id") or "").strip()
+    model_config_id = None
+    if raw_model_id:
+        try:
+            model_config_id = int(raw_model_id)
+        except ValueError:
+            return jsonify({"error": "model_id must be an integer"}), 400
 
     # Route to hybrid OCR processor
     try:
@@ -621,6 +633,7 @@ def upload_receipt():
             source="upload",
             user_id=user_id,
             receipt_type_hint=receipt_type_hint,
+            model_config_id=model_config_id,
         )
 
         status_code = {
@@ -1192,7 +1205,7 @@ def update_receipt(receipt_id):
 @require_write_access
 def reprocess_receipt(receipt_id):
     """Re-run OCR for an existing stored receipt and update its review payload."""
-    from src.backend.initialize_database_schema import TelegramReceipt
+    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
     from src.backend.extract_receipt_data import process_receipt
 
     session = g.db_session
@@ -1202,6 +1215,14 @@ def reprocess_receipt(receipt_id):
 
     current_user = getattr(g, "current_user", None)
     user_id = current_user.id if current_user else None
+    payload = request.get_json(silent=True) or {}
+    raw_model_id = payload.get("model_id")
+    model_config_id = None
+    if raw_model_id not in (None, "", 0):
+        try:
+            model_config_id = int(raw_model_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "model_id must be an integer"}), 400
     existing_purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
     if existing_purchase:
         _delete_purchase_data(session, existing_purchase)
@@ -1213,6 +1234,7 @@ def reprocess_receipt(receipt_id):
         source="review",
         user_id=user_id,
         receipt_record_id=record.id,
+        model_config_id=model_config_id,
     )
 
     return jsonify(result), 200

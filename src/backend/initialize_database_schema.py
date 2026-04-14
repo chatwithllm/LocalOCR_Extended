@@ -86,12 +86,14 @@ class User(Base):
     session_version = Column(Integer, nullable=False, default=0)
     google_sub = Column(String(255), nullable=True, unique=True)  # Google stable user ID
     google_email = Column(String(255), nullable=True)             # Google account email (display)
+    active_ai_model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     purchases = relationship("Purchase", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
+    active_ai_model = relationship("AIModelConfig", foreign_keys=[active_ai_model_config_id])
 
 
 class Product(Base):
@@ -586,13 +588,71 @@ class ApiUsage(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     service_name = Column(String(50), nullable=False)  # "gemini", "ollama"
     date = Column(Date, nullable=False)
+    model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=True)
     request_count = Column(Integer, nullable=False, default=0)
     token_count = Column(Integer, nullable=False, default=0)
+    prompt_token_count = Column(Integer, nullable=False, default=0)
+    completion_token_count = Column(Integer, nullable=False, default=0)
+    estimated_cost_usd = Column(Float, nullable=False, default=0.0)
+    total_latency_ms = Column(Integer, nullable=False, default=0)
+    last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         UniqueConstraint("service_name", "date", name="uq_api_usage_per_day"),
+    )
+
+
+class AIModelConfig(Base):
+    __tablename__ = "ai_model_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    provider = Column(String(40), nullable=False)
+    model_string = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    price_tier = Column(String(20), nullable=False, default="free")
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    is_visible = Column(Boolean, nullable=False, default=True)
+    credential_mode = Column(String(20), nullable=False, default="env")
+    api_key_encrypted = Column(Text, nullable=True)
+    base_url = Column(String(255), nullable=True)
+    supports_vision = Column(Boolean, nullable=False, default=True)
+    supports_pdf = Column(Boolean, nullable=False, default=False)
+    supports_json_mode = Column(Boolean, nullable=False, default=False)
+    supports_image_input = Column(Boolean, nullable=False, default=True)
+    input_cost_per_million = Column(Float, nullable=True)
+    output_cost_per_million = Column(Float, nullable=True)
+    sort_order = Column(Integer, nullable=False, default=100)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("provider", "model_string", name="uq_ai_model_configs_provider_model"),
+        Index("ix_ai_model_configs_provider", "provider"),
+        Index("ix_ai_model_configs_enabled_visible", "is_enabled", "is_visible"),
+        Index("ix_ai_model_configs_sort_order", "sort_order"),
+    )
+
+
+class UserAIModelAccess(Base):
+    __tablename__ = "user_ai_model_access"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=False)
+    unlocked_at = Column(DateTime, default=utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "model_config_id", name="uq_user_ai_model_access"),
+        Index("ix_user_ai_model_access_user_id", "user_id"),
+        Index("ix_user_ai_model_access_model_id", "model_config_id"),
     )
 
 
@@ -606,6 +666,7 @@ def initialize_database(database_url=None):
     Base.metadata.create_all(engine)
     _ensure_runtime_columns(engine)
     Session = create_session_factory(engine)
+    _seed_default_ai_model_configs(Session)
     logger.info("Database schema initialized successfully.")
     return engine, Session
 
@@ -675,6 +736,17 @@ def _ensure_runtime_columns(engine):
             conn.execute(text("ALTER TABLE users ADD COLUMN avatar_emoji VARCHAR(16)"))
         if "password_hash" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "active_ai_model_config_id" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN active_ai_model_config_id INTEGER"))
+        if "ai_model_configs" in existing_tables:
+            ai_model_columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(ai_model_configs)"))
+            }
+            if "input_cost_per_million" not in ai_model_columns:
+                conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN input_cost_per_million FLOAT"))
+            if "output_cost_per_million" not in ai_model_columns:
+                conn.execute(text("ALTER TABLE ai_model_configs ADD COLUMN output_cost_per_million FLOAT"))
         purchase_columns = {
             row[1]
             for row in conn.execute(text("PRAGMA table_info(purchases)"))
@@ -728,6 +800,23 @@ def _ensure_runtime_columns(engine):
                OR (default_budget_category = 'grocery' AND default_spending_domain <> 'grocery')
                OR (default_budget_category = 'other' AND default_spending_domain IN ('restaurant', 'event'))
         """))
+        if "api_usage" in existing_tables:
+            api_usage_columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(api_usage)"))
+            }
+            if "model_config_id" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN model_config_id INTEGER"))
+            if "prompt_token_count" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN prompt_token_count INTEGER NOT NULL DEFAULT 0"))
+            if "completion_token_count" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN completion_token_count INTEGER NOT NULL DEFAULT 0"))
+            if "estimated_cost_usd" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN estimated_cost_usd FLOAT NOT NULL DEFAULT 0"))
+            if "total_latency_ms" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN total_latency_ms INTEGER NOT NULL DEFAULT 0"))
+            if "last_used_at" not in api_usage_columns:
+                conn.execute(text("ALTER TABLE api_usage ADD COLUMN last_used_at DATETIME"))
 
         if "bill_meta" not in existing_tables:
             conn.execute(text("""
@@ -1174,6 +1263,126 @@ def _ensure_runtime_columns(engine):
             "CREATE INDEX IF NOT EXISTS ix_inventory_adjustment_created_at "
             "ON inventory_adjustments (created_at)"
         ))
+
+
+def _seed_default_ai_model_configs(SessionFactory):
+    """Seed a small default model catalog for Phase 1 without duplicating rows."""
+    session = SessionFactory()
+    try:
+        seeded_models = [
+            {
+                "name": "Gemini Flash",
+                "provider": "gemini",
+                "model_string": os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+                "description": "Fast default OCR with PDF support.",
+                "price_tier": "free",
+                "is_enabled": bool((os.getenv("GEMINI_API_KEY") or "").strip()),
+                "is_visible": True,
+                "credential_mode": "env",
+                "supports_vision": True,
+                "supports_pdf": True,
+                "supports_json_mode": True,
+                "supports_image_input": True,
+                "sort_order": 10,
+            },
+            {
+                "name": "OpenAI Vision",
+                "provider": "openai",
+                "model_string": os.getenv("OPENAI_OCR_MODEL", "gpt-4.1-mini"),
+                "description": "OpenAI-compatible OCR fallback for images and PDFs.",
+                "price_tier": "premium",
+                "is_enabled": bool((os.getenv("OPENAI_API_KEY") or "").strip()),
+                "is_visible": True,
+                "credential_mode": "env",
+                "supports_vision": True,
+                "supports_pdf": True,
+                "supports_json_mode": True,
+                "supports_image_input": True,
+                "sort_order": 20,
+            },
+            {
+                "name": "Ollama Vision",
+                "provider": "ollama",
+                "model_string": os.getenv("OLLAMA_MODEL", "llava:7b"),
+                "description": "Local OCR via Ollama for self-hosted fallback.",
+                "price_tier": "free",
+                "is_enabled": True,
+                "is_visible": True,
+                "credential_mode": "no_key_required",
+                "base_url": os.getenv("OLLAMA_ENDPOINT", "http://ollama:11434"),
+                "supports_vision": True,
+                "supports_pdf": False,
+                "supports_json_mode": False,
+                "supports_image_input": True,
+                "sort_order": 30,
+            },
+            {
+                "name": "OpenRouter Vision",
+                "provider": "openrouter",
+                "model_string": os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001"),
+                "description": "OpenRouter-hosted OCR using an OpenAI-compatible API.",
+                "price_tier": "premium",
+                "is_enabled": bool((os.getenv("OPENROUTER_API_KEY") or "").strip()),
+                "is_visible": True,
+                "credential_mode": "env",
+                "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+                "supports_vision": True,
+                "supports_pdf": True,
+                "supports_json_mode": True,
+                "supports_image_input": True,
+                "sort_order": 40,
+            },
+            {
+                "name": "Anthropic Vision",
+                "provider": "anthropic",
+                "model_string": os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest"),
+                "description": "Anthropic vision OCR support scaffold.",
+                "price_tier": "premium",
+                "is_enabled": bool((os.getenv("ANTHROPIC_API_KEY") or "").strip()),
+                "is_visible": True,
+                "credential_mode": "env",
+                "supports_vision": True,
+                "supports_pdf": True,
+                "supports_json_mode": True,
+                "supports_image_input": True,
+                "sort_order": 50,
+            },
+        ]
+
+        for payload in seeded_models:
+            existing = (
+                session.query(AIModelConfig)
+                .filter_by(provider=payload["provider"], model_string=payload["model_string"])
+                .first()
+            )
+            if existing:
+                if existing.name != payload["name"]:
+                    existing.name = payload["name"]
+                if existing.description != payload["description"]:
+                    existing.description = payload["description"]
+                if existing.credential_mode != payload["credential_mode"]:
+                    existing.credential_mode = payload["credential_mode"]
+                if payload.get("base_url") and existing.base_url != payload["base_url"]:
+                    existing.base_url = payload["base_url"]
+                existing.supports_vision = payload["supports_vision"]
+                existing.supports_pdf = payload["supports_pdf"]
+                existing.supports_json_mode = payload["supports_json_mode"]
+                existing.supports_image_input = payload["supports_image_input"]
+                existing.sort_order = payload["sort_order"]
+                if existing.is_enabled is False and payload["is_enabled"]:
+                    existing.is_enabled = True
+                if existing.is_visible is False:
+                    existing.is_visible = True
+                continue
+
+            session.add(AIModelConfig(**payload))
+
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception("Failed to seed default AI model configs.")
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------

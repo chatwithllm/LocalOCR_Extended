@@ -15,6 +15,9 @@ google-genai>=1.30.0
 # OCR - OpenAI Vision API
 openai>=1.51.0
 
+# OCR - Anthropic Vision API
+anthropic>=0.40.0
+
 # OCR - Ollama (HTTP requests, no special library needed)
 requests==2.32.3
 
@@ -32,6 +35,7 @@ Flask-SocketIO==5.4.1
 
 # Utilities
 python-dotenv==1.0.1
+cryptography>=43.0.0
 
 # QR Codes
 qrcode==7.4.2

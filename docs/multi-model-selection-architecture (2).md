@@ -674,3 +674,78 @@ My recommended implementation choices are:
 - phase the rollout instead of coupling selection, purchases, admin UI, and accounting into one release
 
 If implemented this way, multi-model support will fit the current app cleanly, remain backward-compatible, and be flexible enough for future pricing, provider expansion, and user-level entitlements.
+
+---
+
+## 14. Implementation Status
+
+Status on branch `codex/multi-model-phase1` as of 2026-04-14.
+
+### Implemented
+
+- schema additions:
+  - `users.active_ai_model_config_id`
+  - `ai_model_configs`
+  - `user_ai_model_access`
+- seeded default registry entries for:
+  - Gemini
+  - OpenAI
+  - Ollama
+  - OpenRouter
+  - Anthropic
+- unified provider routing for:
+  - Gemini
+  - OpenAI
+  - Ollama
+  - OpenRouter
+  - Anthropic
+- upload and reprocess threading:
+  - `/receipts/upload`
+  - `/receipts/<id>/reprocess`
+- user-facing model APIs:
+  - `GET /api/models`
+  - `POST /api/models/select`
+  - `POST /api/models/unlock`
+- admin model APIs:
+  - `GET /api/admin/models`
+  - `POST /api/admin/models`
+  - `PATCH /api/admin/models/<id>`
+  - `GET /api/admin/models/usage`
+- Settings UI:
+  - AI Model Registry editor
+  - enable/disable and visibility controls
+  - credential mode controls
+  - pricing inputs for estimated cost
+  - AI Usage reporting panel
+- Upload UI:
+  - OCR model selector
+  - model browser
+  - locked/unlocked state
+  - capability badges
+  - file-type aware filtering for image vs PDF
+- usage and cost tracking:
+  - per-model daily request counts
+  - prompt/completion/total token counts when available from provider responses
+  - total latency accumulation and average latency display
+  - estimated cost based on optional per-model pricing metadata
+- encrypted stored-key plumbing:
+  - `cryptography.fernet`
+  - admin write-time encryption
+  - router-time decryption
+
+### Intentionally Deferred
+
+- full purchase flow or real billing/checkout for premium models
+- quotas and hard spend caps
+- richer provider-specific response metadata surfacing in the UI
+- historical charts beyond the current usage table
+- stronger observability for the legacy environment fallback path when no registry-backed selected model is used
+
+### Operational Notes
+
+- stored-key mode requires `FERNET_SECRET_KEY` to be configured in the environment
+- free models are selectable by signed-in users
+- admin-only actions are limited to registry management and usage reporting
+- capability filtering is enforced in both:
+  - frontend selection UX
+  - backend routing validation

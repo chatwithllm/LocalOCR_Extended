@@ -1,8 +1,8 @@
 """
-OpenAI Vision OCR fallback for receipt extraction.
+Anthropic vision OCR support for receipt extraction.
 
-Used as the secondary OCR engine after Gemini and before Ollama.
-Returns the same structured JSON schema as the other OCR providers.
+Phase 1 keeps this aligned with the existing structured JSON contract used by
+the other OCR providers so the extraction pipeline can treat it uniformly.
 """
 
 import os
@@ -10,12 +10,12 @@ import json
 import base64
 import logging
 
-from openai import OpenAI
+from anthropic import Anthropic
 
 logger = logging.getLogger(__name__)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_OCR_MODEL = os.getenv("OPENAI_OCR_MODEL", "gpt-4.1-mini")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_OCR_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
 
 RECEIPT_EXTRACTION_PROMPT = """
 Analyze this receipt image and extract the following information as JSON.
@@ -47,7 +47,6 @@ Rules:
 - For restaurant receipts, preserve menu item names exactly and use category = restaurant
 - Capture subtotal, tax, tip, credits, and amount due when visible
 - If quantity is not explicitly shown, default to 1
-- For BOGO or discount lines, include them as separate items with unit_price = 0.00 or the discounted price
 - Confidence should reflect overall receipt readability (0.0 to 1.0)
 - If you cannot read a field clearly, set it to null
 - Return ONLY valid JSON
@@ -55,7 +54,6 @@ Rules:
 
 
 def _safe_float(value, default=0.0):
-    """Return a float for logging even when OCR returns null/string values."""
     try:
         if value is None:
             return float(default)
@@ -64,32 +62,22 @@ def _safe_float(value, default=0.0):
         return float(default)
 
 
-def extract_receipt_via_openai(
+def extract_receipt_via_anthropic(
     image_path: str,
     mode_hint: str | None = None,
     *,
     api_key: str | None = None,
     model_name: str | None = None,
-    base_url: str | None = None,
-    extra_headers: dict | None = None,
     include_meta: bool = False,
 ) -> dict:
-    """Extract receipt data from an image using OpenAI vision."""
-    resolved_api_key = (api_key or OPENAI_API_KEY or "").strip()
-    resolved_model = (model_name or OPENAI_OCR_MODEL or "").strip()
+    """Extract receipt data from an image using Anthropic vision."""
+    resolved_api_key = (api_key or ANTHROPIC_API_KEY or "").strip()
+    resolved_model = (model_name or ANTHROPIC_OCR_MODEL or "").strip()
     if not resolved_api_key:
-        raise ValueError("OPENAI_API_KEY not configured")
+        raise ValueError("ANTHROPIC_API_KEY not configured")
 
-    client = OpenAI(
-        api_key=resolved_api_key,
-        base_url=(base_url or None),
-        default_headers=(extra_headers or None),
-    )
-
-    with open(image_path, "rb") as f:
-        image_b64 = base64.b64encode(f.read()).decode("utf-8")
-
-    logger.info("Sending receipt to OpenAI Vision for OCR...")
+    with open(image_path, "rb") as handle:
+        image_bytes = handle.read()
 
     prompt = RECEIPT_EXTRACTION_PROMPT
     if mode_hint == "restaurant":
@@ -101,23 +89,43 @@ def extract_receipt_via_openai(
             "- Avoid grocery-style fallback names unless the receipt clearly shows them."
         )
 
-    response = client.responses.create(
+    client = Anthropic(api_key=resolved_api_key)
+    media_type = "image/png"
+    lower_path = image_path.lower()
+    if lower_path.endswith(".jpg") or lower_path.endswith(".jpeg"):
+        media_type = "image/jpeg"
+    elif lower_path.endswith(".webp"):
+        media_type = "image/webp"
+
+    response = client.messages.create(
         model=resolved_model,
-        input=[
+        max_tokens=4096,
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
                     {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{image_b64}",
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": base64.b64encode(image_bytes).decode("utf-8"),
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
                     },
                 ],
             }
         ],
     )
 
-    text = (response.output_text or "").strip()
+    text_parts = []
+    for block in getattr(response, "content", []) or []:
+        if getattr(block, "type", None) == "text":
+            text_parts.append(block.text)
+    text = "\n".join(text_parts).strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):
@@ -127,32 +135,36 @@ def extract_receipt_via_openai(
 
     try:
         result = json.loads(text)
-    except json.JSONDecodeError as e:
-        logger.error(f"OpenAI returned invalid JSON: {e}\nRaw: {text[:500]}")
-        raise ValueError(f"OpenAI OCR returned invalid JSON: {e}")
+    except json.JSONDecodeError as exc:
+        logger.error("Anthropic returned invalid JSON: %s\nRaw: %s", exc, text[:500])
+        raise ValueError(f"Anthropic OCR returned invalid JSON: {exc}") from exc
 
     result.setdefault("confidence", 0.85)
     result.setdefault("items", [])
     result.setdefault("total", 0.0)
 
     logger.info(
-        f"OpenAI OCR: {result.get('store', '?')} | "
-        f"${_safe_float(result.get('total', 0)):.2f} | "
-        f"{len(result.get('items', []))} items | "
-        f"confidence: {_safe_float(result.get('confidence', 0)):.2f} | "
-        f"model: {resolved_model}"
+        "Anthropic OCR: %s | $%.2f | %s items | confidence: %.2f | model: %s",
+        result.get("store", "?"),
+        _safe_float(result.get("total", 0)),
+        len(result.get("items", []) or []),
+        _safe_float(result.get("confidence", 0)),
+        resolved_model,
     )
-
     if include_meta:
         usage = getattr(response, "usage", None)
+        stop_reason = getattr(response, "stop_reason", None)
         return {
             "data": result,
             "usage": {
                 "input_tokens": getattr(usage, "input_tokens", None),
                 "output_tokens": getattr(usage, "output_tokens", None),
-                "total_tokens": getattr(usage, "total_tokens", None),
+                "total_tokens": (
+                    (getattr(usage, "input_tokens", 0) or 0)
+                    + (getattr(usage, "output_tokens", 0) or 0)
+                ) if usage else None,
             } if usage else None,
-            "finish_reason": None,
+            "finish_reason": stop_reason,
             "response_meta": {
                 "response_id": getattr(response, "id", None),
             },
