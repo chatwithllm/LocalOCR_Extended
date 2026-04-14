@@ -51,6 +51,7 @@ The enhancement strategy is a **polish pass**, not a rebrand — extend the exis
 | Phase 4 — Mobile Experience | — | 🔁 Revision Requested: Log Cash flow coherence | 3 |
 | Phase 4 — Mobile Experience | 8 | Accepted (after 3 revisions) | 3 |
 | Phase 5 — Final Pass | — | 🔁 Revision Requested: Payee picker row legibility | 1 |
+| Phase 5 — Final Pass | 8 | Accepted (after 1 revision) | 1 |
 
 ---
 
