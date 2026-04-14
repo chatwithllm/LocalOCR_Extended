@@ -28320,7 +28320,10 @@
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
-          body.innerHTML = renderCompactReceiptRows(receipts);
+          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+            includeDelete: true,
+            inlineDetail: false,
+          });
         } else {
           if (detailCard) detailCard.style.display = "none";
           if (receiptDetailGrid)
@@ -28333,31 +28336,11 @@
           )
             ? Number(selectedReceiptId)
             : null;
-          body.innerHTML = `
-      <table class="receipt-recent-table">
-        <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th><th>Delete</th></tr></thead>
-        <tbody>${receipts
-          .map(
-            (r) => `
-          <tr>
-            <td>${escHtml(r.date || "—")}</td>
-            <td><strong>${escHtml(r.store || "Unknown")}</strong></td>
-            <td>${formatMoney(receiptDisplayTotal(r))}</td>
-            <td>${formatLabel(r.source, "Upload")}</td>
-            <td><span class="badge badge-${normalizeReceiptTransactionType(r.transaction_type) === "refund" ? "warning" : r.status === "processed" ? "ok" : "low"}">${escHtml(normalizeReceiptTransactionType(r.transaction_type) === "refund" ? "Refund" : formatLabel(r.status, "Unknown"))}</span></td>
-            <td><button type="button" class="btn btn-sm btn-ghost" onclick="toggleReceiptDetail(${r.purchase_id || r.id})">${Number(r.purchase_id || r.id) === targetReceiptId ? "Close" : "Open"}</button></td>
-            <td><button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
-          </tr>
-          ${
-            Number(r.purchase_id || r.id) === targetReceiptId
-              ? `<tr class="receipt-inline-detail-row"><td colspan="7"><div id="receipt-inline-detail-${Number(r.purchase_id || r.id)}"></div></td></tr>`
-              : ""
-          }
-          `,
-          )
-          .join("")}
-        </tbody>
-      </table>`;
+          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+            includeDelete: true,
+            inlineDetail: true,
+            targetId: targetReceiptId,
+          });
           if (targetReceiptId) {
             await viewReceipt(targetReceiptId, { scroll: false, inline: true });
           }
@@ -29714,6 +29697,109 @@
       )
       .join("")}
   </div>`;
+      }
+
+      function receiptIconFor(receipt) {
+        const t = (receipt.receipt_type || "").toLowerCase();
+        if (t === "grocery")
+          return { icon: "🛒", cat: "cat-grocery" };
+        if (t === "restaurant")
+          return { icon: "🍽", cat: "cat-restaurant" };
+        if (t === "utility_bill" || t === "household_bill")
+          return { icon: "⚡", cat: "cat-utility" };
+        if (t === "subscription")
+          return { icon: "↻", cat: "cat-subscription" };
+        return { icon: "🧾", cat: "cat-other" };
+      }
+
+      function confidenceBadgeHtml(value) {
+        if (value == null || isNaN(Number(value))) return "";
+        const score = Number(value);
+        let kind = "confidence-low";
+        if (score >= 0.85) kind = "confidence-high";
+        else if (score >= 0.6) kind = "confidence-medium";
+        return `<span class="badge badge--${kind}" data-dot title="OCR confidence">${score.toFixed(2)}</span>`;
+      }
+
+      function renderReceiptsAsResultCards(receipts = [], options = {}) {
+        if (!receipts.length)
+          return '<div class="empty-state"><p>No receipts yet.</p></div>';
+        const includeDelete = options.includeDelete !== false;
+        const inlineDetail = options.inlineDetail === true;
+        const targetId = options.targetId ? Number(options.targetId) : null;
+        return `<div class="receipt-card-list" style="display: grid; gap: var(--space-3)">
+          ${receipts
+            .map((receipt) => {
+              const rid = Number(
+                receipt.purchase_id ||
+                  receipt.receipt_id ||
+                  receipt.record_id ||
+                  receipt.id,
+              );
+              const { icon, cat } = receiptIconFor(receipt);
+              const isRefund =
+                normalizeReceiptTransactionType(receipt.transaction_type) ===
+                "refund";
+              const statusLabel = isRefund
+                ? "Refund"
+                : formatLabel(receipt.status, "Unknown");
+              const statusKind = isRefund
+                ? "warning"
+                : receipt.status === "processed"
+                  ? "success"
+                  : "info";
+              const confBadge = confidenceBadgeHtml(receipt.confidence);
+              const isSelected = inlineDetail && rid === targetId;
+              return `
+                <article
+                  class="result-card result-card--row${isSelected ? " card--selected" : ""}"
+                  data-receipt-id="${rid}"
+                >
+                  <div
+                    class="result-card__media"
+                    style="background: color-mix(in srgb, var(--color-${cat}) 16%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.6rem"
+                    aria-hidden="true"
+                  >
+                    ${icon}
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}</h3>
+                    <div class="result-card__meta">
+                      ${escHtml(receipt.date || "—")}
+                      ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
+                    </div>
+                    <div class="result-card__amount" style="margin-top: 2px">
+                      ${formatMoney(receiptDisplayTotal(receipt))}
+                    </div>
+                  </div>
+                  <div
+                    style="padding: var(--space-3); display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); min-width: 132px"
+                  >
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end">
+                      <span class="badge badge--${statusKind}" data-dot>${escHtml(statusLabel)}</span>
+                      ${confBadge}
+                    </div>
+                    <div style="display: flex; gap: var(--space-2); margin-top: auto">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-ghost"
+                        onclick="${inlineDetail ? `toggleReceiptDetail(${rid})` : `viewReceipt(${rid})`}"
+                      >
+                        ${isSelected ? "Close" : "Open"}
+                      </button>
+                      ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${rid})">Delete</button>` : ""}
+                    </div>
+                  </div>
+                </article>
+                ${
+                  isSelected
+                    ? `<div id="receipt-inline-detail-${rid}"></div>`
+                    : ""
+                }
+              `;
+            })
+            .join("")}
+        </div>`;
       }
 
       function renderCompactReceiptRows(receipts = [], options = {}) {
