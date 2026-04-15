@@ -7107,7 +7107,53 @@
         .receipt-editor-inline-field input,
         .receipt-editor-inline-field select {
           max-width: 100%;
+          width: 100% !important;
+          min-width: 0;
           box-sizing: border-box;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+
+        #page-receipts .receipt-editor-grid input,
+        #page-receipts .receipt-editor-grid select,
+        #page-receipts .receipt-editor-inline-field input {
+          width: 100% !important;
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+
+        #page-receipts .receipt-editor-grid input[type="date"] {
+          -webkit-appearance: none;
+          appearance: none;
+          text-align: left;
+        }
+
+        #page-receipts .receipt-editor-main-field label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        #page-receipts .receipt-editor-main-field input,
+        #page-receipts .receipt-editor-main-field select {
+          padding: 10px 12px;
+          font-size: 0.95rem;
+        }
+
+        #page-receipts .receipt-editor-main-field {
+          min-width: 0;
+        }
+
+        #page-receipts .receipt-editor-main-field.field-date-time {
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        #page-receipts .receipt-editor-inline-fields {
+          min-width: 0;
         }
 
         .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(1) {
