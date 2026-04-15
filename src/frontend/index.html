@@ -6636,7 +6636,7 @@
         }
 
         .receipt-bill-meta-panel .receipt-editor-grid {
-          grid-template-columns: 1fr 1fr !important;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
           gap: 10px 10px !important;
         }
 
@@ -6686,12 +6686,23 @@
         }
 
         .receipt-editor-inline-fields {
-          grid-template-columns: 1fr 1fr !important;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
           grid-template-areas:
             "date date"
             "time tax" !important;
           align-items: stretch !important;
           row-gap: 10px;
+        }
+
+        .receipt-editor-inline-field {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .receipt-editor-inline-field input,
+        .receipt-editor-inline-field select {
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(1) {
