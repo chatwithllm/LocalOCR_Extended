@@ -512,9 +512,9 @@
         color: var(--text);
         border: 1px solid var(--border);
         border-radius: 10px;
-        width: 42px;
-        height: 42px;
-        font-size: 1.2rem;
+        width: 36px;
+        height: 36px;
+        font-size: 1.05rem;
         cursor: pointer;
       }
 
@@ -6618,13 +6618,13 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
+          gap: 10px;
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           z-index: 20;
-          padding: 14px 18px;
+          padding: 8px 14px;
           background: color-mix(in srgb, var(--color-surface) 92%, transparent);
           color: var(--color-text-primary);
           border-bottom: 1px solid var(--color-border);
@@ -6636,7 +6636,7 @@
 
         .mobile-title {
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 0.95rem;
         }
 
         .mobile-title span {
@@ -6673,7 +6673,25 @@
       @media (max-width: 640px) {
         .main {
           padding: 14px;
-          padding-top: 82px;
+          padding-top: 64px;
+        }
+
+        .page-header {
+          margin-bottom: 14px;
+        }
+
+        .page-header h1 {
+          font-size: 1.2rem;
+          margin: 0;
+        }
+
+        .page-header p {
+          font-size: 0.85rem;
+          margin-top: 4px;
+        }
+
+        .page-header::before {
+          display: none;
         }
 
         input,
@@ -6690,13 +6708,27 @@
 
         .inventory-page-controls {
           width: 100%;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+          gap: 6px;
+          flex-wrap: nowrap;
+        }
+
+        .inventory-page-controls > #catalog-toggle-inventory,
+        .inventory-page-controls > #catalog-toggle-products {
+          width: 100%;
+          padding: 8px 10px;
+          font-size: 0.88rem;
         }
 
         #inventory-page-tools-toggle {
           display: inline-flex;
-          min-width: 42px;
-          padding-inline: 12px;
+          width: 40px;
+          min-width: 40px;
+          height: 38px;
+          padding: 0;
+          justify-content: center;
+          align-items: center;
         }
 
         #inventory-tools-toggle {
