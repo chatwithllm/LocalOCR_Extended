@@ -4,9 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🛒 Grocery Manager</title>
+    <script>
+      // Pre-paint theme setter (Apple Phase 1). Reads localStorage /
+      // prefers-color-scheme before stylesheets load so the first
+      // painted frame lands on the correct canvas without a flash.
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : prefersDark
+                ? "dark"
+                : "light";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_) {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -18,83 +41,304 @@
         padding: 0;
       }
 
+      /* =============================================================
+       * Apple-inspired design tokens — generated from design/
+       * design-tokens.json by scripts/build_tokens.py. Do NOT
+       * hand-edit; regenerate and paste the output of
+       * src/frontend/styles/tokens.generated.css.
+       * ============================================================= */
+
+      :root,
+      :root[data-theme="light"] {
+        --color-brand: #0071e3;
+        --color-brand-hover: #0077ed;
+        --color-brand-pressed: #006edb;
+        --color-brand-soft: rgba(0, 113, 227, 0.1);
+        --color-brand-contrast: #ffffff;
+        --color-link: #0066cc;
+
+        --color-bg: #f5f5f7;
+        --color-bg-inverse: #000000;
+        --color-surface: #ffffff;
+        --color-surface-2: #fafafc;
+        --color-surface-3: #ededf2;
+        --color-surface-4: #f5f5f7;
+        --color-surface-inverse: #1d1d1f;
+
+        --color-overlay: rgba(0, 0, 0, 0.48);
+        --color-overlay-soft: rgba(210, 210, 215, 0.64);
+        --color-glass-nav: rgba(0, 0, 0, 0.8);
+
+        --color-text-primary: #1d1d1f;
+        --color-text-secondary: rgba(0, 0, 0, 0.8);
+        --color-text-muted: rgba(0, 0, 0, 0.56);
+        --color-text-disabled: rgba(0, 0, 0, 0.48);
+        --color-text-inverse: #ffffff;
+
+        --color-border: rgba(0, 0, 0, 0.12);
+        --color-border-strong: rgba(0, 0, 0, 0.22);
+        --color-border-brand: #0071e3;
+        --color-focus: #0071e3;
+
+        --color-success: #00b74a;
+        --color-success-soft: rgba(0, 183, 74, 0.12);
+        --color-warning: #ff9500;
+        --color-warning-soft: rgba(255, 149, 0, 0.14);
+        --color-error: #ff3b30;
+        --color-error-soft: rgba(255, 59, 48, 0.12);
+        --color-error-hover: #d70015;
+        --color-info: #007aff;
+        --color-info-soft: rgba(0, 122, 255, 0.1);
+
+        --color-confidence-high: #00b74a;
+        --color-confidence-medium: #ff9500;
+        --color-confidence-low: #ff3b30;
+        --color-confidence-high-soft: rgba(0, 183, 74, 0.12);
+        --color-confidence-medium-soft: rgba(255, 149, 0, 0.14);
+        --color-confidence-low-soft: rgba(255, 59, 48, 0.12);
+
+        --color-cat-grocery: #34a36b;
+        --color-cat-restaurant: #d37c2b;
+        --color-cat-utility: #3a7cbd;
+        --color-cat-personal-service: #8450b8;
+        --color-cat-subscription: #2a8a95;
+        --color-cat-other: rgba(0, 0, 0, 0.56);
+      }
+
+      :root[data-theme="dark"] {
+        --color-brand: #0a84ff;
+        --color-brand-hover: #1f8fff;
+        --color-brand-pressed: #0071e3;
+        --color-brand-soft: rgba(10, 132, 255, 0.16);
+        --color-brand-contrast: #ffffff;
+        --color-link: #2997ff;
+
+        --color-bg: #000000;
+        --color-bg-inverse: #f5f5f7;
+        --color-surface: #1d1d1f;
+        --color-surface-2: #272729;
+        --color-surface-3: #28282a;
+        --color-surface-4: #2a2a2d;
+        --color-surface-inverse: #f5f5f7;
+
+        --color-overlay: rgba(0, 0, 0, 0.72);
+        --color-overlay-soft: rgba(58, 58, 60, 0.72);
+        --color-glass-nav: rgba(0, 0, 0, 0.8);
+
+        --color-text-primary: #f5f5f7;
+        --color-text-secondary: rgba(245, 245, 247, 0.86);
+        --color-text-muted: rgba(245, 245, 247, 0.56);
+        --color-text-disabled: rgba(245, 245, 247, 0.4);
+        --color-text-inverse: #1d1d1f;
+
+        --color-border: rgba(255, 255, 255, 0.12);
+        --color-border-strong: rgba(255, 255, 255, 0.22);
+        --color-border-brand: #0a84ff;
+        --color-focus: #0a84ff;
+
+        --color-success: #30d158;
+        --color-success-soft: rgba(48, 209, 88, 0.22);
+        --color-warning: #ff9f0a;
+        --color-warning-soft: rgba(255, 159, 10, 0.22);
+        --color-error: #ff453a;
+        --color-error-soft: rgba(255, 69, 58, 0.2);
+        --color-error-hover: #ff6961;
+        --color-info: #2997ff;
+        --color-info-soft: rgba(41, 151, 255, 0.18);
+
+        --color-confidence-high: #30d158;
+        --color-confidence-medium: #ff9f0a;
+        --color-confidence-low: #ff453a;
+        --color-confidence-high-soft: rgba(48, 209, 88, 0.22);
+        --color-confidence-medium-soft: rgba(255, 159, 10, 0.22);
+        --color-confidence-low-soft: rgba(255, 69, 58, 0.2);
+
+        --color-cat-grocery: #4cc488;
+        --color-cat-restaurant: #e09255;
+        --color-cat-utility: #5b9ddc;
+        --color-cat-personal-service: #a27ad0;
+        --color-cat-subscription: #4fb3bd;
+        --color-cat-other: rgba(245, 245, 247, 0.56);
+      }
+
       :root {
-        /* --- Existing color tokens (preserved for backwards compatibility) --- */
-        --bg: #0d0f14;
-        --surface: #161a24;
-        --surface2: #1e2330;
-        --border: #2a3040;
-        --accent: #6c63ff;
-        --accent2: #00d4aa;
-        --accent3: #ff6584;
-        --text: #e8eaf0;
-        --muted: #7a8094;
-        --success: #00d4aa;
-        --warning: #ffb347;
-        --danger: #ff6584;
+        --font-display: "SF Pro Display", "SF Pro Icons", -apple-system,
+          BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial,
+          sans-serif;
+        --font-text: "SF Pro Text", "SF Pro Icons", -apple-system,
+          BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial,
+          sans-serif;
+        --font-mono: "SF Mono", "Menlo", "Consolas", monospace;
 
-        /* --- Phase 1: extended color layer --- */
-        --surface-3: #262c3b;
-        --border-strong: #3a4257;
-        --text-subtle: #b3b8c8;
-        --accent-hover: #7b74ff;
-        --accent-pressed: #5a52e0;
-        --accent-soft: rgba(108, 99, 255, 0.14);
-        --success-soft: rgba(0, 212, 170, 0.14);
-        --warning-soft: rgba(255, 179, 71, 0.16);
-        --danger-soft: rgba(255, 101, 132, 0.16);
-        --ring: rgba(108, 99, 255, 0.55);
-        --overlay: rgba(5, 7, 12, 0.72);
+        --font-hero: 3.5rem;
+        --font-hero-weight: 600;
+        --font-hero-lh: 1.07;
+        --font-hero-tracking: -0.28px;
+        --font-4xl: 2.5rem;
+        --font-4xl-weight: 600;
+        --font-4xl-lh: 1.1;
+        --font-4xl-tracking: -0.4px;
+        --font-3xl: 2.13rem;
+        --font-3xl-weight: 600;
+        --font-3xl-lh: 1.18;
+        --font-3xl-tracking: -0.374px;
+        --font-2xl: 1.75rem;
+        --font-2xl-weight: 400;
+        --font-2xl-lh: 1.14;
+        --font-2xl-tracking: 0.196px;
+        --font-xl: 1.5rem;
+        --font-xl-weight: 300;
+        --font-xl-lh: 1.5;
+        --font-xl-tracking: 0;
+        --font-lg: 1.31rem;
+        --font-lg-weight: 700;
+        --font-lg-lh: 1.19;
+        --font-lg-tracking: 0.231px;
+        --font-lg-reg: 1.31rem;
+        --font-lg-reg-weight: 400;
+        --font-md: 1.13rem;
+        --font-md-weight: 300;
+        --font-md-lh: 1;
+        --font-md-tracking: 0;
+        --font-body: 1.06rem;
+        --font-body-weight: 400;
+        --font-body-lh: 1.47;
+        --font-body-tracking: -0.374px;
+        --font-body-em: 1.06rem;
+        --font-body-em-weight: 600;
+        --font-body-em-lh: 1.24;
+        --font-sm: 0.88rem;
+        --font-sm-weight: 400;
+        --font-sm-lh: 1.43;
+        --font-sm-tracking: -0.224px;
+        --font-sm-em: 0.88rem;
+        --font-sm-em-weight: 600;
+        --font-sm-em-lh: 1.29;
+        --font-xs: 0.75rem;
+        --font-xs-weight: 400;
+        --font-xs-lh: 1.33;
+        --font-xs-tracking: -0.12px;
+        --font-xs-em: 0.75rem;
+        --font-xs-em-weight: 600;
+        --font-nano: 0.63rem;
+        --font-nano-weight: 400;
+        --font-nano-lh: 1.47;
+        --font-nano-tracking: -0.08px;
+      }
 
-        /* --- Phase 1: spacing scale --- */
-        --space-1: 4px;
-        --space-2: 8px;
-        --space-3: 12px;
-        --space-4: 16px;
-        --space-5: 20px;
-        --space-6: 24px;
-        --space-8: 32px;
-        --space-10: 40px;
-        --space-12: 48px;
+      :root {
+        --space-0: 0;
+        --space-0-5: 0.125rem;
+        --space-1: 0.25rem;
+        --space-1-5: 0.375rem;
+        --space-2: 0.5rem;
+        --space-3: 0.75rem;
+        --space-4: 1rem;
+        --space-5: 1.25rem;
+        --space-6: 1.5rem;
+        --space-8: 2rem;
+        --space-10: 2.5rem;
+        --space-12: 3rem;
+        --space-16: 4rem;
+        --space-20: 5rem;
+        --space-24: 6rem;
+        --space-32: 8rem;
+        --space-40: 10rem;
+        --space-48: 12rem;
 
-        /* --- Phase 1: radius scale --- */
-        --radius-xs: 4px;
-        --radius-sm: 6px;
-        --radius-md: 10px;
-        --radius-lg: 14px;
-        --radius-xl: 20px;
-        --radius-pill: 999px;
+        --radius-0: 0;
+        --radius-xs: 5px;
+        --radius-sm: 8px;
+        --radius-md: 11px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+        --radius-pill: 980px;
+        --radius-full: 50%;
 
-        /* --- Phase 1: shadow scale (tuned for dark canvas) --- */
-        --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.32);
-        --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.36);
-        --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.38);
-        --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+        --stroke-0: 0;
+        --stroke-1: 1px;
+        --stroke-2: 2px;
+        --stroke-3: 3px;
 
-        /* --- Phase 1: motion tokens --- */
-        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-        --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-        --duration-fast: 120ms;
-        --duration-base: 200ms;
+        --icon-xs: 12px;
+        --icon-sm: 16px;
+        --icon-md: 20px;
+        --icon-lg: 24px;
+        --icon-xl: 32px;
+        --icon-2xl: 48px;
+        --icon-3xl: 64px;
+
+        --shadow-0: none;
+        --shadow-1: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+        --shadow-2:
+          rgba(0, 0, 0, 0.14) 0px 6px 20px 0px,
+          rgba(0, 0, 0, 0.06) 0px 2px 4px 0px;
+        --shadow-3:
+          rgba(0, 0, 0, 0.18) 0px 12px 32px 0px,
+          rgba(0, 0, 0, 0.08) 0px 4px 8px 0px;
+        --shadow-4:
+          rgba(0, 0, 0, 0.24) 0px 24px 48px 0px,
+          rgba(0, 0, 0, 0.1) 0px 8px 16px 0px;
+        --shadow-5:
+          rgba(0, 0, 0, 0.32) 0px 40px 80px 0px,
+          rgba(0, 0, 0, 0.14) 0px 12px 24px 0px;
+
+        --duration-instant: 100ms;
+        --duration-fast: 150ms;
+        --duration-base: 240ms;
         --duration-slow: 320ms;
+        --duration-elaborate: 480ms;
+        --duration-scan-loop: 1600ms;
 
-        /* --- Phase 1: typography tokens --- */
-        --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
-        --font-body: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+        --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+        --ease-in: cubic-bezier(0.4, 0, 1, 1);
+        --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+        --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+      }
 
-        --fs-xs: 0.72rem;
-        --fs-sm: 0.82rem;
-        --fs-base: 0.92rem;
-        --fs-md: 1rem;
-        --fs-lg: 1.15rem;
-        --fs-xl: 1.4rem;
-        --fs-2xl: 1.85rem;
-        --fs-3xl: 2.4rem;
-
-        --lh-tight: 1.15;
-        --lh-snug: 1.3;
-        --lh-base: 1.5;
+      /* Legacy aliases — existing components resolve through the new
+       * token system until they're rewritten in later phases. */
+      :root {
+        --bg: var(--color-bg);
+        --surface: var(--color-surface);
+        --surface2: var(--color-surface-2);
+        --surface-3: var(--color-surface-3);
+        --border: var(--color-border);
+        --border-strong: var(--color-border-strong);
+        --text: var(--color-text-primary);
+        --text-subtle: var(--color-text-secondary);
+        --muted: var(--color-text-muted);
+        --accent: var(--color-brand);
+        --accent-hover: var(--color-brand-hover);
+        --accent-pressed: var(--color-brand-pressed);
+        --accent-soft: var(--color-brand-soft);
+        --accent2: var(--color-success);
+        --accent3: var(--color-error);
+        --success: var(--color-success);
+        --success-soft: var(--color-success-soft);
+        --warning: var(--color-warning);
+        --warning-soft: var(--color-warning-soft);
+        --danger: var(--color-error);
+        --danger-soft: var(--color-error-soft);
+        --ring: var(--color-focus);
+        --overlay: var(--color-overlay);
+        --font-body: var(--font-text);
+        --fs-xs: var(--font-xs);
+        --fs-sm: var(--font-sm);
+        --fs-base: var(--font-sm);
+        --fs-md: var(--font-body);
+        --fs-lg: var(--font-md);
+        --fs-xl: var(--font-xl);
+        --fs-2xl: var(--font-2xl);
+        --fs-3xl: var(--font-3xl);
+        --lh-tight: 1.14;
+        --lh-snug: 1.24;
+        --lh-base: 1.47;
+        --shadow-xs: var(--shadow-1);
+        --shadow-sm: var(--shadow-1);
+        --shadow-md: var(--shadow-2);
+        --shadow-lg: var(--shadow-3);
       }
 
       body {
@@ -252,7 +496,7 @@
 
       .desktop-sidebar-toggle:hover {
         background: var(--border);
-        border-color: rgba(108, 99, 255, 0.35);
+        border-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
       }
 
       body.sidebar-collapsed .desktop-sidebar-toggle {
@@ -516,7 +760,7 @@
       .bill-slot-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-        border-color: rgba(108, 99, 255, 0.4);
+        border-color: color-mix(in srgb, var(--color-brand) 40%, transparent);
       }
 
       .bill-slot-card.projected {
@@ -525,8 +769,8 @@
       }
 
       .bill-slot-card.anomaly {
-        background: rgba(255, 179, 71, 0.05);
-        border-color: rgba(255, 179, 71, 0.3);
+        background: color-mix(in srgb, var(--color-warning) 5%, transparent);
+        border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
       }
 
       /* ---- Bills Workspace (Redesign) ---- */
@@ -688,15 +932,15 @@
       }
       .bill-alert--warning {
         border-left-color: var(--warning);
-        background: rgba(255, 179, 71, 0.06);
+        background: color-mix(in srgb, var(--color-warning) 6%, transparent);
       }
       .bill-alert--danger {
         border-left-color: var(--danger);
-        background: rgba(255, 101, 132, 0.06);
+        background: color-mix(in srgb, var(--color-error) 6%, transparent);
       }
       .bill-alert--info {
         border-left-color: var(--accent);
-        background: rgba(108, 99, 255, 0.06);
+        background: color-mix(in srgb, var(--color-brand) 6%, transparent);
       }
       .bill-alert__body {
         flex: 1 1 240px;
@@ -744,10 +988,10 @@
         scroll-snap-align: start;
       }
       .bills-spotlight__item[data-bill-status="overdue"] {
-        border-color: rgba(255, 101, 132, 0.35);
+        border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
       }
       .bills-spotlight__item[data-bill-status="due-soon"] {
-        border-color: rgba(255, 179, 71, 0.35);
+        border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
       }
       .bills-spotlight__provider {
         font-weight: 700;
@@ -819,7 +1063,7 @@
       }
       .bill-card[data-bill-status="anomaly"] {
         --status-color: var(--warning);
-        box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.28);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-warning) 28%, transparent);
       }
       .bill-card__head {
         display: flex;
@@ -1298,11 +1542,11 @@
       }
 
       .pill-success {
-        background: rgba(0, 212, 170, 0.15);
+        background: color-mix(in srgb, var(--color-success) 15%, transparent);
         color: var(--success);
       }
       .pill-danger {
-        background: rgba(255, 101, 132, 0.15);
+        background: color-mix(in srgb, var(--color-error) 15%, transparent);
         color: var(--danger);
       }
       .pill-ghost {
@@ -1876,64 +2120,54 @@
         font-weight: 600;
       }
 
+      /* Inventory category badges — token-driven for both themes. */
       .badge-dairy {
-        background: #1a3a5c;
-        color: #7dc4ff;
+        background: color-mix(in srgb, var(--color-cat-utility) 14%, transparent);
+        color: var(--color-cat-utility);
       }
-
       .badge-meat {
-        background: #3a1a1a;
-        color: #ff8888;
+        background: color-mix(in srgb, var(--color-error) 14%, transparent);
+        color: var(--color-error);
       }
-
       .badge-other {
-        background: #2a2a3a;
-        color: #aab;
+        background: var(--color-surface-3);
+        color: var(--color-text-secondary);
       }
-
       .badge-apparel {
-        background: #2d1737;
-        color: #f0abfc;
+        background: color-mix(in srgb, var(--color-cat-personal-service) 14%, transparent);
+        color: var(--color-cat-personal-service);
       }
-
       .badge-grains {
-        background: #3a2d14;
-        color: #facc15;
+        background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+        color: var(--color-warning);
       }
-
       .badge-fridge {
-        background: #0d2a2a;
-        color: #00d4aa;
+        background: color-mix(in srgb, var(--color-success) 14%, transparent);
+        color: var(--color-success);
       }
-
       .badge-pantry {
-        background: #2a2a0d;
-        color: #d4c400;
+        background: color-mix(in srgb, var(--color-cat-subscription) 14%, transparent);
+        color: var(--color-cat-subscription);
       }
-
       .badge-freezer {
-        background: #0d1a2a;
-        color: #6ac0ff;
+        background: color-mix(in srgb, var(--color-cat-utility) 14%, transparent);
+        color: var(--color-cat-utility);
       }
-
       .badge-low {
-        background: rgba(255, 101, 132, 0.15);
-        color: var(--danger);
+        background: color-mix(in srgb, var(--color-error) 15%, transparent);
+        color: var(--color-error);
       }
-
       .badge-ok {
-        background: rgba(0, 212, 170, 0.1);
-        color: var(--success);
+        background: color-mix(in srgb, var(--color-success) 12%, transparent);
+        color: var(--color-success);
       }
-
       .badge-warning {
-        background: rgba(250, 204, 21, 0.14);
-        color: #facc15;
+        background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+        color: var(--color-warning);
       }
-
       .badge-info {
-        background: rgba(108, 99, 255, 0.16);
-        color: #b8b4ff;
+        background: color-mix(in srgb, var(--color-brand) 14%, transparent);
+        color: var(--color-brand);
       }
 
       /* ---- Buttons ---- */
@@ -1971,25 +2205,25 @@
       }
 
       .btn-tonal-accent {
-        background: rgba(108, 99, 255, 0.12);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
         color: #c9c5ff;
-        border: 1px solid rgba(108, 99, 255, 0.24);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
 
       .btn-tonal-accent:hover {
-        background: rgba(108, 99, 255, 0.18);
-        border-color: rgba(108, 99, 255, 0.34);
+        background: color-mix(in srgb, var(--color-brand) 18%, transparent);
+        border-color: color-mix(in srgb, var(--color-brand) 34%, transparent);
       }
 
       .btn-tonal-success {
-        background: rgba(0, 212, 170, 0.1);
+        background: color-mix(in srgb, var(--color-success) 10%, transparent);
         color: #8ff3df;
-        border: 1px solid rgba(0, 212, 170, 0.22);
+        border: 1px solid color-mix(in srgb, var(--color-success) 22%, transparent);
       }
 
       .btn-tonal-success:hover {
-        background: rgba(0, 212, 170, 0.16);
-        border-color: rgba(0, 212, 170, 0.32);
+        background: color-mix(in srgb, var(--color-success) 16%, transparent);
+        border-color: color-mix(in srgb, var(--color-success) 32%, transparent);
       }
 
       .btn-danger {
@@ -1999,7 +2233,7 @@
       }
 
       .btn-danger:hover {
-        background: rgba(255, 101, 132, 0.1);
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
       }
 
       .btn-sm {
@@ -2206,52 +2440,6 @@
         }
       }
 
-      /* ---- Upload Zone ---- */
-      .upload-zone {
-        border: 2px dashed var(--border);
-        border-radius: 14px;
-        padding: 48px 24px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        position: relative;
-      }
-
-      .upload-zone:hover,
-      .upload-zone.drag-over {
-        border-color: var(--accent);
-        background: rgba(108, 99, 255, 0.05);
-      }
-
-      .upload-zone input[type="file"] {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        cursor: pointer;
-      }
-
-      .upload-icon {
-        font-size: 2.5rem;
-        margin-bottom: 12px;
-      }
-
-      .upload-zone p {
-        color: var(--muted);
-        font-size: 0.9rem;
-      }
-
-      .upload-zone strong {
-        color: var(--text);
-      }
-
-      #preview-img {
-        max-width: 300px;
-        max-height: 300px;
-        border-radius: 10px;
-        margin-top: 16px;
-        display: none;
-      }
-
       /* ---- Progress Bar ---- */
       .progress-wrap {
         background: var(--surface2);
@@ -2347,8 +2535,8 @@
       }
 
       .action-toast-button {
-        border: 1px solid rgba(108, 99, 255, 0.35);
-        background: rgba(108, 99, 255, 0.12);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 35%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
         color: #fff;
         border-radius: 999px;
         padding: 6px 12px;
@@ -2358,7 +2546,7 @@
       }
 
       .action-toast-button:hover {
-        background: rgba(108, 99, 255, 0.2);
+        background: color-mix(in srgb, var(--color-brand) 20%, transparent);
       }
 
       .action-toast-progress {
@@ -2757,7 +2945,7 @@
 
       /* ---- Auth Banner ---- */
       #auth-banner {
-        background: rgba(255, 101, 132, 0.1);
+        background: color-mix(in srgb, var(--color-error) 10%, transparent);
         border: 1px solid var(--danger);
         border-radius: 12px;
         padding: 16px 20px;
@@ -2805,7 +2993,7 @@
       .dashboard-score-card.spotlight {
         position: relative;
         animation: dashboardCardGlow 3.8s ease-in-out infinite;
-        box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.12);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 12%, transparent);
       }
 
       .dashboard-score-card.admin {
@@ -2822,15 +3010,15 @@
         100% {
           transform: translateY(0);
           box-shadow:
-            0 0 0 1px rgba(108, 99, 255, 0.1),
+            0 0 0 1px color-mix(in srgb, var(--color-brand) 10%, transparent),
             0 10px 24px rgba(0, 0, 0, 0.18);
         }
 
         50% {
           transform: translateY(-2px);
           box-shadow:
-            0 0 0 1px rgba(108, 99, 255, 0.18),
-            0 14px 30px rgba(108, 99, 255, 0.14);
+            0 0 0 1px color-mix(in srgb, var(--color-brand) 18%, transparent),
+            0 14px 30px color-mix(in srgb, var(--color-brand) 14%, transparent);
         }
       }
 
@@ -2894,12 +3082,12 @@
 
       .dashboard-stat-link:hover {
         transform: translateY(-1px);
-        border-color: rgba(108, 99, 255, 0.28);
+        border-color: color-mix(in srgb, var(--color-brand) 28%, transparent);
         box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
       }
 
       .dashboard-stat-link:focus-visible {
-        outline: 2px solid rgba(108, 99, 255, 0.6);
+        outline: 2px solid color-mix(in srgb, var(--color-brand) 60%, transparent);
         outline-offset: 2px;
       }
 
@@ -2910,21 +3098,21 @@
       }
 
       .demo-hero {
-        border: 1px solid rgba(108, 99, 255, 0.28);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 28%, transparent);
         background:
           radial-gradient(
             circle at top right,
-            rgba(0, 212, 170, 0.12),
+            color-mix(in srgb, var(--color-success) 12%, transparent),
             transparent 38%
           ),
           radial-gradient(
             circle at bottom left,
-            rgba(108, 99, 255, 0.16),
+            color-mix(in srgb, var(--color-brand) 16%, transparent),
             transparent 42%
           ),
           linear-gradient(
             180deg,
-            rgba(108, 99, 255, 0.1),
+            color-mix(in srgb, var(--color-brand) 10%, transparent),
             rgba(255, 255, 255, 0.02)
           );
         border-radius: 18px;
@@ -2962,8 +3150,8 @@
         gap: 8px;
         padding: 7px 12px;
         border-radius: 999px;
-        border: 1px solid rgba(108, 99, 255, 0.3);
-        background: rgba(108, 99, 255, 0.1);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 30%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 10%, transparent);
         color: #ddd8ff;
         font-size: 0.78rem;
         font-weight: 700;
@@ -3217,13 +3405,13 @@
       }
 
       .leaderboard-row.me {
-        border-color: rgba(108, 99, 255, 0.32);
+        border-color: color-mix(in srgb, var(--color-brand) 32%, transparent);
         background: linear-gradient(
           180deg,
-          rgba(108, 99, 255, 0.1),
+          color-mix(in srgb, var(--color-brand) 10%, transparent),
           rgba(255, 255, 255, 0.02)
         );
-        box-shadow: 0 14px 30px rgba(108, 99, 255, 0.16);
+        box-shadow: 0 14px 30px color-mix(in srgb, var(--color-brand) 16%, transparent);
         transform: translateY(-2px);
       }
 
@@ -3467,8 +3655,8 @@
       }
 
       .inventory-sort-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.14);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 14%, transparent);
         color: var(--text);
       }
 
@@ -3589,8 +3777,8 @@
       }
 
       .inventory-unit-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.16);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
         color: var(--text);
       }
 
@@ -3627,13 +3815,13 @@
       }
 
       button.shopping-summary-pill:hover {
-        border-color: rgba(108, 99, 255, 0.35);
+        border-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
         background: rgba(255, 255, 255, 0.035);
       }
 
       .shopping-summary-pill.is-active {
-        border-color: rgba(108, 99, 255, 0.55);
-        box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.16) inset;
+        border-color: color-mix(in srgb, var(--color-brand) 55%, transparent);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand) 16%, transparent) inset;
       }
 
       .shopping-summary-pill .value {
@@ -3733,8 +3921,8 @@
         min-width: 36px;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(108, 99, 255, 0.16);
-        border: 1px solid rgba(108, 99, 255, 0.35);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 35%, transparent);
         color: #d9d6ff;
         font-size: 0.82rem;
         font-weight: 800;
@@ -3796,8 +3984,8 @@
       }
 
       .shopping-sort-chip.active {
-        border-color: rgba(108, 99, 255, 0.45);
-        background: rgba(108, 99, 255, 0.14);
+        border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 14%, transparent);
         color: var(--text);
       }
 
@@ -3871,8 +4059,8 @@
 
       .card.low-stock-ok {
         background: rgba(255, 255, 255, 0.01);
-        border-color: rgba(0, 212, 170, 0.28);
-        box-shadow: inset 0 0 0 1px rgba(0, 212, 170, 0.08);
+        border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success) 8%, transparent);
       }
 
       .card.low-stock-ok .card-header-inline-stat {
@@ -3880,10 +4068,10 @@
       }
 
       .card.low-stock-warn {
-        border-color: rgba(255, 179, 71, 0.45);
+        border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
         box-shadow:
-          0 0 0 1px rgba(255, 179, 71, 0.1),
-          0 0 0 rgba(255, 179, 71, 0);
+          0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent),
+          0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
         animation: lowStockPulseWarn 2.2s ease-in-out infinite;
       }
 
@@ -3892,10 +4080,10 @@
       }
 
       .card.low-stock-critical {
-        border-color: rgba(255, 101, 132, 0.5);
+        border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
         box-shadow:
-          0 0 0 1px rgba(255, 101, 132, 0.14),
-          0 0 0 rgba(255, 101, 132, 0);
+          0 0 0 1px color-mix(in srgb, var(--color-error) 14%, transparent),
+          0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
         animation: lowStockPulseCritical 1.05s ease-in-out infinite;
       }
 
@@ -3911,14 +4099,14 @@
         0%,
         100% {
           box-shadow:
-            0 0 0 1px rgba(255, 179, 71, 0.1),
-            0 0 0 rgba(255, 179, 71, 0);
+            0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent),
+            0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
         }
 
         50% {
           box-shadow:
-            0 0 0 1px rgba(255, 179, 71, 0.18),
-            0 0 0 5px rgba(255, 179, 71, 0.08);
+            0 0 0 1px color-mix(in srgb, var(--color-warning) 18%, transparent),
+            0 0 0 5px color-mix(in srgb, var(--color-warning) 8%, transparent);
         }
       }
 
@@ -3926,14 +4114,14 @@
         0%,
         100% {
           box-shadow:
-            0 0 0 1px rgba(255, 101, 132, 0.16),
-            0 0 0 rgba(255, 101, 132, 0);
+            0 0 0 1px color-mix(in srgb, var(--color-error) 16%, transparent),
+            0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
         }
 
         50% {
           box-shadow:
-            0 0 0 1px rgba(255, 101, 132, 0.26),
-            0 0 0 6px rgba(255, 101, 132, 0.12);
+            0 0 0 1px color-mix(in srgb, var(--color-error) 26%, transparent),
+            0 0 0 6px color-mix(in srgb, var(--color-error) 12%, transparent);
         }
       }
 
@@ -4541,8 +4729,8 @@
       }
 
       .shopping-more-menu[open] summary {
-        border-color: rgba(108, 99, 255, 0.42);
-        background: rgba(108, 99, 255, 0.12);
+        border-color: color-mix(in srgb, var(--color-brand) 42%, transparent);
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
       }
 
       .shopping-more-panel {
@@ -4773,11 +4961,11 @@
       }
 
       .helper-header-card {
-        border: 1px solid rgba(108, 99, 255, 0.25);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 25%, transparent);
         background: linear-gradient(
           180deg,
-          rgba(108, 99, 255, 0.12),
-          rgba(108, 99, 255, 0.03)
+          color-mix(in srgb, var(--color-brand) 12%, transparent),
+          color-mix(in srgb, var(--color-brand) 3%, transparent)
         );
       }
 
@@ -5065,11 +5253,11 @@
         gap: 16px;
         padding: 18px 20px;
         border-radius: 16px;
-        border: 1px solid rgba(108, 99, 255, 0.18);
+        border: 1px solid color-mix(in srgb, var(--color-brand) 18%, transparent);
         background:
           radial-gradient(
             circle at top right,
-            rgba(108, 99, 255, 0.14),
+            color-mix(in srgb, var(--color-brand) 14%, transparent),
             transparent 34%
           ),
           linear-gradient(
@@ -5489,9 +5677,9 @@
       }
 
       .month-bar.active {
-        border-color: rgba(108, 99, 255, 0.7);
+        border-color: color-mix(in srgb, var(--color-brand) 70%, transparent);
         box-shadow:
-          0 0 0 2px rgba(108, 99, 255, 0.18),
+          0 0 0 2px color-mix(in srgb, var(--color-brand) 18%, transparent),
           inset 0 1px 0 rgba(255, 255, 255, 0.14);
       }
 
@@ -6165,8 +6353,8 @@
       }
 
       .filter-chip.active {
-        background: rgba(108, 99, 255, 0.16);
-        border-color: rgba(108, 99, 255, 0.5);
+        background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+        border-color: color-mix(in srgb, var(--color-brand) 50%, transparent);
         color: var(--text);
       }
 
@@ -7467,10 +7655,10 @@
       }
 
       .btn-tonal-accent:active:not(:disabled) {
-        background: rgba(108, 99, 255, 0.24);
+        background: color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
       .btn-tonal-success:active:not(:disabled) {
-        background: rgba(0, 212, 170, 0.22);
+        background: color-mix(in srgb, var(--color-success) 22%, transparent);
       }
 
       .btn-sm {
@@ -7524,6 +7712,1128 @@
       }
       .inline-select {
         border-radius: var(--radius-sm);
+      }
+
+      /* ===================================================================
+       * Apple Phase 2/3/5 — Base components, OCR composites, polish
+       * ===================================================================
+       * See design/Design System inspired by Apple design.md §7.
+       * All rules live after the legacy rules so they win via source order.
+       * =================================================================== */
+
+      /* --- Theme toggle ---------------------------------------------- */
+      .theme-toggle {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: var(--space-3);
+        padding: 8px 14px;
+        border: none;
+        border-radius: var(--radius-sm);
+        background: var(--color-surface);
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        font-family: var(--font-text);
+        font-size: var(--font-sm);
+        font-weight: 500;
+        text-align: left;
+        letter-spacing: var(--font-sm-tracking);
+        box-shadow: var(--shadow-1);
+        transition:
+          box-shadow var(--duration-base) var(--ease-out),
+          transform var(--duration-instant) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .theme-toggle:hover { color: var(--color-text-primary); box-shadow: var(--shadow-2); }
+      .theme-toggle:active { transform: scale(0.98); box-shadow: var(--shadow-1); }
+      .theme-toggle:focus-visible {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: 2px;
+      }
+      .theme-toggle__icon { font-size: 1rem; line-height: 1; }
+
+      /* --- Button primitive ------------------------------------------ */
+      .btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        min-height: 44px;
+        padding: 0 15px;
+        font-family: var(--font-text);
+        font-size: var(--font-body);
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: var(--font-body-tracking);
+        color: var(--color-text-primary);
+        background: var(--color-surface);
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition:
+          background-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          transform var(--duration-instant) var(--ease-in-out);
+        -webkit-tap-highlight-color: transparent;
+      }
+      .btn:focus-visible {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: var(--stroke-2);
+      }
+      .btn:active:not(:disabled):not([aria-disabled="true"]) {
+        transform: scale(0.98);
+      }
+      .btn:disabled,
+      .btn[aria-disabled="true"] {
+        opacity: 0.48;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      .btn-primary {
+        background: var(--color-brand);
+        color: var(--color-brand-contrast);
+        border-color: var(--color-brand);
+      }
+      .btn-primary:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-brand-hover);
+        border-color: var(--color-brand-hover);
+      }
+      .btn-primary:active:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-brand-pressed);
+        border-color: var(--color-brand-pressed);
+      }
+      .btn-primary:focus-visible {
+        outline: 3px solid var(--color-focus);
+        outline-offset: 3px;
+      }
+
+      .btn-secondary {
+        background: var(--color-surface-inverse);
+        color: var(--color-text-inverse);
+        border-color: var(--color-surface-inverse);
+      }
+      .btn-secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+        filter: brightness(1.12);
+      }
+      .btn-secondary:active:not(:disabled):not([aria-disabled="true"]) {
+        filter: brightness(0.88);
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--color-text-primary);
+        border-color: var(--color-border);
+      }
+      .btn-ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-surface-3);
+        border-color: var(--color-border-strong);
+      }
+
+      .btn-danger {
+        background: transparent;
+        color: var(--color-error);
+        border-color: var(--color-error);
+      }
+      .btn-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-error-soft);
+        color: var(--color-error-hover);
+        border-color: var(--color-error-hover);
+      }
+
+      .btn-success {
+        background: var(--color-success);
+        color: #ffffff;
+        border-color: var(--color-success);
+      }
+      .btn-success:hover:not(:disabled):not([aria-disabled="true"]) {
+        filter: brightness(1.08);
+      }
+
+      .btn-tonal-accent {
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+        border-color: transparent;
+      }
+      .btn-tonal-accent:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-brand-soft);
+        filter: brightness(1.05);
+      }
+      .btn-tonal-success {
+        background: var(--color-success-soft);
+        color: var(--color-success);
+        border-color: transparent;
+      }
+
+      /* Pill link — the signature Apple "Learn more" CTA */
+      .btn-link,
+      .btn-pill-link {
+        background: transparent;
+        color: var(--color-link);
+        border: 1px solid var(--color-link);
+        border-radius: var(--radius-pill);
+        padding: 6px 18px;
+        font-weight: 400;
+      }
+      .btn-link:hover:not(:disabled):not([aria-disabled="true"]),
+      .btn-pill-link:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-brand-soft);
+      }
+      /* Inline text-link variant (no border, no padding) */
+      .btn-link--inline {
+        border: none;
+        padding: 0;
+        min-height: 0;
+        border-radius: 0;
+        font-weight: 400;
+      }
+      .btn-link--inline:hover:not(:disabled) {
+        background: transparent;
+        text-decoration: underline;
+      }
+
+      .btn-sm {
+        min-height: 36px;
+        padding: 0 12px;
+        font-size: var(--font-sm);
+        border-radius: var(--radius-sm);
+      }
+      .btn-lg {
+        min-height: 52px;
+        padding: 0 22px;
+        font-size: var(--font-md);
+      }
+
+      .btn-icon {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        min-height: 44px;
+        padding: 0;
+        border-radius: var(--radius-full);
+        background: var(--color-surface-3);
+        color: var(--color-text-primary);
+        border-color: transparent;
+      }
+      .btn-icon:hover:not(:disabled):not([aria-disabled="true"]) {
+        background: var(--color-surface-2);
+        box-shadow: var(--shadow-2);
+      }
+      .btn-icon.btn-sm { width: 36px; min-width: 36px; height: 36px; min-height: 36px; }
+      .btn-icon.btn-lg { width: 52px; min-width: 52px; height: 52px; min-height: 52px; }
+
+      .btn[data-loading="true"] {
+        color: transparent !important;
+        pointer-events: none;
+      }
+      .btn[data-loading="true"]::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 16px;
+        height: 16px;
+        margin: -8px 0 0 -8px;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        color: var(--color-text-primary);
+        animation: apple-spin 0.9s linear infinite;
+      }
+      .btn-primary[data-loading="true"]::after,
+      .btn-secondary[data-loading="true"]::after,
+      .btn-success[data-loading="true"]::after {
+        color: #ffffff;
+      }
+      @keyframes apple-spin { to { transform: rotate(360deg); } }
+
+      /* --- Card primitive (Apple) ----------------------------------- */
+      .card {
+        background: var(--color-surface);
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: var(--space-6);
+        box-shadow: var(--shadow-1);
+        transition:
+          box-shadow var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .card--flat { box-shadow: none; }
+      .card--interactive { cursor: pointer; }
+      .card--interactive:hover {
+        box-shadow: var(--shadow-2);
+        transform: translateY(-2px);
+      }
+      .card--selected {
+        outline: var(--stroke-2) solid var(--color-border-brand);
+        outline-offset: 2px;
+      }
+      .card--padded-sm { padding: var(--space-4); }
+      .card--padded-lg { padding: var(--space-8); }
+
+      /* --- Input primitive (Apple override) -------------------------- */
+      input,
+      select,
+      textarea {
+        background: var(--color-surface-2);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        min-height: 44px;
+        font-family: var(--font-text);
+        font-size: var(--font-body);
+        letter-spacing: var(--font-body-tracking);
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out);
+      }
+      input:hover:not(:disabled):not(:focus),
+      select:hover:not(:disabled):not(:focus),
+      textarea:hover:not(:disabled):not(:focus) {
+        border-color: var(--color-border-strong);
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: 2px;
+        border-color: var(--color-focus);
+      }
+      input:disabled,
+      select:disabled,
+      textarea:disabled {
+        opacity: 0.55;
+        background: var(--color-surface-3);
+        cursor: not-allowed;
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--color-text-disabled);
+      }
+      input[aria-invalid="true"],
+      select[aria-invalid="true"],
+      textarea[aria-invalid="true"] {
+        border-color: var(--color-error);
+        outline-color: var(--color-error);
+        background: var(--color-error-soft);
+      }
+
+      /* --- Badge primitive ------------------------------------------- */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: var(--radius-pill);
+        font-family: var(--font-text);
+        font-size: var(--font-xs);
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: var(--font-xs-tracking);
+        color: var(--color-text-secondary);
+        background: var(--color-surface-3);
+        border: none;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .badge[data-dot]::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .badge--success { color: var(--color-success); background: var(--color-success-soft); }
+      .badge--warning { color: var(--color-warning); background: var(--color-warning-soft); }
+      .badge--error { color: var(--color-error); background: var(--color-error-soft); }
+      .badge--info { color: var(--color-info); background: var(--color-info-soft); }
+      .badge--brand { color: var(--color-brand-contrast); background: var(--color-brand); }
+      .badge--confidence-high { color: var(--color-confidence-high); background: var(--color-confidence-high-soft); }
+      .badge--confidence-medium { color: var(--color-confidence-medium); background: var(--color-confidence-medium-soft); }
+      .badge--confidence-low { color: var(--color-confidence-low); background: var(--color-confidence-low-soft); }
+      .badge--cat-grocery { color: var(--color-cat-grocery); background: color-mix(in srgb, var(--color-cat-grocery) 14%, transparent); }
+      .badge--cat-restaurant { color: var(--color-cat-restaurant); background: color-mix(in srgb, var(--color-cat-restaurant) 14%, transparent); }
+      .badge--cat-utility { color: var(--color-cat-utility); background: color-mix(in srgb, var(--color-cat-utility) 14%, transparent); }
+      .badge--cat-personal-service { color: var(--color-cat-personal-service); background: color-mix(in srgb, var(--color-cat-personal-service) 14%, transparent); }
+      .badge--cat-subscription { color: var(--color-cat-subscription); background: color-mix(in srgb, var(--color-cat-subscription) 14%, transparent); }
+      .badge--cat-other { color: var(--color-text-muted); background: var(--color-surface-3); }
+
+      /* --- Toggle / Switch (Apple-style) ----------------------------- */
+      .toggle {
+        position: relative;
+        display: inline-flex;
+        width: 52px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-3);
+        cursor: pointer;
+        transition: background-color var(--duration-base) var(--ease-in-out);
+        -webkit-tap-highlight-color: transparent;
+      }
+      .toggle:focus-visible {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: 2px;
+      }
+      .toggle__thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: var(--shadow-1);
+        transition: transform var(--duration-base) var(--ease-in-out);
+      }
+      .toggle[aria-checked="true"] { background: var(--color-brand); }
+      .toggle[aria-checked="true"] .toggle__thumb { transform: translateX(20px); }
+      .toggle:disabled,
+      .toggle[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+
+      /* --- Navigation glass (sticky) --------------------------------- */
+      .apple-nav-glass {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 var(--space-5);
+        background: var(--color-glass-nav);
+        color: #ffffff;
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+      }
+
+      /* --- Drop Zone ------------------------------------------------- */
+      .drop-zone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-3);
+        min-height: 320px;
+        padding: var(--space-12) var(--space-8);
+        background: var(--color-surface);
+        border: 1px dashed var(--color-border-strong);
+        border-radius: var(--radius-sm);
+        color: var(--color-text-secondary);
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          background-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .drop-zone:hover,
+      .drop-zone:focus-visible {
+        border-color: var(--color-border-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+      }
+      .drop-zone:focus-visible {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: 2px;
+      }
+      .drop-zone[data-state="dragover"] {
+        border: var(--stroke-2) solid var(--color-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+      }
+      .drop-zone[data-state="invalid"] {
+        border-color: var(--color-error);
+        background: var(--color-error-soft);
+        color: var(--color-error);
+        animation: dz-shake 240ms var(--ease-in-out);
+      }
+      .drop-zone[data-state="uploading"] { cursor: progress; }
+      .drop-zone[data-state="disabled"] { opacity: 0.5; cursor: not-allowed; }
+      @keyframes dz-shake {
+        0%, 100% { transform: translateX(0); }
+        25%      { transform: translateX(-4px); }
+        75%      { transform: translateX(4px); }
+      }
+      .drop-zone--compact { min-height: 180px; padding: var(--space-6) var(--space-5); }
+      .drop-zone--batch-row {
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+        min-height: 80px;
+        padding: var(--space-3) var(--space-4);
+        gap: var(--space-4);
+      }
+      .drop-zone__icon { font-size: 2rem; line-height: 1; }
+      .drop-zone__title { font-size: var(--font-body); font-weight: 600; color: var(--color-text-primary); }
+      .drop-zone[data-state="dragover"] .drop-zone__title { color: var(--color-brand); }
+      .drop-zone[data-state="invalid"] .drop-zone__title { color: var(--color-error); }
+      .drop-zone__hint { font-size: var(--font-sm); color: var(--color-text-secondary); }
+      .drop-zone__progress {
+        position: absolute;
+        left: var(--space-4);
+        right: var(--space-4);
+        bottom: var(--space-3);
+        height: 4px;
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+      }
+      .drop-zone__progress-bar {
+        height: 100%;
+        background: var(--color-brand);
+        border-radius: var(--radius-pill);
+        transition: width var(--duration-base) var(--ease-out);
+      }
+
+      /* --- Scan Progress (bar) --------------------------------------- */
+      .scan-progress {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-5) var(--space-6);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-1);
+      }
+      .scan-progress__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: var(--space-3);
+      }
+      .scan-progress__phase {
+        font-family: var(--font-text);
+        font-size: var(--font-body);
+        font-weight: 400;
+        color: var(--color-text-primary);
+      }
+      .scan-progress[data-state="success"] .scan-progress__phase {
+        color: var(--color-success);
+        animation: scan-pop var(--duration-elaborate) var(--ease-spring);
+        transform-origin: left center;
+      }
+      .scan-progress[data-state="retrying"] .scan-progress__phase { color: var(--color-warning); }
+      .scan-progress[data-state="failed"] .scan-progress__phase { color: var(--color-error); }
+      @keyframes scan-pop {
+        0%   { transform: scale(0.94); }
+        50%  { transform: scale(1.06); }
+        100% { transform: scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .scan-progress[data-state="success"] .scan-progress__phase { animation: none; }
+      }
+      .scan-progress__meta {
+        font-size: var(--font-sm);
+        color: var(--color-text-secondary);
+        font-variant-numeric: tabular-nums;
+      }
+      .scan-progress__track {
+        position: relative;
+        height: 6px;
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+        overflow: hidden;
+      }
+      .scan-progress__bar {
+        height: 100%;
+        background: var(--color-brand);
+        border-radius: var(--radius-pill);
+        transition: width var(--duration-base) var(--ease-out);
+      }
+      .scan-progress[data-state="retrying"] .scan-progress__bar { background: var(--color-warning); }
+      .scan-progress[data-state="success"] .scan-progress__bar { background: var(--color-success); }
+      .scan-progress[data-state="failed"] .scan-progress__bar { background: var(--color-error); }
+      .scan-progress[data-variant="indeterminate"] .scan-progress__bar {
+        width: 40%;
+        animation: scan-firefly var(--duration-scan-loop) ease-in-out infinite;
+      }
+      @keyframes scan-firefly {
+        0%   { transform: translateX(-120%); }
+        100% { transform: translateX(280%); }
+      }
+      .scan-progress__foot {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+      .scan-progress__model-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        font-size: var(--font-xs);
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        background: var(--color-surface-3);
+        border-radius: var(--radius-pill);
+      }
+      .scan-progress__model-chip::before { content: "✨"; font-size: 0.85em; }
+      .scan-progress--compact {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+      }
+      .scan-progress--compact .scan-progress__track { flex: 1; }
+
+      /* --- Scan Progress (ring) -------------------------------------- */
+      .scan-ring {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .scan-ring__svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+      .scan-ring__track { fill: none; stroke: var(--color-surface-3); stroke-width: 10; }
+      .scan-ring__fill {
+        fill: none;
+        stroke: var(--color-brand);
+        stroke-width: 10;
+        stroke-linecap: round;
+        transition: stroke-dashoffset var(--duration-slow) var(--ease-out);
+      }
+      .scan-ring[data-state="retrying"] .scan-ring__fill { stroke: var(--color-warning); }
+      .scan-ring[data-state="success"] .scan-ring__fill { stroke: var(--color-success); }
+      .scan-ring[data-state="failed"] .scan-ring__fill { stroke: var(--color-error); }
+      .scan-ring__label {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .scan-ring__value {
+        font-family: var(--font-display);
+        font-size: var(--font-2xl);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+      .scan-ring__caption { font-size: var(--font-xs); color: var(--color-text-secondary); }
+
+      /* --- Confidence Ring (inline dial) ----------------------------- */
+      .conf-ring {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--cr-size, 48px);
+        height: var(--cr-size, 48px);
+        position: relative;
+      }
+      .conf-ring--sm { --cr-size: 36px; }
+      .conf-ring--md { --cr-size: 48px; }
+      .conf-ring--lg { --cr-size: 64px; }
+      .conf-ring__svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+      .conf-ring__track { fill: none; stroke: var(--color-surface-3); stroke-width: 4; }
+      .conf-ring__fill {
+        fill: none;
+        stroke: var(--color-confidence-high);
+        stroke-width: 4;
+        stroke-linecap: round;
+        transition: stroke-dashoffset var(--duration-slow) var(--ease-out);
+      }
+      .conf-ring[data-confidence="medium"] .conf-ring__fill { stroke: var(--color-confidence-medium); }
+      .conf-ring[data-confidence="low"] .conf-ring__fill { stroke: var(--color-confidence-low); }
+      .conf-ring__label {
+        position: absolute;
+        font-family: var(--font-mono);
+        font-size: 0.66em;
+        font-weight: 700;
+        color: var(--color-confidence-high);
+      }
+      .conf-ring[data-confidence="medium"] .conf-ring__label { color: var(--color-confidence-medium); }
+      .conf-ring[data-confidence="low"] .conf-ring__label { color: var(--color-confidence-low); }
+
+      /* --- Result Card ----------------------------------------------- */
+      .result-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        background: var(--color-surface);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+        box-shadow: var(--shadow-1);
+        transition:
+          box-shadow var(--duration-base) var(--ease-out),
+          transform var(--duration-base) var(--ease-out);
+      }
+      .result-card:hover {
+        box-shadow: var(--shadow-2);
+        transform: translateY(-2px);
+      }
+      .result-card[data-selected="true"] {
+        outline: var(--stroke-2) solid var(--color-border-brand);
+        outline-offset: 2px;
+      }
+      .result-card__media {
+        position: relative;
+        aspect-ratio: 3 / 4;
+        background: var(--color-surface-3);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-text-muted);
+        font-family: var(--font-mono);
+        font-size: var(--font-xs);
+      }
+      .result-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .result-card__overlay {
+        position: absolute;
+        top: var(--space-3);
+        left: var(--space-3);
+        right: var(--space-3);
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-2);
+        pointer-events: none;
+      }
+      .result-card__overlay > * { pointer-events: auto; }
+      .result-card__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--space-4);
+      }
+      .result-card__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--font-2xl);
+        font-weight: 400;
+        letter-spacing: var(--font-2xl-tracking);
+        line-height: var(--font-2xl-lh);
+        color: var(--color-text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .result-card__meta { font-size: var(--font-sm); color: var(--color-text-secondary); }
+      .result-card__amount {
+        margin-top: var(--space-2);
+        font-family: var(--font-display);
+        font-size: var(--font-lg);
+        font-weight: 700;
+        color: var(--color-text-primary);
+        font-variant-numeric: tabular-nums;
+      }
+      .result-card__footer {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--color-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-2);
+      }
+      .result-card__footer-link {
+        font-size: var(--font-sm);
+        font-weight: 400;
+        color: var(--color-link);
+        cursor: pointer;
+      }
+      .result-card__footer-link:hover { text-decoration: underline; }
+      .result-card[data-state="processing"] .result-card__media::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.18) 50%,
+          transparent 100%
+        );
+        background-size: 200% 100%;
+        animation: result-shimmer var(--duration-scan-loop) linear infinite;
+      }
+      @keyframes result-shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      .result-card--row {
+        flex-direction: row;
+        align-items: stretch;
+      }
+      .result-card--row .result-card__media {
+        width: 80px;
+        aspect-ratio: 1 / 1;
+        flex-shrink: 0;
+      }
+      .result-card--row .result-card__body {
+        flex: 1;
+        padding: var(--space-3) var(--space-4);
+        justify-content: center;
+      }
+
+      /* --- Toolbar --------------------------------------------------- */
+      .toolbar {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-2);
+        background: var(--color-surface);
+        border-radius: var(--radius-pill);
+        box-shadow: var(--shadow-1);
+      }
+      .toolbar__divider {
+        width: 1px;
+        height: 24px;
+        background: var(--color-border);
+        margin: 0 var(--space-1);
+      }
+      .toolbar--sticky-top {
+        display: flex;
+        width: 100%;
+        height: 56px;
+        border-radius: 0;
+        padding: var(--space-2) var(--space-5);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+      }
+      .toolbar--floating {
+        position: fixed;
+        right: var(--space-6);
+        bottom: var(--space-6);
+        z-index: 40;
+        background: var(--color-glass-nav);
+        color: #ffffff;
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+        box-shadow: var(--shadow-3);
+      }
+      .toolbar--floating .btn-icon { color: #ffffff; background: transparent; }
+      .toolbar--floating .btn-icon:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+      @media (max-width: 640px) {
+        .toolbar--floating {
+          right: var(--space-4);
+          bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+        }
+      }
+      .toolbar .btn-icon.toolbar__danger:hover:not(:disabled) {
+        color: var(--color-error);
+        background: var(--color-error-soft);
+      }
+
+      /* --- Extracted Text Panel ------------------------------------- */
+      .text-panel {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-5);
+        padding: var(--space-6);
+        background: var(--color-surface);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-1);
+      }
+      .text-panel__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-3);
+        flex-wrap: wrap;
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--color-border);
+      }
+      .text-panel__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--font-xl);
+        font-weight: 600;
+        color: var(--color-text-primary);
+      }
+      .text-panel__summary { display: flex; gap: var(--space-2); }
+      .text-panel__fields { display: flex; flex-direction: column; gap: var(--space-3); }
+      .text-panel__row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 140px 1fr auto;
+        gap: var(--space-3);
+        align-items: center;
+      }
+      .text-panel__row[data-confidence="low"] {
+        background: var(--color-confidence-low-soft);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+      }
+      .text-panel__label {
+        font-size: var(--font-xs);
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .text-panel__input {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: 9px 13px;
+        min-height: 40px;
+        font-family: var(--font-text);
+        font-size: var(--font-sm);
+        color: var(--color-text-primary);
+      }
+      .text-panel__input:focus {
+        outline: var(--stroke-2) solid var(--color-focus);
+        outline-offset: 2px;
+        border-color: var(--color-focus);
+      }
+      .text-panel__row[data-modified="true"]::before {
+        content: "";
+        position: absolute;
+        left: -14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--color-warning);
+      }
+      .text-panel__row[data-rejected="true"] .text-panel__input {
+        text-decoration: line-through;
+        color: var(--color-error);
+        background: var(--color-error-soft);
+      }
+
+      /* --- Processing overlay (full-screen interstitial) ------------ */
+      .processing-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: var(--space-6);
+        background: var(--color-bg-inverse);
+        color: var(--color-text-inverse);
+      }
+      .processing-overlay.is-visible { display: flex; }
+      .processing-overlay__label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-1);
+        text-align: center;
+      }
+      .processing-overlay__title {
+        font-family: var(--font-display);
+        font-size: var(--font-3xl);
+        font-weight: 600;
+        letter-spacing: var(--font-3xl-tracking);
+        color: var(--color-text-inverse);
+      }
+      .processing-overlay__sub {
+        font-size: var(--font-body);
+        color: var(--color-text-inverse);
+        opacity: 0.7;
+        max-width: 42ch;
+      }
+
+      /* --- Mark-Paid spring ----------------------------------------- */
+      .status-mark-paid-pop { animation: status-pop var(--duration-elaborate) var(--ease-spring); }
+      @keyframes status-pop {
+        0%   { transform: scale(1); }
+        40%  { transform: scale(1.22); }
+        100% { transform: scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .status-mark-paid-pop { animation: none; }
+      }
+
+      /* --- Empty state refinement ----------------------------------- */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--space-3);
+        padding: var(--space-16) var(--space-6);
+        color: var(--color-text-secondary);
+      }
+      .empty-state .icon,
+      .empty-state__icon {
+        width: 72px;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: var(--color-surface-3);
+        color: var(--color-text-muted);
+        font-size: 2rem;
+        margin-bottom: var(--space-2);
+      }
+      .empty-state__title,
+      .empty-state .empty-state-title {
+        font-family: var(--font-display);
+        font-size: var(--font-2xl);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        letter-spacing: var(--font-2xl-tracking);
+      }
+      .empty-state p,
+      .empty-state__sub,
+      .empty-state .empty-state-sub {
+        margin: 0;
+        font-size: var(--font-body);
+        color: var(--color-text-secondary);
+        max-width: 42ch;
+      }
+
+      /* --- Keyboard cheat sheet ------------------------------------- */
+      .shortcut-group { display: grid; gap: var(--space-3); }
+      .shortcut-group__title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--font-xl);
+        font-weight: 600;
+        color: var(--color-text-primary);
+      }
+      .shortcut-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: var(--space-2);
+      }
+      .shortcut-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .shortcut-row:hover { background: var(--color-surface-3); }
+      .shortcut-keys {
+        display: inline-flex;
+        gap: 3px;
+        min-width: 72px;
+        flex-shrink: 0;
+      }
+      .shortcut-keys kbd,
+      .shortcut-footnote kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        font-family: var(--font-mono);
+        font-size: var(--font-xs);
+        font-weight: 600;
+        color: var(--color-text-primary);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-bottom-width: 2px;
+        border-radius: var(--radius-xs);
+        line-height: 1;
+      }
+      .shortcut-label { font-size: var(--font-sm); color: var(--color-text-secondary); }
+      .shortcut-footnote {
+        margin: 0;
+        padding-top: var(--space-3);
+        font-size: var(--font-xs);
+        color: var(--color-text-muted);
+        border-top: 1px solid var(--color-border);
+      }
+
+      /* --- Apple design gallery (dev-only) -------------------------- */
+      .apple-gallery { display: grid; gap: var(--space-12); }
+      .apple-gallery__section { display: grid; gap: var(--space-4); }
+      .apple-gallery__head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--space-3);
+        padding-bottom: var(--space-2);
+        border-bottom: 1px solid var(--color-border);
+      }
+      .apple-gallery__head h2 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--font-3xl);
+        font-weight: 600;
+        letter-spacing: var(--font-3xl-tracking);
+        color: var(--color-text-primary);
+      }
+      .apple-gallery__head p {
+        margin: 0;
+        color: var(--color-text-secondary);
+        font-size: var(--font-sm);
+      }
+      .apple-gallery__row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        align-items: center;
+      }
+      .apple-gallery__label {
+        min-width: 120px;
+        font-size: var(--font-xs);
+        font-weight: 600;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .apple-swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: var(--space-4);
+      }
+      .apple-swatch {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: var(--space-3);
+        background: var(--color-surface);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-1);
+      }
+      .apple-swatch__chip {
+        height: 44px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--color-border);
+      }
+      .apple-swatch__name { font-size: var(--font-xs); font-weight: 600; }
+      .apple-swatch__value { font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-text-secondary); }
+      .apple-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: var(--space-5);
+      }
+
+      /* --- Drop-zone preview area (Apple Phase 4a) --- */
+      .drop-zone__preview {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-2);
+        margin-top: var(--space-4);
+      }
+      .drop-zone__preview.is-visible { display: flex; }
+      #preview-img {
+        max-width: 320px;
+        max-height: 320px;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-1);
+        display: none;
+        background: var(--color-surface-3);
+      }
+      #preview-img.is-visible { display: block; }
+      .drop-zone__preview-meta {
+        margin: 0;
+        font-size: var(--font-xs);
+        color: var(--color-text-secondary);
       }
 
       /* Labels: slight weight tweak, stay in sync with body font */
@@ -8158,7 +9468,7 @@
         font-weight: 600;
       }
       .cash-file-shell input[type="file"]::file-selector-button:hover {
-        background: rgba(108, 99, 255, 0.24);
+        background: color-mix(in srgb, var(--color-brand) 24%, transparent);
       }
 
       /* C) Save / Cancel buttons — aligned to primary button language */
@@ -8592,7 +9902,7 @@
         margin-bottom: 2px;
       }
       .alert.alert-success {
-        border-color: rgba(0, 212, 170, 0.35);
+        border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
         background: var(--success-soft);
       }
       .alert.alert-success .alert-icon {
@@ -8600,7 +9910,7 @@
         color: #002;
       }
       .alert.alert-warning {
-        border-color: rgba(255, 179, 71, 0.35);
+        border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
         background: var(--warning-soft);
       }
       .alert.alert-warning .alert-icon {
@@ -8608,7 +9918,7 @@
         color: #3a2a08;
       }
       .alert.alert-error {
-        border-color: rgba(255, 101, 132, 0.35);
+        border-color: color-mix(in srgb, var(--color-error) 35%, transparent);
         background: var(--danger-soft);
       }
       .alert.alert-error .alert-icon {
@@ -8866,6 +10176,17 @@
         <div class="nav-item" onclick="nav('settings', this)">
           <span class="nav-icon">⚙️</span> Settings
         </div>
+        <button
+          type="button"
+          class="theme-toggle"
+          id="theme-toggle"
+          onclick="toggleTheme()"
+          aria-label="Toggle color theme"
+          title="Toggle color theme"
+        >
+          <span class="theme-toggle__icon" aria-hidden="true">☀️</span>
+          <span class="theme-toggle__label">Light</span>
+        </button>
       </nav>
 
       <!-- Main -->
@@ -10521,32 +11842,32 @@
               in the right mode.
             </p>
           </div>
-          <div class="card">
-            <div class="upload-zone" id="drop-zone">
+          <div class="card card--padded-lg">
+            <label
+              class="drop-zone"
+              id="drop-zone"
+              for="file-input"
+              tabindex="0"
+            >
               <input
                 type="file"
                 id="file-input"
                 accept="image/*,.pdf,application/pdf"
                 onchange="previewFile(this)"
+                hidden
               />
-              <div class="upload-icon">📸</div>
-              <p>
-                <strong>Click or drag & drop</strong> a receipt image or PDF
-              </p>
-              <p style="margin-top: 6px; font-size: 0.8rem">
-                JPG, PNG, WEBP, PDF — max 10MB
-              </p>
-              <img id="preview-img" />
-              <p
-                id="preview-meta"
-                style="
-                  margin-top: 12px;
-                  font-size: 0.82rem;
-                  color: var(--muted);
-                  display: none;
-                "
-              ></p>
-            </div>
+              <div class="drop-zone__icon" aria-hidden="true">📸</div>
+              <div class="drop-zone__title">
+                Click or drag &amp; drop a receipt
+              </div>
+              <div class="drop-zone__hint">
+                JPG · PNG · WEBP · PDF · up to 10 MB
+              </div>
+              <div id="preview-wrap" class="drop-zone__preview">
+                <img id="preview-img" alt="Receipt preview" />
+                <p id="preview-meta" class="drop-zone__preview-meta"></p>
+              </div>
+            </label>
             <div
               style="
                 margin-top: 16px;
@@ -10671,13 +11992,42 @@
               >
                 🚀 Auto Detect Receipt
               </button>
-              <div id="upload-spinner" style="display: none">
-                <div class="spinner"></div>
-              </div>
               <span
                 id="upload-status"
-                style="color: var(--muted); font-size: 0.88rem"
+                style="display: none"
+                aria-hidden="true"
               ></span>
+            </div>
+            <div
+              class="scan-progress"
+              id="upload-scan-progress"
+              data-variant="indeterminate"
+              hidden
+              style="margin-top: var(--space-4)"
+            >
+              <div class="scan-progress__head">
+                <span class="scan-progress__phase" id="upload-scan-phase">Ready</span>
+                <span class="scan-progress__meta" id="upload-scan-meta"></span>
+              </div>
+              <div class="scan-progress__track">
+                <div class="scan-progress__bar"></div>
+              </div>
+              <div class="scan-progress__foot">
+                <span
+                  class="scan-progress__model-chip"
+                  id="upload-scan-model"
+                  hidden
+                ></span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost"
+                  id="upload-scan-retry"
+                  style="display: none"
+                  onclick="uploadReceipt()"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           </div>
           <div class="card" id="ocr-result-card" style="display: none">
@@ -12133,11 +13483,487 @@
             </div>
           </div>
         </div>
+
+        <!-- Apple Design Gallery (dev-only; #gallery or press g g) -->
+        <div class="page" id="page-design-gallery">
+          <div class="page-header">
+            <div>
+              <h1>Design Gallery</h1>
+              <p>
+                Every Apple-inspired primitive in every state. Flip the
+                theme to see the light/dark canvas duality.
+              </p>
+            </div>
+          </div>
+
+          <div class="apple-gallery">
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Colors</h2>
+                <p>Swatches read live from :root.</p>
+              </div>
+              <div class="apple-swatch-grid" id="apple-gallery-swatches"></div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Buttons</h2>
+                <p>
+                  Primary blue is the singular accent. Secondary is dark on
+                  light, light on dark.
+                </p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Variants</div>
+                <button class="btn btn-primary">Buy</button>
+                <button class="btn btn-secondary">Shop</button>
+                <button class="btn btn-ghost">Ghost</button>
+                <button class="btn btn-danger">Danger</button>
+                <button class="btn btn-success">Success</button>
+                <button class="btn btn-tonal-accent">Tonal</button>
+                <button class="btn btn-pill-link">Learn more ›</button>
+                <button class="btn btn-link btn-link--inline">Inline link ›</button>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Sizes</div>
+                <button class="btn btn-primary btn-sm">Small</button>
+                <button class="btn btn-primary">Default</button>
+                <button class="btn btn-primary btn-lg">Large</button>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">States</div>
+                <button class="btn btn-primary">Default</button>
+                <button class="btn btn-primary" disabled>Disabled</button>
+                <button class="btn btn-primary" data-loading="true">Loading</button>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Icon</div>
+                <button class="btn btn-icon btn-sm" aria-label="Edit">✎</button>
+                <button class="btn btn-icon" aria-label="Refresh">↻</button>
+                <button class="btn btn-icon btn-lg" aria-label="Download">↓</button>
+                <button class="btn btn-icon btn-primary" aria-label="Scan">⎙</button>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Cards</h2>
+                <p>Default / interactive / selected / flat.</p>
+              </div>
+              <div class="apple-card-grid">
+                <div class="card">
+                  <div style="font-family: var(--font-display); font-size: var(--font-xl); font-weight: 600">Default card</div>
+                  <p style="margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--font-sm)">Single soft shadow.</p>
+                </div>
+                <div class="card card--interactive">
+                  <div style="font-family: var(--font-display); font-size: var(--font-xl); font-weight: 600">Interactive</div>
+                  <p style="margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--font-sm)">Hover lifts 2 px.</p>
+                </div>
+                <div class="card card--selected">
+                  <div style="font-family: var(--font-display); font-size: var(--font-xl); font-weight: 600">Selected</div>
+                  <p style="margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--font-sm)">Brand outline ring.</p>
+                </div>
+                <div class="card card--flat">
+                  <div style="font-family: var(--font-display); font-size: var(--font-xl); font-weight: 600">Flat</div>
+                  <p style="margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--font-sm)">Nested, no shadow.</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Badges</h2>
+                <p>Semantic, confidence, category.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Semantic</div>
+                <span class="badge">Neutral</span>
+                <span class="badge badge--success" data-dot>Success</span>
+                <span class="badge badge--warning" data-dot>Warning</span>
+                <span class="badge badge--error" data-dot>Error</span>
+                <span class="badge badge--info" data-dot>Info</span>
+                <span class="badge badge--brand">Brand</span>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Confidence</div>
+                <span class="badge badge--confidence-high" data-dot>0.94</span>
+                <span class="badge badge--confidence-medium" data-dot>0.72</span>
+                <span class="badge badge--confidence-low" data-dot>0.41</span>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Category</div>
+                <span class="badge badge--cat-grocery">Grocery</span>
+                <span class="badge badge--cat-restaurant">Restaurant</span>
+                <span class="badge badge--cat-utility">Utility</span>
+                <span class="badge badge--cat-personal-service">Personal service</span>
+                <span class="badge badge--cat-subscription">Subscription</span>
+                <span class="badge badge--cat-other">Other</span>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Inputs</h2>
+                <p>Bordered, focus-ring, invalid.</p>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); max-width: 640px">
+                <input type="text" placeholder="Default input" aria-label="Default input" />
+                <input type="text" value="With value" aria-label="Input with value" />
+                <input type="text" placeholder="Disabled" disabled aria-label="Disabled input" />
+                <input type="text" value="Invalid" aria-invalid="true" aria-label="Invalid input" />
+                <select aria-label="Sample select">
+                  <option>Select an option…</option>
+                  <option>Option A</option>
+                </select>
+                <textarea placeholder="Textarea…" aria-label="Sample textarea" rows="2"></textarea>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Toggle</h2>
+                <p>iOS-style pill switch.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <button type="button" class="toggle" role="switch" aria-checked="false" aria-label="Off" onclick="toggleAppleSwitch(this)"><span class="toggle__thumb"></span></button>
+                <button type="button" class="toggle" role="switch" aria-checked="true" aria-label="On" onclick="toggleAppleSwitch(this)"><span class="toggle__thumb"></span></button>
+                <button type="button" class="toggle" role="switch" aria-checked="false" disabled aria-disabled="true" aria-label="Disabled"><span class="toggle__thumb"></span></button>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Drop Zone</h2>
+                <p>Dashed basin with hover / dragover / invalid / uploading.</p>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4)">
+                <label class="drop-zone" tabindex="0">
+                  <div class="drop-zone__icon">📸</div>
+                  <div class="drop-zone__title">Drop a receipt or click to browse</div>
+                  <div class="drop-zone__hint">JPEG · PNG · HEIC · PDF · up to 10 MB</div>
+                </label>
+                <label class="drop-zone" data-state="dragover" tabindex="0">
+                  <div class="drop-zone__icon">✓</div>
+                  <div class="drop-zone__title">Release to upload</div>
+                  <div class="drop-zone__hint">3 files ready</div>
+                </label>
+                <label class="drop-zone" data-state="invalid" tabindex="0">
+                  <div class="drop-zone__icon">✕</div>
+                  <div class="drop-zone__title">File type not supported</div>
+                  <div class="drop-zone__hint">Accepts JPEG · PNG · HEIC · PDF only</div>
+                </label>
+                <label class="drop-zone" data-state="uploading" tabindex="0">
+                  <div class="drop-zone__icon">…</div>
+                  <div class="drop-zone__title">Uploading costco-0414.jpg</div>
+                  <div class="drop-zone__hint">2 of 4</div>
+                  <div class="drop-zone__progress"><div class="drop-zone__progress-bar" style="width: 64%"></div></div>
+                </label>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Scan Progress — bar</h2>
+                <p>Determinate, retrying, indeterminate, success, failed.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Running</div>
+                <div class="scan-progress" style="flex: 1">
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">Extracting fields</span>
+                    <span class="scan-progress__meta">Step 2 of 4 · 62%</span>
+                  </div>
+                  <div class="scan-progress__track"><div class="scan-progress__bar" style="width: 62%"></div></div>
+                  <div class="scan-progress__foot"><span class="scan-progress__model-chip">Gemini 2.5 Flash</span></div>
+                </div>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Indeterminate</div>
+                <div class="scan-progress" data-variant="indeterminate" style="flex: 1">
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">Reading image</span>
+                    <span class="scan-progress__meta">—</span>
+                  </div>
+                  <div class="scan-progress__track"><div class="scan-progress__bar"></div></div>
+                </div>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Success</div>
+                <div class="scan-progress" data-state="success" style="flex: 1">
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">✓ Extracted 14 fields</span>
+                    <span class="scan-progress__meta">8.4s</span>
+                  </div>
+                  <div class="scan-progress__track"><div class="scan-progress__bar" style="width: 100%"></div></div>
+                </div>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Failed</div>
+                <div class="scan-progress" data-state="failed" style="flex: 1">
+                  <div class="scan-progress__head">
+                    <span class="scan-progress__phase">✕ OCR failed — blurry image</span>
+                    <span class="scan-progress__meta">Retry?</span>
+                  </div>
+                  <div class="scan-progress__track"><div class="scan-progress__bar" style="width: 36%"></div></div>
+                  <div class="scan-progress__foot"><button class="btn btn-sm btn-ghost">Retry</button></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Scan Progress — ring</h2>
+                <p>Running, success, failed.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="scan-ring">
+                  <svg class="scan-ring__svg" viewBox="0 0 128 128"><circle class="scan-ring__track" cx="64" cy="64" r="54" /><circle class="scan-ring__fill" cx="64" cy="64" r="54" stroke-dasharray="339.29" stroke-dashoffset="128.93" /></svg>
+                  <div class="scan-ring__label"><div class="scan-ring__value">62%</div><div class="scan-ring__caption">scanning…</div></div>
+                </div>
+                <div class="scan-ring" data-state="success">
+                  <svg class="scan-ring__svg" viewBox="0 0 128 128"><circle class="scan-ring__track" cx="64" cy="64" r="54" /><circle class="scan-ring__fill" cx="64" cy="64" r="54" stroke-dasharray="339.29" stroke-dashoffset="0" /></svg>
+                  <div class="scan-ring__label"><div class="scan-ring__value">✓</div><div class="scan-ring__caption">Done</div></div>
+                </div>
+                <div class="scan-ring" data-state="failed">
+                  <svg class="scan-ring__svg" viewBox="0 0 128 128"><circle class="scan-ring__track" cx="64" cy="64" r="54" /><circle class="scan-ring__fill" cx="64" cy="64" r="54" stroke-dasharray="339.29" stroke-dashoffset="217.1" /></svg>
+                  <div class="scan-ring__label"><div class="scan-ring__value">✕</div><div class="scan-ring__caption">Failed</div></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Confidence Ring</h2>
+                <p>Inline SVG dial at 3 sizes across 3 confidence tiers.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">High (.94)</div>
+                <span class="conf-ring conf-ring--sm" data-confidence="high"><svg class="conf-ring__svg" viewBox="0 0 40 40"><circle class="conf-ring__track" cx="20" cy="20" r="16" /><circle class="conf-ring__fill" cx="20" cy="20" r="16" stroke-dasharray="100.5" stroke-dashoffset="6.03" /></svg><span class="conf-ring__label">.94</span></span>
+                <span class="conf-ring conf-ring--md" data-confidence="high"><svg class="conf-ring__svg" viewBox="0 0 40 40"><circle class="conf-ring__track" cx="20" cy="20" r="16" /><circle class="conf-ring__fill" cx="20" cy="20" r="16" stroke-dasharray="100.5" stroke-dashoffset="6.03" /></svg><span class="conf-ring__label">.94</span></span>
+                <span class="conf-ring conf-ring--lg" data-confidence="high"><svg class="conf-ring__svg" viewBox="0 0 40 40"><circle class="conf-ring__track" cx="20" cy="20" r="16" /><circle class="conf-ring__fill" cx="20" cy="20" r="16" stroke-dasharray="100.5" stroke-dashoffset="6.03" /></svg><span class="conf-ring__label">.94</span></span>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Medium (.72)</div>
+                <span class="conf-ring conf-ring--md" data-confidence="medium"><svg class="conf-ring__svg" viewBox="0 0 40 40"><circle class="conf-ring__track" cx="20" cy="20" r="16" /><circle class="conf-ring__fill" cx="20" cy="20" r="16" stroke-dasharray="100.5" stroke-dashoffset="28.14" /></svg><span class="conf-ring__label">.72</span></span>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="apple-gallery__label">Low (.41)</div>
+                <span class="conf-ring conf-ring--md" data-confidence="low"><svg class="conf-ring__svg" viewBox="0 0 40 40"><circle class="conf-ring__track" cx="20" cy="20" r="16" /><circle class="conf-ring__fill" cx="20" cy="20" r="16" stroke-dasharray="100.5" stroke-dashoffset="59.29" /></svg><span class="conf-ring__label">.41</span></span>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Result Card</h2>
+                <p>Image-first tile with category + confidence overlay chips.</p>
+              </div>
+              <div class="apple-card-grid">
+                <article class="result-card">
+                  <div class="result-card__media">
+                    receipt-preview
+                    <div class="result-card__overlay">
+                      <span class="badge badge--cat-grocery">Grocery</span>
+                      <span class="badge badge--confidence-high" data-dot>0.94</span>
+                    </div>
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">Costco Wholesale</h3>
+                    <div class="result-card__meta">Apr 14, 2026 · 18 items</div>
+                    <div class="result-card__amount">$247.83</div>
+                    <div class="result-card__footer">
+                      <span class="result-card__footer-link">Open receipt →</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="result-card" data-selected="true">
+                  <div class="result-card__media">
+                    receipt-preview
+                    <div class="result-card__overlay">
+                      <span class="badge badge--cat-restaurant">Restaurant</span>
+                      <span class="badge badge--confidence-medium" data-dot>0.72</span>
+                    </div>
+                  </div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">India Bazar Café</h3>
+                    <div class="result-card__meta">Apr 11, 2026 · 4 items</div>
+                    <div class="result-card__amount">$64.20</div>
+                    <div class="result-card__footer">
+                      <span class="result-card__footer-link">Review fields →</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="result-card" data-state="processing">
+                  <div class="result-card__media">processing</div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">Processing…</h3>
+                    <div class="result-card__meta">OCR in flight</div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Toolbar</h2>
+                <p>Glass-floating variant in the live gallery.</p>
+              </div>
+              <div class="apple-gallery__row">
+                <div class="toolbar">
+                  <button class="btn btn-icon btn-primary" aria-label="Scan">⎙</button>
+                  <button class="btn btn-icon" aria-label="Crop">⌗</button>
+                  <button class="btn btn-icon" aria-label="Rotate">↻</button>
+                  <div class="toolbar__divider" aria-hidden="true"></div>
+                  <button class="btn btn-icon" aria-label="Copy">⎘</button>
+                  <button class="btn btn-icon" aria-label="Export">↧</button>
+                  <div class="toolbar__divider" aria-hidden="true"></div>
+                  <button class="btn btn-icon toolbar__danger" aria-label="Delete">🗑</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Extracted Text Panel</h2>
+                <p>Raised card with field rows; low-confidence rows tinted.</p>
+              </div>
+              <div class="text-panel">
+                <div class="text-panel__head">
+                  <h3 class="text-panel__title">Costco Wholesale</h3>
+                  <div class="text-panel__summary">
+                    <span class="badge badge--confidence-high" data-dot>8 high</span>
+                    <span class="badge badge--confidence-medium" data-dot>4 medium</span>
+                    <span class="badge badge--confidence-low" data-dot>2 low</span>
+                  </div>
+                </div>
+                <div class="text-panel__fields">
+                  <div class="text-panel__row">
+                    <span class="text-panel__label">Store</span>
+                    <input class="text-panel__input" value="Costco Wholesale" aria-label="Store" />
+                    <span class="badge badge--confidence-high" data-dot>0.96</span>
+                  </div>
+                  <div class="text-panel__row" data-modified="true">
+                    <span class="text-panel__label">Date</span>
+                    <input class="text-panel__input" value="2026-04-14" aria-label="Date" />
+                    <span class="badge badge--confidence-high" data-dot>0.92</span>
+                  </div>
+                  <div class="text-panel__row" data-confidence="low">
+                    <span class="text-panel__label">Tax</span>
+                    <input class="text-panel__input" value="11.38" aria-label="Tax" />
+                    <span class="badge badge--confidence-low" data-dot>0.41</span>
+                  </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: var(--space-2)">
+                  <button class="btn btn-ghost btn-sm">Cancel</button>
+                  <button class="btn btn-primary btn-sm">Save</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="apple-gallery__section">
+              <div class="apple-gallery__head">
+                <h2>Typography</h2>
+                <p>SF Pro Display ≥ 20 px, SF Pro Text &lt; 20 px.</p>
+              </div>
+              <div class="card" style="display: grid; gap: var(--space-3)">
+                <div style="font-family: var(--font-display); font-size: var(--font-hero); font-weight: var(--font-hero-weight); letter-spacing: var(--font-hero-tracking); line-height: var(--font-hero-lh)">Hero — 56 px</div>
+                <div style="font-family: var(--font-display); font-size: var(--font-4xl); font-weight: var(--font-4xl-weight); letter-spacing: var(--font-4xl-tracking); line-height: var(--font-4xl-lh)">4xl — Section heading</div>
+                <div style="font-family: var(--font-display); font-size: var(--font-3xl); font-weight: var(--font-3xl-weight); letter-spacing: var(--font-3xl-tracking); line-height: var(--font-3xl-lh)">3xl — Page hero</div>
+                <div style="font-family: var(--font-display); font-size: var(--font-2xl); font-weight: var(--font-2xl-weight); letter-spacing: var(--font-2xl-tracking); line-height: var(--font-2xl-lh)">2xl — Card title</div>
+                <div style="font-family: var(--font-text); font-size: var(--font-body); line-height: var(--font-body-lh); letter-spacing: var(--font-body-tracking)">Body — 17 px default body copy. Negative tracking runs at every size.</div>
+                <div style="font-family: var(--font-text); font-size: var(--font-sm); color: var(--color-text-secondary)">sm — Links, captions, meta lines.</div>
+                <div style="font-family: var(--font-text); font-size: var(--font-xs); color: var(--color-text-muted)">xs — Footnotes, timestamps.</div>
+              </div>
+            </section>
+          </div>
+        </div>
       </main>
     </div>
 
     <div id="toast"></div>
     <div id="action-toast" aria-live="polite"></div>
+
+    <!-- Keyboard shortcut cheat sheet -->
+    <div
+      id="shortcut-cheatsheet-overlay"
+      class="confirm-overlay"
+      aria-hidden="true"
+      onclick="if (event.target === this) closeShortcutCheatsheet()"
+    >
+      <div
+        class="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcut-cheatsheet-title"
+        style="
+          width: min(640px, 100%);
+          max-height: min(85vh, 820px);
+          overflow: auto;
+          padding: 0;
+        "
+      >
+        <div style="position: sticky; top: 0; z-index: 2; padding: var(--space-4) var(--space-5); background: var(--color-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; gap: var(--space-3)">
+          <div id="shortcut-cheatsheet-title" style="font-family: var(--font-display); font-size: var(--font-xl); font-weight: 600">Keyboard shortcuts</div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="closeShortcutCheatsheet()">Close</button>
+        </div>
+        <div style="padding: var(--space-5); display: grid; gap: var(--space-5)">
+          <section class="shortcut-group">
+            <h3 class="shortcut-group__title">Navigate</h3>
+            <div class="shortcut-grid">
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>d</kbd></span><span class="shortcut-label">Dashboard</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>r</kbd></span><span class="shortcut-label">Receipts</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>i</kbd></span><span class="shortcut-label">Inventory</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>u</kbd></span><span class="shortcut-label">Upload Receipt</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>p</kbd></span><span class="shortcut-label">Shopping List</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>b</kbd></span><span class="shortcut-label">Bills</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>x</kbd></span><span class="shortcut-label">Expenses</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>a</kbd></span><span class="shortcut-label">Analytics</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>s</kbd></span><span class="shortcut-label">Settings</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>g</kbd><kbd>g</kbd></span><span class="shortcut-label">Design gallery</span></div>
+            </div>
+          </section>
+          <section class="shortcut-group">
+            <h3 class="shortcut-group__title">Universal</h3>
+            <div class="shortcut-grid">
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>?</kbd></span><span class="shortcut-label">Open this cheat sheet</span></div>
+              <div class="shortcut-row"><span class="shortcut-keys"><kbd>Esc</kbd></span><span class="shortcut-label">Close modal / dialog</span></div>
+            </div>
+          </section>
+          <p class="shortcut-footnote">
+            Shortcuts ignored while typing. Press <kbd>?</kbd> to reopen.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Processing overlay (full-screen interstitial) -->
+    <div
+      id="processing-overlay"
+      class="processing-overlay"
+      role="status"
+      aria-live="polite"
+      aria-hidden="true"
+    >
+      <div class="scan-ring" style="width: 200px; height: 200px">
+        <svg class="scan-ring__svg" viewBox="0 0 128 128">
+          <circle class="scan-ring__track" cx="64" cy="64" r="54" />
+          <circle
+            class="scan-ring__fill"
+            id="processing-overlay-fill"
+            cx="64" cy="64" r="54"
+            stroke-dasharray="339.29"
+            stroke-dashoffset="339.29"
+          />
+        </svg>
+      </div>
+      <div class="processing-overlay__label">
+        <div class="processing-overlay__title" id="processing-overlay-title">
+          Processing receipt…
+        </div>
+        <div class="processing-overlay__sub" id="processing-overlay-sub">
+          Running OCR. This should only take a moment.
+        </div>
+      </div>
+    </div>
     <div id="confirm-overlay" class="confirm-overlay" aria-hidden="true">
       <div
         class="confirm-modal"
@@ -13416,7 +15242,7 @@
               width: 56px;
               height: 56px;
               border-radius: 999px;
-              border: 3px solid rgba(108, 99, 255, 0.2);
+              border: 3px solid color-mix(in srgb, var(--color-brand) 20%, transparent);
               border-top-color: var(--primary);
               animation: spin 0.9s linear infinite;
             "
@@ -15715,7 +17541,7 @@
             const translate = Math.min(dx, 84);
             summary.style.transform = `translateX(${translate}px)`;
             summary.style.transition = "none";
-            summary.style.background = "rgba(0,212,170,0.08)";
+            summary.style.background = "color-mix(in srgb, var(--color-success) 8%, transparent)";
           }
           event.preventDefault();
         }
@@ -18700,6 +20526,220 @@
       // ============================================================
       // Navigation
       // ============================================================
+      // ---- Theme toggle (Apple Phase 1) ----
+      function currentTheme() {
+        return (
+          document.documentElement.getAttribute("data-theme") || "light"
+        );
+      }
+      function applyThemeToggleLabel() {
+        const btn = document.getElementById("theme-toggle");
+        if (!btn) return;
+        const theme = currentTheme();
+        const icon = btn.querySelector(".theme-toggle__icon");
+        const label = btn.querySelector(".theme-toggle__label");
+        if (theme === "light") {
+          if (icon) icon.textContent = "☀️";
+          if (label) label.textContent = "Light";
+          btn.setAttribute("aria-label", "Switch to dark theme");
+          btn.setAttribute("title", "Switch to dark theme");
+        } else {
+          if (icon) icon.textContent = "🌙";
+          if (label) label.textContent = "Dark";
+          btn.setAttribute("aria-label", "Switch to light theme");
+          btn.setAttribute("title", "Switch to light theme");
+        }
+      }
+      function toggleTheme() {
+        const next = currentTheme() === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        try {
+          localStorage.setItem("theme", next);
+        } catch (_) {}
+        applyThemeToggleLabel();
+        if (
+          document
+            .getElementById("page-design-gallery")
+            ?.classList.contains("active")
+        ) {
+          renderAppleGallerySwatches();
+        }
+      }
+      document.addEventListener("DOMContentLoaded", applyThemeToggleLabel);
+
+      // ---- Processing overlay helpers (Apple Phase 5) ----
+      function showProcessingOverlay(opts) {
+        const overlay = document.getElementById("processing-overlay");
+        if (!overlay) return;
+        const title = document.getElementById("processing-overlay-title");
+        const sub = document.getElementById("processing-overlay-sub");
+        const fill = document.getElementById("processing-overlay-fill");
+        if (title && opts?.title) title.textContent = opts.title;
+        if (sub && opts?.sub) sub.textContent = opts.sub;
+        if (fill) {
+          const circumference = 2 * Math.PI * 54;
+          if (opts?.pct != null) {
+            const offset =
+              circumference * (1 - Math.max(0, Math.min(1, opts.pct / 100)));
+            fill.setAttribute("stroke-dashoffset", String(offset));
+          } else {
+            fill.setAttribute("stroke-dashoffset", "100");
+          }
+        }
+        overlay.classList.add("is-visible");
+        overlay.setAttribute("aria-hidden", "false");
+      }
+      function hideProcessingOverlay() {
+        const overlay = document.getElementById("processing-overlay");
+        if (!overlay) return;
+        overlay.classList.remove("is-visible");
+        overlay.setAttribute("aria-hidden", "true");
+      }
+
+      // ---- Mark-Paid spring ----
+      function popMarkPaid(el) {
+        if (!el) return;
+        el.classList.remove("status-mark-paid-pop");
+        void el.offsetWidth;
+        el.classList.add("status-mark-paid-pop");
+        setTimeout(
+          () => el.classList.remove("status-mark-paid-pop"),
+          500,
+        );
+      }
+
+      // ---- Toggle switch click handler ----
+      function toggleAppleSwitch(el) {
+        if (!el || el.hasAttribute("disabled")) return;
+        const isChecked = el.getAttribute("aria-checked") === "true";
+        el.setAttribute("aria-checked", isChecked ? "false" : "true");
+      }
+
+      // ---- Keyboard shortcut cheat sheet + global nav shortcuts ----
+      function openShortcutCheatsheet() {
+        const overlay = document.getElementById(
+          "shortcut-cheatsheet-overlay",
+        );
+        if (!overlay) return;
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+      }
+      function closeShortcutCheatsheet() {
+        const overlay = document.getElementById(
+          "shortcut-cheatsheet-overlay",
+        );
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden", "true");
+      }
+      const GLOBAL_NAV_SHORTCUTS = {
+        d: "dashboard",
+        r: "receipts",
+        i: "inventory",
+        u: "upload",
+        p: "shopping",
+        b: "bills",
+        x: "expenses",
+        a: "analytics",
+        s: "settings",
+      };
+      (function initGlobalShortcuts() {
+        if (window.__globalShortcutsInit) return;
+        window.__globalShortcutsInit = true;
+        let lastG = 0;
+        document.addEventListener("keydown", (e) => {
+          const t = e.target;
+          const tag = (t && t.tagName) || "";
+          if (
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            tag === "SELECT" ||
+            (t && t.isContentEditable) ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.altKey
+          )
+            return;
+          if (e.key === "Escape") {
+            const openSheet = document.getElementById(
+              "shortcut-cheatsheet-overlay",
+            );
+            if (openSheet && openSheet.classList.contains("show")) {
+              closeShortcutCheatsheet();
+              e.preventDefault();
+              return;
+            }
+          }
+          if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
+            openShortcutCheatsheet();
+            e.preventDefault();
+            return;
+          }
+          if (e.key === "g") {
+            lastG = Date.now();
+            return;
+          }
+          if (Date.now() - lastG < 800) {
+            lastG = 0;
+            if (e.key === "g") {
+              openAppleGallery();
+              e.preventDefault();
+              return;
+            }
+            const target = GLOBAL_NAV_SHORTCUTS[e.key];
+            if (target && typeof nav === "function") {
+              const navEl = document.getElementById("nav-" + target);
+              nav(target, navEl);
+              e.preventDefault();
+            }
+          }
+        });
+      })();
+
+      // ---- Apple design gallery (dev-only access via #gallery or g g) ----
+      const APPLE_GALLERY_COLOR_KEYS = [
+        "bg", "bg-inverse", "surface", "surface-2", "surface-3", "surface-inverse",
+        "text-primary", "text-secondary", "text-muted",
+        "brand", "brand-hover", "brand-pressed", "brand-soft", "link",
+        "border", "border-strong", "border-brand", "focus",
+        "success", "warning", "error", "info",
+        "confidence-high", "confidence-medium", "confidence-low",
+        "cat-grocery", "cat-restaurant", "cat-utility",
+        "cat-personal-service", "cat-subscription", "cat-other",
+      ];
+      function renderAppleGallerySwatches() {
+        const host = document.getElementById("apple-gallery-swatches");
+        if (!host) return;
+        const cs = getComputedStyle(document.documentElement);
+        host.innerHTML = APPLE_GALLERY_COLOR_KEYS.map((key) => {
+          const value = cs.getPropertyValue(`--color-${key}`).trim() || "—";
+          return `
+            <div class="apple-swatch">
+              <div class="apple-swatch__chip" style="background: var(--color-${key})"></div>
+              <div class="apple-swatch__name">--color-${key}</div>
+              <div class="apple-swatch__value">${value}</div>
+            </div>`;
+        }).join("");
+      }
+      function openAppleGallery() {
+        const page = document.getElementById("page-design-gallery");
+        if (!page) return;
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-item")
+          .forEach((n) => n.classList.remove("active"));
+        page.classList.add("active");
+        renderAppleGallerySwatches();
+      }
+      window.addEventListener("DOMContentLoaded", () => {
+        if (window.location.hash === "#gallery") openAppleGallery();
+      });
+      window.addEventListener("hashchange", () => {
+        if (window.location.hash === "#gallery") openAppleGallery();
+      });
+
       function nav(page, el) {
         const requestedPage = page;
         if (page === "products") {
@@ -25313,17 +27353,18 @@
         if (!file) return;
         const img = document.getElementById("preview-img");
         const meta = document.getElementById("preview-meta");
-        meta.style.display = "block";
+        const wrap = document.getElementById("preview-wrap");
+        if (wrap) wrap.classList.add("is-visible");
         meta.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
-        if (
+        const isPdf =
           file.type === "application/pdf" ||
-          file.name.toLowerCase().endsWith(".pdf")
-        ) {
+          file.name.toLowerCase().endsWith(".pdf");
+        if (isPdf) {
           img.removeAttribute("src");
-          img.style.display = "none";
+          img.classList.remove("is-visible");
         } else {
           img.src = URL.createObjectURL(file);
-          img.style.display = "block";
+          img.classList.add("is-visible");
         }
         document.getElementById("upload-btn").disabled = false;
         updateUploadIntentUI();
@@ -26007,9 +28048,12 @@
           document.getElementById("upload-receipt-intent")?.value || "auto";
 
         document.getElementById("upload-btn").disabled = true;
-        document.getElementById("upload-spinner").style.display = "block";
-        document.getElementById("upload-status").textContent =
-          "Uploading and processing…";
+        setUploadScanState({
+          phase: "Uploading and processing…",
+          meta: "",
+          state: "running",
+          variant: "indeterminate",
+        });
 
         const form = new FormData();
         form.append("image", file);
@@ -26019,7 +28063,7 @@
           (entry) => Number(entry.id) === Number(modelId || 0),
         );
         if (selectedModel && !modelMatchesCurrentUploadFile(selectedModel)) {
-          document.getElementById("upload-spinner").style.display = "none";
+          hideUploadScanPanel();
           document.getElementById("upload-btn").disabled = false;
           toast(
             `The selected model does not support this ${getCurrentUploadFileInfo().label.toLowerCase()}. Pick a compatible model or use the default fallback.`,
@@ -26039,7 +28083,6 @@
             body: form,
           });
           const data = await res.json();
-          document.getElementById("upload-spinner").style.display = "none";
           document.getElementById("upload-btn").disabled = false;
 
           if (res.ok) {
@@ -26059,8 +28102,18 @@
               data.status || "processed",
               "Processed",
             );
-            document.getElementById("upload-status").textContent =
-              `✅ ${statusLabel} · ${intentLabel}${store}${total}${warningText}`;
+            const engine =
+              data.ocr_engine ?? data.engine ?? selectedModel?.display_name ?? "";
+            const confPct = Math.round((data.confidence ?? 0) * 100);
+            setUploadScanState({
+              phase: `✓ ${statusLabel}${store}${total}`,
+              meta: confPct ? `${confPct}%` : "",
+              state: data.status === "review" ? "retrying" : "success",
+              variant: "determinate",
+              barPct: 100,
+              modelChip: engine || null,
+              showRetry: false,
+            });
             toast(
               data.status === "review"
                 ? "Receipt saved for review ⚠️"
@@ -26078,17 +28131,64 @@
               : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
             loadReceipts();
           } else {
-            document.getElementById("upload-status").textContent =
-              "❌ " + (data.error || "Failed");
+            setUploadScanState({
+              phase: `✕ ${data.error || "Failed"}`,
+              meta: "",
+              state: "failed",
+              variant: "determinate",
+              barPct: 36,
+              showRetry: true,
+            });
             toast(data.error || "Upload failed", "error");
           }
         } catch (e) {
-          document.getElementById("upload-spinner").style.display = "none";
           document.getElementById("upload-btn").disabled = false;
-          document.getElementById("upload-status").textContent =
-            "❌ Network error";
+          setUploadScanState({
+            phase: "✕ Network error",
+            meta: "Is the server running?",
+            state: "failed",
+            variant: "determinate",
+            barPct: 10,
+            showRetry: true,
+          });
           toast("Network error — is the server running?", "error");
         }
+      }
+
+      // ---- Upload scan-progress helpers (Apple Phase 4a) ----
+      function setUploadScanState(opts) {
+        const panel = document.getElementById("upload-scan-progress");
+        if (!panel) return;
+        panel.removeAttribute("hidden");
+        const phase = document.getElementById("upload-scan-phase");
+        const meta = document.getElementById("upload-scan-meta");
+        const chip = document.getElementById("upload-scan-model");
+        const retry = document.getElementById("upload-scan-retry");
+        const bar = panel.querySelector(".scan-progress__bar");
+        if (phase) phase.textContent = opts.phase || "";
+        if (meta) meta.textContent = opts.meta || "";
+        if (opts.variant === "indeterminate") {
+          panel.setAttribute("data-variant", "indeterminate");
+          if (bar) bar.style.width = "";
+        } else {
+          panel.removeAttribute("data-variant");
+          if (bar && opts.barPct != null) bar.style.width = opts.barPct + "%";
+        }
+        if (opts.state) panel.setAttribute("data-state", opts.state);
+        else panel.removeAttribute("data-state");
+        if (chip) {
+          if (opts.modelChip) {
+            chip.textContent = opts.modelChip;
+            chip.removeAttribute("hidden");
+          } else {
+            chip.setAttribute("hidden", "");
+          }
+        }
+        if (retry) retry.style.display = opts.showRetry ? "" : "none";
+      }
+      function hideUploadScanPanel() {
+        const panel = document.getElementById("upload-scan-progress");
+        if (panel) panel.setAttribute("hidden", "");
       }
 
       // ============================================================
@@ -26161,7 +28261,10 @@
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
-          body.innerHTML = renderCompactReceiptRows(receipts);
+          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+            includeDelete: true,
+            inlineDetail: false,
+          });
         } else {
           if (detailCard) detailCard.style.display = "none";
           if (receiptDetailGrid)
@@ -26174,31 +28277,11 @@
           )
             ? Number(selectedReceiptId)
             : null;
-          body.innerHTML = `
-      <table class="receipt-recent-table">
-        <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Source</th><th>Status</th><th>Open</th><th>Delete</th></tr></thead>
-        <tbody>${receipts
-          .map(
-            (r) => `
-          <tr>
-            <td>${escHtml(r.date || "—")}</td>
-            <td><strong>${escHtml(r.store || "Unknown")}</strong></td>
-            <td>${formatMoney(receiptDisplayTotal(r))}</td>
-            <td>${formatLabel(r.source, "Upload")}</td>
-            <td><span class="badge badge-${normalizeReceiptTransactionType(r.transaction_type) === "refund" ? "warning" : r.status === "processed" ? "ok" : "low"}">${escHtml(normalizeReceiptTransactionType(r.transaction_type) === "refund" ? "Refund" : formatLabel(r.status, "Unknown"))}</span></td>
-            <td><button type="button" class="btn btn-sm btn-ghost" onclick="toggleReceiptDetail(${r.purchase_id || r.id})">${Number(r.purchase_id || r.id) === targetReceiptId ? "Close" : "Open"}</button></td>
-            <td><button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${r.purchase_id || r.id})">Delete</button></td>
-          </tr>
-          ${
-            Number(r.purchase_id || r.id) === targetReceiptId
-              ? `<tr class="receipt-inline-detail-row"><td colspan="7"><div id="receipt-inline-detail-${Number(r.purchase_id || r.id)}"></div></td></tr>`
-              : ""
-          }
-          `,
-          )
-          .join("")}
-        </tbody>
-      </table>`;
+          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+            includeDelete: true,
+            inlineDetail: true,
+            targetId: targetReceiptId,
+          });
           if (targetReceiptId) {
             await viewReceipt(targetReceiptId, { scroll: false, inline: true });
           }
@@ -27557,6 +29640,97 @@
   </div>`;
       }
 
+      function receiptIconFor(receipt) {
+        const t = (receipt.receipt_type || "").toLowerCase();
+        if (t === "grocery") return { icon: "🛒", cat: "cat-grocery" };
+        if (t === "restaurant") return { icon: "🍽", cat: "cat-restaurant" };
+        if (t === "utility_bill" || t === "household_bill")
+          return { icon: "⚡", cat: "cat-utility" };
+        if (t === "subscription") return { icon: "↻", cat: "cat-subscription" };
+        return { icon: "🧾", cat: "cat-other" };
+      }
+      function confidenceBadgeHtml(value) {
+        if (value == null || isNaN(Number(value))) return "";
+        const score = Number(value);
+        let kind = "confidence-low";
+        if (score >= 0.85) kind = "confidence-high";
+        else if (score >= 0.6) kind = "confidence-medium";
+        return `<span class="badge badge--${kind}" data-dot title="OCR confidence">${score.toFixed(2)}</span>`;
+      }
+      function renderReceiptsAsResultCards(receipts = [], options = {}) {
+        if (!receipts.length)
+          return '<div class="empty-state"><p>No receipts yet.</p></div>';
+        const includeDelete = options.includeDelete !== false;
+        const inlineDetail = options.inlineDetail === true;
+        const targetId = options.targetId ? Number(options.targetId) : null;
+        return `<div class="receipt-card-list" style="display: grid; gap: var(--space-3)">
+          ${receipts
+            .map((receipt) => {
+              const rid = Number(
+                receipt.purchase_id ||
+                  receipt.receipt_id ||
+                  receipt.record_id ||
+                  receipt.id,
+              );
+              const { icon, cat } = receiptIconFor(receipt);
+              const isRefund =
+                normalizeReceiptTransactionType(receipt.transaction_type) ===
+                "refund";
+              const statusLabel = isRefund
+                ? "Refund"
+                : formatLabel(receipt.status, "Unknown");
+              const statusKind = isRefund
+                ? "warning"
+                : receipt.status === "processed"
+                  ? "success"
+                  : "info";
+              const confBadge = confidenceBadgeHtml(receipt.confidence);
+              const isSelected = inlineDetail && rid === targetId;
+              return `
+                <article
+                  class="result-card result-card--row${isSelected ? " card--selected" : ""}"
+                  ${isSelected ? 'data-selected="true"' : ""}
+                  data-receipt-id="${rid}"
+                >
+                  <div
+                    class="result-card__media"
+                    style="background: color-mix(in srgb, var(--color-${cat}) 16%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.6rem"
+                    aria-hidden="true"
+                  >${icon}</div>
+                  <div class="result-card__body">
+                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}</h3>
+                    <div class="result-card__meta">
+                      ${escHtml(receipt.date || "—")}
+                      ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
+                    </div>
+                    <div class="result-card__amount" style="margin-top: 2px">
+                      ${formatMoney(receiptDisplayTotal(receipt))}
+                    </div>
+                  </div>
+                  <div
+                    style="padding: var(--space-3); display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); min-width: 140px"
+                  >
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end">
+                      <span class="badge badge--${statusKind}" data-dot>${escHtml(statusLabel)}</span>
+                      ${confBadge}
+                    </div>
+                    <div style="display: flex; gap: var(--space-2); margin-top: auto">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-ghost"
+                        onclick="${inlineDetail ? `toggleReceiptDetail(${rid})` : `viewReceipt(${rid})`}"
+                      >${isSelected ? "Close" : "Open"}</button>
+                      ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${rid})">Delete</button>` : ""}
+                    </div>
+                  </div>
+                </article>
+                ${isSelected ? `<div id="receipt-inline-detail-${rid}"></div>` : ""}
+              `;
+            })
+            .join("")}
+        </div>`;
+      }
+
       function renderCompactReceiptRows(receipts = [], options = {}) {
         if (!receipts.length)
           return '<div class="empty-state"><p>No receipts yet.</p></div>';
@@ -28055,19 +30229,25 @@
 
       // Drag & drop
       const dz = document.getElementById("drop-zone");
+      const clearDzState = () => dz.removeAttribute("data-state");
       dz.addEventListener("dragover", (e) => {
         e.preventDefault();
-        dz.classList.add("drag-over");
+        dz.setAttribute("data-state", "dragover");
       });
-      dz.addEventListener("dragleave", () => dz.classList.remove("drag-over"));
+      dz.addEventListener("dragleave", clearDzState);
       dz.addEventListener("drop", (e) => {
         e.preventDefault();
-        dz.classList.remove("drag-over");
+        clearDzState();
         const file = e.dataTransfer.files[0];
-        if (file) {
-          document.getElementById("file-input").files = e.dataTransfer.files;
-          previewFile({ files: [file] });
+        if (!file) return;
+        const supported = /^(image\/|application\/pdf)/.test(file.type || "");
+        if (!supported) {
+          dz.setAttribute("data-state", "invalid");
+          setTimeout(clearDzState, 800);
+          return;
         }
+        document.getElementById("file-input").files = e.dataTransfer.files;
+        previewFile({ files: [file] });
       });
 
       // ============================================================
