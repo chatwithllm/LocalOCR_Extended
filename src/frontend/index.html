@@ -4057,42 +4057,21 @@
         font-size: 0.9rem;
       }
 
-      .card.low-stock-ok {
-        background: rgba(255, 255, 255, 0.01);
-        border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success) 8%, transparent);
-      }
-
+      /* Dashboard alert cards (low-stock + recommendations) — Apple rule
+       * is flat, no borders, no pulsing. Semantic signal lives on the count
+       * number only; the card itself stays structurally identical to its
+       * sibling so the dashboard reads as a consistent row. */
       .card.low-stock-ok .card-header-inline-stat {
-        color: var(--success);
+        color: var(--color-success);
       }
-
-      .card.low-stock-warn {
-        border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
-        box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--color-warning) 10%, transparent),
-          0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
-        animation: lowStockPulseWarn 2.2s ease-in-out infinite;
-      }
-
       .card.low-stock-warn .card-header-inline-stat {
-        color: var(--warning);
+        color: var(--color-warning);
       }
-
-      .card.low-stock-critical {
-        border-color: color-mix(in srgb, var(--color-error) 50%, transparent);
-        box-shadow:
-          0 0 0 1px color-mix(in srgb, var(--color-error) 14%, transparent),
-          0 0 0 color-mix(in srgb, var(--color-error) 0%, transparent);
-        animation: lowStockPulseCritical 1.05s ease-in-out infinite;
-      }
-
       .card.low-stock-critical .card-header-inline-stat {
-        color: var(--danger);
+        color: var(--color-error);
       }
-
       #dash-recs-card .card-header-inline-stat {
-        color: var(--accent);
+        color: var(--color-brand);
       }
 
       @keyframes lowStockPulseWarn {
@@ -6399,10 +6378,14 @@
           right: 0;
           z-index: 20;
           padding: 14px 18px;
-          background: rgba(13, 15, 20, 0.92);
-          border-bottom: 1px solid var(--border);
-          backdrop-filter: blur(10px);
+          background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+          color: var(--color-text-primary);
+          border-bottom: 1px solid var(--color-border);
+          -webkit-backdrop-filter: saturate(180%) blur(20px);
+          backdrop-filter: saturate(180%) blur(20px);
         }
+        .mobile-title { color: var(--color-text-primary); }
+        .mobile-title span { color: var(--color-brand); }
 
         .mobile-title {
           font-weight: 700;
