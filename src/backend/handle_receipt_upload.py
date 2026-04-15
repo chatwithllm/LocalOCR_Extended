@@ -755,6 +755,11 @@ def get_receipt(receipt_id):
             "bill_service_line_id": bill_meta.service_line_id,
             "bill_payment_status": bill_meta.payment_status,
             "bill_payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
+            "bill_preferred_payment_method": (
+                bill_meta.service_line.preferred_payment_method
+                if bill_meta.service_line and bill_meta.service_line.preferred_payment_method
+                else None
+            ),
         }
 
     response_payload = {
@@ -1254,10 +1259,18 @@ def update_receipt_bill_status(receipt_id):
 
     payload = request.get_json(silent=True) or {}
     new_status = (payload.get("payment_status") or "").strip().lower()
+    paid_date_raw = (payload.get("paid_date") or "").strip()
 
     valid_statuses = {"upcoming", "overdue", "paid", "estimated", "missing", "not_yet_entered"}
     if new_status not in valid_statuses:
         return jsonify({"error": f"Invalid payment_status. Must be one of {valid_statuses}"}), 400
+
+    paid_date_value = None
+    if paid_date_raw:
+        try:
+            paid_date_value = datetime.strptime(paid_date_raw, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"error": "paid_date must be YYYY-MM-DD"}), 400
 
     # Locate the Purchase because BillMeta ties to purchase_id
     purchase_id = getattr(record, "purchase_id", None) or getattr(record, "id", None)
@@ -1270,8 +1283,10 @@ def update_receipt_bill_status(receipt_id):
 
     bill_meta.payment_status = new_status
     if new_status == "paid":
-        # Do not overwrite if it was already paid earlier
-        if not bill_meta.payment_confirmed_at:
+        if paid_date_value is not None:
+            bill_meta.payment_confirmed_at = paid_date_value
+            bill_meta.payment_confirmed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+        elif not bill_meta.payment_confirmed_at:
             bill_meta.payment_confirmed_at = datetime.now(timezone.utc)
             bill_meta.payment_confirmed_by_id = getattr(getattr(g, "current_user", None), "id", None)
     else:
@@ -1284,7 +1299,8 @@ def update_receipt_bill_status(receipt_id):
     return jsonify({
         "message": "Bill status updated successfully",
         "payment_status": bill_meta.payment_status,
-        "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None
+        "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
+        "paid_date": bill_meta.payment_confirmed_at.date().isoformat() if bill_meta.payment_confirmed_at else None,
     }), 200
 
 

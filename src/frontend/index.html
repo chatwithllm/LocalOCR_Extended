@@ -28488,8 +28488,15 @@
         <button type="button" class="btn btn-primary btn-sm" onclick="updateReceiptBillStatus(${receipt.id})">Save Payment Status</button>
         ${
           (receipt.bill_payment_status || "upcoming") !== "paid"
-            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>`
-            : `<button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>`
+            ? `
+              <label for="receipt-bill-paid-date-${receipt.id}" style="color:var(--muted);font-size:0.82rem">Paid Date</label>
+              <input id="receipt-bill-paid-date-${receipt.id}" type="date" class="inline-select" style="min-width:150px" value="${escAttr(defaultPaidDateForReceipt(receipt))}" title="${receipt.bill_preferred_payment_method === "autopay" ? "Auto-pay: defaults to due date" : "Defaults to today"}" />
+              <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>
+            `
+            : `
+              <span style="color:var(--muted);font-size:0.82rem">Paid ${escHtml(receipt.bill_payment_confirmed_at ? receipt.bill_payment_confirmed_at.slice(0, 10) : "—")}</span>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>
+            `
         }
       </div>
     </div>`
@@ -28534,7 +28541,7 @@
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">
             <div class="receipt-editor-inline-field">
-              <label>Date</label>
+              <label id="receipt-date-label-${receipt.id}">${billReceipt ? "Statement Date" : "Date"}</label>
               <input id="receipt-date-${receipt.id}" type="date" />
             </div>
             <div class="receipt-editor-inline-field">
@@ -29162,14 +29169,15 @@
 
       function handleReceiptEditorTypeChange(receiptId) {
         const type = document.getElementById(`receipt-type-${receiptId}`).value;
+        const isBill = type === "utility_bill" || type === "household_bill";
         const billPanel = document.getElementById(
           `receipt-bill-meta-panel-${receiptId}`,
         );
-        if (billPanel)
-          billPanel.style.display =
-            type === "utility_bill" || type === "household_bill"
-              ? "block"
-              : "none";
+        if (billPanel) billPanel.style.display = isBill ? "block" : "none";
+        const dateLabel = document.getElementById(
+          `receipt-date-label-${receiptId}`,
+        );
+        if (dateLabel) dateLabel.textContent = isBill ? "Statement Date" : "Date";
       }
 
       const BILL_SERVICE_TYPE_OPTIONS = [
@@ -30005,14 +30013,29 @@
         await viewReceipt(id, { scroll: false });
       }
 
+      function defaultPaidDateForReceipt(receipt) {
+        if (!receipt) return "";
+        const isAutopay = receipt.bill_preferred_payment_method === "autopay";
+        if (isAutopay && receipt.bill_due_date) return receipt.bill_due_date;
+        return new Date().toISOString().slice(0, 10);
+      }
+
       async function updateReceiptBillStatus(id, forcedStatus = null) {
         const select = document.getElementById(
           `receipt-bill-status-select-${id}`,
         );
         const paymentStatus = forcedStatus || select?.value || "upcoming";
+        const paidDateInput = document.getElementById(
+          `receipt-bill-paid-date-${id}`,
+        );
+        const paidDate =
+          paymentStatus === "paid" ? paidDateInput?.value || "" : "";
         const res = await api(`/receipts/${id}/bill-status`, {
           method: "PUT",
-          body: JSON.stringify({ payment_status: paymentStatus }),
+          body: JSON.stringify({
+            payment_status: paymentStatus,
+            ...(paidDate ? { paid_date: paidDate } : {}),
+          }),
         });
         const payload = await res.json();
         if (!res.ok) {
