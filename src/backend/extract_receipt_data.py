@@ -736,7 +736,9 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         session = g.db_session
 
         purchase_domain, purchase_budget_category = derive_receipt_budget_defaults(
-            "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type
+            "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type,
+            provider_type=ocr_data.get("bill_provider_type"),
+            service_types=ocr_data.get("bill_service_types"),
         )
 
         # Find or create store

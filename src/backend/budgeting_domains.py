@@ -110,17 +110,33 @@ def normalize_budget_category(value: str | None, default: str = "other") -> str:
     return normalized if normalized in BUDGET_CATEGORIES else default
 
 
-def default_budget_category_for_utility(provider_type: str | None) -> str:
-    """Return the budget category that best represents a household-bill provider type."""
-    if not provider_type:
-        return "other_recurring"
-    key = str(provider_type).strip().lower()
-    return UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY.get(key, "other_recurring")
+def default_budget_category_for_utility(
+    provider_type: str | None,
+    service_types: list[str] | None = None,
+) -> str:
+    """Return the budget category that best represents a household bill.
+
+    Prefer provider_type when it maps to something concrete. If provider_type
+    is missing or 'other', scan service_types and pick the first one that
+    maps to a non-other_recurring category (covers multi-service bills like
+    water/sewage/gas combined, where OCR leaves provider_type as 'other').
+    """
+    key = str(provider_type or "").strip().lower()
+    mapped = UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY.get(key)
+    if mapped:
+        return mapped
+    for service in service_types or []:
+        svc_key = str(service or "").strip().lower()
+        candidate = UTILITY_PROVIDER_TYPE_TO_BUDGET_CATEGORY.get(svc_key)
+        if candidate:
+            return candidate
+    return "other_recurring"
 
 
 def default_budget_category_for_spending_domain(
     spending_domain: str | None,
     provider_type: str | None = None,
+    service_types: list[str] | None = None,
 ) -> str:
     domain = normalize_spending_domain(spending_domain)
     if domain == "grocery":
@@ -132,18 +148,19 @@ def default_budget_category_for_spending_domain(
     if domain == "general_expense":
         return "other"
     if domain in {"utility", "household_obligations"}:
-        return default_budget_category_for_utility(provider_type)
+        return default_budget_category_for_utility(provider_type, service_types)
     return "other"
 
 
 def derive_receipt_budget_defaults(
     receipt_type: str | None,
     provider_type: str | None = None,
+    service_types: list[str] | None = None,
 ) -> tuple[str, str]:
     """Return (spending_domain, budget_category) defaults for a given receipt type."""
     if str(receipt_type or "").strip().lower() in {"utility_bill", "household_bill"}:
         domain = "household_obligations"
-        category = default_budget_category_for_utility(provider_type)
+        category = default_budget_category_for_utility(provider_type, service_types)
         return domain, category
     normalized_type = normalize_spending_domain(receipt_type, default="other")
     return normalized_type, default_budget_category_for_spending_domain(normalized_type)

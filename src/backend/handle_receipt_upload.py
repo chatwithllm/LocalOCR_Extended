@@ -263,7 +263,11 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
     }
     sanitized["default_budget_category"] = normalize_budget_category(
         payload.get("default_budget_category"),
-        default=default_budget_category_for_spending_domain(sanitized["default_spending_domain"]),
+        default=default_budget_category_for_spending_domain(
+            sanitized["default_spending_domain"],
+            provider_type=sanitized.get("bill_provider_type"),
+            service_types=sanitized.get("bill_service_types"),
+        ),
     )
     if sanitized["transaction_type"] != "refund":
         sanitized["refund_reason"] = None
