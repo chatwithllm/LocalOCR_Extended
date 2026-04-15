@@ -19732,6 +19732,21 @@
         return formatLabel(normalized, "Unknown");
       }
 
+      function formatPrettyDate(value, fallback = "—") {
+        if (!value) return fallback;
+        const d = new Date(value);
+        if (isNaN(d.getTime())) {
+          // Try YYYY-MM-DD parsing as local
+          const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) {
+            const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            return local.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+          }
+          return String(value);
+        }
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      }
+
       function formatDateInputValue(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       }
@@ -29045,8 +29060,8 @@
             : "";
         const statsHtml = `
     <div class="receipt-detail-stats">
-      <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || "Unknown")}</div><div class="stat-sub">${escHtml(receipt.date || "—")}</div></div>
-      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, "Upload"))} · ${escHtml(receipt.ocr_engine || "n/a")} · ${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
+      <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(formatLabel(receipt.store || "", "Unknown"))}</div><div class="stat-sub">${escHtml(formatPrettyDate(receipt.date))}</div></div>
+      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
     </div>`;
         const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -29076,13 +29091,13 @@
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Counts Toward</div>
-          <div class="stat-value" style="font-size:1rem">${escHtml(receipt.bill_planning_month || "—")}</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(formatMonthLabel(receipt.bill_planning_month))}</div>
           <div class="stat-sub">${escHtml(formatBillPlanningExplanation(receipt))}</div>
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Due Date</div>
-          <div class="stat-value" style="font-size:1rem">${escHtml(receipt.bill_due_date || "—")}</div>
-          <div class="stat-sub">${escHtml(receipt.bill_service_period_end ? `Service end ${receipt.bill_service_period_end}` : receipt.bill_billing_cycle_month ? `Cycle ${receipt.bill_billing_cycle_month}` : "")}</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(formatPrettyDate(receipt.bill_due_date))}</div>
+          <div class="stat-sub">${escHtml(receipt.bill_service_period_end ? `Service end ${formatPrettyDate(receipt.bill_service_period_end)}` : receipt.bill_billing_cycle_month ? `Cycle ${formatMonthLabel(receipt.bill_billing_cycle_month)}` : "")}</div>
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Frequency</div>
@@ -29120,7 +29135,7 @@
               <div class="bill-action-group">
                 <label class="bill-action-label">Paid on</label>
                 <div class="bill-action-row bill-action-row--readonly">
-                  <span class="bill-action-value">${escHtml(receipt.bill_payment_confirmed_at ? receipt.bill_payment_confirmed_at.slice(0, 10) : "—")}</span>
+                  <span class="bill-action-value">${escHtml(formatPrettyDate(receipt.bill_payment_confirmed_at))}</span>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>
                 </div>
               </div>
