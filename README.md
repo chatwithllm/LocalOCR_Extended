@@ -664,6 +664,24 @@ Press `?` anywhere outside a text field for the cheat sheet. Highlights:
 - `g <letter>` → jump to any page (`g d` Dashboard, `g r` Receipts, `g b` Bills, `g g` Gallery, …)
 - `Esc` → close modal
 
+### Rollout status on the branch
+
+Phases 1 – 5 of the spec are implemented on `apple-design-system`:
+
+- **Phase 1 — tokens + theme switcher** ✓ `design-tokens.json`, generator, pre-paint theme, legacy aliases, sidebar Light/Dark toggle.
+- **Phase 2 — base components + gallery** ✓ Button, Card, Input, Badge, Toggle, Glass nav primitive.
+- **Phase 3 — OCR composites** ✓ Drop Zone, Scan Progress (bar + ring), Confidence Ring, Result Card, Toolbar, Extracted Text Panel.
+- **Phase 4 — page rollouts**
+  - Upload view ✓ (drop-zone + inline scan-progress)
+  - Receipts history ✓ (result-card grid, mobile-safe flex-wrap at ≤ 720 px)
+  - Dashboard alert cards (Low Stock / Top Picks / Shopping) ✓ — harmonized to identical raised cards with only the count-number color carrying the semantic signal
+  - Contribution summary stats ✓ (Apple card recipe — shadow, no border, display-font numeric)
+  - Mobile sticky header ✓ — now theme-aware glass instead of hardcoded dark
+  - Processing view, Results view (Extracted Text Panel wired to live OCR data) — primitives ship in the gallery; full page integration not yet done
+- **Phase 5 — polish + docs** ✓ Cheat sheet + global `g <letter>` nav, `.processing-overlay` helpers, `.status-mark-paid-pop` confirm spring, empty-state primitives, this README section.
+
+Deferred (environmentally blocked): commissioned monochrome empty-state illustrations, Lighthouse performance pass on the authenticated Results view, OCR bounding-box geometry (needs backend field).
+
 ### Writing a new component
 
 1. Open the spec at `design/Design System inspired by Apple design.md` §7.
