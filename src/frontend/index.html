@@ -4725,10 +4725,15 @@
         gap: 6px;
         padding: 10px;
         border-radius: 12px;
-        border: 1px solid var(--border);
-        background: rgba(20, 24, 36, 0.98);
-        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+        border: 1px solid var(--color-border, var(--border));
+        background: var(--color-surface-elevated, var(--color-surface, rgba(20, 24, 36, 0.98)));
+        color: var(--color-text-primary, var(--text));
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
         margin-top: 8px;
+      }
+
+      .shopping-more-panel .btn.btn-ghost {
+        color: var(--color-text-primary, var(--text));
       }
 
       .shopping-more-panel .btn {
@@ -27295,7 +27300,7 @@
                 ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ""}
                 <div class="shopping-mobile-compact-grid">
                   <div class="shopping-mobile-compact-field compact-store">
-                    <label title="${escAttr(item.preferred_store || item.effective_store || "Any store")}">🏬</label>
+                    <label title="${escAttr(item.preferred_store || item.effective_store || "Any store")}">Store</label>
                     <select
                       onclick="event.stopPropagation()"
                       onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(",")}], this.value)"
