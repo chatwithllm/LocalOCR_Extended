@@ -6791,6 +6791,36 @@
 
         .receipt-filter-card .card-header {
           margin-bottom: 0;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .receipt-filter-card .form-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          gap: 10px !important;
+        }
+
+        .receipt-filter-card .form-group.receipt-filter-store-group {
+          grid-column: 1 / -1;
+        }
+
+        .receipt-filter-card .form-group label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 2px;
+        }
+
+        .receipt-filter-card .form-group input,
+        .receipt-filter-card .form-group select {
+          max-width: 100%;
+          box-sizing: border-box;
+          padding: 9px 10px;
+          font-size: 0.9rem;
         }
 
         .receipt-filter-store-head {
@@ -12341,7 +12371,7 @@
             </div>
             <div class="receipt-filter-body" id="receipt-filter-body">
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group receipt-filter-store-group">
                   <label>Store</label
                   ><select id="receipt-filter-store">
                     <option value="">All stores</option>
@@ -12373,20 +12403,20 @@
                     <option value="">All statuses</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label>Purchase Date From</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Purchased from</label
                   ><input id="receipt-filter-purchase-from" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Purchase Date To</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Purchased to</label
                   ><input id="receipt-filter-purchase-to" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Upload Date From</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Uploaded from</label
                   ><input id="receipt-filter-upload-from" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Upload Date To</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Uploaded to</label
                   ><input id="receipt-filter-upload-to" type="date" />
                 </div>
               </div>
