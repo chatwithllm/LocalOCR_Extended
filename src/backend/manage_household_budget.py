@@ -221,16 +221,36 @@ def set_monthly_budget():
 
 @budget_bp.route("/status", methods=["GET"])
 @require_auth
+def _bill_effective_due_month(bill_meta, purchase):
+    """Return YYYY-MM for the bill's effective due-date month.
+
+    Priority: explicit due_date > billing_cycle_month > service_period_end
+    > Purchase.date + 21 days > planning_month. Returns None if nothing
+    derivable.
+    """
+    from datetime import timedelta
+
+    if bill_meta.due_date:
+        return bill_meta.due_date.strftime("%Y-%m")
+    cycle = (bill_meta.billing_cycle_month or "").strip()
+    if cycle and len(cycle) >= 7:
+        return cycle[:7]
+    if bill_meta.service_period_end:
+        return bill_meta.service_period_end.strftime("%Y-%m")
+    if purchase and purchase.date:
+        statement = purchase.date.date() if hasattr(purchase.date, "date") else purchase.date
+        return (statement + timedelta(days=21)).strftime("%Y-%m")
+    return bill_meta.planning_month or None
+
+
 def _purchases_for_month(session, month, *, domain=None):
     """Return purchases that roll up into the given YYYY-MM month.
 
-    Non-bill purchases are bucketed by Purchase.date.
-
-    Bill purchases follow cash-flow semantics: if the bill has been
-    marked paid, it rolls into the month of payment_confirmed_at (so a
-    March-statement utility paid in April counts as an April expense).
-    If it hasn't been paid yet, it rolls into planning_month so the
-    forecast view still attributes upcoming bills to the correct month.
+    - Non-bill purchases are bucketed by Purchase.date.
+    - Bill purchases are bucketed by the month of their effective due
+      date (accrual rule), independent of whether they have been paid.
+      This matches how people think about bills: 'the April electric
+      bill' is an April expense, whether you pay it on Apr 1 or May 3.
     """
     start_date, end_date = month_bounds(month)
     now_dt = datetime.now(timezone.utc)
@@ -246,26 +266,20 @@ def _purchases_for_month(session, month, *, domain=None):
     if domain is not None:
         non_bill_query = non_bill_query.filter(Purchase.domain == domain)
 
-    from sqlalchemy import or_, and_, func
-
-    paid_month_expr = func.strftime("%Y-%m", BillMeta.payment_confirmed_at)
-    bill_query = (
-        session.query(Purchase)
+    bill_candidates = (
+        session.query(Purchase, BillMeta)
         .join(BillMeta, BillMeta.purchase_id == Purchase.id)
         .filter(Purchase.date <= now_dt)
-        .filter(
-            or_(
-                and_(BillMeta.payment_confirmed_at.isnot(None), paid_month_expr == month),
-                and_(BillMeta.payment_confirmed_at.is_(None), BillMeta.planning_month == month),
-            )
-        )
     )
     if domain is not None:
-        bill_query = bill_query.filter(Purchase.domain == domain)
+        bill_candidates = bill_candidates.filter(Purchase.domain == domain)
 
     seen = {}
-    for purchase in list(non_bill_query.all()) + list(bill_query.all()):
+    for purchase in non_bill_query.all():
         seen[purchase.id] = purchase
+    for purchase, bill_meta in bill_candidates.all():
+        if _bill_effective_due_month(bill_meta, purchase) == month:
+            seen[purchase.id] = purchase
     return list(seen.values())
 
 
