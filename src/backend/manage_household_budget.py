@@ -219,8 +219,6 @@ def set_monthly_budget():
     }), 200
 
 
-@budget_bp.route("/status", methods=["GET"])
-@require_auth
 def _bill_effective_due_month(bill_meta, purchase):
     """Return YYYY-MM for the bill's effective due-date month.
 
@@ -283,6 +281,8 @@ def _purchases_for_month(session, month, *, domain=None):
     return list(seen.values())
 
 
+@budget_bp.route("/status", methods=["GET"])
+@require_auth
 def get_budget_status():
     """Get current month's budget vs actual spending."""
     session = g.db_session

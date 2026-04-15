@@ -1224,9 +1224,23 @@ def update_receipt(receipt_id):
 @receipts_bp.route("/<int:receipt_id>/reprocess", methods=["POST"])
 @require_write_access
 def reprocess_receipt(receipt_id):
-    """Re-run OCR for an existing stored receipt and update its review payload."""
-    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
-    from src.backend.extract_receipt_data import process_receipt
+    """Re-run OCR for an existing stored receipt and update its review payload.
+
+    OCR is run before any destructive DB work; the existing Purchase is only
+    replaced if the new pass returns valid data. If OCR fails or the data
+    fails validation, the previous receipt is preserved intact.
+    """
+    from src.backend.initialize_database_schema import Purchase
+    from src.backend.extract_receipt_data import (
+        _apply_receipt_type_hint,
+        _cleanup_ocr_input,
+        _extract_best_receipt_candidate,
+        _prepare_ocr_input,
+        _resolve_receipt_type,
+        _safe_float,
+        _save_to_database,
+        _validate_receipt_data,
+    )
 
     session = g.db_session
     record = _resolve_receipt_record(session, receipt_id)
@@ -1243,21 +1257,67 @@ def reprocess_receipt(receipt_id):
             model_config_id = int(raw_model_id)
         except (TypeError, ValueError):
             return jsonify({"error": "model_id must be an integer"}), 400
-    existing_purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
+
+    receipt_type_hint = record.receipt_type
+
+    ocr_input_path = record.image_path
+    ocr_data = None
+    engine_used = None
+    warnings = []
+    try:
+        ocr_input_path = _prepare_ocr_input(record.image_path)
+        ocr_data, engine_used, _model_used, warnings = _extract_best_receipt_candidate(
+            ocr_input_path=ocr_input_path,
+            source_file_path=record.image_path,
+            receipt_type_hint=receipt_type_hint,
+            model_config_id=model_config_id,
+        )
+    except Exception as exc:
+        logger.error("Reprocess OCR failed for receipt %s: %s", record.id, exc)
+        return jsonify({
+            "error": f"OCR failed: {exc}. Previous receipt data preserved.",
+        }), 422
+    finally:
+        if ocr_input_path != record.image_path:
+            _cleanup_ocr_input(ocr_input_path)
+
+    ocr_data = _apply_receipt_type_hint(ocr_data or {}, receipt_type_hint)
+    receipt_type = _resolve_receipt_type(ocr_data, receipt_type_hint)
+    if not _validate_receipt_data(ocr_data, receipt_type=receipt_type):
+        return jsonify({
+            "error": "OCR returned incomplete data. Previous receipt data preserved.",
+            "warnings": warnings,
+        }), 422
+
+    # OCR is known-good — now safe to replace the existing Purchase.
+    existing_purchase = (
+        session.query(Purchase).filter_by(id=record.purchase_id).first()
+        if record.purchase_id
+        else None
+    )
     if existing_purchase:
         _delete_purchase_data(session, existing_purchase)
-        record.status = "review"
         record.purchase_id = None
         session.flush()
-    result = process_receipt(
-        image_path=record.image_path,
-        source="review",
-        user_id=user_id,
-        receipt_record_id=record.id,
-        model_config_id=model_config_id,
-    )
 
-    return jsonify(result), 200
+    purchase_id = _save_to_database(
+        ocr_data, engine_used, record.image_path, user_id, receipt_type,
+    )
+    record.purchase_id = purchase_id
+    record.status = "processed"
+    record.receipt_type = receipt_type
+    record.raw_ocr_json = json.dumps(ocr_data)
+    record.ocr_engine = engine_used
+    record.ocr_confidence = _safe_float(ocr_data.get("confidence", 1.0))
+    session.commit()
+
+    return jsonify({
+        "status": "processed",
+        "purchase_id": purchase_id,
+        "receipt_id": record.id,
+        "receipt_type": receipt_type,
+        "warnings": warnings,
+    }), 200
 
 
 @receipts_bp.route("/<int:receipt_id>/bill-status", methods=["PUT"])
