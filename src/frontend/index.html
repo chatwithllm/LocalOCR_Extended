@@ -5906,11 +5906,75 @@
         margin-bottom: 6px;
       }
 
-      .receipt-editor-main-field input,
+      .receipt-editor-main-field input:not([type="checkbox"]):not([type="radio"]),
       .receipt-editor-main-field select {
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
+      }
+
+      .receipt-editor-main-field input[type="checkbox"] {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+      }
+
+      .bill-service-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 8px;
+      }
+
+      .bill-service-type-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--panel-2);
+        cursor: pointer;
+        min-width: 0;
+        transition: background 0.15s, border-color 0.15s;
+      }
+
+      .bill-service-type-pill:has(input:checked) {
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+        border-color: var(--color-brand);
+      }
+
+      .bill-service-type-pill span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .bill-service-type-pill input[type="checkbox"] {
+        flex: 0 0 auto;
+      }
+
+      .receipt-editor-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-top: 12px;
+        flex-wrap: wrap;
+      }
+
+      .receipt-editor-toggle-row > label {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--fg);
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      .receipt-editor-toggle-hint {
+        color: var(--muted);
+        font-size: 0.78rem;
+        flex: 1 1 100%;
+        padding-left: 28px;
       }
 
       .receipt-editor-inline-fields {
@@ -28649,14 +28713,14 @@
           <div class="receipt-editor-main-field"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
           <div class="receipt-editor-main-field"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
           <div class="receipt-editor-main-field"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+          <div class="receipt-editor-main-field receipt-editor-toggle-row">
             <input id="receipt-bill-is-recurring-${receipt.id}" type="checkbox" checked />
-            <label for="receipt-bill-is-recurring-${receipt.id}" style="margin:0">Recurring bill</label>
+            <label for="receipt-bill-is-recurring-${receipt.id}">Recurring bill</label>
           </div>
-          <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+          <div class="receipt-editor-main-field receipt-editor-toggle-row">
             <input id="receipt-bill-auto-pay-${receipt.id}" type="checkbox" ${receipt.bill_auto_pay ? "checked" : ""} />
-            <label for="receipt-bill-auto-pay-${receipt.id}" style="margin:0">Auto-pay</label>
-            <span style="color:var(--muted);font-size:0.75rem">Marks paid on due date automatically</span>
+            <label for="receipt-bill-auto-pay-${receipt.id}">Auto-pay</label>
+            <span class="receipt-editor-toggle-hint">Marks paid on due date automatically</span>
           </div>
         </div>
       </div>
@@ -29288,10 +29352,10 @@
             .filter(Boolean),
         );
         container.innerHTML = `
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div class="bill-service-type-grid">
             ${BILL_SERVICE_TYPE_OPTIONS.map(
               (value) => `
-                <label class="pill-toggle" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel-2)">
+                <label class="pill-toggle bill-service-type-pill">
                   <input type="checkbox" value="${escAttr(value)}" ${
                     selected.has(value) ? "checked" : ""
                   } />
