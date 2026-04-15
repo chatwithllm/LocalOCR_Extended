@@ -6153,6 +6153,54 @@
         box-sizing: border-box;
       }
 
+      @media (max-width: 640px) {
+        #page-upload .drop-zone {
+          min-height: 180px;
+          padding: 20px 16px;
+          gap: 6px;
+        }
+        #page-upload .drop-zone__icon { font-size: 1.6rem; }
+        #page-upload .drop-zone__title { font-size: 0.95rem; }
+        #page-upload .drop-zone__hint { font-size: 0.78rem; }
+
+        #page-upload .card.card--padded-lg {
+          padding: 14px;
+        }
+
+        #page-upload .upload-section {
+          margin-top: 12px;
+          gap: 6px;
+        }
+
+        #page-upload .upload-intent-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
+        }
+
+        #page-upload .upload-intent-btn {
+          padding: 8px 4px;
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+
+        #page-upload .upload-section__hint {
+          font-size: 0.75rem;
+          line-height: 1.35;
+        }
+
+        #page-upload .upload-hint-desktop {
+          display: none;
+        }
+
+        #page-upload #upload-ai-model-meta {
+          display: none;
+        }
+
+        #page-upload .page-header p {
+          display: none;
+        }
+      }
+
       .receipt-editor-inline-fields {
         display: grid;
         grid-template-columns: minmax(0, 1.15fr) minmax(82px, 0.72fr) minmax(
@@ -12344,7 +12392,7 @@
                 </button>
               </div>
               <input type="hidden" id="upload-receipt-intent" value="auto" />
-              <span class="upload-section__hint"
+              <span class="upload-section__hint upload-hint-desktop"
                 >Use Restaurant or General Expense when you already know the
                 receipt type so review starts closer to the right result.</span
               >
