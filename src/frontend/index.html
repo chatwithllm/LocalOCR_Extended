@@ -6276,7 +6276,9 @@
         }
 
         .month-bars--compact .month-bar-value {
-          font-size: 0.78rem;
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: var(--muted);
         }
 
         .month-bars--compact .month-bar-label {
@@ -6286,6 +6288,49 @@
 
         .month-bars--compact .month-bar-amount {
           font-size: 0.72rem;
+        }
+
+        .receipt-budget-strip--compact {
+          display: grid;
+          gap: 10px;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        }
+
+        .receipt-budget-headline {
+          display: grid;
+          gap: 2px;
+        }
+
+        .receipt-budget-headline__month {
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+        }
+
+        .receipt-budget-headline__amount {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--text);
+          font-variant-numeric: tabular-nums;
+          line-height: 1.1;
+        }
+
+        .receipt-budget-headline__meta {
+          font-size: 0.78rem;
+          color: var(--muted);
+        }
+
+        .receipt-budget-progress__meta {
+          display: flex;
+          justify-content: space-between;
+          color: var(--muted);
+          font-size: 0.76rem;
+          margin-top: 4px;
         }
       }
 
@@ -20578,11 +20623,11 @@
 
           if (!res.ok) {
             container.innerHTML = compact
-              ? `<div class="receipt-budget-strip">
-            <div class="receipt-budget-stat">
-              <div class="receipt-budget-label">${escHtml(monthData.month)}</div>
-              <div class="receipt-budget-value">${formatMoney(monthData.total_amount)}</div>
-              <div class="receipt-budget-meta">${monthData.count} receipts</div>
+              ? `<div class="receipt-budget-strip receipt-budget-strip--compact">
+            <div class="receipt-budget-headline">
+              <div class="receipt-budget-headline__month">${escHtml(formatMonthLabel(monthData.month))}</div>
+              <div class="receipt-budget-headline__amount">${formatMoney(monthData.total_amount)}</div>
+              <div class="receipt-budget-headline__meta">${monthData.count} receipts · No budget set</div>
             </div>
           </div>`
               : `
@@ -20614,22 +20659,17 @@
 
           container.innerHTML = compact
             ? `
-        <div class="receipt-budget-strip">
-          <div class="receipt-budget-stat">
-            <div class="receipt-budget-label">${escHtml(monthData.month)}</div>
-            <div class="receipt-budget-value">${formatMoney(filteredSpend)}</div>
-            <div class="receipt-budget-meta">${monthData.count} receipts</div>
-          </div>
-          <div class="receipt-budget-stat">
-            <div class="receipt-budget-label">Budget</div>
-            <div class="receipt-budget-value">${formatMoney(budgetAmount)}</div>
-            <div class="receipt-budget-meta">${remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`}</div>
+        <div class="receipt-budget-strip receipt-budget-strip--compact">
+          <div class="receipt-budget-headline">
+            <div class="receipt-budget-headline__month">${escHtml(formatMonthLabel(monthData.month))}</div>
+            <div class="receipt-budget-headline__amount">${formatMoney(filteredSpend)}</div>
+            <div class="receipt-budget-headline__meta">${monthData.count} receipts · Budget ${formatMoney(budgetAmount)}</div>
           </div>
           <div class="receipt-budget-progress">
             <div class="progress-wrap"><div class="progress-bar ${progressClass}" style="width:${filteredPct}%"></div></div>
-            <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:0.78rem;gap:10px;flex-wrap:wrap">
-              <span>${filteredPct.toFixed(1)}% used</span>
-              <span>Month total ${formatMoney(budget.spent)}</span>
+            <div class="receipt-budget-progress__meta">
+              <span>${filteredPct.toFixed(0)}% used</span>
+              <span>${remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`}</span>
             </div>
           </div>
         </div>`
