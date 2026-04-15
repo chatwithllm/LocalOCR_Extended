@@ -6376,6 +6376,38 @@
           padding: 10px 12px;
           font-size: 0.95rem;
         }
+
+        .restaurant-review-header {
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .restaurant-review-toolbar {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .restaurant-period-select {
+          padding: 7px 10px;
+          font-size: 0.85rem;
+          width: auto;
+          min-width: 0;
+        }
+
+        .restaurant-refresh-btn {
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          justify-content: center;
+        }
+
+        #page-restaurant .receipt-summary-grid {
+          grid-template-columns: 1fr !important;
+        }
       }
 
       .dining-budget-summary {
@@ -12175,17 +12207,17 @@
             </div>
             <div id="restaurant-budget-status" class="dining-budget-status"></div>
           </div>
-          <div class="card">
-            <div class="card-header">
+          <div class="card restaurant-review-card">
+            <div class="card-header restaurant-review-header">
               <span class="card-title">Receipt Review</span>
-              <div class="table-toolbar">
-                <select id="restaurant-period" onchange="loadRestaurant()">
+              <div class="restaurant-review-toolbar">
+                <select id="restaurant-period" onchange="loadRestaurant()" class="restaurant-period-select">
                   <option value="3">Last 3 months</option>
                   <option value="6" selected>Last 6 months</option>
                   <option value="12">Last 12 months</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" onclick="loadRestaurant()">
-                  🔄 Refresh
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadRestaurant()" aria-label="Refresh">
+                  🔄
                 </button>
               </div>
             </div>
@@ -31615,37 +31647,13 @@
     <div style="display:grid;gap:16px">
       <div class="card" style="margin-bottom:0">
         <div class="card-header" style="margin-bottom:12px">
-          <span class="card-title">Open Restaurant Receipts in Receipts</span>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openRestaurantReceipts()">Open Receipts</button>
+          <span class="card-title">Restaurant Receipts</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openRestaurantReceipts()">Open All</button>
         </div>
-        <p style="color:var(--muted);font-size:0.86rem;line-height:1.45;margin-bottom:12px">Use the shared Receipts workspace to inspect images, review OCR items, and edit restaurant receipts. Restaurant stays focused on dining summary and budget.</p>
         ${
           receipts.length
-            ? `<div class="contrib-list">
-              ${receipts
-                .slice(0, compact ? 4 : 6)
-                .map(
-                  (receipt) => `
-                <div class="contrib-list-item">
-                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                    <div style="min-width:0;flex:1">
-                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <strong>${escHtml(receipt.store || "Unknown")}</strong>
-                        ${receiptTransactionBadgeHtml(receipt.transaction_type)}
-                      </div>
-                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${escHtml(formatLabel(receipt.source, "Upload"))}</div>
-                      ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ""}
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open in Receipts</button>
-                    </div>
-                  </div>
-                </div>`,
-                )
-                .join("")}
-            </div>`
-            : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>'
+            ? renderCompactReceiptRows(receipts.slice(0, compact ? 6 : 8), { includeDelete: false })
+            : '<div class="empty-state"><p>No restaurant receipts yet. Upload one and it will land here.</p></div>'
         }
       </div>
     </div>
