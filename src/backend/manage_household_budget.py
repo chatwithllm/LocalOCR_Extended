@@ -221,6 +221,54 @@ def set_monthly_budget():
 
 @budget_bp.route("/status", methods=["GET"])
 @require_auth
+def _purchases_for_month(session, month, *, domain=None):
+    """Return purchases that roll up into the given YYYY-MM month.
+
+    Non-bill purchases are bucketed by Purchase.date.
+
+    Bill purchases follow cash-flow semantics: if the bill has been
+    marked paid, it rolls into the month of payment_confirmed_at (so a
+    March-statement utility paid in April counts as an April expense).
+    If it hasn't been paid yet, it rolls into planning_month so the
+    forecast view still attributes upcoming bills to the correct month.
+    """
+    start_date, end_date = month_bounds(month)
+    now_dt = datetime.now(timezone.utc)
+
+    non_bill_query = (
+        session.query(Purchase)
+        .outerjoin(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(BillMeta.id.is_(None))
+        .filter(Purchase.date >= start_date)
+        .filter(Purchase.date < end_date)
+        .filter(Purchase.date <= now_dt)
+    )
+    if domain is not None:
+        non_bill_query = non_bill_query.filter(Purchase.domain == domain)
+
+    from sqlalchemy import or_, and_, func
+
+    paid_month_expr = func.strftime("%Y-%m", BillMeta.payment_confirmed_at)
+    bill_query = (
+        session.query(Purchase)
+        .join(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(Purchase.date <= now_dt)
+        .filter(
+            or_(
+                and_(BillMeta.payment_confirmed_at.isnot(None), paid_month_expr == month),
+                and_(BillMeta.payment_confirmed_at.is_(None), BillMeta.planning_month == month),
+            )
+        )
+    )
+    if domain is not None:
+        bill_query = bill_query.filter(Purchase.domain == domain)
+
+    seen = {}
+    for purchase in list(non_bill_query.all()) + list(bill_query.all()):
+        seen[purchase.id] = purchase
+    return list(seen.values())
+
+
 def get_budget_status():
     """Get current month's budget vs actual spending."""
     session = g.db_session
@@ -248,16 +296,8 @@ def get_budget_status():
     budget = _domain_fallback_budget(session, user_id, month, domain)
     budget_amount = budget.budget_amount if budget else 0
 
-    # Calculate actual spending for the month
-    start_date, end_date = month_bounds(month)
-    now_dt = datetime.now(timezone.utc)
-
-    purchases = session.query(Purchase).filter(
-        Purchase.date >= start_date,
-        Purchase.date < end_date,
-        Purchase.date <= now_dt,
-        Purchase.domain == domain,
-    ).all()
+    # Pull purchases that roll up into this month (bills use planning_month).
+    purchases = _purchases_for_month(session, month, domain=domain)
 
     spent = sum(signed_purchase_total(p) for p in purchases)
     purchase_count = sum(1 for p in purchases if normalize_transaction_type(getattr(p, "transaction_type", None)) != "refund")
@@ -291,13 +331,7 @@ def get_budget_status():
 
 
 def _compute_budget_rollups(session, month):
-    start_date, end_date = month_bounds(month)
-    now_dt = datetime.now(timezone.utc)
-    purchases = session.query(Purchase).filter(
-        Purchase.date >= start_date,
-        Purchase.date < end_date,
-        Purchase.date <= now_dt,
-    ).all()
+    purchases = _purchases_for_month(session, month)
     store_ids = {purchase.store_id for purchase in purchases if getattr(purchase, "store_id", None)}
     stores_by_id = {}
     if store_ids:
