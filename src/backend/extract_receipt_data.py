@@ -936,6 +936,14 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict, purchase_date=Non
         meta.billing_cycle_month = (
             str(ocr_data.get("bill_billing_cycle_month") or "").strip()[:7] or None
         )
+        if meta.due_date is None and meta.billing_cycle_month:
+            from calendar import monthrange
+            from datetime import date as _date_cls
+            try:
+                _year, _mon = map(int, meta.billing_cycle_month.split("-", 1))
+                meta.due_date = _date_cls(_year, _mon, monthrange(_year, _mon)[1])
+            except (ValueError, TypeError):
+                pass
         meta.billing_cycle = normalize_billing_cycle(ocr_data.get("bill_billing_cycle"))
         is_recurring_raw = ocr_data.get("bill_is_recurring")
         meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True

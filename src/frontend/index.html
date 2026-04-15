@@ -5178,6 +5178,19 @@
         display: inline-block;
       }
 
+      .spinner-sm {
+        width: 12px;
+        height: 12px;
+        border-width: 2px;
+        vertical-align: -2px;
+        margin-right: 4px;
+      }
+
+      .btn.is-loading {
+        opacity: 0.75;
+        pointer-events: none;
+      }
+
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -28551,7 +28564,7 @@
           : ""
       }
       <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
-      ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
+      ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
     </div>`;
         const billSummaryHtml = billReceipt
           ? `
@@ -28628,7 +28641,7 @@
     <div class="card" style="margin-bottom:0">
       <div class="card-header" style="margin-bottom:12px">
         <span class="card-title">Refresh OCR Data</span>
-        <button class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
+        <button class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
       </div>
       <p style="color:var(--muted);font-size:0.82rem">This older receipt does not have editable review JSON yet. Re-run OCR once to populate the review editor.</p>
     </div>`
@@ -30339,24 +30352,47 @@
       async function reprocessReceipt(id) {
         const modelId = getSelectedAiModelId();
         const body = modelId ? { model_id: modelId } : {};
-        const res = await api(`/receipts/${id}/reprocess`, {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
-        const payload = await res.json();
-        if (!res.ok) {
-          toast(payload.error || "Could not re-run OCR", "error");
-          return;
-        }
-        if (Array.isArray(payload.warnings) && payload.warnings.length) {
-          toast(payload.warnings[0], "info");
-        }
-        toast(
-          `OCR re-run complete · ${formatLabel(payload.status, "Updated")} ✅`,
-          "success",
+        const buttons = document.querySelectorAll(
+          `[data-reprocess-btn="${id}"]`,
         );
-        await loadReceipts();
-        await viewReceipt(id);
+        const originalLabels = new Map();
+        buttons.forEach((btn) => {
+          originalLabels.set(btn, btn.innerHTML);
+          btn.disabled = true;
+          btn.classList.add("is-loading");
+          btn.innerHTML = `<span class="spinner spinner-sm"></span> Re-running OCR…`;
+        });
+        toast("Re-running OCR… this can take a few seconds", "info");
+        try {
+          const res = await api(`/receipts/${id}/reprocess`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          const payload = await res.json();
+          if (!res.ok) {
+            toast(payload.error || "Could not re-run OCR", "error");
+            return;
+          }
+          if (Array.isArray(payload.warnings) && payload.warnings.length) {
+            toast(payload.warnings[0], "info");
+          }
+          toast(
+            `OCR re-run complete · ${formatLabel(payload.status, "Updated")} ✅`,
+            "success",
+          );
+          await loadReceipts();
+          await viewReceipt(id);
+        } catch (err) {
+          console.error("reprocessReceipt failed", err);
+          toast("Could not re-run OCR", "error");
+        } finally {
+          buttons.forEach((btn) => {
+            if (!document.body.contains(btn)) return;
+            btn.disabled = false;
+            btn.classList.remove("is-loading");
+            btn.innerHTML = originalLabels.get(btn) || "Re-run OCR";
+          });
+        }
       }
 
       async function approveReceipt(id) {
