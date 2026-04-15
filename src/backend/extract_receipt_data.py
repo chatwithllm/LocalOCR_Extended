@@ -939,6 +939,9 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict, purchase_date=Non
         meta.billing_cycle = normalize_billing_cycle(ocr_data.get("bill_billing_cycle"))
         is_recurring_raw = ocr_data.get("bill_is_recurring")
         meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True
+        auto_pay_raw = ocr_data.get("bill_auto_pay")
+        if auto_pay_raw is not None:
+            meta.auto_pay = bool(auto_pay_raw)
 
         # Derive planning month deterministic fallbacks
         receipt_date_str = purchase_date.strftime("%Y-%m-%d") if purchase_date else None

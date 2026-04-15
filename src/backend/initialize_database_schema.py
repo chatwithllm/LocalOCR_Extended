@@ -227,6 +227,7 @@ class BillMeta(Base):
     billing_cycle = Column(String(20), nullable=False, default="monthly")
     planning_month = Column(String(7), nullable=True)
     is_recurring = Column(Boolean, nullable=False, default=True)
+    auto_pay = Column(Boolean, nullable=False, default=False)
     payment_status = Column(String(20), nullable=False, default="upcoming")
     payment_confirmed_at = Column(DateTime, nullable=True)
     payment_confirmed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -836,6 +837,7 @@ def _ensure_runtime_columns(engine):
                     billing_cycle VARCHAR(20) NOT NULL DEFAULT 'monthly',
                     planning_month VARCHAR(7),
                     is_recurring BOOLEAN NOT NULL DEFAULT 1,
+                    auto_pay BOOLEAN NOT NULL DEFAULT 0,
                     payment_status VARCHAR(20) NOT NULL DEFAULT 'upcoming',
                     payment_confirmed_at DATETIME,
                     payment_confirmed_by_id INTEGER,
@@ -893,6 +895,8 @@ def _ensure_runtime_columns(engine):
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN planning_month VARCHAR(7)"))
             if "is_recurring" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN is_recurring BOOLEAN NOT NULL DEFAULT 1"))
+            if "auto_pay" not in bill_meta_columns:
+                conn.execute(text("ALTER TABLE bill_meta ADD COLUMN auto_pay BOOLEAN NOT NULL DEFAULT 0"))
             if "created_at" not in bill_meta_columns:
                 conn.execute(text("ALTER TABLE bill_meta ADD COLUMN created_at DATETIME"))
             if "updated_at" not in bill_meta_columns:

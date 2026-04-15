@@ -6518,6 +6518,27 @@
           grid-column: 1 / -1 !important;
         }
 
+        .receipt-editor-header {
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .receipt-editor-save-btn {
+          align-self: center;
+          flex: 0 0 auto;
+          white-space: nowrap;
+        }
+
+        .receipt-editor-inline-field label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          min-height: 1.25em;
+        }
+
         .receipt-editor-main-field.field-type,
         .receipt-editor-main-field.field-store {
           grid-column: 1 / -1;
@@ -28530,9 +28551,9 @@
         const editHtml = canEditReceipt
           ? `
     <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:12px">
+      <div class="card-header receipt-editor-header" style="margin-bottom:12px">
         <span class="card-title">${receipt.receipt_type === "restaurant" ? "Restaurant Review" : "Edit Receipt"}</span>
-        <button class="btn btn-primary btn-sm" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === "processed" ? "Update Receipt" : "Save as Purchase"}</button>
+        <button class="btn btn-primary btn-sm receipt-editor-save-btn" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === "processed" ? "Update Receipt" : "Save as Purchase"}</button>
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
@@ -28610,6 +28631,11 @@
           <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
             <input id="receipt-bill-is-recurring-${receipt.id}" type="checkbox" checked />
             <label for="receipt-bill-is-recurring-${receipt.id}" style="margin:0">Recurring bill</label>
+          </div>
+          <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+            <input id="receipt-bill-auto-pay-${receipt.id}" type="checkbox" ${receipt.bill_auto_pay ? "checked" : ""} />
+            <label for="receipt-bill-auto-pay-${receipt.id}" style="margin:0">Auto-pay</label>
+            <span style="color:var(--muted);font-size:0.75rem">Marks paid on due date automatically</span>
           </div>
         </div>
       </div>
@@ -30190,6 +30216,9 @@
               is_recurring:
                 document.getElementById(`receipt-bill-is-recurring-${id}`)
                   ?.checked ?? true,
+              auto_pay:
+                document.getElementById(`receipt-bill-auto-pay-${id}`)
+                  ?.checked ?? false,
             };
           }
           const res = await api(`/receipts/${id}/update`, {
@@ -32442,6 +32471,23 @@
         const monthInput = document.getElementById("bills-filter-month");
         const monthLabel = document.getElementById("bills-month-label");
         if (!monthInput) return;
+
+        try {
+          const sweepRes = await api(`/receipts/bills/sync-autopay`, {
+            method: "POST",
+          });
+          if (sweepRes?.ok) {
+            const swept = (await sweepRes.json().catch(() => ({}))).swept_count || 0;
+            if (swept > 0) {
+              toast(
+                `Auto-paid ${swept} bill${swept === 1 ? "" : "s"} on their due date`,
+                "success",
+              );
+            }
+          }
+        } catch (e) {
+          console.warn("Auto-pay sweep failed", e);
+        }
 
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(

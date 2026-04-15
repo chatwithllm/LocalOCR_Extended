@@ -251,6 +251,9 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "bill_is_recurring": bool(
             bill_source.get("bill_is_recurring") if bill_source.get("bill_is_recurring") is not None else bill_source.get("is_recurring")
         ) if (bill_source.get("bill_is_recurring") is not None or bill_source.get("is_recurring") is not None) else True,
+        "bill_auto_pay": bool(
+            bill_source.get("bill_auto_pay") if bill_source.get("bill_auto_pay") is not None else bill_source.get("auto_pay")
+        ) if (bill_source.get("bill_auto_pay") is not None or bill_source.get("auto_pay") is not None) else False,
         "subtotal": float(payload.get("subtotal") or 0),
         "tax": float(payload.get("tax") or 0),
         "tip": float(payload.get("tip") or 0),
@@ -751,6 +754,7 @@ def get_receipt(receipt_id):
             "bill_billing_cycle": bill_meta.billing_cycle,
             "bill_planning_month": bill_meta.planning_month,
             "bill_is_recurring": bool(bill_meta.is_recurring),
+            "bill_auto_pay": bool(bill_meta.auto_pay),
             "bill_provider_id": bill_meta.provider_id,
             "bill_service_line_id": bill_meta.service_line_id,
             "bill_payment_status": bill_meta.payment_status,
@@ -1302,6 +1306,39 @@ def update_receipt_bill_status(receipt_id):
         "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
         "paid_date": bill_meta.payment_confirmed_at.date().isoformat() if bill_meta.payment_confirmed_at else None,
     }), 200
+
+
+@receipts_bp.route("/bills/sync-autopay", methods=["POST"])
+@require_write_access
+def sync_autopay_bills():
+    """Mark any autopay bill whose due date has arrived as paid on the due date."""
+    from src.backend.initialize_database_schema import BillMeta
+    from datetime import timezone, date as date_cls
+
+    session = g.db_session
+    today = date_cls.today()
+    due_bills = (
+        session.query(BillMeta)
+        .filter(BillMeta.auto_pay.is_(True))
+        .filter(BillMeta.payment_status.in_(["upcoming", "overdue"]))
+        .filter(BillMeta.due_date.isnot(None))
+        .filter(BillMeta.due_date <= today)
+        .all()
+    )
+    swept = []
+    current_user_id = getattr(getattr(g, "current_user", None), "id", None)
+    for meta in due_bills:
+        meta.payment_status = "paid"
+        meta.payment_confirmed_at = datetime.combine(meta.due_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        meta.payment_confirmed_by_id = current_user_id
+        swept.append({
+            "purchase_id": meta.purchase_id,
+            "provider_name": meta.provider_name,
+            "due_date": meta.due_date.isoformat(),
+        })
+    if swept:
+        session.commit()
+    return jsonify({"swept_count": len(swept), "swept": swept}), 200
 
 
 @receipts_bp.route("/<int:receipt_id>/rotate", methods=["PUT"])
