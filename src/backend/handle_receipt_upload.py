@@ -1311,30 +1311,50 @@ def update_receipt_bill_status(receipt_id):
 @receipts_bp.route("/bills/sync-autopay", methods=["POST"])
 @require_write_access
 def sync_autopay_bills():
-    """Mark any autopay bill whose due date has arrived as paid on the due date."""
-    from src.backend.initialize_database_schema import BillMeta
-    from datetime import timezone, date as date_cls
+    """Mark any autopay bill whose effective due date has arrived as paid."""
+    from src.backend.initialize_database_schema import BillMeta, Purchase
+    from datetime import timezone, date as date_cls, timedelta
+    from calendar import monthrange
+
+    def _effective_due_date(meta, purchase):
+        if meta.due_date:
+            return meta.due_date, "due_date"
+        cycle = (meta.billing_cycle_month or "").strip()
+        if cycle:
+            try:
+                year, month = map(int, cycle.split("-", 1))
+                last_day = monthrange(year, month)[1]
+                return date_cls(year, month, last_day), "billing_cycle_month_end"
+            except (ValueError, TypeError):
+                pass
+        if purchase and purchase.date:
+            statement = purchase.date.date() if hasattr(purchase.date, "date") else purchase.date
+            return statement + timedelta(days=21), "statement_plus_21d"
+        return None, None
 
     session = g.db_session
     today = date_cls.today()
-    due_bills = (
-        session.query(BillMeta)
+    candidates = (
+        session.query(BillMeta, Purchase)
+        .join(Purchase, Purchase.id == BillMeta.purchase_id)
         .filter(BillMeta.auto_pay.is_(True))
         .filter(BillMeta.payment_status.in_(["upcoming", "overdue"]))
-        .filter(BillMeta.due_date.isnot(None))
-        .filter(BillMeta.due_date <= today)
         .all()
     )
     swept = []
     current_user_id = getattr(getattr(g, "current_user", None), "id", None)
-    for meta in due_bills:
+    for meta, purchase in candidates:
+        effective_due, source = _effective_due_date(meta, purchase)
+        if effective_due is None or effective_due > today:
+            continue
         meta.payment_status = "paid"
-        meta.payment_confirmed_at = datetime.combine(meta.due_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        meta.payment_confirmed_at = datetime.combine(effective_due, datetime.min.time()).replace(tzinfo=timezone.utc)
         meta.payment_confirmed_by_id = current_user_id
         swept.append({
             "purchase_id": meta.purchase_id,
             "provider_name": meta.provider_name,
-            "due_date": meta.due_date.isoformat(),
+            "due_date": effective_due.isoformat(),
+            "due_date_source": source,
         })
     if swept:
         session.commit()

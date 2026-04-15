@@ -123,6 +123,12 @@ Rules:
 - For bill_provider_name, use the main company branding found in the header.
 - For bill_service_period, look for 'billing period' or 'usage from/to' dates.
 - For total, use the 'Amount Due', 'New Balance', or 'Total amount to pay'.
+- For bill_due_date, scan the whole document — it is often near the amount due
+  and can be labeled 'Due Date', 'Payment Due', 'Payment Due Date', 'Pay By',
+  'Pay by', 'Please pay by', 'Amount Due By', 'Due On', 'Due on or before',
+  'Autopay Date', 'Auto-Pay Date', 'Scheduled Payment Date', or a bare date
+  right next to the amount due box. Return the earliest such date.
+- If bill_due_date is genuinely not printed, return null — do not guess.
 - If a date is in MM/DD/YY format, normalize to YYYY-MM-DD.
 - Keep "items" as an empty list [].
 - Return ONLY valid JSON.
