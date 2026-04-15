@@ -610,6 +610,88 @@ Dashboard · Inventory · Products · Upload Receipt · Receipts · Shopping Lis
 
 ---
 
+## Design System (Apple-inspired)
+
+LocalOCR Extended ships with an Apple-inspired design system on the `apple-design-system` branch. Cinematic black ↔ light-gray canvas duality, SF Pro Display/Text with optical sizing, Apple Blue (`#0071e3`) as the singular chromatic accent, 980 px pill CTAs, translucent nav glass, and a single soft card shadow.
+
+### Where the canonical values live
+
+| Path | Role |
+|---|---|
+| `design/Design System inspired by Apple design.md` | Full 11-section spec — philosophy, color tokens, typography, spacing/grid, elevation, radius, components, iconography, motion, accessibility, rollout roadmap |
+| `design/Design System inspired by Apple.md` | Source reference the adaptation was built against |
+| `design/design-tokens.json` | Source of truth for every token (colors light+dark, shadows, typography, spacing, radius, icon sizes, motion) |
+| `scripts/build_tokens.py` | Compiles the JSON into CSS custom properties |
+| `src/frontend/styles/tokens.generated.css` | Committed mirror — regenerate after editing the JSON |
+
+Rebuild after any JSON edit:
+
+```bash
+python3 scripts/build_tokens.py
+# then paste the contents of src/frontend/styles/tokens.generated.css into
+# the main <style> block in src/frontend/index.html.
+```
+
+### Themes
+
+A pre-paint `<script>` in `<head>` sets `data-theme` on `<html>` from `localStorage["theme"]` or `prefers-color-scheme`. The sidebar Light/Dark toggle flips and persists.
+
+- **Light canvas:** `#f5f5f7` cool light gray. Text `#1d1d1f`. Accent Apple Blue `#0071e3`.
+- **Dark canvas:** `#000000` pure black with a `#1d1d1f → #2a2a2d` micro-tint surface ladder. Accent `#0a84ff`.
+
+### Design Gallery
+
+Every primitive lives at `http://localhost:8090/#gallery` (or press `g` then `g` outside a text field):
+
+- Color swatches for ~30 `--color-*` tokens
+- Buttons — primary, secondary, ghost, danger, success, tonal, pill-link, icon — sizes + states
+- Cards — default, interactive, selected, flat
+- Badges — semantic, confidence, category
+- Inputs — default / focus / invalid / disabled / select / textarea
+- Toggle switch
+- Drop Zone (default / dragover / invalid / uploading)
+- Scan Progress (bar + ring, all states)
+- Confidence Ring (sm / md / lg across all three tiers)
+- Result Card (grid)
+- Floating Toolbar
+- Extracted Text Panel
+- Typography scale (Hero → xs)
+
+### Keyboard shortcuts
+
+Press `?` anywhere outside a text field for the cheat sheet. Highlights:
+
+- `g <letter>` → jump to any page (`g d` Dashboard, `g r` Receipts, `g b` Bills, `g g` Gallery, …)
+- `Esc` → close modal
+
+### Rollout status on the branch
+
+Phases 1 – 5 of the spec are implemented on `apple-design-system`:
+
+- **Phase 1 — tokens + theme switcher** ✓ `design-tokens.json`, generator, pre-paint theme, legacy aliases, sidebar Light/Dark toggle.
+- **Phase 2 — base components + gallery** ✓ Button, Card, Input, Badge, Toggle, Glass nav primitive.
+- **Phase 3 — OCR composites** ✓ Drop Zone, Scan Progress (bar + ring), Confidence Ring, Result Card, Toolbar, Extracted Text Panel.
+- **Phase 4 — page rollouts**
+  - Upload view ✓ (drop-zone + inline scan-progress)
+  - Receipts history ✓ (result-card grid, mobile-safe flex-wrap at ≤ 720 px)
+  - Dashboard alert cards (Low Stock / Top Picks / Shopping) ✓ — harmonized to identical raised cards with only the count-number color carrying the semantic signal
+  - Contribution summary stats ✓ (Apple card recipe — shadow, no border, display-font numeric)
+  - Mobile sticky header ✓ — now theme-aware glass instead of hardcoded dark
+  - Processing view, Results view (Extracted Text Panel wired to live OCR data) — primitives ship in the gallery; full page integration not yet done
+- **Phase 5 — polish + docs** ✓ Cheat sheet + global `g <letter>` nav, `.processing-overlay` helpers, `.status-mark-paid-pop` confirm spring, empty-state primitives, this README section.
+
+Deferred (environmentally blocked): commissioned monochrome empty-state illustrations, Lighthouse performance pass on the authenticated Results view, OCR bounding-box geometry (needs backend field).
+
+### Writing a new component
+
+1. Open the spec at `design/Design System inspired by Apple design.md` §7.
+2. Use tokens from `design/design-tokens.json` — never hard-code a color, radius, spacing, or duration.
+3. Add variants + states to the gallery at `#page-design-gallery` (inside `src/frontend/index.html`).
+4. Re-run `python3 scripts/build_tokens.py` if you touched the JSON.
+5. SF Pro Display ≥ 20 px, SF Pro Text < 20 px. Negative letter-spacing at every size. Apple Blue is the *only* chromatic accent.
+
+---
+
 ## Quick Start
 
 ### Path A — Docker Compose (recommended)
