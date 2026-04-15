@@ -6100,6 +6100,59 @@
         line-height: 1;
       }
 
+      .upload-section {
+        margin-top: 18px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .upload-section__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      .upload-section__hint {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .upload-intent-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .upload-intent-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 8px;
+        font-weight: 600;
+      }
+
+      @media (max-width: 640px) {
+        .upload-intent-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .upload-model-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .upload-model-select {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
       .receipt-editor-inline-fields {
         display: grid;
         grid-template-columns: minmax(0, 1.15fr) minmax(82px, 0.72fr) minmax(
@@ -12219,21 +12272,11 @@
                 <p id="preview-meta" class="drop-zone__preview-meta"></p>
               </div>
             </label>
-            <div
-              style="
-                margin-top: 16px;
-                display: flex;
-                gap: 10px;
-                align-items: center;
-                flex-wrap: wrap;
-              "
-            >
-              <div style="font-size: 0.85rem; color: var(--muted); width: 100%">
-                Receipt Type
-              </div>
+            <div class="upload-section">
+              <div class="upload-section__label">Receipt Type</div>
               <div
                 id="upload-intent-buttons"
-                style="display: flex; gap: 10px; flex-wrap: wrap"
+                class="upload-intent-grid"
               >
                 <button
                   type="button"
@@ -12269,35 +12312,21 @@
                 </button>
               </div>
               <input type="hidden" id="upload-receipt-intent" value="auto" />
-              <span style="font-size: 0.82rem; color: var(--muted)"
-                >Use `Restaurant` or `General Expense` when you already know the
+              <span class="upload-section__hint"
+                >Use Restaurant or General Expense when you already know the
                 receipt type so review starts closer to the right result.</span
               >
             </div>
-            <div
-              style="
-                margin-top: 16px;
-                display: grid;
-                gap: 8px;
-              "
-            >
+            <div class="upload-section">
               <label
                 for="upload-ai-model"
-                style="font-size: 0.85rem; color: var(--muted)"
+                class="upload-section__label"
                 >OCR Model</label
               >
-              <div
-                style="
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 12px;
-                  align-items: center;
-                "
-              >
+              <div class="upload-model-row">
                 <select
                   id="upload-ai-model"
-                  class="input"
-                  style="min-width: 280px; max-width: 100%"
+                  class="input upload-model-select"
                   onchange="changeAiModelSelection(this.value)"
                 >
                   <option value="">Default OCR fallback</option>
@@ -12307,14 +12336,14 @@
                   class="btn btn-ghost btn-sm"
                   onclick="toggleAiModelBrowser()"
                 >
-                  Browse Models
+                  Browse
                 </button>
-                <span
-                  id="upload-ai-model-meta"
-                  style="font-size: 0.82rem; color: var(--muted)"
-                  >Using server default OCR fallback.</span
-                >
               </div>
+              <span
+                id="upload-ai-model-meta"
+                class="upload-section__hint"
+                >Using server default OCR fallback.</span
+              >
               <div
                 id="upload-ai-model-browser"
                 style="
