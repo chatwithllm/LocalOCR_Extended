@@ -6038,6 +6038,68 @@
         font-size: 0.9rem;
       }
 
+      .receipts-by-store-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .receipts-by-store-row {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: none;
+        background: transparent;
+        border-radius: 10px;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--fg);
+        transition: background 0.15s;
+      }
+
+      .receipts-by-store-row:hover,
+      .receipts-by-store-row:focus-visible {
+        background: var(--panel-2);
+      }
+
+      .receipts-by-store-row + .receipts-by-store-row,
+      .receipts-by-store-list li + li .receipts-by-store-row {
+        border-top: 1px solid var(--border);
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+      }
+
+      .receipts-by-store-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .receipts-by-store-count {
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        min-width: 24px;
+        text-align: right;
+      }
+
+      .receipts-by-store-chevron {
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
       .receipt-editor-inline-fields {
         display: grid;
         grid-template-columns: minmax(0, 1.15fr) minmax(82px, 0.72fr) minmax(
@@ -20075,15 +20137,18 @@
         }
         const storeSummaryHtml = stores.length
           ? compact
-            ? renderMobileMetricCards(
-                stores.map((item) => ({
-                  title: item.store,
-                  value: String(item.count),
-                  meta: "Tap to filter receipts by this store",
-                  cells: [{ label: "Receipts", value: String(item.count) }],
-                  actions: `<button type="button" class="btn btn-sm btn-ghost" onclick="openStoreReceipts('${escAttr(item.store)}')">Open Receipts</button>`,
-                })),
-              )
+            ? `<ul class="receipts-by-store-list">${stores
+                .map(
+                  (item) => `
+                    <li>
+                      <button type="button" class="receipts-by-store-row" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                        <span class="receipts-by-store-name">${escHtml(item.store)}</span>
+                        <span class="receipts-by-store-count">${item.count}</span>
+                        <span class="receipts-by-store-chevron" aria-hidden="true">›</span>
+                      </button>
+                    </li>`,
+                )
+                .join("")}</ul>`
             : `<table>
             <thead><tr><th>Store</th><th>Receipts</th></tr></thead>
             <tbody>${stores
