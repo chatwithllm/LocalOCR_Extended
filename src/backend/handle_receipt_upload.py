@@ -289,7 +289,15 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
 
 def _delete_purchase_data(session, purchase):
     """Remove purchase-linked rows so a corrected receipt can be rebuilt cleanly."""
-    from src.backend.initialize_database_schema import ReceiptItem, PriceHistory, TelegramReceipt, Purchase
+    from src.backend.initialize_database_schema import (
+        ReceiptItem,
+        PriceHistory,
+        TelegramReceipt,
+        Purchase,
+        BillMeta,
+        BillAllocation,
+        CashTransaction,
+    )
 
     receipt_records = session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).all()
     for record in receipt_records:
@@ -305,6 +313,9 @@ def _delete_purchase_data(session, purchase):
         ).delete(synchronize_session=False)
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(BillAllocation).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(CashTransaction).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(BillMeta).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
     session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
     session.flush()
     try:
