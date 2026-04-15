@@ -6532,6 +6532,27 @@
           white-space: nowrap;
         }
 
+        .receipt-editor-inline-fields {
+          grid-template-columns: 1fr 1fr !important;
+          grid-template-areas:
+            "date date"
+            "time tax" !important;
+          align-items: stretch !important;
+          row-gap: 10px;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(1) {
+          grid-area: date;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(2) {
+          grid-area: time;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(3) {
+          grid-area: tax;
+        }
+
         .receipt-editor-inline-field label {
           white-space: nowrap;
           overflow: hidden;
