@@ -28929,9 +28929,8 @@
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
-          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+          body.innerHTML = renderCompactReceiptRows(receipts, {
             includeDelete: true,
-            inlineDetail: false,
           });
         } else {
           if (detailCard) detailCard.style.display = "none";
