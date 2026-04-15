@@ -5990,6 +5990,54 @@
         padding-left: 28px;
       }
 
+      .bill-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .bill-action-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .bill-action-label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .bill-action-row {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .bill-action-row > .inline-select,
+      .bill-action-row > input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .bill-action-row > .btn {
+        flex: 0 0 auto;
+      }
+
+      .bill-action-row--readonly .bill-action-value {
+        flex: 1 1 auto;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 12px;
+        border-radius: 10px;
+        background: var(--panel-2);
+        color: var(--fg);
+        font-size: 0.9rem;
+      }
+
       .receipt-editor-inline-fields {
         display: grid;
         grid-template-columns: minmax(0, 1.15fr) minmax(82px, 0.72fr) minmax(
@@ -28600,21 +28648,35 @@
           <div class="stat-sub">${escHtml(receipt.bill_payment_confirmed_at ? `Confirmed ${formatDateTime(receipt.bill_payment_confirmed_at, "—")}` : "No payment confirmation yet")}</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
-        <select id="receipt-bill-status-select-${receipt.id}" class="inline-select" style="min-width:180px">
-          ${renderBillPaymentStatusOptions(receipt.bill_payment_status || "upcoming")}
-        </select>
-        <button type="button" class="btn btn-primary btn-sm" onclick="updateReceiptBillStatus(${receipt.id})">Save Payment Status</button>
+      <div class="bill-actions">
+        <div class="bill-action-group">
+          <label class="bill-action-label" for="receipt-bill-status-select-${receipt.id}">Change status</label>
+          <div class="bill-action-row">
+            <select id="receipt-bill-status-select-${receipt.id}" class="inline-select">
+              ${renderBillPaymentStatusOptions(receipt.bill_payment_status || "upcoming")}
+            </select>
+            <button type="button" class="btn btn-primary btn-sm" onclick="updateReceiptBillStatus(${receipt.id})">Save</button>
+          </div>
+        </div>
         ${
           (receipt.bill_payment_status || "upcoming") !== "paid"
             ? `
-              <label for="receipt-bill-paid-date-${receipt.id}" style="color:var(--muted);font-size:0.82rem">Paid Date</label>
-              <input id="receipt-bill-paid-date-${receipt.id}" type="date" class="inline-select" style="min-width:150px" value="${escAttr(defaultPaidDateForReceipt(receipt))}" title="${receipt.bill_preferred_payment_method === "autopay" ? "Auto-pay: defaults to due date" : "Defaults to today"}" />
-              <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>
+              <div class="bill-action-group">
+                <label class="bill-action-label" for="receipt-bill-paid-date-${receipt.id}">Paid on</label>
+                <div class="bill-action-row">
+                  <input id="receipt-bill-paid-date-${receipt.id}" type="date" class="inline-select" value="${escAttr(defaultPaidDateForReceipt(receipt))}" title="${receipt.bill_preferred_payment_method === "autopay" ? "Auto-pay: defaults to due date" : "Defaults to today"}" />
+                  <button type="button" class="btn btn-primary btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>
+                </div>
+              </div>
             `
             : `
-              <span style="color:var(--muted);font-size:0.82rem">Paid ${escHtml(receipt.bill_payment_confirmed_at ? receipt.bill_payment_confirmed_at.slice(0, 10) : "—")}</span>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>
+              <div class="bill-action-group">
+                <label class="bill-action-label">Paid on</label>
+                <div class="bill-action-row bill-action-row--readonly">
+                  <span class="bill-action-value">${escHtml(receipt.bill_payment_confirmed_at ? receipt.bill_payment_confirmed_at.slice(0, 10) : "—")}</span>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>
+                </div>
+              </div>
             `
         }
       </div>

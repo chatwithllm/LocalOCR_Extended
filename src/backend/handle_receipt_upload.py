@@ -1295,14 +1295,46 @@ def reprocess_receipt(receipt_id):
         if record.purchase_id
         else None
     )
+
+    # Snapshot user-controlled toggles on the old bill_meta so re-running
+    # OCR does not wipe them (OCR never returns these).
+    preserved_bill_meta = {}
+    if existing_purchase:
+        from src.backend.initialize_database_schema import BillMeta
+        old_meta = (
+            session.query(BillMeta)
+            .filter_by(purchase_id=existing_purchase.id)
+            .first()
+        )
+        if old_meta:
+            preserved_bill_meta = {
+                "bill_auto_pay": bool(old_meta.auto_pay),
+                "_preserved_payment_status": old_meta.payment_status,
+                "_preserved_payment_confirmed_at": old_meta.payment_confirmed_at,
+            }
+
     if existing_purchase:
         _delete_purchase_data(session, existing_purchase)
         record.purchase_id = None
         session.flush()
 
+    # Fold preserved user toggles into the OCR payload before saving.
+    if "bill_auto_pay" in preserved_bill_meta:
+        ocr_data["bill_auto_pay"] = preserved_bill_meta["bill_auto_pay"]
+
     purchase_id = _save_to_database(
         ocr_data, engine_used, record.image_path, user_id, receipt_type,
     )
+
+    if preserved_bill_meta.get("_preserved_payment_status") in {"paid", "overdue"}:
+        from src.backend.initialize_database_schema import BillMeta
+        new_meta = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
+        if new_meta:
+            new_meta.payment_status = preserved_bill_meta["_preserved_payment_status"]
+            new_meta.payment_confirmed_at = preserved_bill_meta.get(
+                "_preserved_payment_confirmed_at"
+            )
+
     record.purchase_id = purchase_id
     record.status = "processed"
     record.receipt_type = receipt_type
