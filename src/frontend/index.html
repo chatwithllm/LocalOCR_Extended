@@ -6636,11 +6636,39 @@
         }
 
         .receipt-bill-meta-panel .receipt-editor-grid {
-          grid-template-columns: 1fr !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 10px 10px !important;
         }
 
         .receipt-bill-meta-panel .receipt-editor-main-field {
           grid-column: 1 / -1 !important;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field.bill-field-half {
+          grid-column: span 1 !important;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field input,
+        .receipt-bill-meta-panel .receipt-editor-main-field select {
+          padding: 10px 12px;
+          font-size: 0.95rem;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-toggle-row > label {
+          text-transform: none;
+          letter-spacing: 0;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: var(--fg);
+          margin-bottom: 0;
         }
 
         .receipt-editor-header {
@@ -28781,13 +28809,13 @@
             <option value="health">Health</option>
             <option value="other">Other</option>
           </select></div>
-          <div class="receipt-editor-main-field" style="grid-column:span 2"><label>Service Types</label><div id="receipt-bill-service-types-${receipt.id}"></div></div>
-          <div class="receipt-editor-main-field"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
-          <div class="receipt-editor-main-field"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
-          <div class="receipt-editor-main-field"><label>Bill Frequency</label><select id="receipt-bill-billing-cycle-${receipt.id}">${renderBillingCycleOptionTags(receipt.bill_billing_cycle || "monthly")}</select></div>
-          <div class="receipt-editor-main-field"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field bill-field-full"><label>Service Types</label><div id="receipt-bill-service-types-${receipt.id}"></div></div>
+          <div class="receipt-editor-main-field bill-field-full"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Bill Frequency</label><select id="receipt-bill-billing-cycle-${receipt.id}">${renderBillingCycleOptionTags(receipt.bill_billing_cycle || "monthly")}</select></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field bill-field-full"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
           <div class="receipt-editor-main-field receipt-editor-toggle-row">
             <input id="receipt-bill-is-recurring-${receipt.id}" type="checkbox" checked />
             <label for="receipt-bill-is-recurring-${receipt.id}">Recurring bill</label>
