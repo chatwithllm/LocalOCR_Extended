@@ -506,6 +506,19 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         rebuild_active_inventory(session)
         session.commit()
 
+    if receipt_record.image_path:
+        try:
+            from src.backend.receipt_filename_index import append_receipt_to_index
+            append_receipt_to_index(
+                image_path=receipt_record.image_path,
+                store=store.name,
+                date=purchase.date,
+                total=purchase.total_amount,
+                purchase_id=purchase.id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Receipt index append failed: %s", exc)
+
     return receipt_record, purchase
 
 
@@ -1106,6 +1119,28 @@ def get_receipt_image(receipt_id):
     if not image_path:
         return jsonify({"error": "Receipt image not found"}), 404
 
+    # Tell the browser to save the file under a human-readable name.
+    download_name = None
+    try:
+        from src.backend.receipt_filename_index import format_receipt_label
+        store_name = None
+        receipt_date = None
+        if purchase:
+            from src.backend.initialize_database_schema import Store
+            if purchase.store_id:
+                store = session.query(Store).filter_by(id=purchase.store_id).first()
+                store_name = store.name if store else None
+            receipt_date = purchase.date
+        download_name = format_receipt_label(
+            store=store_name,
+            date=receipt_date,
+            extension=image_path.suffix,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not derive download filename: %s", exc)
+
+    if download_name:
+        return send_file(image_path, download_name=download_name)
     return send_file(image_path)
 
 
