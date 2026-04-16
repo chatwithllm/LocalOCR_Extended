@@ -7146,6 +7146,93 @@
         color: var(--muted);
       }
 
+      .quick-peek-card {
+        min-width: 260px;
+        max-width: min(360px, 86vw);
+      }
+
+      .quick-peek-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 6px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .quick-peek-stat {
+        display: grid;
+        gap: 1px;
+      }
+
+      .quick-peek-stat__label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      .quick-peek-stat__value {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quick-peek-stat--up .quick-peek-stat__value {
+        color: var(--color-error, #d33);
+      }
+
+      .quick-peek-stat--down .quick-peek-stat__value {
+        color: var(--color-success, #2e9d6e);
+      }
+
+      .quick-peek-section {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .quick-peek-section__label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .quick-peek-merchants {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .quick-peek-merchants li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.88rem;
+      }
+
+      .quick-peek-merchant__name {
+        color: var(--text);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quick-peek-merchant__amount {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        font-weight: 600;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -33107,6 +33194,12 @@
         const periodRows = Object.entries(
           spendData.spending_by_period || {},
         ).sort((a, b) => b[0].localeCompare(a[0]));
+        const receiptsByMonth = receipts.reduce((acc, r) => {
+          const m = (r.date || "").slice(0, 7);
+          if (!m) return acc;
+          (acc[m] = acc[m] || []).push(r);
+          return acc;
+        }, {});
         body.innerHTML = receipts.length
           ? `
     <div style="display:grid;gap:16px">
@@ -33116,15 +33209,49 @@
           periodRows.length
             ? compact
               ? `<div class="month-chip-grid">
-                  ${periodRows.map(([period, values]) => {
+                  ${periodRows.map(([period, values], idx) => {
                     const purchases = values.purchase_count ?? 0;
                     const refunds = values.refund_count ?? 0;
+                    const total = Number(values.total || 0);
                     const meta = `${purchases}p${refunds > 0 ? ` · ${refunds}r` : ""}`;
-                    const fullMeta = `${purchases} purchase${purchases === 1 ? "" : "s"}${refunds > 0 ? ` · ${refunds} refund${refunds === 1 ? "" : "s"}` : ""}`;
+                    const avgTicket = purchases > 0 ? total / purchases : 0;
+                    const refundTotal = Number(values.refund_total ?? values.refunds_total ?? 0);
+                    const monthReceipts = (receiptsByMonth[period] || []);
+                    const merchantTotals = {};
+                    monthReceipts.forEach((r) => {
+                      const k = r.store || "Unknown";
+                      merchantTotals[k] = (merchantTotals[k] || 0) + Math.abs(receiptDisplayTotal(r));
+                    });
+                    const topMerchants = Object.entries(merchantTotals)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 3)
+                      .map(([store, amt]) => ({ store, amount: amt }));
+                    const prev = periodRows[idx + 1];
+                    let deltaPct = null;
+                    let deltaLabel = "";
+                    if (prev) {
+                      const prevTotal = Number(prev[1].total || 0);
+                      if (prevTotal > 0) {
+                        deltaPct = ((total - prevTotal) / prevTotal) * 100;
+                        const arrow = deltaPct >= 0 ? "▲" : "▼";
+                        deltaLabel = `${arrow} ${Math.abs(deltaPct).toFixed(0)}% vs ${formatMonthLabel(prev[0])}`;
+                      }
+                    }
+                    const peekPayload = {
+                      title: formatMonthLabel(period),
+                      amount: formatMoney(total),
+                      stats: [
+                        { label: "Purchases", value: String(purchases) },
+                        ...(refunds > 0 ? [{ label: "Refunds", value: refundTotal ? `${refunds} · ${formatMoney(refundTotal)}` : String(refunds) }] : []),
+                        { label: "Avg ticket", value: formatMoney(avgTicket) },
+                        ...(deltaLabel ? [{ label: "Trend", value: deltaLabel, kind: deltaPct >= 0 ? "up" : "down" }] : []),
+                      ],
+                      topMerchants,
+                    };
                     return `
-                      <button type="button" class="month-chip" title="${escAttr(formatMonthLabel(period) + " · " + fullMeta)}" data-quick-action="${escAttr(formatMonthLabel(period) + "\\n" + fullMeta + "\\n" + formatMoney(values.total))}">
+                      <button type="button" class="month-chip" title="${escAttr(formatMonthLabel(period) + " · " + meta)}" data-quick-action='${escAttr(JSON.stringify(peekPayload))}'>
                         <span class="month-chip__label">${escHtml(formatMonthLabel(period))}</span>
-                        <span class="month-chip__value">${formatMoney(values.total)}</span>
+                        <span class="month-chip__value">${formatMoney(total)}</span>
                         <span class="month-chip__meta">${escHtml(meta)}</span>
                       </button>`;
                   }).join("")}
@@ -33307,20 +33434,53 @@
       function showQuickPeek(text) {
         if (!text) return;
         dismissQuickPeek();
-        const lines = String(text).split("\\n").filter(Boolean);
+        let payload = null;
+        try {
+          payload = JSON.parse(text);
+        } catch (_) {
+          payload = null;
+        }
         const overlay = document.createElement("div");
         overlay.className = "quick-peek-overlay";
         overlay.addEventListener("click", dismissQuickPeek);
         const card = document.createElement("div");
         card.className = "quick-peek-card";
-        const title = lines[0] || "";
-        const amount = lines[2] || "";
-        const meta = lines[1] || "";
-        card.innerHTML = `
-          <h4>${escHtml(title)}</h4>
-          <p class="quick-peek-amount">${escHtml(amount)}</p>
-          <p class="quick-peek-meta">${escHtml(meta)}</p>
-        `;
+
+        if (payload && typeof payload === "object" && (payload.title || payload.amount)) {
+          const statsHtml = (payload.stats || []).map((s) => `
+            <div class="quick-peek-stat${s.kind ? ` quick-peek-stat--${s.kind}` : ""}">
+              <span class="quick-peek-stat__label">${escHtml(s.label)}</span>
+              <span class="quick-peek-stat__value">${escHtml(s.value)}</span>
+            </div>
+          `).join("");
+          const merchantsHtml = (payload.topMerchants || []).length
+            ? `<div class="quick-peek-section">
+                 <div class="quick-peek-section__label">Top merchants</div>
+                 <ul class="quick-peek-merchants">
+                   ${payload.topMerchants.map((m) => `
+                     <li>
+                       <span class="quick-peek-merchant__name" title="${escAttr(m.store)}">${escHtml(m.store)}</span>
+                       <span class="quick-peek-merchant__amount">${escHtml(typeof m.amount === "number" ? formatMoney(m.amount) : m.amount)}</span>
+                     </li>
+                   `).join("")}
+                 </ul>
+               </div>`
+            : "";
+          card.innerHTML = `
+            <h4>${escHtml(payload.title || "")}</h4>
+            <p class="quick-peek-amount">${escHtml(payload.amount || "")}</p>
+            ${statsHtml ? `<div class="quick-peek-stats">${statsHtml}</div>` : ""}
+            ${merchantsHtml}
+            ${payload.note ? `<p class="quick-peek-meta">${escHtml(payload.note)}</p>` : ""}
+          `;
+        } else {
+          const lines = String(text).split("\n").filter(Boolean);
+          card.innerHTML = `
+            <h4>${escHtml(lines[0] || "")}</h4>
+            <p class="quick-peek-amount">${escHtml(lines[2] || "")}</p>
+            <p class="quick-peek-meta">${escHtml(lines[1] || "")}</p>
+          `;
+        }
         overlay.appendChild(card);
         document.body.appendChild(overlay);
         if (navigator.vibrate) navigator.vibrate(15);
