@@ -6868,15 +6868,37 @@
 
       .summary-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 12px;
         padding: 10px 12px;
         border-bottom: 1px solid var(--border);
+        background: transparent;
       }
 
       .summary-row:last-child {
         border-bottom: none;
+      }
+
+      .summary-row.is-tappable {
+        cursor: pointer;
+        border: none;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        transition: background 0.15s;
+      }
+
+      .summary-row.is-tappable:hover,
+      .summary-row.is-tappable:focus-visible {
+        background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+      }
+
+      .summary-row__chevron {
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
       }
 
       .summary-row__main {
@@ -31689,12 +31711,15 @@
               const refundText = item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : "";
               const avgText = item.visits ? ` · Avg ${formatMoney(item.average_ticket)}` : "";
               return `
-                <li class="summary-row">
-                  <div class="summary-row__main">
-                    <div class="summary-row__title">${escHtml(item.store)}</div>
-                    <div class="summary-row__meta">${escHtml(visitText)}${escHtml(refundText)}${escHtml(avgText)}</div>
-                  </div>
-                  <div class="summary-row__value">${formatMoney(item.total)}</div>
+                <li>
+                  <button type="button" class="summary-row is-tappable" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                    <div class="summary-row__main">
+                      <div class="summary-row__title" title="${escAttr(item.store)}">${escHtml(item.store)}</div>
+                      <div class="summary-row__meta">${escHtml(visitText)}${escHtml(refundText)}${escHtml(avgText)}</div>
+                    </div>
+                    <div class="summary-row__value">${formatMoney(item.total)}</div>
+                    <span class="summary-row__chevron" aria-hidden="true">›</span>
+                  </button>
                 </li>`;
             },
           )
