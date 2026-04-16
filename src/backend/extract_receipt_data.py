@@ -1121,6 +1121,9 @@ def _save_receipt_record(
         record.receipt_type = receipt_type
         record.raw_ocr_json = json.dumps(raw_ocr_data) if raw_ocr_data is not None else record.raw_ocr_json
         record.purchase_id = purchase_id
+        # Update deduplication field
+        if file_hash is not None:
+            record.file_hash = file_hash
         # Update error tracking fields
         if error_message is not None:
             record.error_message = error_message
