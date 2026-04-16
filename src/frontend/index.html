@@ -7315,6 +7315,40 @@
         border-top: 1px solid var(--border);
       }
 
+      .budget-action-bar {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px !important;
+        cursor: default !important;
+      }
+
+      .budget-action-btn {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 10px 6px !important;
+        border-radius: 12px;
+        width: 100%;
+        min-height: 56px;
+      }
+
+      .budget-action-btn__icon {
+        font-size: 1.15rem;
+        line-height: 1;
+      }
+
+      .budget-action-btn__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: center;
+        line-height: 1.2;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -13574,30 +13608,30 @@
             class="card budget-editor-card budget-editor-shell"
             id="budget-editor-shell"
           >
-            <div class="budget-editor-header" onclick="toggleBudgetEditor()">
-              <div class="budget-editor-header-left">
-                <span class="budget-editor-chevron">▶</span>
-                <span class="card-title">Set Monthly Budget</span>
-              </div>
+            <div class="budget-editor-header budget-action-bar" onclick="toggleBudgetEditor()">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm"
-                onclick="
-                  event.stopPropagation();
-                  openManualEntryModal();
-                "
+                class="btn btn-ghost btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); toggleBudgetEditor(true)"
               >
-                ✍️ Manual Entry
+                <span class="budget-action-btn__icon">⚙</span>
+                <span class="budget-action-btn__label">Budget</span>
               </button>
               <button
                 type="button"
-                class="btn btn-primary btn-sm"
-                onclick="
-                  event.stopPropagation();
-                  openCashTransactionModal();
-                "
+                class="btn btn-ghost btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); openManualEntryModal()"
               >
-                💸 Log Cash / Transfer
+                <span class="budget-action-btn__icon">✍️</span>
+                <span class="budget-action-btn__label">Manual Entry</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); openCashTransactionModal()"
+              >
+                <span class="budget-action-btn__icon">💸</span>
+                <span class="budget-action-btn__label">Log Cash</span>
               </button>
             </div>
             <div class="budget-editor-body">
