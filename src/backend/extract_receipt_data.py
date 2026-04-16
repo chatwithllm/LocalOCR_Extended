@@ -131,7 +131,8 @@ def process_receipt(image_path: str, source: str = "upload",
                     chat_id: str = None, user_id: int = None,
                     receipt_record_id: int | None = None,
                     receipt_type_hint: str | None = None,
-                    model_config_id: int | None = None) -> dict:
+                    model_config_id: int | None = None,
+                    file_hash: str | None = None) -> dict:
     """Process a receipt image through the hybrid OCR pipeline.
 
     Args:
@@ -139,6 +140,7 @@ def process_receipt(image_path: str, source: str = "upload",
         source: Origin of the receipt — "telegram" or "upload"
         chat_id: Telegram chat ID (only set when source="telegram")
         user_id: ID of the user who uploaded (for audit trail)
+        file_hash: SHA-256 hash of the file for deduplication (optional)
 
     Returns:
         Dictionary with processed receipt data and status.
@@ -183,6 +185,7 @@ def process_receipt(image_path: str, source: str = "upload",
                 receipt_record_id=receipt_record_id,
                 receipt_type=result.get("receipt_type"),
                 raw_ocr_data=None,
+                file_hash=file_hash,
             )
             return result
     finally:
@@ -213,6 +216,7 @@ def process_receipt(image_path: str, source: str = "upload",
                 receipt_record_id=receipt_record_id,
                 receipt_type=result["receipt_type"],
                 raw_ocr_data=ocr_data,
+                file_hash=file_hash,
             )
 
             if source == "telegram" and chat_id:
@@ -231,6 +235,7 @@ def process_receipt(image_path: str, source: str = "upload",
                 receipt_record_id=receipt_record_id,
                 receipt_type=result["receipt_type"],
                 raw_ocr_data=ocr_data,
+                file_hash=file_hash,
             )
 
             if source == "telegram" and chat_id:
@@ -245,6 +250,7 @@ def process_receipt(image_path: str, source: str = "upload",
                 receipt_record_id=receipt_record_id,
                 receipt_type=result["receipt_type"],
                 raw_ocr_data=ocr_data,
+                file_hash=file_hash,
             )
 
             if source == "telegram" and chat_id:

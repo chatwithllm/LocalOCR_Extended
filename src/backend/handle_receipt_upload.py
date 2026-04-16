@@ -747,6 +747,7 @@ def upload_receipt():
             logger.info(f"Retrying failed receipt: {duplicate_info['receipt_id']}")
 
     # Route to hybrid OCR processor
+    # Pass file_hash so it's saved immediately during receipt creation
     try:
         from src.backend.extract_receipt_data import process_receipt
         result = process_receipt(
@@ -755,6 +756,7 @@ def upload_receipt():
             user_id=user_id,
             receipt_type_hint=receipt_type_hint,
             model_config_id=model_config_id,
+            file_hash=file_hash,
         )
 
         status_code = {
@@ -777,18 +779,6 @@ def upload_receipt():
             )
             result["receipt_id"] = failed_receipt_id
             result["can_retry"] = True
-        else:
-            # For successful receipts, save file_hash to the record for deduplication
-            if file_hash:
-                from src.backend.initialize_database_schema import TelegramReceipt
-                # Find the TelegramReceipt record by image_path
-                receipt_record = session.query(TelegramReceipt).filter_by(
-                    image_path=save_path
-                ).order_by(TelegramReceipt.created_at.desc()).first()
-                if receipt_record:
-                    receipt_record.file_hash = file_hash
-                    session.commit()
-                    logger.info(f"Saved file_hash for receipt {receipt_record.id}")
 
         return jsonify(result), status_code
 
