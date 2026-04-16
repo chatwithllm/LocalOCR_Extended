@@ -6196,17 +6196,148 @@
       }
 
       .batch-row {
-        display: grid;
-        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
         border-bottom: 1px solid var(--border);
         min-width: 0;
       }
 
       .batch-row:last-child {
         border-bottom: none;
+      }
+
+      .batch-row__main {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .batch-row--queued .batch-row__main {
+        cursor: default;
+      }
+
+      .batch-row__main:hover {
+        background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+      }
+
+      .batch-row--queued .batch-row__main:hover {
+        background: transparent;
+      }
+
+      .batch-row__chevron {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1;
+        flex: 0 0 auto;
+      }
+
+      .batch-row--expanded {
+        background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+      }
+
+      .batch-row__detail {
+        padding: 12px 16px 14px 56px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in srgb, var(--color-brand) 3%, transparent);
+        display: grid;
+        gap: 8px;
+        animation: batch-detail-fade 0.18s ease-out;
+      }
+
+      @keyframes batch-detail-fade {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .batch-row__detail-headline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-weight: 700;
+      }
+
+      .batch-row__detail-store {
+        font-size: 1rem;
+        color: var(--text);
+      }
+
+      .batch-row__detail-total {
+        font-size: 1.05rem;
+        color: var(--color-success, #2e9d6e);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .batch-row__detail--err .batch-row__detail-total,
+      .batch-row__detail--err .batch-row__detail-headline {
+        color: var(--color-error, #d33);
+      }
+
+      .batch-row__detail--warn .batch-row__detail-headline {
+        color: var(--color-warning, #d97706);
+      }
+
+      .batch-row__detail-meta {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+
+      .batch-row__detail-warning {
+        font-size: 0.78rem;
+        color: var(--color-warning, #d97706);
+        background: color-mix(in srgb, var(--color-warning, #d97706) 10%, transparent);
+        padding: 6px 10px;
+        border-radius: 8px;
+      }
+
+      .batch-row__items {
+        list-style: none;
+        margin: 4px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+        font-size: 0.84rem;
+      }
+
+      .batch-row__items li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 10px;
+        align-items: baseline;
+        color: var(--text);
+      }
+
+      .batch-row__item-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+
+      .batch-row__item-qty {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .batch-row__item-price {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .batch-row__item-more {
+        color: var(--muted);
+        font-style: italic;
+        grid-template-columns: 1fr !important;
+      }
+
+      .batch-row__detail-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .batch-row__check {
@@ -6314,8 +6445,8 @@
       }
 
       @media (max-width: 640px) {
-        .batch-row {
-          grid-template-columns: auto auto minmax(0, 1fr) auto;
+        .batch-row__main {
+          grid-template-columns: auto auto minmax(0, 1fr) auto auto;
           padding: 8px 10px;
           gap: 8px;
         }
@@ -6324,6 +6455,12 @@
         }
         .batch-row__name {
           font-size: 0.88rem;
+        }
+        .batch-row__detail {
+          padding: 10px 12px 12px 38px;
+        }
+        .batch-row__items li {
+          font-size: 0.82rem;
         }
       }
 
@@ -28876,6 +29013,7 @@
       let batchStopRequested = false;
       let currentBatchAbortController = null;
       let batchFileIdCounter = 0;
+      let expandedBatchRowId = null; // single-row inline detail panel
 
       function previewFile(input) {
         // Legacy single-file callers still work — route through the batch.
@@ -29056,6 +29194,102 @@
         return '<span class="batch-row__badge">Queued</span>';
       }
 
+      function toggleBatchRowExpansion(id) {
+        const entry = batchFiles.find((e) => e.id === id);
+        if (!entry) return;
+        // Don't let the user collapse the actively-processing row mid-OCR.
+        if (entry.status === "processing") return;
+        expandedBatchRowId = expandedBatchRowId === id ? null : id;
+        renderBatchList();
+      }
+
+      function renderBatchRowDetail(entry) {
+        if (entry.status === "processing") {
+          return `
+            <div class="batch-row__detail">
+              <div class="batch-row__detail-headline">
+                <span class="spinner spinner-sm"></span>
+                <span>Reading receipt…</span>
+              </div>
+              <div class="batch-row__detail-meta">Plaid OCR is extracting store, total, and line items.</div>
+            </div>`;
+        }
+        if (entry.status === "done" && entry.result) {
+          const r = entry.result;
+          const itemsHtml = (r.items || []).slice(0, 8).map((item) => `
+            <li>
+              <span class="batch-row__item-name">${escHtml(item.name || "Item")}</span>
+              <span class="batch-row__item-qty">×${escHtml(String(item.quantity ?? 1))}</span>
+              <span class="batch-row__item-price">${formatMoney(item.unit_price ?? 0)}</span>
+            </li>
+          `).join("");
+          const overflow = (r.items || []).length > 8
+            ? `<li class="batch-row__item-more">+${r.items.length - 8} more items</li>`
+            : "";
+          const dateLine = r.date ? ` · ${escHtml(r.date)}` : "";
+          const engineLine = r.ocr_engine ? ` · ${escHtml(r.ocr_engine)}` : "";
+          const confLine = r.confidence != null
+            ? ` · ${Math.round((r.confidence || 0) * 100)}% confidence`
+            : "";
+          const openBtn = r.receipt_id
+            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewReceipt(${r.receipt_id})">Open in Receipts</button>`
+            : "";
+          const warningHtml = (r.warnings || []).length
+            ? `<div class="batch-row__detail-warning">${escHtml(r.warnings[0])}</div>`
+            : "";
+          return `
+            <div class="batch-row__detail">
+              <div class="batch-row__detail-headline">
+                <span class="batch-row__detail-store">${escHtml(r.store || "Unknown")}</span>
+                <span class="batch-row__detail-total">${formatMoney(r.total ?? 0)}</span>
+              </div>
+              <div class="batch-row__detail-meta">${escHtml(formatLabel(r.status || "processed", "Processed"))}${dateLine}${engineLine}${confLine}</div>
+              ${warningHtml}
+              ${itemsHtml ? `<ul class="batch-row__items">${itemsHtml}${overflow}</ul>` : '<div class="batch-row__detail-meta">No line items extracted.</div>'}
+              <div class="batch-row__detail-actions">${openBtn}</div>
+            </div>`;
+        }
+        if (entry.status === "error") {
+          return `
+            <div class="batch-row__detail batch-row__detail--err">
+              <div class="batch-row__detail-headline">
+                <span>${escHtml(entry.error || "Upload failed")}</span>
+              </div>
+              <div class="batch-row__detail-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); retryBatchRow(${entry.id})">Retry this file</button>
+              </div>
+            </div>`;
+        }
+        if (entry.status === "cancelled") {
+          return `
+            <div class="batch-row__detail batch-row__detail--warn">
+              <div class="batch-row__detail-headline">
+                <span>${escHtml(entry.error || "Cancelled by user")}</span>
+              </div>
+              <div class="batch-row__detail-meta">Re-tick the checkbox and click Process to retry just this file.</div>
+            </div>`;
+        }
+        return "";
+      }
+
+      async function retryBatchRow(id) {
+        const entry = batchFiles.find((e) => e.id === id);
+        if (!entry) return;
+        if (batchProcessing) {
+          toast("Wait until the current batch finishes", "error");
+          return;
+        }
+        // Deselect everything else, select only this row, then run.
+        batchFiles.forEach((e) => { e.selected = e.id === id; });
+        entry.status = "queued";
+        entry.error = null;
+        entry.result = null;
+        entry.progressPct = 0;
+        renderBatchList();
+        updateUploadButtonState();
+        await uploadReceipt();
+      }
+
       function renderBatchList() {
         const wrap = document.getElementById("batch-controls");
         const list = document.getElementById("batch-list");
@@ -29091,26 +29325,37 @@
                   : "";
             const removeBtn =
               !batchProcessing && interactive
-                ? `<button type="button" class="batch-row__remove" onclick="removeBatchFile(${entry.id})" aria-label="Remove">×</button>`
+                ? `<button type="button" class="batch-row__remove" onclick="event.stopPropagation(); removeBatchFile(${entry.id})" aria-label="Remove">×</button>`
                 : "";
+            const expandable = entry.status !== "queued";
+            const expanded = expandedBatchRowId === entry.id;
+            const detailHtml = expanded ? renderBatchRowDetail(entry) : "";
+            const chevron = expandable
+              ? `<span class="batch-row__chevron" aria-hidden="true">${expanded ? "⌃" : "⌄"}</span>`
+              : "";
             return `
-              <li class="batch-row batch-row--${entry.status}">
-                <input
-                  type="checkbox"
-                  class="batch-row__check"
-                  ${checked}
-                  ${disabled}
-                  onchange="toggleBatchRowSelection(${entry.id}, this.checked)"
-                />
-                <span class="batch-row__icon" aria-hidden="true">${icon}</span>
-                <div class="batch-row__body">
-                  <div class="batch-row__name" title="${escAttr(entry.file.name)}">${escHtml(entry.file.name)}</div>
-                  <div class="batch-row__meta">${sizeMb} MB</div>
-                  ${resultMeta}
-                  ${progressBar}
+              <li class="batch-row batch-row--${entry.status}${expanded ? " batch-row--expanded" : ""}">
+                <div class="batch-row__main"${expandable ? ` onclick="toggleBatchRowExpansion(${entry.id})"` : ""}>
+                  <input
+                    type="checkbox"
+                    class="batch-row__check"
+                    ${checked}
+                    ${disabled}
+                    onclick="event.stopPropagation()"
+                    onchange="toggleBatchRowSelection(${entry.id}, this.checked)"
+                  />
+                  <span class="batch-row__icon" aria-hidden="true">${icon}</span>
+                  <div class="batch-row__body">
+                    <div class="batch-row__name" title="${escAttr(entry.file.name)}">${escHtml(entry.file.name)}</div>
+                    <div class="batch-row__meta">${sizeMb} MB</div>
+                    ${resultMeta}
+                    ${progressBar}
+                  </div>
+                  ${batchStatusBadge(entry)}
+                  ${chevron}
+                  ${removeBtn}
                 </div>
-                ${batchStatusBadge(entry)}
-                ${removeBtn}
+                ${detailHtml}
               </li>`;
           })
           .join("");
@@ -29879,6 +30124,9 @@
           entry.status = "processing";
           entry.error = null;
           entry.progressPct = 35;
+          // Auto-collapse whatever row was open and expand this one so the
+          // user can watch the OCR resolve in place.
+          expandedBatchRowId = entry.id;
           renderBatchList();
           setUploadScanState({
             phase:
@@ -29908,14 +30156,22 @@
             if (ok) {
               entry.status = "done";
               entry.progressPct = 100;
+              const summaryData = data?.data || {};
               entry.result = {
-                store: data?.data?.store || "Unknown",
-                total: data?.data?.total ?? 0,
+                store: summaryData.store || "Unknown",
+                total: summaryData.total ?? 0,
+                date: summaryData.date || null,
+                items: getReceiptItems(data),
                 receipt_id: data?.purchase_id || data?.receipt_id || null,
                 status: data?.status,
+                ocr_engine: data?.ocr_engine || data?.engine || null,
+                confidence: data?.confidence ?? null,
+                warnings: Array.isArray(data?.warnings) ? data.warnings : [],
               };
               okCount++;
               lastResultData = data;
+              // Auto-expand the just-finished row so the user sees what came back.
+              expandedBatchRowId = entry.id;
             } else {
               entry.status = "error";
               entry.error = data?.error || `HTTP ${data ? "" : "?"} failed`;
