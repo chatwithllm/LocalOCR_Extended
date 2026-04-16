@@ -366,8 +366,19 @@ def _resolve_receipt_record(session, receipt_id):
     )
 
 
-def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user_id: int | None):
-    """Create a manual purchase + receipt record so budgets stay accurate without an image."""
+def _create_manual_receipt_entry(
+    session,
+    payload: dict,
+    receipt_type: str,
+    user_id: int | None,
+    source_label: str | None = None,
+    ocr_engine: str = "manual",
+):
+    """Create a purchase + receipt record so budgets stay accurate without an image.
+
+    source_label controls how _receipt_source_label() later reads this row.
+    Pass None for default "manual:<user_id>", or "plaid:<account_id>" for Plaid imports.
+    """
     from src.backend.active_inventory import rebuild_active_inventory
     from src.backend.contribution_scores import validate_low_workflow
     from src.backend.extract_receipt_data import _save_bill_meta
@@ -489,12 +500,12 @@ def _create_manual_receipt_entry(session, payload: dict, receipt_type: str, user
         persisted_items.append(item_data)
 
     receipt_record = TelegramReceipt(
-        telegram_user_id=f"manual:{user_id or 'web'}",
+        telegram_user_id=source_label or f"manual:{user_id or 'web'}",
         message_id=None,
         image_path=None,
         status="processed",
         ocr_confidence=float(sanitized.get("confidence") or 1),
-        ocr_engine="manual",
+        ocr_engine=ocr_engine,
         receipt_type=receipt_type,
         raw_ocr_json=json.dumps(sanitized),
         purchase_id=purchase.id,

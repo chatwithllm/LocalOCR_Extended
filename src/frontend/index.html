@@ -14696,6 +14696,35 @@
               <div class="empty-state"><p>Loading bank connections…</p></div>
             </div>
           </div>
+          <div class="card" id="plaid-review-card">
+            <div class="card-header">
+              <span class="card-title">🧾 Review Imported Transactions</span>
+              <div class="table-toolbar">
+                <select
+                  id="plaid-review-filter"
+                  class="restaurant-period-select"
+                  onchange="loadPlaidStagedTransactions()"
+                >
+                  <option value="ready_to_import" selected>Ready to import</option>
+                  <option value="duplicate_flagged">Possible duplicates</option>
+                  <option value="skipped_pending">Pending / skipped</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+                <button
+                  class="btn btn-ghost btn-sm restaurant-refresh-btn"
+                  onclick="loadPlaidStagedTransactions()"
+                  aria-label="Refresh"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div id="plaid-review-summary" style="color: var(--muted); font-size: 0.84rem; margin-top: 4px"></div>
+            <div id="plaid-review-body" style="margin-top: 12px">
+              <div class="empty-state"><p>Loading review queue…</p></div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-header">
               <span class="card-title">📷 Snapshot Review</span>
@@ -22523,6 +22552,7 @@
             loadAdminAiModels();
             loadAdminAiUsage();
             loadPlaidItems();
+            loadPlaidStagedTransactions();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -23842,12 +23872,16 @@
             <ul class="summary-row-list">
               ${items
                 .map((item) => {
-                  const accounts = (item.accounts || [])
-                    .map(
-                      (acc) =>
-                        `${escHtml(acc.name || acc.official_name || "Account")}${acc.mask ? ` ····${escHtml(acc.mask)}` : ""}`,
-                    )
-                    .join(" · ");
+                  const accountEntries = (item.accounts || []).map((acc) => {
+                    const parts = [];
+                    parts.push(escHtml(acc.name || acc.official_name || "Account"));
+                    if (acc.subtype) parts.push(escHtml(String(acc.subtype).replace(/_/g, " ")));
+                    if (acc.mask) parts.push(`····${escHtml(acc.mask)}`);
+                    return parts.join(" · ");
+                  });
+                  const accountsHtml = accountEntries.length
+                    ? accountEntries.map((line) => `<div>${line}</div>`).join("")
+                    : "<div>No account details</div>";
                   const statusBadge =
                     item.status === "login_required"
                       ? '<span style="color:var(--color-error,#d33);font-weight:700">Login required</span>'
@@ -23855,27 +23889,36 @@
                         ? '<span style="color:var(--color-success,#2e9d6e);font-weight:700">Connected</span>'
                         : `<span style="color:var(--muted)">${escHtml(item.status)}</span>`;
                   const syncLine = `${statusBadge} · Last sync ${escHtml(formatPlaidSyncTime(item.last_sync_at))}`;
+                  const errorLine = item.last_sync_error
+                    ? `<div class="summary-row__meta" style="color:var(--color-error,#d33)">${escHtml(item.last_sync_error)}</div>`
+                    : "";
                   return `
                     <li class="summary-row-host">
-                      <div class="summary-row">
-                        <div class="summary-row__main">
-                          <div class="summary-row__title" title="${escAttr(item.institution_name || "Institution")}">${escHtml(item.institution_name || "Institution")}</div>
-                          <div class="summary-row__meta">${accounts || "No account details"}</div>
-                          <div class="summary-row__meta">${syncLine}</div>
-                        </div>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-                          ${
-                            item.status === "login_required"
-                              ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
-                              : ""
-                          }
-                          <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
+                      <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;width:100%">
+                          <div style="min-width:0;flex:1 1 auto">
+                            <div class="summary-row__title" title="${escAttr(item.institution_name || "Institution")}">${escHtml(item.institution_name || "Institution")}</div>
+                            <div class="summary-row__meta">${accountsHtml}</div>
+                            <div class="summary-row__meta">${syncLine}</div>
+                            ${errorLine}
+                          </div>
+                          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
+                            ${
+                              item.status === "login_required"
+                                ? `<button type="button" class="btn btn-primary btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
+                                : `<button type="button" class="btn btn-ghost btn-sm" onclick="syncPlaidItem(${item.id})">Sync Now</button>`
+                            }
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
+                          </div>
                         </div>
                       </div>
                     </li>`;
                 })
                 .join("")}
-            </ul>`;
+            </ul>
+            <p style="color:var(--muted);font-size:0.8rem;margin-top:10px">
+              To add another bank or credit card, click <strong>Connect Bank</strong> above. Each institution is a separate connection; disconnecting one leaves the others untouched.
+            </p>`;
         } catch (err) {
           console.error("loadPlaidItems failed", err);
           body.innerHTML =
@@ -23966,9 +24009,179 @@
           }
           toast("Bank disconnected", "success");
           await loadPlaidItems();
+          await loadPlaidStagedTransactions();
         } catch (err) {
           console.error("disconnectPlaidItem failed", err);
           toast("Could not disconnect bank", "error");
+        }
+      }
+
+      async function syncPlaidItem(itemId) {
+        const connectBtn = document.getElementById("plaid-connect-btn");
+        if (connectBtn) connectBtn.disabled = true;
+        toast("Syncing transactions…", "info");
+        try {
+          const res = await api(`/plaid/items/${itemId}/sync`, { method: "POST" });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Sync failed", "error");
+          } else {
+            const parts = [];
+            if (payload.added) parts.push(`${payload.added} new`);
+            if (payload.modified) parts.push(`${payload.modified} updated`);
+            if (payload.removed) parts.push(`${payload.removed} removed`);
+            const summary = parts.length ? parts.join(" · ") : "no changes";
+            toast(`Sync complete (${summary})`, "success");
+          }
+        } catch (err) {
+          console.error("syncPlaidItem failed", err);
+          toast("Sync failed", "error");
+        } finally {
+          if (connectBtn) connectBtn.disabled = false;
+          await loadPlaidItems();
+          await loadPlaidStagedTransactions();
+        }
+      }
+
+      function formatPlaidStagedTitle(staged) {
+        return staged.merchant_name || staged.name || "Unknown merchant";
+      }
+
+      async function loadPlaidStagedTransactions() {
+        const body = document.getElementById("plaid-review-body");
+        const summary = document.getElementById("plaid-review-summary");
+        const filterEl = document.getElementById("plaid-review-filter");
+        if (!body) return;
+        const status = filterEl?.value || "ready_to_import";
+        if (!currentUser) {
+          body.innerHTML = '<div class="empty-state"><p>Sign in to review imported transactions.</p></div>';
+          if (summary) summary.textContent = "";
+          return;
+        }
+        try {
+          const res = await api(`/plaid/staged-transactions?status=${encodeURIComponent(status)}`);
+          if (!res.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load review queue.</p></div>';
+            if (summary) summary.textContent = "";
+            return;
+          }
+          const payload = await res.json();
+          const counts = payload.counts || {};
+          if (summary) {
+            const parts = [];
+            if (counts.ready_to_import) parts.push(`${counts.ready_to_import} ready`);
+            if (counts.duplicate_flagged) parts.push(`${counts.duplicate_flagged} possible duplicate${counts.duplicate_flagged === 1 ? "" : "s"}`);
+            if (counts.skipped_pending) parts.push(`${counts.skipped_pending} pending`);
+            if (counts.confirmed) parts.push(`${counts.confirmed} confirmed`);
+            summary.textContent = parts.length
+              ? parts.join(" · ")
+              : "No Plaid transactions staged yet. Connect a bank above and sync.";
+          }
+          const rows = payload.staged_transactions || [];
+          if (!rows.length) {
+            body.innerHTML = `<div class="empty-state"><p>Nothing to review in this view.</p></div>`;
+            return;
+          }
+          body.innerHTML = `
+            <ul class="summary-row-list">
+              ${rows
+                .map((row) => {
+                  const isRefund = Number(row.amount) < 0;
+                  const amountStr = `${isRefund ? "-" : ""}${formatMoney(Math.abs(Number(row.amount || 0)))}`;
+                  const dateStr = row.transaction_date ? formatPrettyDate(row.transaction_date) : "—";
+                  const typeLabel = row.suggested_receipt_type ? formatLabel(row.suggested_receipt_type, "Unknown") : "—";
+                  const categoryLabel = row.plaid_category_primary || "Uncategorized";
+                  const institutionLabel = row.institution_name ? ` · ${escHtml(row.institution_name)}` : "";
+                  const pendingLabel = row.pending ? ' · <span style="color:var(--warning,#d97706)">pending</span>' : "";
+                  const dupLabel = row.status === "duplicate_flagged" && row.duplicate_purchase_id
+                    ? ` · <span style="color:var(--warning,#d97706)">duplicate of receipt #${row.duplicate_purchase_id}</span>`
+                    : "";
+                  const actionButtons = ["confirmed", "dismissed"].includes(row.status)
+                    ? ""
+                    : `
+                      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="confirmPlaidStaged(${row.id})">Confirm</button>
+                        ${row.status !== "duplicate_flagged" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="flagPlaidStagedDuplicate(${row.id})">Duplicate</button>` : ""}
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="dismissPlaidStaged(${row.id})">Dismiss</button>
+                      </div>`;
+                  return `
+                    <li class="summary-row-host" style="align-items:stretch">
+                      <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:6px">
+                        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+                          <div class="summary-row__title" title="${escAttr(formatPlaidStagedTitle(row))}">${escHtml(formatPlaidStagedTitle(row))}</div>
+                          <div class="summary-row__value" style="color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"}">${amountStr}</div>
+                        </div>
+                        <div class="summary-row__meta">
+                          ${escHtml(dateStr)} · ${escHtml(typeLabel)} · ${escHtml(categoryLabel)}${institutionLabel}${pendingLabel}${dupLabel}
+                        </div>
+                        ${actionButtons}
+                      </div>
+                    </li>`;
+                })
+                .join("")}
+            </ul>`;
+        } catch (err) {
+          console.error("loadPlaidStagedTransactions failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load review queue.</p></div>';
+        }
+      }
+
+      async function confirmPlaidStaged(stagedId) {
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}/confirm`, {
+            method: "POST",
+            body: JSON.stringify({}),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not confirm transaction", "error");
+            return;
+          }
+          toast("Receipt imported ✅", "success");
+          await loadPlaidStagedTransactions();
+        } catch (err) {
+          console.error("confirmPlaidStaged failed", err);
+          toast("Could not confirm transaction", "error");
+        }
+      }
+
+      async function dismissPlaidStaged(stagedId) {
+        if (!confirm("Dismiss this transaction? It won't appear in the review queue again.")) {
+          return;
+        }
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}/dismiss`, {
+            method: "POST",
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not dismiss transaction", "error");
+            return;
+          }
+          toast("Dismissed", "success");
+          await loadPlaidStagedTransactions();
+        } catch (err) {
+          console.error("dismissPlaidStaged failed", err);
+          toast("Could not dismiss transaction", "error");
+        }
+      }
+
+      async function flagPlaidStagedDuplicate(stagedId) {
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}/flag-duplicate`, {
+            method: "POST",
+            body: JSON.stringify({}),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not flag as duplicate", "error");
+            return;
+          }
+          toast("Flagged as duplicate", "success");
+          await loadPlaidStagedTransactions();
+        } catch (err) {
+          console.error("flagPlaidStagedDuplicate failed", err);
+          toast("Could not flag as duplicate", "error");
         }
       }
 

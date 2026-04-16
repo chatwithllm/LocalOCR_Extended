@@ -63,10 +63,20 @@ def start_recommendation_scheduler():
         name="Low-Stock Threshold Check",
     )
 
+    # Hourly Plaid transaction sync for active items (skips when Plaid is unconfigured).
+    _scheduler.add_job(
+        _run_plaid_sync,
+        trigger="interval",
+        hours=1,
+        id="plaid_transaction_sync",
+        name="Plaid Transaction Sync",
+    )
+
     _scheduler.start()
     logger.info(
         f"Schedulers started — recommendations daily at {RECOMMENDATION_TIME}, "
-        f"threshold checks every 5 min, image cleanup Sundays at 3 AM"
+        f"threshold checks every 5 min, image cleanup Sundays at 3 AM, "
+        f"Plaid sync hourly"
     )
 
 
@@ -117,6 +127,15 @@ def _run_threshold_check():
         check_all_thresholds()
     except Exception as e:
         logger.error(f"Threshold check failed: {e}")
+
+
+def _run_plaid_sync():
+    """Hourly Plaid sync; no-ops gracefully when Plaid is not configured."""
+    try:
+        from src.backend.plaid_integration import run_scheduled_plaid_sync
+        run_scheduled_plaid_sync()
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Plaid scheduled sync failed: {e}")
 
 
 def stop_recommendation_scheduler():
