@@ -32933,27 +32933,25 @@
         ${
           periodRows.length
             ? compact
-              ? renderMobileMetricCards(
-                  periodRows.map(([period, values]) => ({
-                    title: period,
-                    value: formatMoney(values.total),
-                    meta: formatPeriodBreakdownMeta(values),
-                    cells: [
-                      {
-                        label: "Purchases",
-                        value: String(values.purchase_count ?? 0),
-                      },
-                      {
-                        label: "Refunds",
-                        value: String(values.refund_count ?? 0),
-                      },
-                      { label: "Net", value: formatMoney(values.total) },
-                    ],
-                  })),
-                )
+              ? `<ul class="summary-row-list">
+                  ${periodRows.map(([period, values]) => {
+                    const purchases = values.purchase_count ?? 0;
+                    const refunds = values.refund_count ?? 0;
+                    const purchaseLabel = `${purchases} purchase${purchases === 1 ? "" : "s"}`;
+                    const refundLabel = refunds > 0 ? ` · ${refunds} refund${refunds === 1 ? "" : "s"}` : "";
+                    return `
+                      <li class="summary-row">
+                        <div class="summary-row__main">
+                          <div class="summary-row__title">${escHtml(formatMonthLabel(period))}</div>
+                          <div class="summary-row__meta">${escHtml(purchaseLabel)}${escHtml(refundLabel)}</div>
+                        </div>
+                        <div class="summary-row__value">${formatMoney(values.total)}</div>
+                      </li>`;
+                  }).join("")}
+                </ul>`
               : `<table>
                   <thead><tr><th>Month</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
-                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join("")}</tbody>
+                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(formatMonthLabel(period))}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join("")}</tbody>
                 </table>`
             : '<div class="empty-state"><p>No expense spending data yet.</p></div>'
         }
