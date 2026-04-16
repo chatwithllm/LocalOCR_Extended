@@ -7233,6 +7233,25 @@
         font-weight: 600;
       }
 
+      .receipt-failed-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        border: 1px solid color-mix(in srgb, var(--color-warning, #d97706) 28%, transparent);
+        background: color-mix(in srgb, var(--color-warning, #d97706) 8%, transparent);
+        border-radius: 10px;
+        font-size: 0.82rem;
+        color: var(--text);
+      }
+
+      .receipt-failed-banner > span {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -29463,9 +29482,30 @@
         const receiptSortEl = document.getElementById("receipt-sort");
         if (receiptSortEl && receiptSortEl.value !== receiptSort)
           receiptSortEl.value = receiptSort;
-        if (!receipts.length) {
-          body.innerHTML =
-            '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+
+        const statusFilter = (document.getElementById("receipt-filter-status")?.value || "").toLowerCase();
+        const failedReceipts = receipts.filter((r) => (r.status || "").toLowerCase() === "failed");
+        const visibleReceipts =
+          statusFilter === "failed"
+            ? receipts
+            : receipts.filter((r) => {
+                const status = (r.status || "").toLowerCase();
+                if (status === "failed") return false;
+                const hasData = (r.store && r.store.trim()) || receiptDisplayTotal(r) || r.purchase_id;
+                return Boolean(hasData);
+              });
+        const failedBannerHtml =
+          failedReceipts.length && statusFilter !== "failed"
+            ? `<div class="receipt-failed-banner">
+                 <span>${failedReceipts.length} OCR failure${failedReceipts.length === 1 ? "" : "s"} hidden</span>
+                 <button type="button" class="btn btn-ghost btn-sm" onclick="showFailedReceiptsFilter()">View failed</button>
+               </div>`
+            : "";
+
+        if (!visibleReceipts.length) {
+          body.innerHTML = failedReceipts.length && statusFilter !== "failed"
+            ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
+            : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
@@ -29477,14 +29517,14 @@
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
-          body.innerHTML = renderCompactReceiptRows(receipts, {
+          body.innerHTML = failedBannerHtml + renderCompactReceiptRows(visibleReceipts, {
             includeDelete: true,
           });
         } else {
           if (detailCard) detailCard.style.display = "none";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.add("receipts-inline-mode");
-          const availableReceiptIds = receipts
+          const availableReceiptIds = visibleReceipts
             .map((r) => Number(r.purchase_id || r.id))
             .filter(Boolean);
           const targetReceiptId = availableReceiptIds.includes(
@@ -29492,7 +29532,7 @@
           )
             ? Number(selectedReceiptId)
             : null;
-          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+          body.innerHTML = failedBannerHtml + renderReceiptsAsResultCards(visibleReceipts, {
             includeDelete: true,
             inlineDetail: true,
             targetId: targetReceiptId,
@@ -33533,6 +33573,12 @@
           showQuickPeek(e.target.closest("[data-quick-action]").getAttribute("data-quick-action"));
         }
       });
+
+      function showFailedReceiptsFilter() {
+        const select = document.getElementById("receipt-filter-status");
+        if (select) select.value = "failed";
+        loadReceipts();
+      }
 
       function repositionExpenseDetailForMobile() {
         const detailCard = document
