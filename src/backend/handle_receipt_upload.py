@@ -607,9 +607,11 @@ def _compute_file_hash(file_path: str) -> str:
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 sha256.update(chunk)
-        return sha256.hexdigest()
+        hash_value = sha256.hexdigest()
+        logger.debug(f"Computed hash {hash_value} for file {file_path}")
+        return hash_value
     except Exception as e:
-        logger.warning(f"Failed to compute file hash for {file_path}: {e}")
+        logger.error(f"Failed to compute file hash for {file_path}: {e}", exc_info=True)
         return ""
 
 
@@ -621,6 +623,7 @@ def _check_for_duplicate(file_hash: str, session) -> dict | None:
         - Dict with existing receipt info if duplicate found (processed or failed)
     """
     if not file_hash:
+        logger.debug("Skipping duplicate check: empty file_hash")
         return None
 
     from src.backend.initialize_database_schema import TelegramReceipt
@@ -632,8 +635,10 @@ def _check_for_duplicate(file_hash: str, session) -> dict | None:
     )
 
     if not existing:
+        logger.debug(f"No duplicate found for hash {file_hash[:16]}...")
         return None
 
+    logger.info(f"Duplicate found! Receipt {existing.id} with status={existing.status}")
     return {
         "receipt_id": existing.id,
         "status": existing.status,
@@ -729,9 +734,12 @@ def upload_receipt():
     # Compute file hash for deduplication
     session = g.db_session
     file_hash = _compute_file_hash(save_path)
+    logger.info(f"Computed file_hash: {file_hash[:16]}... for {save_path}")
 
     # Check for duplicate receipts
     duplicate_info = _check_for_duplicate(file_hash, session)
+    if file_hash:
+        logger.info(f"Duplicate check result: {duplicate_info}")
     if duplicate_info:
         if duplicate_info["status"] == "processed" or duplicate_info["purchase_id"]:
             logger.info(f"Duplicate receipt detected: {duplicate_info['receipt_id']}")
