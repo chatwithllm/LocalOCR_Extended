@@ -39,6 +39,7 @@ EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8090/health || exit 1
 
-# Run the application — applies any pending migrations first so a fresh
-# deployment picks up schema changes without a manual `alembic upgrade head`.
-CMD ["sh", "-c", "alembic upgrade head && exec python -m src.backend.create_flask_application"]
+# Run the application via the entrypoint script, which safely auto-applies
+# Alembic migrations (only when the DB is fresh or tracked; skips with a
+# warning for legacy DBs that were bootstrapped by create_all()).
+CMD ["/app/scripts/docker-entrypoint.sh"]
