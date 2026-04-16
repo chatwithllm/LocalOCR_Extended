@@ -804,25 +804,100 @@ All configuration is read from `.env`. The file is safe to copy from `.env.examp
 
 The app stores some sensitive values in the database (e.g. user-supplied AI provider API keys, Plaid access tokens on the `plaid-api-integration` branch). These are encrypted at rest using the [`cryptography.fernet.Fernet`](https://cryptography.io/en/latest/fernet/) symmetric cipher. The key is read from the `FERNET_SECRET_KEY` environment variable at startup.
 
-**Generate once per environment:**
+#### Generate the key
+
+You need the Python `cryptography` library to generate a key. Pick whichever path matches your setup.
+
+##### Easiest: use the running container (works on any OS)
+
+The container already has `cryptography` installed. From any host with Docker:
 
 ```bash
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+docker exec localocr-extended-backend \
+    python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-You'll get a 44-character base64-url-safe key like `xK3Qm9Lp8WnRtV2YuB5fH7jKzAxNcDeEgF1iJoMqRsU=`. Paste it into your `.env`:
+This prints a 44-character base64-url-safe key like `xK3Qm9Lp8WnRtV2YuB5fH7jKzAxNcDeEgF1iJoMqRsU=`. Copy it into your `.env`:
 
 ```
 FERNET_SECRET_KEY=xK3Qm9Lp8WnRtV2YuB5fH7jKzAxNcDeEgF1iJoMqRsU=
 ```
 
-Then restart the container (`docker compose up -d --force-recreate backend`).
+Then restart so the new env var loads:
 
-**Verify it loaded:**
+```bash
+docker compose up -d --force-recreate backend
+```
+
+##### Generating from your host (per OS)
+
+If you'd rather generate without going through the container — for example, if you're setting up `.env` before the first `docker compose up` — install `cryptography` locally and run the same one-liner.
+
+**macOS** (Python 3 ships with the OS; `pip3` works out of the box):
+
+```bash
+pip3 install --user cryptography
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+If you use Homebrew Python (`brew install python`), the command is identical. If you hit `error: externally-managed-environment` on newer macOS Pythons, prefer a virtualenv:
+
+```bash
+python3 -m venv /tmp/fernet && source /tmp/fernet/bin/activate
+pip install cryptography
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+deactivate
+```
+
+**Linux — Debian / Ubuntu:**
+
+```bash
+sudo apt install -y python3-cryptography
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Or with pip in a venv:
+
+```bash
+sudo apt install -y python3-venv
+python3 -m venv /tmp/fernet && source /tmp/fernet/bin/activate
+pip install cryptography
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+deactivate
+```
+
+**Linux — Fedora / RHEL / Rocky / Alma:**
+
+```bash
+sudo dnf install -y python3-cryptography
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+**Linux — Arch:**
+
+```bash
+sudo pacman -S python-cryptography
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+**Windows (PowerShell or cmd, with Python from [python.org](https://www.python.org/downloads/) or the Microsoft Store):**
+
+```powershell
+pip install cryptography
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+In **Windows Subsystem for Linux (WSL)**, follow the matching Linux distro instructions.
+
+**No Python at all and don't want to install one?** Use the container approach above — it's a single `docker exec` and works identically on every OS.
+
+#### Verify it loaded
 
 ```bash
 docker exec localocr-extended-backend printenv FERNET_SECRET_KEY
 ```
+
+Should print the key. If it prints nothing, the env var didn't load — make sure you used `docker compose up -d --force-recreate backend` and not just `docker restart`, since `docker restart` keeps the original env.
 
 #### What the key encrypts
 
