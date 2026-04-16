@@ -6876,9 +6876,12 @@
         font-size: 0.95rem;
         color: var(--text);
         min-width: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        word-break: break-word;
       }
 
       .summary-row__meta {
@@ -30535,7 +30538,7 @@
         (item) => `
       <li class="summary-row">
         <div class="summary-row__main">
-          <div class="summary-row__title">${escHtml(item.name || "Unknown")}</div>
+          <div class="summary-row__title" title="${escAttr(item.name || "Unknown")}">${escHtml(item.name || "Unknown")}</div>
           <div class="summary-row__meta">Qty ${escHtml(String(item.quantity ?? 0))} · ${escHtml(averageLabel)} ${formatMoney(item.average_price || 0)}</div>
         </div>
         <div class="summary-row__value">${formatMoney(item.total || 0)}</div>
