@@ -30767,6 +30767,7 @@
         if (!receipts.length)
           return '<div class="empty-state"><p>No receipts yet.</p></div>';
         const includeDelete = options.includeDelete !== false;
+        const onClick = options.onClick || ((id) => `viewReceipt(${id})`);
         return `<ul class="summary-row-list">
     ${receipts
       .map((receipt) => {
@@ -30776,7 +30777,7 @@
         const txnPart = receipt.transaction_type ? ` · ${formatReceiptTransactionLabel(receipt.transaction_type)}` : "";
         return `
       <li class="summary-row-host">
-        <button type="button" class="summary-row is-tappable" onclick="viewReceipt(${id})">
+        <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}">
           <div class="summary-row__main">
             <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
@@ -33023,7 +33024,10 @@
         <div class="card-header" style="margin-bottom:12px">
           <span class="card-title">Recent General Expenses</span>
         </div>
-        ${renderCompactReceiptRows(receipts.slice(0, 12), { includeDelete: false })}
+        ${renderCompactReceiptRows(receipts.slice(0, 12), {
+          includeDelete: false,
+          onClick: (id) => `viewExpenseReceiptDetail(${id})`,
+        })}
       </div>
     </div>
   `
@@ -33188,6 +33192,10 @@
         }
         const receipt = await res.json();
         renderExpenseReceiptDetail(receipt);
+        const detailEl = document.getElementById("expense-detail-body");
+        if (detailEl && isCompactMobileReceiptView()) {
+          detailEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }
 
       // ============================================================
