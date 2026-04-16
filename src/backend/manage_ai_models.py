@@ -150,6 +150,27 @@ def _normalize_required_text(value, *, field_name: str) -> str:
     return cleaned
 
 
+def _validate_api_key_format(provider: str, api_key: str) -> None:
+    """Reject obviously malformed API keys before encrypting and storing them.
+
+    Catches paste mistakes like a doubled ``sk-or-sk-`` prefix, which OpenRouter
+    later rejects with a misleading "Missing Authentication header" 401 that is
+    very hard to diagnose after the fact.
+    """
+    provider_name = str(provider or "").strip().lower()
+    if provider_name == "openrouter":
+        if "sk-or-sk-" in api_key:
+            raise ValueError(
+                "OpenRouter API key looks duplicated (contains 'sk-or-sk-'). "
+                "Clear the field and paste the key once — it should start with 'sk-or-v1-'."
+            )
+        if not api_key.startswith("sk-or-"):
+            raise ValueError(
+                "OpenRouter API key must start with 'sk-or-v1-'. "
+                "Copy it from https://openrouter.ai/settings/keys."
+            )
+
+
 def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id: int | None, creating: bool) -> AIModelConfig:
     name = _normalize_required_text(payload.get("name"), field_name="name")
     provider = _normalize_required_text(payload.get("provider"), field_name="provider").lower()
@@ -212,8 +233,10 @@ def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id:
     clear_stored_key = _normalize_bool(payload.get("clear_stored_key", False), field_name="clear_stored_key")
     if credential_mode == "stored_key":
         if stored_api_key is not None and str(stored_api_key).strip():
+            cleaned_api_key = str(stored_api_key).strip()
+            _validate_api_key_format(provider, cleaned_api_key)
             try:
-                model.api_key_encrypted = encrypt_api_key(str(stored_api_key).strip())
+                model.api_key_encrypted = encrypt_api_key(cleaned_api_key)
             except ValueError as exc:
                 msg = str(exc)
                 if "FERNET_SECRET_KEY" in msg:

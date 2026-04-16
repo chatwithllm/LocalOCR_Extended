@@ -39,5 +39,6 @@ EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8090/health || exit 1
 
-# Run the application
-CMD ["python", "-m", "src.backend.create_flask_application"]
+# Run the application — applies any pending migrations first so a fresh
+# deployment picks up schema changes without a manual `alembic upgrade head`.
+CMD ["sh", "-c", "alembic upgrade head && exec python -m src.backend.create_flask_application"]
