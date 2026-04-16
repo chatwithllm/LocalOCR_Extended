@@ -21787,7 +21787,10 @@
             loadRecs("shopping-recs-body");
         }
         if (page === "restaurant") loadRestaurant();
-        if (page === "expenses") loadExpenses();
+        if (page === "expenses") {
+          loadExpenses();
+          repositionExpenseDetailForMobile();
+        }
         if (page === "budget") {
           setDefaultMonth();
           loadBudgetStatus();
@@ -24929,6 +24932,7 @@
         }
         applyDesktopSidebarPreference();
         applyReceiptFilterLayout();
+        repositionExpenseDetailForMobile();
       });
 
       function toggleTokenVis() {
@@ -33183,6 +33187,21 @@
     </div>`;
       }
 
+      function repositionExpenseDetailForMobile() {
+        const detailCard = document
+          .getElementById("expense-detail-body")
+          ?.closest(".card");
+        const expensesBody = document.getElementById("expenses-body");
+        if (!detailCard || !expensesBody) return;
+        const expensesCard = expensesBody.closest(".card");
+        if (!expensesCard) return;
+        if (isCompactMobileReceiptView()) {
+          if (detailCard.previousElementSibling !== expensesCard) {
+            expensesCard.insertAdjacentElement("afterend", detailCard);
+          }
+        }
+      }
+
       async function viewExpenseReceiptDetail(id) {
         selectedExpenseReceiptId = Number(id);
         const res = await api(`/receipts/${id}`);
@@ -33192,9 +33211,12 @@
         }
         const receipt = await res.json();
         renderExpenseReceiptDetail(receipt);
-        const detailEl = document.getElementById("expense-detail-body");
-        if (detailEl && isCompactMobileReceiptView()) {
-          detailEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        repositionExpenseDetailForMobile();
+        const detailCard = document
+          .getElementById("expense-detail-body")
+          ?.closest(".card");
+        if (detailCard && isCompactMobileReceiptView()) {
+          detailCard.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
 
