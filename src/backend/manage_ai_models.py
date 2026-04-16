@@ -166,6 +166,17 @@ def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id:
             f"credential_mode must be one of: {', '.join(sorted(VALID_CREDENTIAL_MODES))}"
         )
 
+    # Server-side safety net for the most common mistake: an admin pastes a key
+    # into the form but leaves credential_mode at the default "env". Without
+    # this, the key is silently dropped and the model stays unconfigured.
+    raw_api_key = payload.get("api_key")
+    if (
+        credential_mode == "env"
+        and raw_api_key is not None
+        and str(raw_api_key).strip()
+    ):
+        credential_mode = "stored_key"
+
     model.name = name
     model.provider = provider
     model.model_string = model_string
@@ -201,7 +212,17 @@ def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id:
     clear_stored_key = _normalize_bool(payload.get("clear_stored_key", False), field_name="clear_stored_key")
     if credential_mode == "stored_key":
         if stored_api_key is not None and str(stored_api_key).strip():
-            model.api_key_encrypted = encrypt_api_key(str(stored_api_key).strip())
+            try:
+                model.api_key_encrypted = encrypt_api_key(str(stored_api_key).strip())
+            except ValueError as exc:
+                msg = str(exc)
+                if "FERNET_SECRET_KEY" in msg:
+                    raise ValueError(
+                        "Cannot store API key: FERNET_SECRET_KEY is not set on the server. "
+                        "Generate one with `python -c \"from cryptography.fernet import Fernet; "
+                        "print(Fernet.generate_key().decode())\"`, add it to .env, and restart the container."
+                    ) from exc
+                raise
         elif creating and not (model.api_key_encrypted or "").strip():
             raise ValueError("api_key is required when credential_mode is stored_key")
         elif clear_stored_key:
@@ -495,6 +516,35 @@ def update_admin_model(model_id: int):
         return jsonify({"error": "Model not found"}), 404
 
     payload = request.get_json(silent=True) or {}
+    incoming_provider = (
+        str(payload.get("provider") or model.provider or "").strip().lower()
+    )
+    incoming_model_string = (
+        str(payload.get("model_string") or model.model_string or "").strip()
+    )
+    # Pre-flight conflict check BEFORE we mutate `model`, otherwise the
+    # autoflush triggered by the conflict query writes the new values and
+    # SQLite raises an IntegrityError that bubbles as a 500.
+    if incoming_provider and incoming_model_string:
+        with g.db_session.no_autoflush:
+            conflict = (
+                g.db_session.query(AIModelConfig)
+                .filter(
+                    AIModelConfig.provider == incoming_provider,
+                    AIModelConfig.model_string == incoming_model_string,
+                    AIModelConfig.id != model.id,
+                )
+                .first()
+            )
+        if conflict:
+            return jsonify({
+                "error": (
+                    f"Another row already uses provider '{incoming_provider}' + "
+                    f"model '{incoming_model_string}' (id={conflict.id}). "
+                    "Edit that row directly, or pick a different model string here."
+                ),
+            }), 409
+
     try:
         _apply_admin_model_payload(
             model,
@@ -502,21 +552,14 @@ def update_admin_model(model_id: int):
             actor_id=getattr(actor, "id", None),
             creating=False,
         )
-        conflict = (
-            g.db_session.query(AIModelConfig)
-            .filter(
-                AIModelConfig.provider == model.provider,
-                AIModelConfig.model_string == model.model_string,
-                AIModelConfig.id != model.id,
-            )
-            .first()
-        )
-        if conflict:
-            return jsonify({"error": "Another model already uses this provider and model string"}), 409
         g.db_session.commit()
     except ValueError as exc:
         g.db_session.rollback()
         return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # noqa: BLE001
+        g.db_session.rollback()
+        logger.exception("Failed to update AI model %s: %s", model.id, exc)
+        return jsonify({"error": "Could not save model. Check server logs."}), 500
 
     logger.info("Admin %s updated AI model %s", getattr(actor, "id", None), model.id)
     return jsonify({
