@@ -939,16 +939,22 @@ The entire SPA is in `src/frontend/index.html`. It's served statically by Flask 
 
 ## Recent UI/UX Phases
 
-Development on the `ui-ux-enhancement` branch follows a phased approach:
-
-| Phase | Focus | Highlights |
+| Phase | Branch | Highlights |
 |---|---|---|
-| **Phase 1** | Design tokens & typography | Custom-property tokens · Fraunces + Manrope · spacing/radius/shadow/motion scales |
-| **Phase 2** | Component polish | Buttons · inputs · cards · modals · focus states · soft color variants |
-| **Phase 3** | Interaction & motion | Micro-interactions · view transitions · loading states · swipe-bought |
-| **Phase 4** | Mobile experience | Two-card dashboard · collapsible search · bottom-sheet modals · password eye toggle · Kitchen Display scope |
-| **Phase 4 rev 1** | Log Cash / Transfer polish | Dark-mode safe payment inputs · cleaner payee selection |
-| **Phase 4 rev 2** | Apple-style payee picker | Native-feeling picker · accessibility · touch targets |
+| **Phase 1-4** | `ui-ux-enhancement` | Design tokens, component polish, micro-interactions, mobile experience |
+| **Phase 5** | `apple-design-system` | Apple HIG-inspired design system — SF Pro, Apple Blue, cinematic canvas duality, 5-phase rollout (merged PR #3) |
+| **Phase 6** | `mobile-cosmetic-polish` | Full mobile polish pass — compact headers, iOS-style row lists, chip grids with 3D-Touch peek, bill auto-pay + due-date accrual rollup, non-destructive Re-run OCR, failed-receipt auto-cleanup (merged PR #4) |
+
+### Phase 6 Highlights (mobile-cosmetic-polish)
+
+**Bill & Payment Workflow:**
+Bill dates separated into Statement / Due / Paid with auto-pay toggle, backend sweep, and accrual rollup by due-date month. Multi-service utility bills categorize correctly. OCR prompt expanded for due-date synonyms and auto-pay detection. Re-run OCR is non-destructive on failure. Failed receipts auto-prune on next successful upload.
+
+**Shared Components:**
+`.summary-row-list` (unified tappable list), `.month-chip` with `data-quick-action` long-press peek, `renderCompactReceiptRows()` with configurable click handler, `formatPrettyDate()` for consistent "Apr 14, 2026" dates across all views.
+
+**Per-Page Polish:**
+Every page (Dashboard, Receipts, Upload, Restaurant, Expenses, Shopping, Budget, Bills, Inventory) received mobile-specific compaction: compact headers (82 to 48px), 2-column filter grids, iOS-style receipt/store/merchant row lists, tighter stat cards, inline refresh buttons, and consistent micro-cap label styling.
 
 ---
 
