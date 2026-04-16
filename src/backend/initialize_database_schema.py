@@ -579,6 +579,10 @@ class TelegramReceipt(Base):
     receipt_type = Column(String(30), nullable=True)
     raw_ocr_json = Column(Text, nullable=True)
     purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)  # SHA-256 hash for deduplication
+    error_message = Column(Text, nullable=True)  # Store OCR/validation failure reason
+    retry_count = Column(Integer, default=0)  # Track reprocess attempts
+    last_reprocessed_at = Column(DateTime, nullable=True)  # Timestamp of last retry
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

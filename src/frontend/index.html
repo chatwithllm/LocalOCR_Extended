@@ -29193,6 +29193,12 @@
         if (entry.status === "error") {
           return `<span class="batch-row__badge batch-row__badge--err" title="${escAttr(entry.error || "Failed")}">✕ Failed</span>`;
         }
+        if (entry.status === "failed") {
+          return `<span class="batch-row__badge batch-row__badge--err" title="Can retry without re-uploading">✕ Failed (Retry)</span>`;
+        }
+        if (entry.status === "duplicate") {
+          return `<span class="batch-row__badge batch-row__badge--warn" title="Already processed">⊘ Duplicate</span>`;
+        }
         if (entry.status === "cancelled") {
           return '<span class="batch-row__badge batch-row__badge--warn">⏸ Cancelled</span>';
         }
@@ -29268,6 +29274,31 @@
               </div>
             </div>`;
         }
+        if (entry.status === "failed" && entry.receipt_id) {
+          return `
+            <div class="batch-row__detail batch-row__detail--err">
+              <div class="batch-row__detail-headline">
+                <span>${escHtml(entry.error || "OCR processing failed")}</span>
+              </div>
+              <div class="batch-row__detail-meta">The receipt was saved. You can retry processing without re-uploading.</div>
+              <div class="batch-row__detail-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); reprocessReceipt(${entry.receipt_id})">Retry Processing</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewReceipt(${entry.receipt_id})">View Receipt</button>
+              </div>
+            </div>`;
+        }
+        if (entry.status === "duplicate") {
+          return `
+            <div class="batch-row__detail batch-row__detail--warn">
+              <div class="batch-row__detail-headline">
+                <span>${escHtml(entry.error || "This receipt was already processed")}</span>
+              </div>
+              <div class="batch-row__detail-meta">This exact file has been uploaded before. Viewing the existing receipt.</div>
+              <div class="batch-row__detail-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewReceipt(${entry.receipt_id})">View Receipt</button>
+              </div>
+            </div>`;
+        }
         if (entry.status === "cancelled") {
           return `
             <div class="batch-row__detail batch-row__detail--warn">
@@ -29318,6 +29349,8 @@
             const interactive =
               entry.status === "queued"
               || entry.status === "error"
+              || entry.status === "failed"
+              || entry.status === "duplicate"
               || entry.status === "cancelled";
             const checked = entry.selected ? "checked" : "";
             const disabled = interactive ? "" : "disabled";
@@ -29328,7 +29361,7 @@
             const resultMeta =
               entry.status === "done" && entry.result
                 ? `<div class="batch-row__meta">${escHtml(entry.result.store || "Unknown")} · ${formatMoney(entry.result.total ?? 0)}</div>`
-                : entry.status === "error"
+                : (entry.status === "error" || entry.status === "failed" || entry.status === "duplicate")
                   ? `<div class="batch-row__meta batch-row__meta--err">${escHtml(entry.error || "Failed")}</div>`
                   : "";
             const removeBtn =
@@ -30207,22 +30240,47 @@
             );
             clearInterval(nudge);
             if (ok) {
-              entry.status = "done";
-              entry.progressPct = 100;
-              const summaryData = data?.data || {};
-              entry.result = {
-                store: summaryData.store || "Unknown",
-                total: summaryData.total ?? 0,
-                date: summaryData.date || null,
-                items: getReceiptItems(data),
-                receipt_id: data?.purchase_id || data?.receipt_id || null,
-                status: data?.status,
-                ocr_engine: data?.ocr_engine || data?.engine || null,
-                confidence: data?.confidence ?? null,
-                warnings: Array.isArray(data?.warnings) ? data.warnings : [],
-              };
-              okCount++;
-              lastResultData = data;
+              const dataStatus = data?.status;
+
+              // Handle duplicate receipts
+              if (dataStatus === "duplicate") {
+                entry.status = "duplicate";
+                entry.receipt_id = data?.receipt_id;
+                entry.error = data?.message || "This receipt was already processed";
+                entry.result = {
+                  receipt_id: data?.receipt_id,
+                  purchase_id: data?.purchase_id,
+                  processed_at: data?.processed_at,
+                };
+                failCount++; // Count as failure since not newly processed
+              }
+              // Handle failed receipts (can retry)
+              else if (dataStatus === "failed" || data?.can_retry) {
+                entry.status = "failed";
+                entry.receipt_id = data?.receipt_id;
+                entry.error = data?.error || data?.message || "OCR processing failed";
+                entry.can_retry = true;
+                failCount++;
+              }
+              // Handle successful receipts
+              else {
+                entry.status = "done";
+                entry.progressPct = 100;
+                const summaryData = data?.data || {};
+                entry.result = {
+                  store: summaryData.store || "Unknown",
+                  total: summaryData.total ?? 0,
+                  date: summaryData.date || null,
+                  items: getReceiptItems(data),
+                  receipt_id: data?.purchase_id || data?.receipt_id || null,
+                  status: dataStatus,
+                  ocr_engine: data?.ocr_engine || data?.engine || null,
+                  confidence: data?.confidence ?? null,
+                  warnings: Array.isArray(data?.warnings) ? data.warnings : [],
+                };
+                okCount++;
+                lastResultData = data;
+              }
               // Auto-expand the just-finished row so the user sees what came back.
               expandedBatchRowId = entry.id;
             } else {

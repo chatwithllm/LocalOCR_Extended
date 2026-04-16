@@ -596,6 +596,76 @@ def _parse_filter_date(value: str | None):
         return None
 
 
+def _compute_file_hash(file_path: str) -> str:
+    """Compute SHA-256 hash of an uploaded file for deduplication.
+
+    Returns empty string if hash computation fails.
+    """
+    import hashlib
+    try:
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except Exception as e:
+        logger.warning(f"Failed to compute file hash for {file_path}: {e}")
+        return ""
+
+
+def _check_for_duplicate(file_hash: str, session) -> dict | None:
+    """Check if this file has been processed before.
+
+    Returns:
+        - None if no duplicate found
+        - Dict with existing receipt info if duplicate found (processed or failed)
+    """
+    if not file_hash:
+        return None
+
+    from src.backend.initialize_database_schema import TelegramReceipt
+
+    existing = (
+        session.query(TelegramReceipt)
+        .filter_by(file_hash=file_hash)
+        .first()
+    )
+
+    if not existing:
+        return None
+
+    return {
+        "receipt_id": existing.id,
+        "status": existing.status,
+        "purchase_id": existing.purchase_id,
+        "processed_at": existing.created_at.isoformat() if existing.created_at else None,
+    }
+
+
+def _save_failed_receipt(image_path: str, error_message: str, receipt_type_hint: str | None,
+                         user_id: int | None, file_hash: str, session) -> int:
+    """Save a failed receipt record so user can retry later.
+
+    Returns: receipt_id of the saved failed receipt
+    """
+    from src.backend.initialize_database_schema import TelegramReceipt
+
+    receipt = TelegramReceipt(
+        telegram_user_id=str(user_id) if user_id else "upload",
+        image_path=image_path,
+        status="failed",
+        receipt_type=receipt_type_hint,
+        file_hash=file_hash,
+        error_message=error_message,
+        retry_count=0,
+    )
+    session.add(receipt)
+    session.commit()
+
+    logger.info(f"Saved failed receipt {receipt.id} with error: {error_message}")
+    return receipt.id
+
+
 @receipts_bp.route("/upload", methods=["POST"])
 @require_write_access
 def upload_receipt():
@@ -656,6 +726,26 @@ def upload_receipt():
         except ValueError:
             return jsonify({"error": "model_id must be an integer"}), 400
 
+    # Compute file hash for deduplication
+    session = g.db_session
+    file_hash = _compute_file_hash(save_path)
+
+    # Check for duplicate receipts
+    duplicate_info = _check_for_duplicate(file_hash, session)
+    if duplicate_info:
+        if duplicate_info["status"] == "processed" or duplicate_info["purchase_id"]:
+            logger.info(f"Duplicate receipt detected: {duplicate_info['receipt_id']}")
+            return jsonify({
+                "status": "duplicate",
+                "message": "This receipt was already processed",
+                "receipt_id": duplicate_info["receipt_id"],
+                "purchase_id": duplicate_info["purchase_id"],
+                "processed_at": duplicate_info["processed_at"],
+            }), 200
+        # If status="failed", allow retry on the same record
+        elif duplicate_info["status"] == "failed":
+            logger.info(f"Retrying failed receipt: {duplicate_info['receipt_id']}")
+
     # Route to hybrid OCR processor
     try:
         from src.backend.extract_receipt_data import process_receipt
@@ -674,6 +764,20 @@ def upload_receipt():
             "not_implemented": 202,
         }.get(result["status"], 200)
 
+        # If OCR failed, save failed receipt with error message
+        if result["status"] == "failed":
+            error_msg = result.get("error", "Unknown OCR error")
+            failed_receipt_id = _save_failed_receipt(
+                image_path=save_path,
+                error_message=error_msg,
+                receipt_type_hint=receipt_type_hint,
+                user_id=user_id,
+                file_hash=file_hash,
+                session=session,
+            )
+            result["receipt_id"] = failed_receipt_id
+            result["can_retry"] = True
+
         return jsonify(result), status_code
 
     except Exception as e:
@@ -688,10 +792,23 @@ def upload_receipt():
                 "message": error_text,
                 "image_path": save_path,
             }), 400
+
+        # For other exceptions, save failed receipt
+        failed_receipt_id = _save_failed_receipt(
+            image_path=save_path,
+            error_message=error_text,
+            receipt_type_hint=receipt_type_hint,
+            user_id=user_id,
+            file_hash=file_hash,
+            session=session,
+        )
         return jsonify({
+            "status": "failed",
             "error": "OCR processing failed",
-            "message": str(e),
+            "message": error_text,
             "image_path": save_path,
+            "receipt_id": failed_receipt_id,
+            "can_retry": True,
         }), 500
 
 
@@ -1010,6 +1127,9 @@ def list_receipts():
                 "source": _receipt_source_label(record),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
                 "file_type": _detect_receipt_file_type(record.image_path),
+                "error_message": record.error_message,
+                "retry_count": record.retry_count or 0,
+                "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
             }
             for record, purchase, store in limited_records
         ],
@@ -1313,6 +1433,11 @@ def reprocess_receipt(receipt_id):
         )
     except Exception as exc:
         logger.error("Reprocess OCR failed for receipt %s: %s", record.id, exc)
+        # Update error tracking on reprocess failure
+        record.retry_count = (record.retry_count or 0) + 1
+        record.last_reprocessed_at = datetime.utcnow()
+        record.error_message = f"OCR failed: {exc}"
+        session.commit()
         return jsonify({
             "error": f"OCR failed: {exc}. Previous receipt data preserved.",
         }), 422
@@ -1323,6 +1448,11 @@ def reprocess_receipt(receipt_id):
     ocr_data = _apply_receipt_type_hint(ocr_data or {}, receipt_type_hint)
     receipt_type = _resolve_receipt_type(ocr_data, receipt_type_hint)
     if not _validate_receipt_data(ocr_data, receipt_type=receipt_type):
+        # Update error tracking on validation failure
+        record.retry_count = (record.retry_count or 0) + 1
+        record.last_reprocessed_at = datetime.utcnow()
+        record.error_message = "OCR returned incomplete data"
+        session.commit()
         return jsonify({
             "error": "OCR returned incomplete data. Previous receipt data preserved.",
             "warnings": warnings,
@@ -1380,6 +1510,10 @@ def reprocess_receipt(receipt_id):
     record.raw_ocr_json = json.dumps(ocr_data)
     record.ocr_engine = engine_used
     record.ocr_confidence = _safe_float(ocr_data.get("confidence", 1.0))
+    # Clear error on successful reprocess
+    record.error_message = None
+    record.retry_count = (record.retry_count or 0) + 1
+    record.last_reprocessed_at = datetime.utcnow()
     session.commit()
 
     return jsonify({

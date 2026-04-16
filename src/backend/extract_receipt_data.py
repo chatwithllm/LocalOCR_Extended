@@ -1084,6 +1084,9 @@ def _save_receipt_record(
     receipt_record_id: int | None = None,
     receipt_type: str | None = None,
     raw_ocr_data: dict | None = None,
+    error_message: str | None = None,
+    retry_count: int | None = None,
+    last_reprocessed_at=None,
 ):
     """Save a minimal receipt record for failed/review items."""
     try:
@@ -1112,6 +1115,13 @@ def _save_receipt_record(
         record.receipt_type = receipt_type
         record.raw_ocr_json = json.dumps(raw_ocr_data) if raw_ocr_data is not None else record.raw_ocr_json
         record.purchase_id = purchase_id
+        # Update error tracking fields
+        if error_message is not None:
+            record.error_message = error_message
+        if retry_count is not None:
+            record.retry_count = retry_count
+        if last_reprocessed_at is not None:
+            record.last_reprocessed_at = last_reprocessed_at
         session.commit()
     except Exception as e:
         logger.warning(f"Failed to save receipt record: {e}")
