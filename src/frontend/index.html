@@ -6969,6 +6969,69 @@
         cursor: pointer;
       }
 
+      .expense-detail {
+        display: grid;
+        gap: 12px;
+      }
+
+      .expense-detail__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .expense-detail__head-text {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .expense-detail__store {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .expense-detail__meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        margin-top: 2px;
+      }
+
+      .expense-detail__totals {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--border);
+      }
+
+      .expense-detail__total-amount {
+        font-size: 1.4rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--success, #2e9d6e);
+      }
+
+      .expense-detail__total-amount--refund {
+        color: var(--warning, #d97706);
+      }
+
+      .expense-detail__total-meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -33070,36 +33133,48 @@
         const data = receipt.editable_data || receipt.raw_ocr_data || {};
         const items = (data.items || []).filter(Boolean);
         const total = receiptDisplayTotal(receipt || data);
-        const compact = isCompactMobileReceiptView();
+        const isRefund = normalizeReceiptTransactionType(receipt?.transaction_type) === "refund";
+        const subtotal = Number(data.subtotal || 0);
+        const tax = Number(data.tax || 0);
+        const tip = Number(data.tip || 0);
+        const dateStr = formatPrettyDate(data.date || receipt.date);
+        const storeName = formatLabel(data.store || receipt.store || "", "Unknown Merchant");
         body.innerHTML = `
-    <div style="display:grid;gap:14px">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || "Unknown Merchant")}</div>
-            ${receiptTransactionBadgeHtml(receipt?.transaction_type)}
-          </div>
-          <div class="contrib-meta">${escHtml(data.store_location || "Location not captured")}</div>
-          <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt, data.date || receipt.date || "—"))}${data.time ? ` · ${escHtml(data.time)}` : ""}</div>
-          ${refundAttributionText(receipt) ? `<div class="contrib-meta">${escHtml(refundAttributionText(receipt))}</div>` : ""}
+    <div class="expense-detail">
+      <div class="expense-detail__header">
+        <div class="expense-detail__head-text">
+          <div class="expense-detail__store" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+          <div class="expense-detail__meta">${escHtml(dateStr)}${data.time ? ` · ${escHtml(data.time)}` : ""} · ${escHtml(formatReceiptTransactionLabel(receipt?.transaction_type))}</div>
         </div>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(${compact ? 2 : 4},minmax(0,1fr));gap:10px">
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
-        <div class="stat-card ${normalizeReceiptTransactionType(receipt?.transaction_type) === "refund" ? "warning" : "success"}" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
+      <div class="expense-detail__totals">
+        <div class="expense-detail__total-amount ${isRefund ? "expense-detail__total-amount--refund" : ""}">${formatMoney(total)}</div>
+        <div class="expense-detail__total-meta">
+          ${subtotal ? `<span>Subtotal ${formatMoney(subtotal)}</span>` : ""}
+          ${tax ? `<span>Tax ${formatMoney(tax)}</span>` : ""}
+          ${tip ? `<span>Tip ${formatMoney(tip)}</span>` : ""}
+        </div>
       </div>
       ${
-        compact
-          ? renderReceiptLineItemCards(items)
-          : items.length
-            ? `<table>
-            <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
-            <tbody>${items.map((item) => `<tr><td>${escHtml(item.name || item.product_name || "Unknown")}</td><td>${escHtml(String(item.quantity ?? 1))}</td><td>${formatMoney(item.unit_price || 0)}</td><td>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || 0) || 0))}</td></tr>`).join("")}</tbody>
-          </table>`
-            : '<div class="empty-state"><p>No reference line items saved yet.</p></div>'
+        items.length
+          ? `<ul class="summary-row-list">
+              ${items.map((item) => {
+                const qty = Number(item.quantity ?? 1) || 1;
+                const unit = Number(item.unit_price || 0) || 0;
+                const lineTotal = qty * unit;
+                const name = item.name || item.product_name || "Unknown";
+                return `
+                  <li class="summary-row">
+                    <div class="summary-row__main">
+                      <div class="summary-row__title" title="${escAttr(name)}">${escHtml(name)}</div>
+                      <div class="summary-row__meta">Qty ${escHtml(String(qty))} · Unit ${formatMoney(unit)}</div>
+                    </div>
+                    <div class="summary-row__value">${formatMoney(lineTotal)}</div>
+                  </li>`;
+              }).join("")}
+            </ul>`
+          : '<div class="empty-state"><p>No reference line items saved yet.</p></div>'
       }
     </div>`;
       }
