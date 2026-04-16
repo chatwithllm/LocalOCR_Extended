@@ -80,10 +80,13 @@ def extract_receipt_via_openai(
     if not resolved_api_key:
         raise ValueError("OPENAI_API_KEY not configured")
 
+    # Build default headers dict, merging any extra headers for OpenRouter
+    headers = dict(extra_headers or {})
+
     client = OpenAI(
         api_key=resolved_api_key,
         base_url=(base_url or None),
-        default_headers=(extra_headers or None),
+        default_headers=headers if headers else None,
     )
 
     with open(image_path, "rb") as f:
@@ -101,23 +104,23 @@ def extract_receipt_via_openai(
             "- Avoid grocery-style fallback names unless the receipt clearly shows them."
         )
 
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=resolved_model,
-        input=[
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
+                    {"type": "text", "text": prompt},
                     {
-                        "type": "input_image",
-                        "image_url": f"data:image/png;base64,{image_b64}",
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_b64}"},
                     },
                 ],
             }
         ],
     )
 
-    text = (response.output_text or "").strip()
+    text = (response.choices[0].message.content or "").strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):
@@ -148,11 +151,11 @@ def extract_receipt_via_openai(
         return {
             "data": result,
             "usage": {
-                "input_tokens": getattr(usage, "input_tokens", None),
-                "output_tokens": getattr(usage, "output_tokens", None),
+                "input_tokens": getattr(usage, "prompt_tokens", None),
+                "output_tokens": getattr(usage, "completion_tokens", None),
                 "total_tokens": getattr(usage, "total_tokens", None),
             } if usage else None,
-            "finish_reason": None,
+            "finish_reason": getattr(response.choices[0], "finish_reason", None),
             "response_meta": {
                 "response_id": getattr(response, "id", None),
             },
