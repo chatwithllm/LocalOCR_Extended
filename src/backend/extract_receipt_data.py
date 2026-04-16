@@ -881,6 +881,20 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
 
         session.commit()
 
+        # Best-effort: append a human-readable line to <receipts_root>/_index.txt
+        # so an operator SSH-ing in can grep store + date without touching the DB.
+        try:
+            from src.backend.receipt_filename_index import append_receipt_to_index
+            append_receipt_to_index(
+                image_path=image_path,
+                store=store_name,
+                date=ocr_data.get("date"),
+                total=ocr_data.get("total"),
+                purchase_id=purchase.id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Receipt index append failed: %s", exc)
+
         return purchase.id
 
     except Exception as e:
