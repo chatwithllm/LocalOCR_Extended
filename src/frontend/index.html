@@ -11753,6 +11753,8 @@
         display: none;
       }
     </style>
+    <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
 
   <body>
@@ -14661,6 +14663,37 @@
             </div>
             <div class="table-wrap" style="margin-top: 16px">
               <div id="trusted-devices-body"></div>
+            </div>
+          </div>
+          <div class="card" id="plaid-settings-card">
+            <div class="card-header">
+              <span class="card-title">🏦 Bank Connections</span>
+              <div class="table-toolbar">
+                <button
+                  class="btn btn-primary btn-sm"
+                  id="plaid-connect-btn"
+                  onclick="openPlaidLink()"
+                  disabled
+                >
+                  Connect Bank
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  onclick="loadPlaidItems()"
+                  aria-label="Refresh bank connections"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div
+              id="plaid-settings-note"
+              style="color: var(--muted); font-size: 0.84rem"
+            >
+              Connect a bank or credit card via Plaid to auto-import transactions. Imported transactions land in a review queue and are never saved as receipts without your confirmation.
+            </div>
+            <div id="plaid-settings-body" style="margin-top: 16px">
+              <div class="empty-state"><p>Loading bank connections…</p></div>
             </div>
           </div>
           <div class="card">
@@ -22489,6 +22522,7 @@
             loadSnapshotReviewQueue();
             loadAdminAiModels();
             loadAdminAiUsage();
+            loadPlaidItems();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -23743,6 +23777,199 @@
     `;
           })
           .join("");
+      }
+
+      // =============================================================
+      // Plaid — Bank Connections (Phase 1)
+      // =============================================================
+      let plaidLinkHandler = null;
+      let plaidStatusCache = null;
+
+      function formatPlaidSyncTime(iso) {
+        if (!iso) return "never";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "never";
+        return d.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      }
+
+      async function loadPlaidItems() {
+        const body = document.getElementById("plaid-settings-body");
+        const note = document.getElementById("plaid-settings-note");
+        const connectBtn = document.getElementById("plaid-connect-btn");
+        if (!body) return;
+        if (!currentUser) {
+          if (note) note.textContent = "Sign in to manage bank connections.";
+          body.innerHTML = "";
+          if (connectBtn) connectBtn.disabled = true;
+          return;
+        }
+        try {
+          const res = await api(`/plaid/items`);
+          if (!res.ok) {
+            body.innerHTML =
+              '<div class="empty-state"><p>Could not load bank connections.</p></div>';
+            if (connectBtn) connectBtn.disabled = true;
+            return;
+          }
+          const payload = await res.json();
+          plaidStatusCache = {
+            configured: Boolean(payload.configured),
+            env: payload.env || "sandbox",
+          };
+          if (connectBtn) {
+            connectBtn.disabled = !payload.configured;
+            connectBtn.title = payload.configured
+              ? `Connect a bank (${payload.env})`
+              : "Plaid is not configured on this server. Set PLAID_CLIENT_ID and PLAID_SECRET in .env.";
+          }
+          if (note) {
+            note.textContent = payload.configured
+              ? `Plaid environment: ${payload.env}. Transactions land in a review queue and are never saved as receipts without your confirmation.`
+              : "Plaid is not configured on this server. Ask an administrator to set PLAID_CLIENT_ID / PLAID_SECRET in the .env file.";
+          }
+          const items = payload.items || [];
+          if (!items.length) {
+            body.innerHTML =
+              '<div class="empty-state"><p>No banks connected yet. Click <strong>Connect Bank</strong> to link your first account.</p></div>';
+            return;
+          }
+          body.innerHTML = `
+            <ul class="summary-row-list">
+              ${items
+                .map((item) => {
+                  const accounts = (item.accounts || [])
+                    .map(
+                      (acc) =>
+                        `${escHtml(acc.name || acc.official_name || "Account")}${acc.mask ? ` ····${escHtml(acc.mask)}` : ""}`,
+                    )
+                    .join(" · ");
+                  const statusBadge =
+                    item.status === "login_required"
+                      ? '<span style="color:var(--color-error,#d33);font-weight:700">Login required</span>'
+                      : item.status === "active"
+                        ? '<span style="color:var(--color-success,#2e9d6e);font-weight:700">Connected</span>'
+                        : `<span style="color:var(--muted)">${escHtml(item.status)}</span>`;
+                  const syncLine = `${statusBadge} · Last sync ${escHtml(formatPlaidSyncTime(item.last_sync_at))}`;
+                  return `
+                    <li class="summary-row-host">
+                      <div class="summary-row">
+                        <div class="summary-row__main">
+                          <div class="summary-row__title" title="${escAttr(item.institution_name || "Institution")}">${escHtml(item.institution_name || "Institution")}</div>
+                          <div class="summary-row__meta">${accounts || "No account details"}</div>
+                          <div class="summary-row__meta">${syncLine}</div>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                          ${
+                            item.status === "login_required"
+                              ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
+                              : ""
+                          }
+                          <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
+                        </div>
+                      </div>
+                    </li>`;
+                })
+                .join("")}
+            </ul>`;
+        } catch (err) {
+          console.error("loadPlaidItems failed", err);
+          body.innerHTML =
+            '<div class="empty-state"><p>Could not load bank connections.</p></div>';
+          if (connectBtn) connectBtn.disabled = true;
+        }
+      }
+
+      async function openPlaidLink(existingItemId = null) {
+        if (!currentUser) {
+          toast("Sign in to connect a bank", "error");
+          return;
+        }
+        if (typeof window.Plaid === "undefined" || !window.Plaid.create) {
+          toast("Plaid Link is still loading — try again in a moment.", "error");
+          return;
+        }
+        const connectBtn = document.getElementById("plaid-connect-btn");
+        if (connectBtn) connectBtn.disabled = true;
+        try {
+          const body = existingItemId ? { item_id: existingItemId } : {};
+          const res = await api(`/plaid/link-token`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok || !payload.link_token) {
+            toast(payload.error || "Could not start Plaid Link", "error");
+            if (connectBtn) connectBtn.disabled = false;
+            return;
+          }
+          if (plaidLinkHandler) {
+            try { plaidLinkHandler.destroy(); } catch (_) {}
+            plaidLinkHandler = null;
+          }
+          plaidLinkHandler = window.Plaid.create({
+            token: payload.link_token,
+            onSuccess: async (publicToken, metadata) => {
+              try {
+                const exchangeRes = await api(`/plaid/exchange-public-token`, {
+                  method: "POST",
+                  body: JSON.stringify({ public_token: publicToken, metadata }),
+                });
+                const exchangePayload = await exchangeRes.json().catch(() => ({}));
+                if (!exchangeRes.ok) {
+                  toast(exchangePayload.error || "Could not finish bank connection", "error");
+                  return;
+                }
+                toast(
+                  `Connected ${exchangePayload?.item?.institution_name || "bank"} ✅`,
+                  "success",
+                );
+              } catch (err) {
+                console.error("Plaid exchange failed", err);
+                toast("Could not finish bank connection", "error");
+              } finally {
+                await loadPlaidItems();
+              }
+            },
+            onExit: (err) => {
+              if (connectBtn) connectBtn.disabled = false;
+              if (err) {
+                console.warn("Plaid Link exited with error", err);
+                if (err.error_code && err.error_code !== "USER_CANCELED") {
+                  toast(err.display_message || "Bank connection was interrupted", "error");
+                }
+              }
+            },
+          });
+          plaidLinkHandler.open();
+        } catch (err) {
+          console.error("openPlaidLink failed", err);
+          toast("Could not start Plaid Link", "error");
+          if (connectBtn) connectBtn.disabled = false;
+        }
+      }
+
+      async function disconnectPlaidItem(itemId, institutionName) {
+        if (!confirm(`Disconnect ${institutionName || "this bank"}? Any pending staged transactions will stop syncing.`)) {
+          return;
+        }
+        try {
+          const res = await api(`/plaid/items/${itemId}`, { method: "DELETE" });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not disconnect bank", "error");
+            return;
+          }
+          toast("Bank disconnected", "success");
+          await loadPlaidItems();
+        } catch (err) {
+          console.error("disconnectPlaidItem failed", err);
+          toast("Could not disconnect bank", "error");
+        }
       }
 
       async function loadSnapshotReviewQueue() {

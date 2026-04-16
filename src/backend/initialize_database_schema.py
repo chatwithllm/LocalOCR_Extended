@@ -691,6 +691,75 @@ class UserAIModelAccess(Base):
     )
 
 
+class PlaidItem(Base):
+    """One per-user Plaid Link connection (one institution = one item)."""
+
+    __tablename__ = "plaid_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plaid_item_id = Column(String(255), nullable=False, unique=True)
+    institution_id = Column(String(60), nullable=True)
+    institution_name = Column(String(255), nullable=True)
+    access_token_encrypted = Column(Text, nullable=False)
+    accounts_json = Column(Text, nullable=True)  # last-known account list (name, mask, type)
+    products = Column(String(255), nullable=True)  # comma-separated granted products
+    transaction_cursor = Column(String(255), nullable=True)  # /transactions/sync cursor
+    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_status = Column(String(40), nullable=True)  # "ok", "error", "login_required"
+    last_sync_error = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="active")  # active, disconnected, login_required
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_plaid_items_user_id", "user_id"),
+        Index("ix_plaid_items_status", "status"),
+    )
+
+
+class PlaidStagedTransaction(Base):
+    """Raw Plaid transactions awaiting user review before promotion to Purchase."""
+
+    __tablename__ = "plaid_staged_transactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plaid_item_id = Column(Integer, ForeignKey("plaid_items.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plaid_transaction_id = Column(String(255), nullable=False, unique=True)
+    plaid_account_id = Column(String(255), nullable=False)
+    amount = Column(Float, nullable=False)  # positive = debit, negative = refund per Plaid convention
+    iso_currency_code = Column(String(10), nullable=True)
+    transaction_date = Column(Date, nullable=False)
+    authorized_date = Column(Date, nullable=True)
+    name = Column(String(500), nullable=True)
+    merchant_name = Column(String(500), nullable=True)
+    plaid_category_primary = Column(String(120), nullable=True)
+    plaid_category_detailed = Column(String(255), nullable=True)
+    plaid_category_json = Column(Text, nullable=True)  # full hierarchy as JSON array
+    pending = Column(Boolean, nullable=False, default=False)
+    suggested_receipt_type = Column(String(30), nullable=True)
+    suggested_spending_domain = Column(String(30), nullable=True)
+    suggested_budget_category = Column(String(40), nullable=True)
+    status = Column(String(30), nullable=False, default="ready_to_import")
+    # status values: ready_to_import, duplicate_flagged, skipped_pending, confirmed, dismissed
+    duplicate_purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=True)
+    confirmed_purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    dismissed_at = Column(DateTime, nullable=True)
+    raw_json = Column(Text, nullable=False)  # full Plaid transaction payload for audit
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_plaid_staged_user_id", "user_id"),
+        Index("ix_plaid_staged_status", "status"),
+        Index("ix_plaid_staged_item_id", "plaid_item_id"),
+        Index("ix_plaid_staged_account_id", "plaid_account_id"),
+        Index("ix_plaid_staged_date", "transaction_date"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Schema Initialization
 # ---------------------------------------------------------------------------

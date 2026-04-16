@@ -130,6 +130,8 @@ def _receipt_source_label(receipt_record) -> str:
         return "manual"
     if telegram_user_id.startswith("upload"):
         return "upload"
+    if telegram_user_id.startswith("plaid:"):
+        return "plaid"
     return "telegram"
 
 
