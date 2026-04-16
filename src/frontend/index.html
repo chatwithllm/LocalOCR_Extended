@@ -7258,6 +7258,63 @@
         flex: 0 0 auto;
       }
 
+      .budget-cat-row {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        overflow: hidden;
+      }
+
+      .budget-cat-row__summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 10px 12px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .budget-cat-row__summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .budget-cat-row__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .budget-cat-row__name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+
+      .budget-cat-row__spent {
+        font-weight: 700;
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+      }
+
+      .budget-cat-row__bar .progress-wrap {
+        height: 4px;
+        border-radius: 2px;
+      }
+
+      .budget-cat-row__meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+
+      .budget-cat-row__detail {
+        padding: 0 12px 12px;
+        border-top: 1px solid var(--border);
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -13587,25 +13644,12 @@
             </div>
           </div>
           <div class="card" id="budget-status-card">
-            <div class="card-header">
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  justify-content: space-between;
-                  width: 100%;
-                "
-              >
-                <span class="card-title">This Month</span>
-                <div
-                  id="budget-total-spent"
-                  style="font-weight: 700; color: var(--text)"
-                ></div>
+            <div class="card-header" style="flex-direction:row !important;align-items:center !important;justify-content:space-between !important;gap:8px">
+              <span class="card-title">This Month</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="budget-total-spent" style="font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums;color:var(--text)"></span>
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadBudgetStatus()" aria-label="Refresh">🔄</button>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">
-                🔄
-              </button>
             </div>
             <div id="budget-status-body"></div>
           </div>
@@ -31736,75 +31780,39 @@
       function renderBudgetStatusRow(item, selectedCategory) {
         const pct = Number(item.percentage || 0);
         const cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
-        const updated = item.updated_at
-          ? formatDateTime(item.updated_at, "—")
-          : "—";
-        const contributions = Array.isArray(item.contributions)
-          ? item.contributions
-          : [];
+        const contributions = Array.isArray(item.contributions) ? item.contributions : [];
         const spent = Number(item.spent || 0);
         const target = Number(item.budget_amount || 0);
+        const remaining = Number(item.remaining || 0);
+        const remainingLabel = remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`;
         return `
-    <details class="stat-card" style="padding:0;overflow:hidden">
-      <summary
-        onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')"
-        style="list-style:none;cursor:pointer;padding:14px 16px 12px;display:block"
-      >
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
-          <div style="font-weight:700">${escHtml(formatLabel(item.budget_category, item.budget_category))}</div>
-          <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;text-align:right">
-            <span style="font-size:0.82rem;color:var(--muted)">${pct}%</span>
-            <span style="font-weight:700">${formatMoney(spent)}</span>
-            <span style="font-size:0.82rem;color:var(--muted)">${formatMoney(target)}</span>
-          </div>
+    <details class="budget-cat-row" onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')">
+      <summary class="budget-cat-row__summary">
+        <div class="budget-cat-row__head">
+          <span class="budget-cat-row__name">${escHtml(formatLabel(item.budget_category, item.budget_category))}</span>
+          <span class="budget-cat-row__spent">${formatMoney(spent)}</span>
         </div>
-        <div class="progress-wrap" style="margin-top:10px"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+        <div class="budget-cat-row__bar"><div class="progress-wrap" style="height:4px"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div></div>
+        <div class="budget-cat-row__meta">
+          <span>${pct}% · ${escHtml(remainingLabel)}</span>
+          <span>${target > 0 ? `of ${formatMoney(target)}` : "No target"}</span>
+        </div>
       </summary>
-      <div style="padding:0 16px 14px;border-top:1px solid var(--border);display:grid;gap:8px;font-size:0.82rem;color:var(--muted)">
-        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:10px">
-          <span>${pct}% used</span>
-          <span>${formatMoney(item.remaining || 0)} left</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;gap:12px">
-          <span>Target</span>
-          <span>${formatMoney(item.budget_amount || 0)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;gap:12px">
-          <span>Last updated</span>
-          <span>${escHtml(updated)}</span>
-        </div>
-        <div style="margin-top:6px">
-          <div style="font-weight:700;color:var(--text);margin-bottom:8px">Contributing receipts</div>
-          ${
-            contributions.length
-              ? `
-            <div style="display:grid;gap:8px">
-              ${contributions
-                .map(
-                  (entry) => `
-                <div class="contrib-list-item" style="padding:10px 12px">
-                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                    <div style="min-width:0;flex:1">
-                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <strong>${escHtml(entry.store || "Unknown")}</strong>
-                        ${receiptTransactionBadgeHtml(entry.transaction_type)}
-                      </div>
-                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(entry))} · ${entry.items?.length ? escHtml(entry.items.map((item) => item.name).join(", ")) : "Receipt-level allocation"}</div>
-                      ${refundAttributionText(entry) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(entry))}</div>` : ""}
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${Number(entry.purchase_id || 0)})">Open Receipt</button>
-                    </div>
-                  </div>
-                </div>
-              `,
-                )
-                .join("")}
-            </div>`
-              : '<div class="empty-state"><p>No receipt detail captured for this category yet.</p></div>'
-          }
-        </div>
+      <div class="budget-cat-row__detail">
+        ${
+          contributions.length
+            ? renderCompactReceiptRows(
+                contributions.map((e) => ({
+                  store: e.store,
+                  date: e.date,
+                  transaction_type: e.transaction_type,
+                  total: e.amount,
+                  purchase_id: e.purchase_id,
+                })),
+                { includeDelete: false },
+              )
+            : '<div class="empty-state" style="padding:10px 0"><p>No contributing receipts yet.</p></div>'
+        }
       </div>
     </details>
   `;
@@ -31851,9 +31859,9 @@
     ${
       active.length
         ? `
-      <div style="margin-bottom:18px">
-        <div style="font-weight:700;margin-bottom:10px">Active Categories</div>
-        <div style="display:grid;gap:10px">
+      <div style="margin-bottom:14px">
+        <div class="upload-section__label" style="margin-bottom:8px">Active Categories</div>
+        <div style="display:grid;gap:8px">
           ${active.map((item) => renderBudgetStatusRow(item, selectedCategory)).join("")}
         </div>
       </div>`
