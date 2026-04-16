@@ -6342,40 +6342,7 @@
           padding: 12px;
         }
 
-        .dining-budget-month-input {
-          width: 140px !important;
-          padding: 8px 10px;
-          font-size: 0.88rem;
-        }
-
-        .dining-budget-target-row {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 8px;
-          align-items: end;
-          margin-top: 10px;
-        }
-
-        .dining-budget-target-field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .dining-budget-target-field label {
-          font-size: 0.72rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: var(--muted);
-          font-weight: 700;
-        }
-
-        .dining-budget-target-field input {
-          width: 100%;
-          padding: 10px 12px;
-          font-size: 0.95rem;
-        }
+        /* Dining budget compact rules now defined globally */
 
         .restaurant-review-header {
           flex-direction: row !important;
@@ -6410,10 +6377,57 @@
         }
       }
 
-      .dining-budget-summary {
-        margin-top: 14px;
-        display: grid;
+      .dining-budget-card {
+        padding: 14px;
+      }
+
+      .dining-budget-card .card-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-bottom: 10px;
         gap: 8px;
+      }
+
+      .dining-budget-month-input {
+        width: 140px !important;
+        padding: 7px 10px;
+        font-size: 0.85rem;
+        max-width: 50%;
+      }
+
+      .dining-budget-target-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: end;
+      }
+
+      .dining-budget-target-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .dining-budget-target-field label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .dining-budget-target-field input {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: 0.95rem;
+      }
+
+      .dining-budget-summary {
+        margin-top: 12px;
+        display: grid;
+        gap: 6px;
       }
 
       .dining-budget-summary__head {
@@ -6423,7 +6437,7 @@
       }
 
       .dining-budget-summary__amount {
-        font-size: 1.6rem;
+        font-size: 1.35rem;
         font-weight: 800;
         color: var(--text);
         font-variant-numeric: tabular-nums;
@@ -6432,14 +6446,14 @@
 
       .dining-budget-summary__cap {
         color: var(--muted);
-        font-size: 0.9rem;
+        font-size: 0.85rem;
       }
 
       .dining-budget-summary__meta {
         display: flex;
         justify-content: space-between;
         color: var(--muted);
-        font-size: 0.78rem;
+        font-size: 0.76rem;
       }
 
       .receipt-editor-inline-fields {
