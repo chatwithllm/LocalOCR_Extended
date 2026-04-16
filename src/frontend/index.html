@@ -6934,6 +6934,31 @@
         color: var(--text);
       }
 
+      .summary-row-host {
+        display: flex;
+        align-items: stretch;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .summary-row-host:last-child {
+        border-bottom: none;
+      }
+
+      .summary-row-host > .summary-row {
+        flex: 1 1 auto;
+        border-bottom: none;
+      }
+
+      .summary-row-delete {
+        flex: 0 0 auto;
+        background: transparent;
+        border: none;
+        color: var(--color-error, #d33);
+        font-size: 1.2rem;
+        padding: 0 14px;
+        cursor: pointer;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -30677,23 +30702,24 @@
         if (!receipts.length)
           return '<div class="empty-state"><p>No receipts yet.</p></div>';
         const includeDelete = options.includeDelete !== false;
-        return `<ul class="receipt-compact-list">
+        return `<ul class="summary-row-list">
     ${receipts
       .map((receipt) => {
         const id = receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id;
         const storeName = formatLabel(receipt.store || "", "Unknown");
+        const datePart = receipt.date ? formatPrettyDate(receipt.date) : "—";
+        const txnPart = receipt.transaction_type ? ` · ${formatReceiptTransactionLabel(receipt.transaction_type)}` : "";
         return `
-      <li class="receipt-compact-row">
-        <button type="button" class="receipt-compact-row-main" onclick="viewReceipt(${id})">
-          <span class="receipt-compact-row-store">${escHtml(storeName)}</span>
-          <span class="receipt-compact-row-meta">
-            <span>${escHtml(receipt.date || "—")}</span>
-            ${receipt.transaction_type ? `<span>· ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</span>` : ""}
-          </span>
-          <span class="receipt-compact-row-value">${formatMoney(receiptDisplayTotal(receipt))}</span>
-          <span class="receipt-compact-row-chevron" aria-hidden="true">›</span>
+      <li class="summary-row-host">
+        <button type="button" class="summary-row is-tappable" onclick="viewReceipt(${id})">
+          <div class="summary-row__main">
+            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+            <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
+          </div>
+          <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
+          <span class="summary-row__chevron" aria-hidden="true">›</span>
         </button>
-        ${includeDelete ? `<button type="button" class="receipt-compact-row-delete" onclick="event.stopPropagation(); deleteReceipt(${receipt.purchase_id || receipt.id})" aria-label="Delete receipt">×</button>` : ""}
+        ${includeDelete ? `<button type="button" class="summary-row-delete" onclick="event.stopPropagation(); deleteReceipt(${receipt.purchase_id || receipt.id})" aria-label="Delete receipt">×</button>` : ""}
       </li>`;
       })
       .join("")}
