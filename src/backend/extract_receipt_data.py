@@ -736,7 +736,9 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         session = g.db_session
 
         purchase_domain, purchase_budget_category = derive_receipt_budget_defaults(
-            "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type
+            "general_expense" if receipt_type in {"general_expense", "retail_items"} else receipt_type,
+            provider_type=ocr_data.get("bill_provider_type"),
+            service_types=ocr_data.get("bill_service_types"),
         )
 
         # Find or create store
@@ -936,9 +938,20 @@ def _save_bill_meta(session, purchase_id: int, ocr_data: dict, purchase_date=Non
         meta.billing_cycle_month = (
             str(ocr_data.get("bill_billing_cycle_month") or "").strip()[:7] or None
         )
+        if meta.due_date is None and meta.billing_cycle_month:
+            from calendar import monthrange
+            from datetime import date as _date_cls
+            try:
+                _year, _mon = map(int, meta.billing_cycle_month.split("-", 1))
+                meta.due_date = _date_cls(_year, _mon, monthrange(_year, _mon)[1])
+            except (ValueError, TypeError):
+                pass
         meta.billing_cycle = normalize_billing_cycle(ocr_data.get("bill_billing_cycle"))
         is_recurring_raw = ocr_data.get("bill_is_recurring")
         meta.is_recurring = bool(is_recurring_raw) if is_recurring_raw is not None else True
+        auto_pay_raw = ocr_data.get("bill_auto_pay")
+        if auto_pay_raw is not None:
+            meta.auto_pay = bool(auto_pay_raw)
 
         # Derive planning month deterministic fallbacks
         receipt_date_str = purchase_date.strftime("%Y-%m-%d") if purchase_date else None

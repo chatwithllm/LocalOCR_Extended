@@ -107,6 +107,7 @@ Return ONLY the raw JSON object — no markdown, no code fences, no explanation.
     "bill_due_date": "YYYY-MM-DD (Date payment is due)",
     "bill_billing_cycle_month": "YYYY-MM (The month this bill applies to, often the previous month)",
     "bill_is_recurring": true,
+    "bill_auto_pay": true,
     "bill_allocations": [
         {"service_type": "water", "amount": 45.50, "description": "Water service"},
         {"service_type": "sewer", "amount": 32.00, "description": "Sewer usage"}
@@ -123,6 +124,20 @@ Rules:
 - For bill_provider_name, use the main company branding found in the header.
 - For bill_service_period, look for 'billing period' or 'usage from/to' dates.
 - For total, use the 'Amount Due', 'New Balance', or 'Total amount to pay'.
+- For bill_due_date, scan the whole document — it is often near the amount due
+  and can be labeled 'Due Date', 'Date Due', 'Payment Due', 'Payment Due Date',
+  'Pay By', 'Pay by', 'Please pay by', 'Amount Due By', 'Due On',
+  'Due on or before', 'Autopay Date', 'Auto-Pay Date', 'AutoPay Date',
+  'Scheduled Payment Date', 'AutoPay is scheduled for', 'AutoPay scheduled for',
+  'Auto Pay is scheduled for', 'Scheduled for', 'Will be withdrawn on',
+  'Payment will be processed on', or simply a bare date right next to the
+  amount-due box or inside a prominent graphic badge. Return the earliest
+  such date.
+- If bill_due_date is genuinely not printed, return null — do not guess.
+- For bill_auto_pay, set it to true when the bill shows an autopay indicator
+  such as 'AutoPay is scheduled for ...', 'Enrolled in AutoPay',
+  'AutoPay is on', 'Automatic payment on file', 'Will be paid automatically',
+  or a green AutoPay badge. Otherwise set it to false.
 - If a date is in MM/DD/YY format, normalize to YYYY-MM-DD.
 - Keep "items" as an empty list [].
 - Return ONLY valid JSON.

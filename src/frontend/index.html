@@ -512,9 +512,9 @@
         color: var(--text);
         border: 1px solid var(--border);
         border-radius: 10px;
-        width: 42px;
-        height: 42px;
-        font-size: 1.2rem;
+        width: 36px;
+        height: 36px;
+        font-size: 1.05rem;
         cursor: pointer;
       }
 
@@ -4725,10 +4725,15 @@
         gap: 6px;
         padding: 10px;
         border-radius: 12px;
-        border: 1px solid var(--border);
-        background: rgba(20, 24, 36, 0.98);
-        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+        border: 1px solid var(--color-border, var(--border));
+        background: var(--color-surface-elevated, var(--color-surface, rgba(20, 24, 36, 0.98)));
+        color: var(--color-text-primary, var(--text));
+        box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
         margin-top: 8px;
+      }
+
+      .shopping-more-panel .btn.btn-ghost {
+        color: var(--color-text-primary, var(--text));
       }
 
       .shopping-more-panel .btn {
@@ -5176,6 +5181,19 @@
         border-radius: 50%;
         animation: spin 0.7s linear infinite;
         display: inline-block;
+      }
+
+      .spinner-sm {
+        width: 12px;
+        height: 12px;
+        border-width: 2px;
+        vertical-align: -2px;
+        margin-right: 4px;
+      }
+
+      .btn.is-loading {
+        opacity: 0.75;
+        pointer-events: none;
       }
 
       @keyframes spin {
@@ -5906,11 +5924,546 @@
         margin-bottom: 6px;
       }
 
-      .receipt-editor-main-field input,
+      .receipt-editor-main-field input:not([type="checkbox"]):not([type="radio"]),
       .receipt-editor-main-field select {
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
+      }
+
+      .receipt-editor-main-field input[type="checkbox"] {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+      }
+
+      .bill-service-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 8px;
+      }
+
+      .bill-service-type-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--panel-2);
+        cursor: pointer;
+        min-width: 0;
+        transition: background 0.15s, border-color 0.15s;
+      }
+
+      .bill-service-type-pill:has(input:checked) {
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+        border-color: var(--color-brand);
+      }
+
+      .bill-service-type-pill span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .bill-service-type-pill input[type="checkbox"] {
+        flex: 0 0 auto;
+      }
+
+      .receipt-editor-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-top: 12px;
+        flex-wrap: wrap;
+      }
+
+      .receipt-editor-toggle-row > label {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--fg);
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      .receipt-editor-toggle-hint {
+        color: var(--muted);
+        font-size: 0.78rem;
+        flex: 1 1 100%;
+        padding-left: 28px;
+      }
+
+      .bill-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .bill-action-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .bill-action-label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .bill-action-row {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .bill-action-row > .inline-select,
+      .bill-action-row > input[type="date"] {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .bill-action-row > .btn {
+        flex: 0 0 auto;
+      }
+
+      .bill-action-row--readonly .bill-action-value {
+        flex: 1 1 auto;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 12px;
+        border-radius: 10px;
+        background: var(--panel-2);
+        color: var(--fg);
+        font-size: 0.9rem;
+      }
+
+      .receipts-by-store-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .receipts-by-store-row {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: none;
+        background: transparent;
+        border-radius: 10px;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--fg);
+        transition: background 0.15s;
+      }
+
+      .receipts-by-store-row:hover,
+      .receipts-by-store-row:focus-visible {
+        background: var(--panel-2);
+      }
+
+      .receipts-by-store-row + .receipts-by-store-row,
+      .receipts-by-store-list li + li .receipts-by-store-row {
+        border-top: 1px solid var(--border);
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+      }
+
+      .receipts-by-store-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .receipts-by-store-count {
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        min-width: 24px;
+        text-align: right;
+      }
+
+      .receipts-by-store-chevron {
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
+      .upload-section {
+        margin-top: 18px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .upload-section__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      .upload-section__hint {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .upload-intent-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .upload-intent-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px 8px;
+        font-weight: 600;
+      }
+
+      @media (max-width: 640px) {
+        .upload-intent-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .upload-model-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .upload-model-select {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 640px) {
+        #page-upload .drop-zone {
+          min-height: 180px;
+          padding: 20px 16px;
+          gap: 6px;
+        }
+        #page-upload .drop-zone__icon { font-size: 1.6rem; }
+        #page-upload .drop-zone__title { font-size: 0.95rem; }
+        #page-upload .drop-zone__hint { font-size: 0.78rem; }
+
+        #page-upload .card.card--padded-lg {
+          padding: 14px;
+        }
+
+        #page-upload .upload-section {
+          margin-top: 12px;
+          gap: 6px;
+        }
+
+        #page-upload .upload-intent-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 6px;
+        }
+
+        #page-upload .upload-intent-btn {
+          padding: 8px 4px;
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+
+        #page-upload .upload-section__hint {
+          font-size: 0.75rem;
+          line-height: 1.35;
+        }
+
+        #page-upload .upload-hint-desktop {
+          display: none;
+        }
+
+        #page-upload #upload-ai-model-meta {
+          display: none;
+        }
+
+        #page-upload .page-header p {
+          display: none;
+        }
+
+        #page-shopping .shopping-summary-strip {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 6px;
+          margin-bottom: 12px;
+        }
+
+        #page-shopping .shopping-summary-pill {
+          padding: 8px 10px;
+          border-radius: 10px;
+        }
+
+        #page-shopping .shopping-summary-pill .value {
+          font-size: 0.85rem;
+          font-weight: 700;
+        }
+
+        #page-shopping .shopping-summary-pill.shopping-summary-pill-estimated {
+          padding-left: 10px;
+          padding-right: 10px;
+          justify-content: center;
+        }
+
+        #page-shopping .shopping-mobile-store-card {
+          padding: 10px;
+          margin-bottom: 10px;
+          gap: 8px;
+        }
+
+        #page-shopping .shopping-mobile-item-summary {
+          padding: 8px 10px;
+        }
+
+        #page-shopping .shopping-mobile-item-list {
+          gap: 4px;
+        }
+
+        #page-shopping .shopping-item-thumb {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+        }
+
+        #page-shopping .shopping-mobile-item-main {
+          gap: 10px;
+        }
+
+        #page-shopping .shopping-mobile-item-name {
+          font-size: 0.9rem;
+        }
+
+        #page-shopping .shopping-mobile-item-estimate {
+          font-size: 0.85rem;
+          gap: 6px;
+        }
+
+        #page-shopping .shopping-recommendations-summary {
+          padding: 10px 12px;
+        }
+
+        .month-bars--compact {
+          gap: 10px;
+          min-height: 140px;
+          padding: 4px 0 0;
+        }
+
+        .month-bars--compact .month-bar-track {
+          height: 130px;
+          width: min(40px, 100%);
+        }
+
+        .month-bars--compact .month-bar-value {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: var(--muted);
+        }
+
+        .month-bars--compact .month-bar-label {
+          font-size: 0.74rem;
+          line-height: 1.2;
+        }
+
+        .month-bars--compact .month-bar-amount {
+          font-size: 0.72rem;
+        }
+
+        .receipt-budget-strip--compact {
+          display: grid;
+          gap: 10px;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        }
+
+        .receipt-budget-headline {
+          display: grid;
+          gap: 2px;
+        }
+
+        .receipt-budget-headline__month {
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+        }
+
+        .receipt-budget-headline__amount {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: var(--text);
+          font-variant-numeric: tabular-nums;
+          line-height: 1.1;
+        }
+
+        .receipt-budget-headline__meta {
+          font-size: 0.78rem;
+          color: var(--muted);
+        }
+
+        .receipt-budget-progress__meta {
+          display: flex;
+          justify-content: space-between;
+          color: var(--muted);
+          font-size: 0.76rem;
+          margin-top: 4px;
+        }
+
+        #page-restaurant .stats-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        #page-restaurant .stat-card {
+          padding: 12px;
+        }
+
+        /* Dining budget compact rules now defined globally */
+
+        .restaurant-review-header {
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .restaurant-review-toolbar {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .restaurant-period-select {
+          padding: 7px 10px;
+          font-size: 0.85rem;
+          width: auto;
+          min-width: 0;
+        }
+
+        .restaurant-refresh-btn {
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          justify-content: center;
+        }
+
+        #page-restaurant .receipt-summary-grid,
+        #page-expenses .receipt-summary-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        #page-expenses .stats-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        #page-expenses .stat-card {
+          padding: 12px;
+        }
+      }
+
+      .dining-budget-card {
+        padding: 14px;
+      }
+
+      .dining-budget-card .card-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-bottom: 10px;
+        gap: 8px;
+      }
+
+      .dining-budget-month-input {
+        width: 140px !important;
+        padding: 7px 10px;
+        font-size: 0.85rem;
+        max-width: 50%;
+      }
+
+      .dining-budget-target-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: end;
+      }
+
+      .dining-budget-target-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .dining-budget-target-field label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .dining-budget-target-field input {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: 0.95rem;
+      }
+
+      .dining-budget-summary {
+        margin-top: 12px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .dining-budget-summary__head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+
+      .dining-budget-summary__amount {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+
+      .dining-budget-summary__cap {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      .dining-budget-summary__meta {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 0.76rem;
       }
 
       .receipt-editor-inline-fields {
@@ -6223,17 +6776,577 @@
       }
 
       .receipt-compact-list {
-        display: grid;
-        gap: 8px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        overflow: hidden;
       }
 
       .receipt-compact-row {
+        display: flex;
+        align-items: stretch;
+        position: relative;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .receipt-compact-row:last-child {
+        border-bottom: none;
+      }
+
+      .receipt-compact-row-main {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          "store value chevron"
+          "meta  value chevron";
+        align-items: center;
+        gap: 2px 12px;
+        padding: 10px 12px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--text);
+        transition: background 0.15s;
+      }
+
+      .receipt-compact-row-main:hover,
+      .receipt-compact-row-main:focus-visible {
+        background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+      }
+
+      .receipt-compact-row-store {
+        grid-area: store;
+        font-weight: 600;
+        font-size: 0.95rem;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .receipt-compact-row-meta {
+        grid-area: meta;
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.3;
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .receipt-compact-row-value {
+        grid-area: value;
+        font-weight: 700;
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--text);
+      }
+
+      .receipt-compact-row-chevron {
+        grid-area: chevron;
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
+      .receipt-compact-row-delete {
+        flex: 0 0 auto;
+        background: transparent;
+        border: none;
+        color: var(--color-error, #d33);
+        font-size: 1.2rem;
+        padding: 0 14px;
+        cursor: pointer;
+      }
+
+      .summary-row-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
         border: 1px solid var(--border);
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        overflow: hidden;
+      }
+
+      .summary-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+      }
+
+      .summary-row:last-child {
+        border-bottom: none;
+      }
+
+      .summary-row.is-tappable {
+        cursor: pointer;
+        border: none;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        transition: background 0.15s;
+      }
+
+      .summary-row.is-tappable:hover,
+      .summary-row.is-tappable:focus-visible {
+        background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+      }
+
+      .summary-row__chevron {
+        color: var(--muted);
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
+      .summary-row__main {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+      }
+
+      .summary-row__title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text);
+        min-width: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+      }
+
+      .summary-row__meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.3;
+      }
+
+      .summary-row__value {
+        font-weight: 700;
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--text);
+      }
+
+      .summary-row-host {
+        display: flex;
+        align-items: stretch;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .summary-row-host:last-child {
+        border-bottom: none;
+      }
+
+      .summary-row-host > .summary-row {
+        flex: 1 1 auto;
+        border-bottom: none;
+      }
+
+      .summary-row-delete {
+        flex: 0 0 auto;
+        background: transparent;
+        border: none;
+        color: var(--color-error, #d33);
+        font-size: 1.2rem;
+        padding: 0 14px;
+        cursor: pointer;
+      }
+
+      .expense-detail {
+        display: grid;
+        gap: 12px;
+      }
+
+      .expense-detail__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .expense-detail__head-text {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .expense-detail__store {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .expense-detail__meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        margin-top: 2px;
+      }
+
+      .expense-detail__totals {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--border);
+      }
+
+      .expense-detail__total-amount {
+        font-size: 1.4rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--success, #2e9d6e);
+      }
+
+      .expense-detail__total-amount--refund {
+        color: var(--warning, #d97706);
+      }
+
+      .expense-detail__total-meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .month-chip-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 8px;
+      }
+
+      .month-chip {
+        display: grid;
+        gap: 2px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--text);
+        transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      .month-chip:hover,
+      .month-chip:focus-visible {
+        background: color-mix(in srgb, var(--color-brand) 5%, var(--panel-2, rgba(255, 255, 255, 0.02)));
+      }
+
+      .month-chip.is-pressing {
+        transform: scale(0.96);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 30%, transparent);
+      }
+
+      .month-chip__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .month-chip__value {
+        font-size: 1rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        line-height: 1.1;
+      }
+
+      .month-chip__meta {
+        font-size: 0.7rem;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quick-peek-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 14, 22, 0.5);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 200;
+        display: grid;
+        place-items: center;
+        animation: quick-peek-fade 0.2s ease-out;
+      }
+
+      @keyframes quick-peek-fade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .quick-peek-card {
+        background: var(--color-surface, var(--surface));
+        color: var(--color-text-primary, var(--text));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px 22px;
+        min-width: 220px;
+        max-width: 80vw;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        animation: quick-peek-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        text-align: left;
+      }
+
+      @keyframes quick-peek-pop {
+        from { opacity: 0; transform: scale(0.85); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+
+      .quick-peek-card h4 {
+        margin: 0 0 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+
+      .quick-peek-card .quick-peek-amount {
+        font-size: 1.6rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        margin: 0 0 6px;
+      }
+
+      .quick-peek-card .quick-peek-meta {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .quick-peek-card {
+        min-width: 260px;
+        max-width: min(360px, 86vw);
+      }
+
+      .quick-peek-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 6px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .quick-peek-stat {
+        display: grid;
+        gap: 1px;
+      }
+
+      .quick-peek-stat__label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+      }
+
+      .quick-peek-stat__value {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quick-peek-stat--up .quick-peek-stat__value {
+        color: var(--color-error, #d33);
+      }
+
+      .quick-peek-stat--down .quick-peek-stat__value {
+        color: var(--color-success, #2e9d6e);
+      }
+
+      .quick-peek-section {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+
+      .quick-peek-section__label {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .quick-peek-merchants {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .quick-peek-merchants li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.88rem;
+      }
+
+      .quick-peek-merchant__name {
+        color: var(--text);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .quick-peek-merchant__amount {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        font-weight: 600;
+      }
+
+      .receipt-failed-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        border: 1px solid color-mix(in srgb, var(--color-warning, #d97706) 28%, transparent);
+        background: color-mix(in srgb, var(--color-warning, #d97706) 8%, transparent);
+        border-radius: 10px;
+        font-size: 0.82rem;
+        color: var(--text);
+      }
+
+      .receipt-failed-banner > span {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .receipt-failed-banner__actions {
+        display: flex;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+
+      .budget-cat-row {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        overflow: hidden;
+      }
+
+      .budget-cat-row__summary {
+        list-style: none;
+        cursor: pointer;
         padding: 10px 12px;
         display: grid;
-        gap: 6px;
+        gap: 4px;
+      }
+
+      .budget-cat-row__summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .budget-cat-row__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .budget-cat-row__name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+
+      .budget-cat-row__spent {
+        font-weight: 700;
+        font-size: 0.95rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+      }
+
+      .budget-cat-row__bar .progress-wrap {
+        height: 4px;
+        border-radius: 2px;
+      }
+
+      .budget-cat-row__meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+
+      .budget-cat-row__detail {
+        padding: 0 12px 12px;
+        border-top: 1px solid var(--border);
+      }
+
+      .budget-action-bar {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px !important;
+        cursor: default !important;
+      }
+
+      .budget-action-btn {
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 10px 6px !important;
+        border-radius: 12px;
+        width: 100%;
+        min-height: 56px;
+      }
+
+      .budget-action-btn__icon {
+        font-size: 1.15rem;
+        line-height: 1;
+      }
+
+      .budget-action-btn__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: center;
+        line-height: 1.2;
       }
 
       .receipt-compact-row-grid {
@@ -6378,13 +7491,13 @@
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
+          gap: 10px;
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           z-index: 20;
-          padding: 14px 18px;
+          padding: 8px 14px;
           background: color-mix(in srgb, var(--color-surface) 92%, transparent);
           color: var(--color-text-primary);
           border-bottom: 1px solid var(--color-border);
@@ -6396,7 +7509,7 @@
 
         .mobile-title {
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 0.95rem;
         }
 
         .mobile-title span {
@@ -6433,7 +7546,25 @@
       @media (max-width: 640px) {
         .main {
           padding: 14px;
-          padding-top: 82px;
+          padding-top: 64px;
+        }
+
+        .page-header {
+          margin-bottom: 14px;
+        }
+
+        .page-header h1 {
+          font-size: 1.2rem;
+          margin: 0;
+        }
+
+        .page-header p {
+          font-size: 0.85rem;
+          margin-top: 4px;
+        }
+
+        .page-header::before {
+          display: none;
         }
 
         input,
@@ -6450,13 +7581,27 @@
 
         .inventory-page-controls {
           width: 100%;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+          gap: 6px;
+          flex-wrap: nowrap;
+        }
+
+        .inventory-page-controls > #catalog-toggle-inventory,
+        .inventory-page-controls > #catalog-toggle-products {
+          width: 100%;
+          padding: 8px 10px;
+          font-size: 0.88rem;
         }
 
         #inventory-page-tools-toggle {
           display: inline-flex;
-          min-width: 42px;
-          padding-inline: 12px;
+          width: 40px;
+          min-width: 40px;
+          height: 38px;
+          padding: 0;
+          justify-content: center;
+          align-items: center;
         }
 
         #inventory-tools-toggle {
@@ -6508,6 +7653,141 @@
         .receipt-editor-grid {
           grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
           gap: 8px;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          gap: 10px 10px !important;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field {
+          grid-column: 1 / -1 !important;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field.bill-field-half {
+          grid-column: span 1 !important;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field input,
+        .receipt-bill-meta-panel .receipt-editor-main-field select {
+          padding: 10px 12px;
+          font-size: 0.95rem;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-main-field label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        .receipt-bill-meta-panel .receipt-editor-toggle-row > label {
+          text-transform: none;
+          letter-spacing: 0;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: var(--fg);
+          margin-bottom: 0;
+        }
+
+        .receipt-editor-header {
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .receipt-editor-save-btn {
+          align-self: center;
+          flex: 0 0 auto;
+          white-space: nowrap;
+        }
+
+        .receipt-editor-inline-fields {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          grid-template-areas:
+            "date date"
+            "time tax" !important;
+          align-items: stretch !important;
+          row-gap: 10px;
+        }
+
+        .receipt-editor-inline-field {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .receipt-editor-inline-field input,
+        .receipt-editor-inline-field select {
+          max-width: 100%;
+          width: 100% !important;
+          min-width: 0;
+          box-sizing: border-box;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+
+        #page-receipts .receipt-editor-grid input,
+        #page-receipts .receipt-editor-grid select,
+        #page-receipts .receipt-editor-inline-field input {
+          width: 100% !important;
+          min-width: 0;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+
+        #page-receipts .receipt-editor-grid input[type="date"] {
+          -webkit-appearance: none;
+          appearance: none;
+          text-align: left;
+        }
+
+        #page-receipts .receipt-editor-main-field label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 4px;
+        }
+
+        #page-receipts .receipt-editor-main-field input,
+        #page-receipts .receipt-editor-main-field select {
+          padding: 10px 12px;
+          font-size: 0.95rem;
+        }
+
+        #page-receipts .receipt-editor-main-field {
+          min-width: 0;
+        }
+
+        #page-receipts .receipt-editor-main-field.field-date-time {
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        #page-receipts .receipt-editor-inline-fields {
+          min-width: 0;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(1) {
+          grid-area: date;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(2) {
+          grid-area: time;
+        }
+
+        .receipt-editor-inline-fields > .receipt-editor-inline-field:nth-child(3) {
+          grid-area: tax;
+        }
+
+        .receipt-editor-inline-field label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          min-height: 1.25em;
         }
 
         .receipt-editor-main-field.field-type,
@@ -6577,6 +7857,36 @@
 
         .receipt-filter-card .card-header {
           margin-bottom: 0;
+          flex-direction: row !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .receipt-filter-card .form-grid {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+          gap: 10px !important;
+        }
+
+        .receipt-filter-card .form-group.receipt-filter-store-group {
+          grid-column: 1 / -1;
+        }
+
+        .receipt-filter-card .form-group label {
+          font-size: 0.72rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--muted);
+          margin-bottom: 2px;
+        }
+
+        .receipt-filter-card .form-group input,
+        .receipt-filter-card .form-group select {
+          max-width: 100%;
+          box-sizing: border-box;
+          padding: 9px 10px;
+          font-size: 0.9rem;
         }
 
         .receipt-filter-store-head {
@@ -11373,56 +12683,48 @@
               </div>
             </div>
           </div>
-          <div class="card">
+          <div class="card dining-budget-card">
             <div class="card-header">
               <span class="card-title">Dining Budget</span>
               <input
                 type="month"
                 id="restaurant-budget-month"
                 onchange="loadRestaurantBudget()"
-                style="width: 160px"
+                class="dining-budget-month-input"
               />
             </div>
-            <div
-              class="form-grid"
-              style="
-                grid-template-columns: minmax(0, 1fr) auto;
-                align-items: end;
-              "
-            >
-              <div class="form-group">
-                <label>Monthly Target</label
-                ><input
+            <div class="dining-budget-target-row">
+              <div class="dining-budget-target-field">
+                <label for="restaurant-budget-amount">Monthly Target</label>
+                <input
                   id="restaurant-budget-amount"
                   type="number"
                   step="0.01"
                   placeholder="e.g. 300"
                 />
               </div>
-              <div>
-                <button
-                  class="btn btn-primary"
-                  id="restaurant-budget-save"
-                  type="button"
-                  onclick="saveRestaurantBudget()"
-                >
-                  Save
-                </button>
-              </div>
+              <button
+                class="btn btn-primary"
+                id="restaurant-budget-save"
+                type="button"
+                onclick="saveRestaurantBudget()"
+              >
+                Save
+              </button>
             </div>
-            <div id="restaurant-budget-status" style="margin-top: 14px"></div>
+            <div id="restaurant-budget-status" class="dining-budget-status"></div>
           </div>
-          <div class="card">
-            <div class="card-header">
+          <div class="card restaurant-review-card">
+            <div class="card-header restaurant-review-header">
               <span class="card-title">Receipt Review</span>
-              <div class="table-toolbar">
-                <select id="restaurant-period" onchange="loadRestaurant()">
+              <div class="restaurant-review-toolbar">
+                <select id="restaurant-period" onchange="loadRestaurant()" class="restaurant-period-select">
                   <option value="3">Last 3 months</option>
                   <option value="6" selected>Last 6 months</option>
                   <option value="12">Last 12 months</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" onclick="loadRestaurant()">
-                  🔄 Refresh
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadRestaurant()" aria-label="Refresh">
+                  🔄
                 </button>
               </div>
             </div>
@@ -11509,44 +12811,36 @@
               align-items: start;
             "
           >
-            <div class="card">
+            <div class="card dining-budget-card">
               <div class="card-header">
                 <span class="card-title">Expense Budget</span>
                 <input
                   type="month"
                   id="expense-budget-month"
                   onchange="loadExpenseBudget()"
-                  style="width: 160px"
+                  class="dining-budget-month-input"
                 />
               </div>
-              <div
-                class="form-grid"
-                style="
-                  grid-template-columns: minmax(0, 1fr) auto;
-                  align-items: end;
-                "
-              >
-                <div class="form-group">
-                  <label>Monthly Target</label
-                  ><input
+              <div class="dining-budget-target-row">
+                <div class="dining-budget-target-field">
+                  <label for="expense-budget-amount">Monthly Target</label>
+                  <input
                     id="expense-budget-amount"
                     type="number"
                     step="0.01"
                     placeholder="e.g. 250"
                   />
                 </div>
-                <div>
-                  <button
-                    class="btn btn-primary"
-                    id="expense-budget-save"
-                    type="button"
-                    onclick="saveExpenseBudget()"
-                  >
-                    Save
-                  </button>
-                </div>
+                <button
+                  class="btn btn-primary"
+                  id="expense-budget-save"
+                  type="button"
+                  onclick="saveExpenseBudget()"
+                >
+                  Save
+                </button>
               </div>
-              <div id="expense-budget-status" style="margin-top: 14px"></div>
+              <div id="expense-budget-status" class="dining-budget-status"></div>
             </div>
             <div class="card">
               <div class="card-header">
@@ -11562,17 +12856,17 @@
               </div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header">
+          <div class="card restaurant-review-card">
+            <div class="card-header restaurant-review-header">
               <span class="card-title">Expense Receipts</span>
-              <div class="table-toolbar">
-                <select id="expense-period" onchange="loadExpenses()">
+              <div class="restaurant-review-toolbar">
+                <select id="expense-period" onchange="loadExpenses()" class="restaurant-period-select">
                   <option value="3">Last 3 months</option>
                   <option value="6" selected>Last 6 months</option>
                   <option value="12">Last 12 months</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" onclick="loadExpenses()">
-                  🔄 Refresh
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadExpenses()" aria-label="Refresh">
+                  🔄
                 </button>
               </div>
             </div>
@@ -11913,21 +13207,11 @@
                 <p id="preview-meta" class="drop-zone__preview-meta"></p>
               </div>
             </label>
-            <div
-              style="
-                margin-top: 16px;
-                display: flex;
-                gap: 10px;
-                align-items: center;
-                flex-wrap: wrap;
-              "
-            >
-              <div style="font-size: 0.85rem; color: var(--muted); width: 100%">
-                Receipt Type
-              </div>
+            <div class="upload-section">
+              <div class="upload-section__label">Receipt Type</div>
               <div
                 id="upload-intent-buttons"
-                style="display: flex; gap: 10px; flex-wrap: wrap"
+                class="upload-intent-grid"
               >
                 <button
                   type="button"
@@ -11963,35 +13247,21 @@
                 </button>
               </div>
               <input type="hidden" id="upload-receipt-intent" value="auto" />
-              <span style="font-size: 0.82rem; color: var(--muted)"
-                >Use `Restaurant` or `General Expense` when you already know the
+              <span class="upload-section__hint upload-hint-desktop"
+                >Use Restaurant or General Expense when you already know the
                 receipt type so review starts closer to the right result.</span
               >
             </div>
-            <div
-              style="
-                margin-top: 16px;
-                display: grid;
-                gap: 8px;
-              "
-            >
+            <div class="upload-section">
               <label
                 for="upload-ai-model"
-                style="font-size: 0.85rem; color: var(--muted)"
+                class="upload-section__label"
                 >OCR Model</label
               >
-              <div
-                style="
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 12px;
-                  align-items: center;
-                "
-              >
+              <div class="upload-model-row">
                 <select
                   id="upload-ai-model"
-                  class="input"
-                  style="min-width: 280px; max-width: 100%"
+                  class="input upload-model-select"
                   onchange="changeAiModelSelection(this.value)"
                 >
                   <option value="">Default OCR fallback</option>
@@ -12001,14 +13271,14 @@
                   class="btn btn-ghost btn-sm"
                   onclick="toggleAiModelBrowser()"
                 >
-                  Browse Models
+                  Browse
                 </button>
-                <span
-                  id="upload-ai-model-meta"
-                  style="font-size: 0.82rem; color: var(--muted)"
-                  >Using server default OCR fallback.</span
-                >
               </div>
+              <span
+                id="upload-ai-model-meta"
+                class="upload-section__hint"
+                >Using server default OCR fallback.</span
+              >
               <div
                 id="upload-ai-model-browser"
                 style="
@@ -12127,7 +13397,7 @@
             </div>
             <div class="receipt-filter-body" id="receipt-filter-body">
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group receipt-filter-store-group">
                   <label>Store</label
                   ><select id="receipt-filter-store">
                     <option value="">All stores</option>
@@ -12159,20 +13429,20 @@
                     <option value="">All statuses</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label>Purchase Date From</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Purchased from</label
                   ><input id="receipt-filter-purchase-from" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Purchase Date To</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Purchased to</label
                   ><input id="receipt-filter-purchase-to" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Upload Date From</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Uploaded from</label
                   ><input id="receipt-filter-upload-from" type="date" />
                 </div>
-                <div class="form-group">
-                  <label>Upload Date To</label
+                <div class="form-group receipt-filter-date-group">
+                  <label>Uploaded to</label
                   ><input id="receipt-filter-upload-to" type="date" />
                 </div>
               </div>
@@ -12338,30 +13608,30 @@
             class="card budget-editor-card budget-editor-shell"
             id="budget-editor-shell"
           >
-            <div class="budget-editor-header" onclick="toggleBudgetEditor()">
-              <div class="budget-editor-header-left">
-                <span class="budget-editor-chevron">▶</span>
-                <span class="card-title">Set Monthly Budget</span>
-              </div>
+            <div class="budget-editor-header budget-action-bar" onclick="toggleBudgetEditor()">
               <button
                 type="button"
-                class="btn btn-ghost btn-sm"
-                onclick="
-                  event.stopPropagation();
-                  openManualEntryModal();
-                "
+                class="btn btn-ghost btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); toggleBudgetEditor(true)"
               >
-                ✍️ Manual Entry
+                <span class="budget-action-btn__icon">⚙</span>
+                <span class="budget-action-btn__label">Budget</span>
               </button>
               <button
                 type="button"
-                class="btn btn-primary btn-sm"
-                onclick="
-                  event.stopPropagation();
-                  openCashTransactionModal();
-                "
+                class="btn btn-ghost btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); openManualEntryModal()"
               >
-                💸 Log Cash / Transfer
+                <span class="budget-action-btn__icon">✍️</span>
+                <span class="budget-action-btn__label">Manual Entry</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm budget-action-btn"
+                onclick="event.stopPropagation(); openCashTransactionModal()"
+              >
+                <span class="budget-action-btn__icon">💸</span>
+                <span class="budget-action-btn__label">Log Cash</span>
               </button>
             </div>
             <div class="budget-editor-body">
@@ -12408,25 +13678,12 @@
             </div>
           </div>
           <div class="card" id="budget-status-card">
-            <div class="card-header">
-              <div
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 10px;
-                  justify-content: space-between;
-                  width: 100%;
-                "
-              >
-                <span class="card-title">This Month</span>
-                <div
-                  id="budget-total-spent"
-                  style="font-weight: 700; color: var(--text)"
-                ></div>
+            <div class="card-header" style="flex-direction:row !important;align-items:center !important;justify-content:space-between !important;gap:8px">
+              <span class="card-title">This Month</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="budget-total-spent" style="font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums;color:var(--text)"></span>
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadBudgetStatus()" aria-label="Refresh">🔄</button>
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="loadBudgetStatus()">
-                🔄
-              </button>
             </div>
             <div id="budget-status-body"></div>
           </div>
@@ -19107,6 +20364,21 @@
         return formatLabel(normalized, "Unknown");
       }
 
+      function formatPrettyDate(value, fallback = "—") {
+        if (!value) return fallback;
+        const d = new Date(value);
+        if (isNaN(d.getTime())) {
+          // Try YYYY-MM-DD parsing as local
+          const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) {
+            const local = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            return local.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+          }
+          return String(value);
+        }
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      }
+
       function formatDateInputValue(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
       }
@@ -19831,15 +21103,18 @@
         }
         const storeSummaryHtml = stores.length
           ? compact
-            ? renderMobileMetricCards(
-                stores.map((item) => ({
-                  title: item.store,
-                  value: String(item.count),
-                  meta: "Tap to filter receipts by this store",
-                  cells: [{ label: "Receipts", value: String(item.count) }],
-                  actions: `<button type="button" class="btn btn-sm btn-ghost" onclick="openStoreReceipts('${escAttr(item.store)}')">Open Receipts</button>`,
-                })),
-              )
+            ? `<ul class="receipts-by-store-list">${stores
+                .map(
+                  (item) => `
+                    <li>
+                      <button type="button" class="receipts-by-store-row" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                        <span class="receipts-by-store-name">${escHtml(item.store)}</span>
+                        <span class="receipts-by-store-count">${item.count}</span>
+                        <span class="receipts-by-store-chevron" aria-hidden="true">›</span>
+                      </button>
+                    </li>`,
+                )
+                .join("")}</ul>`
             : `<table>
             <thead><tr><th>Store</th><th>Receipts</th></tr></thead>
             <tbody>${stores
@@ -19881,20 +21156,20 @@
           monthsEl.innerHTML = `
       <div class="month-chart">
         <div id="receipt-budget-strip"><div class="empty-state" style="padding:18px 12px"><p>Loading budget comparison…</p></div></div>
-        <div class="month-bars" style="margin-top:12px">
+        <div class="month-bars month-bars--compact" style="margin-top:12px">
           ${months
             .map(
               (item) => `
             ${(() => {
               const height =
-                maxCount > 0 ? Math.max(16, (item.count / maxCount) * 160) : 16;
+                maxCount > 0 ? Math.max(12, (item.count / maxCount) * 120) : 12;
               return `
                 <button type="button" class="month-bar-col" style="background:none;border:none;padding:0;cursor:pointer" onclick="selectReceiptMonth('${escHtml(item.month)}')">
                   <div class="month-bar-value">${item.count}</div>
                   <div class="month-bar-track">
                     <div class="month-bar${item.month === activeMonth ? " active" : ""}" style="height:${height}px"></div>
                   </div>
-                  <div class="month-bar-label">${escHtml(item.month)}</div>
+                  <div class="month-bar-label">${escHtml(formatMonthLabel(item.month))}</div>
                   <div class="month-bar-amount">${formatMoney(item.total_amount)}</div>
                 </button>`;
             })()}`,
@@ -19906,8 +21181,8 @@
             activeMonthData
               ? `
             <div class="card-header" style="margin:16px 0 10px">
-              <span class="card-title">Receipts In ${escHtml(activeMonthData.month)}</span>
-              <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
+              <span class="card-title">${escHtml(formatMonthLabel(activeMonthData.month))}</span>
+              <span style="color:var(--muted);font-size:0.78rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             ${renderCompactReceiptRows(activeMonthData.receipts || [], { includeDelete: false })}
           `
@@ -19995,11 +21270,11 @@
 
           if (!res.ok) {
             container.innerHTML = compact
-              ? `<div class="receipt-budget-strip">
-            <div class="receipt-budget-stat">
-              <div class="receipt-budget-label">${escHtml(monthData.month)}</div>
-              <div class="receipt-budget-value">${formatMoney(monthData.total_amount)}</div>
-              <div class="receipt-budget-meta">${monthData.count} receipts</div>
+              ? `<div class="receipt-budget-strip receipt-budget-strip--compact">
+            <div class="receipt-budget-headline">
+              <div class="receipt-budget-headline__month">${escHtml(formatMonthLabel(monthData.month))}</div>
+              <div class="receipt-budget-headline__amount">${formatMoney(monthData.total_amount)}</div>
+              <div class="receipt-budget-headline__meta">${monthData.count} receipts · No budget set</div>
             </div>
           </div>`
               : `
@@ -20031,22 +21306,17 @@
 
           container.innerHTML = compact
             ? `
-        <div class="receipt-budget-strip">
-          <div class="receipt-budget-stat">
-            <div class="receipt-budget-label">${escHtml(monthData.month)}</div>
-            <div class="receipt-budget-value">${formatMoney(filteredSpend)}</div>
-            <div class="receipt-budget-meta">${monthData.count} receipts</div>
-          </div>
-          <div class="receipt-budget-stat">
-            <div class="receipt-budget-label">Budget</div>
-            <div class="receipt-budget-value">${formatMoney(budgetAmount)}</div>
-            <div class="receipt-budget-meta">${remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`}</div>
+        <div class="receipt-budget-strip receipt-budget-strip--compact">
+          <div class="receipt-budget-headline">
+            <div class="receipt-budget-headline__month">${escHtml(formatMonthLabel(monthData.month))}</div>
+            <div class="receipt-budget-headline__amount">${formatMoney(filteredSpend)}</div>
+            <div class="receipt-budget-headline__meta">${monthData.count} receipts · Budget ${formatMoney(budgetAmount)}</div>
           </div>
           <div class="receipt-budget-progress">
             <div class="progress-wrap"><div class="progress-bar ${progressClass}" style="width:${filteredPct}%"></div></div>
-            <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:0.78rem;gap:10px;flex-wrap:wrap">
-              <span>${filteredPct.toFixed(1)}% used</span>
-              <span>Month total ${formatMoney(budget.spent)}</span>
+            <div class="receipt-budget-progress__meta">
+              <span>${filteredPct.toFixed(0)}% used</span>
+              <span>${remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`}</span>
             </div>
           </div>
         </div>`
@@ -20821,7 +22091,10 @@
             loadRecs("shopping-recs-body");
         }
         if (page === "restaurant") loadRestaurant();
-        if (page === "expenses") loadExpenses();
+        if (page === "expenses") {
+          loadExpenses();
+          repositionExpenseDetailForMobile();
+        }
         if (page === "budget") {
           setDefaultMonth();
           loadBudgetStatus();
@@ -23963,6 +25236,7 @@
         }
         applyDesktopSidebarPreference();
         applyReceiptFilterLayout();
+        repositionExpenseDetailForMobile();
       });
 
       function toggleTokenVis() {
@@ -26818,7 +28092,7 @@
                 ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ""}
                 <div class="shopping-mobile-compact-grid">
                   <div class="shopping-mobile-compact-field compact-store">
-                    <label title="${escAttr(item.preferred_store || item.effective_store || "Any store")}">🏬</label>
+                    <label title="${escAttr(item.preferred_store || item.effective_store || "Any store")}">Store</label>
                     <select
                       onclick="event.stopPropagation()"
                       onchange="event.stopPropagation(); updateShoppingPreferredStoreGroup([${item.ids.join(",")}], this.value)"
@@ -28174,6 +29448,9 @@
         </table>
         <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || "Unknown")} · Total: ${formatMoney(summary?.total)} · Extracted by: ${data.ocr_engine ?? data.engine ?? "AI"} · Confidence: ${((data.confidence ?? 0) * 100).toFixed(0)}%</p>`
               : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
+            if (data.status !== "failed" && data.status !== "review") {
+              await cleanupFailedReceipts({ silent: true });
+            }
             loadReceipts();
           } else {
             setUploadScanState({
@@ -28292,9 +29569,33 @@
         const receiptSortEl = document.getElementById("receipt-sort");
         if (receiptSortEl && receiptSortEl.value !== receiptSort)
           receiptSortEl.value = receiptSort;
-        if (!receipts.length) {
-          body.innerHTML =
-            '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+
+        const statusFilter = (document.getElementById("receipt-filter-status")?.value || "").toLowerCase();
+        const failedReceipts = receipts.filter((r) => (r.status || "").toLowerCase() === "failed");
+        const visibleReceipts =
+          statusFilter === "failed"
+            ? receipts
+            : receipts.filter((r) => {
+                const status = (r.status || "").toLowerCase();
+                if (status === "failed") return false;
+                const hasData = (r.store && r.store.trim()) || receiptDisplayTotal(r) || r.purchase_id;
+                return Boolean(hasData);
+              });
+        const failedBannerHtml =
+          failedReceipts.length && statusFilter !== "failed"
+            ? `<div class="receipt-failed-banner">
+                 <span>${failedReceipts.length} OCR failure${failedReceipts.length === 1 ? "" : "s"} hidden</span>
+                 <div class="receipt-failed-banner__actions">
+                   <button type="button" class="btn btn-ghost btn-sm" onclick="showFailedReceiptsFilter()">View</button>
+                   <button type="button" class="btn btn-danger btn-sm" onclick="clearFailedReceiptsAndReload()">Clear</button>
+                 </div>
+               </div>`
+            : "";
+
+        if (!visibleReceipts.length) {
+          body.innerHTML = failedReceipts.length && statusFilter !== "failed"
+            ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
+            : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
@@ -28306,15 +29607,14 @@
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
-          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+          body.innerHTML = failedBannerHtml + renderCompactReceiptRows(visibleReceipts, {
             includeDelete: true,
-            inlineDetail: false,
           });
         } else {
           if (detailCard) detailCard.style.display = "none";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.add("receipts-inline-mode");
-          const availableReceiptIds = receipts
+          const availableReceiptIds = visibleReceipts
             .map((r) => Number(r.purchase_id || r.id))
             .filter(Boolean);
           const targetReceiptId = availableReceiptIds.includes(
@@ -28322,7 +29622,7 @@
           )
             ? Number(selectedReceiptId)
             : null;
-          body.innerHTML = renderReceiptsAsResultCards(receipts, {
+          body.innerHTML = failedBannerHtml + renderReceiptsAsResultCards(visibleReceipts, {
             includeDelete: true,
             inlineDetail: true,
             targetId: targetReceiptId,
@@ -28423,8 +29723,8 @@
             : "";
         const statsHtml = `
     <div class="receipt-detail-stats">
-      <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(receipt.store || "Unknown")}</div><div class="stat-sub">${escHtml(receipt.date || "—")}</div></div>
-      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.source, "Upload"))} · ${escHtml(receipt.ocr_engine || "n/a")} · ${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
+      <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(formatLabel(receipt.store || "", "Unknown"))}</div><div class="stat-sub">${escHtml(formatPrettyDate(receipt.date))}</div></div>
+      <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
     </div>`;
         const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -28437,7 +29737,7 @@
           : ""
       }
       <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
-      ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
+      ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
     </div>`;
         const billSummaryHtml = billReceipt
           ? `
@@ -28454,13 +29754,13 @@
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Counts Toward</div>
-          <div class="stat-value" style="font-size:1rem">${escHtml(receipt.bill_planning_month || "—")}</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(formatMonthLabel(receipt.bill_planning_month))}</div>
           <div class="stat-sub">${escHtml(formatBillPlanningExplanation(receipt))}</div>
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Due Date</div>
-          <div class="stat-value" style="font-size:1rem">${escHtml(receipt.bill_due_date || "—")}</div>
-          <div class="stat-sub">${escHtml(receipt.bill_service_period_end ? `Service end ${receipt.bill_service_period_end}` : receipt.bill_billing_cycle_month ? `Cycle ${receipt.bill_billing_cycle_month}` : "")}</div>
+          <div class="stat-value" style="font-size:1rem">${escHtml(formatPrettyDate(receipt.bill_due_date))}</div>
+          <div class="stat-sub">${escHtml(receipt.bill_service_period_end ? `Service end ${formatPrettyDate(receipt.bill_service_period_end)}` : receipt.bill_billing_cycle_month ? `Cycle ${formatMonthLabel(receipt.bill_billing_cycle_month)}` : "")}</div>
         </div>
         <div class="stat-card" style="padding:12px">
           <div class="stat-label">Frequency</div>
@@ -28473,15 +29773,36 @@
           <div class="stat-sub">${escHtml(receipt.bill_payment_confirmed_at ? `Confirmed ${formatDateTime(receipt.bill_payment_confirmed_at, "—")}` : "No payment confirmation yet")}</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
-        <select id="receipt-bill-status-select-${receipt.id}" class="inline-select" style="min-width:180px">
-          ${renderBillPaymentStatusOptions(receipt.bill_payment_status || "upcoming")}
-        </select>
-        <button type="button" class="btn btn-primary btn-sm" onclick="updateReceiptBillStatus(${receipt.id})">Save Payment Status</button>
+      <div class="bill-actions">
+        <div class="bill-action-group">
+          <label class="bill-action-label" for="receipt-bill-status-select-${receipt.id}">Change status</label>
+          <div class="bill-action-row">
+            <select id="receipt-bill-status-select-${receipt.id}" class="inline-select">
+              ${renderBillPaymentStatusOptions(receipt.bill_payment_status || "upcoming")}
+            </select>
+            <button type="button" class="btn btn-primary btn-sm" onclick="updateReceiptBillStatus(${receipt.id})">Save</button>
+          </div>
+        </div>
         ${
           (receipt.bill_payment_status || "upcoming") !== "paid"
-            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>`
-            : `<button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>`
+            ? `
+              <div class="bill-action-group">
+                <label class="bill-action-label" for="receipt-bill-paid-date-${receipt.id}">Paid on</label>
+                <div class="bill-action-row">
+                  <input id="receipt-bill-paid-date-${receipt.id}" type="date" class="inline-select" value="${escAttr(defaultPaidDateForReceipt(receipt))}" title="${receipt.bill_preferred_payment_method === "autopay" ? "Auto-pay: defaults to due date" : "Defaults to today"}" />
+                  <button type="button" class="btn btn-primary btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'paid')">Mark Paid</button>
+                </div>
+              </div>
+            `
+            : `
+              <div class="bill-action-group">
+                <label class="bill-action-label">Paid on</label>
+                <div class="bill-action-row bill-action-row--readonly">
+                  <span class="bill-action-value">${escHtml(formatPrettyDate(receipt.bill_payment_confirmed_at))}</span>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="quickSetReceiptBillStatus(${receipt.id}, 'upcoming')">Mark Unpaid</button>
+                </div>
+              </div>
+            `
         }
       </div>
     </div>`
@@ -28507,7 +29828,7 @@
     <div class="card" style="margin-bottom:0">
       <div class="card-header" style="margin-bottom:12px">
         <span class="card-title">Refresh OCR Data</span>
-        <button class="btn btn-ghost btn-sm" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
+        <button class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>
       </div>
       <p style="color:var(--muted);font-size:0.82rem">This older receipt does not have editable review JSON yet. Re-run OCR once to populate the review editor.</p>
     </div>`
@@ -28515,9 +29836,9 @@
         const editHtml = canEditReceipt
           ? `
     <div class="card" style="margin-bottom:0">
-      <div class="card-header" style="margin-bottom:12px">
+      <div class="card-header receipt-editor-header" style="margin-bottom:12px">
         <span class="card-title">${receipt.receipt_type === "restaurant" ? "Restaurant Review" : "Edit Receipt"}</span>
-        <button class="btn btn-primary btn-sm" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === "processed" ? "Update Receipt" : "Save as Purchase"}</button>
+        <button class="btn btn-primary btn-sm receipt-editor-save-btn" onclick="saveEditedReceipt(${receipt.id})">${receipt.purchase_id || receipt.status === "processed" ? "Update Receipt" : "Save as Purchase"}</button>
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
@@ -28526,7 +29847,7 @@
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">
             <div class="receipt-editor-inline-field">
-              <label>Date</label>
+              <label id="receipt-date-label-${receipt.id}">${billReceipt ? "Statement Date" : "Date"}</label>
               <input id="receipt-date-${receipt.id}" type="date" />
             </div>
             <div class="receipt-editor-inline-field">
@@ -28585,16 +29906,21 @@
             <option value="health">Health</option>
             <option value="other">Other</option>
           </select></div>
-          <div class="receipt-editor-main-field" style="grid-column:span 2"><label>Service Types</label><div id="receipt-bill-service-types-${receipt.id}"></div></div>
-          <div class="receipt-editor-main-field"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
-          <div class="receipt-editor-main-field"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
-          <div class="receipt-editor-main-field"><label>Bill Frequency</label><select id="receipt-bill-billing-cycle-${receipt.id}">${renderBillingCycleOptionTags(receipt.bill_billing_cycle || "monthly")}</select></div>
-          <div class="receipt-editor-main-field"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
-          <div class="receipt-editor-main-field" style="display:flex;align-items:center;gap:8px;padding-top:18px">
+          <div class="receipt-editor-main-field bill-field-full"><label>Service Types</label><div id="receipt-bill-service-types-${receipt.id}"></div></div>
+          <div class="receipt-editor-main-field bill-field-full"><label>Account Label</label><input id="receipt-bill-account-label-${receipt.id}" placeholder="Last 4 digits or nickname" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Billing Cycle Month</label><input id="receipt-bill-billing-cycle-month-${receipt.id}" type="month" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Bill Frequency</label><select id="receipt-bill-billing-cycle-${receipt.id}">${renderBillingCycleOptionTags(receipt.bill_billing_cycle || "monthly")}</select></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Service Period Start</label><input id="receipt-bill-service-period-start-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field bill-field-half"><label>Service Period End</label><input id="receipt-bill-service-period-end-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field bill-field-full"><label>Due Date</label><input id="receipt-bill-due-date-${receipt.id}" type="date" /></div>
+          <div class="receipt-editor-main-field receipt-editor-toggle-row">
             <input id="receipt-bill-is-recurring-${receipt.id}" type="checkbox" checked />
-            <label for="receipt-bill-is-recurring-${receipt.id}" style="margin:0">Recurring bill</label>
+            <label for="receipt-bill-is-recurring-${receipt.id}">Recurring bill</label>
+          </div>
+          <div class="receipt-editor-main-field receipt-editor-toggle-row">
+            <input id="receipt-bill-auto-pay-${receipt.id}" type="checkbox" ${receipt.bill_auto_pay ? "checked" : ""} />
+            <label for="receipt-bill-auto-pay-${receipt.id}">Auto-pay</label>
+            <span class="receipt-editor-toggle-hint">Marks paid on due date automatically</span>
           </div>
         </div>
       </div>
@@ -29154,14 +30480,15 @@
 
       function handleReceiptEditorTypeChange(receiptId) {
         const type = document.getElementById(`receipt-type-${receiptId}`).value;
+        const isBill = type === "utility_bill" || type === "household_bill";
         const billPanel = document.getElementById(
           `receipt-bill-meta-panel-${receiptId}`,
         );
-        if (billPanel)
-          billPanel.style.display =
-            type === "utility_bill" || type === "household_bill"
-              ? "block"
-              : "none";
+        if (billPanel) billPanel.style.display = isBill ? "block" : "none";
+        const dateLabel = document.getElementById(
+          `receipt-date-label-${receiptId}`,
+        );
+        if (dateLabel) dateLabel.textContent = isBill ? "Statement Date" : "Date";
       }
 
       const BILL_SERVICE_TYPE_OPTIONS = [
@@ -29225,10 +30552,10 @@
             .filter(Boolean),
         );
         container.innerHTML = `
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div class="bill-service-type-grid">
             ${BILL_SERVICE_TYPE_OPTIONS.map(
               (value) => `
-                <label class="pill-toggle" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--panel-2)">
+                <label class="pill-toggle bill-service-type-pill">
                   <input type="checkbox" value="${escAttr(value)}" ${
                     selected.has(value) ? "checked" : ""
                   } />
@@ -29666,23 +30993,20 @@
       function renderCompactTopItemCards(items = [], averageLabel = "Avg") {
         if (!items.length)
           return '<div class="empty-state"><p>No data yet.</p></div>';
-        return `<div class="mobile-data-list">
+        return `<ul class="summary-row-list">
     ${items
       .map(
         (item) => `
-      <div class="mobile-data-card">
-        <div class="mobile-data-top">
-          <div class="mobile-data-title">${escHtml(item.name || "Unknown")}</div>
-          <div class="mobile-data-value">${formatMoney(item.total || 0)}</div>
+      <li class="summary-row">
+        <div class="summary-row__main">
+          <div class="summary-row__title" title="${escAttr(item.name || "Unknown")}">${escHtml(item.name || "Unknown")}</div>
+          <div class="summary-row__meta">Qty ${escHtml(String(item.quantity ?? 0))} · ${escHtml(averageLabel)} ${formatMoney(item.average_price || 0)}</div>
         </div>
-        <div class="mobile-data-meta" style="display:flex;gap:10px;flex-wrap:wrap">
-          <span>Qty ${escHtml(String(item.quantity ?? 0))}</span>
-          <span>${escHtml(averageLabel)} ${formatMoney(item.average_price || 0)}</span>
-        </div>
-      </div>`,
+        <div class="summary-row__value">${formatMoney(item.total || 0)}</div>
+      </li>`,
       )
       .join("")}
-  </div>`;
+  </ul>`;
       }
 
       function receiptIconFor(receipt) {
@@ -29778,33 +31102,29 @@
         if (!receipts.length)
           return '<div class="empty-state"><p>No receipts yet.</p></div>';
         const includeDelete = options.includeDelete !== false;
-        return `<div class="receipt-compact-list">
+        const onClick = options.onClick || ((id) => `viewReceipt(${id})`);
+        return `<ul class="summary-row-list">
     ${receipts
-      .map(
-        (receipt) => `
-      <div class="receipt-compact-row">
-        <div class="receipt-compact-row-grid">
-          <div class="receipt-compact-row-title-wrap">
-            <div class="receipt-compact-row-title">${escHtml(receipt.store || "Unknown")}</div>
+      .map((receipt) => {
+        const id = receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id;
+        const storeName = formatLabel(receipt.store || "", "Unknown");
+        const datePart = receipt.date ? formatPrettyDate(receipt.date) : "—";
+        const txnPart = receipt.transaction_type ? ` · ${formatReceiptTransactionLabel(receipt.transaction_type)}` : "";
+        return `
+      <li class="summary-row-host">
+        <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}">
+          <div class="summary-row__main">
+            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+            <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
           </div>
-          <div class="receipt-compact-row-right">
-            <div class="receipt-compact-row-value">${formatMoney(receiptDisplayTotal(receipt))}</div>
-            <div class="receipt-compact-row-actions">
-              <button type="button" class="btn btn-sm btn-ghost" onclick="viewReceipt(${receipt.purchase_id || receipt.receipt_id || receipt.record_id || receipt.id})">Open</button>
-              ${includeDelete ? `<button type="button" class="btn btn-sm btn-danger" onclick="deleteReceipt(${receipt.purchase_id || receipt.id})">Delete</button>` : ""}
-            </div>
-          </div>
-          <div class="receipt-compact-row-meta">
-            <span>${escHtml(receipt.date || "—")}</span>
-            ${receipt.source ? `<span>${escHtml(formatLabel(receipt.source, "Upload"))}</span>` : ""}
-            ${receipt.transaction_type ? `<span>${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}</span>` : ""}
-            ${receipt.status ? `<span>${escHtml(formatLabel(receipt.status, "Unknown"))}</span>` : ""}
-          </div>
-        </div>
-      </div>`,
-      )
+          <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
+          <span class="summary-row__chevron" aria-hidden="true">›</span>
+        </button>
+        ${includeDelete ? `<button type="button" class="summary-row-delete" onclick="event.stopPropagation(); deleteReceipt(${receipt.purchase_id || receipt.id})" aria-label="Delete receipt">×</button>` : ""}
+      </li>`;
+      })
       .join("")}
-  </div>`;
+  </ul>`;
       }
 
       function addManualEntryRow() {
@@ -29997,14 +31317,29 @@
         await viewReceipt(id, { scroll: false });
       }
 
+      function defaultPaidDateForReceipt(receipt) {
+        if (!receipt) return "";
+        const isAutopay = receipt.bill_preferred_payment_method === "autopay";
+        if (isAutopay && receipt.bill_due_date) return receipt.bill_due_date;
+        return new Date().toISOString().slice(0, 10);
+      }
+
       async function updateReceiptBillStatus(id, forcedStatus = null) {
         const select = document.getElementById(
           `receipt-bill-status-select-${id}`,
         );
         const paymentStatus = forcedStatus || select?.value || "upcoming";
+        const paidDateInput = document.getElementById(
+          `receipt-bill-paid-date-${id}`,
+        );
+        const paidDate =
+          paymentStatus === "paid" ? paidDateInput?.value || "" : "";
         const res = await api(`/receipts/${id}/bill-status`, {
           method: "PUT",
-          body: JSON.stringify({ payment_status: paymentStatus }),
+          body: JSON.stringify({
+            payment_status: paymentStatus,
+            ...(paidDate ? { paid_date: paidDate } : {}),
+          }),
         });
         const payload = await res.json();
         if (!res.ok) {
@@ -30159,6 +31494,9 @@
               is_recurring:
                 document.getElementById(`receipt-bill-is-recurring-${id}`)
                   ?.checked ?? true,
+              auto_pay:
+                document.getElementById(`receipt-bill-auto-pay-${id}`)
+                  ?.checked ?? false,
             };
           }
           const res = await api(`/receipts/${id}/update`, {
@@ -30194,24 +31532,47 @@
       async function reprocessReceipt(id) {
         const modelId = getSelectedAiModelId();
         const body = modelId ? { model_id: modelId } : {};
-        const res = await api(`/receipts/${id}/reprocess`, {
-          method: "POST",
-          body: JSON.stringify(body),
-        });
-        const payload = await res.json();
-        if (!res.ok) {
-          toast(payload.error || "Could not re-run OCR", "error");
-          return;
-        }
-        if (Array.isArray(payload.warnings) && payload.warnings.length) {
-          toast(payload.warnings[0], "info");
-        }
-        toast(
-          `OCR re-run complete · ${formatLabel(payload.status, "Updated")} ✅`,
-          "success",
+        const buttons = document.querySelectorAll(
+          `[data-reprocess-btn="${id}"]`,
         );
-        await loadReceipts();
-        await viewReceipt(id);
+        const originalLabels = new Map();
+        buttons.forEach((btn) => {
+          originalLabels.set(btn, btn.innerHTML);
+          btn.disabled = true;
+          btn.classList.add("is-loading");
+          btn.innerHTML = `<span class="spinner spinner-sm"></span> Re-running OCR…`;
+        });
+        toast("Re-running OCR… this can take a few seconds", "info");
+        try {
+          const res = await api(`/receipts/${id}/reprocess`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          const payload = await res.json();
+          if (!res.ok) {
+            toast(payload.error || "Could not re-run OCR", "error");
+            return;
+          }
+          if (Array.isArray(payload.warnings) && payload.warnings.length) {
+            toast(payload.warnings[0], "info");
+          }
+          toast(
+            `OCR re-run complete · ${formatLabel(payload.status, "Updated")} ✅`,
+            "success",
+          );
+          await loadReceipts();
+          await viewReceipt(id);
+        } catch (err) {
+          console.error("reprocessReceipt failed", err);
+          toast("Could not re-run OCR", "error");
+        } finally {
+          buttons.forEach((btn) => {
+            if (!document.body.contains(btn)) return;
+            btn.disabled = false;
+            btn.classList.remove("is-loading");
+            btn.innerHTML = originalLabels.get(btn) || "Re-run OCR";
+          });
+        }
       }
 
       async function approveReceipt(id) {
@@ -30453,75 +31814,39 @@
       function renderBudgetStatusRow(item, selectedCategory) {
         const pct = Number(item.percentage || 0);
         const cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
-        const updated = item.updated_at
-          ? formatDateTime(item.updated_at, "—")
-          : "—";
-        const contributions = Array.isArray(item.contributions)
-          ? item.contributions
-          : [];
+        const contributions = Array.isArray(item.contributions) ? item.contributions : [];
         const spent = Number(item.spent || 0);
         const target = Number(item.budget_amount || 0);
+        const remaining = Number(item.remaining || 0);
+        const remainingLabel = remaining >= 0 ? `${formatMoney(remaining)} left` : `${formatMoney(Math.abs(remaining))} over`;
         return `
-    <details class="stat-card" style="padding:0;overflow:hidden">
-      <summary
-        onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')"
-        style="list-style:none;cursor:pointer;padding:14px 16px 12px;display:block"
-      >
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
-          <div style="font-weight:700">${escHtml(formatLabel(item.budget_category, item.budget_category))}</div>
-          <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;text-align:right">
-            <span style="font-size:0.82rem;color:var(--muted)">${pct}%</span>
-            <span style="font-weight:700">${formatMoney(spent)}</span>
-            <span style="font-size:0.82rem;color:var(--muted)">${formatMoney(target)}</span>
-          </div>
+    <details class="budget-cat-row" onclick="syncBudgetCategorySelection('${escAttr(item.budget_category)}')">
+      <summary class="budget-cat-row__summary">
+        <div class="budget-cat-row__head">
+          <span class="budget-cat-row__name">${escHtml(formatLabel(item.budget_category, item.budget_category))}</span>
+          <span class="budget-cat-row__spent">${formatMoney(spent)}</span>
         </div>
-        <div class="progress-wrap" style="margin-top:10px"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+        <div class="budget-cat-row__bar"><div class="progress-wrap" style="height:4px"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div></div>
+        <div class="budget-cat-row__meta">
+          <span>${pct}% · ${escHtml(remainingLabel)}</span>
+          <span>${target > 0 ? `of ${formatMoney(target)}` : "No target"}</span>
+        </div>
       </summary>
-      <div style="padding:0 16px 14px;border-top:1px solid var(--border);display:grid;gap:8px;font-size:0.82rem;color:var(--muted)">
-        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:10px">
-          <span>${pct}% used</span>
-          <span>${formatMoney(item.remaining || 0)} left</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;gap:12px">
-          <span>Target</span>
-          <span>${formatMoney(item.budget_amount || 0)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;gap:12px">
-          <span>Last updated</span>
-          <span>${escHtml(updated)}</span>
-        </div>
-        <div style="margin-top:6px">
-          <div style="font-weight:700;color:var(--text);margin-bottom:8px">Contributing receipts</div>
-          ${
-            contributions.length
-              ? `
-            <div style="display:grid;gap:8px">
-              ${contributions
-                .map(
-                  (entry) => `
-                <div class="contrib-list-item" style="padding:10px 12px">
-                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                    <div style="min-width:0;flex:1">
-                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <strong>${escHtml(entry.store || "Unknown")}</strong>
-                        ${receiptTransactionBadgeHtml(entry.transaction_type)}
-                      </div>
-                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(entry))} · ${entry.items?.length ? escHtml(entry.items.map((item) => item.name).join(", ")) : "Receipt-level allocation"}</div>
-                      ${refundAttributionText(entry) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(entry))}</div>` : ""}
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(entry.amount || 0)}</span>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${Number(entry.purchase_id || 0)})">Open Receipt</button>
-                    </div>
-                  </div>
-                </div>
-              `,
-                )
-                .join("")}
-            </div>`
-              : '<div class="empty-state"><p>No receipt detail captured for this category yet.</p></div>'
-          }
-        </div>
+      <div class="budget-cat-row__detail">
+        ${
+          contributions.length
+            ? renderCompactReceiptRows(
+                contributions.map((e) => ({
+                  store: e.store,
+                  date: e.date,
+                  transaction_type: e.transaction_type,
+                  total: e.amount,
+                  purchase_id: e.purchase_id,
+                })),
+                { includeDelete: false },
+              )
+            : '<div class="empty-state" style="padding:10px 0"><p>No contributing receipts yet.</p></div>'
+        }
       </div>
     </details>
   `;
@@ -30568,9 +31893,9 @@
     ${
       active.length
         ? `
-      <div style="margin-bottom:18px">
-        <div style="font-weight:700;margin-bottom:10px">Active Categories</div>
-        <div style="display:grid;gap:10px">
+      <div style="margin-bottom:14px">
+        <div class="upload-section__label" style="margin-bottom:8px">Active Categories</div>
+        <div style="display:grid;gap:8px">
           ${active.map((item) => renderBudgetStatusRow(item, selectedCategory)).join("")}
         </div>
       </div>`
@@ -30769,21 +32094,28 @@
           const topRestaurants = summaryData.top_restaurants || [];
           topRestaurantsEl.innerHTML = topRestaurants.length
             ? `
-      <div class="contrib-list">
+      <ul class="summary-row-list">
         ${topRestaurants
           .map(
-            (item) => `
-          <div class="contrib-list-item">
-            <div class="contrib-list-top">
-              <strong>${escHtml(item.store)}</strong>
-              <span class="contrib-points">${formatMoney(item.total)}</span>
-            </div>
-            <div class="contrib-meta">${item.visits} visit${item.visits === 1 ? "" : "s"}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : ""} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
-          </div>
-        `,
+            (item) => {
+              const visitText = `${item.visits} visit${item.visits === 1 ? "" : "s"}`;
+              const refundText = item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : "";
+              const avgText = item.visits ? ` · Avg ${formatMoney(item.average_ticket)}` : "";
+              return `
+                <li>
+                  <button type="button" class="summary-row is-tappable" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                    <div class="summary-row__main">
+                      <div class="summary-row__title" title="${escAttr(item.store)}">${escHtml(item.store)}</div>
+                      <div class="summary-row__meta">${escHtml(visitText)}${escHtml(refundText)}${escHtml(avgText)}</div>
+                    </div>
+                    <div class="summary-row__value">${formatMoney(item.total)}</div>
+                    <span class="summary-row__chevron" aria-hidden="true">›</span>
+                  </button>
+                </li>`;
+            },
           )
           .join("")}
-      </div>`
+      </ul>`
             : '<div class="empty-state"><p>No restaurant history yet.</p></div>';
         }
         const topItemsEl = document.getElementById("restaurant-top-items");
@@ -30802,37 +32134,13 @@
     <div style="display:grid;gap:16px">
       <div class="card" style="margin-bottom:0">
         <div class="card-header" style="margin-bottom:12px">
-          <span class="card-title">Open Restaurant Receipts in Receipts</span>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openRestaurantReceipts()">Open Receipts</button>
+          <span class="card-title">Restaurant Receipts</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openRestaurantReceipts()">Open All</button>
         </div>
-        <p style="color:var(--muted);font-size:0.86rem;line-height:1.45;margin-bottom:12px">Use the shared Receipts workspace to inspect images, review OCR items, and edit restaurant receipts. Restaurant stays focused on dining summary and budget.</p>
         ${
           receipts.length
-            ? `<div class="contrib-list">
-              ${receipts
-                .slice(0, compact ? 4 : 6)
-                .map(
-                  (receipt) => `
-                <div class="contrib-list-item">
-                  <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                    <div style="min-width:0;flex:1">
-                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <strong>${escHtml(receipt.store || "Unknown")}</strong>
-                        ${receiptTransactionBadgeHtml(receipt.transaction_type)}
-                      </div>
-                      <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${escHtml(formatLabel(receipt.source, "Upload"))}</div>
-                      ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ""}
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open in Receipts</button>
-                    </div>
-                  </div>
-                </div>`,
-                )
-                .join("")}
-            </div>`
-            : '<div class="empty-state"><p>No restaurant receipts yet. Upload or scan one once the restaurant workflow starts landing here.</p></div>'
+            ? renderCompactReceiptRows(receipts.slice(0, compact ? 6 : 8), { includeDelete: false })
+            : '<div class="empty-state"><p>No restaurant receipts yet. Upload one and it will land here.</p></div>'
         }
       </div>
     </div>
@@ -30867,22 +32175,23 @@
         const cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
         const amountInput = document.getElementById("restaurant-budget-amount");
         if (amountInput) amountInput.value = b.budget_amount || "";
+        const visitsLabel = `${b.purchase_count || 0} visit${(b.purchase_count || 0) === 1 ? "" : "s"}`;
+        const refundsLabel = (b.refund_count || 0) > 0 ? ` · ${b.refund_count} refund${b.refund_count === 1 ? "" : "s"}` : "";
+        const remainingNum = Number(b.remaining || 0);
+        const remainingLabel = remainingNum >= 0
+          ? `${formatMoney(remainingNum)} left`
+          : `${formatMoney(Math.abs(remainingNum))} over`;
         body.innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:600">${escHtml(b.month || month)}</span>
-        <span style="color:var(--muted)">${formatMoney(b.spent || 0)} / ${formatMoney(b.budget_amount || 0)}</span>
+    <div class="dining-budget-summary">
+      <div class="dining-budget-summary__head">
+        <div class="dining-budget-summary__amount">${formatMoney(b.spent || 0)}</div>
+        <div class="dining-budget-summary__cap">of ${formatMoney(b.budget_amount || 0)}</div>
       </div>
       <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
-        <span>${pct}% used</span>
-        <span>${formatMoney(b.remaining || 0)} remaining</span>
+      <div class="dining-budget-summary__meta">
+        <span>${pct}% used · ${escHtml(visitsLabel)}${escHtml(refundsLabel)}</span>
+        <span>${escHtml(remainingLabel)}</span>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Visits</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
       }
 
@@ -31915,21 +33224,26 @@
           const merchants = summaryData.top_merchants || [];
           topMerchantsEl.innerHTML = merchants.length
             ? `
-      <div class="contrib-list">
+      <ul class="summary-row-list">
         ${merchants
-          .map(
-            (item) => `
-          <div class="contrib-list-item">
-            <div class="contrib-list-top">
-              <strong>${escHtml(item.store)}</strong>
-              <span class="contrib-points">${formatMoney(item.total)}</span>
-            </div>
-            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? "" : "s"}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : ""} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
-          </div>
-        `,
-          )
+          .map((item) => {
+            const visitText = `${item.visits} receipt${item.visits === 1 ? "" : "s"}`;
+            const refundText = item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : "";
+            const avgText = item.visits ? ` · Avg ${formatMoney(item.average_ticket)}` : "";
+            return `
+              <li>
+                <button type="button" class="summary-row is-tappable" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                  <div class="summary-row__main">
+                    <div class="summary-row__title" title="${escAttr(item.store)}">${escHtml(item.store)}</div>
+                    <div class="summary-row__meta">${escHtml(visitText)}${escHtml(refundText)}${escHtml(avgText)}</div>
+                  </div>
+                  <div class="summary-row__value">${formatMoney(item.total)}</div>
+                  <span class="summary-row__chevron" aria-hidden="true">›</span>
+                </button>
+              </li>`;
+          })
           .join("")}
-      </div>`
+      </ul>`
             : '<div class="empty-state"><p>No merchant history yet.</p></div>';
         }
 
@@ -31952,13 +33266,18 @@
           const categories = summaryData.category_breakdown || [];
           categoryEl.innerHTML = categories.length
             ? compact
-              ? renderMobileMetricCards(
-                  categories.map((item) => ({
-                    title: formatLabel(item.category, "Other"),
-                    value: formatMoney(item.total),
-                    cells: [{ label: "Lines", value: String(item.count ?? 0) }],
-                  })),
-                )
+              ? `<ul class="summary-row-list">
+                  ${categories
+                    .map((item) => `
+                      <li class="summary-row">
+                        <div class="summary-row__main">
+                          <div class="summary-row__title">${escHtml(formatLabel(item.category, "Other"))}</div>
+                          <div class="summary-row__meta">${item.count ?? 0} line${(item.count ?? 0) === 1 ? "" : "s"}</div>
+                        </div>
+                        <div class="summary-row__value">${formatMoney(item.total)}</div>
+                      </li>`)
+                    .join("")}
+                </ul>`
               : `<table>
               <thead><tr><th>Category</th><th>Total</th><th>Lines</th></tr></thead>
               <tbody>${categories.map((item) => `<tr><td>${escHtml(formatLabel(item.category, "Other"))}</td><td>${formatMoney(item.total)}</td><td>${item.count ?? 0}</td></tr>`).join("")}</tbody>
@@ -31969,6 +33288,12 @@
         const periodRows = Object.entries(
           spendData.spending_by_period || {},
         ).sort((a, b) => b[0].localeCompare(a[0]));
+        const receiptsByMonth = receipts.reduce((acc, r) => {
+          const m = (r.date || "").slice(0, 7);
+          if (!m) return acc;
+          (acc[m] = acc[m] || []).push(r);
+          return acc;
+        }, {});
         body.innerHTML = receipts.length
           ? `
     <div style="display:grid;gap:16px">
@@ -31977,59 +33302,69 @@
         ${
           periodRows.length
             ? compact
-              ? renderMobileMetricCards(
-                  periodRows.map(([period, values]) => ({
-                    title: period,
-                    value: formatMoney(values.total),
-                    meta: formatPeriodBreakdownMeta(values),
-                    cells: [
-                      {
-                        label: "Purchases",
-                        value: String(values.purchase_count ?? 0),
-                      },
-                      {
-                        label: "Refunds",
-                        value: String(values.refund_count ?? 0),
-                      },
-                      { label: "Net", value: formatMoney(values.total) },
-                    ],
-                  })),
-                )
+              ? `<div class="month-chip-grid">
+                  ${periodRows.map(([period, values], idx) => {
+                    const purchases = values.purchase_count ?? 0;
+                    const refunds = values.refund_count ?? 0;
+                    const total = Number(values.total || 0);
+                    const meta = `${purchases}p${refunds > 0 ? ` · ${refunds}r` : ""}`;
+                    const avgTicket = purchases > 0 ? total / purchases : 0;
+                    const refundTotal = Number(values.refund_total ?? values.refunds_total ?? 0);
+                    const monthReceipts = (receiptsByMonth[period] || []);
+                    const merchantTotals = {};
+                    monthReceipts.forEach((r) => {
+                      const k = r.store || "Unknown";
+                      merchantTotals[k] = (merchantTotals[k] || 0) + Math.abs(receiptDisplayTotal(r));
+                    });
+                    const topMerchants = Object.entries(merchantTotals)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 3)
+                      .map(([store, amt]) => ({ store, amount: amt }));
+                    const prev = periodRows[idx + 1];
+                    let deltaPct = null;
+                    let deltaLabel = "";
+                    if (prev) {
+                      const prevTotal = Number(prev[1].total || 0);
+                      if (prevTotal > 0) {
+                        deltaPct = ((total - prevTotal) / prevTotal) * 100;
+                        const arrow = deltaPct >= 0 ? "▲" : "▼";
+                        deltaLabel = `${arrow} ${Math.abs(deltaPct).toFixed(0)}% vs ${formatMonthLabel(prev[0])}`;
+                      }
+                    }
+                    const peekPayload = {
+                      title: formatMonthLabel(period),
+                      amount: formatMoney(total),
+                      stats: [
+                        { label: "Purchases", value: String(purchases) },
+                        ...(refunds > 0 ? [{ label: "Refunds", value: refundTotal ? `${refunds} · ${formatMoney(refundTotal)}` : String(refunds) }] : []),
+                        { label: "Avg ticket", value: formatMoney(avgTicket) },
+                        ...(deltaLabel ? [{ label: "Trend", value: deltaLabel, kind: deltaPct >= 0 ? "up" : "down" }] : []),
+                      ],
+                      topMerchants,
+                    };
+                    return `
+                      <button type="button" class="month-chip" title="${escAttr(formatMonthLabel(period) + " · " + meta)}" data-quick-action='${escAttr(JSON.stringify(peekPayload))}'>
+                        <span class="month-chip__label">${escHtml(formatMonthLabel(period))}</span>
+                        <span class="month-chip__value">${formatMoney(total)}</span>
+                        <span class="month-chip__meta">${escHtml(meta)}</span>
+                      </button>`;
+                  }).join("")}
+                </div>`
               : `<table>
                   <thead><tr><th>Month</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
-                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(period)}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join("")}</tbody>
+                  <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(formatMonthLabel(period))}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join("")}</tbody>
                 </table>`
             : '<div class="empty-state"><p>No expense spending data yet.</p></div>'
         }
       </div>
       <div class="card" style="margin-bottom:0">
-        <div class="card-header"><span class="card-title">Recent General Expenses</span></div>
-        <div class="contrib-list">
-          ${receipts
-            .slice(0, 12)
-            .map(
-              (receipt) => `
-            <div class="contrib-list-item">
-              <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                <div style="min-width:0;flex:1">
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                    <strong>${escHtml(receipt.store || "Unknown")}</strong>
-                    ${receiptTransactionBadgeHtml(receipt.transaction_type)}
-                  </div>
-                  <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? "" : "s"}</div>
-                  ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ""}
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="viewExpenseReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
-                </div>
-              </div>
-            </div>
-          `,
-            )
-            .join("")}
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Recent General Expenses</span>
         </div>
+        ${renderCompactReceiptRows(receipts.slice(0, 12), {
+          includeDelete: false,
+          onClick: (id) => `viewExpenseReceiptDetail(${id})`,
+        })}
       </div>
     </div>
   `
@@ -32075,22 +33410,23 @@
         const cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
         const amountInput = document.getElementById("expense-budget-amount");
         if (amountInput) amountInput.value = b.budget_amount || "";
+        const receiptsLabel = `${b.purchase_count || 0} receipt${(b.purchase_count || 0) === 1 ? "" : "s"}`;
+        const refundsLabel = (b.refund_count || 0) > 0 ? ` · ${b.refund_count} refund${b.refund_count === 1 ? "" : "s"}` : "";
+        const remainingNum = Number(b.remaining || 0);
+        const remainingLabel = remainingNum >= 0
+          ? `${formatMoney(remainingNum)} left`
+          : `${formatMoney(Math.abs(remainingNum))} over`;
         body.innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:600">${escHtml(b.month || month)}</span>
-        <span style="color:var(--muted)">${formatMoney(b.spent || 0)} / ${formatMoney(b.budget_amount || 0)}</span>
+    <div class="dining-budget-summary">
+      <div class="dining-budget-summary__head">
+        <div class="dining-budget-summary__amount">${formatMoney(b.spent || 0)}</div>
+        <div class="dining-budget-summary__cap">of ${formatMoney(b.budget_amount || 0)}</div>
       </div>
       <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
-        <span>${pct}% used</span>
-        <span>${formatMoney(b.remaining || 0)} remaining</span>
+      <div class="dining-budget-summary__meta">
+        <span>${pct}% used · ${escHtml(receiptsLabel)}${escHtml(refundsLabel)}</span>
+        <span>${escHtml(remainingLabel)}</span>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
       }
 
@@ -32138,38 +33474,204 @@
         const data = receipt.editable_data || receipt.raw_ocr_data || {};
         const items = (data.items || []).filter(Boolean);
         const total = receiptDisplayTotal(receipt || data);
-        const compact = isCompactMobileReceiptView();
+        const isRefund = normalizeReceiptTransactionType(receipt?.transaction_type) === "refund";
+        const subtotal = Number(data.subtotal || 0);
+        const tax = Number(data.tax || 0);
+        const tip = Number(data.tip || 0);
+        const dateStr = formatPrettyDate(data.date || receipt.date);
+        const storeName = formatLabel(data.store || receipt.store || "", "Unknown Merchant");
         body.innerHTML = `
-    <div style="display:grid;gap:14px">
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
-        <div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <div style="font-size:1.15rem;font-weight:700">${escHtml(data.store || receipt.store || "Unknown Merchant")}</div>
-            ${receiptTransactionBadgeHtml(receipt?.transaction_type)}
-          </div>
-          <div class="contrib-meta">${escHtml(data.store_location || "Location not captured")}</div>
-          <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt, data.date || receipt.date || "—"))}${data.time ? ` · ${escHtml(data.time)}` : ""}</div>
-          ${refundAttributionText(receipt) ? `<div class="contrib-meta">${escHtml(refundAttributionText(receipt))}</div>` : ""}
+    <div class="expense-detail">
+      <div class="expense-detail__header">
+        <div class="expense-detail__head-text">
+          <div class="expense-detail__store" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+          <div class="expense-detail__meta">${escHtml(dateStr)}${data.time ? ` · ${escHtml(data.time)}` : ""} · ${escHtml(formatReceiptTransactionLabel(receipt?.transaction_type))}</div>
         </div>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(${compact ? 2 : 4},minmax(0,1fr));gap:10px">
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Subtotal</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.subtotal || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tax</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tax || 0)}</div></div>
-        <div class="stat-card" style="padding:12px"><div class="stat-label">Tip</div><div class="stat-value" style="font-size:1rem">${formatMoney(data.tip || 0)}</div></div>
-        <div class="stat-card ${normalizeReceiptTransactionType(receipt?.transaction_type) === "refund" ? "warning" : "success"}" style="padding:12px"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1rem">${formatMoney(total)}</div></div>
+      <div class="expense-detail__totals">
+        <div class="expense-detail__total-amount ${isRefund ? "expense-detail__total-amount--refund" : ""}">${formatMoney(total)}</div>
+        <div class="expense-detail__total-meta">
+          ${subtotal ? `<span>Subtotal ${formatMoney(subtotal)}</span>` : ""}
+          ${tax ? `<span>Tax ${formatMoney(tax)}</span>` : ""}
+          ${tip ? `<span>Tip ${formatMoney(tip)}</span>` : ""}
+        </div>
       </div>
       ${
-        compact
-          ? renderReceiptLineItemCards(items)
-          : items.length
-            ? `<table>
-            <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
-            <tbody>${items.map((item) => `<tr><td>${escHtml(item.name || item.product_name || "Unknown")}</td><td>${escHtml(String(item.quantity ?? 1))}</td><td>${formatMoney(item.unit_price || 0)}</td><td>${formatMoney((Number(item.quantity ?? 1) || 1) * (Number(item.unit_price || 0) || 0))}</td></tr>`).join("")}</tbody>
-          </table>`
-            : '<div class="empty-state"><p>No reference line items saved yet.</p></div>'
+        items.length
+          ? `<ul class="summary-row-list">
+              ${items.map((item) => {
+                const qty = Number(item.quantity ?? 1) || 1;
+                const unit = Number(item.unit_price || 0) || 0;
+                const lineTotal = qty * unit;
+                const name = item.name || item.product_name || "Unknown";
+                return `
+                  <li class="summary-row">
+                    <div class="summary-row__main">
+                      <div class="summary-row__title" title="${escAttr(name)}">${escHtml(name)}</div>
+                      <div class="summary-row__meta">Qty ${escHtml(String(qty))} · Unit ${formatMoney(unit)}</div>
+                    </div>
+                    <div class="summary-row__value">${formatMoney(lineTotal)}</div>
+                  </li>`;
+              }).join("")}
+            </ul>`
+          : '<div class="empty-state"><p>No reference line items saved yet.</p></div>'
       }
     </div>`;
+      }
+
+      const QUICK_PEEK_HOLD_MS = 380;
+      let quickPeekTimer = null;
+      let quickPeekTriggered = false;
+      let quickPeekActiveEl = null;
+
+      function showQuickPeek(text) {
+        if (!text) return;
+        dismissQuickPeek();
+        let payload = null;
+        try {
+          payload = JSON.parse(text);
+        } catch (_) {
+          payload = null;
+        }
+        const overlay = document.createElement("div");
+        overlay.className = "quick-peek-overlay";
+        overlay.addEventListener("click", dismissQuickPeek);
+        const card = document.createElement("div");
+        card.className = "quick-peek-card";
+
+        if (payload && typeof payload === "object" && (payload.title || payload.amount)) {
+          const statsHtml = (payload.stats || []).map((s) => `
+            <div class="quick-peek-stat${s.kind ? ` quick-peek-stat--${s.kind}` : ""}">
+              <span class="quick-peek-stat__label">${escHtml(s.label)}</span>
+              <span class="quick-peek-stat__value">${escHtml(s.value)}</span>
+            </div>
+          `).join("");
+          const merchantsHtml = (payload.topMerchants || []).length
+            ? `<div class="quick-peek-section">
+                 <div class="quick-peek-section__label">Top merchants</div>
+                 <ul class="quick-peek-merchants">
+                   ${payload.topMerchants.map((m) => `
+                     <li>
+                       <span class="quick-peek-merchant__name" title="${escAttr(m.store)}">${escHtml(m.store)}</span>
+                       <span class="quick-peek-merchant__amount">${escHtml(typeof m.amount === "number" ? formatMoney(m.amount) : m.amount)}</span>
+                     </li>
+                   `).join("")}
+                 </ul>
+               </div>`
+            : "";
+          card.innerHTML = `
+            <h4>${escHtml(payload.title || "")}</h4>
+            <p class="quick-peek-amount">${escHtml(payload.amount || "")}</p>
+            ${statsHtml ? `<div class="quick-peek-stats">${statsHtml}</div>` : ""}
+            ${merchantsHtml}
+            ${payload.note ? `<p class="quick-peek-meta">${escHtml(payload.note)}</p>` : ""}
+          `;
+        } else {
+          const lines = String(text).split("\n").filter(Boolean);
+          card.innerHTML = `
+            <h4>${escHtml(lines[0] || "")}</h4>
+            <p class="quick-peek-amount">${escHtml(lines[2] || "")}</p>
+            <p class="quick-peek-meta">${escHtml(lines[1] || "")}</p>
+          `;
+        }
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+
+      function dismissQuickPeek() {
+        document.querySelectorAll(".quick-peek-overlay").forEach((el) => el.remove());
+      }
+
+      document.addEventListener("pointerdown", (e) => {
+        const el = e.target.closest("[data-quick-action]");
+        if (!el) return;
+        quickPeekActiveEl = el;
+        quickPeekTriggered = false;
+        el.classList.add("is-pressing");
+        clearTimeout(quickPeekTimer);
+        quickPeekTimer = setTimeout(() => {
+          quickPeekTriggered = true;
+          showQuickPeek(el.getAttribute("data-quick-action"));
+        }, QUICK_PEEK_HOLD_MS);
+      });
+
+      document.addEventListener("pointerup", (e) => {
+        clearTimeout(quickPeekTimer);
+        if (quickPeekActiveEl) {
+          quickPeekActiveEl.classList.remove("is-pressing");
+          quickPeekActiveEl = null;
+        }
+      });
+
+      document.addEventListener("pointercancel", () => {
+        clearTimeout(quickPeekTimer);
+        if (quickPeekActiveEl) {
+          quickPeekActiveEl.classList.remove("is-pressing");
+          quickPeekActiveEl = null;
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (quickPeekTriggered) {
+          e.preventDefault();
+          e.stopPropagation();
+          quickPeekTriggered = false;
+        }
+      }, true);
+
+      document.addEventListener("contextmenu", (e) => {
+        if (e.target.closest("[data-quick-action]")) {
+          e.preventDefault();
+          showQuickPeek(e.target.closest("[data-quick-action]").getAttribute("data-quick-action"));
+        }
+      });
+
+      function showFailedReceiptsFilter() {
+        const select = document.getElementById("receipt-filter-status");
+        if (select) select.value = "failed";
+        loadReceipts();
+      }
+
+      async function cleanupFailedReceipts({ silent = false } = {}) {
+        try {
+          const res = await api(`/receipts/cleanup-failed`, { method: "POST" });
+          if (!res?.ok) return 0;
+          const payload = await res.json().catch(() => ({}));
+          const count = Number(payload.deleted_count || 0);
+          if (count > 0 && !silent) {
+            toast(
+              `Removed ${count} failed OCR receipt${count === 1 ? "" : "s"}`,
+              "success",
+            );
+          }
+          return count;
+        } catch (err) {
+          console.warn("cleanupFailedReceipts failed", err);
+          return 0;
+        }
+      }
+
+      async function clearFailedReceiptsAndReload() {
+        const count = await cleanupFailedReceipts();
+        await loadReceipts();
+        return count;
+      }
+
+      function repositionExpenseDetailForMobile() {
+        const detailCard = document
+          .getElementById("expense-detail-body")
+          ?.closest(".card");
+        const expensesBody = document.getElementById("expenses-body");
+        if (!detailCard || !expensesBody) return;
+        const expensesCard = expensesBody.closest(".card");
+        if (!expensesCard) return;
+        if (isCompactMobileReceiptView()) {
+          if (detailCard.previousElementSibling !== expensesCard) {
+            expensesCard.insertAdjacentElement("afterend", detailCard);
+          }
+        }
       }
 
       async function viewExpenseReceiptDetail(id) {
@@ -32181,6 +33683,13 @@
         }
         const receipt = await res.json();
         renderExpenseReceiptDetail(receipt);
+        repositionExpenseDetailForMobile();
+        const detailCard = document
+          .getElementById("expense-detail-body")
+          ?.closest(".card");
+        if (detailCard && isCompactMobileReceiptView()) {
+          detailCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }
 
       // ============================================================
@@ -32411,6 +33920,23 @@
         const monthInput = document.getElementById("bills-filter-month");
         const monthLabel = document.getElementById("bills-month-label");
         if (!monthInput) return;
+
+        try {
+          const sweepRes = await api(`/receipts/bills/sync-autopay`, {
+            method: "POST",
+          });
+          if (sweepRes?.ok) {
+            const swept = (await sweepRes.json().catch(() => ({}))).swept_count || 0;
+            if (swept > 0) {
+              toast(
+                `Auto-paid ${swept} bill${swept === 1 ? "" : "s"} on their due date`,
+                "success",
+              );
+            }
+          }
+        } catch (e) {
+          console.warn("Auto-pay sweep failed", e);
+        }
 
         const now = new Date();
         const currentMonth = `${now.getFullYear()}-${String(

@@ -251,6 +251,9 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
         "bill_is_recurring": bool(
             bill_source.get("bill_is_recurring") if bill_source.get("bill_is_recurring") is not None else bill_source.get("is_recurring")
         ) if (bill_source.get("bill_is_recurring") is not None or bill_source.get("is_recurring") is not None) else True,
+        "bill_auto_pay": bool(
+            bill_source.get("bill_auto_pay") if bill_source.get("bill_auto_pay") is not None else bill_source.get("auto_pay")
+        ) if (bill_source.get("bill_auto_pay") is not None or bill_source.get("auto_pay") is not None) else False,
         "subtotal": float(payload.get("subtotal") or 0),
         "tax": float(payload.get("tax") or 0),
         "tip": float(payload.get("tip") or 0),
@@ -260,7 +263,11 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
     }
     sanitized["default_budget_category"] = normalize_budget_category(
         payload.get("default_budget_category"),
-        default=default_budget_category_for_spending_domain(sanitized["default_spending_domain"]),
+        default=default_budget_category_for_spending_domain(
+            sanitized["default_spending_domain"],
+            provider_type=sanitized.get("bill_provider_type"),
+            service_types=sanitized.get("bill_service_types"),
+        ),
     )
     if sanitized["transaction_type"] != "refund":
         sanitized["refund_reason"] = None
@@ -286,7 +293,15 @@ def _sanitize_receipt_payload(payload: dict) -> dict:
 
 def _delete_purchase_data(session, purchase):
     """Remove purchase-linked rows so a corrected receipt can be rebuilt cleanly."""
-    from src.backend.initialize_database_schema import ReceiptItem, PriceHistory, TelegramReceipt, Purchase
+    from src.backend.initialize_database_schema import (
+        ReceiptItem,
+        PriceHistory,
+        TelegramReceipt,
+        Purchase,
+        BillMeta,
+        BillAllocation,
+        CashTransaction,
+    )
 
     receipt_records = session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).all()
     for record in receipt_records:
@@ -302,6 +317,9 @@ def _delete_purchase_data(session, purchase):
         ).delete(synchronize_session=False)
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(BillAllocation).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(CashTransaction).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
+    session.query(BillMeta).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
     session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
     session.flush()
     try:
@@ -751,10 +769,16 @@ def get_receipt(receipt_id):
             "bill_billing_cycle": bill_meta.billing_cycle,
             "bill_planning_month": bill_meta.planning_month,
             "bill_is_recurring": bool(bill_meta.is_recurring),
+            "bill_auto_pay": bool(bill_meta.auto_pay),
             "bill_provider_id": bill_meta.provider_id,
             "bill_service_line_id": bill_meta.service_line_id,
             "bill_payment_status": bill_meta.payment_status,
             "bill_payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
+            "bill_preferred_payment_method": (
+                bill_meta.service_line.preferred_payment_method
+                if bill_meta.service_line and bill_meta.service_line.preferred_payment_method
+                else None
+            ),
         }
 
     response_payload = {
@@ -1204,9 +1228,23 @@ def update_receipt(receipt_id):
 @receipts_bp.route("/<int:receipt_id>/reprocess", methods=["POST"])
 @require_write_access
 def reprocess_receipt(receipt_id):
-    """Re-run OCR for an existing stored receipt and update its review payload."""
-    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
-    from src.backend.extract_receipt_data import process_receipt
+    """Re-run OCR for an existing stored receipt and update its review payload.
+
+    OCR is run before any destructive DB work; the existing Purchase is only
+    replaced if the new pass returns valid data. If OCR fails or the data
+    fails validation, the previous receipt is preserved intact.
+    """
+    from src.backend.initialize_database_schema import Purchase
+    from src.backend.extract_receipt_data import (
+        _apply_receipt_type_hint,
+        _cleanup_ocr_input,
+        _extract_best_receipt_candidate,
+        _prepare_ocr_input,
+        _resolve_receipt_type,
+        _safe_float,
+        _save_to_database,
+        _validate_receipt_data,
+    )
 
     session = g.db_session
     record = _resolve_receipt_record(session, receipt_id)
@@ -1223,21 +1261,133 @@ def reprocess_receipt(receipt_id):
             model_config_id = int(raw_model_id)
         except (TypeError, ValueError):
             return jsonify({"error": "model_id must be an integer"}), 400
-    existing_purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
-    if existing_purchase:
-        _delete_purchase_data(session, existing_purchase)
-        record.status = "review"
-        record.purchase_id = None
-        session.flush()
-    result = process_receipt(
-        image_path=record.image_path,
-        source="review",
-        user_id=user_id,
-        receipt_record_id=record.id,
-        model_config_id=model_config_id,
+
+    receipt_type_hint = record.receipt_type
+
+    ocr_input_path = record.image_path
+    ocr_data = None
+    engine_used = None
+    warnings = []
+    try:
+        ocr_input_path = _prepare_ocr_input(record.image_path)
+        ocr_data, engine_used, _model_used, warnings = _extract_best_receipt_candidate(
+            ocr_input_path=ocr_input_path,
+            source_file_path=record.image_path,
+            receipt_type_hint=receipt_type_hint,
+            model_config_id=model_config_id,
+        )
+    except Exception as exc:
+        logger.error("Reprocess OCR failed for receipt %s: %s", record.id, exc)
+        return jsonify({
+            "error": f"OCR failed: {exc}. Previous receipt data preserved.",
+        }), 422
+    finally:
+        if ocr_input_path != record.image_path:
+            _cleanup_ocr_input(ocr_input_path)
+
+    ocr_data = _apply_receipt_type_hint(ocr_data or {}, receipt_type_hint)
+    receipt_type = _resolve_receipt_type(ocr_data, receipt_type_hint)
+    if not _validate_receipt_data(ocr_data, receipt_type=receipt_type):
+        return jsonify({
+            "error": "OCR returned incomplete data. Previous receipt data preserved.",
+            "warnings": warnings,
+        }), 422
+
+    # OCR is known-good — now safe to replace the existing Purchase.
+    existing_purchase = (
+        session.query(Purchase).filter_by(id=record.purchase_id).first()
+        if record.purchase_id
+        else None
     )
 
-    return jsonify(result), 200
+    # Snapshot user-controlled toggles on the old bill_meta so re-running
+    # OCR does not wipe them (OCR never returns these).
+    preserved_bill_meta = {}
+    if existing_purchase:
+        from src.backend.initialize_database_schema import BillMeta
+        old_meta = (
+            session.query(BillMeta)
+            .filter_by(purchase_id=existing_purchase.id)
+            .first()
+        )
+        if old_meta:
+            preserved_bill_meta = {
+                "bill_auto_pay": bool(old_meta.auto_pay),
+                "_preserved_payment_status": old_meta.payment_status,
+                "_preserved_payment_confirmed_at": old_meta.payment_confirmed_at,
+            }
+
+    if existing_purchase:
+        _delete_purchase_data(session, existing_purchase)
+        record.purchase_id = None
+        session.flush()
+
+    # Fold preserved user toggles into the OCR payload before saving.
+    if "bill_auto_pay" in preserved_bill_meta:
+        ocr_data["bill_auto_pay"] = preserved_bill_meta["bill_auto_pay"]
+
+    purchase_id = _save_to_database(
+        ocr_data, engine_used, record.image_path, user_id, receipt_type,
+    )
+
+    if preserved_bill_meta.get("_preserved_payment_status") in {"paid", "overdue"}:
+        from src.backend.initialize_database_schema import BillMeta
+        new_meta = session.query(BillMeta).filter_by(purchase_id=purchase_id).first()
+        if new_meta:
+            new_meta.payment_status = preserved_bill_meta["_preserved_payment_status"]
+            new_meta.payment_confirmed_at = preserved_bill_meta.get(
+                "_preserved_payment_confirmed_at"
+            )
+
+    record.purchase_id = purchase_id
+    record.status = "processed"
+    record.receipt_type = receipt_type
+    record.raw_ocr_json = json.dumps(ocr_data)
+    record.ocr_engine = engine_used
+    record.ocr_confidence = _safe_float(ocr_data.get("confidence", 1.0))
+    session.commit()
+
+    return jsonify({
+        "status": "processed",
+        "purchase_id": purchase_id,
+        "receipt_id": record.id,
+        "receipt_type": receipt_type,
+        "warnings": warnings,
+    }), 200
+
+
+@receipts_bp.route("/cleanup-failed", methods=["POST"])
+@require_write_access
+def cleanup_failed_receipts():
+    """Delete all TelegramReceipt rows that failed OCR and never produced a Purchase.
+
+    Also removes the underlying image file from disk where possible. Returns a
+    count of records deleted so the UI can report it.
+    """
+    from src.backend.initialize_database_schema import TelegramReceipt
+    import os
+
+    session = g.db_session
+    failed_records = (
+        session.query(TelegramReceipt)
+        .filter(TelegramReceipt.status == "failed")
+        .filter(TelegramReceipt.purchase_id.is_(None))
+        .all()
+    )
+    deleted_paths = []
+    for record in failed_records:
+        if record.image_path and os.path.isfile(record.image_path):
+            try:
+                os.remove(record.image_path)
+                deleted_paths.append(record.image_path)
+            except OSError as exc:
+                logger.warning("Could not remove failed receipt image %s: %s", record.image_path, exc)
+        session.delete(record)
+    session.commit()
+    return jsonify({
+        "deleted_count": len(failed_records),
+        "image_files_removed": len(deleted_paths),
+    }), 200
 
 
 @receipts_bp.route("/<int:receipt_id>/bill-status", methods=["PUT"])
@@ -1254,10 +1404,18 @@ def update_receipt_bill_status(receipt_id):
 
     payload = request.get_json(silent=True) or {}
     new_status = (payload.get("payment_status") or "").strip().lower()
+    paid_date_raw = (payload.get("paid_date") or "").strip()
 
     valid_statuses = {"upcoming", "overdue", "paid", "estimated", "missing", "not_yet_entered"}
     if new_status not in valid_statuses:
         return jsonify({"error": f"Invalid payment_status. Must be one of {valid_statuses}"}), 400
+
+    paid_date_value = None
+    if paid_date_raw:
+        try:
+            paid_date_value = datetime.strptime(paid_date_raw, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"error": "paid_date must be YYYY-MM-DD"}), 400
 
     # Locate the Purchase because BillMeta ties to purchase_id
     purchase_id = getattr(record, "purchase_id", None) or getattr(record, "id", None)
@@ -1270,8 +1428,10 @@ def update_receipt_bill_status(receipt_id):
 
     bill_meta.payment_status = new_status
     if new_status == "paid":
-        # Do not overwrite if it was already paid earlier
-        if not bill_meta.payment_confirmed_at:
+        if paid_date_value is not None:
+            bill_meta.payment_confirmed_at = paid_date_value
+            bill_meta.payment_confirmed_by_id = getattr(getattr(g, "current_user", None), "id", None)
+        elif not bill_meta.payment_confirmed_at:
             bill_meta.payment_confirmed_at = datetime.now(timezone.utc)
             bill_meta.payment_confirmed_by_id = getattr(getattr(g, "current_user", None), "id", None)
     else:
@@ -1284,8 +1444,62 @@ def update_receipt_bill_status(receipt_id):
     return jsonify({
         "message": "Bill status updated successfully",
         "payment_status": bill_meta.payment_status,
-        "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None
+        "payment_confirmed_at": bill_meta.payment_confirmed_at.isoformat() if bill_meta.payment_confirmed_at else None,
+        "paid_date": bill_meta.payment_confirmed_at.date().isoformat() if bill_meta.payment_confirmed_at else None,
     }), 200
+
+
+@receipts_bp.route("/bills/sync-autopay", methods=["POST"])
+@require_write_access
+def sync_autopay_bills():
+    """Mark any autopay bill whose effective due date has arrived as paid."""
+    from src.backend.initialize_database_schema import BillMeta, Purchase
+    from datetime import timezone, date as date_cls, timedelta
+    from calendar import monthrange
+
+    def _effective_due_date(meta, purchase):
+        if meta.due_date:
+            return meta.due_date, "due_date"
+        cycle = (meta.billing_cycle_month or "").strip()
+        if cycle:
+            try:
+                year, month = map(int, cycle.split("-", 1))
+                last_day = monthrange(year, month)[1]
+                return date_cls(year, month, last_day), "billing_cycle_month_end"
+            except (ValueError, TypeError):
+                pass
+        if purchase and purchase.date:
+            statement = purchase.date.date() if hasattr(purchase.date, "date") else purchase.date
+            return statement + timedelta(days=21), "statement_plus_21d"
+        return None, None
+
+    session = g.db_session
+    today = date_cls.today()
+    candidates = (
+        session.query(BillMeta, Purchase)
+        .join(Purchase, Purchase.id == BillMeta.purchase_id)
+        .filter(BillMeta.auto_pay.is_(True))
+        .filter(BillMeta.payment_status.in_(["upcoming", "overdue"]))
+        .all()
+    )
+    swept = []
+    current_user_id = getattr(getattr(g, "current_user", None), "id", None)
+    for meta, purchase in candidates:
+        effective_due, source = _effective_due_date(meta, purchase)
+        if effective_due is None or effective_due > today:
+            continue
+        meta.payment_status = "paid"
+        meta.payment_confirmed_at = datetime.combine(effective_due, datetime.min.time()).replace(tzinfo=timezone.utc)
+        meta.payment_confirmed_by_id = current_user_id
+        swept.append({
+            "purchase_id": meta.purchase_id,
+            "provider_name": meta.provider_name,
+            "due_date": effective_due.isoformat(),
+            "due_date_source": source,
+        })
+    if swept:
+        session.commit()
+    return jsonify({"swept_count": len(swept), "swept": swept}), 200
 
 
 @receipts_bp.route("/<int:receipt_id>/rotate", methods=["PUT"])
