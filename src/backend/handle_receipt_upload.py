@@ -1356,6 +1356,40 @@ def reprocess_receipt(receipt_id):
     }), 200
 
 
+@receipts_bp.route("/cleanup-failed", methods=["POST"])
+@require_write_access
+def cleanup_failed_receipts():
+    """Delete all TelegramReceipt rows that failed OCR and never produced a Purchase.
+
+    Also removes the underlying image file from disk where possible. Returns a
+    count of records deleted so the UI can report it.
+    """
+    from src.backend.initialize_database_schema import TelegramReceipt
+    import os
+
+    session = g.db_session
+    failed_records = (
+        session.query(TelegramReceipt)
+        .filter(TelegramReceipt.status == "failed")
+        .filter(TelegramReceipt.purchase_id.is_(None))
+        .all()
+    )
+    deleted_paths = []
+    for record in failed_records:
+        if record.image_path and os.path.isfile(record.image_path):
+            try:
+                os.remove(record.image_path)
+                deleted_paths.append(record.image_path)
+            except OSError as exc:
+                logger.warning("Could not remove failed receipt image %s: %s", record.image_path, exc)
+        session.delete(record)
+    session.commit()
+    return jsonify({
+        "deleted_count": len(failed_records),
+        "image_files_removed": len(deleted_paths),
+    }), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/bill-status", methods=["PUT"])
 @require_write_access
 def update_receipt_bill_status(receipt_id):

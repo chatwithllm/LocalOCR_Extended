@@ -7252,6 +7252,12 @@
         flex: 1 1 auto;
       }
 
+      .receipt-failed-banner__actions {
+        display: flex;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -29364,6 +29370,9 @@
         </table>
         <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || "Unknown")} · Total: ${formatMoney(summary?.total)} · Extracted by: ${data.ocr_engine ?? data.engine ?? "AI"} · Confidence: ${((data.confidence ?? 0) * 100).toFixed(0)}%</p>`
               : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
+            if (data.status !== "failed" && data.status !== "review") {
+              await cleanupFailedReceipts({ silent: true });
+            }
             loadReceipts();
           } else {
             setUploadScanState({
@@ -29498,7 +29507,10 @@
           failedReceipts.length && statusFilter !== "failed"
             ? `<div class="receipt-failed-banner">
                  <span>${failedReceipts.length} OCR failure${failedReceipts.length === 1 ? "" : "s"} hidden</span>
-                 <button type="button" class="btn btn-ghost btn-sm" onclick="showFailedReceiptsFilter()">View failed</button>
+                 <div class="receipt-failed-banner__actions">
+                   <button type="button" class="btn btn-ghost btn-sm" onclick="showFailedReceiptsFilter()">View</button>
+                   <button type="button" class="btn btn-danger btn-sm" onclick="clearFailedReceiptsAndReload()">Clear</button>
+                 </div>
                </div>`
             : "";
 
@@ -33578,6 +33590,31 @@
         const select = document.getElementById("receipt-filter-status");
         if (select) select.value = "failed";
         loadReceipts();
+      }
+
+      async function cleanupFailedReceipts({ silent = false } = {}) {
+        try {
+          const res = await api(`/receipts/cleanup-failed`, { method: "POST" });
+          if (!res?.ok) return 0;
+          const payload = await res.json().catch(() => ({}));
+          const count = Number(payload.deleted_count || 0);
+          if (count > 0 && !silent) {
+            toast(
+              `Removed ${count} failed OCR receipt${count === 1 ? "" : "s"}`,
+              "success",
+            );
+          }
+          return count;
+        } catch (err) {
+          console.warn("cleanupFailedReceipts failed", err);
+          return 0;
+        }
+      }
+
+      async function clearFailedReceiptsAndReload() {
+        const count = await cleanupFailedReceipts();
+        await loadReceipts();
+        return count;
       }
 
       function repositionExpenseDetailForMobile() {
