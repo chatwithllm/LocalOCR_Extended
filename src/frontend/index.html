@@ -6286,6 +6286,15 @@
         color: var(--color-brand);
       }
 
+      .batch-row__badge--warn {
+        background: color-mix(in srgb, var(--color-warning, #d97706) 16%, transparent);
+        color: var(--color-warning, #d97706);
+      }
+
+      .batch-row--cancelled {
+        opacity: 0.85;
+      }
+
       .batch-row--done {
         opacity: 0.85;
       }
@@ -13489,6 +13498,15 @@
                 disabled
               >
                 🚀 Auto Detect Receipt
+              </button>
+              <button
+                class="btn btn-danger"
+                id="upload-stop-btn"
+                type="button"
+                onclick="requestBatchStop()"
+                hidden
+              >
+                ✕ Stop
               </button>
               <span
                 id="upload-status"
@@ -28855,6 +28873,8 @@
       // ---------------------------------------------------------------
       let batchFiles = []; // [{id, file, status, selected, progressPct, result, error}]
       let batchProcessing = false;
+      let batchStopRequested = false;
+      let currentBatchAbortController = null;
       let batchFileIdCounter = 0;
 
       function previewFile(input) {
@@ -28929,7 +28949,11 @@
 
       function toggleSelectAllBatch(checked) {
         batchFiles.forEach((entry) => {
-          if (entry.status === "queued" || entry.status === "error") {
+          if (
+            entry.status === "queued"
+            || entry.status === "error"
+            || entry.status === "cancelled"
+          ) {
             entry.selected = checked;
           }
         });
@@ -28960,12 +28984,15 @@
 
       function getBatchSelectedCount() {
         return batchFiles.filter(
-          (e) => e.selected && (e.status === "queued" || e.status === "error"),
+          (e) =>
+            e.selected
+            && (e.status === "queued" || e.status === "error" || e.status === "cancelled"),
         ).length;
       }
 
       function updateUploadButtonState() {
         const btn = document.getElementById("upload-btn");
+        const stopBtn = document.getElementById("upload-stop-btn");
         if (!btn) return;
         const selectedCount = getBatchSelectedCount();
         const intent =
@@ -28973,14 +29000,24 @@
         const baseLabel = getUploadIntentButtonLabel(intent);
         if (batchProcessing) {
           btn.disabled = true;
-          btn.textContent = "Processing…";
-          return;
-        }
-        btn.disabled = selectedCount === 0;
-        if (selectedCount > 1) {
-          btn.textContent = `🚀 Process ${selectedCount} Receipts`;
+          btn.textContent = batchStopRequested ? "Stopping…" : "Processing…";
+          if (stopBtn) {
+            stopBtn.hidden = false;
+            stopBtn.disabled = batchStopRequested;
+            stopBtn.textContent = batchStopRequested ? "Stopping…" : "✕ Stop";
+          }
         } else {
-          btn.textContent = `🚀 ${baseLabel}`;
+          btn.disabled = selectedCount === 0;
+          if (selectedCount > 1) {
+            btn.textContent = `🚀 Process ${selectedCount} Receipts`;
+          } else {
+            btn.textContent = `🚀 ${baseLabel}`;
+          }
+          if (stopBtn) {
+            stopBtn.hidden = true;
+            stopBtn.disabled = false;
+            stopBtn.textContent = "✕ Stop";
+          }
         }
         const countEl = document.getElementById("batch-controls__count");
         if (countEl) {
@@ -28989,12 +29026,29 @@
         }
       }
 
+      function requestBatchStop() {
+        if (!batchProcessing || batchStopRequested) return;
+        batchStopRequested = true;
+        // Abort the in-flight fetch so the loop can advance immediately;
+        // the row will be marked Cancelled in the catch handler.
+        if (currentBatchAbortController) {
+          try {
+            currentBatchAbortController.abort();
+          } catch (_) {}
+        }
+        updateUploadButtonState();
+        toast("Stopping after current upload…", "info");
+      }
+
       function batchStatusBadge(entry) {
         if (entry.status === "done") {
           return '<span class="batch-row__badge batch-row__badge--ok">✓ Done</span>';
         }
         if (entry.status === "error") {
           return `<span class="batch-row__badge batch-row__badge--err" title="${escAttr(entry.error || "Failed")}">✕ Failed</span>`;
+        }
+        if (entry.status === "cancelled") {
+          return '<span class="batch-row__badge batch-row__badge--warn">⏸ Cancelled</span>';
         }
         if (entry.status === "processing") {
           return '<span class="batch-row__badge batch-row__badge--running">Processing…</span>';
@@ -29020,7 +29074,9 @@
               entry.file.name.toLowerCase().endsWith(".pdf");
             const icon = isPdf ? "📄" : "🧾";
             const interactive =
-              entry.status === "queued" || entry.status === "error";
+              entry.status === "queued"
+              || entry.status === "error"
+              || entry.status === "cancelled";
             const checked = entry.selected ? "checked" : "";
             const disabled = interactive ? "" : "disabled";
             const progressBar =
@@ -29731,7 +29787,7 @@
         return isPdf ? !!model.supports_pdf : !!model.supports_image_input;
       }
 
-      async function uploadOneReceipt(file, receiptIntent, modelId) {
+      async function uploadOneReceipt(file, receiptIntent, modelId, signal) {
         const form = new FormData();
         form.append("image", file);
         form.append("receipt_intent", receiptIntent);
@@ -29743,6 +29799,7 @@
           credentials: "include",
           headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
           body: form,
+          signal,
         });
         const data = await res.json().catch(() => ({}));
         return { ok: res.ok, status: res.status, data };
@@ -29787,6 +29844,7 @@
         }
 
         batchProcessing = true;
+        batchStopRequested = false;
         updateUploadButtonState();
         setUploadScanState({
           phase:
@@ -29800,9 +29858,24 @@
 
         let okCount = 0;
         let failCount = 0;
+        let cancelledCount = 0;
         let lastResultData = null;
         for (let i = 0; i < queued.length; i++) {
           const entry = queued[i];
+
+          // User clicked Stop between files → mark the rest as cancelled and break.
+          if (batchStopRequested) {
+            for (let j = i; j < queued.length; j++) {
+              if (queued[j].status === "queued" || queued[j].status === "processing") {
+                queued[j].status = "cancelled";
+                queued[j].error = "Cancelled before processing";
+                cancelledCount++;
+              }
+            }
+            renderBatchList();
+            break;
+          }
+
           entry.status = "processing";
           entry.error = null;
           entry.progressPct = 35;
@@ -29823,11 +29896,13 @@
             renderBatchList();
           }, 800);
 
+          currentBatchAbortController = new AbortController();
           try {
             const { ok, data } = await uploadOneReceipt(
               entry.file,
               receiptIntent,
               modelId,
+              currentBatchAbortController.signal,
             );
             clearInterval(nudge);
             if (ok) {
@@ -29848,18 +29923,31 @@
             }
           } catch (err) {
             clearInterval(nudge);
-            entry.status = "error";
-            entry.error = "Network error";
-            failCount++;
+            if (err?.name === "AbortError") {
+              entry.status = "cancelled";
+              entry.error = "Cancelled by user";
+              cancelledCount++;
+            } else {
+              entry.status = "error";
+              entry.error = "Network error";
+              failCount++;
+            }
+          } finally {
+            currentBatchAbortController = null;
           }
           renderBatchList();
         }
 
         batchProcessing = false;
+        batchStopRequested = false;
+        currentBatchAbortController = null;
         updateUploadButtonState();
 
         // Summary toast + final scan-progress state.
-        if (okCount > 0 && failCount === 0) {
+        const cancelSuffix = cancelledCount
+          ? `, ${cancelledCount} cancelled`
+          : "";
+        if (okCount > 0 && failCount === 0 && cancelledCount === 0) {
           toast(
             queued.length === 1
               ? "Receipt processed! ✅"
@@ -29874,13 +29962,23 @@
             barPct: 100,
             showRetry: false,
           });
-        } else if (okCount > 0 && failCount > 0) {
+        } else if (cancelledCount > 0 && okCount === 0 && failCount === 0) {
+          toast(`Stopped — ${cancelledCount} cancelled`, "info");
+          setUploadScanState({
+            phase: `⏸ Stopped · ${cancelledCount} cancelled`,
+            meta: "",
+            state: "retrying",
+            variant: "determinate",
+            barPct: 0,
+            showRetry: false,
+          });
+        } else if (okCount > 0 && (failCount > 0 || cancelledCount > 0)) {
           toast(
-            `${okCount} processed, ${failCount} failed`,
+            `${okCount} processed, ${failCount} failed${cancelSuffix}`,
             "info",
           );
           setUploadScanState({
-            phase: `${okCount} of ${queued.length} done · ${failCount} failed`,
+            phase: `${okCount} of ${queued.length} done · ${failCount} failed${cancelSuffix}`,
             meta: "",
             state: "retrying",
             variant: "determinate",
@@ -29891,11 +29989,11 @@
           toast(
             queued.length === 1
               ? "Upload failed"
-              : `${failCount} of ${queued.length} failed`,
+              : `${failCount} of ${queued.length} failed${cancelSuffix}`,
             "error",
           );
           setUploadScanState({
-            phase: queued.length === 1 ? "✕ Failed" : `✕ ${failCount} failed`,
+            phase: queued.length === 1 ? "✕ Failed" : `✕ ${failCount} failed${cancelSuffix}`,
             meta: "",
             state: "failed",
             variant: "determinate",
