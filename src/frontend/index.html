@@ -6158,6 +6158,166 @@
         box-sizing: border-box;
       }
 
+      .batch-controls {
+        margin-top: 14px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .batch-controls__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .batch-controls__select-all {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .batch-controls__select-all input {
+        width: 18px;
+        height: 18px;
+      }
+
+      .batch-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+      }
+
+      .batch-row {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        min-width: 0;
+      }
+
+      .batch-row:last-child {
+        border-bottom: none;
+      }
+
+      .batch-row__check {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+      }
+
+      .batch-row__icon {
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+
+      .batch-row__body {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+      }
+
+      .batch-row__name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+
+      .batch-row__meta {
+        font-size: 0.76rem;
+        color: var(--muted);
+      }
+
+      .batch-row__meta--err {
+        color: var(--color-error, #d33);
+      }
+
+      .batch-row__progress {
+        height: 4px;
+        background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 4px;
+      }
+
+      .batch-row__progress-bar {
+        height: 100%;
+        background: var(--color-brand, #0071e3);
+        border-radius: 2px;
+        transition: width 0.4s ease;
+      }
+
+      .batch-row__badge {
+        flex: 0 0 auto;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--muted) 14%, transparent);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .batch-row__badge--ok {
+        background: color-mix(in srgb, var(--color-success, #2e9d6e) 18%, transparent);
+        color: var(--color-success, #2e9d6e);
+      }
+
+      .batch-row__badge--err {
+        background: color-mix(in srgb, var(--color-error, #d33) 16%, transparent);
+        color: var(--color-error, #d33);
+      }
+
+      .batch-row__badge--running {
+        background: color-mix(in srgb, var(--color-brand) 18%, transparent);
+        color: var(--color-brand);
+      }
+
+      .batch-row--done {
+        opacity: 0.85;
+      }
+
+      .batch-row__remove {
+        flex: 0 0 auto;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 1.1rem;
+        cursor: pointer;
+        padding: 0 4px;
+      }
+
+      .batch-row__remove:hover {
+        color: var(--color-error, #d33);
+      }
+
+      @media (max-width: 640px) {
+        .batch-row {
+          grid-template-columns: auto auto minmax(0, 1fr) auto;
+          padding: 8px 10px;
+          gap: 8px;
+        }
+        .batch-row__remove {
+          display: none;
+        }
+        .batch-row__name {
+          font-size: 0.88rem;
+        }
+      }
+
       @media (max-width: 640px) {
         #page-upload .drop-zone {
           min-height: 180px;
@@ -13192,21 +13352,44 @@
                 type="file"
                 id="file-input"
                 accept="image/*,.pdf,application/pdf"
-                onchange="previewFile(this)"
+                onchange="addFilesToBatch(this)"
+                multiple
                 hidden
               />
               <div class="drop-zone__icon" aria-hidden="true">📸</div>
               <div class="drop-zone__title">
-                Click or drag &amp; drop a receipt
+                Click or drag &amp; drop receipts
               </div>
               <div class="drop-zone__hint">
-                JPG · PNG · WEBP · PDF · up to 10 MB
+                JPG · PNG · WEBP · PDF · up to 10 MB · multiple OK
               </div>
               <div id="preview-wrap" class="drop-zone__preview">
                 <img id="preview-img" alt="Receipt preview" />
                 <p id="preview-meta" class="drop-zone__preview-meta"></p>
               </div>
             </label>
+            <div id="batch-controls" class="batch-controls" hidden>
+              <div class="batch-controls__row">
+                <label class="batch-controls__select-all">
+                  <input
+                    type="checkbox"
+                    id="batch-select-all"
+                    checked
+                    onchange="toggleSelectAllBatch(this.checked)"
+                  />
+                  <span id="batch-controls__count">0 files</span>
+                </label>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  onclick="clearBatch()"
+                  id="batch-clear-btn"
+                >
+                  Clear all
+                </button>
+              </div>
+              <ul class="batch-list" id="batch-list"></ul>
+            </div>
             <div class="upload-section">
               <div class="upload-section__label">Receipt Type</div>
               <div
@@ -28667,27 +28850,214 @@
       // ============================================================
       // Upload
       // ============================================================
+      // ---------------------------------------------------------------
+      // Bulk upload — file batch state
+      // ---------------------------------------------------------------
+      let batchFiles = []; // [{id, file, status, selected, progressPct, result, error}]
+      let batchProcessing = false;
+      let batchFileIdCounter = 0;
+
       function previewFile(input) {
-        const file = input.files[0];
-        if (!file) return;
+        // Legacy single-file callers still work — route through the batch.
+        addFilesToBatch(input);
+      }
+
+      function addFilesToBatch(input) {
+        const files = Array.from(input?.files || []);
+        if (!files.length) return;
+        for (const file of files) {
+          batchFiles.push({
+            id: ++batchFileIdCounter,
+            file,
+            status: "queued",
+            selected: true,
+            progressPct: 0,
+            result: null,
+            error: null,
+          });
+        }
+        // Reset the real <input type=file> so re-picking the same file fires onchange again.
+        const realInput = document.getElementById("file-input");
+        if (realInput) realInput.value = "";
+        renderBatchList();
+        updatePrimaryFile();
+        updateUploadIntentUI();
+        renderAiModelSelector();
+        updateUploadButtonState();
+      }
+
+      function updatePrimaryFile() {
+        // Keep the legacy preview tile pointing at the first queued file so
+        // existing helpers (model picker, intent labels) keep working.
+        const first = batchFiles.find((entry) => entry.status === "queued") || batchFiles[0];
         const img = document.getElementById("preview-img");
         const meta = document.getElementById("preview-meta");
         const wrap = document.getElementById("preview-wrap");
+        if (!first) {
+          if (wrap) wrap.classList.remove("is-visible");
+          if (img) img.removeAttribute("src");
+          if (meta) meta.textContent = "";
+          return;
+        }
         if (wrap) wrap.classList.add("is-visible");
-        meta.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+        meta.textContent = batchFiles.length > 1
+          ? `${batchFiles.length} files queued`
+          : `${first.file.name} · ${(first.file.size / (1024 * 1024)).toFixed(2)} MB`;
         const isPdf =
-          file.type === "application/pdf" ||
-          file.name.toLowerCase().endsWith(".pdf");
-        if (isPdf) {
+          first.file.type === "application/pdf" ||
+          first.file.name.toLowerCase().endsWith(".pdf");
+        if (isPdf || batchFiles.length > 1) {
           img.removeAttribute("src");
           img.classList.remove("is-visible");
         } else {
-          img.src = URL.createObjectURL(file);
+          img.src = URL.createObjectURL(first.file);
           img.classList.add("is-visible");
         }
-        document.getElementById("upload-btn").disabled = false;
-        updateUploadIntentUI();
+      }
+
+      function clearBatch() {
+        if (batchProcessing) {
+          toast("Wait until the current batch finishes", "error");
+          return;
+        }
+        batchFiles = [];
+        renderBatchList();
+        updatePrimaryFile();
+        updateUploadButtonState();
         renderAiModelSelector();
+      }
+
+      function toggleSelectAllBatch(checked) {
+        batchFiles.forEach((entry) => {
+          if (entry.status === "queued" || entry.status === "error") {
+            entry.selected = checked;
+          }
+        });
+        renderBatchList();
+        updateUploadButtonState();
+      }
+
+      function toggleBatchRowSelection(id, checked) {
+        const entry = batchFiles.find((e) => e.id === id);
+        if (!entry) return;
+        entry.selected = checked;
+        const allSelected = batchFiles
+          .filter((e) => e.status === "queued" || e.status === "error")
+          .every((e) => e.selected);
+        const allCb = document.getElementById("batch-select-all");
+        if (allCb) allCb.checked = allSelected;
+        updateUploadButtonState();
+      }
+
+      function removeBatchFile(id) {
+        if (batchProcessing) return;
+        batchFiles = batchFiles.filter((e) => e.id !== id);
+        renderBatchList();
+        updatePrimaryFile();
+        updateUploadButtonState();
+        renderAiModelSelector();
+      }
+
+      function getBatchSelectedCount() {
+        return batchFiles.filter(
+          (e) => e.selected && (e.status === "queued" || e.status === "error"),
+        ).length;
+      }
+
+      function updateUploadButtonState() {
+        const btn = document.getElementById("upload-btn");
+        if (!btn) return;
+        const selectedCount = getBatchSelectedCount();
+        const intent =
+          document.getElementById("upload-receipt-intent")?.value || "auto";
+        const baseLabel = getUploadIntentButtonLabel(intent);
+        if (batchProcessing) {
+          btn.disabled = true;
+          btn.textContent = "Processing…";
+          return;
+        }
+        btn.disabled = selectedCount === 0;
+        if (selectedCount > 1) {
+          btn.textContent = `🚀 Process ${selectedCount} Receipts`;
+        } else {
+          btn.textContent = `🚀 ${baseLabel}`;
+        }
+        const countEl = document.getElementById("batch-controls__count");
+        if (countEl) {
+          const total = batchFiles.length;
+          countEl.textContent = `${selectedCount}/${total} selected`;
+        }
+      }
+
+      function batchStatusBadge(entry) {
+        if (entry.status === "done") {
+          return '<span class="batch-row__badge batch-row__badge--ok">✓ Done</span>';
+        }
+        if (entry.status === "error") {
+          return `<span class="batch-row__badge batch-row__badge--err" title="${escAttr(entry.error || "Failed")}">✕ Failed</span>`;
+        }
+        if (entry.status === "processing") {
+          return '<span class="batch-row__badge batch-row__badge--running">Processing…</span>';
+        }
+        return '<span class="batch-row__badge">Queued</span>';
+      }
+
+      function renderBatchList() {
+        const wrap = document.getElementById("batch-controls");
+        const list = document.getElementById("batch-list");
+        if (!wrap || !list) return;
+        if (!batchFiles.length) {
+          wrap.setAttribute("hidden", "");
+          list.innerHTML = "";
+          return;
+        }
+        wrap.removeAttribute("hidden");
+        list.innerHTML = batchFiles
+          .map((entry) => {
+            const sizeMb = (entry.file.size / (1024 * 1024)).toFixed(2);
+            const isPdf =
+              entry.file.type === "application/pdf" ||
+              entry.file.name.toLowerCase().endsWith(".pdf");
+            const icon = isPdf ? "📄" : "🧾";
+            const interactive =
+              entry.status === "queued" || entry.status === "error";
+            const checked = entry.selected ? "checked" : "";
+            const disabled = interactive ? "" : "disabled";
+            const progressBar =
+              entry.status === "processing"
+                ? `<div class="batch-row__progress"><div class="batch-row__progress-bar" style="width:${entry.progressPct || 35}%"></div></div>`
+                : "";
+            const resultMeta =
+              entry.status === "done" && entry.result
+                ? `<div class="batch-row__meta">${escHtml(entry.result.store || "Unknown")} · ${formatMoney(entry.result.total ?? 0)}</div>`
+                : entry.status === "error"
+                  ? `<div class="batch-row__meta batch-row__meta--err">${escHtml(entry.error || "Failed")}</div>`
+                  : "";
+            const removeBtn =
+              !batchProcessing && interactive
+                ? `<button type="button" class="batch-row__remove" onclick="removeBatchFile(${entry.id})" aria-label="Remove">×</button>`
+                : "";
+            return `
+              <li class="batch-row batch-row--${entry.status}">
+                <input
+                  type="checkbox"
+                  class="batch-row__check"
+                  ${checked}
+                  ${disabled}
+                  onchange="toggleBatchRowSelection(${entry.id}, this.checked)"
+                />
+                <span class="batch-row__icon" aria-hidden="true">${icon}</span>
+                <div class="batch-row__body">
+                  <div class="batch-row__name" title="${escAttr(entry.file.name)}">${escHtml(entry.file.name)}</div>
+                  <div class="batch-row__meta">${sizeMb} MB</div>
+                  ${resultMeta}
+                  ${progressBar}
+                </div>
+                ${batchStatusBadge(entry)}
+                ${removeBtn}
+              </li>`;
+          })
+          .join("");
       }
 
       function getUploadIntentButtonLabel(intent) {
@@ -28706,9 +29076,9 @@
           button.classList.toggle("btn-primary", active);
           button.classList.toggle("btn-ghost", !active);
         });
-        const uploadButton = document.getElementById("upload-btn");
-        if (uploadButton) {
-          uploadButton.textContent = `🚀 ${getUploadIntentButtonLabel(receiptIntent)}`;
+        // Defer to the batch-aware label/disabled logic so multi-file mode wins.
+        if (typeof updateUploadButtonState === "function") {
+          updateUploadButtonState();
         }
       }
 
@@ -29353,127 +29723,207 @@
         }
       }
 
+      function fileMatchesModel(file, model) {
+        if (!model) return true;
+        const isPdf =
+          file.type === "application/pdf" ||
+          file.name.toLowerCase().endsWith(".pdf");
+        return isPdf ? !!model.supports_pdf : !!model.supports_image_input;
+      }
+
+      async function uploadOneReceipt(file, receiptIntent, modelId) {
+        const form = new FormData();
+        form.append("image", file);
+        form.append("receipt_intent", receiptIntent);
+        if (modelId) {
+          form.append("model_id", String(modelId));
+        }
+        const res = await fetch(API_BASE + "/receipts/upload", {
+          method: "POST",
+          credentials: "include",
+          headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
+          body: form,
+        });
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, status: res.status, data };
+      }
+
       async function uploadReceipt() {
         if (isDemoMode()) {
           toast("Sign in to upload a real receipt", "error");
           return;
         }
-        const file = document.getElementById("file-input").files[0];
-        if (!file) {
-          toast("Select a receipt file first", "error");
+        if (batchProcessing) {
+          toast("Already processing a batch", "error");
+          return;
+        }
+        const queued = batchFiles.filter(
+          (entry) => entry.selected && (entry.status === "queued" || entry.status === "error"),
+        );
+        if (!queued.length) {
+          toast("Select at least one receipt first", "error");
           return;
         }
         const receiptIntent =
           document.getElementById("upload-receipt-intent")?.value || "auto";
+        const modelId = getSelectedAiModelId();
+        const selectedModel = availableAiModels.find(
+          (entry) => Number(entry.id) === Number(modelId || 0),
+        );
 
-        document.getElementById("upload-btn").disabled = true;
+        // Pre-flight: bail early if the chosen model rejects any file in the batch.
+        if (selectedModel) {
+          const incompatible = queued.find((entry) => !fileMatchesModel(entry.file, selectedModel));
+          if (incompatible) {
+            const isPdf =
+              incompatible.file.type === "application/pdf" ||
+              incompatible.file.name.toLowerCase().endsWith(".pdf");
+            toast(
+              `The selected model does not support ${isPdf ? "PDF" : "image"} receipts (e.g. ${incompatible.file.name}). Pick a compatible model or remove that file.`,
+              "error",
+            );
+            return;
+          }
+        }
+
+        batchProcessing = true;
+        updateUploadButtonState();
         setUploadScanState({
-          phase: "Uploading and processing…",
+          phase:
+            queued.length > 1
+              ? `Processing 0 / ${queued.length}…`
+              : "Uploading and processing…",
           meta: "",
           state: "running",
           variant: "indeterminate",
         });
 
-        const form = new FormData();
-        form.append("image", file);
-        form.append("receipt_intent", receiptIntent);
-        const modelId = getSelectedAiModelId();
-        const selectedModel = availableAiModels.find(
-          (entry) => Number(entry.id) === Number(modelId || 0),
-        );
-        if (selectedModel && !modelMatchesCurrentUploadFile(selectedModel)) {
-          hideUploadScanPanel();
-          document.getElementById("upload-btn").disabled = false;
+        let okCount = 0;
+        let failCount = 0;
+        let lastResultData = null;
+        for (let i = 0; i < queued.length; i++) {
+          const entry = queued[i];
+          entry.status = "processing";
+          entry.error = null;
+          entry.progressPct = 35;
+          renderBatchList();
+          setUploadScanState({
+            phase:
+              queued.length > 1
+                ? `Processing ${i + 1} / ${queued.length} · ${entry.file.name}`
+                : "Uploading and processing…",
+            meta: "",
+            state: "running",
+            variant: "indeterminate",
+          });
+
+          // Tiny progress nudge so the bar doesn't feel frozen on slow OCR.
+          let nudge = setInterval(() => {
+            entry.progressPct = Math.min(85, (entry.progressPct || 35) + 5);
+            renderBatchList();
+          }, 800);
+
+          try {
+            const { ok, data } = await uploadOneReceipt(
+              entry.file,
+              receiptIntent,
+              modelId,
+            );
+            clearInterval(nudge);
+            if (ok) {
+              entry.status = "done";
+              entry.progressPct = 100;
+              entry.result = {
+                store: data?.data?.store || "Unknown",
+                total: data?.data?.total ?? 0,
+                receipt_id: data?.purchase_id || data?.receipt_id || null,
+                status: data?.status,
+              };
+              okCount++;
+              lastResultData = data;
+            } else {
+              entry.status = "error";
+              entry.error = data?.error || `HTTP ${data ? "" : "?"} failed`;
+              failCount++;
+            }
+          } catch (err) {
+            clearInterval(nudge);
+            entry.status = "error";
+            entry.error = "Network error";
+            failCount++;
+          }
+          renderBatchList();
+        }
+
+        batchProcessing = false;
+        updateUploadButtonState();
+
+        // Summary toast + final scan-progress state.
+        if (okCount > 0 && failCount === 0) {
           toast(
-            `The selected model does not support this ${getCurrentUploadFileInfo().label.toLowerCase()}. Pick a compatible model or use the default fallback.`,
+            queued.length === 1
+              ? "Receipt processed! ✅"
+              : `${okCount} receipts processed ✅`,
+            "success",
+          );
+          setUploadScanState({
+            phase: queued.length === 1 ? "✓ Done" : `✓ ${okCount} of ${queued.length} done`,
+            meta: "",
+            state: "success",
+            variant: "determinate",
+            barPct: 100,
+            showRetry: false,
+          });
+        } else if (okCount > 0 && failCount > 0) {
+          toast(
+            `${okCount} processed, ${failCount} failed`,
+            "info",
+          );
+          setUploadScanState({
+            phase: `${okCount} of ${queued.length} done · ${failCount} failed`,
+            meta: "",
+            state: "retrying",
+            variant: "determinate",
+            barPct: 100,
+            showRetry: false,
+          });
+        } else {
+          toast(
+            queued.length === 1
+              ? "Upload failed"
+              : `${failCount} of ${queued.length} failed`,
             "error",
           );
-          return;
-        }
-        if (modelId) {
-          form.append("model_id", String(modelId));
-        }
-
-        try {
-          const res = await fetch(API_BASE + "/receipts/upload", {
-            method: "POST",
-            credentials: "include",
-            headers: TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {},
-            body: form,
+          setUploadScanState({
+            phase: queued.length === 1 ? "✕ Failed" : `✕ ${failCount} failed`,
+            meta: "",
+            state: "failed",
+            variant: "determinate",
+            barPct: 36,
+            showRetry: true,
           });
-          const data = await res.json();
-          document.getElementById("upload-btn").disabled = false;
+        }
 
-          if (res.ok) {
-            const items = getReceiptItems(data);
-            const summary = data?.data;
-            const store = summary?.store ? ` · ${summary.store}` : "";
-            const total =
-              summary?.total != null ? ` · ${formatMoney(summary.total)}` : "";
-            const intentLabel =
-              receiptIntent === "auto"
-                ? "Auto"
-                : formatLabel(receiptIntent, receiptIntent);
-            const warningText = Array.isArray(data?.warnings) && data.warnings.length
-              ? ` · ${data.warnings[0]}`
-              : "";
-            const statusLabel = formatLabel(
-              data.status || "processed",
-              "Processed",
-            );
-            const engine =
-              data.ocr_engine ?? data.engine ?? selectedModel?.display_name ?? "";
-            const confPct = Math.round((data.confidence ?? 0) * 100);
-            setUploadScanState({
-              phase: `✓ ${statusLabel}${store}${total}`,
-              meta: confPct ? `${confPct}%` : "",
-              state: data.status === "review" ? "retrying" : "success",
-              variant: "determinate",
-              barPct: 100,
-              modelChip: engine || null,
-              showRetry: false,
-            });
-            toast(
-              data.status === "review"
-                ? "Receipt saved for review ⚠️"
-                : "Receipt processed! ✅",
-              data.status === "review" ? "info" : "success",
-            );
-            const card = document.getElementById("ocr-result-card");
+        // Render the legacy single-file result block when exactly one file ran ok.
+        if (queued.length === 1 && okCount === 1 && lastResultData) {
+          const items = getReceiptItems(lastResultData);
+          const summary = lastResultData?.data;
+          const card = document.getElementById("ocr-result-card");
+          if (card) {
             card.style.display = "block";
             document.getElementById("ocr-result").innerHTML = items.length
               ? `<table>
-          <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th></tr></thead>
-          <tbody>${items.map((i) => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td></tr>`).join("")}</tbody>
-        </table>
-        <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || "Unknown")} · Total: ${formatMoney(summary?.total)} · Extracted by: ${data.ocr_engine ?? data.engine ?? "AI"} · Confidence: ${((data.confidence ?? 0) * 100).toFixed(0)}%</p>`
-              : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(data, null, 2)}</pre>`;
-            if (data.status !== "failed" && data.status !== "review") {
-              await cleanupFailedReceipts({ silent: true });
-            }
-            loadReceipts();
-          } else {
-            setUploadScanState({
-              phase: `✕ ${data.error || "Failed"}`,
-              meta: "",
-              state: "failed",
-              variant: "determinate",
-              barPct: 36,
-              showRetry: true,
-            });
-            toast(data.error || "Upload failed", "error");
+                  <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th></tr></thead>
+                  <tbody>${items.map((i) => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td></tr>`).join("")}</tbody>
+                </table>
+                <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || "Unknown")} · Total: ${formatMoney(summary?.total)} · Extracted by: ${lastResultData.ocr_engine ?? lastResultData.engine ?? "AI"} · Confidence: ${((lastResultData.confidence ?? 0) * 100).toFixed(0)}%</p>`
+              : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(lastResultData, null, 2)}</pre>`;
           }
-        } catch (e) {
-          document.getElementById("upload-btn").disabled = false;
-          setUploadScanState({
-            phase: "✕ Network error",
-            meta: "Is the server running?",
-            state: "failed",
-            variant: "determinate",
-            barPct: 10,
-            showRetry: true,
-          });
-          toast("Network error — is the server running?", "error");
+        }
+
+        if (okCount > 0) {
+          await cleanupFailedReceipts({ silent: true });
+          loadReceipts();
         }
       }
 
@@ -31642,16 +32092,18 @@
       dz.addEventListener("drop", (e) => {
         e.preventDefault();
         clearDzState();
-        const file = e.dataTransfer.files[0];
-        if (!file) return;
-        const supported = /^(image\/|application\/pdf)/.test(file.type || "");
-        if (!supported) {
+        const dropped = Array.from(e.dataTransfer.files || []);
+        if (!dropped.length) return;
+        const supported = dropped.filter((file) =>
+          /^(image\/|application\/pdf)/.test(file.type || "")
+          || file.name.toLowerCase().endsWith(".pdf"),
+        );
+        if (!supported.length) {
           dz.setAttribute("data-state", "invalid");
           setTimeout(clearDzState, 800);
           return;
         }
-        document.getElementById("file-input").files = e.dataTransfer.files;
-        previewFile({ files: [file] });
+        addFilesToBatch({ files: supported });
       });
 
       // ============================================================
