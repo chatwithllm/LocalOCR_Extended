@@ -746,7 +746,8 @@ All configuration is read from `.env`. The file is safe to copy from `.env.examp
 | `INITIAL_ADMIN_PASSWORD` | First admin login password |
 | `INITIAL_ADMIN_NAME` | Display name for the initial admin |
 | `SESSION_SECRET` | Flask session signing secret (generate like the token) |
-| `GEMINI_API_KEY` | Primary OCR provider key |
+| `FERNET_SECRET_KEY` | Encrypts admin-stored API keys + future external credentials (generate once, see [Encrypted Credentials](#encrypted-credentials-fernet_secret_key) below) |
+| `GEMINI_API_KEY` | Primary OCR provider key (only required if you use the env-mode Gemini setup; if you store the key via Settings → AI Models with `stored_key` mode, this can be empty) |
 | `GEMINI_MODEL` | Gemini model (default: `gemini-2.5-flash`) |
 
 ### Optional OCR fallbacks
@@ -798,6 +799,72 @@ All configuration is read from `.env`. The file is safe to copy from `.env.examp
 | `TELEGRAM_BOT_TOKEN` | From @BotFather |
 | `TELEGRAM_WEBHOOK_BASE_URL` | Must be **public HTTPS** |
 | `TELEGRAM_WEBHOOK_SECRET` | Random string shared with Telegram |
+
+### Encrypted credentials (`FERNET_SECRET_KEY`)
+
+The app stores some sensitive values in the database (e.g. user-supplied AI provider API keys, Plaid access tokens on the `plaid-api-integration` branch). These are encrypted at rest using the [`cryptography.fernet.Fernet`](https://cryptography.io/en/latest/fernet/) symmetric cipher. The key is read from the `FERNET_SECRET_KEY` environment variable at startup.
+
+**Generate once per environment:**
+
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+You'll get a 44-character base64-url-safe key like `xK3Qm9Lp8WnRtV2YuB5fH7jKzAxNcDeEgF1iJoMqRsU=`. Paste it into your `.env`:
+
+```
+FERNET_SECRET_KEY=xK3Qm9Lp8WnRtV2YuB5fH7jKzAxNcDeEgF1iJoMqRsU=
+```
+
+Then restart the container (`docker compose up -d --force-recreate backend`).
+
+**Verify it loaded:**
+
+```bash
+docker exec localocr-extended-backend printenv FERNET_SECRET_KEY
+```
+
+#### What the key encrypts
+
+| Column | Table | When |
+|---|---|---|
+| `api_key_encrypted` | `ai_model_configs` | When you save an AI provider key in Settings → AI Models with **Credential Mode = Stored Key** |
+| `access_token_encrypted` | `plaid_items` | When you connect a bank via Plaid Link (only on the `plaid-api-integration` branch) |
+
+Receipts, purchases, products, users, bills, and budgets are **plaintext** — only secrets that need to round-trip through the app are encrypted.
+
+#### Dev vs prod — separate keys
+
+Use a **different key per environment** (dev, staging, prod). Standard 12-factor practice — a leaked dev key shouldn't give an attacker access to prod-stored secrets. The keys are cheap to generate; no reason to share one.
+
+```
+.env (dev)    FERNET_SECRET_KEY=<dev-key>
+.env (prod)   FERNET_SECRET_KEY=<prod-key>     # different from dev
+```
+
+#### Backup and restore behavior
+
+The backup script tarballs the SQLite DB + `/data/receipts`. It does **not** include `.env`, so the Fernet key never leaves the host.
+
+| Restore scenario | What happens |
+|---|---|
+| Restore dev backup → dev (same key) | ✅ Everything works, encrypted secrets decrypt fine |
+| Restore prod backup → prod (same key) | ✅ Same |
+| Copy prod backup → dev (different keys) | ⚠️ Receipts/purchases/products/users restore fine. Encrypted columns become unreadable — re-enter the API keys / re-link Plaid in dev. (Safer this way: prod credentials stay in prod.) |
+
+#### Rotation
+
+**Generate once, then never change it.** Rotating the key invalidates every encrypted column already stored. If you must rotate (e.g. compromise), the procedure is:
+
+1. Decrypt all encrypted columns with the old key
+2. Set `FERNET_SECRET_KEY` to the new key
+3. Re-encrypt and persist with the new key
+
+There's no built-in rotation tool — at the volumes this app handles, manually re-entering 1-2 API keys via the admin UI is faster than building one.
+
+#### Storage
+
+Treat `FERNET_SECRET_KEY` like a password — keep it in your password manager, secrets manager, or deployment config. Never commit `.env`. If you lose the prod key with no backup, you'll need to re-enter every encrypted credential in the app.
 
 ---
 
@@ -944,6 +1011,7 @@ The entire SPA is in `src/frontend/index.html`. It's served statically by Flask 
 | **Phase 1-4** | `ui-ux-enhancement` | Design tokens, component polish, micro-interactions, mobile experience |
 | **Phase 5** | `apple-design-system` | Apple HIG-inspired design system — SF Pro, Apple Blue, cinematic canvas duality, 5-phase rollout (merged PR #3) |
 | **Phase 6** | `mobile-cosmetic-polish` | Full mobile polish pass — compact headers, iOS-style row lists, chip grids with 3D-Touch peek, bill auto-pay + due-date accrual rollup, non-destructive Re-run OCR, failed-receipt auto-cleanup (merged PR #4) |
+| **Phase 7** | `ai-model-credential-ux-fix` · `bulk-receipt-upload` · `receipt-filename-index` | AI key UX fix, bulk receipt upload with per-row inline progress + Stop, human-readable receipt filename index for SSH lookup + Content-Disposition downloads (merged PRs #5, #6, #7) |
 
 ### Phase 6 Highlights (mobile-cosmetic-polish)
 
@@ -955,6 +1023,23 @@ Bill dates separated into Statement / Due / Paid with auto-pay toggle, backend s
 
 **Per-Page Polish:**
 Every page (Dashboard, Receipts, Upload, Restaurant, Expenses, Shopping, Budget, Bills, Inventory) received mobile-specific compaction: compact headers (82 to 48px), 2-column filter grids, iOS-style receipt/store/merchant row lists, tighter stat cards, inline refresh buttons, and consistent micro-cap label styling.
+
+### Phase 7 Highlights
+
+**AI model credential UX fix (PR #5):**
+The admin form silently dropped pasted API keys when Credential Mode was left at the default `env`. Now typing into the API key field auto-promotes the dropdown to `Stored Key` and shows a green confirmation hint. Backend safety net auto-promotes the same way for any older client payload. The `FERNET_SECRET_KEY missing` error now returns an actionable 400 with the generation command instead of a cryptic 500. Update conflicts on `(provider, model_string)` return a clean 409 with the conflicting row id.
+
+**Bulk receipt upload (PR #6):**
+The upload page now accepts any number of files at once (drag-drop or multi-select). Each file appears as a row in a batch list with its own checkbox, status badge, and per-file progress bar. Sequential processing: each row turns Processing → ✓ Done with extracted store + total OR ✕ Failed with retry button.
+- **Inline detail panel** auto-expands on the active row showing live OCR result with line items, confidence, model used, and an Open in Receipts button. Auto-collapses as the next file starts.
+- **Stop button** (red, appears mid-batch) aborts the in-flight fetch via `AbortController` and marks remaining queued files as ⏸ Cancelled — re-selectable for retry.
+- **Per-row Retry** for failed files, deselecting all others.
+
+**Receipt filename index (PR #7):**
+Files on disk keep their stable UUID names (backups stay intact, no rename collisions). Two new affordances make them human-findable:
+- **`<receipts_root>/_index.txt`** — append-only text file, one line per receipt: `relative/path.pdf  AES_Indiana_2026-04-16  2026-04-16  $87.40  purchase_id=92`. SSH-friendly: `grep`, `tail`, `less` all work.
+- **Content-Disposition on downloads** — clicking a receipt's image in the UI saves it to disk as `AES_Indiana_2026-04-16.pdf` instead of the UUID filename.
+- **Regen script** at `scripts/rebuild_receipt_index.py` walks the DB and rewrites the index after backup restores or mass cleanup.
 
 ---
 
