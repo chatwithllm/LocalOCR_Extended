@@ -6372,8 +6372,18 @@
           justify-content: center;
         }
 
-        #page-restaurant .receipt-summary-grid {
+        #page-restaurant .receipt-summary-grid,
+        #page-expenses .receipt-summary-grid {
           grid-template-columns: 1fr !important;
+        }
+
+        #page-expenses .stats-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        #page-expenses .stat-card {
+          padding: 12px;
         }
       }
 
@@ -12421,44 +12431,36 @@
               align-items: start;
             "
           >
-            <div class="card">
+            <div class="card dining-budget-card">
               <div class="card-header">
                 <span class="card-title">Expense Budget</span>
                 <input
                   type="month"
                   id="expense-budget-month"
                   onchange="loadExpenseBudget()"
-                  style="width: 160px"
+                  class="dining-budget-month-input"
                 />
               </div>
-              <div
-                class="form-grid"
-                style="
-                  grid-template-columns: minmax(0, 1fr) auto;
-                  align-items: end;
-                "
-              >
-                <div class="form-group">
-                  <label>Monthly Target</label
-                  ><input
+              <div class="dining-budget-target-row">
+                <div class="dining-budget-target-field">
+                  <label for="expense-budget-amount">Monthly Target</label>
+                  <input
                     id="expense-budget-amount"
                     type="number"
                     step="0.01"
                     placeholder="e.g. 250"
                   />
                 </div>
-                <div>
-                  <button
-                    class="btn btn-primary"
-                    id="expense-budget-save"
-                    type="button"
-                    onclick="saveExpenseBudget()"
-                  >
-                    Save
-                  </button>
-                </div>
+                <button
+                  class="btn btn-primary"
+                  id="expense-budget-save"
+                  type="button"
+                  onclick="saveExpenseBudget()"
+                >
+                  Save
+                </button>
               </div>
-              <div id="expense-budget-status" style="margin-top: 14px"></div>
+              <div id="expense-budget-status" class="dining-budget-status"></div>
             </div>
             <div class="card">
               <div class="card-header">
@@ -12474,17 +12476,17 @@
               </div>
             </div>
           </div>
-          <div class="card">
-            <div class="card-header">
+          <div class="card restaurant-review-card">
+            <div class="card-header restaurant-review-header">
               <span class="card-title">Expense Receipts</span>
-              <div class="table-toolbar">
-                <select id="expense-period" onchange="loadExpenses()">
+              <div class="restaurant-review-toolbar">
+                <select id="expense-period" onchange="loadExpenses()" class="restaurant-period-select">
                   <option value="3">Last 3 months</option>
                   <option value="6" selected>Last 6 months</option>
                   <option value="12">Last 12 months</option>
                 </select>
-                <button class="btn btn-ghost btn-sm" onclick="loadExpenses()">
-                  🔄 Refresh
+                <button class="btn btn-ghost btn-sm restaurant-refresh-btn" onclick="loadExpenses()" aria-label="Refresh">
+                  🔄
                 </button>
               </div>
             </div>
@@ -32859,21 +32861,26 @@
           const merchants = summaryData.top_merchants || [];
           topMerchantsEl.innerHTML = merchants.length
             ? `
-      <div class="contrib-list">
+      <ul class="summary-row-list">
         ${merchants
-          .map(
-            (item) => `
-          <div class="contrib-list-item">
-            <div class="contrib-list-top">
-              <strong>${escHtml(item.store)}</strong>
-              <span class="contrib-points">${formatMoney(item.total)}</span>
-            </div>
-            <div class="contrib-meta">${item.visits} receipt${item.visits === 1 ? "" : "s"}${item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : ""} · Avg ${formatMoney(item.average_ticket)} · Net ${formatMoney(item.total)}</div>
-          </div>
-        `,
-          )
+          .map((item) => {
+            const visitText = `${item.visits} receipt${item.visits === 1 ? "" : "s"}`;
+            const refundText = item.refunds ? ` · ${item.refunds} refund${item.refunds === 1 ? "" : "s"}` : "";
+            const avgText = item.visits ? ` · Avg ${formatMoney(item.average_ticket)}` : "";
+            return `
+              <li>
+                <button type="button" class="summary-row is-tappable" onclick="openStoreReceipts('${escAttr(item.store)}')">
+                  <div class="summary-row__main">
+                    <div class="summary-row__title" title="${escAttr(item.store)}">${escHtml(item.store)}</div>
+                    <div class="summary-row__meta">${escHtml(visitText)}${escHtml(refundText)}${escHtml(avgText)}</div>
+                  </div>
+                  <div class="summary-row__value">${formatMoney(item.total)}</div>
+                  <span class="summary-row__chevron" aria-hidden="true">›</span>
+                </button>
+              </li>`;
+          })
           .join("")}
-      </div>`
+      </ul>`
             : '<div class="empty-state"><p>No merchant history yet.</p></div>';
         }
 
@@ -32896,13 +32903,18 @@
           const categories = summaryData.category_breakdown || [];
           categoryEl.innerHTML = categories.length
             ? compact
-              ? renderMobileMetricCards(
-                  categories.map((item) => ({
-                    title: formatLabel(item.category, "Other"),
-                    value: formatMoney(item.total),
-                    cells: [{ label: "Lines", value: String(item.count ?? 0) }],
-                  })),
-                )
+              ? `<ul class="summary-row-list">
+                  ${categories
+                    .map((item) => `
+                      <li class="summary-row">
+                        <div class="summary-row__main">
+                          <div class="summary-row__title">${escHtml(formatLabel(item.category, "Other"))}</div>
+                          <div class="summary-row__meta">${item.count ?? 0} line${(item.count ?? 0) === 1 ? "" : "s"}</div>
+                        </div>
+                        <div class="summary-row__value">${formatMoney(item.total)}</div>
+                      </li>`)
+                    .join("")}
+                </ul>`
               : `<table>
               <thead><tr><th>Category</th><th>Total</th><th>Lines</th></tr></thead>
               <tbody>${categories.map((item) => `<tr><td>${escHtml(formatLabel(item.category, "Other"))}</td><td>${formatMoney(item.total)}</td><td>${item.count ?? 0}</td></tr>`).join("")}</tbody>
@@ -32947,33 +32959,10 @@
         }
       </div>
       <div class="card" style="margin-bottom:0">
-        <div class="card-header"><span class="card-title">Recent General Expenses</span></div>
-        <div class="contrib-list">
-          ${receipts
-            .slice(0, 12)
-            .map(
-              (receipt) => `
-            <div class="contrib-list-item">
-              <div class="contrib-list-top" style="gap:12px;align-items:flex-start;flex-wrap:wrap">
-                <div style="min-width:0;flex:1">
-                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                    <strong>${escHtml(receipt.store || "Unknown")}</strong>
-                    ${receiptTransactionBadgeHtml(receipt.transaction_type)}
-                  </div>
-                  <div class="contrib-meta">${escHtml(receiptTransactionMetaText(receipt))} · ${receipt.item_count || 0} reference item${Number(receipt.item_count || 0) === 1 ? "" : "s"}</div>
-                  ${refundAttributionText(receipt) ? `<div class="contrib-meta" style="margin-top:4px">${escHtml(refundAttributionText(receipt))}</div>` : ""}
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                  <span class="contrib-points">${formatMoney(receiptDisplayTotal(receipt))}</span>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="viewExpenseReceiptDetail(${receipt.purchase_id || receipt.id})">Inspect</button>
-                  <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${receipt.purchase_id || receipt.id})">Open Receipt</button>
-                </div>
-              </div>
-            </div>
-          `,
-            )
-            .join("")}
+        <div class="card-header" style="margin-bottom:12px">
+          <span class="card-title">Recent General Expenses</span>
         </div>
+        ${renderCompactReceiptRows(receipts.slice(0, 12), { includeDelete: false })}
       </div>
     </div>
   `
@@ -33019,22 +33008,23 @@
         const cls = pct >= 90 ? "danger" : pct >= 70 ? "warn" : "ok";
         const amountInput = document.getElementById("expense-budget-amount");
         if (amountInput) amountInput.value = b.budget_amount || "";
+        const receiptsLabel = `${b.purchase_count || 0} receipt${(b.purchase_count || 0) === 1 ? "" : "s"}`;
+        const refundsLabel = (b.refund_count || 0) > 0 ? ` · ${b.refund_count} refund${b.refund_count === 1 ? "" : "s"}` : "";
+        const remainingNum = Number(b.remaining || 0);
+        const remainingLabel = remainingNum >= 0
+          ? `${formatMoney(remainingNum)} left`
+          : `${formatMoney(Math.abs(remainingNum))} over`;
         body.innerHTML = `
-    <div style="margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-weight:600">${escHtml(b.month || month)}</span>
-        <span style="color:var(--muted)">${formatMoney(b.spent || 0)} / ${formatMoney(b.budget_amount || 0)}</span>
+    <div class="dining-budget-summary">
+      <div class="dining-budget-summary__head">
+        <div class="dining-budget-summary__amount">${formatMoney(b.spent || 0)}</div>
+        <div class="dining-budget-summary__cap">of ${formatMoney(b.budget_amount || 0)}</div>
       </div>
       <div class="progress-wrap"><div class="progress-bar ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:0.82rem;color:var(--muted)">
-        <span>${pct}% used</span>
-        <span>${formatMoney(b.remaining || 0)} remaining</span>
+      <div class="dining-budget-summary__meta">
+        <span>${pct}% used · ${escHtml(receiptsLabel)}${escHtml(refundsLabel)}</span>
+        <span>${escHtml(remainingLabel)}</span>
       </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Budget</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.budget_amount || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Spent</div><div class="stat-value" style="font-size:1.1rem">${formatMoney(b.spent || 0)}</div></div>
-      <div class="stat-card" style="padding:12px"><div class="stat-label">Receipts</div><div class="stat-value" style="font-size:1.1rem">${escHtml(String(b.purchase_count || 0))}</div><div class="stat-sub" style="font-size:0.75rem">${escHtml(String(b.refund_count || 0))} refunds</div></div>
     </div>`;
       }
 
