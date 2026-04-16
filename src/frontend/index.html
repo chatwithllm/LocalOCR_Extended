@@ -14650,7 +14650,10 @@
                   </div>
                   <div class="form-group">
                     <label>Credential Mode</label>
-                    <select id="admin-ai-model-credential-mode">
+                    <select
+                      id="admin-ai-model-credential-mode"
+                      onchange="handleAdminAiModelKeyInput()"
+                    >
                       <option value="env">Env</option>
                       <option value="stored_key">Stored Key</option>
                       <option value="no_key_required">No Key Required</option>
@@ -14673,7 +14676,12 @@
                       id="admin-ai-model-api-key"
                       type="password"
                       placeholder="Leave blank to keep current stored key"
+                      oninput="handleAdminAiModelKeyInput()"
                     />
+                    <div
+                      id="admin-ai-model-key-hint"
+                      style="display:none;color:var(--muted);font-size:0.78rem;margin-top:4px"
+                    ></div>
                   </div>
                   <div class="form-group">
                     <label>Sort Order</label>
@@ -29005,6 +29013,11 @@
           const el = document.getElementById(id);
           if (el) el.checked = checked;
         });
+        const hintEl = document.getElementById("admin-ai-model-key-hint");
+        if (hintEl) {
+          hintEl.style.display = "none";
+          hintEl.textContent = "";
+        }
         const pill = document.getElementById("admin-ai-model-editing-pill");
         const subtitle = document.getElementById(
           "admin-ai-model-editor-subtitle",
@@ -29253,6 +29266,46 @@
           console.error("Failed to load AI usage", error);
           body.innerHTML =
             '<div class="empty-state"><p>Could not load AI usage.</p></div>';
+        }
+      }
+
+      function handleAdminAiModelKeyInput() {
+        const keyEl = document.getElementById("admin-ai-model-api-key");
+        const modeEl = document.getElementById("admin-ai-model-credential-mode");
+        const hintEl = document.getElementById("admin-ai-model-key-hint");
+        if (!keyEl || !modeEl || !hintEl) return;
+        const hasKey = !!(keyEl.value || "").trim();
+        const mode = modeEl.value;
+
+        // Auto-promote to stored_key the moment a key is typed while mode is env.
+        if (hasKey && mode === "env") {
+          modeEl.value = "stored_key";
+          hintEl.style.display = "block";
+          hintEl.style.color = "var(--color-success, #2e9d6e)";
+          hintEl.textContent =
+            "Credential mode auto-switched to Stored Key so this key is actually used.";
+          return;
+        }
+        // No key entered → no hint needed.
+        if (!hasKey) {
+          hintEl.style.display = "none";
+          hintEl.textContent = "";
+          return;
+        }
+        // Stored Key + key entered → confirm.
+        if (mode === "stored_key") {
+          hintEl.style.display = "block";
+          hintEl.style.color = "var(--muted)";
+          hintEl.textContent = "Will be encrypted on Save.";
+          return;
+        }
+        // No-key-required + key entered → warn, the key will be ignored.
+        if (mode === "no_key_required") {
+          hintEl.style.display = "block";
+          hintEl.style.color = "var(--color-warning, #d97706)";
+          hintEl.textContent =
+            "This mode does not store keys — your input will be ignored. Switch to Stored Key to persist it.";
+          return;
         }
       }
 

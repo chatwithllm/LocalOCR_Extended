@@ -166,6 +166,17 @@ def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id:
             f"credential_mode must be one of: {', '.join(sorted(VALID_CREDENTIAL_MODES))}"
         )
 
+    # Server-side safety net for the most common mistake: an admin pastes a key
+    # into the form but leaves credential_mode at the default "env". Without
+    # this, the key is silently dropped and the model stays unconfigured.
+    raw_api_key = payload.get("api_key")
+    if (
+        credential_mode == "env"
+        and raw_api_key is not None
+        and str(raw_api_key).strip()
+    ):
+        credential_mode = "stored_key"
+
     model.name = name
     model.provider = provider
     model.model_string = model_string
@@ -201,7 +212,17 @@ def _apply_admin_model_payload(model: AIModelConfig, payload: dict, *, actor_id:
     clear_stored_key = _normalize_bool(payload.get("clear_stored_key", False), field_name="clear_stored_key")
     if credential_mode == "stored_key":
         if stored_api_key is not None and str(stored_api_key).strip():
-            model.api_key_encrypted = encrypt_api_key(str(stored_api_key).strip())
+            try:
+                model.api_key_encrypted = encrypt_api_key(str(stored_api_key).strip())
+            except ValueError as exc:
+                msg = str(exc)
+                if "FERNET_SECRET_KEY" in msg:
+                    raise ValueError(
+                        "Cannot store API key: FERNET_SECRET_KEY is not set on the server. "
+                        "Generate one with `python -c \"from cryptography.fernet import Fernet; "
+                        "print(Fernet.generate_key().decode())\"`, add it to .env, and restart the container."
+                    ) from exc
+                raise
         elif creating and not (model.api_key_encrypted or "").strip():
             raise ValueError("api_key is required when credential_mode is stored_key")
         elif clear_stored_key:
