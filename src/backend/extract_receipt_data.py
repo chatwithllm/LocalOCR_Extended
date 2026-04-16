@@ -1090,6 +1090,7 @@ def _save_receipt_record(
     receipt_record_id: int | None = None,
     receipt_type: str | None = None,
     raw_ocr_data: dict | None = None,
+    file_hash: str | None = None,
     error_message: str | None = None,
     retry_count: int | None = None,
     last_reprocessed_at=None,
