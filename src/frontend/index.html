@@ -7032,6 +7032,120 @@
         justify-content: flex-end;
       }
 
+      .month-chip-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 8px;
+      }
+
+      .month-chip {
+        display: grid;
+        gap: 2px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--panel-2, rgba(255, 255, 255, 0.02));
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
+        color: var(--text);
+        transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+
+      .month-chip:hover,
+      .month-chip:focus-visible {
+        background: color-mix(in srgb, var(--color-brand) 5%, var(--panel-2, rgba(255, 255, 255, 0.02)));
+      }
+
+      .month-chip.is-pressing {
+        transform: scale(0.96);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 30%, transparent);
+      }
+
+      .month-chip__label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .month-chip__value {
+        font-size: 1rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        line-height: 1.1;
+      }
+
+      .month-chip__meta {
+        font-size: 0.7rem;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .quick-peek-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 14, 22, 0.5);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 200;
+        display: grid;
+        place-items: center;
+        animation: quick-peek-fade 0.2s ease-out;
+      }
+
+      @keyframes quick-peek-fade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .quick-peek-card {
+        background: var(--color-surface, var(--surface));
+        color: var(--color-text-primary, var(--text));
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px 22px;
+        min-width: 220px;
+        max-width: 80vw;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+        animation: quick-peek-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        text-align: left;
+      }
+
+      @keyframes quick-peek-pop {
+        from { opacity: 0; transform: scale(0.85); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+
+      .quick-peek-card h4 {
+        margin: 0 0 6px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+      }
+
+      .quick-peek-card .quick-peek-amount {
+        font-size: 1.6rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        margin: 0 0 6px;
+      }
+
+      .quick-peek-card .quick-peek-meta {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
       .receipt-compact-row-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
@@ -33001,22 +33115,20 @@
         ${
           periodRows.length
             ? compact
-              ? `<ul class="summary-row-list">
+              ? `<div class="month-chip-grid">
                   ${periodRows.map(([period, values]) => {
                     const purchases = values.purchase_count ?? 0;
                     const refunds = values.refund_count ?? 0;
-                    const purchaseLabel = `${purchases} purchase${purchases === 1 ? "" : "s"}`;
-                    const refundLabel = refunds > 0 ? ` · ${refunds} refund${refunds === 1 ? "" : "s"}` : "";
+                    const meta = `${purchases}p${refunds > 0 ? ` · ${refunds}r` : ""}`;
+                    const fullMeta = `${purchases} purchase${purchases === 1 ? "" : "s"}${refunds > 0 ? ` · ${refunds} refund${refunds === 1 ? "" : "s"}` : ""}`;
                     return `
-                      <li class="summary-row">
-                        <div class="summary-row__main">
-                          <div class="summary-row__title">${escHtml(formatMonthLabel(period))}</div>
-                          <div class="summary-row__meta">${escHtml(purchaseLabel)}${escHtml(refundLabel)}</div>
-                        </div>
-                        <div class="summary-row__value">${formatMoney(values.total)}</div>
-                      </li>`;
+                      <button type="button" class="month-chip" title="${escAttr(formatMonthLabel(period) + " · " + fullMeta)}" data-quick-action="${escAttr(formatMonthLabel(period) + "\\n" + fullMeta + "\\n" + formatMoney(values.total))}">
+                        <span class="month-chip__label">${escHtml(formatMonthLabel(period))}</span>
+                        <span class="month-chip__value">${formatMoney(values.total)}</span>
+                        <span class="month-chip__meta">${escHtml(meta)}</span>
+                      </button>`;
                   }).join("")}
-                </ul>`
+                </div>`
               : `<table>
                   <thead><tr><th>Month</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
                   <tbody>${periodRows.map(([period, values]) => `<tr><td>${escHtml(formatMonthLabel(period))}</td><td>${formatMoney(values.total)}</td><td>${values.purchase_count ?? 0}</td><td>${values.refund_count ?? 0}</td><td>${values.count ?? 0}</td></tr>`).join("")}</tbody>
@@ -33186,6 +33298,81 @@
       }
     </div>`;
       }
+
+      const QUICK_PEEK_HOLD_MS = 380;
+      let quickPeekTimer = null;
+      let quickPeekTriggered = false;
+      let quickPeekActiveEl = null;
+
+      function showQuickPeek(text) {
+        if (!text) return;
+        dismissQuickPeek();
+        const lines = String(text).split("\\n").filter(Boolean);
+        const overlay = document.createElement("div");
+        overlay.className = "quick-peek-overlay";
+        overlay.addEventListener("click", dismissQuickPeek);
+        const card = document.createElement("div");
+        card.className = "quick-peek-card";
+        const title = lines[0] || "";
+        const amount = lines[2] || "";
+        const meta = lines[1] || "";
+        card.innerHTML = `
+          <h4>${escHtml(title)}</h4>
+          <p class="quick-peek-amount">${escHtml(amount)}</p>
+          <p class="quick-peek-meta">${escHtml(meta)}</p>
+        `;
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+
+      function dismissQuickPeek() {
+        document.querySelectorAll(".quick-peek-overlay").forEach((el) => el.remove());
+      }
+
+      document.addEventListener("pointerdown", (e) => {
+        const el = e.target.closest("[data-quick-action]");
+        if (!el) return;
+        quickPeekActiveEl = el;
+        quickPeekTriggered = false;
+        el.classList.add("is-pressing");
+        clearTimeout(quickPeekTimer);
+        quickPeekTimer = setTimeout(() => {
+          quickPeekTriggered = true;
+          showQuickPeek(el.getAttribute("data-quick-action"));
+        }, QUICK_PEEK_HOLD_MS);
+      });
+
+      document.addEventListener("pointerup", (e) => {
+        clearTimeout(quickPeekTimer);
+        if (quickPeekActiveEl) {
+          quickPeekActiveEl.classList.remove("is-pressing");
+          quickPeekActiveEl = null;
+        }
+      });
+
+      document.addEventListener("pointercancel", () => {
+        clearTimeout(quickPeekTimer);
+        if (quickPeekActiveEl) {
+          quickPeekActiveEl.classList.remove("is-pressing");
+          quickPeekActiveEl = null;
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (quickPeekTriggered) {
+          e.preventDefault();
+          e.stopPropagation();
+          quickPeekTriggered = false;
+        }
+      }, true);
+
+      document.addEventListener("contextmenu", (e) => {
+        if (e.target.closest("[data-quick-action]")) {
+          e.preventDefault();
+          showQuickPeek(e.target.closest("[data-quick-action]").getAttribute("data-quick-action"));
+        }
+      });
 
       function repositionExpenseDetailForMobile() {
         const detailCard = document
