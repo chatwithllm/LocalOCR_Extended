@@ -516,6 +516,35 @@ def update_admin_model(model_id: int):
         return jsonify({"error": "Model not found"}), 404
 
     payload = request.get_json(silent=True) or {}
+    incoming_provider = (
+        str(payload.get("provider") or model.provider or "").strip().lower()
+    )
+    incoming_model_string = (
+        str(payload.get("model_string") or model.model_string or "").strip()
+    )
+    # Pre-flight conflict check BEFORE we mutate `model`, otherwise the
+    # autoflush triggered by the conflict query writes the new values and
+    # SQLite raises an IntegrityError that bubbles as a 500.
+    if incoming_provider and incoming_model_string:
+        with g.db_session.no_autoflush:
+            conflict = (
+                g.db_session.query(AIModelConfig)
+                .filter(
+                    AIModelConfig.provider == incoming_provider,
+                    AIModelConfig.model_string == incoming_model_string,
+                    AIModelConfig.id != model.id,
+                )
+                .first()
+            )
+        if conflict:
+            return jsonify({
+                "error": (
+                    f"Another row already uses provider '{incoming_provider}' + "
+                    f"model '{incoming_model_string}' (id={conflict.id}). "
+                    "Edit that row directly, or pick a different model string here."
+                ),
+            }), 409
+
     try:
         _apply_admin_model_payload(
             model,
@@ -523,21 +552,14 @@ def update_admin_model(model_id: int):
             actor_id=getattr(actor, "id", None),
             creating=False,
         )
-        conflict = (
-            g.db_session.query(AIModelConfig)
-            .filter(
-                AIModelConfig.provider == model.provider,
-                AIModelConfig.model_string == model.model_string,
-                AIModelConfig.id != model.id,
-            )
-            .first()
-        )
-        if conflict:
-            return jsonify({"error": "Another model already uses this provider and model string"}), 409
         g.db_session.commit()
     except ValueError as exc:
         g.db_session.rollback()
         return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # noqa: BLE001
+        g.db_session.rollback()
+        logger.exception("Failed to update AI model %s: %s", model.id, exc)
+        return jsonify({"error": "Could not save model. Check server logs."}), 500
 
     logger.info("Admin %s updated AI model %s", getattr(actor, "id", None), model.id)
     return jsonify({
