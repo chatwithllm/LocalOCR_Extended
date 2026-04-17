@@ -20,7 +20,7 @@ from src.backend.contribution_scores import (
 )
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
-from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ProductSnapshot, ShoppingListItem, Store
+from src.backend.initialize_database_schema import AccessLink, ContributionEvent, PriceHistory, Product, ProductSnapshot, ShoppingListItem, ShoppingSession, Store
 from src.backend.normalize_product_names import (
     canonicalize_product_identity,
     find_matching_product,
@@ -110,6 +110,81 @@ def _ensure_pending_recommendation_event(session, item: ShoppingListItem):
     )
 
 
+VALID_SESSION_STATUSES = {"active", "ready_to_bill", "closed"}
+
+
+def _default_session_name() -> str:
+    return datetime.now(timezone.utc).strftime("Shopping trip · %b %d, %Y")
+
+
+def _get_current_session(session) -> ShoppingSession | None:
+    """Return the newest non-closed session, if any."""
+    return (
+        session.query(ShoppingSession)
+        .filter(ShoppingSession.status.in_(("active", "ready_to_bill")))
+        .order_by(ShoppingSession.created_at.desc(), ShoppingSession.id.desc())
+        .first()
+    )
+
+
+def _get_or_create_active_session(session) -> ShoppingSession:
+    """Return the newest non-closed session, creating one if none exists.
+
+    If the newest non-closed session is in `ready_to_bill`, it is demoted back
+    to `active` so newly-added items don't get trapped on a list the user is
+    already trying to reconcile.
+    """
+    current = _get_current_session(session)
+    if current is None:
+        current = ShoppingSession(
+            name=_default_session_name(),
+            status="active",
+            created_by_id=getattr(getattr(g, "current_user", None), "id", None),
+        )
+        session.add(current)
+        session.flush()
+        return current
+    if current.status == "ready_to_bill":
+        current.status = "active"
+        session.flush()
+    return current
+
+
+def _adopt_orphan_items_into(session, shopping_session: ShoppingSession) -> None:
+    """Sweep any items with no session assignment into the given session.
+
+    This keeps the upgrade path smooth when a fresh-install DB, or any other
+    edge case, leaves items without a session_id.
+    """
+    session.query(ShoppingListItem).filter(
+        ShoppingListItem.shopping_session_id.is_(None)
+    ).update(
+        {"shopping_session_id": shopping_session.id},
+        synchronize_session=False,
+    )
+
+
+def _serialize_session(shopping_session: ShoppingSession | None) -> dict | None:
+    if shopping_session is None:
+        return None
+    return {
+        "id": shopping_session.id,
+        "name": shopping_session.name or _default_session_name(),
+        "status": shopping_session.status,
+        "store_hint": shopping_session.store_hint,
+        "estimated_total_snapshot": (
+            float(shopping_session.estimated_total_snapshot)
+            if shopping_session.estimated_total_snapshot is not None else None
+        ),
+        "actual_total_snapshot": (
+            float(shopping_session.actual_total_snapshot)
+            if shopping_session.actual_total_snapshot is not None else None
+        ),
+        "created_at": shopping_session.created_at.isoformat() if shopping_session.created_at else None,
+        "closed_at": shopping_session.closed_at.isoformat() if shopping_session.closed_at else None,
+    }
+
+
 def _serialize_item(item: ShoppingListItem) -> dict:
     latest_price = _latest_price_for_item(g.db_session, item)
     latest_snapshot = _latest_snapshot_for_item(g.db_session, item)
@@ -128,6 +203,7 @@ def _serialize_item(item: ShoppingListItem) -> dict:
     return {
         "id": item.id,
         "product_id": item.product_id,
+        "shopping_session_id": getattr(item, "shopping_session_id", None),
         "name": item.name,
         "product_display_name": product_display_name,
         "product_full_name": product_full_name,
@@ -140,6 +216,7 @@ def _serialize_item(item: ShoppingListItem) -> dict:
         "note": item.note,
         "preferred_store": preferred_store,
         "manual_estimated_price": float(item.manual_estimated_price) if item.manual_estimated_price is not None else None,
+        "actual_price": float(item.actual_price) if getattr(item, "actual_price", None) is not None else None,
         "effective_store": preferred_store or (latest_price or {}).get("store"),
         "latest_price": latest_price,
         "latest_snapshot": latest_snapshot,
@@ -267,7 +344,21 @@ def _ensure_store(session, store_name: str | None):
 
 
 def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool = False):
-    query = session.query(ShoppingListItem)
+    """Build the shopping list payload scoped to the current session.
+
+    The payload always carries a `session` object so the frontend can pick
+    the right view (active vs ready_to_bill vs closed). Totals are computed
+    in terms of the current session only, and now include an `actual_total`
+    for items where the user has recorded what they actually paid.
+    """
+
+    current_session = _get_or_create_active_session(session)
+    _adopt_orphan_items_into(session, current_session)
+    session.commit()
+
+    query = session.query(ShoppingListItem).filter(
+        ShoppingListItem.shopping_session_id == current_session.id
+    )
     if status:
         query = query.filter(ShoppingListItem.status == status)
 
@@ -277,7 +368,30 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
     ).all()
     items = [_serialize_item(item) for item in raw_items]
     open_items = [item for item in items if item["status"] == "open"]
-    total_estimated_cost = round(sum((item.get("latest_price") or {}).get("price", 0) * float(item.get("quantity") or 0) for item in open_items), 2)
+    purchased_items = [item for item in items if item["status"] == "purchased"]
+
+    def _estimated_line_total(item: dict) -> float:
+        price = (item.get("latest_price") or {}).get("price") or 0
+        return float(price) * float(item.get("quantity") or 0)
+
+    def _actual_line_total(item: dict) -> float:
+        """Actual total for a purchased item — counts entered actual_price only."""
+        actual = item.get("actual_price")
+        if actual is None:
+            return 0.0
+        return float(actual) * float(item.get("quantity") or 0)
+
+    priced_purchased = [i for i in purchased_items if i.get("actual_price") is not None]
+    total_estimated_cost = round(sum(_estimated_line_total(i) for i in open_items), 2)
+    bought_estimated_total = round(sum(_estimated_line_total(i) for i in purchased_items), 2)
+    actual_total = round(sum(_actual_line_total(i) for i in priced_purchased), 2)
+    # Variance compares entered actuals vs the estimate of just the priced
+    # subset — so it's meaningful even when the user is partway through
+    # reconciling. Zero-returns when nothing is priced yet.
+    priced_estimate_total = round(sum(_estimated_line_total(i) for i in priced_purchased), 2)
+    variance = round(actual_total - priced_estimate_total, 2) if priced_purchased else 0.0
+    actuals_entered = len(priced_purchased)
+
     store_totals = {}
     for item in open_items:
         latest_price = item.get("latest_price") or {}
@@ -296,15 +410,29 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
         if store.name
     })
 
+    open_count_in_session = session.query(ShoppingListItem).filter(
+        ShoppingListItem.shopping_session_id == current_session.id,
+        ShoppingListItem.status == "open",
+    ).count()
+    purchased_count_in_session = session.query(ShoppingListItem).filter(
+        ShoppingListItem.shopping_session_id == current_session.id,
+        ShoppingListItem.status == "purchased",
+    ).count()
+
     return {
         "items": items,
         "count": len(items),
-        "open_count": session.query(ShoppingListItem).filter(ShoppingListItem.status == "open").count(),
-        "purchased_count": session.query(ShoppingListItem).filter(ShoppingListItem.status == "purchased").count(),
+        "open_count": open_count_in_session,
+        "purchased_count": purchased_count_in_session,
         "estimated_total_cost": total_estimated_cost,
+        "bought_estimated_total": bought_estimated_total,
+        "actual_total": actual_total,
+        "variance": variance,
+        "actuals_entered_count": actuals_entered,
         "suggested_stores": suggested_stores,
         "available_stores": available_stores,
         "helper_mode": helper_mode,
+        "session": _serialize_session(current_session),
     }
 
 
@@ -381,8 +509,10 @@ def add_shopping_item():
         session.add(product)
         session.flush()
 
+    active_session = _get_or_create_active_session(session)
     existing = (
         session.query(ShoppingListItem)
+        .filter(ShoppingListItem.shopping_session_id == active_session.id)
         .filter(ShoppingListItem.status == "open")
         .filter(func.lower(ShoppingListItem.name) == name.lower())
         .filter(func.lower(func.coalesce(ShoppingListItem.category, "other")) == category)
@@ -423,6 +553,7 @@ def add_shopping_item():
     item = ShoppingListItem(
         product_id=product.id if product else None,
         user_id=getattr(getattr(g, "current_user", None), "id", None),
+        shopping_session_id=active_session.id,
         name=get_product_display_name(product) if product else name,
         category=category,
         quantity=quantity,
@@ -505,6 +636,9 @@ def update_shopping_item(item_id):
             )
     if "manual_estimated_price" in data:
         item.manual_estimated_price = float(data["manual_estimated_price"]) if data.get("manual_estimated_price") not in (None, "", False) else None
+    if "actual_price" in data:
+        raw_actual = data.get("actual_price")
+        item.actual_price = float(raw_actual) if raw_actual not in (None, "", False) else None
     if "unit" in data:
         item.unit = (str(data.get("unit", "each") or "each").strip().lower() or "each")
     if "size_label" in data:
@@ -588,6 +722,139 @@ def update_shared_shopping_item(token: str, item_id: int):
     item.status = next_status
     session.commit()
     return jsonify({"item": _serialize_item(item)}), 200
+
+
+@shopping_list_bp.route("/session/ready-to-bill", methods=["POST"])
+@require_write_access
+def mark_session_ready_to_bill():
+    """Transition the current session from `active` to `ready_to_bill`.
+
+    This is the "I'm done shopping, let me reconcile" button. Items stay put;
+    the frontend flips into reconcile mode where purchased items get editable
+    actual-price fields.
+    """
+    session = g.db_session
+    current = _get_current_session(session)
+    if current is None or current.status == "closed":
+        return jsonify({"error": "No current shopping session to reconcile"}), 400
+    if current.status == "ready_to_bill":
+        return jsonify({"session": _serialize_session(current), "unchanged": True}), 200
+    current.status = "ready_to_bill"
+    session.commit()
+    return jsonify({"session": _serialize_session(current)}), 200
+
+
+@shopping_list_bp.route("/session/finalize", methods=["POST"])
+@require_write_access
+def finalize_session():
+    """Close the current session and auto-create a fresh `active` successor.
+
+    The closed session keeps its items for history; totals are snapshotted
+    onto the session so they can be reviewed without recomputing from the
+    (possibly later mutated) item rows.
+    """
+    session = g.db_session
+    current = _get_current_session(session)
+    if current is None or current.status == "closed":
+        return jsonify({"error": "No current shopping session to finalize"}), 400
+
+    items = (
+        session.query(ShoppingListItem)
+        .filter(ShoppingListItem.shopping_session_id == current.id)
+        .all()
+    )
+    purchased_items = [i for i in items if i.status == "purchased"]
+    open_items = [i for i in items if i.status == "open"]
+
+    def _estimated_line_total_row(item: ShoppingListItem) -> float:
+        price = None
+        resolved = _latest_price_for_item(session, item)
+        if resolved:
+            price = resolved.get("price")
+        if price is None and item.manual_estimated_price is not None:
+            price = item.manual_estimated_price
+        return float(price or 0) * float(item.quantity or 0)
+
+    def _actual_line_total_row(item: ShoppingListItem) -> float:
+        if item.actual_price is not None:
+            return float(item.actual_price) * float(item.quantity or 0)
+        return _estimated_line_total_row(item)
+
+    estimated_snapshot = round(sum(_estimated_line_total_row(i) for i in open_items + purchased_items), 2)
+    actual_snapshot = round(sum(_actual_line_total_row(i) for i in purchased_items), 2)
+
+    current.status = "closed"
+    current.closed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    current.estimated_total_snapshot = estimated_snapshot
+    current.actual_total_snapshot = actual_snapshot
+
+    # Auto-spawn a fresh active session so the shopping page stays usable.
+    successor = ShoppingSession(
+        name=_default_session_name(),
+        status="active",
+        created_by_id=getattr(getattr(g, "current_user", None), "id", None),
+    )
+    session.add(successor)
+    session.commit()
+    return jsonify({
+        "closed_session": _serialize_session(current),
+        "active_session": _serialize_session(successor),
+    }), 200
+
+
+@shopping_list_bp.route("/session/reopen", methods=["POST"])
+@require_write_access
+def reopen_session():
+    """Reopen a session — either the latest closed one, or by explicit id.
+
+    If the current session is already `ready_to_bill`, reopen demotes it to
+    `active`. If the caller passes `{"session_id": N}`, that specific session
+    is reopened (and any currently-open session is left alone — callers should
+    finalize the current one first if they want a clean swap).
+    """
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    target_id = data.get("session_id")
+
+    target: ShoppingSession | None = None
+    if target_id is not None:
+        target = session.query(ShoppingSession).filter_by(id=int(target_id)).first()
+        if target is None:
+            return jsonify({"error": "Shopping session not found"}), 404
+    else:
+        current = _get_current_session(session)
+        if current is not None and current.status == "ready_to_bill":
+            target = current
+        else:
+            target = (
+                session.query(ShoppingSession)
+                .filter(ShoppingSession.status == "closed")
+                .order_by(ShoppingSession.closed_at.desc(), ShoppingSession.id.desc())
+                .first()
+            )
+        if target is None:
+            return jsonify({"error": "No session available to reopen"}), 400
+
+    target.status = "active"
+    target.closed_at = None
+    session.commit()
+    return jsonify({"session": _serialize_session(target)}), 200
+
+
+@shopping_list_bp.route("/sessions", methods=["GET"])
+@require_auth
+def list_sessions():
+    """History endpoint: list all sessions, newest first."""
+    session = g.db_session
+    sessions = (
+        session.query(ShoppingSession)
+        .order_by(ShoppingSession.created_at.desc(), ShoppingSession.id.desc())
+        .all()
+    )
+    return jsonify({
+        "sessions": [_serialize_session(s) for s in sessions],
+        "count": len(sessions),
+    }), 200
 
 
 @shopping_list_bp.route("/products/<int:product_id>/confirm-recommendation", methods=["POST"])

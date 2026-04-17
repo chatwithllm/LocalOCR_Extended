@@ -423,12 +423,40 @@ class BudgetChangeLog(Base):
     )
 
 
+class ShoppingSession(Base):
+    """A shopping trip with a lifecycle: active → ready_to_bill → closed.
+
+    Exactly one non-closed session is "current" at any time; that is where
+    new items land and what the shopping page renders. Finalizing snapshots
+    the estimated and actual totals onto the session so closed trips can be
+    reviewed later.
+    """
+
+    __tablename__ = "shopping_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=True)
+    status = Column(String(20), nullable=False, default="active")
+    store_hint = Column(String(120), nullable=True)
+    estimated_total_snapshot = Column(Float, nullable=True)
+    actual_total_snapshot = Column(Float, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+    closed_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_shopping_sessions_status", "status"),
+    )
+
+
 class ShoppingListItem(Base):
     __tablename__ = "shopping_list_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    shopping_session_id = Column(Integer, ForeignKey("shopping_sessions.id"), nullable=True)
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=True)
     quantity = Column(Float, nullable=False, default=1)
@@ -439,6 +467,7 @@ class ShoppingListItem(Base):
     note = Column(String(500), nullable=True)
     preferred_store = Column(String(120), nullable=True)
     manual_estimated_price = Column(Float, nullable=True)
+    actual_price = Column(Float, nullable=True)  # per-unit price actually paid, entered in Ready to Bill
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -446,6 +475,7 @@ class ShoppingListItem(Base):
         Index("ix_shopping_list_status", "status"),
         Index("ix_shopping_list_user_id", "user_id"),
         Index("ix_shopping_list_product_id", "product_id"),
+        Index("ix_shopping_list_items_shopping_session_id", "shopping_session_id"),
     )
 
 

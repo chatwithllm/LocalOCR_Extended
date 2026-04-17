@@ -13262,6 +13262,11 @@
             </div>
           </div>
           <div id="shopping-helper-intro"></div>
+          <div
+            id="shopping-session-banner"
+            class="card"
+            style="display: none; margin-bottom: 12px"
+          ></div>
           <div class="shopping-summary-strip" id="shopping-stats-row">
             <button
               type="button"
@@ -28198,6 +28203,41 @@
         await Promise.all([loadShoppingList(), loadContributions()]);
       }
 
+      function isReadyToBillMode() {
+        return (
+          String(shoppingSessionState?.status || "").toLowerCase() ===
+          "ready_to_bill"
+        );
+      }
+
+      function renderShoppingActualPriceField(item) {
+        if (!isReadyToBillMode()) return "";
+        if (item.status !== "purchased") return "";
+        const primaryId = item.primaryItem?.id || item.ids?.[0];
+        if (!primaryId) return "";
+        const currentActual =
+          item.primaryItem?.actual_price != null
+            ? item.primaryItem.actual_price
+            : null;
+        const valAttr = currentActual != null ? escAttr(currentActual) : "";
+        return `
+          <div class="shopping-actual-field" style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:0.82rem">
+            <label style="color:var(--muted)">Actual $</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value="${valAttr}"
+              placeholder="0.00"
+              style="width:90px"
+              onclick="event.stopPropagation()"
+              onchange="event.stopPropagation(); updateShoppingActualPrice(${primaryId}, this.value)"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+            />
+          </div>
+        `;
+      }
+
       function renderShoppingListTable() {
         const body = document.getElementById("shopping-table-body");
         if (!body) return;
@@ -28435,7 +28475,10 @@
                     </div>
                   </div>
                 <div class="shopping-mobile-item-estimate">
-                  ${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                    <div>${item.estimateTotal != null ? formatMoney(item.estimateTotal) : '<span style="color:var(--muted)">—</span>'}</div>
+                    ${renderShoppingActualPriceField(item)}
+                  </div>
                   <span class="shopping-mobile-item-chevron">▾</span>
                 </div>
               </div>
@@ -28662,7 +28705,7 @@
                 </td>
                 <td>${escHtml(formatLabel(item.category, "Other"))}</td>
                 <td>${item.quantity}</td>
-                <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ""}` : '<span style="color:var(--muted)">—</span>'}</td>
+                <td>${item.estimateTotal != null ? `${formatMoney(item.estimateTotal)}${item.latest_price?.price != null ? ` <div style="color:var(--muted);font-size:0.78rem">${formatMoney(item.latest_price.price)} each</div>` : ""}` : '<span style="color:var(--muted)">—</span>'}${renderShoppingActualPriceField(item)}</td>
                 <td>${escHtml(formatLabel(item.source, "Manual"))}</td>
                 <td><span class="badge badge-${shoppingStatusBadgeClass(item.status)}">${escHtml(shoppingStatusLabel(item.status))}</span></td>
                 <td class="shopping-actions-cell">
@@ -28816,6 +28859,8 @@
         });
       }
 
+      let shoppingSessionState = null;
+
       async function loadShoppingList() {
         const status = "";
         const query = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -28829,6 +28874,7 @@
         const data = await res.json();
         shoppingListCache = data.items || [];
         shoppingStoreOptions = data.available_stores || [];
+        shoppingSessionState = data.session || null;
         populateShoppingStoreSelects();
         updateShoppingSortControls();
         ["shop-open-count", "shop-open-count-main"].forEach((id) => {
@@ -28844,8 +28890,136 @@
           if (el) el.textContent = formatMoney(data.estimated_total_cost || 0);
         });
         updateShoppingListViewPills();
+        renderShoppingSessionBanner(data);
         renderShoppingListTable();
         renderShoppingQuickResults();
+      }
+
+      function renderShoppingSessionBanner(data) {
+        const banner = document.getElementById("shopping-session-banner");
+        if (!banner) return;
+        const session = data?.session || shoppingSessionState;
+        if (!session) {
+          banner.style.display = "none";
+          banner.innerHTML = "";
+          return;
+        }
+        const status = String(session.status || "active").toLowerCase();
+        const boughtEstimate = Number(data?.bought_estimated_total || 0);
+        const actualTotal = Number(data?.actual_total || 0);
+        const variance = Number(data?.variance || 0);
+        const purchasedCount = Number(data?.purchased_count || 0);
+        const actualsEntered = Number(data?.actuals_entered_count || 0);
+        const estimateAllOpen = Number(data?.estimated_total_cost || 0);
+        const varianceClass =
+          variance > 0.01 ? "low" : variance < -0.01 ? "success" : "";
+        const sessionLabel = escHtml(session.name || "Current list");
+        let statusPill = "";
+        let headline = "";
+        let actions = "";
+        if (status === "active") {
+          statusPill = `<span class="badge warning">Active</span>`;
+          headline = `Estimated remaining: <strong>${formatMoney(estimateAllOpen)}</strong> · Bought so far: <strong>${formatMoney(boughtEstimate)}</strong> (${purchasedCount})`;
+          actions = purchasedCount
+            ? `<button type="button" class="btn btn-primary btn-sm" onclick="markSessionReadyToBill()">🧾 Ready to Bill (${purchasedCount})</button>`
+            : `<span style="color:var(--muted);font-size:.85em">Mark items as bought to enable Ready to Bill.</span>`;
+        } else if (status === "ready_to_bill") {
+          statusPill = `<span class="badge ok">Ready to Bill</span>`;
+          const entered = actualsEntered;
+          const varianceText =
+            entered > 0
+              ? `Variance: <strong class="${varianceClass}">${variance >= 0 ? "+" : ""}${formatMoney(variance)}</strong>`
+              : `Enter actual prices below to compute variance.`;
+          headline = `Estimated (bought): <strong>${formatMoney(boughtEstimate)}</strong> · Actual: <strong>${formatMoney(actualTotal)}</strong> · ${varianceText} · Priced: ${entered}/${purchasedCount}`;
+          actions = `
+            <button type="button" class="btn btn-ghost btn-sm" onclick="reopenShoppingSession()">↩ Back to Shopping</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="finalizeShoppingSession()">✅ Finalize &amp; Close</button>
+          `;
+        } else if (status === "closed") {
+          statusPill = `<span class="badge">Closed</span>`;
+          headline = `Estimated: <strong>${formatMoney(session.estimated_total_snapshot || 0)}</strong> · Actual: <strong>${formatMoney(session.actual_total_snapshot || 0)}</strong>`;
+          actions = `<button type="button" class="btn btn-ghost btn-sm" onclick="reopenShoppingSession()">↩ Reopen</button>`;
+        }
+        banner.style.display = "";
+        banner.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+            <div>
+              <div style="font-weight:700;display:flex;align-items:center;gap:8px">
+                <span>🛒 ${sessionLabel}</span> ${statusPill}
+              </div>
+              <div style="color:var(--muted);margin-top:4px;font-size:.9em">${headline}</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">${actions}</div>
+          </div>
+        `;
+      }
+
+      async function markSessionReadyToBill() {
+        const res = await shoppingApi("/shopping-list/session/ready-to-bill", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not start Ready to Bill", "error");
+          return;
+        }
+        toast("Ready to bill — enter actual prices below 🧾", "success");
+        await loadShoppingList();
+      }
+
+      async function reopenShoppingSession() {
+        const res = await shoppingApi("/shopping-list/session/reopen", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not reopen session", "error");
+          return;
+        }
+        toast("Back to shopping ✅", "success");
+        await loadShoppingList();
+      }
+
+      async function finalizeShoppingSession() {
+        if (
+          !(await askForConfirmation(
+            "Finalize this shopping session? The list will be closed and a new session started.",
+            "Finalize shopping session",
+          ))
+        )
+          return;
+        const res = await shoppingApi("/shopping-list/session/finalize", {
+          method: "POST",
+          body: JSON.stringify({}),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not finalize session", "error");
+          return;
+        }
+        toast("Session finalized ✅", "success");
+        await loadShoppingList();
+      }
+
+      async function updateShoppingActualPrice(itemId, rawValue) {
+        const parsed =
+          rawValue === "" || rawValue == null ? null : Number(rawValue);
+        if (parsed != null && !Number.isFinite(parsed)) {
+          toast("Enter a valid price", "error");
+          return;
+        }
+        const res = await shoppingApi(`/shopping-list/items/${itemId}`, {
+          method: "PUT",
+          body: JSON.stringify({ actual_price: parsed }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not save actual price", "error");
+          return;
+        }
+        await loadShoppingList();
       }
 
       function shoppingStatusLabel(status) {
