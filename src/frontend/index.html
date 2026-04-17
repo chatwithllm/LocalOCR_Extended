@@ -17261,6 +17261,12 @@
       };
       let householdUsers = [];
       let reviewQueueItems = [];
+      // Catalog Review: collapse long lists so the page stays scannable.
+      // Default to showing REVIEW_QUEUE_INITIAL_VISIBLE; a "Show N more"
+      // button reveals the rest. State resets every time the queue reloads
+      // (filter change, Save, etc.) — we explicitly do NOT persist this.
+      const REVIEW_QUEUE_INITIAL_VISIBLE = 3;
+      let reviewQueueExpanded = false;
       let receiptFilterOptions = {
         stores: [],
         sources: [],
@@ -26394,11 +26400,17 @@
             '<div class="empty-state"><div class="icon">✅</div><p>No products need review for this filter.</p></div>';
           return;
         }
+        // Split into the always-visible head and the collapsible tail.
+        const total = reviewQueueItems.length;
+        const canCollapse = total > REVIEW_QUEUE_INITIAL_VISIBLE;
+        const headCount = canCollapse
+          ? REVIEW_QUEUE_INITIAL_VISIBLE
+          : total;
+        const hiddenCount = Math.max(0, total - headCount);
+        const isExpanded = reviewQueueExpanded || !canCollapse;
+
         if (isCompactMobileReceiptView()) {
-          body.innerHTML = `<div class="mobile-data-list">
-      ${reviewQueueItems
-        .map(
-          (item) => `
+          const renderMobileCard = (item) => `
         <div class="mobile-data-card">
           <div class="mobile-data-top">
             <div class="mobile-data-title">${escHtml(item.name)}</div>
@@ -26422,18 +26434,28 @@
             <button type="button" class="btn btn-sm btn-ghost" onclick="setReviewState(${item.id}, 'dismissed')">Dismiss</button>
             ${item.recent_receipts?.length ? `<button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${item.recent_receipts[0].receipt_id})">Receipt</button>` : ""}
           </div>
-        </div>`,
-        )
-        .join("")}
+        </div>`;
+          const head = reviewQueueItems.slice(0, headCount).map(renderMobileCard).join("");
+          const tail = isExpanded
+            ? reviewQueueItems.slice(headCount).map(renderMobileCard).join("")
+            : "";
+          body.innerHTML = `<div class="mobile-data-list">
+      ${head}
+      ${tail}
+      ${canCollapse
+        ? `<div class="review-queue-toggle" style="margin-top:12px;text-align:center">
+             <button type="button" class="btn btn-sm btn-ghost" onclick="toggleReviewQueueExpanded()">
+               ${isExpanded ? "▲ Show less" : `▼ Show ${hiddenCount} more`}
+             </button>
+             <div style="color:var(--muted);font-size:0.78rem;margin-top:6px">
+               ${isExpanded ? `Showing all ${total}` : `Showing ${headCount} of ${total}`}
+             </div>
+           </div>`
+        : ""}
     </div>`;
           return;
         }
-        body.innerHTML = `
-    <table>
-      <thead><tr><th>Current Name</th><th>Context</th><th>Suggested Fix</th><th>Actions</th></tr></thead>
-      <tbody>${reviewQueueItems
-        .map(
-          (item) => `
+        const renderDesktopRow = (item) => `
         <tr>
           <td>
             <strong>${escHtml(item.name)}</strong>
@@ -26468,11 +26490,47 @@
                 : ""
             }
           </td>
-        </tr>`,
-        )
-        .join("")}
+        </tr>`;
+        const headRows = reviewQueueItems
+          .slice(0, headCount)
+          .map(renderDesktopRow)
+          .join("");
+        // Stamp tail rows with a class so we can hide them without the
+        // nested-tbody HTML foul. We don't drop them from the DOM because
+        // the toggle re-renders anyway; leaving them out when collapsed is
+        // cheaper, so slice(headCount) is only rendered when expanded.
+        const tailRows = isExpanded
+          ? reviewQueueItems.slice(headCount).map(renderDesktopRow).join("")
+          : "";
+        body.innerHTML = `
+    <table>
+      <thead><tr><th>Current Name</th><th>Context</th><th>Suggested Fix</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${headRows}
+        ${tailRows}
+        ${canCollapse
+          ? `<tr class="review-queue-toggle"><td colspan="4" style="text-align:center;padding:12px">
+               <button type="button" class="btn btn-sm btn-ghost" onclick="toggleReviewQueueExpanded()">
+                 ${isExpanded ? "▲ Show less" : `▼ Show ${hiddenCount} more`}
+               </button>
+               <div style="color:var(--muted);font-size:0.78rem;margin-top:6px">
+                 ${isExpanded ? `Showing all ${total}` : `Showing ${headCount} of ${total}`}
+               </div>
+             </td></tr>`
+          : ""}
       </tbody>
     </table>`;
+      }
+
+      function toggleReviewQueueExpanded() {
+        reviewQueueExpanded = !reviewQueueExpanded;
+        // Re-run render using the cached items — no network call needed.
+        // Any in-flight edits in <input> fields for visible rows are lost on
+        // re-render; collapsing doesn't affect rows outside the head, and
+        // the tail rows aren't rendered while collapsed anyway so there's
+        // nothing to preserve there. For the head rows, most users press
+        // Save before toggling, so re-render is the simpler tradeoff.
+        loadReviewQueue();
       }
 
       async function saveReviewedProduct(productId) {
