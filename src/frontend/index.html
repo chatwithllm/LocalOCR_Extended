@@ -25695,6 +25695,38 @@
           const recs = recRes.ok ? await recRes.json() : null;
           const shopping = shoppingRes.ok ? await shoppingRes.json() : null;
 
+          // Items already on the active shopping list shouldn't also appear in
+          // Low Stock / Top Picks — adding them once should make them disappear
+          // from those recommendation widgets until they're purchased/removed.
+          const shoppingActiveStatuses = new Set(["open", "purchased"]);
+          const shoppingExclusionIds = new Set();
+          const shoppingExclusionNames = new Set();
+          (Array.isArray(shopping?.items) ? shopping.items : []).forEach(
+            (item) => {
+              const status = String(item?.status || "").toLowerCase();
+              if (!shoppingActiveStatuses.has(status)) return;
+              if (item?.product_id != null)
+                shoppingExclusionIds.add(Number(item.product_id));
+              const simplified = simplifyShoppingDisplayName(
+                item?.name || "",
+              ).toLowerCase();
+              if (simplified && simplified !== "unknown item")
+                shoppingExclusionNames.add(simplified);
+            },
+          );
+          const isOnShoppingList = (candidate) => {
+            if (!candidate) return false;
+            const pid = candidate.product_id;
+            if (pid != null && shoppingExclusionIds.has(Number(pid)))
+              return true;
+            const rawName = candidate.product_name || candidate.name || "";
+            const simplified =
+              simplifyShoppingDisplayName(rawName).toLowerCase();
+            if (simplified && shoppingExclusionNames.has(simplified))
+              return true;
+            return false;
+          };
+
           const totalProducts = prods
             ? (prods.total ?? prods.products?.length ?? "—")
             : "—";
@@ -25707,7 +25739,9 @@
             const lowInline = document.getElementById("stat-low-inline");
             if (inventoryInline) inventoryInline.textContent = inventoryCount;
             if (productsInline) productsInline.textContent = totalProducts;
-            const low = getInventoryItems(inv).filter((i) => i.is_low);
+            const low = getInventoryItems(inv)
+              .filter((i) => i.is_low)
+              .filter((i) => !isOnShoppingList(i));
             if (lowInline) lowInline.textContent = low.length;
             const lowEl = document.getElementById("dash-low-stock");
             const lowCard = document.getElementById("dash-low-stock-card");
@@ -25784,7 +25818,9 @@
             const recsHeaderCount = document.getElementById(
               "dash-recs-header-count",
             );
-            const list = recs.recommendations?.slice(0, 5) || [];
+            const list = (recs.recommendations || [])
+              .filter((r) => !isOnShoppingList(r))
+              .slice(0, 5);
             if (recsCard)
               recsCard.classList.remove("compact-empty", "dashboard-collapsed");
             if (recsHeaderCount) {
@@ -34902,7 +34938,13 @@
           return;
         }
         const data = await res.json();
-        const list = data.recommendations || [];
+        // Hide recommendations that are already on the active shopping list —
+        // once the user has queued an item, it shouldn't keep nagging from Top
+        // Picks until it's purchased/removed. Backend sets `in_shopping_list`
+        // when the item is currently queued.
+        const list = (data.recommendations || []).filter(
+          (r) => !r.in_shopping_list,
+        );
         if (countEl) countEl.textContent = String(list.length);
         if (summaryCountEl) summaryCountEl.textContent = String(list.length);
         if (recsCard) recsCard.style.display = list.length ? "" : "none";
