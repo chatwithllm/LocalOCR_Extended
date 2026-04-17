@@ -14659,47 +14659,71 @@
             <div class="card-header">
               <span class="card-title">👤 Session</span>
             </div>
-            <div class="form-group">
-              <label>Current browser login</label>
-              <input id="settings-user" value="Not signed in" disabled />
-            </div>
-            <div class="form-grid" style="margin-top: 16px">
-              <div class="form-group">
-                <label>Auth Source</label>
-                <input id="settings-auth-source" value="Signed out" disabled />
+            <!-- Compact summary row — the part the user actually needs day-to-day. -->
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <div id="settings-avatar-preview" class="avatar-bubble">🦊</div>
+              <div style="flex:1;min-width:0">
+                <div id="session-summary-name" style="font-weight:700">Not signed in</div>
+                <div id="session-summary-sub" style="color:var(--muted);font-size:0.82rem">—</div>
               </div>
-              <div class="form-group">
-                <label>Trusted Device</label>
-                <input id="settings-auth-device" value="—" disabled />
-              </div>
-            </div>
-            <div class="form-grid" style="margin-top: 16px">
-              <div class="form-group">
-                <label>Current Host</label>
-                <input id="settings-current-host" value="—" disabled />
-              </div>
-              <div class="form-group">
-                <label>Default Pairing Host</label>
-                <input id="settings-pairing-host" value="—" disabled />
-              </div>
-            </div>
-            <div class="form-group" style="margin-top: 16px">
-              <label>Profile Avatar</label>
-              <div style="display: flex; gap: 10px; align-items: center">
-                <div id="settings-avatar-preview" class="avatar-bubble">🦊</div>
-                <input
-                  id="settings-avatar"
-                  maxlength="4"
-                  placeholder="😀"
-                  style="width: 90px"
-                />
-                <button class="btn btn-ghost btn-sm" onclick="saveMyAvatar()">
-                  Save Avatar
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-ghost btn-sm" onclick="toggleSessionAvatar()">
+                  ✏️ Change avatar
                 </button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleSessionDetails()">
+                  <span id="session-details-toggle-label">▼ Details</span>
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
               </div>
             </div>
-            <div style="margin-top: 16px">
-              <button class="btn btn-ghost" onclick="logout()">Sign Out</button>
+
+            <!-- Avatar editor (hidden until the user clicks Change avatar). -->
+            <div id="session-avatar-wrap" style="display:none;margin-top:16px">
+              <div class="form-group">
+                <label>Profile Avatar</label>
+                <div style="display: flex; gap: 10px; align-items: center">
+                  <input
+                    id="settings-avatar"
+                    maxlength="4"
+                    placeholder="😀"
+                    style="width: 90px"
+                  />
+                  <button class="btn btn-primary btn-sm" onclick="saveMyAvatar()">
+                    Save Avatar
+                  </button>
+                  <button class="btn btn-ghost btn-sm" onclick="toggleSessionAvatar()">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Connection diagnostics (hidden by default — useful rarely). -->
+            <div id="session-details-wrap" style="display:none;margin-top:16px">
+              <div class="form-group">
+                <label>Current browser login</label>
+                <input id="settings-user" value="Not signed in" disabled />
+              </div>
+              <div class="form-grid" style="margin-top: 16px">
+                <div class="form-group">
+                  <label>Auth Source</label>
+                  <input id="settings-auth-source" value="Signed out" disabled />
+                </div>
+                <div class="form-group">
+                  <label>Trusted Device</label>
+                  <input id="settings-auth-device" value="—" disabled />
+                </div>
+              </div>
+              <div class="form-grid" style="margin-top: 16px">
+                <div class="form-group">
+                  <label>Current Host</label>
+                  <input id="settings-current-host" value="—" disabled />
+                </div>
+                <div class="form-group">
+                  <label>Default Pairing Host</label>
+                  <input id="settings-pairing-host" value="—" disabled />
+                </div>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -23388,11 +23412,13 @@
         const authDeviceEl = document.getElementById("settings-auth-device");
         const currentHostEl = document.getElementById("settings-current-host");
         const pairingHostEl = document.getElementById("settings-pairing-host");
-        if (userEl) {
-          userEl.value = currentUser
-            ? `${currentUser.name || currentUser.email || "Signed in"} (${currentUser.role})`
-            : "Not signed in";
-        }
+        const summaryNameEl = document.getElementById("session-summary-name");
+        const summarySubEl = document.getElementById("session-summary-sub");
+        const userLabel = currentUser
+          ? `${currentUser.name || currentUser.email || "Signed in"} (${currentUser.role})`
+          : "Not signed in";
+        if (userEl) userEl.value = userLabel;
+        if (summaryNameEl) summaryNameEl.textContent = userLabel;
         if (authSourceEl)
           authSourceEl.value = formatAuthSourceLabel(
             currentAuthContext?.source,
@@ -23411,6 +23437,36 @@
             appConfig.request_base_url ||
             appConfig.public_base_url_default ||
             getCurrentOrigin();
+        if (summarySubEl) {
+          // One-line compact subtitle: auth source + host. Keeps the card
+          // usable at a glance without expanding Details.
+          const authLabel = formatAuthSourceLabel(currentAuthContext?.source);
+          const host = getCurrentOrigin();
+          summarySubEl.textContent = currentUser
+            ? `${authLabel} · ${host}`
+            : "—";
+        }
+      }
+
+      function toggleSessionDetails() {
+        const wrap = document.getElementById("session-details-wrap");
+        const label = document.getElementById("session-details-toggle-label");
+        if (!wrap) return;
+        const open = wrap.style.display === "none" || !wrap.style.display;
+        wrap.style.display = open ? "" : "none";
+        if (label) label.textContent = open ? "▲ Hide details" : "▼ Details";
+      }
+
+      function toggleSessionAvatar() {
+        const wrap = document.getElementById("session-avatar-wrap");
+        if (!wrap) return;
+        const open = wrap.style.display === "none" || !wrap.style.display;
+        wrap.style.display = open ? "" : "none";
+        if (open) {
+          // Focus the input so the user can start typing immediately.
+          const input = document.getElementById("settings-avatar");
+          if (input) input.focus();
+        }
       }
 
       function stopDevicePairingPolling() {
@@ -26027,6 +26083,10 @@
         const preview = document.getElementById("settings-avatar-preview");
         if (preview) preview.textContent = getUserAvatar(currentUser);
         toast("Avatar updated ✅", "success");
+        // Auto-collapse the avatar editor after a successful save so the
+        // card returns to the compact summary view.
+        const wrap = document.getElementById("session-avatar-wrap");
+        if (wrap) wrap.style.display = "none";
         loadDashboard();
       }
 
