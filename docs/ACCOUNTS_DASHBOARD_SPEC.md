@@ -19,9 +19,9 @@ Give each household member a clear view of *only their own* linked bank accounts
 
 | Table | `user_id` FK | Encrypted columns | Notes |
 |---|---|---|---|
-| `plaid_items` | ✅ non-null, indexed | `access_token_encrypted` (Fernet) | One row per linked institution per user |
+| `plaid_items` | ✅ non-null, indexed | `access_token_encrypted` (Fernet) | One row per linked institution per user. Has `accounts_json` (Text, nullable) — JSON blob of last-known sub-account metadata (name, mask, type); will be superseded by new `plaid_accounts` table in migration 005. |
 | `plaid_staged_transactions` | ✅ non-null, indexed | none | Holds in-flight transactions before Confirm |
-| `purchases` | ✅ non-null, indexed | none | Target table after Confirm |
+| `purchases` | ✅ non-null, indexed | none | Target table after Confirm. Plaid-sourced rows are identified by `plaid_transaction_id IS NOT NULL` (unique-constrained). **There is no `source` column on `purchases`** — do not filter by `source='plaid'`. |
 | `ai_model_configs` | varies | `api_key_encrypted` (Fernet) | **Shares the same FERNET_SECRET_KEY** |
 | `users` | n/a | `password_hash`, `api_token_hash` (bcrypt-style, not Fernet) | Roles: `admin` \| `user` |
 
@@ -137,7 +137,7 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
 - `GET /plaid/accounts` — joins `plaid_items` + `plaid_accounts` and returns the cached balances. Does **not** call Plaid.
 - `POST /plaid/accounts/refresh-balances` — calls Plaid `/accounts/balance/get` per item the user owns, updates `plaid_accounts.balance_*` rows, returns the fresh data. Server-side throttle: rejects with 429 if any of the user's items had a balance refresh in the last 5 minutes. TTL check uses `max(plaid_accounts.balance_updated_at)` per item.
 - `PATCH /plaid/items/<id>` — allows renaming (`nickname`) only.
-- `GET /plaid/transactions?account_id=&start=&end=&category=&merchant=` — reads only from `purchases` (confirmed) where `plaid_transaction_id IS NOT NULL` or `source = 'plaid'`. Returns a paginated list. `plaid_staged_transactions` is **not** read here (see Section 4.8).
+- `GET /plaid/transactions?account_id=&start=&end=&category=&merchant=` — reads only from `purchases` (confirmed) where `plaid_transaction_id IS NOT NULL`. Returns a paginated list. `plaid_staged_transactions` is **not** read here (see Section 4.8). (There is no `source` column on `purchases` — origin is inferred from `plaid_transaction_id`.)
 - `GET /plaid/spending-trends?months=12` — pre-aggregated monthly totals by category, sourced from `purchases`.
 
 **No change** to existing sync / confirm / dismiss / delete / flag-duplicate endpoints. No change to the hourly scheduler. No new encrypted columns. No change to `encrypt_api_key` / `decrypt_api_key` signatures.
@@ -237,7 +237,7 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
 **Risk:** New transactions panel reading directly from `plaid_staged_transactions` (not `purchases`) could double-show transactions that have also been confirmed into `purchases`.
 
 **Guardrails:**
-- Panel 2 reads from `purchases` (source=`plaid` or `plaid_transaction_id IS NOT NULL`) for confirmed history, and optionally from `plaid_staged_transactions` (status=`ready_to_import`) for a separate "pending review" badge — never the same row twice.
+- Panel 2 reads from `purchases` where `plaid_transaction_id IS NOT NULL` for confirmed history, and optionally from `plaid_staged_transactions` (status=`ready_to_import`) for a separate "pending review" badge — never the same row twice.
 - Reuse existing dedup logic from `plaid_transaction_mapper.run_dedup_check` rather than reinventing.
 
 ### 4.9 🟢 Existing Dashboard Low Stock / Top Picks fix
@@ -346,15 +346,25 @@ Run these post-deploy. All must pass before declaring the page shipped.
 - [ ] Plaid dashboard → Usage: balance calls per day stays low (expect < 10/day/user for casual use).
 - [ ] Hourly scheduler still runs; its log line shows (0 new) on quiet hours, no balance calls.
 
+**Throttle (stateful behavior on `POST /plaid/accounts/refresh-balances`)**
+- [ ] Call `POST /plaid/accounts/refresh-balances` as User A — returns 200 with fresh balances; `plaid_accounts.balance_updated_at` is updated.
+- [ ] Immediately call it again (within 5 minutes) — returns 429, response body identifies the TTL remaining, and `balance_updated_at` is **not** bumped.
+- [ ] Wait past the 5-minute window (or manually `UPDATE plaid_accounts SET balance_updated_at = datetime('now', '-10 minutes')` in a test DB) — next call returns 200 again.
+- [ ] User B's throttle state is independent of User A's: User B can refresh immediately regardless of User A's last call.
+
 ---
 
 ## 8. Rollback Plan
 
 If any of the above fails in prod:
 
-1. **App rollback:** `git revert <commit> && docker compose build backend && docker compose up -d backend`. Old version ignores the `nickname` column — harmless residual.
-2. **Schema rollback:** Not needed. Leaving `nickname` nullable column in place is safe for both old and new code paths.
-3. **Restore last-known-good backup:** If the migration somehow corrupts the DB (should not happen with additive column), `scripts/restore_from_backup.sh <pre-change-backup>.tar.gz`.
+1. **App rollback:** `git revert <commit> && docker compose build backend && docker compose up -d backend`. Old version ignores the new `nickname` column, the new `plaid_accounts` table, and the new compound index on `purchases` — all three are additive and invisible to pre-migration code paths.
+2. **Schema rollback:** Not needed. Leaving the new objects in place is safe:
+   - `plaid_items.nickname` (nullable column) — not read by old code.
+   - `plaid_accounts` table — orphaned but harmless; old code does not reference it. Rows can be kept for when you re-apply the feature, or cleared via `DELETE FROM plaid_accounts;` if a clean slate is preferred.
+   - `ix_purchases_user_date_category` compound index — transparent to all code paths; only affects query planner, never data correctness.
+   - No FK from `plaid_accounts` points outside `plaid_items`, so rolling back does not violate any constraint on existing tables.
+3. **Restore last-known-good backup:** If the migration somehow corrupts the DB (should not happen with additive changes), `scripts/restore_from_backup.sh <pre-change-backup>.tar.gz`. This drops `plaid_accounts`, the index, and the `nickname` column along with everything else.
 4. **Fernet recovery:** If and only if encrypted columns fail to decrypt after rollback, the `env.snapshot` inside the pre-change backup still has the original `FERNET_SECRET_KEY` — grep it out, restore into `.env`, restart.
 
 ---
@@ -448,3 +458,14 @@ Schema additions in the same revision:
 Integration audits confirmed in the same revision:
 - Telegram bot has no Plaid / transaction / balance handlers. Not a data vector.
 - MQTT / HA discovery not touched.
+
+**2026-04-17 (post Round 2 review)** — Reviewer accepted Round 1 revisions and flagged four pre-implementation clarifications. All addressed:
+
+| # | Reviewer concern | Action |
+|---|---|---|
+| R2.1 | Rollback plan only mentioned `nickname`, not new `plaid_accounts` table or compound index | Section 8 rewritten to acknowledge all three additions; explicitly notes orphaned `plaid_accounts` rows after rollback are harmless (no FK to rest of schema). |
+| R2.2 | `plaid_items.accounts_json` backfill source unclear — was the column real? | Verified: `accounts_json` Text column exists on `plaid_items` (line 705 of `initialize_database_schema.py`). Added to Section 2.1 data model with note that it will be superseded by `plaid_accounts`. |
+| R2.3 | `purchases.source = 'plaid'` filter referenced but column unconfirmed | Verified: **there is no `source` column on `purchases`**. The column at line 466 of the schema file belongs to `ShoppingListItem`. All spec references updated to filter by `plaid_transaction_id IS NOT NULL` only (Sections 3.3, 5.2 Panel 2). Added explicit "no `source` column" note to Section 2.1. |
+| R2.4 | Smoke test matrix missing 429 throttle check on `POST /plaid/accounts/refresh-balances` | Added new "Throttle" block to Section 7 with four checks: 200 → 429 within 5min → 200 after expiry → User B independent of User A. |
+
+No changes to decisions, scope, phasing, or risk register. No new migration changes. Ready to implement Phase 1.
