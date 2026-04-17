@@ -1,228 +1,245 @@
-# Design Review Prompt — Accounts Dashboard & Per-User Plaid Access Control
+# Design Review Prompt (Round 2) — Accounts Dashboard & Per-User Plaid Access Control
 
-> **Instructions for the reviewer:** You are a senior full-stack engineer with experience in fintech integrations, small-team ops, and household-scale self-hosted apps. You are being asked to **stress-test this plan before implementation starts**. Push back hard on anything you find risky, over-engineered, under-specified, or misaligned with the deployment context. Point out missing edge cases, safer alternatives, and implicit assumptions that aren't justified. A reviewer who just says "looks good" has wasted our time — we want the things we're not seeing.
+> **Instructions for the reviewer:** You are a senior full-stack engineer with experience in fintech integrations, small-team ops, and household-scale self-hosted apps. You are being asked to **stress-test this plan before implementation starts**. Push back hard on anything you find risky, over-engineered, under-specified, or misaligned with the deployment context. A reviewer who just says "looks good" has wasted our time — we want the things we're not seeing.
 >
-> Please structure your response as:
-> 1. **Biggest concerns** (top 3) — what's most likely to cause pain?
-> 2. **Challenges to each locked decision** (Section 4 below) — is each decision actually the right call?
-> 3. **Missing risks** — what's not in the risk register that should be?
-> 4. **Over-engineering** — what should be removed or simplified?
-> 5. **Under-specified** — what needs more detail before coding starts?
-> 6. **Verdict** — green-light, revise-and-resubmit, or stop and re-think?
+> **This is a revised plan.** An earlier external review (Round 1) already pushed back on three decisions and they were unlocked:
+> - Admin "view all" bypass → **dropped** (strict self-scope only)
+> - In-memory balance cache → **DB-persisted** instead
+> - One-release migration for Settings cards → **deleted in same PR**
+>
+> If you disagree with *these revisions* (i.e., you think Round 1 pushed us the wrong way), say so explicitly. Otherwise, focus your attention on the remaining plan.
+>
+> **Structure your response as:**
+> 1. **Biggest concerns** (top 3)
+> 2. **Challenges to the locked decisions** (Section 4) — anything that should be re-opened?
+> 3. **Round 1 revisions** — are any of them wrong in hindsight, or did we over-correct?
+> 4. **Missing risks** — what's not in the risk register (Section 5)?
+> 5. **Phasing concerns** (Section 6) — is the 3-PR breakdown right? Is anything in the wrong phase?
+> 6. **Testing strategy** (Section 7) — is minimum pytest coverage actually sufficient?
+> 7. **Over-engineering / under-specified** — what should be removed or clarified?
+> 8. **Verdict** — green-light, revise-and-resubmit, or stop and re-think?
 
 ---
 
-## 1. Context
+## 1. Context (1-minute read)
 
-**App:** "LocalOCR Extended" — a self-hosted household finance / grocery-inventory / receipt-OCR app. Single Docker Compose stack on a home server (UDImmich, an Unraid-like box). Python 3.11 + Flask + SQLAlchemy + SQLite (WAL mode) + APScheduler + a single large vanilla-JS `index.html` frontend. No React, no build step.
+- **App:** self-hosted household finance app (Python/Flask/SQLite/vanilla-JS). 1–5 users. One Docker container on a home server.
+- **Plaid:** went live in Production today. Transactions product only; hourly sync via APScheduler; no webhooks yet.
+- **Encryption:** single Fernet key encrypts both `plaid_items.access_token_encrypted` and `ai_model_configs.api_key_encrypted`. No rotation. Backup includes the key in plaintext inside `meta/env.snapshot`.
+- **Existing Plaid UI:** two cards nested inside the Settings page (Bank Connections list + Review Imported Transactions queue). No dedicated financial view.
+- **All existing Plaid endpoints already filter by `user_id == current_user.id`.** No admin bypass exists today.
 
-**Scale:**
-- 1–5 household users total (small family app, not SaaS)
-- SQLite DB under 10 MB today
-- Hosted behind an HTTPS reverse proxy on the home LAN / Tailscale
-
-**Current integrations:**
-- **Gemini / OpenAI / OpenRouter / Ollama** — receipt OCR (fallback chain)
-- **Plaid** — just went live in Production today: Transactions product, `/transactions/sync` on an hourly APScheduler job, no webhooks yet (signature verification deferred)
-- **MQTT / Home Assistant discovery** — optional, disabled on this host
-- **Telegram bot** — optional receipt upload channel, disabled on this host
-- **Backup/restore** — shell-scripted `.tar.gz` of SQLite DB + receipts + an `env.snapshot` containing `FERNET_SECRET_KEY` (yes, plaintext inside the archive — the backup assumes the operator owns both halves)
-
-**Encryption:**
-- `FERNET_SECRET_KEY` (single symmetric key) encrypts:
-  - `plaid_items.access_token_encrypted`
-  - `ai_model_configs.api_key_encrypted`
-- No key rotation mechanism. Losing the key = losing access to encrypted columns.
-- The backup archive includes the current key in `meta/env.snapshot`.
+**Full code-audit details (routes, columns, integrations, backup script behavior):** See Appendix A at the bottom of this doc.
 
 ---
 
-## 2. What exists today (ground truth from code audit)
+## 2. What we're building
 
-**Plaid data model**
-- `plaid_items` — one row per linked institution per user. Has `user_id` (non-null FK), encrypted access token, institution metadata, `transaction_cursor`, `last_sync_at`, `status`, etc.
-- `plaid_staged_transactions` — in-flight transactions before the user Confirms them. Has `user_id`, `plaid_item_id`, amount, merchant, category, `status` (ready_to_import / duplicate_flagged / skipped_pending / confirmed / dismissed).
-- `purchases` — target table after Confirm. Has `user_id`, `plaid_transaction_id`, category, etc.
+A new top-level **"🏦 Accounts"** page (inserted between Bills and Analytics) with three stacked collapsible-card panels:
 
-**Backend routes (every one already filters by `user_id = current_user.id`):**
-- `GET /plaid/status`, `POST /plaid/link-token`, `POST /plaid/exchange-public-token`
-- `GET /plaid/items`, `POST /plaid/items/<id>/sync`, `DELETE /plaid/items/<id>`
-- `GET /plaid/staged-transactions`, `POST /plaid/staged-transactions/<id>/confirm`, `/dismiss`, `/flag-duplicate`
-- No admin bypass currently exists for any route.
+- **Panel 1 — Connected Accounts:** per-item card with institution, account sub-list (checking/savings/credit), last-sync, status, balances. Actions: Sync Now, Disconnect, Rename. "+ Connect Bank" button moves here from Settings.
+- **Panel 2 — Transactions:** filterable list (date range, account, category, merchant). Two sub-tabs: "All spending" (excludes LOAN_PAYMENTS/TRANSFER_OUT) vs. "Transfers & bills" (only those).
+- **Panel 3 — Spending trends:** monthly chart of last 12 months + current-month category breakdown.
 
-**User/role model**
-- `users.role` is a simple `String(20)` — only two values used: `"admin"` or `"user"`.
-- `is_admin(user)` helper returns `bool(user and user.role == "admin")`.
-- Admin-only endpoints today: backup/restore, user creation, device pairing.
+**Backend delta (one migration + ~5 routes):**
+- Migration `005_accounts_dashboard` — adds `nickname` column to `plaid_items`, new `plaid_accounts` table (stores balances with `balance_updated_at`), new compound index `(user_id, date, category)` on `purchases`. Additive, idempotent, reuses existing helpers from migration `004`.
+- New routes: `PATCH /plaid/items/<id>`, `GET /plaid/accounts`, `POST /plaid/accounts/refresh-balances`, `GET /plaid/transactions`, `GET /plaid/spending-trends`. All inline `filter_by(user_id=current_user.id)`. No scope helper, no query-param overrides.
 
-**Frontend**
-- Single-page app driven by DOM visibility: 12 top-level nav items, no hash routing.
-- Plaid UI today is **nested inside the Settings page** as two cards: "🏦 Bank Connections" and "🧾 Review Imported Transactions".
-- No balances view, no per-account transaction history view, no spending trends view for Plaid data.
+**Delete in the same PR:** the existing Plaid cards in Settings. Replace with a single deep-link line.
 
-**Sync scheduler**
-- APScheduler hourly job iterates all active `plaid_items`, calls `/transactions/sync`, upserts into `plaid_staged_transactions`.
-- Runs as a background job in the Flask process. Not user-aware.
+**Not touching:** Fernet key, encrypted column schemas, encrypt/decrypt helper signatures, hourly scheduler, backup/restore script, existing sync/confirm/dismiss/delete endpoints.
 
 ---
 
-## 3. What we're planning to build
+## 3. Non-negotiables (terse)
 
-**A new top-level "🏦 Accounts" page** (inserted between Bills and Analytics) with three stacked collapsible-card panels:
+- [ ] No changes to `FERNET_SECRET_KEY`, no new encrypted columns, no encrypt/decrypt signature changes.
+- [ ] No regression in per-user Plaid isolation.
+- [ ] No breakage of restore from pre-change backup archives.
+- [ ] No changes to the hourly sync scheduler.
+- [ ] No new frontend or backend dependencies (use existing charting approach from Analytics page).
+- [ ] No automated balance calls (manual only, server-side 5-min throttle).
+- [ ] No second top-level page for financial data.
 
-**Panel 1 — Connected Accounts**
-- Per-item card: institution, account sub-list, last-sync, status, balances.
-- Actions: Sync Now, Disconnect, Rename (new `nickname` column on `plaid_items`).
-- "+ Connect Bank" button relocated here.
-
-**Panel 2 — Transactions**
-- Filterable list across all the user's linked accounts: date range, account, category, merchant search.
-- Two sub-tabs: "All spending" (excludes `LOAN_PAYMENTS` / `TRANSFER_OUT`) vs. "Transfers & bills" (only those).
-
-**Panel 3 — Spending trends**
-- Monthly bar chart (last 12 months, stacked by source: Plaid vs. receipt).
-- Optional per-account line overlay.
-- Category breakdown donut for current month.
-
-**Backend delta:**
-- New Alembic migration `005_add_plaid_item_nickname.py` — single nullable String(64) column. Idempotent.
-- New routes: `GET /plaid/accounts`, `PATCH /plaid/items/<id>` (rename-only), `GET /plaid/transactions` (filtered), `GET /plaid/spending-trends`.
-- A single helper `_scope_for_plaid_read(query, model, current_user)` applied on every read endpoint that wants to honor admin-bypass.
-
-**Scope not touched:**
-- Fernet contract (no key changes, no new encrypted columns, no rotation).
-- Existing sync / confirm / dismiss / delete endpoints.
-- Scheduler behavior.
-- Backup/restore script — new column is additive and nullable, Alembic auto-upgrade on restore handles it.
-- Webhook signature verification — still deferred.
+Any of these violated → block the PR.
 
 ---
 
-## 4. Decisions locked — challenge each one
+## 4. Locked decisions (after Round 1 revisions)
 
-### D1. Access control model: **Self-scoped default + admin read-all toggle**
+### D1. Access control: **strict self-scope for all users**
+- Every Plaid read + write endpoint inlines `filter_by(user_id=current_user.id)`. No helper function, no admin bypass, no query-param overrides.
+- Rare cross-user audit case: operator runs a direct DB query via `docker exec ... python3 -c 'import sqlite3; ...'`.
 
-- Every non-admin user sees only their own Plaid data. No UI override, no opt-in to see others.
-- Admin users see self-scoped by default and can flip a front-end toggle **"👁 View all (admin)"** that passes `?scope=all` on GET endpoints.
-- The backend honors `?scope=all` **only** when `is_admin(current_user)` is true; non-admins passing the flag get self-scoped rows silently.
-- **Writes are never bypassed** — confirm / dismiss / sync / rename / delete continue to require `user_id == current_user.id` even for admins. An admin cannot confirm a transaction on behalf of another user (would corrupt purchase attribution).
-- Every admin `scope=all` request logs at INFO level for audit.
-- Admin's "View all" toggle does **not** persist across sessions — defaults off on each login to prevent accidentally continued broad access.
-- Rejected alternatives: C (per-item explicit sharing, too complex for 5 users), D (household-global, regresses existing isolation).
+**Push back if:** you think the lack of an admin audit view will bite in practice; you think the operator will end up hand-editing DB rows more than expected; you see an even simpler scoping approach.
 
-**Reviewer — push back if:**
-- You think the admin bypass invites more risk than value for a 1–5 user household app
-- You think C (explicit share-per-item) is actually the right call for a multi-user household
-- You see a path for a non-admin to gain `scope=all` that we've missed
-- You think the "no persistence across sessions" is security theater vs. a real mitigation
+### D2. Balances: **persisted in a new `plaid_accounts` table**
+- Columns `balance_cents`, `balance_updated_at` on `plaid_accounts` (not on `plaid_items` — one row per sub-account).
+- Manual refresh only via a button. Backend rejects refresh requests with 429 if `max(balance_updated_at)` for the user's items is less than 5 minutes old.
+- Hourly scheduler never calls `/accounts/balance/get`.
 
-### D2. Plaid `/accounts/balance/get` enabled with 5-min in-memory cache + manual refresh
+**Push back if:** you see a way for concurrent writes to cause `SQLITE_BUSY` at household scale; you think the 5-min throttle window is wrong; you think the balance data should live on `plaid_items` instead (fewer rows, less JOIN); you see a way to pipeline this with the hourly sync cheaply.
 
-- Balance pulls are paid/rate-limited per item on Plaid Production. Hourly scheduler does **not** call balance. User must click a "🔄 Refresh balances" button on the Accounts page.
-- In-memory dict cache keyed by `plaid_item_id`, TTL 5 minutes, cleared on container restart.
-- Accepted the cost tradeoff.
+### D3. Layout: three panels stacked vertically, each a collapsible card
+- Not three sub-tabs. The review-heavy workflow (Panel 2) benefits from being visible alongside Panel 1.
 
-**Reviewer — push back if:**
-- You think an in-memory cache is wrong vs. persisting balances in the DB (survives restart, trickier invalidation)
-- You see a way users could inadvertently spam balance calls (e.g., rapid clicks, multiple tabs) that the 5-min cache wouldn't cover
-- You think the balance feature should be gated behind an opt-in env var
-
-### D3. Three panels stacked vertically, each a collapsible card
-
-- Single-page Accounts view: Connected Accounts → Transactions → Spending trends.
-- Collapsible so narrow viewports stay usable.
-- Rejected alternative: three sub-tabs inside the page. Rejected because sub-tabs hide content and this is a review-heavy workflow.
-
-**Reviewer — push back if:**
-- You think information density hurts on mobile / reduces comprehension
-- You think the Transactions panel with filters belongs on its own dedicated page
+**Push back if** you think density hurts on mobile or reduces comprehension.
 
 ### D4. Nav position: between Bills and Analytics
+- Semantic grouping for financial data.
 
-- Semantic grouping: financial data clusters together.
+**Push back if** you see a better position.
 
-**Reviewer — push back if you see a better position.**
+### D5. Settings Plaid cards: **deleted in the same PR** as the Accounts page lands
+- Replaced with a single "Banking moved to the Accounts tab" line + deep link.
+- No transition period. Household has 1–5 users.
 
-### D5. Settings Plaid cards stay for one release with "View on Accounts page →" link, then deleted
-
-- Soft migration to avoid retraining muscle memory overnight.
-- Follow-up PR deletes them.
-
-**Reviewer — push back if:**
-- You think leaving duplicate UI around invites bugs (sync happening on both pages, user confusion)
-- You think the migration should be atomic (delete Settings cards in the same PR)
+**Push back if** you think an atomic delete will actually break more than it fixes (e.g., if the operator hasn't seen the new page yet and relies on the old one mid-day).
 
 ---
 
-## 5. Risk register (what we're watching)
+## 5. Risk register
 
 | Severity | Risk | Mitigation |
 |---|---|---|
-| 🔴 | **Fernet contract breakage** — any change silently breaks existing Plaid tokens *and* existing AI model keys (they share the same key). | No key changes, no new encrypted columns, no rotation. Round-trip test after deploy: existing Plaid sync still works, AI models page still shows stored keys. |
-| 🔴 | **Backup/restore compat** — new schema must not break restore from pre-change backups. | Alembic migration is additive (nullable column) and idempotent. Restore script already runs `alembic upgrade head`. Test: pre-change backup restored into disposable stack, confirm all encrypted columns still decrypt. |
-| 🔴 | **User-scope regression (bumped up due to admin bypass)** — a misapplied `?scope=all` leaks household-wide financial data. | Single `_scope_for_plaid_read()` helper; writes never use it; explicit `is_admin()` check inside helper; INFO-log every bypass use; smoke tests cover both positive (admin sees all) and negative (non-admin `scope=all` is silently ignored) paths. |
-| 🟡 | Plaid `/accounts/balance` rate-limits / cost. | 5-min cache + manual-only, never scheduled. |
-| 🟡 | Frontend nav regression (one big index.html). | Exact copy of existing `nav()` pattern; smoke test every existing tab after deploy. |
-| 🟡 | Review queue double-counting if Panel 2 reads from both `plaid_staged_transactions` and `purchases`. | Panel 2 reads *only* `purchases` for confirmed history; `plaid_staged_transactions` surfaces as a separate "N pending review" badge. |
-| 🟢 | Scheduler still runs as-is; no pause-per-item feature in v1. | Explicit out-of-scope. |
-| 🟢 | Existing Dashboard Low Stock / Top Picks fix (commit `d8fe2d9`). | No touches to `page-dashboard` in this change. |
+| 🔴 | Fernet contract breakage (would take out Plaid tokens AND stored AI model keys) | No key changes, no new encrypted columns, no helper-signature changes; round-trip test after deploy |
+| 🔴 | Backup/restore compat with new schema | Migration is additive + idempotent; restore script runs `alembic upgrade head`; verified by dry-run into disposable stack |
+| 🔴 | Frontend monolith regression (single large `index.html`, no build step, no test harness) | Strict pattern adherence, dedupe check on element IDs, old Settings cards deleted in same PR to avoid duplicate UI |
+| 🟡 | User-scope regression | No helper, every new endpoint inlines `filter_by(user_id=...)`; code review checklist; smoke tests with two users |
+| 🟡 | Plaid `/accounts/balance/get` cost | DB-persisted; manual-only; server-side 5-min throttle |
+| 🟡 | Plaid vs. receipt-OCR category taxonomy mismatch in Panel 3 | Source-split as v1 default; optional normalization map; decision documented inline before Panel 3 code is written |
+| 🟡 | Chart library capability unverified | Inspect Analytics page's charting approach **before** writing Panel 3; downgrade Panel 3 to supported chart types rather than add a new dep |
+| 🟢 | Review queue ambiguity (two Plaid UIs) | Eliminated by deleting Settings cards in same PR |
+| 🟢 | Scheduler interaction (no new pause feature) | Out of scope; no behavioral change |
+| 🟢 | Existing Dashboard widget fix (`d8fe2d9`) | Do not touch `page-dashboard` |
+| 🟢 | SQLite WAL concurrent writes | Extremely unlikely at 1–5 users with manual-only triggers; add retry only if it ever surfaces |
 
 ---
 
-## 6. Smoke-test matrix we will run before declaring done
+## 6. Implementation phasing (3 PRs)
 
-**Isolation (requires two user accounts, one admin one non-admin)**
-- Non-admin User A links Chase → Non-admin User B sees nothing.
-- Admin flips "View all" → sees both users' items; log line emitted.
-- Non-admin passes `?scope=all` via DevTools → still gets only their own rows.
-- Admin in "View all" tries to Confirm User A's staged txn → rejected (writes don't honor bypass).
-- Admin's "View all" preference does NOT persist across logout/login.
+**Phase 1 — Schema + read endpoints (backend only, no UI):**
+- Migration `005_accounts_dashboard` with `_table_exists()` / `_index_exists()` helpers.
+- Backfill `plaid_accounts` from existing `plaid_items.accounts_json` blobs (no balances yet).
+- All 5 new routes, inlined scoping.
+- Acceptance: Section 7 tests for Isolation + Backup/Restore + Fernet all pass.
 
-**Fernet**
+**Phase 2 — Frontend Accounts page:**
+- Pre-step: verify chart library capabilities; document decision.
+- Add nav item + `page-accounts` div.
+- Build Panels 1 → 2 → 3.
+- **Delete Settings Plaid cards in the same PR.** Replace with deep-link line.
+- Acceptance: Section 7 UI + cost tests pass. No duplicate IDs in `index.html`. Every existing nav tab still loads.
+
+**Phase 3 — Polish (optional):**
+- Performance fixes, layout tweaks from Phase 2 feedback.
+- Keep small or split.
+
+**Deploy cadence:** Phase 1 → prod → bake 24–48h → Phase 2 → bake 48h → Phase 3.
+
+**Rollback trigger:** any 🔴 risk manifesting in prod → `git revert`, redeploy, investigate.
+
+---
+
+## 7. Testing strategy
+
+**Automated:**
+- **pytest per new backend route:** one happy-path test + one cross-user-isolation test (User B calling User A's endpoint/resource returns empty or 404). Fixtures create two users each with one mock Plaid item.
+- **Alembic migration roundtrip:** up → down → up on an ephemeral SQLite DB, seeded with representative data.
+- **No new frontend test harness:** the repo has none today. Adding one is explicitly out of scope. Frontend verification is manual.
+
+**Manual (both phases):**
+- Full Section 8 smoke-test matrix before merging each PR.
+- Phase 1 backup/restore dry run: take backup pre-change, apply migration, restore into disposable Docker Compose stack, verify all encrypted columns decrypt and alembic auto-upgrades cleanly.
+
+**What is deliberately not tested:**
+- Concurrent balance writes (unlikely at scale).
+- Chart rendering pixel-accuracy (manual eyeball).
+- Multi-browser / mobile layouts (inherit whatever the existing pages do).
+
+---
+
+## 8. Smoke-test matrix (must pass before merge)
+
+**Isolation (requires two user accounts, User A and User B):**
+- Non-admin User A links Chase → User B sees zero Plaid items.
+- User A confirms a Chase txn → User B's Transactions panel doesn't show it.
+- Every new endpoint returns zero User A data when called as User B.
+- DB audit: `SELECT COUNT(DISTINCT user_id) FROM plaid_accounts` matches user count with linked items.
+
+**Fernet:**
 - On container restart, existing Plaid items still sync (`last_sync_status=ok`).
 - Existing AI model configs in Settings still show decrypted stored keys.
 
-**Backup/restore**
-- Take backup *before* migration runs, apply migration, restore that backup into disposable compose stack. Alembic auto-upgrades. All encrypted columns still decrypt.
+**Backup/restore:**
+- Pre-migration backup → apply migration → restore that backup into disposable compose stack → alembic auto-upgrades → all encrypted columns still decrypt.
 
-**UI**
-- New "Accounts" nav appears. Every existing nav tab still works.
-- Balance cache: rapid Refresh clicks within 5 min → only one `/accounts/balance/get` call to Plaid.
-- "Transfers & bills" sub-tab correctly splits from "All spending".
+**UI:**
+- New "Accounts" nav appears; every other existing nav tab still works.
+- No duplicate element IDs in `index.html`.
+- Balance refresh: rapid clicks within 5 min trigger only one Plaid call (server-side throttle).
+- "Transfers & bills" tab correctly splits from "All spending".
+- Settings Plaid cards are gone (no duplicate Sync/Connect buttons anywhere).
 
-**Cost**
+**Cost:**
 - Plaid dashboard usage < 10 balance calls/day/user under casual use.
 
 ---
 
-## 7. Constraints and non-negotiables
+## 9. Explicit invitation to challenge
 
-- **Must not** change the Fernet encryption key, encrypt/decrypt helper semantics, or existing encrypted column schemas.
-- **Must not** regress the current per-user isolation of Plaid endpoints.
-- **Must not** break restore from existing (pre-change) backup archives.
-- **Must not** touch the existing hourly sync scheduler or its behavior.
-- **Must not** add a new dependency to either backend or frontend for this feature. Use existing chart library from Analytics page, existing stdlib + SQLAlchemy, existing vanilla JS.
-- **Must not** call Plaid `/accounts/balance/get` from any automated job (only on explicit user action).
-- **Must not** create a second top-level page for financial data — keep it all under "🏦 Accounts".
+Top of mind — specifically wanting pushback on:
 
----
-
-## 8. Explicit invitation to challenge
-
-Specifically, we want opinions on:
-
-1. **Is the admin bypass actually worth the complexity?** For 1–5 household users, would it be simpler / safer to drop D1's admin toggle entirely and require the admin to use a per-user impersonation flow (or direct DB query) for the rare audit case?
-2. **Should balances be persisted in the DB** (with a `last_fetched_at` column) rather than held in in-memory cache? Persistence survives restart and makes the UI feel faster after a reboot, at the cost of one more column and cache invalidation logic.
-3. **Is the "one release" migration period for the Settings cards the right call**, or does it invite bugs (user confusion over which Plaid UI is canonical, double sync buttons, etc.)?
-4. **Are there integrations we've forgotten?** The app has Home Assistant MQTT discovery and a Telegram bot in its module list — could any of them reach into Plaid data in ways this plan hasn't accounted for?
-5. **Is the single-user-scope helper (`_scope_for_plaid_read`) the right abstraction**, or is there a cleaner pattern (e.g., a SQLAlchemy event hook, a custom Query subclass, or just inlining the check per-endpoint)?
-6. **What's the right thing to do with `LOAN_PAYMENTS` / `TRANSFER_OUT` transactions long-term?** This plan puts them in a separate tab but doesn't route them into the Bills module. Is that the right half-measure, or should we design the bill-routing now?
-7. **Anything in the Risk Register that should be upgraded in severity**, or any risks we've missed entirely?
+1. **Round 1 revisions right?** Did the external reviewer correctly push us on D1/D2/D5, or did we over-correct in any direction?
+2. **Phasing:** Should migration + endpoints be two separate PRs instead of one Phase 1? Is there a reason Phase 2 shouldn't ship the Settings-card deletion with the new page (e.g., if deployment issues could leave the app with neither UI)?
+3. **Testing depth:** Is "one happy + one isolation test per endpoint" actually enough? Is the lack of frontend automated tests a problem in practice?
+4. **Migration risk at prod:** The migration adds a table, a column, an index. Can any of those operations lock the DB long enough to be user-visible on a healthy SQLite with ~1k rows? (Should be sub-second but worth a sanity check.)
+5. **Chart library:** What should the fallback *actually* be if the existing Analytics charting approach can't do stacked bars / overlays / donuts? Is "ship with plain bars + a table" an acceptable v1 UX, or does Panel 3 need to be deferred to Phase 3?
+6. **Category taxonomy:** Would you ship Panel 3 with source-split (Plaid vs. Receipts as separate stack segments) as v1, or would you ship a minimal normalization map now and skip the source-split? Which gives the user more value at this stage?
+7. **Anything in the non-negotiables (Section 3) that's actually negotiable** and you think we're being too rigid about?
+8. **Anything in the risk register** that should be upgraded / downgraded / combined / split?
 
 ---
 
-## 9. What we'll do with your feedback
+## 10. What we'll do with your feedback
 
-Bring it back to the implementing engineer. Locked decisions can still be un-locked if the challenge is strong enough. We'd rather revise before coding than ship something we regret.
+Bring it back to the implementing engineer. Any locked decision can still be un-locked. We'd rather revise before coding than ship something we regret.
 
 Be direct. Be specific. Name line numbers, file paths, or concrete alternatives where you can.
+
+---
+
+---
+
+## Appendix A — Ground-truth code audit
+
+*(Collapsed here so the review above stays focused. Read this if you need to verify any claim above.)*
+
+**Plaid data model:**
+- `plaid_items` — one row per linked institution per user. Columns: `user_id` (FK non-null, indexed), `plaid_item_id` unique, `institution_id/name`, `access_token_encrypted` (Fernet), `accounts_json`, `products`, `transaction_cursor`, `last_sync_at`, `last_sync_status`, `last_sync_error`, `status`, `created_at`, `updated_at`.
+- `plaid_staged_transactions` — in-flight transactions before Confirm. Columns include `user_id` (non-null, indexed), `plaid_item_id`, `plaid_transaction_id` unique, `amount`, `transaction_date`, `name`, `merchant_name`, `plaid_category_primary/detailed`, `pending`, `status` (ready_to_import / duplicate_flagged / skipped_pending / confirmed / dismissed), `duplicate_purchase_id`, `confirmed_purchase_id`, `raw_json`.
+- `purchases` — target table after Confirm. Carries `user_id`, `plaid_transaction_id`, `category`, `source`, `date`, `amount`.
+
+**Plaid routes (every one filters by `user_id = current_user.id` today):**
+- `GET /plaid/status` `@require_auth`
+- `POST /plaid/link-token` `@require_write_access`
+- `POST /plaid/exchange-public-token` `@require_write_access`
+- `GET /plaid/items` `@require_auth`
+- `POST /plaid/items/<id>/sync` `@require_write_access`
+- `GET /plaid/staged-transactions` `@require_auth`
+- `POST /plaid/staged-transactions/<id>/confirm | /dismiss | /flag-duplicate` `@require_write_access`
+- `DELETE /plaid/items/<id>` `@require_write_access`
+
+**User/role model:**
+- `users.role` String(20), values `"admin"` or `"user"`. Helper: `is_admin(user)`.
+- Per-user scoping is the repo-wide pattern (not household-global). Receipts and inventory blueprints also scope by `g.current_user.id`.
+
+**Backup script (`scripts/backup_database_and_volumes.sh`):** produces `.tar.gz` containing `database.db` (SQLite `backup()`), `receipts/`, `product_snapshots/`, `meta/env.snapshot` (**includes `FERNET_SECRET_KEY` in plaintext**), `meta/docker-compose.yml`, `meta/manifest.json`. Admin-only endpoints in `manage_environment_ops.py`. Restore is a shell script (no HTTP endpoint).
+
+**Fernet usage:** single `FERNET_SECRET_KEY` encrypts `plaid_items.access_token_encrypted` + `ai_model_configs.api_key_encrypted`. `_get_fernet()` reads env; `decrypt_api_key` raises `ValueError` on invalid token. No rotation mechanism.
+
+**Frontend:** `src/frontend/index.html` is one file. 12 top-level nav items (Dashboard / Inventory / Upload / Receipts / Shopping / Restaurant / Expenses / Budget / Bills / Analytics / Contribution / Settings). DOM-visibility routing via `nav(page, this)`. Plaid UI today is nested inside Settings as two cards.
+
+**Integrations checked for Plaid exposure:**
+- Telegram bot (`handle_telegram_messages.py`) — 11 handlers, none touch Plaid/transactions/balance. Receipt-only vector. Not a risk.
+- MQTT / HA discovery — not reviewed in depth; unlikely to surface financial data but worth confirming once before shipping.

@@ -1,6 +1,7 @@
 # Accounts Dashboard — Design Specification
 
-**Status:** Decisions locked — ready for implementation
+**Status:** Decisions revised after external review (2026-04-17) — ready for implementation
+**Revision note:** Original locked decisions D1, D2, and D5 were unlocked in response to external reviewer feedback. See Section 10 for the final contract and Section 11 for the revision history.
 **Owner:** Operator (single-household deployment)
 **Scope:** Add a dedicated "Accounts" top-level page for Plaid-linked bank data, with explicit per-user visibility rules.
 
@@ -73,20 +74,24 @@ Every route below requires auth and filters by `g.current_user.id`. **No admin b
 
 ## 3. What We're Planning
 
-### 3.1 Access control policy — **DECIDED: A + B hybrid (self-scoped with admin read-all)**
+### 3.1 Access control policy — **DECIDED (revised): strict self-scope, no admin bypass**
 
-| Option | Behavior | Complexity | Decision |
-|---|---|---|---|
-| A. Self-scoped | Each user sees only their own items + txns | ★☆☆ — already enforced | **✅ Default for all users** |
-| B. Admin read-all | Admins can opt into a "view all" mode (read-only audit view) | ★★☆ — add `?scope=all` query param on GET endpoints, admin-gated | **✅ Included as admin-only toggle** |
-| ~~C. Shared-by-owner~~ | Rejected for v1 — complexity not justified for a household app | | ❌ |
-| ~~D. Household-global~~ | Rejected — regresses existing isolation | | ❌ |
+| Option | Behavior | Decision |
+|---|---|---|
+| A. Self-scoped | Each user sees only their own items + txns | **✅ Final — the only mode** |
+| ~~B. Admin read-all~~ | `?scope=all` query param gated by `is_admin()` | ❌ Dropped after external review (see Section 11) |
+| ~~C. Shared-by-owner~~ | Rejected for v1 — complexity not justified for a household app | ❌ |
+| ~~D. Household-global~~ | Rejected — regresses existing isolation | ❌ |
 
 **Contract:**
-- Non-admin users see only rows where `plaid_items.user_id = current_user.id` (and staged/purchase rows scoped the same way). No UI toggle, no override.
-- Admin users see the same self-scoped view by default (their own banks), and can flip a front-end toggle **"👁 View all (admin)"** that passes `?scope=all` on all Plaid GET endpoints. Backend accepts `scope=all` **only** when `is_admin(current_user)` returns true; any non-admin passing the flag gets the self-scoped view silently.
-- Admin read-all is **read-only**. Write endpoints (confirm / dismiss / sync / disconnect / rename) continue to require `user_id == current_user.id` even for admins — an admin cannot confirm a transaction on behalf of another user, because that would corrupt attribution in `purchases`.
-- Every admin "view all" request logs at INFO level: `user=<admin_email> scope=all endpoint=<path>` — gives you an audit trail if misuse ever needs to be investigated.
+- Every Plaid read and write endpoint filters by `user_id == current_user.id`. No query-param overrides, no role-based bypass.
+- For the rare cross-user audit case, the operator connects directly to the container DB:
+  ```
+  docker exec localocr-extended-backend python3 -c \
+    'import sqlite3; print(list(sqlite3.connect("/data/db/localocr_extended.db").execute("SELECT user_id, institution_name, last_sync_at FROM plaid_items")))'
+  ```
+  This is the right escape hatch for a 1–5 user household app — no additional code paths to get wrong.
+- No `_scope_for_plaid_read()` helper is introduced. Every endpoint inlines `filter_by(user_id=current_user.id)` using the existing pattern from routes already in `plaid_integration.py`. With only 4–5 new read endpoints, inlining is more auditable than abstracting — a reviewer can confirm scoping by reading each route top-to-bottom.
 
 ### 3.2 New "Accounts" top-level page
 
@@ -112,14 +117,30 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
 - Optional per-account line overlay.
 - Category breakdown pie/donut for the current month.
 
-### 3.3 Backend changes (minimal)
+### 3.3 Backend changes
 
-- **Schema:** Add `nickname` column to `plaid_items` (nullable String(64)). Alembic migration `005_add_plaid_item_nickname.py`, idempotent like `004`.
-- **New route:** `GET /plaid/accounts` — returns the per-item account list with balances by calling Plaid `/accounts/balance/get`. Scoped by `user_id`.
-- **New route:** `PATCH /plaid/items/<id>` — allow renaming (`nickname`) only. Scoped by `user_id`.
-- **New route:** `GET /plaid/transactions?account_id=&start=&end=&category=&merchant=` — aggregates posted txns (from `purchases` + optionally `plaid_staged_transactions`) for the current user, with filters. Scoped by `user_id`.
-- **New route (optional, for Panel 3):** `GET /plaid/spending-trends?months=12` — pre-aggregated monthly totals by category.
-- **No change** to existing sync / confirm / dismiss / delete endpoints.
+**Schema (single migration `005_accounts_dashboard.py`, idempotent like `004`):**
+- Add `nickname` nullable String(64) column to `plaid_items`.
+- **New table `plaid_accounts`** — one row per Plaid sub-account (checking/savings/credit card) within a `plaid_item`:
+  - `id` PK
+  - `plaid_item_id` FK → `plaid_items.id` (non-null, indexed)
+  - `user_id` FK → `users.id` (non-null, indexed) — denormalized for fast scoping
+  - `plaid_account_id` String(64) unique-per-item (Plaid's account identifier)
+  - `account_name` String, `account_mask` String(8), `account_type` String(32), `account_subtype` String(32)
+  - `balance_cents` Integer nullable (current balance × 100)
+  - `balance_iso_currency_code` String(3) default "USD"
+  - `balance_updated_at` DateTime nullable
+  - `created_at`, `updated_at`
+- **New compound index on `purchases`:** `(user_id, date DESC, category)` — speeds up Panel 2's date/category filters and Panel 3's monthly aggregations. Verify index doesn't already exist before creating (idempotent).
+
+**New routes (all scoped by `user_id == current_user.id`, no helper, inlined):**
+- `GET /plaid/accounts` — joins `plaid_items` + `plaid_accounts` and returns the cached balances. Does **not** call Plaid.
+- `POST /plaid/accounts/refresh-balances` — calls Plaid `/accounts/balance/get` per item the user owns, updates `plaid_accounts.balance_*` rows, returns the fresh data. Server-side throttle: rejects with 429 if any of the user's items had a balance refresh in the last 5 minutes. TTL check uses `max(plaid_accounts.balance_updated_at)` per item.
+- `PATCH /plaid/items/<id>` — allows renaming (`nickname`) only.
+- `GET /plaid/transactions?account_id=&start=&end=&category=&merchant=` — reads only from `purchases` (confirmed) where `plaid_transaction_id IS NOT NULL` or `source = 'plaid'`. Returns a paginated list. `plaid_staged_transactions` is **not** read here (see Section 4.8).
+- `GET /plaid/spending-trends?months=12` — pre-aggregated monthly totals by category, sourced from `purchases`.
+
+**No change** to existing sync / confirm / dismiss / delete / flag-duplicate endpoints. No change to the hourly scheduler. No new encrypted columns. No change to `encrypt_api_key` / `decrypt_api_key` signatures.
 
 ### 3.4 Frontend changes
 
@@ -163,50 +184,45 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
   - All Plaid items still decrypt and sync
   - All AI model configs still decrypt
 
-### 4.3 🔴 User-scope regression (upgraded to red given admin bypass)
+### 4.3 🟡 User-scope regression (downgraded after dropping admin bypass)
 
-**Risk:** Any new endpoint that forgets `filter_by(user_id=current_user.id)` leaks another user's financial data. With the admin `?scope=all` toggle in play, the blast radius is bigger: a bug where the bypass accidentally activates for non-admin users (e.g., `if request.args.get("scope") == "all"` without the admin check) exposes every household member's transactions to every logged-in user.
+**Risk:** Any new endpoint that forgets `filter_by(user_id=current_user.id)` leaks another user's financial data.
 
 **Guardrails:**
-- Copy scoping pattern from existing routes verbatim. Use the repo convention: `user_id = current_user.id` then every `.filter(...)` includes `user_id == user_id`.
-- The admin bypass must be a single helper function applied consistently, not inlined at each endpoint. Proposed:
-  ```python
-  def _scope_for_plaid_read(query, model, current_user):
-      if is_admin(current_user) and request.args.get("scope") == "all":
-          logger.info("plaid-read scope=all user=%s path=%s", current_user.email, request.path)
-          return query  # unscoped
-      return query.filter(model.user_id == current_user.id)
-  ```
-  Any endpoint that wants the admin bypass calls this helper. Endpoints that should *never* bypass (writes, sync, delete) do not call it and use direct `filter_by(user_id=...)` instead.
-- The helper explicitly calls `is_admin(current_user)` — no reliance on decorators or role strings inline.
-- Audit-log every admin `scope=all` request at INFO level; revisit logs if anything ever looks wrong.
-- Smoke tests in Section 7 specifically validate both paths (admin with and without `scope=all`, non-admin with `scope=all` which must return self-scoped rows).
+- No helper, no bypass — every read and write endpoint inlines `filter_by(user_id=current_user.id)` using the existing pattern from routes already in `plaid_integration.py`.
+- Smoke tests in Section 7 verify isolation with a second user account; each new endpoint is exercised as User B and expected to return zero User A rows.
+- Code review checklist: every new function in `plaid_integration.py` must contain `user_id=current_user.id` in its filter chain. Reject PRs that don't.
 
 ### 4.4 🟡 Plaid `/accounts/balance/get` cost + rate limits
 
 **Risk:** Balance endpoint counts against paid API usage in Production (Transactions does not, for unlimited plans). Hitting it on every page load will rack up calls and can also be rate-limited per-item.
 
 **Guardrails:**
-- Cache balances per item in memory (simple dict keyed by item_id) with a 5-minute TTL.
-- Trigger balance refresh on explicit user click ("🔄 Refresh balances") not on every page open.
-- Do NOT call balance endpoint from the hourly scheduler.
+- Balances persisted in new `plaid_accounts` table with `balance_updated_at` column (not in-memory — in-memory cache is fragile across container restarts).
+- Page load reads cached balances from DB (no Plaid call).
+- Refresh only happens when user clicks **🔄 Refresh balances** on the Accounts page.
+- Server-side throttle: `POST /plaid/accounts/refresh-balances` returns 429 if `now() - max(plaid_accounts.balance_updated_at) < 5 minutes` for any of the requesting user's items.
+- Hourly scheduler never calls `/accounts/balance/get`.
 
-### 4.5 🟡 Frontend nav regressions
+### 4.5 🔴 Frontend monolith regression (upgraded from 🟡)
 
-**Risk:** `index.html` is one monolithic file. A malformed insertion of a new nav item / page can break `nav()` routing for all pages.
+**Risk:** `index.html` is one large vanilla-JS file with no build step, no module boundaries, and no test harness. Adding a 13th nav item, three collapsible panels, filter controls, sub-tabs, and chart rendering to that file is the single highest-probability source of bugs in this entire plan. A syntax error, a duplicate element ID, or a broken `onclick` handler can silently break routing or page rendering for all pages.
 
 **Guardrails:**
 - Insert new nav item using the **exact** `div class="nav-item" onclick="nav('page-accounts', this)"` pattern; do not invent new handler names.
 - Insert new `<div id="page-accounts" class="page">…</div>` at the same nesting level as other `.page` divs.
-- After editing, do a quick smoke: open the app, tap every existing nav tab, confirm each page still loads its data.
+- All new JS functions go in a dedicated section with a banner comment `// ==== Accounts page ====` to keep the diff reviewable.
+- After each significant edit, run a quick manual smoke in the browser: every existing nav tab still loads, console shows no JS errors, no duplicate element IDs (checkable via `document.querySelectorAll('[id]')` dedupe).
+- Keep panel-rendering functions small (target <80 LOC each). If any panel grows beyond that, refactor before merging.
+- Delete the old Settings Plaid cards *in the same PR* as the new page goes in — two Plaid UIs in the same file doubles the surface area for bugs and creates ambiguous user flows.
 
-### 4.6 🟡 Review queue → Accounts page migration
+### 4.6 🟢 Review queue → Accounts page migration
 
-**Risk:** Users currently manage Plaid from Settings. Moving the cards could confuse existing mental models and leave the Settings cards orphaned.
+**Risk:** Users currently manage Plaid from Settings. Moving the cards could confuse mental models if two UIs exist in parallel.
 
 **Guardrails:**
-- Keep a small "Plaid status" summary in Settings with a link to the new Accounts page ("View Accounts →"). Don't hard-delete the Settings UI in the same PR.
-- Remove the Settings cards in a follow-up commit only after the new page has been used and verified.
+- Delete the old Settings cards in the **same PR** as the new Accounts page lands — no transition period. Household has 1–5 users; there is no "muscle memory" cohort to retrain. Leaving duplicate Plaid UI around invites real bugs (two Sync Now buttons, double-rendered staged counts, ambiguous user flows).
+- Replace the Settings cards with a single line: "Banking moved to the Accounts tab" + a deep link — this reduces the attack surface and makes discovery obvious.
 
 ### 4.7 🟢 Scheduler interaction
 
@@ -231,6 +247,33 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
 **Guardrails:**
 - Do NOT add anything to `page-dashboard` in this change. Keep all new widgets on `page-accounts`.
 
+### 4.10 🟡 Plaid vs. receipt-OCR category taxonomy mismatch
+
+**Risk:** The spending-trends chart reads from `purchases`, which commingles Plaid-confirmed entries (Plaid's `personal_finance_category` taxonomy: `GENERAL_MERCHANDISE`, `LOAN_PAYMENTS`, etc.) with receipt-OCR entries (whatever the OCR pipeline emits — likely `grocery`, `dining`, `household`, free-text). A stacked bar chart or donut built naively will show misleading breakdowns because the same real-world concept is labeled two different ways.
+
+**Guardrails:**
+- Panel 3's category aggregation must include a source filter (Plaid only / receipt only / both) with a default to "both" but with category labels **normalized** through a lookup table in the backend response. Ship v1 with a minimal normalization map (Plaid's top ~10 categories → the app's existing category strings); expand over time.
+- Alternatively (simpler v1): Panel 3 groups by *source* instead of by category — one bar per month split by "Plaid" vs. "Receipts" — and the category donut is shown only for the currently selected source.
+- Pick one of the two approaches *before* implementing Panel 3. Document the decision inline.
+
+### 4.11 🟡 Chart library capability not verified
+
+**Risk:** Section 5 (constraints) forbids adding new frontend dependencies. Panel 3 wants stacked bar + line overlay + donut. If the existing charting approach in the Analytics page cannot do all three (e.g., if it's hand-rolled SVG only, or a minimal lib without stacked bar support), we either violate the no-new-deps rule or end up hand-rolling visualization code.
+
+**Guardrails:**
+- **Before any Panel 3 code is written:** open `index.html`, find the Analytics page's chart code, identify what library/approach is in use, and confirm it can produce: (a) stacked bar, (b) line overlay on bars, (c) donut.
+- If it cannot: downgrade Panel 3 to what it can do (e.g., just a simple bar per month, no stacking; no overlay; a table instead of a donut). Do NOT add a new library.
+- Document the finding in the PR description so the reviewer can confirm no new dep snuck in.
+
+### 4.12 🟢 SQLite WAL + concurrent balance writes
+
+**Risk:** If two users click "Refresh balances" simultaneously, the backend writes multiple `plaid_accounts.balance_*` rows concurrently. SQLite WAL handles concurrent reads well but concurrent writes can return `SQLITE_BUSY`. At 1–5 users with manual-only triggers this is very unlikely, but worth a note.
+
+**Guardrails:**
+- Use SQLAlchemy's default session-per-request pattern already in place.
+- The 5-minute server-side throttle (Section 3.3) naturally prevents most concurrent writes.
+- If `SQLITE_BUSY` ever surfaces in logs, add a small retry (3 attempts, 50ms backoff) in the refresh endpoint. Not needed pre-emptively.
+
 ---
 
 ## 5. Out of Scope (explicit — not in this change)
@@ -247,13 +290,30 @@ Three panels, stacked vertically (or tab-switched — pick during implementation
 ## 6. Data Model Change (single migration)
 
 ```
-alembic/versions/005_add_plaid_item_nickname.py
-  - op.add_column("plaid_items", sa.Column("nickname", sa.String(64), nullable=True))
-  - idempotent: check column existence via inspector before adding
-  - down_revision = "004_add_plaid_tables"
+alembic/versions/005_accounts_dashboard.py
+  down_revision = "004_add_plaid_tables"
+  upgrade():
+    - if "nickname" not in plaid_items columns:
+        op.add_column("plaid_items", sa.Column("nickname", sa.String(64), nullable=True))
+    - if not _table_exists("plaid_accounts"):
+        op.create_table("plaid_accounts",
+          id PK, plaid_item_id FK (non-null, indexed),
+          user_id FK (non-null, indexed),
+          plaid_account_id String(64) (indexed), account_name, account_mask String(8),
+          account_type String(32), account_subtype String(32),
+          balance_cents Integer nullable, balance_iso_currency_code String(3) default "USD",
+          balance_updated_at DateTime nullable,
+          created_at, updated_at)
+        op.create_unique_constraint("uq_plaid_accounts_item_account",
+          "plaid_accounts", ["plaid_item_id", "plaid_account_id"])
+    - if not _index_exists("ix_purchases_user_date_category"):
+        op.create_index("ix_purchases_user_date_category", "purchases",
+          ["user_id", "date", "category"])
+  downgrade():
+    - drop index, drop table (preserve nickname column — nullable, harmless)
 ```
 
-No other schema changes.
+Reuse the `_table_exists()` / `_index_exists()` / column-existence helpers from `004_add_plaid_tables.py`. No other schema changes.
 
 ---
 
@@ -261,14 +321,11 @@ No other schema changes.
 
 Run these post-deploy. All must pass before declaring the page shipped.
 
-**Isolation (requires two user accounts — one admin, one non-admin)**
-- [ ] User A (non-admin) links Chase. User B (non-admin) logs in. User B sees zero Plaid items on Accounts page. `GET /plaid/items` returns `[]` for User B.
+**Isolation (requires two user accounts — User A + User B; admin status irrelevant)**
+- [ ] User A links Chase. User B logs in. User B sees zero Plaid items on Accounts page. `GET /plaid/items` returns `[]` for User B.
 - [ ] User A confirms a Chase transaction. User B's Accounts → Transactions panel does not show it.
-- [ ] User A's `GET /plaid/transactions` returns only their rows; swapping the `user_id` in the DB and re-fetching as User B still returns only User B's rows.
-- [ ] **Admin bypass — positive path:** Admin logs in, flips "View all" toggle. `GET /plaid/items?scope=all` returns items for *both* User A and User B. Log line `scope=all user=<admin_email>` is written.
-- [ ] **Admin bypass — negative path:** Non-admin User A passes `?scope=all` manually via DevTools / curl. Response still returns only User A's rows (bypass silently ignored).
-- [ ] **Admin writes — no bypass on writes:** While in "View all" mode, admin tries to confirm a staged transaction owned by User A. Request is rejected (404 or 403) because the write endpoints do not honor `scope=all`.
-- [ ] **Scope toggle persistence:** Admin's "View all" preference is *not* persisted across sessions — defaults to OFF on each login to prevent accidental continued use.
+- [ ] Every new endpoint (`GET /plaid/accounts`, `GET /plaid/transactions`, `GET /plaid/spending-trends`, `POST /plaid/accounts/refresh-balances`, `PATCH /plaid/items/<id>`) returns zero User A data when called as User B.
+- [ ] DB audit: `SELECT COUNT(DISTINCT user_id) FROM plaid_accounts` matches the count of users with linked items (no ownership drift from the sync pipeline).
 
 **Fernet roundtrip**
 - [ ] On a fresh container restart, existing pre-change Plaid items still sync successfully (`last_sync_status=ok`).
@@ -302,28 +359,92 @@ If any of the above fails in prod:
 
 ---
 
-## 9. Implementation Sequence (suggested)
+## 9. Implementation Sequence (phased, 3 PRs)
 
-1. **Pick access model** (A / B / C / D from Section 3.1). Commit the decision to this doc.
-2. **Alembic migration 005** (nickname column). Test locally: migrate up, migrate down, migrate up again.
-3. **Backend routes** in order: `PATCH /plaid/items/<id>` (simplest), `GET /plaid/accounts` (balance call), `GET /plaid/transactions`, `GET /plaid/spending-trends`.
-4. **Frontend: new `page-accounts` scaffold** + nav item. Empty panels, wire up.
-5. **Panel 1 (Connected Accounts)** with data. Move Connect Bank button here. Keep Settings stub.
-6. **Panel 2 (Transactions)** with filters and the two tabs.
-7. **Panel 3 (Spending trends)** — do last; hardest, most polish-sensitive.
-8. **Smoke-test matrix** from Section 7.
-9. **Backup / restore dry run** into disposable stack.
-10. **Deploy to UDImmich prod**: back up first, `git pull`, `docker compose build backend`, `docker compose up -d backend`, re-run smoke tests.
-11. **Follow-up PR:** delete the Settings cards, tighten any dead code.
+Each phase is a self-contained PR that ships to prod and is smoke-tested before the next starts. This bounds blast radius and gives the operator reversible checkpoints.
+
+### Phase 1 — Schema + read endpoints (PR 1)
+
+- Alembic migration `005_accounts_dashboard` (nickname column, `plaid_accounts` table, compound index). Test locally: migrate up → down → up again with data.
+- Backfill step inside the migration or a one-shot script: for each existing `plaid_items.accounts_json` blob, create matching `plaid_accounts` rows (no balances yet — `balance_updated_at = NULL`).
+- New backend routes (no UI yet):
+  - `PATCH /plaid/items/<id>` — rename
+  - `GET /plaid/accounts`
+  - `POST /plaid/accounts/refresh-balances` (with 5-min server-side throttle)
+  - `GET /plaid/transactions`
+  - `GET /plaid/spending-trends`
+- **Acceptance for PR 1:** all smoke-test "Isolation" + "Backup/restore" + "Fernet" items in Section 7 pass. Run every new endpoint with curl as User A and User B.
+
+### Phase 2 — Frontend Accounts page (PR 2)
+
+- Before writing any code: **verify the chart library** (per risk 4.11). Document the finding.
+- Nav item + `page-accounts` div scaffold.
+- Panel 1 (Connected Accounts) with data + move Connect Bank button here.
+- Panel 2 (Transactions) with filters + "All spending" / "Transfers & bills" tabs.
+- Panel 3 (Spending trends) with the normalization/source-split decision resolved (per risk 4.10).
+- Delete the existing Settings Plaid cards; replace with a single deep-link line.
+- **Acceptance for PR 2:** all smoke-test "UI" + "Performance/cost" items pass. Confirm no duplicate element IDs in `index.html`. Every existing nav tab still loads.
+
+### Phase 3 — Polish (PR 3, optional)
+
+- Any findings from Phase 2 smoke tests (performance fixes, layout tweaks).
+- Add Dependabot / pip-audit (if the user wants to upgrade the Plaid Q8 vuln-scan answer).
+- Keep this PR small; if it starts to grow, split.
+
+### Testing strategy (applies to all phases)
+
+- **Automated:**
+  - At minimum, one pytest per new backend route verifying (a) happy path returns data, (b) cross-user call returns empty. Add fixtures that create two users + one Plaid item each.
+  - Alembic up/down/up roundtrip test using an ephemeral SQLite DB.
+  - No frontend automated tests (no test harness exists; adding one is out of scope).
+- **Manual:**
+  - The entire Section 7 smoke-test matrix before each PR is merged to main.
+  - Backup/restore dry run into a disposable Docker Compose stack after Phase 1's migration lands.
+- **Rollback trigger:** if any 🔴 risk manifests in prod (Fernet decrypt failures, cross-user data leak, backup failing to restore), immediately `git revert <phase-commit>`, redeploy, and investigate before re-attempting.
+
+### Deploy cadence
+
+- Phase 1 PR → prod → bake for 24–48h → Phase 2 PR.
+- Phase 2 PR → prod → bake for 48h → confirm stability → Phase 3 (if needed).
+- No phases merged to main without full Section 7 matrix clean.
 
 ---
 
-## 10. Decisions (locked 2026-04-17)
+## 10. Decisions (revised 2026-04-17, post external review)
 
-1. **Access model:** A + B hybrid — self-scoped by default for all users, admin-only read-all toggle (`?scope=all`). Writes are always self-scoped, even for admins. See Section 3.1 for the full contract.
-2. **Balances feature:** Enabled via `/accounts/balance/get`, with a 5-minute in-memory cache per item and a manual **🔄 Refresh balances** button. No balance calls from the hourly scheduler. Accepted the Plaid usage cost.
-3. **Panels layout:** Three panels stacked vertically on the Accounts page (Connected Accounts → Transactions → Spending trends). Each panel is a collapsible card so the page remains usable on narrower viewports.
+1. **Access model:** **Strict self-scope for all users.** No admin bypass, no query-param overrides. Operator uses direct DB query for rare cross-user audits. See Section 3.1 for the final contract.
+2. **Balances feature:** Enabled via `/accounts/balance/get`, with **persistence in a new `plaid_accounts` table** (`balance_cents`, `balance_updated_at`). Manual refresh only via **🔄 Refresh balances** button; server-side 5-min throttle; no scheduler calls.
+3. **Panels layout:** Three panels stacked vertically on the Accounts page (Connected Accounts → Transactions → Spending trends). Each panel is a collapsible card for narrower viewports.
 4. **Nav position:** New "🏦 Accounts" item inserted between **Bills** and **Analytics** in the top-level nav.
-5. **Settings cards fate:** Leave the existing "🏦 Bank Connections" and "🧾 Review Imported Transactions" cards in place for **one release** after the new Accounts page ships, with a prominent "View on Accounts page →" link added to each. Delete them in a follow-up PR once the new page is confirmed in daily use.
+5. **Settings cards fate:** **Deleted in the same PR** as the new Accounts page lands. Replaced with a single line + deep link to the Accounts tab. No transition period.
 
 All decisions above are the operative design contract. Deviations require an explicit note in a follow-up PR.
+
+---
+
+## 11. Revision history
+
+**2026-04-17 (initial)** — D1 (access model) chose A+B hybrid with admin read-all; D2 (balances) chose in-memory 5-min cache; D5 (Settings cards) chose one-release grace period with deep link.
+
+**2026-04-17 (post external review)** — All three above revised based on strong, specific external reviewer pushback:
+
+| # | Original | Revised | Reason |
+|---|---|---|---|
+| D1 | A + B hybrid | Strict A (self-scope only) | For 1–5 household users, admin bypass adds a standing risk of scope-leak bugs (every future endpoint must remember to funnel through the helper); direct DB query is simpler and more auditable for the rare audit case. Risk/reward is bad at household scale. |
+| D2 | 5-min in-memory cache | DB-persisted with `balance_updated_at` | In-memory cache is wiped silently on container restart, OOM kill, or APScheduler restart. Timestamp-based DB cache is simpler, survives restarts, and makes the UI snappy after a reboot. |
+| D5 | One-release grace period | Delete in same PR | No muscle-memory cohort at this scale. Duplicate UI creates real bug surface (double Sync Now buttons, double-rendered counts, ambiguous flows). Grace periods are SaaS patterns; don't apply to family-scale apps. |
+
+Risk register additions in the same revision:
+- New 🟡 risk 4.10 — Plaid vs. receipt-OCR category taxonomy mismatch in Panel 3.
+- New 🟡 risk 4.11 — Chart library capability must be verified before writing Panel 3 (no-new-deps rule at stake).
+- New 🟢 risk 4.12 — SQLite WAL concurrent write behavior (minor at current scale).
+- Upgraded risk 4.5 (frontend monolith) from 🟡 to 🔴.
+- Downgraded risk 4.3 (user-scope regression) from 🔴 to 🟡 now that admin bypass is gone.
+
+Schema additions in the same revision:
+- New `plaid_accounts` table for balance persistence.
+- New compound index on `purchases (user_id, date, category)` for Panel 2 + Panel 3 performance.
+
+Integration audits confirmed in the same revision:
+- Telegram bot has no Plaid / transaction / balance handlers. Not a data vector.
+- MQTT / HA discovery not touched.
