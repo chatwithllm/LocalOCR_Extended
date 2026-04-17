@@ -15183,9 +15183,9 @@
               <div class="table-toolbar">
                 <button
                   class="btn btn-ghost btn-sm"
-                  onclick="resetAdminAiModelForm()"
+                  onclick="openAdminAiModelEditorForNew()"
                 >
-                  New Model
+                  + New Model
                 </button>
                 <button
                   class="btn btn-ghost btn-sm"
@@ -15202,6 +15202,7 @@
               Only admins can manage the OCR model catalog.
             </div>
             <div id="admin-ai-models-panel" style="display: none; margin-top: 16px">
+              <div id="admin-ai-model-editor-wrap" style="display: none">
               <div
                 class="card"
                 style="
@@ -15359,7 +15360,11 @@
                   <button class="btn btn-ghost" onclick="resetAdminAiModelForm()">
                     Clear
                   </button>
+                  <button class="btn btn-ghost" onclick="hideAdminAiModelEditor()">
+                    Cancel
+                  </button>
                 </div>
+              </div>
               </div>
               <div id="admin-ai-models-body"></div>
               <div
@@ -17296,6 +17301,9 @@
       let availableAiModels = [];
       let activeAiModelConfigId = Number(localStorage.getItem(AI_MODEL_STORAGE_KEY) || "") || null;
       let adminAiModels = [];
+      // AI Model Registry: same head/tail collapse pattern as Catalog Review.
+      const ADMIN_AI_MODELS_INITIAL_VISIBLE = 3;
+      let adminAiModelsExpanded = false;
       let adminAiUsage = { models: [], daily: [], totals: {} };
       let receiptFiltersCollapsed =
         localStorage.getItem("receipt_filters_collapsed") !== "false";
@@ -31116,6 +31124,25 @@
         }
       }
 
+      // Model Editor visibility helpers — the form is heavy so we hide it
+      // until the admin explicitly asks to create or edit a model. Prevents
+      // the Settings page from being dominated by a form nobody is using.
+      function showAdminAiModelEditor() {
+        const wrap = document.getElementById("admin-ai-model-editor-wrap");
+        if (wrap) wrap.style.display = "";
+      }
+      function hideAdminAiModelEditor() {
+        const wrap = document.getElementById("admin-ai-model-editor-wrap");
+        if (wrap) wrap.style.display = "none";
+      }
+      function openAdminAiModelEditorForNew() {
+        resetAdminAiModelForm();
+        showAdminAiModelEditor();
+        // Scroll so the form is visible even if the user was deep in the list.
+        const wrap = document.getElementById("admin-ai-model-editor-wrap");
+        if (wrap) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
       function resetAdminAiModelForm() {
         const defaults = {
           "admin-ai-model-id": "",
@@ -31215,6 +31242,9 @@
             ? "Editing an existing model. Leave API key blank to keep the stored key."
             : "Editing an existing model. Add a stored API key only if this model should carry its own credentials.";
         }
+        showAdminAiModelEditor();
+        const wrap = document.getElementById("admin-ai-model-editor-wrap");
+        if (wrap) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
       function renderAdminAiModels() {
@@ -31240,9 +31270,16 @@
             '<div class="empty-state"><p>No AI models are registered yet.</p></div>';
           return;
         }
+        const totalModels = adminAiModels.length;
+        const canCollapseModels = totalModels > ADMIN_AI_MODELS_INITIAL_VISIBLE;
+        const visibleModels =
+          canCollapseModels && !adminAiModelsExpanded
+            ? adminAiModels.slice(0, ADMIN_AI_MODELS_INITIAL_VISIBLE)
+            : adminAiModels;
+        const hiddenModels = totalModels - visibleModels.length;
         body.innerHTML = `
           <div style="display:grid;gap:12px">
-            ${adminAiModels
+            ${visibleModels
               .map((model) => {
                 const badges = [
                   model.provider ? formatLabel(model.provider, model.provider) : "",
@@ -31304,8 +31341,25 @@
                 `;
               })
               .join("")}
+            ${
+              canCollapseModels
+                ? `<div style="text-align:center;padding:4px 0">
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="toggleAdminAiModelsExpanded()">
+                      ${adminAiModelsExpanded ? "▲ Show less" : `▼ Show ${hiddenModels} more`}
+                    </button>
+                    <div style="color:var(--muted);font-size:0.78rem;margin-top:6px">
+                      ${adminAiModelsExpanded ? `Showing all ${totalModels}` : `Showing ${visibleModels.length} of ${totalModels}`}
+                    </div>
+                  </div>`
+                : ""
+            }
           </div>
         `;
+      }
+
+      function toggleAdminAiModelsExpanded() {
+        adminAiModelsExpanded = !adminAiModelsExpanded;
+        renderAdminAiModels();
       }
 
       async function loadAdminAiModels() {
@@ -31501,6 +31555,7 @@
           }
           toast(modelId ? "AI model updated ✅" : "AI model created ✅", "success");
           resetAdminAiModelForm();
+          hideAdminAiModelEditor();
           await Promise.allSettled([loadAdminAiModels(), loadAiModels(), loadAdminAiUsage()]);
         } catch (error) {
           console.error("Failed to save admin AI model", error);
