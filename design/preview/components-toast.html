@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Toast — notifications</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { background: #f5f5f7; }
+  .card { background: #f5f5f7; padding: 22px 26px; }
+  .toast { background: #fff; border-radius: 8px; box-shadow: rgba(0,0,0,0.18) 0px 12px 32px 0px, rgba(0,0,0,0.08) 0px 4px 8px 0px; padding: 12px 14px 12px 16px; display: grid; grid-template-columns: 16px 1fr auto auto; align-items: start; gap: 12px; position: relative; margin-bottom: 10px; }
+  .toast::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius: 8px 0 0 8px; }
+  .toast.info::before    { background: #007aff; }
+  .toast.success::before { background: #00b74a; }
+  .toast.warning::before { background: #ff9500; }
+  .toast.error::before   { background: #ff3b30; }
+  .ico { color: rgba(0,0,0,0.56); }
+  .body { min-width:0; }
+  .title { font-family: var(--font-text); font-size: 17px; font-weight: 600; letter-spacing: -0.374px; line-height: 1.24; color:#1d1d1f; }
+  .desc  { font-family: var(--font-text); font-size: 14px; font-weight: 400; letter-spacing: -0.224px; line-height: 1.43; color: rgba(0,0,0,0.8); margin-top: 2px; }
+  .action { color: #0066cc; font-size: 14px; font-weight: 600; background:transparent; border:none; cursor:pointer; padding: 4px 8px; letter-spacing: -0.224px; }
+  .close { color: rgba(0,0,0,0.56); background:transparent; border:none; cursor:pointer; font-size: 16px; padding: 4px 6px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="toast success">
+    <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="#00b74a" stroke="none"><path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10Zm-1.17-6.42L7.5 12.25l1.41-1.41 1.92 1.91 4.25-4.25 1.41 1.41-5.66 5.66Z"/></svg>
+    <div class="body"><div class="title">Receipt saved</div><div class="desc">3 fields updated · Trader Joe&rsquo;s · $18.73</div></div>
+    <button class="action">View</button>
+    <button class="close">&times;</button>
+  </div>
+  <div class="toast warning">
+    <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    <div class="body"><div class="title">Review 2 fields</div><div class="desc">Confidence below 0.70 on date and total.</div></div>
+    <button class="action">Review</button>
+    <button class="close">&times;</button>
+  </div>
+  <div class="toast error">
+    <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="#ff3b30" stroke="none"><path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10Zm-1-7h2v2h-2v-2Zm0-8h2v6h-2V7Z"/></svg>
+    <div class="body"><div class="title">OCR failed — switching model</div><div class="desc">Will retry with Anthropic Claude Vision.</div></div>
+    <button class="action">Retry now</button>
+    <button class="close">&times;</button>
+  </div>
+</div>
+</body></html>

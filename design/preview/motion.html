@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Motion — easings & durations</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .row { display:flex; align-items:center; gap: 14px; padding: 6px 0; }
+  .token { font-family: var(--font-mono); font-size:10px; width:130px; color: rgba(0,0,0,0.56); }
+  .meta  { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); margin-left:auto; }
+  .track { height: 10px; width: 260px; background: #ededf2; border-radius: 999px; position: relative; overflow: hidden; }
+  .dot { position: absolute; top: 1px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: #0071e3; }
+  .a1 .dot { animation: run 1400ms infinite cubic-bezier(0.25, 1, 0.5, 1); }
+  .a2 .dot { animation: run 1400ms infinite cubic-bezier(0.42, 0, 0.58, 1); }
+  .a3 .dot { animation: run 1400ms infinite cubic-bezier(0.4, 0, 1, 1); }
+  .a4 .dot { animation: run 1400ms infinite cubic-bezier(0.32, 0.72, 0, 1); }
+  @keyframes run { 0% { left: 0; } 50% { left: calc(100% - 8px); } 100% { left: 0; } }
+</style>
+</head><body>
+<div class="card">
+  <div class="row"><div class="token">ease-out</div><div class="track a1"><div class="dot"></div></div><div class="meta">0.25, 1, 0.5, 1 · default entries</div></div>
+  <div class="row"><div class="token">ease-in-out</div><div class="track a2"><div class="dot"></div></div><div class="meta">0.42, 0, 0.58, 1 · flips</div></div>
+  <div class="row"><div class="token">ease-in</div><div class="track a3"><div class="dot"></div></div><div class="meta">0.4, 0, 1, 1 · exits</div></div>
+  <div class="row"><div class="token">ease-spring</div><div class="track a4"><div class="dot"></div></div><div class="meta">0.32, 0.72, 0, 1 · confirm pops</div></div>
+
+  <div style="height:8px"></div>
+  <div class="row"><div class="token">instant</div><div style="flex:1">press feedback</div><div class="meta">100ms</div></div>
+  <div class="row"><div class="token">fast</div><div style="flex:1">hover, focus</div><div class="meta">150ms</div></div>
+  <div class="row"><div class="token">base</div><div style="flex:1">default state transitions</div><div class="meta">240ms</div></div>
+  <div class="row"><div class="token">slow</div><div style="flex:1">modal enter, drawer</div><div class="meta">320ms</div></div>
+  <div class="row"><div class="token">elaborate</div><div style="flex:1">scene cut</div><div class="meta">480ms</div></div>
+</div>
+</body></html>

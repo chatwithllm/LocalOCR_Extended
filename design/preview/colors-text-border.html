@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Colors — Text & Border</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 20px 24px; }
+  .row-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .row-title .title { font-family: var(--font-display); font-size: 15px; font-weight:600; letter-spacing:-0.2px; }
+  .swatch-row { display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; margin-bottom:18px; }
+  .sw { border-radius: 8px; overflow:hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+  .sw .chip { height:52px; }
+  .sw .lbl { padding:8px 10px; font-size:11px; background:#fff; line-height:1.25; }
+  .sw .lbl .n { font-weight:600; color:#1d1d1f; letter-spacing:-0.15px; }
+  .sw .lbl .h { color: rgba(0,0,0,0.56); font-family: var(--font-mono); font-size: 10px; }
+  .type-demo { display:flex; gap: 24px; align-items:baseline; padding:16px 18px; background: #f5f5f7; border-radius: 10px; letter-spacing:-0.374px; }
+  .type-demo .t1 { color:#1d1d1f; font-weight:600; }
+  .type-demo .t2 { color:rgba(0,0,0,0.8); }
+  .type-demo .t3 { color:rgba(0,0,0,0.56); }
+  .type-demo .t4 { color:rgba(0,0,0,0.48); }
+</style>
+</head><body>
+<div class="card">
+  <div class="row-title"><span class="title">Text</span><span class="meta">Light · WCAG AAA on canvas</span></div>
+  <div class="swatch-row">
+    <div class="sw"><div class="chip" style="background:#1d1d1f"></div><div class="lbl"><div class="n">text-primary</div><div class="h">#1d1d1f</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.8)"></div><div class="lbl"><div class="n">text-secondary</div><div class="h">#000 · 80%</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.56)"></div><div class="lbl"><div class="n">text-muted</div><div class="h">#000 · 56%</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.48)"></div><div class="lbl"><div class="n">text-disabled</div><div class="h">#000 · 48%</div></div></div>
+    <div class="sw"><div class="chip" style="background:#fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.1)"></div><div class="lbl"><div class="n">text-inverse</div><div class="h">#ffffff</div></div></div>
+  </div>
+
+  <div class="type-demo">
+    <span class="t1" style="font-size:18px">Primary</span>
+    <span class="t2" style="font-size:16px">Secondary</span>
+    <span class="t3" style="font-size:14px">Muted</span>
+    <span class="t4" style="font-size:14px">Disabled</span>
+  </div>
+
+  <div style="height:16px"></div>
+
+  <div class="row-title"><span class="title">Border &amp; focus</span><span class="meta">Hairlines only, rare</span></div>
+  <div class="swatch-row">
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.12)"></div><div class="lbl"><div class="n">border</div><div class="h">#000 · 12%</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.22)"></div><div class="lbl"><div class="n">border-strong</div><div class="h">#000 · 22%</div></div></div>
+    <div class="sw"><div class="chip" style="background:#0071e3"></div><div class="lbl"><div class="n">border-brand</div><div class="h">#0071e3</div></div></div>
+    <div class="sw"><div class="chip" style="background:#0071e3"></div><div class="lbl"><div class="n">focus</div><div class="h">#0071e3</div></div></div>
+    <div class="sw"><div class="chip" style="background:rgba(0,0,0,0.48)"></div><div class="lbl"><div class="n">overlay</div><div class="h">#000 · 48%</div></div></div>
+  </div>
+</div>
+</body></html>

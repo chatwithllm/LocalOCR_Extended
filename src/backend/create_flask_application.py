@@ -147,6 +147,17 @@ def register_error_handlers(app):
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
         return send_from_directory(frontend_dir, "index.html")
 
+    @app.route("/design/")
+    @app.route("/design/<path:filename>")
+    def serve_design_system(filename="preview/ui-kit-localocr.html"):
+        """Serve the LocalOCR design system bundle (tokens, preview cards,
+        UI kit, and marketing variants). Public — no auth required."""
+        import os
+        design_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "design"
+        )
+        return send_from_directory(design_dir, filename)
+
     @app.errorhandler(500)
     def internal_error(e):
         logger.error(f"Internal server error: {e}")

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Colors — Semantic Status</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 20px 24px; }
+  .row-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .row-title .title { font-family: var(--font-display); font-size: 15px; font-weight:600; letter-spacing:-0.2px; }
+  .grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .sw { border-radius: 10px; padding: 12px 14px; }
+  .sw .n { font-weight: 600; font-size:13px; letter-spacing:-0.2px; display:flex; align-items:center; gap:6px; }
+  .sw .n::before { content:""; width:10px; height:10px; border-radius:50%; }
+  .sw .dot-success::before { background:#00b74a; }
+  .sw .dot-warning::before { background:#ff9500; }
+  .sw .dot-error::before { background:#ff3b30; }
+  .sw .dot-info::before { background:#007aff; }
+  .sw .h { font-family: var(--font-mono); font-size:10px; color:rgba(0,0,0,0.56); margin-top:6px; }
+
+  .chips { display:flex; gap: 8px; flex-wrap: wrap; }
+  .pill { border-radius: 980px; padding: 4px 10px; font-size: 12px; font-weight: 600; letter-spacing:-0.12px; display:inline-flex; align-items:center; gap:6px; }
+  .pill::before { content:""; width:6px; height:6px; border-radius:50%; }
+
+  .tone-success { background: rgba(0,183,74,0.12); color:#00803a; }
+  .tone-success::before { background:#00b74a; }
+  .tone-warning { background: rgba(255,149,0,0.14); color:#a85a00; }
+  .tone-warning::before { background:#ff9500; }
+  .tone-error   { background: rgba(255,59,48,0.12); color:#b3271e; }
+  .tone-error::before { background:#ff3b30; }
+  .tone-info    { background: rgba(0,122,255,0.10); color:#0057b0; }
+  .tone-info::before { background:#007aff; }
+</style>
+</head><body>
+<div class="card">
+  <div class="row-title"><span class="title">Semantic status</span><span class="meta">Surface only when state applies</span></div>
+  <div class="grid" style="margin-bottom:14px">
+    <div class="sw" style="background:rgba(0,183,74,0.12)"><div class="n dot-success" style="color:#00803a">success</div><div class="h">#00b74a · soft 12%</div></div>
+    <div class="sw" style="background:rgba(255,149,0,0.14)"><div class="n dot-warning" style="color:#a85a00">warning</div><div class="h">#ff9500 · soft 14%</div></div>
+    <div class="sw" style="background:rgba(255,59,48,0.12)"><div class="n dot-error" style="color:#b3271e">error</div><div class="h">#ff3b30 · soft 12%</div></div>
+    <div class="sw" style="background:rgba(0,122,255,0.10)"><div class="n dot-info" style="color:#0057b0">info</div><div class="h">#007aff · soft 10%</div></div>
+  </div>
+
+  <div class="chips">
+    <span class="pill tone-success">Saved</span>
+    <span class="pill tone-warning">Retry 2 of 3</span>
+    <span class="pill tone-error">OCR failed</span>
+    <span class="pill tone-info">Auto mode</span>
+    <span class="pill tone-success">Verified</span>
+    <span class="pill tone-warning">Needs review</span>
+  </div>
+</div>
+</body></html>

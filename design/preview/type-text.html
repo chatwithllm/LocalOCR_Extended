@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Type — Text & body</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .row { display:flex; align-items:baseline; gap: 18px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .row:last-child { border-bottom: none; }
+  .token { font-family: var(--font-mono); font-size:10px; color: rgba(0,0,0,0.56); width: 80px; flex:0 0 80px; }
+  .meta  { font-family: var(--font-mono); font-size:10px; color: rgba(0,0,0,0.56); margin-left:auto; }
+  .spec  { color: #1d1d1f; }
+  .s-xl     { font-family: var(--font-text); font-size: 22px; font-weight: 300; line-height: 1.50; }
+  .s-md     { font-family: var(--font-text); font-size: 18px; font-weight: 300; line-height: 1.00; }
+  .s-body   { font-family: var(--font-text); font-size: 17px; font-weight: 400; line-height: 1.47; letter-spacing: -0.374px; }
+  .s-bodyem { font-family: var(--font-text); font-size: 17px; font-weight: 600; line-height: 1.24; letter-spacing: -0.374px; }
+  .s-sm     { font-family: var(--font-text); font-size: 14px; font-weight: 400; line-height: 1.43; letter-spacing: -0.224px; color: rgba(0,0,0,0.8); }
+  .s-xs     { font-family: var(--font-text); font-size: 12px; font-weight: 400; line-height: 1.33; letter-spacing: -0.12px; color: rgba(0,0,0,0.56); }
+  .s-nano   { font-family: var(--font-text); font-size: 10px; font-weight: 400; line-height: 1.47; letter-spacing: -0.08px; color: rgba(0,0,0,0.56); }
+</style>
+</head><body>
+<div class="card">
+  <div class="row"><div class="token">xl</div><div class="spec s-xl">Select a receipt to inspect items.</div><div class="meta">24 / 1.50 / 300</div></div>
+  <div class="row"><div class="token">md</div><div class="spec s-md">Large button / light label</div><div class="meta">18 / 1.00 / 300</div></div>
+  <div class="row"><div class="token">body</div><div class="spec s-body">Primary body &mdash; 17px, negative tracking. Apple runs tight everywhere.</div><div class="meta">17 / 1.47 / 400</div></div>
+  <div class="row"><div class="token">body-em</div><div class="spec s-bodyem">Emphasized control label</div><div class="meta">17 / 1.24 / 600</div></div>
+  <div class="row"><div class="token">sm</div><div class="spec s-sm">Link · caption · meta line</div><div class="meta">14 / 1.43 / 400</div></div>
+  <div class="row"><div class="token">xs</div><div class="spec s-xs">Timestamps, footnotes · Last seen 2026-04-21</div><div class="meta">12 / 1.33 / 400</div></div>
+  <div class="row"><div class="token">nano</div><div class="spec s-nano">Legal text — smallest rendered size.</div><div class="meta">10 / 1.47 / 400</div></div>
+</div>
+</body></html>

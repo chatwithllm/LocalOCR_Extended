@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalOCR — Your receipts. Your server.</title>
+<link rel="stylesheet" href="_site.css">
+<style>
+  .hero-c { min-height: 100vh; display:flex; align-items:center; padding: 120px 0 80px; background: #000; position: relative; overflow: hidden; }
+  .hero-c::before {
+    content: ""; position: absolute; inset: -20% -10%;
+    background: radial-gradient(60% 50% at 50% 40%, rgba(0,113,227,0.25), transparent 70%);
+    pointer-events: none;
+  }
+  .hero-c .inner { position: relative; max-width: 980px; margin: 0 auto; padding: 0 24px; text-align: center; }
+  .hero-c h1 { font-family: var(--font-display); font-size: clamp(56px, 9vw, 128px); font-weight: 600; line-height: 0.95; letter-spacing: -0.05em; margin: 0 0 24px; color:#fff; }
+  .hero-c h1 span { color: #2997ff; display: block; }
+  .hero-c .lead { font-size: clamp(19px, 2vw, 24px); color: rgba(255,255,255,0.72); max-width: 56ch; margin: 0 auto 40px; font-weight: 300; line-height: 1.45; }
+  .hero-c .cta-row { justify-content: center; }
+  .hero-c .trust { margin-top: 48px; display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; color: rgba(255,255,255,0.56); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0; }
+  .hero-c .trust span::before { content: "✓ "; color: #30d158; }
+
+  .hero-c .server-vis {
+    margin-top: 72px;
+    max-width: 720px; margin-left: auto; margin-right: auto;
+    position: relative; aspect-ratio: 2/1;
+  }
+
+  /* vs block — privacy comparison */
+  .vs { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 0; align-items: stretch; max-width: 980px; margin: 0 auto; }
+  .vs .pane { padding: 36px 32px; border-radius: 16px; }
+  .vs .them { background: #fff; border: 1px solid rgba(0,0,0,0.08); }
+  .vs .them h3 { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin: 0 0 8px; color: #1d1d1f; }
+  .vs .them .tag { font-size: 11px; color: rgba(0,0,0,0.48); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; margin-bottom: 14px; }
+  .vs .them ul { list-style: none; padding: 0; margin: 0; }
+  .vs .them li { padding: 10px 0; border-top: 1px solid rgba(0,0,0,0.08); font-size: 14px; color: rgba(0,0,0,0.56); letter-spacing: -0.22px; display: flex; gap: 10px; align-items: start; }
+  .vs .them li::before { content: "✕"; color: #ff3b30; font-weight: 600; flex: 0 0 14px; }
+  .vs .us { background: #000; color: #fff; box-shadow: 0 40px 80px rgba(0,113,227,0.15); border: 1px solid rgba(0,113,227,0.3); }
+  .vs .us h3 { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin: 0 0 8px; color: #fff; }
+  .vs .us .tag { font-size: 11px; color: #2997ff; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; margin-bottom: 14px; }
+  .vs .us ul { list-style: none; padding: 0; margin: 0; }
+  .vs .us li { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: rgba(255,255,255,0.8); letter-spacing: -0.22px; display: flex; gap: 10px; align-items: start; }
+  .vs .us li::before { content: "✓"; color: #30d158; font-weight: 600; flex: 0 0 14px; }
+  .vs .arrow { display: grid; place-items: center; color: rgba(0,0,0,0.24); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; font-weight: 600; }
+
+  /* three-step */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; max-width: 1100px; margin: 0 auto; }
+  .stepcard { background: #111; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 32px; }
+  .stepcard .n { font-family: var(--font-mono); font-size: 11px; color: #2997ff; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 20px; }
+  .stepcard h3 { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing:-0.374px; line-height: 1.14; margin: 0 0 12px; }
+  .stepcard p { color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.5; letter-spacing:-0.224px; margin: 0 0 24px; }
+  .stepcard .viz { height: 120px; background: rgba(255,255,255,0.03); border-radius: 10px; position: relative; overflow: hidden; display:grid; place-items:center; }
+
+  /* install block */
+  .install { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  .install pre { background: #000; color: #fff; padding: 28px 28px; border-radius: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.8; box-shadow: 0 30px 60px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); margin: 0; overflow-x: auto; }
+  .install pre .c { color: rgba(255,255,255,0.48); }
+  .install pre .p { color: #2997ff; }
+  .install pre .k { color: #c3f0ca; }
+  .install .copy { display:inline-flex; align-items:center; gap:6px; font-family: var(--font-mono); font-size: 11px; color: rgba(0,0,0,0.56); margin-top: 14px; cursor: pointer; }
+
+  .cta-band { padding: 160px 24px; text-align: center; position: relative; }
+  .cta-band h2 { font-family: var(--font-display); font-size: clamp(44px, 6vw, 88px); font-weight: 600; letter-spacing: -0.04em; line-height: 1.02; margin: 0 0 16px; }
+  .cta-band p { font-size: 19px; color: rgba(255,255,255,0.72); margin: 0 0 32px; font-weight: 300; max-width: 52ch; margin-left: auto; margin-right: auto; }
+  .cta-band .waitlist { margin: 0 auto; }
+
+  @media (max-width: 860px) {
+    .vs, .install, .steps { grid-template-columns: 1fr; gap: 24px; }
+    .vs .arrow { height: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="inner">
+    <a class="brand" href="index.html"><span class="mark">L</span>LocalOCR</a>
+    <nav>
+      <a href="#how">How</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+    </nav>
+    <div class="spacer"></div>
+    <a class="cta" href="#waitlist">Join waitlist</a>
+  </div>
+</div>
+<div class="variant-bar">
+  <span class="label">Variant</span>
+  <a href="landing-a-technical.html">A · Technical</a>
+  <a href="landing-b-household.html">B · Household</a>
+  <a class="active" href="landing-c-privacy.html">C · Privacy</a>
+  <a href="index.html" style="margin-left:auto;color:rgba(0,0,0,0.56)">Back to hub</a>
+</div>
+<div class="nav-spacer"></div>
+
+<!-- HERO (dark, cinematic) -->
+<section class="sec hero-c">
+  <div class="inner">
+    <p class="eyebrow" style="color:#2997ff">Privacy-first receipt OCR</p>
+    <h1>Your receipts.<br><span>Your server.</span></h1>
+    <p class="lead">Every household expense in one place. Read by AI. Stored by you. No cloud. No telemetry. No &ldquo;we&rsquo;ve updated our privacy policy&rdquo; emails.</p>
+    <div class="cta-row">
+      <a href="#waitlist" class="btn btn-primary">Join the waitlist</a>
+      <a href="#install" class="btn btn-ghost-dark">See install</a>
+    </div>
+    <div class="trust">
+      <span>MIT licensed</span>
+      <span>docker-compose ready</span>
+      <span>zero analytics</span>
+      <span>works offline</span>
+    </div>
+
+    <div class="server-vis">
+      <svg viewBox="0 0 720 360" style="width:100%;height:100%">
+        <defs>
+          <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0071e3" stop-opacity="0.4"/>
+            <stop offset="1" stop-color="#0071e3" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- server box -->
+        <rect x="280" y="140" width="160" height="100" rx="10" fill="#1d1d1f" stroke="rgba(255,255,255,0.16)"/>
+        <rect x="296" y="158" width="128" height="8" rx="2" fill="rgba(255,255,255,0.1)"/>
+        <rect x="296" y="172" width="90" height="6" rx="2" fill="rgba(255,255,255,0.08)"/>
+        <circle cx="412" cy="162" r="3" fill="#30d158">
+          <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <text x="360" y="220" text-anchor="middle" font-family="monospace" font-size="11" fill="rgba(255,255,255,0.56)">your server</text>
+
+        <!-- receipts floating in -->
+        <g opacity="0.9">
+          <rect x="60" y="100" width="50" height="70" rx="2" fill="#faf7ee" transform="rotate(-10 85 135)"/>
+          <rect x="130" y="70" width="50" height="70" rx="2" fill="#faf7ee" transform="rotate(6 155 105)"/>
+          <rect x="60" y="200" width="50" height="70" rx="2" fill="#faf7ee" transform="rotate(4 85 235)"/>
+        </g>
+        <!-- flow arrows -->
+        <path d="M130 140 Q 210 160 270 180" stroke="#0071e3" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.6"/>
+        <path d="M200 130 Q 240 160 270 190" stroke="#0071e3" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.6"/>
+        <path d="M130 230 Q 200 220 270 200" stroke="#0071e3" stroke-width="1.5" fill="none" stroke-dasharray="4 3" opacity="0.6"/>
+
+        <!-- out: database -->
+        <g transform="translate(500 140)">
+          <ellipse cx="60" cy="10" rx="56" ry="12" fill="none" stroke="#2997ff" stroke-width="1.5"/>
+          <path d="M4 10 v80 a56 12 0 0 0 112 0 v-80" fill="none" stroke="#2997ff" stroke-width="1.5"/>
+          <ellipse cx="60" cy="40" rx="56" ry="12" fill="none" stroke="#2997ff" stroke-width="1" opacity="0.6"/>
+          <ellipse cx="60" cy="70" rx="56" ry="12" fill="none" stroke="#2997ff" stroke-width="1" opacity="0.6"/>
+          <text x="60" y="125" text-anchor="middle" font-family="monospace" font-size="11" fill="rgba(255,255,255,0.56)">sqlite</text>
+        </g>
+        <path d="M440 190 L 500 190" stroke="#2997ff" stroke-width="1.5" fill="none" stroke-dasharray="4 3"/>
+
+        <!-- lock halo -->
+        <g transform="translate(340 78)">
+          <rect x="6" y="16" width="28" height="22" rx="3" fill="none" stroke="#30d158" stroke-width="1.5"/>
+          <path d="M12 16 v-6 a8 8 0 0 1 16 0 v6" fill="none" stroke="#30d158" stroke-width="1.5"/>
+          <circle cx="20" cy="27" r="2" fill="#30d158"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- HOW (dark continued → subtle shift to light-on-light with pop) -->
+<section class="sec sec-dark" id="how" style="background:#0a0a0a">
+  <div class="container center">
+    <p class="eyebrow" style="color:#2997ff">How it works</p>
+    <h2 class="h-section" style="color:#fff">Three steps. Everything on your side of the wire.</h2>
+  </div>
+  <div style="margin-top: 56px;">
+    <div class="steps">
+      <div class="stepcard">
+        <div class="n">Step 01 &middot; Drop</div>
+        <h3>In from anywhere.</h3>
+        <p>Phone, scanner, email forward, watched folder. Receipts land on your server and stay there.</p>
+        <div class="viz">
+          <svg viewBox="0 0 200 100" style="width:100%;height:100%">
+            <rect x="20" y="22" width="50" height="60" rx="3" fill="#faf7ee" transform="rotate(-8 45 52)"/>
+            <rect x="75" y="18" width="50" height="60" rx="3" fill="#faf7ee" transform="rotate(5 100 48)"/>
+            <rect x="130" y="24" width="50" height="60" rx="3" fill="#faf7ee" transform="rotate(-4 155 54)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stepcard">
+        <div class="n">Step 02 &middot; Process</div>
+        <h3>Locally orchestrated.</h3>
+        <p>LocalOCR calls the vision API you chose, using <em>your</em> keys. The image goes out, JSON comes back, nothing else is logged.</p>
+        <div class="viz">
+          <svg viewBox="0 0 200 100" style="width:100%;height:100%">
+            <rect x="60" y="25" width="80" height="50" rx="8" fill="#000" stroke="rgba(41,151,255,0.4)"/>
+            <circle cx="100" cy="50" r="12" fill="none" stroke="#2997ff" stroke-width="1.5"/>
+            <path d="M96 50 l3 3 l6 -6" stroke="#30d158" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M30 50 L60 50" stroke="rgba(255,255,255,0.24)" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <path d="M140 50 L170 50" stroke="rgba(255,255,255,0.24)" stroke-width="1.5" stroke-dasharray="3 3"/>
+          </svg>
+        </div>
+      </div>
+      <div class="stepcard">
+        <div class="n">Step 03 &middot; Own</div>
+        <h3>Yours to keep.</h3>
+        <p>SQLite database. Text files. Original images retained. Export, back up, migrate, delete &mdash; your rules.</p>
+        <div class="viz">
+          <svg viewBox="0 0 200 100" style="width:100%;height:100%">
+            <g transform="translate(60 16)">
+              <ellipse cx="40" cy="8" rx="36" ry="8" fill="none" stroke="#2997ff" stroke-width="1.2"/>
+              <path d="M4 8 v56 a36 8 0 0 0 72 0 v-56" fill="none" stroke="#2997ff" stroke-width="1.2"/>
+              <ellipse cx="40" cy="28" rx="36" ry="8" fill="none" stroke="#2997ff" stroke-width="1" opacity="0.6"/>
+              <ellipse cx="40" cy="48" rx="36" ry="8" fill="none" stroke="#2997ff" stroke-width="1" opacity="0.6"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VS / PRIVACY PANE (light) -->
+<section class="sec sec-light" id="privacy">
+  <div class="container center" style="margin-bottom: 64px;">
+    <p class="eyebrow">The privacy story</p>
+    <h2 class="h-section">Two ways to handle a receipt.</h2>
+    <p class="h-sub">One sends it to a SaaS. One keeps it on your box. Guess which is which.</p>
+  </div>
+  <div class="vs">
+    <div class="pane them">
+      <div class="tag">Typical receipt app</div>
+      <h3>&ldquo;Cloud-based&rdquo; expense trackers</h3>
+      <ul>
+        <li>Your receipts uploaded to their cloud, indefinitely</li>
+        <li>Trained on your data unless you explicitly opt out</li>
+        <li>Shared with &ldquo;business partners&rdquo; you&rsquo;ve never heard of</li>
+        <li>Subscription goes up every April</li>
+        <li>Acquired by a larger company with a vaguer privacy policy</li>
+        <li>Goes offline when their servers do</li>
+      </ul>
+    </div>
+    <div class="arrow">VS</div>
+    <div class="pane us">
+      <div class="tag">LocalOCR</div>
+      <h3>On your server</h3>
+      <ul>
+        <li>Receipts never leave your machine except to OCR</li>
+        <li>Zero analytics, zero telemetry, zero trackers</li>
+        <li>You bring the vision API keys &mdash; or skip them</li>
+        <li>MIT licensed, no subscription, no rug-pull</li>
+        <li>Fork it if we do something dumb</li>
+        <li>Works offline for everything except the OCR call</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL (dark again) -->
+<section class="sec sec-dark" id="install">
+  <div class="install">
+    <div>
+      <p class="eyebrow" style="color:#2997ff">Install</p>
+      <h2 class="h-section" style="color:#fff">Running in five minutes.</h2>
+      <p class="lead">One docker-compose file. No account creation, no OAuth dance, no email verification. Clone, configure your keys, bring it up.</p>
+      <div class="cta-row" style="margin-top:24px">
+        <a href="#" class="btn btn-ghost-dark">View on GitHub</a>
+        <a href="#" class="btn-link" style="padding:12px 4px">Read the docs &rsaquo;</a>
+      </div>
+    </div>
+    <div>
+      <pre><span class="c"># clone</span>
+<span class="p">$</span> <span class="k">git clone</span> github.com/localocr/localocr
+<span class="p">$</span> <span class="k">cd</span> localocr
+
+<span class="c"># configure</span>
+<span class="p">$</span> <span class="k">cp</span> .env.example .env
+<span class="p">$</span> <span class="k">nano</span> .env    <span class="c"># add vision API keys</span>
+
+<span class="c"># run</span>
+<span class="p">$</span> <span class="k">docker-compose</span> up -d
+
+<span class="c"># open → http://localhost:8080</span></pre>
+      <div class="copy">⌘ copy to clipboard</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<section class="sec sec-dark cta-band" id="waitlist">
+  <div class="container">
+    <h2>Your household.<br>Your data. Your rules.</h2>
+    <p>Early access opens summer 2026. One email when it&rsquo;s ready. We&rsquo;ll email you exactly once.</p>
+    <form class="waitlist" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Thanks — you&apos;re in.'; this.querySelector('input').value='';">
+      <input type="email" placeholder="you@household.net" required>
+      <button class="btn btn-primary" type="submit">Join waitlist</button>
+    </form>
+    <p class="mono" style="margin-top: 32px; color: rgba(255,255,255,0.48);">we won&rsquo;t sell your email · we can&rsquo;t, actually, because there&rsquo;s no one to sell it to</p>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="inner">
+    <div class="cols">
+      <div>
+        <div class="brand-line"><span class="mark">L</span>LocalOCR</div>
+        <p class="tagline">Open-source receipt OCR for households who&rsquo;d rather self-host than subscribe.</p>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul><li><a href="#">Features</a></li><li><a href="#">Providers</a></li><li><a href="#">Roadmap</a></li><li><a href="#">Changelog</a></li></ul>
+      </div>
+      <div>
+        <h5>Docs</h5>
+        <ul><li><a href="#">Install</a></li><li><a href="#">API</a></li><li><a href="#">Export</a></li><li><a href="#">GitHub</a></li></ul>
+      </div>
+      <div>
+        <h5>Community</h5>
+        <ul><li><a href="#">Discord</a></li><li><a href="#">Forum</a></li><li><a href="#">Status</a></li><li><a href="#">Contact</a></li></ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© 2026 LocalOCR contributors. MIT licensed.</span>
+      <span>No tracking. No cookies. No kidding.</span>
+    </div>
+  </div>
+</footer>
+
+</body></html>

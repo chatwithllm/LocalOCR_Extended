@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Scan progress — phases</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .stack { display:flex; flex-direction:column; gap: 18px; }
+  .item .label { display:flex; align-items:center; gap:8px; font-size: 14px; font-weight:600; letter-spacing:-0.22px; color:#1d1d1f; }
+  .item .meta { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); margin-left: auto; }
+  .row { display:flex; align-items:baseline; margin-bottom: 6px; }
+  .track { height: 6px; border-radius: 999px; background: #ededf2; overflow:hidden; position: relative; }
+  .fill { height: 100%; }
+  .running  { background: #0071e3; width: 68%; }
+  .retrying { background: #ff9500; width: 52%; }
+  .success  { background: #00b74a; width: 100%; }
+  .failed   { background: #ff3b30; width: 44%; }
+  .chip { border-radius: 980px; padding: 2px 10px; background: #ededf2; color: rgba(0,0,0,0.8); font-size: 11px; font-weight: 600; letter-spacing: -0.1px; }
+  .chip.m { background: rgba(58,124,189,0.14); color: #3a7cbd; }
+</style>
+</head><body>
+<div class="card">
+  <div class="stack">
+    <div class="item">
+      <div class="row"><div class="label">Running · Extracting fields</div><div class="meta">68%</div></div>
+      <div class="track"><div class="fill running"></div></div>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center"><span class="chip m">Gemini 2.5 Flash</span><span class="chip">OCR → Normalize</span></div>
+    </div>
+    <div class="item">
+      <div class="row"><div class="label">Retrying · switching provider</div><div class="meta">Retry 2 of 3</div></div>
+      <div class="track"><div class="fill retrying"></div></div>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center"><span class="chip m">OpenAI Vision</span></div>
+    </div>
+    <div class="item">
+      <div class="row"><div class="label">Success · Trader Joe&rsquo;s · 14 items</div><div class="meta">2.4s</div></div>
+      <div class="track"><div class="fill success"></div></div>
+    </div>
+    <div class="item">
+      <div class="row"><div class="label">Failed · image too dark</div><div class="meta">—</div></div>
+      <div class="track"><div class="fill failed"></div></div>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center"><button style="border:1px solid rgba(255,59,48,0.4);color:#ff3b30;background:transparent;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600">Retry</button></div>
+    </div>
+  </div>
+</div>
+</body></html>

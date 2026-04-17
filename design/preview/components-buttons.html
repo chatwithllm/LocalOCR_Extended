@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Buttons — primary & secondary</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .row { display:flex; align-items:center; gap: 12px; flex-wrap:wrap; margin-bottom: 14px; }
+  .label { text-transform: uppercase; letter-spacing: 0.6px; font-size: 10px; font-weight: 600; color: rgba(0,0,0,0.56); flex: 0 0 88px; }
+  button { font-family: var(--font-text); font-size: 17px; font-weight: 400; letter-spacing: -0.374px; line-height: 1; cursor: pointer; border: 1px solid transparent; padding: 10px 18px; border-radius: 8px; }
+  .btn-primary   { background: #0071e3; color: #fff; }
+  .btn-primary-h { background: #0077ed; color: #fff; }
+  .btn-primary-p { background: #006edb; color: #fff; }
+  .btn-primary-d { background: #0071e3; color: #fff; opacity: 0.5; cursor: not-allowed; }
+  .btn-dark      { background: #1d1d1f; color: #fff; }
+  .btn-secondary { background: #fff; color: #1d1d1f; border-color: rgba(0,0,0,0.22); }
+  .btn-ghost     { background: transparent; color: #1d1d1f; }
+  .btn-danger    { background: #fff; color: #ff3b30; border-color: rgba(255,59,48,0.4); }
+  .btn-pill      { border-radius: 980px; padding: 8px 18px; font-size: 14px; border: 1px solid #0066cc; color: #0066cc; background: transparent; letter-spacing: -0.224px; }
+  .btn-pill-filled { border-radius: 980px; padding: 8px 18px; font-size: 14px; background: #0071e3; color: #fff; }
+</style>
+</head><body>
+<div class="card">
+  <div class="row"><div class="label">Primary</div>
+    <button class="btn-primary">Scan receipt</button>
+    <button class="btn-primary-h">Hover</button>
+    <button class="btn-primary-p">Pressed</button>
+    <button class="btn-primary-d">Disabled</button>
+  </div>
+  <div class="row"><div class="label">Dark</div>
+    <button class="btn-dark">Primary dark</button>
+    <button class="btn-secondary">Secondary</button>
+    <button class="btn-ghost">Ghost</button>
+    <button class="btn-danger">Delete</button>
+  </div>
+  <div class="row"><div class="label">Pill link</div>
+    <button class="btn-pill">Learn more &rsaquo;</button>
+    <button class="btn-pill-filled">Shop &rsaquo;</button>
+  </div>
+</div>
+</body></html>

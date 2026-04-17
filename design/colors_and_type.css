@@ -1,0 +1,523 @@
+/* ============================================================
+   LocalOCR Extended — Colors & Type
+   ============================================================
+   Apple-inspired design language for a privacy-first, self-hosted
+   household receipt / OCR / expense platform.
+
+   Philosophy
+   - Cinematic duality: pure black (#000) for artifact-focused
+     moments, light gray (#f5f5f7) for informational moments.
+   - Single chromatic accent: Apple Blue (#0071e3).
+   - Optical-sizing typography: SF Pro Display ≥ 20px,
+     SF Pro Text < 20px. Negative tracking at every size.
+   - Restraint: no gradients, no textures, no decorative shadow
+     stacks. One shadow or none.
+
+   Source: design/design-tokens.json (mirrored)
+   ============================================================ */
+
+/* ---------- FONT FACES ---------------------------------------
+   SF Pro is proprietary. On Apple platforms -apple-system
+   resolves to SF Pro natively. Elsewhere we fall through to
+   Inter as a licensed near-match (optical sizing similar,
+   humanist geometry) and then Helvetica Neue / Arial.
+   ------------------------------------------------------------ */
+
+@font-face {
+  font-family: "Inter var";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: url("https://rsms.me/inter/font-files/InterVariable.woff2?v=4.0")
+       format("woff2");
+}
+
+@font-face {
+  font-family: "Inter var";
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+  src: url("https://rsms.me/inter/font-files/InterVariable-Italic.woff2?v=4.0")
+       format("woff2");
+}
+
+/* ============================================================
+   LIGHT — default theme
+   ============================================================ */
+:root,
+[data-theme="light"] {
+
+  /* --- Brand / accent ------------------------------------- */
+  --color-brand:               #0071e3;
+  --color-brand-hover:         #0077ed;
+  --color-brand-pressed:       #006edb;
+  --color-brand-soft:          rgba(0, 113, 227, 0.10);
+  --color-brand-contrast:      #ffffff;
+  --color-link:                #0066cc;
+
+  /* --- Surface / canvas (binary canvas system) ------------ */
+  --color-bg:                  #f5f5f7;
+  --color-bg-inverse:          #000000;
+  --color-surface:             #ffffff;
+  --color-surface-2:           #fafafc;
+  --color-surface-3:           #ededf2;
+  --color-surface-4:           #f5f5f7;
+  --color-surface-inverse:     #1d1d1f;
+
+  --color-overlay:             rgba(0, 0, 0, 0.48);
+  --color-overlay-soft:        rgba(210, 210, 215, 0.64);
+  --color-glass-nav:           rgba(0, 0, 0, 0.80);
+
+  /* --- Text ------------------------------------------------ */
+  --color-text-primary:        #1d1d1f;
+  --color-text-secondary:      rgba(0, 0, 0, 0.80);
+  --color-text-muted:          rgba(0, 0, 0, 0.56);
+  --color-text-disabled:       rgba(0, 0, 0, 0.48);
+  --color-text-inverse:        #ffffff;
+
+  /* --- Border / focus ------------------------------------- */
+  --color-border:              rgba(0, 0, 0, 0.12);
+  --color-border-strong:       rgba(0, 0, 0, 0.22);
+  --color-border-brand:        #0071e3;
+  --color-focus:               #0071e3;
+
+  /* --- Semantic status ------------------------------------ */
+  --color-success:             #00b74a;
+  --color-success-soft:        rgba(0, 183, 74, 0.12);
+  --color-warning:             #ff9500;
+  --color-warning-soft:        rgba(255, 149, 0, 0.14);
+  --color-error:               #ff3b30;
+  --color-error-soft:          rgba(255, 59, 48, 0.12);
+  --color-error-hover:         #d70015;
+  --color-info:                #007aff;
+  --color-info-soft:           rgba(0, 122, 255, 0.10);
+
+  /* --- OCR confidence (product-specific) ------------------ */
+  --color-confidence-high:       #00b74a;
+  --color-confidence-medium:     #ff9500;
+  --color-confidence-low:        #ff3b30;
+  --color-confidence-high-soft:  rgba(0, 183, 74, 0.12);
+  --color-confidence-medium-soft:rgba(255, 149, 0, 0.14);
+  --color-confidence-low-soft:   rgba(255, 59, 48, 0.12);
+
+  /* --- Category (spend domain) ---------------------------- */
+  --color-cat-grocery:           #34a36b;
+  --color-cat-restaurant:        #d37c2b;
+  --color-cat-utility:           #3a7cbd;
+  --color-cat-personal-service:  #8450b8;
+  --color-cat-subscription:      #2a8a95;
+  --color-cat-other:             rgba(0, 0, 0, 0.56);
+}
+
+/* ============================================================
+   DARK
+   ============================================================ */
+[data-theme="dark"] {
+  --color-brand:               #0a84ff;
+  --color-brand-hover:         #1f8fff;
+  --color-brand-pressed:       #0071e3;
+  --color-brand-soft:          rgba(10, 132, 255, 0.16);
+  --color-brand-contrast:      #ffffff;
+  --color-link:                #2997ff;
+
+  --color-bg:                  #000000;
+  --color-bg-inverse:          #f5f5f7;
+  --color-surface:             #1d1d1f;
+  --color-surface-2:           #272729;
+  --color-surface-3:           #28282a;
+  --color-surface-4:           #2a2a2d;
+  --color-surface-inverse:     #f5f5f7;
+
+  --color-overlay:             rgba(0, 0, 0, 0.72);
+  --color-overlay-soft:        rgba(58, 58, 60, 0.72);
+  --color-glass-nav:           rgba(0, 0, 0, 0.80);
+
+  --color-text-primary:        #f5f5f7;
+  --color-text-secondary:      rgba(245, 245, 247, 0.86);
+  --color-text-muted:          rgba(245, 245, 247, 0.56);
+  --color-text-disabled:       rgba(245, 245, 247, 0.40);
+  --color-text-inverse:        #1d1d1f;
+
+  --color-border:              rgba(255, 255, 255, 0.12);
+  --color-border-strong:       rgba(255, 255, 255, 0.22);
+  --color-border-brand:        #0a84ff;
+  --color-focus:               #0a84ff;
+
+  --color-success:             #30d158;
+  --color-success-soft:        rgba(48, 209, 88, 0.22);
+  --color-warning:             #ff9f0a;
+  --color-warning-soft:        rgba(255, 159, 10, 0.22);
+  --color-error:               #ff453a;
+  --color-error-soft:          rgba(255, 69, 58, 0.20);
+  --color-error-hover:         #ff6961;
+  --color-info:                #2997ff;
+  --color-info-soft:           rgba(41, 151, 255, 0.18);
+
+  --color-confidence-high:        #30d158;
+  --color-confidence-medium:      #ff9f0a;
+  --color-confidence-low:         #ff453a;
+  --color-confidence-high-soft:   rgba(48, 209, 88, 0.22);
+  --color-confidence-medium-soft: rgba(255, 159, 10, 0.22);
+  --color-confidence-low-soft:    rgba(255, 69, 58, 0.20);
+
+  --color-cat-grocery:           #4cc488;
+  --color-cat-restaurant:        #e09255;
+  --color-cat-utility:           #5b9ddc;
+  --color-cat-personal-service:  #a27ad0;
+  --color-cat-subscription:      #4fb3bd;
+  --color-cat-other:             rgba(245, 245, 247, 0.56);
+}
+
+/* ============================================================
+   TYPOGRAPHY — font stacks
+   ============================================================ */
+:root {
+  --font-display:
+    "SF Pro Display", "SF Pro Icons", -apple-system,
+    BlinkMacSystemFont, "Inter var", "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+
+  --font-text:
+    "SF Pro Text", "SF Pro Icons", -apple-system,
+    BlinkMacSystemFont, "Inter var", "Helvetica Neue",
+    Helvetica, Arial, sans-serif;
+
+  --font-mono:
+    "SF Mono", "Menlo", "JetBrains Mono", "Consolas", monospace;
+
+  --font-feature-body: "kern", "liga";
+}
+
+/* ---------- TYPE SCALE (13 steps) --------------------------
+   Rule: --font-display at ≥ 20px, --font-text at < 20px.
+   Tracking is negative at every size (Apple's signature).
+   ----------------------------------------------------------- */
+:root {
+  --font-hero-size:     3.50rem;  /* 56px */
+  --font-hero-weight:   600;
+  --font-hero-lh:       1.07;
+  --font-hero-track:    -0.28px;
+
+  --font-4xl-size:      2.50rem;  /* 40px */
+  --font-4xl-weight:    600;
+  --font-4xl-lh:        1.10;
+  --font-4xl-track:     -0.40px;
+
+  --font-3xl-size:      2.13rem;  /* 34px */
+  --font-3xl-weight:    600;
+  --font-3xl-lh:        1.18;
+  --font-3xl-track:     -0.374px;
+
+  --font-2xl-size:      1.75rem;  /* 28px */
+  --font-2xl-weight:    400;
+  --font-2xl-lh:        1.14;
+  --font-2xl-track:     0.196px;
+
+  --font-xl-size:       1.50rem;  /* 24px */
+  --font-xl-weight:     300;
+  --font-xl-lh:         1.50;
+  --font-xl-track:      0;
+
+  --font-lg-size:       1.31rem;  /* 21px */
+  --font-lg-weight:     700;
+  --font-lg-lh:         1.19;
+  --font-lg-track:      0.231px;
+
+  --font-lg-reg-weight: 400;
+
+  --font-md-size:       1.13rem;  /* 18px */
+  --font-md-weight:     300;
+  --font-md-lh:         1.00;
+  --font-md-track:      0;
+
+  --font-body-size:     1.06rem;  /* 17px */
+  --font-body-weight:   400;
+  --font-body-lh:       1.47;
+  --font-body-track:    -0.374px;
+
+  --font-body-em-weight:600;
+  --font-body-em-lh:    1.24;
+
+  --font-sm-size:       0.88rem;  /* 14px */
+  --font-sm-weight:     400;
+  --font-sm-lh:         1.43;
+  --font-sm-track:      -0.224px;
+
+  --font-sm-em-weight:  600;
+  --font-sm-em-lh:      1.29;
+
+  --font-xs-size:       0.75rem;  /* 12px */
+  --font-xs-weight:     400;
+  --font-xs-lh:         1.33;
+  --font-xs-track:      -0.12px;
+
+  --font-xs-em-weight:  600;
+
+  --font-nano-size:     0.63rem;  /* 10px */
+  --font-nano-weight:   400;
+  --font-nano-lh:       1.47;
+  --font-nano-track:    -0.08px;
+}
+
+/* ============================================================
+   SPACING — 8px base with 2px sub-grid
+   ============================================================ */
+:root {
+  --space-0:    0;
+  --space-0-5: 0.125rem;  /*  2px */
+  --space-1:   0.25rem;   /*  4px */
+  --space-1-5: 0.375rem;  /*  6px */
+  --space-2:   0.5rem;    /*  8px */
+  --space-3:   0.75rem;   /* 12px */
+  --space-4:   1rem;      /* 16px */
+  --space-5:   1.25rem;   /* 20px */
+  --space-6:   1.5rem;    /* 24px */
+  --space-8:   2rem;      /* 32px */
+  --space-10:  2.5rem;    /* 40px */
+  --space-12:  3rem;      /* 48px */
+  --space-16:  4rem;      /* 64px */
+  --space-20:  5rem;      /* 80px */
+  --space-24:  6rem;      /* 96px */
+  --space-32:  8rem;      /* 128px */
+  --space-40: 10rem;      /* 160px */
+  --space-48: 12rem;      /* 192px */
+}
+
+/* ============================================================
+   RADIUS — buttons/cards 8–12, pills 980, circles 50
+   ============================================================ */
+:root {
+  --radius-0:     0;
+  --radius-xs:    5px;
+  --radius-sm:    8px;
+  --radius-md:    11px;
+  --radius-lg:    12px;
+  --radius-xl:    16px;
+  --radius-pill:  980px;   /* the Apple signature */
+  --radius-full:  50%;
+}
+
+/* ============================================================
+   STROKE
+   ============================================================ */
+:root {
+  --stroke-0: 0;
+  --stroke-1: 1px;
+  --stroke-2: 2px;
+  --stroke-3: 3px;
+}
+
+/* ============================================================
+   ICONS
+   ============================================================ */
+:root {
+  --icon-xs:  12px;
+  --icon-sm:  16px;
+  --icon-md:  20px;
+  --icon-lg:  24px;
+  --icon-xl:  32px;
+  --icon-2xl: 48px;
+  --icon-3xl: 64px;
+}
+
+/* ============================================================
+   SHADOW — one soft cast or nothing
+   ============================================================ */
+:root {
+  --shadow-0: none;
+  --shadow-1: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+  --shadow-2: rgba(0, 0, 0, 0.14) 0px 6px 20px 0px,
+              rgba(0, 0, 0, 0.06) 0px 2px 4px 0px;
+  --shadow-3: rgba(0, 0, 0, 0.18) 0px 12px 32px 0px,
+              rgba(0, 0, 0, 0.08) 0px 4px 8px 0px;
+  --shadow-4: rgba(0, 0, 0, 0.24) 0px 24px 48px 0px,
+              rgba(0, 0, 0, 0.10) 0px 8px 16px 0px;
+  --shadow-5: rgba(0, 0, 0, 0.32) 0px 40px 80px 0px,
+              rgba(0, 0, 0, 0.14) 0px 12px 24px 0px;
+}
+
+/* ============================================================
+   MOTION — Apple-flavored easings and durations
+   ============================================================ */
+:root {
+  --duration-instant:    100ms;
+  --duration-fast:       150ms;
+  --duration-base:       240ms;
+  --duration-slow:       320ms;
+  --duration-elaborate:  480ms;
+  --duration-scan-loop:  1600ms;
+
+  --ease-out:      cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out:   cubic-bezier(0.42, 0, 0.58, 1);
+  --ease-in:       cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring:   cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ============================================================
+   FOCUS RING (global utility)
+   ============================================================ */
+:root {
+  --focus-ring-color:  var(--color-focus);
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+}
+
+/* ============================================================
+   SEMANTIC HELPER CLASSES
+   These are not required — use tokens directly — but they
+   show the canonical wiring for the type scale.
+   ============================================================ */
+
+.t-hero {
+  font-family: var(--font-display);
+  font-size: var(--font-hero-size);
+  font-weight: var(--font-hero-weight);
+  line-height: var(--font-hero-lh);
+  letter-spacing: var(--font-hero-track);
+  color: var(--color-text-primary);
+}
+.t-4xl {
+  font-family: var(--font-display);
+  font-size: var(--font-4xl-size);
+  font-weight: var(--font-4xl-weight);
+  line-height: var(--font-4xl-lh);
+  letter-spacing: var(--font-4xl-track);
+  color: var(--color-text-primary);
+}
+.t-3xl {
+  font-family: var(--font-text);
+  font-size: var(--font-3xl-size);
+  font-weight: var(--font-3xl-weight);
+  line-height: var(--font-3xl-lh);
+  letter-spacing: var(--font-3xl-track);
+  color: var(--color-text-primary);
+}
+.t-2xl {
+  font-family: var(--font-display);
+  font-size: var(--font-2xl-size);
+  font-weight: var(--font-2xl-weight);
+  line-height: var(--font-2xl-lh);
+  letter-spacing: var(--font-2xl-track);
+  color: var(--color-text-primary);
+}
+.t-xl {
+  font-family: var(--font-text);
+  font-size: var(--font-xl-size);
+  font-weight: var(--font-xl-weight);
+  line-height: var(--font-xl-lh);
+  color: var(--color-text-primary);
+}
+.t-lg {
+  font-family: var(--font-display);
+  font-size: var(--font-lg-size);
+  font-weight: var(--font-lg-weight);
+  line-height: var(--font-lg-lh);
+  letter-spacing: var(--font-lg-track);
+  color: var(--color-text-primary);
+}
+.t-lg-reg {
+  font-family: var(--font-display);
+  font-size: var(--font-lg-size);
+  font-weight: var(--font-lg-reg-weight);
+  line-height: var(--font-lg-lh);
+  letter-spacing: var(--font-lg-track);
+  color: var(--color-text-primary);
+}
+.t-md {
+  font-family: var(--font-text);
+  font-size: var(--font-md-size);
+  font-weight: var(--font-md-weight);
+  line-height: var(--font-md-lh);
+  color: var(--color-text-primary);
+}
+.t-body {
+  font-family: var(--font-text);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  line-height: var(--font-body-lh);
+  letter-spacing: var(--font-body-track);
+  color: var(--color-text-primary);
+}
+.t-body-em {
+  font-family: var(--font-text);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-em-weight);
+  line-height: var(--font-body-em-lh);
+  letter-spacing: var(--font-body-track);
+  color: var(--color-text-primary);
+}
+.t-sm {
+  font-family: var(--font-text);
+  font-size: var(--font-sm-size);
+  font-weight: var(--font-sm-weight);
+  line-height: var(--font-sm-lh);
+  letter-spacing: var(--font-sm-track);
+  color: var(--color-text-secondary);
+}
+.t-sm-em {
+  font-family: var(--font-text);
+  font-size: var(--font-sm-size);
+  font-weight: var(--font-sm-em-weight);
+  line-height: var(--font-sm-em-lh);
+  letter-spacing: var(--font-sm-track);
+  color: var(--color-text-primary);
+}
+.t-xs {
+  font-family: var(--font-text);
+  font-size: var(--font-xs-size);
+  font-weight: var(--font-xs-weight);
+  line-height: var(--font-xs-lh);
+  letter-spacing: var(--font-xs-track);
+  color: var(--color-text-muted);
+}
+.t-xs-em {
+  font-family: var(--font-text);
+  font-size: var(--font-xs-size);
+  font-weight: var(--font-xs-em-weight);
+  line-height: var(--font-xs-lh);
+  letter-spacing: var(--font-xs-track);
+  color: var(--color-text-primary);
+}
+.t-nano {
+  font-family: var(--font-text);
+  font-size: var(--font-nano-size);
+  font-weight: var(--font-nano-weight);
+  line-height: var(--font-nano-lh);
+  letter-spacing: var(--font-nano-track);
+  color: var(--color-text-muted);
+}
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+/* ---------- FOCUS RING (global utility) ------------------ */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
+
+/* ---------- LEGACY ALIASES (for compat) ------------------ */
+:root {
+  --accent:         var(--color-brand);
+  --accent-hover:   var(--color-brand-hover);
+  --accent-pressed: var(--color-brand-pressed);
+  --accent-soft:    var(--color-brand-soft);
+  --bg:             var(--color-bg);
+  --surface:        var(--color-surface);
+  --surface-2:      var(--color-surface-2);
+  --surface-3:      var(--color-surface-3);
+  --text:           var(--color-text-primary);
+  --text-subtle:    var(--color-text-secondary);
+  --muted:          var(--color-text-muted);
+  --border:         var(--color-border);
+  --ring:           var(--color-focus);
+  --success:        var(--color-success);
+  --warning:        var(--color-warning);
+  --danger:         var(--color-error);
+}

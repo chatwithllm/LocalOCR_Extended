@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Iconography — Lucide</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .grid { display:grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .ic { background:#fff; border-radius: 8px; padding: 14px 10px; text-align:center; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); display:flex; flex-direction:column; gap: 6px; align-items:center; }
+  .ic svg { color: #1d1d1f; }
+  .ic .n { font-size: 11px; font-weight: 600; letter-spacing: -0.1px; color:#1d1d1f; }
+  .ic .m { font-family: var(--font-mono); font-size: 9px; color: rgba(0,0,0,0.56); }
+  .sizes { display:flex; align-items:baseline; gap: 18px; padding: 14px 16px; background:#f5f5f7; border-radius: 10px; }
+  .sizes .s { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .sizes .s svg { color: #0071e3; }
+  .sizes .s .lb { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); }
+  .label { text-transform: uppercase; letter-spacing: 0.6px; font-size: 10px; font-weight: 600; color: rgba(0,0,0,0.56); margin: 14px 0 8px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="label">Scale — 1.5px stroke, rounded joins</div>
+  <div class="sizes">
+    <div class="s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">xs · 12</div></div>
+    <div class="s"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">sm · 16</div></div>
+    <div class="s"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">md · 20</div></div>
+    <div class="s"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">lg · 24</div></div>
+    <div class="s"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">xl · 32</div></div>
+    <div class="s"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><div class="lb">2xl · 48</div></div>
+  </div>
+
+  <div class="label">Product glyphs</div>
+  <div class="grid">
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l4-3 4 3 4-3 4 3V2"/><path d="M8 7h8M8 12h8M8 17h4"/></svg><div class="n">receipt</div><div class="m">Receipt doc</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg><div class="n">check-square</div><div class="m">Approve</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M20 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg><div class="n">upload</div><div class="m">Upload</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="n">clock</div><div class="m">Pending</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><div class="n">search</div><div class="m">Find</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M7 12h10M11 18h2"/></svg><div class="n">filter</div><div class="m">Filter</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg><div class="n">alert</div><div class="m">Warning</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.2-8.55"/><path d="M21 3v6h-6"/></svg><div class="n">refresh</div><div class="m">Retry</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12M5.64 18.36l2.12-2.12m8.48-8.48 2.12-2.12"/></svg><div class="n">settings</div><div class="m">Config</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg><div class="n">grid</div><div class="m">Categories</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><div class="n">credit-card</div><div class="m">Payment</div></div>
+    <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3V4H7v3H4v13h16z"/><path d="M10 11h4m-4 4h4"/></svg><div class="n">folder-receipt</div><div class="m">Archive</div></div>
+  </div>
+</div>
+</body></html>

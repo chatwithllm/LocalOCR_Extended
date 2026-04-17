@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Shadow — elevation</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  body { background: #f5f5f7; }
+  .card { background: #f5f5f7; padding: 34px 26px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+  .el { background: #fff; border-radius: 10px; padding: 16px 12px 12px; height: 120px; display:flex; flex-direction:column; justify-content:space-between; }
+  .n { font-size: 12px; font-weight: 600; letter-spacing: -0.15px; }
+  .m { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); }
+  .s0 { box-shadow: none; border: 1px solid rgba(0,0,0,0.08); }
+  .s1 { box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px; }
+  .s2 { box-shadow: rgba(0, 0, 0, 0.14) 0px 6px 20px 0px, rgba(0, 0, 0, 0.06) 0px 2px 4px 0px; }
+  .s3 { box-shadow: rgba(0, 0, 0, 0.18) 0px 12px 32px 0px, rgba(0, 0, 0, 0.08) 0px 4px 8px 0px; }
+  .s4 { box-shadow: rgba(0, 0, 0, 0.24) 0px 24px 48px 0px, rgba(0, 0, 0, 0.10) 0px 8px 16px 0px; }
+</style>
+</head><body>
+<div class="card">
+  <div class="grid">
+    <div class="el s0"><div></div><div><div class="n">shadow-0</div><div class="m">flat</div></div></div>
+    <div class="el s1"><div></div><div><div class="n">shadow-1</div><div class="m">card · signature</div></div></div>
+    <div class="el s2"><div></div><div><div class="n">shadow-2</div><div class="m">hover lift</div></div></div>
+    <div class="el s3"><div></div><div><div class="n">shadow-3</div><div class="m">popover</div></div></div>
+    <div class="el s4"><div></div><div><div class="n">shadow-4</div><div class="m">modal</div></div></div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,62 @@
+/* ============================================================
+   preview/_card.css — shared styling for design-system cards
+   ============================================================
+   Each card is a standalone 700×N frame. Skip titles and framing;
+   the asset name renders OUTSIDE the card. Just the specimens.
+   ============================================================ */
+
+@import url("../colors_and_type.css");
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  letter-spacing: var(--font-body-track);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.card {
+  width: 700px;
+  padding: 24px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  display: block;
+  position: relative;
+}
+
+.card.on-bg     { background: var(--color-bg); }
+.card.on-black  { background: #000; color: #fff; }
+.card.on-gray   { background: #f5f5f7; color: #1d1d1f; }
+
+/* utilities -------------------------------------------------- */
+.row { display: flex; align-items: center; gap: 12px; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+.mono { font-family: var(--font-mono); font-size: 11px; }
+.meta {
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+  color: var(--color-text-muted);
+}
+.label {
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}

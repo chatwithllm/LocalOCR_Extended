@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalOCR — Every receipt. One place.</title>
+<link rel="stylesheet" href="_site.css">
+<style>
+  .hero-b { min-height: 92vh; display:flex; align-items:center; padding: 120px 0 80px; }
+  .hero-b .inner { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  .hero-b h1 { font-family: var(--font-display); font-size: clamp(52px, 7vw, 96px); font-weight: 600; line-height: 0.98; letter-spacing: -0.04em; margin: 0 0 20px; color:#1d1d1f; }
+  .hero-b .lead { font-size: 20px; color: rgba(0,0,0,0.72); max-width: 48ch; font-weight: 300; line-height: 1.5; margin-bottom: 28px; }
+  .hero-b .cta-row { margin-top: 20px; }
+
+  /* scattered receipts composition */
+  .pile { position: relative; width: 100%; aspect-ratio: 1/1; max-width: 480px; margin: 0 auto; }
+  .pile .r { position: absolute; background: #faf7ee; border-radius: 3px; padding: 12px 14px; font-family: var(--font-mono); font-size: 10px; color:#1d1d1f; box-shadow: 0 14px 30px rgba(0,0,0,0.15); line-height: 1.5; }
+  .pile .r::before, .pile .r::after { content:""; position:absolute; left:0; right:0; height:6px; background: repeating-linear-gradient(45deg, #faf7ee 0 4px, transparent 4px 8px); }
+  .pile .r::before { top: -3px; }
+  .pile .r::after { bottom: -3px; transform: rotate(180deg); }
+  .pile .r .h { font-weight: 700; text-align:center; font-size: 11px; }
+  .pile .r .s { text-align:center; font-size: 8px; color: rgba(0,0,0,0.56); margin-top: 2px; }
+  .pile .r hr { border: none; border-top: 1px dashed rgba(0,0,0,0.25); margin: 6px 0; }
+  .pile .r .l { display:flex; justify-content:space-between; }
+  .pile .r .t { font-weight: 700; margin-top: 2px; font-size: 11px; }
+  .pile .r .tag { position:absolute; top: -10px; left: 10px; background: #1d1d1f; color:#fff; padding: 2px 8px; border-radius: 980px; font-family: var(--font-text); font-size: 9px; font-weight: 600; letter-spacing: 0.2px; }
+
+  .pile .r1 { top: 2%; left: 8%; width: 170px; transform: rotate(-8deg); }
+  .pile .r1 .tag { background: #34a36b; }
+  .pile .r2 { top: 18%; right: 4%; width: 160px; transform: rotate(10deg); }
+  .pile .r2 .tag { background: #d37c2b; }
+  .pile .r3 { bottom: 6%; left: 18%; width: 180px; transform: rotate(-3deg); z-index: 3; box-shadow: 0 24px 50px rgba(0,0,0,0.2); }
+  .pile .r3 .tag { background: #3a7cbd; }
+  .pile .r4 { bottom: 22%; right: 10%; width: 150px; transform: rotate(6deg); }
+  .pile .r4 .tag { background: #2a8a95; }
+
+  .pile .bubble { position:absolute; background: #fff; border-radius: 14px; padding: 10px 14px; font-family: var(--font-text); font-size: 13px; font-weight: 600; letter-spacing:-0.2px; color: #1d1d1f; box-shadow: 0 8px 20px rgba(0,0,0,0.1); z-index: 10; }
+  .pile .bubble.b1 { top: 8%; right: 28%; animation: bob 3s var(--ease-in-out) infinite; }
+  .pile .bubble.b2 { bottom: 18%; left: -4%; animation: bob 3s var(--ease-in-out) infinite 1.5s; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+
+  /* 3-step: chunky emoji-ish SVG spots with playful copy */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  .step h3 { font-family: var(--font-display); font-size: 32px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin: 20px 0 8px; }
+  .step p { color: rgba(0,0,0,0.56); font-size: 16px; line-height: 1.5; letter-spacing: -0.224px; margin: 0; }
+  .step .ill { height: 200px; position: relative; }
+
+  /* household tile - dark scene */
+  .who { display:grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  .split-demo { background: #111; border-radius: 16px; padding: 28px; border: 1px solid rgba(255,255,255,0.1); }
+  .split-demo .rname { font-family: var(--font-display); font-size: 22px; font-weight: 600; margin-bottom: 2px; }
+  .split-demo .ramt { font-family: var(--font-mono); color: rgba(255,255,255,0.72); font-size: 12px; margin-bottom: 24px; }
+  .split-demo .person { display:grid; grid-template-columns: 32px 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .split-demo .person:last-child { border-bottom: none; }
+  .split-demo .av { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:12px; color:#fff; }
+  .split-demo .name { font-size: 15px; font-weight: 600; letter-spacing:-0.22px; }
+  .split-demo .share { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.56); }
+  .split-demo .amt { font-family: var(--font-display); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* features as typographic list */
+  .biglist { max-width: 820px; margin: 0 auto; }
+  .biglist .row { display:grid; grid-template-columns: 180px 1fr; gap: 32px; padding: 36px 0; border-top: 1px solid rgba(0,0,0,0.12); }
+  .biglist .row:last-child { border-bottom: 1px solid rgba(0,0,0,0.12); }
+  .biglist .k { font-family: var(--font-mono); font-size: 12px; color: rgba(0,0,0,0.56); letter-spacing: 0.4px; text-transform: uppercase; padding-top: 4px; }
+  .biglist .v h3 { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing:-0.374px; line-height: 1.14; margin: 0 0 6px; }
+  .biglist .v p { font-size: 16px; line-height: 1.5; color: rgba(0,0,0,0.56); letter-spacing:-0.224px; margin: 0; max-width: 58ch; }
+
+  .cta-band { padding: 140px 24px; text-align: center; }
+  .cta-band h2 { font-family: var(--font-display); font-size: clamp(40px, 5vw, 64px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 16px; }
+  .cta-band p { font-size: 19px; color: rgba(255,255,255,0.72); margin: 0 0 32px; font-weight: 300; }
+  .cta-band .waitlist { margin: 0 auto; }
+
+  @media (max-width: 860px) {
+    .hero-b .inner, .who, .steps { grid-template-columns: 1fr; }
+    .biglist .row { grid-template-columns: 1fr; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="inner">
+    <a class="brand" href="index.html"><span class="mark">L</span>LocalOCR</a>
+    <nav>
+      <a href="#how">How</a>
+      <a href="#household">Household</a>
+      <a href="#features">Features</a>
+    </nav>
+    <div class="spacer"></div>
+    <a class="cta" href="#waitlist">Join waitlist</a>
+  </div>
+</div>
+<div class="variant-bar">
+  <span class="label">Variant</span>
+  <a href="landing-a-technical.html">A · Technical</a>
+  <a class="active" href="landing-b-household.html">B · Household</a>
+  <a href="landing-c-privacy.html">C · Privacy</a>
+  <a href="index.html" style="margin-left:auto;color:rgba(0,0,0,0.56)">Back to hub</a>
+</div>
+<div class="nav-spacer"></div>
+
+<!-- HERO (light) -->
+<section class="sec sec-light hero-b">
+  <div class="inner">
+    <div>
+      <p class="eyebrow">For households, actually</p>
+      <h1>Every receipt.<br>One place.</h1>
+      <p class="lead">The shoebox is a historical artifact. LocalOCR turns phone photos, PDFs, and email receipts into clean, searchable household expenses &mdash; privacy-centric, all in one place.</p>
+      <div class="cta-row">
+        <a href="#waitlist" class="btn btn-primary">Join the waitlist</a>
+        <a href="#how" class="btn btn-ghost-light">How it works</a>
+      </div>
+    </div>
+    <div class="pile">
+      <div class="r r1">
+        <span class="tag">grocery</span>
+        <div class="h">TRADER JOE'S</div>
+        <div class="s">Apr 14</div>
+        <hr>
+        <div class="l"><span>Eggs</span><span>5.49</span></div>
+        <div class="l"><span>Greens</span><span>3.29</span></div>
+        <div class="l"><span>Oat milk</span><span>3.99</span></div>
+        <hr>
+        <div class="l t"><span>TOTAL</span><span>28.48</span></div>
+      </div>
+      <div class="r r2">
+        <span class="tag">dinner</span>
+        <div class="h">MENSHO TOKYO</div>
+        <div class="s">Apr 12</div>
+        <hr>
+        <div class="l"><span>Tonkotsu</span><span>18.00</span></div>
+        <div class="l"><span>Gyoza</span><span>9.00</span></div>
+        <hr>
+        <div class="l t"><span>TOTAL</span><span>58.90</span></div>
+      </div>
+      <div class="r r3">
+        <span class="tag">utility</span>
+        <div class="h">PG&amp;E</div>
+        <div class="s">April statement</div>
+        <hr>
+        <div class="l"><span>Electric</span><span>98.42</span></div>
+        <div class="l"><span>Gas</span><span>31.18</span></div>
+        <div class="l"><span>Fees</span><span>12.44</span></div>
+        <hr>
+        <div class="l t"><span>TOTAL</span><span>142.04</span></div>
+      </div>
+      <div class="r r4">
+        <span class="tag">subs</span>
+        <div class="h">NETFLIX</div>
+        <div class="s">monthly</div>
+        <hr>
+        <div class="l"><span>Premium</span><span>22.99</span></div>
+        <hr>
+        <div class="l t"><span>TOTAL</span><span>22.99</span></div>
+      </div>
+      <div class="bubble b1">ugh, another one?</div>
+      <div class="bubble b2">already sorted 👌</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS (white for a moment of breath) -->
+<section class="sec sec-white" id="how">
+  <div class="container center">
+    <p class="eyebrow">How it works</p>
+    <h2 class="h-section">Three steps, zero spreadsheets.</h2>
+    <p class="h-sub">Written for humans who would prefer to be doing literally anything else.</p>
+  </div>
+  <div class="container-wide" style="margin-top: 72px;">
+    <div class="steps">
+      <div class="step center">
+        <div class="ill">
+          <svg viewBox="0 0 220 200" style="width:100%;height:100%">
+            <defs><linearGradient id="p1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf7ee"/><stop offset="1" stop-color="#ede9db"/></linearGradient></defs>
+            <g transform="translate(60 40)">
+              <rect x="0" y="0" width="80" height="120" rx="3" fill="url(#p1)" stroke="rgba(0,0,0,0.06)"/>
+              <rect x="10" y="14" width="60" height="4" fill="#1d1d1f"/>
+              <rect x="10" y="26" width="50" height="2" fill="rgba(0,0,0,0.4)"/>
+              <rect x="10" y="44" width="60" height="2" fill="rgba(0,0,0,0.3)"/>
+              <rect x="10" y="52" width="50" height="2" fill="rgba(0,0,0,0.3)"/>
+              <rect x="10" y="60" width="55" height="2" fill="rgba(0,0,0,0.3)"/>
+              <rect x="10" y="80" width="60" height="4" fill="#1d1d1f"/>
+            </g>
+            <path d="M110 160 v30" stroke="#0071e3" stroke-width="2" stroke-dasharray="3 3"/>
+            <circle cx="110" cy="195" r="5" fill="#0071e3"/>
+            <text x="110" y="24" text-anchor="middle" font-family="monospace" font-size="11" fill="rgba(0,0,0,0.56)">click · drop · email</text>
+          </svg>
+        </div>
+        <h3>Get it in.</h3>
+        <p>Drag, drop, email, or let LocalOCR watch a folder. Crumpled, faded, blurry &mdash; send it anyway.</p>
+      </div>
+      <div class="step center">
+        <div class="ill">
+          <svg viewBox="0 0 220 200" style="width:100%;height:100%">
+            <rect x="40" y="30" width="140" height="140" rx="8" fill="#000"/>
+            <rect x="60" y="55" width="100" height="4" fill="#fff"/>
+            <rect x="60" y="70" width="80" height="3" fill="rgba(255,255,255,0.4)"/>
+            <rect x="60" y="80" width="60" height="3" fill="rgba(255,255,255,0.4)"/>
+            <rect x="60" y="100" width="60" height="12" rx="2" fill="rgba(0,183,74,0.3)" stroke="#00b74a"/>
+            <rect x="60" y="120" width="80" height="12" rx="2" fill="rgba(255,149,0,0.3)" stroke="#ff9500"/>
+            <rect x="60" y="140" width="40" height="12" rx="2" fill="rgba(0,183,74,0.3)" stroke="#00b74a"/>
+            <rect x="50" y="99" width="120" height="2" fill="#0071e3">
+              <animate attributeName="y" values="40;160;40" dur="2s" repeatCount="indefinite"/>
+            </rect>
+          </svg>
+        </div>
+        <h3>Let it read.</h3>
+        <p>LocalOCR extracts vendor, date, items, total &mdash; with confidence scores. Two seconds, usually less.</p>
+      </div>
+      <div class="step center">
+        <div class="ill">
+          <svg viewBox="0 0 220 200" style="width:100%;height:100%">
+            <rect x="30" y="40" width="160" height="120" rx="8" fill="#f5f5f7"/>
+            <rect x="46" y="58" width="60" height="4" fill="#1d1d1f"/>
+            <rect x="46" y="74" width="30" height="12" rx="6" fill="#34a36b"/>
+            <rect x="80" y="74" width="40" height="12" rx="6" fill="#d37c2b"/>
+            <rect x="124" y="74" width="36" height="12" rx="6" fill="#3a7cbd"/>
+            <rect x="46" y="100" width="128" height="3" fill="rgba(0,0,0,0.2)"/>
+            <rect x="46" y="110" width="100" height="3" fill="rgba(0,0,0,0.2)"/>
+            <rect x="46" y="120" width="110" height="3" fill="rgba(0,0,0,0.2)"/>
+            <rect x="46" y="130" width="90" height="3" fill="rgba(0,0,0,0.2)"/>
+            <circle cx="178" cy="120" r="18" fill="#0071e3"/>
+            <path d="M172 120 l4 4 l8 -8" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Breathe out.</h3>
+        <p>Categorized, searchable, queryable. Where did the money go this month? The dashboard tells you plainly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOUSEHOLD SPLIT (dark scene) -->
+<section class="sec sec-dark" id="household">
+  <div class="container-wide">
+    <div class="who">
+      <div>
+        <p class="eyebrow" style="color:#2997ff">Built for shared households</p>
+        <h2 class="h-section" style="color:#fff">Who bought the oat milk? LocalOCR remembers.</h2>
+        <p class="lead">Tag receipts by household member. Split restaurant bills, utilities, or groceries automatically. See who owes whom at month&rsquo;s end &mdash; without a single uncomfortable text.</p>
+        <div class="cta-row" style="margin-top:28px">
+          <a href="#features" class="btn btn-ghost-dark">See all features</a>
+        </div>
+      </div>
+      <div class="split-demo">
+        <div class="rname">PG&amp;E · April</div>
+        <div class="ramt">$142.04 · utility · split evenly</div>
+        <div class="person">
+          <div class="av" style="background:linear-gradient(135deg,#34a36b,#2a8a95)">MR</div>
+          <div class="name">Mira</div>
+          <div class="share">33%</div>
+          <div class="amt">$47.35</div>
+        </div>
+        <div class="person">
+          <div class="av" style="background:linear-gradient(135deg,#d37c2b,#8450b8)">DN</div>
+          <div class="name">Dani</div>
+          <div class="share">33%</div>
+          <div class="amt">$47.35</div>
+        </div>
+        <div class="person">
+          <div class="av" style="background:linear-gradient(135deg,#3a7cbd,#2997ff)">SK</div>
+          <div class="name">Sam</div>
+          <div class="share">33%</div>
+          <div class="amt">$47.34</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES as big list (light) -->
+<section class="sec sec-light" id="features">
+  <div class="container center" style="margin-bottom: 56px;">
+    <p class="eyebrow">What you get</p>
+    <h2 class="h-section">A household expense system that earns its keep.</h2>
+  </div>
+  <div class="biglist">
+    <div class="row">
+      <div class="k">01 · Ingest</div>
+      <div class="v">
+        <h3>Phone photo, email, folder drop.</h3>
+        <p>Grab it however you want. Text-message the house LocalOCR address; forward receipts from Amazon; point it at a scanner&rsquo;s output folder. It all lands in the same place.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="k">02 · Read</div>
+      <div class="v">
+        <h3>OCR with second opinions.</h3>
+        <p>Three vision models work the problem. If the first can&rsquo;t crack a faded Walgreens receipt, the second tries. You see only the clean result &mdash; plus a confidence score for anything uncertain.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="k">03 · Categorize</div>
+      <div class="v">
+        <h3>Smart buckets, your rules.</h3>
+        <p>Grocery, restaurant, utility, subscription, personal, other. Override whenever you want; LocalOCR learns your household&rsquo;s conventions. &ldquo;Whole Foods &rarr; grocery&rdquo; stays &ldquo;grocery,&rdquo; even when you put cat food in the basket.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="k">04 · Split</div>
+      <div class="v">
+        <h3>No more spreadsheets of shame.</h3>
+        <p>Tag a receipt to a household member or split it evenly, by share, or by item. The &ldquo;who-owes-whom&rdquo; summary settles up in one line at month-end.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="k">05 · Watch</div>
+      <div class="v">
+        <h3>Recurring bills, kept honest.</h3>
+        <p>LocalOCR notices when Netflix quietly goes up $2. When your electric bill is 40% over trend. When you paid Amazon Prime twice in a month. Opinions, served with data.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="k">06 · Own</div>
+      <div class="v">
+        <h3>Your data. Your server. Your rules.</h3>
+        <p>SQLite under the hood. CSV and JSON exports. GitHub repo. Your receipts never leave your box except to the vision API you chose (and even that is optional &mdash; local models are on the roadmap).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND (dark) -->
+<section class="sec sec-dark cta-band" id="waitlist">
+  <div class="container">
+    <h2>Early access opens summer 2026.</h2>
+    <p>One email when it&rsquo;s ready. No drip campaign. No &ldquo;5 ways to crush Q3.&rdquo;</p>
+    <form class="waitlist" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Thanks — you&apos;re in.'; this.querySelector('input').value='';">
+      <input type="email" placeholder="you@household.net" required>
+      <button class="btn btn-primary" type="submit">Join waitlist</button>
+    </form>
+    <p class="mono" style="margin-top: 32px; color: rgba(255,255,255,0.48);">MIT-licensed · docker-compose ready · no trackers</p>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="inner">
+    <div class="cols">
+      <div>
+        <div class="brand-line"><span class="mark">L</span>LocalOCR</div>
+        <p class="tagline">Open-source receipt OCR for households who&rsquo;d rather self-host than subscribe.</p>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <ul><li><a href="#">Features</a></li><li><a href="#">Providers</a></li><li><a href="#">Roadmap</a></li><li><a href="#">Changelog</a></li></ul>
+      </div>
+      <div>
+        <h5>Docs</h5>
+        <ul><li><a href="#">Install</a></li><li><a href="#">API</a></li><li><a href="#">Export</a></li><li><a href="#">GitHub</a></li></ul>
+      </div>
+      <div>
+        <h5>Community</h5>
+        <ul><li><a href="#">Discord</a></li><li><a href="#">Forum</a></li><li><a href="#">Status</a></li><li><a href="#">Contact</a></li></ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© 2026 LocalOCR contributors. MIT licensed.</span>
+      <span>No tracking. No cookies. No kidding.</span>
+    </div>
+  </div>
+</footer>
+
+</body></html>

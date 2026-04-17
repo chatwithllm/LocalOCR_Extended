@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Badges — semantic, confidence, category</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .label { text-transform: uppercase; letter-spacing: 0.6px; font-size: 10px; font-weight: 600; color: rgba(0,0,0,0.56); margin: 8px 0 8px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .b { font-family: var(--font-text); font-size: 12px; font-weight: 600; letter-spacing: -0.12px; border-radius: 980px; padding: 3px 10px; display:inline-flex; align-items:center; gap:6px; font-variant-numeric: tabular-nums; }
+  .b::before { content:""; width:6px; height:6px; border-radius: 50%; }
+  .s-success { background: rgba(0,183,74,0.12); color:#00803a; }   .s-success::before { background:#00b74a; }
+  .s-warning { background: rgba(255,149,0,0.14); color:#a85a00; }  .s-warning::before { background:#ff9500; }
+  .s-error   { background: rgba(255,59,48,0.12); color:#b3271e; }  .s-error::before { background:#ff3b30; }
+  .s-info    { background: rgba(0,122,255,0.10); color:#0057b0; }  .s-info::before { background:#007aff; }
+  .s-neutral { background: #ededf2; color: rgba(0,0,0,0.8); }      .s-neutral::before { background: rgba(0,0,0,0.56); }
+  .c-high    { background: rgba(0,183,74,0.12); color:#00803a; }   .c-high::before { background:#00b74a; }
+  .c-med     { background: rgba(255,149,0,0.14); color:#a85a00; }  .c-med::before { background:#ff9500; }
+  .c-low     { background: rgba(255,59,48,0.12); color:#b3271e; }  .c-low::before { background:#ff3b30; }
+  .cat { color:#fff; }
+  .cat::before { background: rgba(255,255,255,0.7); }
+  .cat-grocery { background:#34a36b; }
+  .cat-rest    { background:#d37c2b; }
+  .cat-util    { background:#3a7cbd; }
+  .cat-sub     { background:#2a8a95; }
+  .cat-pers    { background:#8450b8; }
+</style>
+</head><body>
+<div class="card">
+  <div class="label">Semantic</div>
+  <div class="row">
+    <span class="b s-success">Saved</span>
+    <span class="b s-warning">Retry 2 of 3</span>
+    <span class="b s-error">OCR failed</span>
+    <span class="b s-info">Auto</span>
+    <span class="b s-neutral">Draft</span>
+  </div>
+  <div class="label">Confidence</div>
+  <div class="row">
+    <span class="b c-high">✓ 0.94</span>
+    <span class="b c-high">✓ 0.88</span>
+    <span class="b c-med">! 0.73</span>
+    <span class="b c-med">! 0.62</span>
+    <span class="b c-low">⚠ 0.41</span>
+    <span class="b c-low">⚠ 0.22</span>
+  </div>
+  <div class="label">Category</div>
+  <div class="row">
+    <span class="b cat cat-grocery">Grocery</span>
+    <span class="b cat cat-rest">Restaurant</span>
+    <span class="b cat cat-util">Utility</span>
+    <span class="b cat cat-sub">Subscription</span>
+    <span class="b cat cat-pers">Personal</span>
+  </div>
+</div>
+</body></html>

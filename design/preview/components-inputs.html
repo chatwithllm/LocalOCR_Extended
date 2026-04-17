@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Inputs — text, select, search</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 22px 26px; }
+  .group { margin-bottom: 14px; }
+  .label { font-size: 12px; font-weight: 600; letter-spacing: -0.12px; color: rgba(0,0,0,0.8); margin-bottom: 6px; display:block; }
+  .in   { font-family: var(--font-text); font-size: 17px; letter-spacing: -0.374px; padding: 10px 14px; background: #fff; border: 1px solid rgba(0,0,0,0.22); border-radius: 8px; width: 100%; color: #1d1d1f; }
+  .in.focus { outline: 2px solid #0071e3; outline-offset: 2px; border-color: rgba(0,113,227,0.5); }
+  .in.error { border-color: #ff3b30; background: rgba(255,59,48,0.04); }
+  .hint { font-size: 12px; color: rgba(0,0,0,0.56); margin-top: 4px; }
+  .hint.err { color: #ff3b30; }
+  .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .search { background: #fafafc; border: 3px solid rgba(0,0,0,0.04); border-radius: 11px; padding: 6px 14px; display:flex; align-items:center; gap: 8px; }
+  .search svg { color: rgba(0,0,0,0.56); }
+  .search input { flex:1; border:none; outline:none; background:transparent; font-family: var(--font-text); font-size: 17px; letter-spacing: -0.374px; color:#1d1d1f; padding: 6px 0; }
+</style>
+</head><body>
+<div class="card">
+  <div class="row">
+    <div class="group">
+      <label class="label">Store</label>
+      <input class="in focus" value="Trader Joe's #0402" />
+      <div class="hint">Focused · 2px brand ring, 2px offset</div>
+    </div>
+    <div class="group">
+      <label class="label">Total</label>
+      <input class="in" value="$18.73" />
+      <div class="hint">Default</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="group">
+      <label class="label">Date</label>
+      <input class="in error" value="2026-13-40" />
+      <div class="hint err">Invalid date — please correct</div>
+    </div>
+    <div class="group">
+      <label class="label">Search</label>
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input placeholder="Find a receipt" value="divisadero" />
+      </div>
+      <div class="hint">11px radius · surface-2 bg</div>
+    </div>
+  </div>
+</div>
+</body></html>

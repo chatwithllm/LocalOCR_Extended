@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalOCR — Marketing page directions</title>
+<link rel="stylesheet" href="_site.css">
+<style>
+  :root {
+    --ink: #0a0a0a;
+    --paper: #fff;
+    --rule: rgba(10,10,10,0.1);
+    --muted: rgba(10,10,10,0.56);
+    --accent: #0071e3;
+    --accent-2: #00b74a;
+  }
+
+  body {
+    background: #fafaf8;
+    color: var(--ink);
+    font-family: var(--font-text);
+  }
+
+  /* =========================================================
+     TOP BAR — thin, product-spec flavored
+     ========================================================= */
+  .top {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(250,250,248,0.85);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .top .inner {
+    max-width: 1320px; margin: 0 auto; padding: 14px 32px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .top .brand { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.3px; font-size: 16px; display: inline-flex; gap: 10px; align-items: center; }
+  .top .brand .mark { width: 20px; height: 20px; display: grid; place-items: center; background: var(--ink); color: #fff; border-radius: 4px; font-weight: 700; font-size: 11px; font-family: var(--font-text); }
+  .top .crumb { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.2px; }
+  .top .crumb .sep { margin: 0 8px; opacity: 0.4; }
+  .top .crumb b { color: var(--ink); font-weight: 600; }
+  .top .spacer { flex: 1; }
+  .top .stage { font-family: var(--font-mono); font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .top .stage::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ff9500; box-shadow: 0 0 0 3px rgba(255,149,0,0.18); }
+
+  /* =========================================================
+     MASTHEAD
+     ========================================================= */
+  .mast {
+    max-width: 1320px; margin: 0 auto; padding: 80px 32px 48px;
+  }
+  .mast .grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 80px;
+    align-items: end;
+  }
+  .mast .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 28px;
+  }
+  .mast .eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--ink); }
+  .mast h1 {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 6.4vw, 92px);
+    font-weight: 600; line-height: 0.96;
+    letter-spacing: -0.045em;
+    margin: 0 0 28px;
+    max-width: 14ch;
+  }
+  .mast h1 .fade { color: rgba(10,10,10,0.3); }
+  .mast .lede {
+    font-size: 18px;
+    line-height: 1.55;
+    color: rgba(10,10,10,0.72);
+    max-width: 52ch;
+    margin: 0;
+    letter-spacing: -0.2px;
+    font-weight: 400;
+  }
+
+  /* Product card: what LocalOCR IS */
+  .product-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+  }
+  .product-card .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; }
+  .product-card h2 { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin: 0 0 8px; line-height: 1.2; }
+  .product-card .caption { font-size: 14px; line-height: 1.5; color: rgba(10,10,10,0.64); letter-spacing: -0.15px; margin: 0 0 20px; }
+
+  /* Two-input diagram */
+  .stack {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .stack .src {
+    background: #f5f5f3;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 140px;
+  }
+  .stack .src .top-row { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; }
+  .stack .src .top-row .badge { font-weight: 600; color: var(--ink); letter-spacing: 0.3px; }
+  .stack .src .h { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.2px; margin-top: auto; }
+  .stack .src .s { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+
+  .stack .src.ocr { background: #faf7ee; }
+  .stack .src.ocr .rcpt {
+    background: #fff; border-radius: 4px; padding: 6px 8px;
+    font-family: var(--font-mono); font-size: 8px; color: #1d1d1f;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    line-height: 1.5;
+  }
+  .stack .src.ocr .rcpt b { display:block; text-align:center; font-weight: 700; font-size: 9px; margin-bottom: 2px; }
+  .stack .src.ocr .rcpt .ln { display: flex; justify-content: space-between; border-top: 1px dashed rgba(0,0,0,0.2); padding-top: 2px; margin-top: 2px; }
+
+  .stack .src.plaid { background: #eef5fb; }
+  .stack .src.plaid .tx { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 4px; padding: 6px 8px; font-size: 11px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .stack .src.plaid .tx .name { font-weight: 600; letter-spacing: -0.2px; }
+  .stack .src.plaid .tx .name .sub { display:block; font-family: var(--font-mono); font-size: 8px; color: var(--muted); font-weight: 400; }
+  .stack .src.plaid .tx .amt { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 11px; }
+
+  .merge {
+    background: var(--ink);
+    color: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .merge .i { width: 32px; height: 32px; border-radius: 8px; background: #fff; color: var(--ink); display: grid; place-items: center; flex: 0 0 32px; }
+  .merge .i svg { width: 18px; height: 18px; }
+  .merge .t { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.2px; }
+  .merge .sub { font-size: 12px; color: rgba(255,255,255,0.64); letter-spacing: -0.1px; }
+
+  /* =========================================================
+     KEY-FACTS STRIP — product-spec table feel
+     ========================================================= */
+  .facts {
+    max-width: 1320px; margin: 0 auto;
+    padding: 40px 32px 0;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+  }
+  .facts .f { padding: 28px 28px 28px 0; border-right: 1px solid var(--rule); }
+  .facts .f:last-child { border-right: none; padding-right: 0; }
+  .facts .f .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .facts .f .v { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.15; margin-bottom: 4px; }
+  .facts .f .n { font-size: 13px; color: rgba(10,10,10,0.56); letter-spacing: -0.1px; line-height: 1.4; }
+
+  /* =========================================================
+     VARIANTS — proper product directory
+     ========================================================= */
+  .directory {
+    max-width: 1320px; margin: 56px auto 0;
+    padding: 0 32px;
+  }
+  .dir-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 24px 0 28px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .dir-head .title { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin: 0; }
+  .dir-head .counter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); letter-spacing: 0.4px; }
+
+  .variants {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+  .variant {
+    display: block; color: inherit;
+    padding: 36px 32px 40px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    position: relative;
+    transition: background 200ms ease;
+  }
+  .variant:last-child { border-right: none; }
+  .variant:hover { background: rgba(0,0,0,0.02); }
+  .variant:hover .prev { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,0.14), 0 2px 4px rgba(0,0,0,0.05); }
+
+  .variant .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .variant .idx {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .variant .go {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .variant:hover .go { color: var(--accent); }
+  .variant .go::after { content: " →"; display: inline-block; transition: transform 200ms; }
+  .variant:hover .go::after { transform: translateX(3px); }
+
+  .variant h3 {
+    font-family: var(--font-display);
+    font-size: 28px; font-weight: 600;
+    letter-spacing: -0.45px; line-height: 1.05;
+    margin: 0 0 8px;
+  }
+  .variant .desc {
+    font-size: 14px; line-height: 1.5;
+    color: rgba(10,10,10,0.64);
+    letter-spacing: -0.1px;
+    margin: 0 0 24px;
+    max-width: 38ch;
+  }
+  .variant .prev {
+    aspect-ratio: 16/10;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    transition: transform 240ms cubic-bezier(0.2,0.6,0.2,1), box-shadow 240ms cubic-bezier(0.2,0.6,0.2,1);
+    position: relative;
+  }
+
+  /* meta row under preview */
+  .variant .meta {
+    margin-top: 20px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 20px;
+    font-size: 12px;
+  }
+  .variant .meta dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.6px; color: var(--muted); text-transform: uppercase; margin: 0; }
+  .variant .meta dd { margin: 0; font-size: 13px; letter-spacing: -0.15px; color: var(--ink); font-weight: 500; }
+
+  /* ----- mini-renders: variant A (black, technical) ----- */
+  .prev-a { background: #000; color: #fff; padding: 18px 16px 0; display: flex; flex-direction: column; height: 100%; }
+  .prev-a .n { font-family: var(--font-display); font-weight: 600; font-size: 9px; display: flex; gap: 10px; align-items: center; }
+  .prev-a .n .m { width: 12px; height: 12px; background: #fff; color: #000; display: grid; place-items: center; border-radius: 3px; font-size: 8px; font-weight: 700; }
+  .prev-a .body { flex: 1; display: flex; gap: 10px; padding-top: 14px; }
+  .prev-a .tag { font-family: var(--font-mono); font-size: 8px; color: #2997ff; margin-bottom: 4px; }
+  .prev-a .h { font-family: var(--font-display); font-weight: 600; font-size: 28px; line-height: 0.95; letter-spacing: -0.04em; margin: 0 0 6px; }
+  .prev-a .h em { color: #2997ff; font-style: normal; }
+  .prev-a .sub { font-size: 9px; color: rgba(255,255,255,0.64); font-weight: 300; line-height: 1.4; margin: 0 0 8px; max-width: 22ch; }
+  .prev-a .btns { display: flex; gap: 5px; }
+  .prev-a .btn { font-size: 7px; font-weight: 600; padding: 3px 8px; border-radius: 980px; }
+  .prev-a .btn.p { background: #fff; color: #000; }
+  .prev-a .btn.g { color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+  .prev-a .scan { width: 38%; background: #141414; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; position: relative; }
+  .prev-a .scan::before { content:""; position:absolute; left:10%; right:10%; top:10%; bottom:10%; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.18) 0 1px, transparent 1px 4px); }
+  .prev-a .scan::after { content:""; position:absolute; left:0; right:0; top:45%; height: 1px; background: #2997ff; box-shadow: 0 0 4px #2997ff; }
+
+  /* ----- variant B (light, household) ----- */
+  .prev-b { background: #f5f5f3; color: #1d1d1f; padding: 18px 16px; display: flex; flex-direction: column; height: 100%; }
+  .prev-b .n { font-family: var(--font-display); font-weight: 600; font-size: 9px; display: flex; gap: 10px; align-items: center; }
+  .prev-b .n .m { width: 12px; height: 12px; background: #000; color: #fff; display: grid; place-items: center; border-radius: 3px; font-size: 8px; font-weight: 700; }
+  .prev-b .body { flex: 1; display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; padding-top: 14px; align-items: center; }
+  .prev-b .h { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 0.95; letter-spacing: -0.04em; margin: 0 0 6px; }
+  .prev-b .sub { font-size: 9px; color: rgba(0,0,0,0.64); font-weight: 300; line-height: 1.4; margin: 0 0 8px; max-width: 22ch; }
+  .prev-b .btn { font-size: 7px; font-weight: 600; padding: 3px 8px; border-radius: 980px; background: #000; color: #fff; display: inline-block; }
+  .prev-b .pile { position: relative; aspect-ratio: 1/1; }
+  .prev-b .r { position: absolute; background: #faf7ee; border-radius: 2px; padding: 4px 6px; font-family: var(--font-mono); font-size: 5px; color: #1d1d1f; box-shadow: 0 3px 8px rgba(0,0,0,0.18); line-height: 1.5; width: 50px; }
+  .prev-b .r .h0 { font-weight: 700; text-align:center; font-size: 6px; margin-bottom: 1px; }
+  .prev-b .r hr { border: none; border-top: 1px dashed rgba(0,0,0,0.3); margin: 2px 0; }
+  .prev-b .r1 { top: 0; left: 0; transform: rotate(-8deg); }
+  .prev-b .r2 { top: 20%; right: -4%; transform: rotate(9deg); }
+  .prev-b .r3 { bottom: 0; left: 18%; transform: rotate(-3deg); z-index: 3; }
+
+  /* ----- variant C (black, privacy) ----- */
+  .prev-c { background: #000; color: #fff; padding: 18px 16px; display: flex; flex-direction: column; align-items: center; text-align: center; height: 100%; background-image: radial-gradient(50% 60% at 50% 40%, rgba(0,113,227,0.3), transparent 70%); }
+  .prev-c .n { align-self: stretch; font-family: var(--font-display); font-weight: 600; font-size: 9px; display: flex; gap: 10px; align-items: center; }
+  .prev-c .n .m { width: 12px; height: 12px; background: #fff; color: #000; display: grid; place-items: center; border-radius: 3px; font-size: 8px; font-weight: 700; }
+  .prev-c .body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .prev-c .tag { font-family: var(--font-mono); font-size: 8px; color: #2997ff; margin-bottom: 6px; letter-spacing: 0.4px; text-transform: uppercase; }
+  .prev-c .h { font-family: var(--font-display); font-weight: 600; font-size: 22px; line-height: 0.98; letter-spacing: -0.045em; margin: 0 0 8px; }
+  .prev-c .h em { color: #2997ff; font-style: normal; display: block; margin-top: 2px; }
+  .prev-c .sub { font-size: 9px; color: rgba(255,255,255,0.64); font-weight: 300; line-height: 1.4; margin: 0 0 10px; max-width: 22ch; }
+  .prev-c .btns { display: flex; gap: 5px; }
+  .prev-c .btn { font-size: 7px; font-weight: 600; padding: 3px 8px; border-radius: 980px; }
+  .prev-c .btn.p { background: #fff; color: #000; }
+  .prev-c .btn.g { color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+
+  /* =========================================================
+     MONEY LIFECYCLE — animated 4-beat story
+     ========================================================= */
+  .lifecycle {
+    max-width: 1320px; margin: 24px auto 0;
+    padding: 0 32px;
+  }
+  .lc-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 28px 0 24px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .lc-head .title { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin: 0; }
+  .lc-head .title em { font-style: italic; font-family: "New York", "Charter", "Iowan Old Style", Georgia, serif; font-weight: 400; }
+  .lc-head .legend { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.4px; display: inline-flex; align-items: center; gap: 10px; }
+  .lc-head .legend .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 0 rgba(0,183,74,0.6); animation: pulseDot 1.6s ease-out infinite; }
+  @keyframes pulseDot { 0%{box-shadow:0 0 0 0 rgba(0,183,74,0.6)} 70%{box-shadow:0 0 0 8px rgba(0,183,74,0)} 100%{box-shadow:0 0 0 0 rgba(0,183,74,0)} }
+
+  .lc-stage {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+  }
+  .lc-stage::before {
+    /* the money-rail ribbon behind all 4 beats */
+    content: ""; position: absolute;
+    left: 32px; right: 32px; top: 108px; height: 2px;
+    background: repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 12px);
+    z-index: 0;
+  }
+  /* travelling coin */
+  .lc-stage::after {
+    content: ""; position: absolute;
+    top: 99px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffde6b, #d29700 70%);
+    box-shadow: 0 6px 16px rgba(210,151,0,0.45), inset 0 -2px 4px rgba(0,0,0,0.2);
+    z-index: 5;
+    animation: coinRun 12s linear infinite;
+  }
+  @keyframes coinRun {
+    0%   { left: 4%;  transform: translateY(0) rotate(0deg); }
+    22%  { left: 24%; transform: translateY(-4px) rotate(90deg); }
+    25%  { left: 27%; transform: translateY(0) rotate(120deg); }
+    47%  { left: 48%; transform: translateY(-4px) rotate(220deg); }
+    50%  { left: 52%; transform: translateY(0) rotate(260deg); }
+    72%  { left: 72%; transform: translateY(-4px) rotate(360deg); }
+    75%  { left: 76%; transform: translateY(0) rotate(400deg); }
+    97%  { left: 96%; transform: translateY(-4px) rotate(500deg); }
+    100% { left: 4%;  transform: translateY(0) rotate(540deg); opacity: 0; }
+  }
+
+  .beat {
+    padding: 36px 28px 32px;
+    border-right: 1px solid var(--rule);
+    position: relative;
+    z-index: 1;
+  }
+  .beat:last-child { border-right: none; }
+  .beat .stage {
+    height: 200px; position: relative; overflow: hidden;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid var(--rule);
+    margin-bottom: 20px;
+  }
+  .beat .cap { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .beat .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+  .beat .num { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.6px; color: var(--ink); font-weight: 600; }
+  .beat h4 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.4px; margin: 0 0 6px; line-height: 1.1; }
+  .beat h4 em { font-style: italic; font-family: "New York", "Charter", "Iowan Old Style", Georgia, serif; font-weight: 400; }
+  .beat p { font-size: 13px; color: rgba(10,10,10,0.64); line-height: 1.5; margin: 0; letter-spacing: -0.1px; max-width: 28ch; }
+
+  /* ============ BEAT 1: EARN ============ */
+  .b1 .stage { background: linear-gradient(180deg, #f1f7ef 0%, #e3efdd 100%); }
+  .b1 .paycheck {
+    position: absolute; left: 16px; top: 30px;
+    width: 110px; height: 58px;
+    background: #fff; border-radius: 6px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    padding: 10px 12px;
+    font-family: var(--font-mono); font-size: 8px; color: #1a7a3a;
+    animation: paycheckPulse 4s ease-in-out infinite;
+  }
+  .b1 .paycheck .title { font-family: var(--font-text); font-weight: 600; font-size: 10px; color: #1d1d1f; letter-spacing: -0.2px; }
+  .b1 .paycheck .amt { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: #1a7a3a; letter-spacing: -0.3px; margin-top: 4px; }
+  @keyframes paycheckPulse { 0%,40%,100%{transform:scale(1)} 20%{transform:scale(1.06)} }
+  .b1 .arrow-flow {
+    position: absolute; left: 130px; top: 50px; width: 60px; height: 20px;
+  }
+  .b1 .arrow-flow::before {
+    content: ""; position: absolute; inset: 9px 0; height: 2px;
+    background: #1a7a3a;
+    border-radius: 1px;
+  }
+  .b1 .arrow-flow::after {
+    content: ""; position: absolute; right: 0; top: 6px;
+    border-left: 8px solid #1a7a3a;
+    border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+  }
+  .b1 .deposit {
+    position: absolute; right: 16px; top: 20px;
+    width: 80px; padding: 10px 10px 12px;
+    background: #fff; border: 1px solid var(--rule); border-radius: 8px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+  }
+  .b1 .deposit .bank { font-family: var(--font-mono); font-size: 8px; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; }
+  .b1 .deposit .bal { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: #1d1d1f; margin-top: 2px; letter-spacing: -0.3px; }
+  .b1 .deposit .delta { font-size: 10px; color: #1a7a3a; margin-top: 2px; font-weight: 600; animation: deltaPop 4s ease-in-out infinite; }
+  @keyframes deltaPop { 0%,35%{opacity:0; transform:translateY(4px)} 45%,90%{opacity:1; transform:translateY(0)} 100%{opacity:0} }
+  .b1 .coin-rain {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 60px;
+    pointer-events: none;
+  }
+  .b1 .coin-rain i {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffde6b, #d29700 70%);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    animation: coinDrop 3s linear infinite;
+    opacity: 0;
+  }
+  .b1 .coin-rain i:nth-child(1) { left: 20%; animation-delay: 0.2s; }
+  .b1 .coin-rain i:nth-child(2) { left: 35%; animation-delay: 0.8s; }
+  .b1 .coin-rain i:nth-child(3) { left: 55%; animation-delay: 1.4s; }
+  .b1 .coin-rain i:nth-child(4) { left: 72%; animation-delay: 2.0s; }
+  .b1 .coin-rain i:nth-child(5) { left: 82%; animation-delay: 2.6s; }
+  @keyframes coinDrop { 0%{transform:translateY(-120px); opacity:0} 10%{opacity:1} 85%{opacity:1} 100%{transform:translateY(40px); opacity:0} }
+
+  /* ============ BEAT 2: SPEND ============ */
+  .b2 .stage { background: linear-gradient(180deg, #fff 0%, #faf7ee 100%); }
+  .b2 .card {
+    position: absolute; left: 16px; top: 20px;
+    width: 130px; height: 80px;
+    background: linear-gradient(135deg, #1d1d1f, #3d3d3d);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #fff;
+    font-family: var(--font-mono); font-size: 8px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.1);
+    animation: cardSwipe 3s ease-in-out infinite;
+    transform-origin: center;
+  }
+  .b2 .card .chip { width: 16px; height: 12px; background: linear-gradient(135deg, #ffd76b, #c79500); border-radius: 2px; margin-bottom: 14px; }
+  .b2 .card .num { letter-spacing: 1px; font-size: 9px; }
+  .b2 .card .lbl { font-size: 7px; opacity: 0.6; margin-top: 6px; letter-spacing: 0.6px; }
+  @keyframes cardSwipe {
+    0%,40%,100% { transform: rotate(0) translateX(0); }
+    20% { transform: rotate(-8deg) translateX(12px); }
+  }
+  .b2 .swipe-spark {
+    position: absolute; left: 150px; top: 50px;
+    width: 50px; height: 16px;
+    background: linear-gradient(90deg, transparent, #0071e3, transparent);
+    border-radius: 8px;
+    filter: blur(2px);
+    opacity: 0;
+    animation: sparkPop 3s ease-in-out infinite;
+  }
+  @keyframes sparkPop { 0%,15%,30%,100% {opacity:0} 18%,25% {opacity:1} }
+  .b2 .receipt {
+    position: absolute; right: 14px; top: 14px;
+    width: 74px;
+    background: #faf7ee;
+    border-radius: 2px;
+    padding: 8px 8px;
+    font-family: var(--font-mono); font-size: 7px; color: #1d1d1f;
+    line-height: 1.5;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transform: rotate(4deg);
+    transform-origin: top center;
+    animation: rcptSway 4s ease-in-out infinite;
+  }
+  @keyframes rcptSway {
+    0%,100% { transform: rotate(4deg) translateY(0); }
+    50% { transform: rotate(-2deg) translateY(-4px); }
+  }
+  .b2 .receipt::before { content:""; position:absolute; top:-3px; left:0; right:0; height:5px; background: repeating-linear-gradient(45deg, #faf7ee 0 3px, transparent 3px 6px); }
+  .b2 .receipt b { display:block; text-align:center; font-size: 8px; font-weight: 700; letter-spacing: 0.2px; }
+  .b2 .receipt hr { border:none; border-top: 1px dashed rgba(0,0,0,0.3); margin: 3px 0; }
+  .b2 .receipt .ln { display:flex; justify-content:space-between; }
+  @keyframes rcptPrint {
+    0%,20% { transform: rotate(4deg) scaleY(0); opacity: 0; }
+    35%,100% { transform: rotate(4deg) scaleY(1); opacity: 1; }
+  }
+  .b2 .tx-pop {
+    position: absolute; left: 60px; bottom: 14px;
+    background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 6px 9px;
+    font-family: var(--font-text); font-size: 9px; font-weight: 600;
+    color: #1d1d1f;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 6px;
+    animation: txPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes txPulse {
+    0%,100% { transform: translateY(0); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+    50% { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,113,227,0.18); }
+  }
+  .b2 .tx-pop::before { content:""; width: 6px; height: 6px; border-radius: 50%; background: #0071e3; }
+  .b2 .tx-pop .amt { color: #d93838; font-variant-numeric: tabular-nums; }
+  @keyframes txPop {
+    0%,35% { opacity: 0; transform: translateY(6px); }
+    50%,95% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; }
+  }
+
+  /* ============ BEAT 3: TRACK ============ */
+  .b3 .stage { background: linear-gradient(180deg, #f3f6fb 0%, #e6edf7 100%); overflow: visible; }
+  .b3 .ledger-mini {
+    position: absolute; inset: 16px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--font-mono); font-size: 9px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; gap: 5px;
+    overflow: hidden;
+  }
+  .b3 .ledger-mini .hd { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
+  .b3 .ledger-mini .hd b { font-family: var(--font-display); font-weight: 600; font-size: 11px; letter-spacing: -0.2px; color: #1d1d1f; }
+  .b3 .ledger-mini .hd span { font-size: 8px; color: var(--muted); letter-spacing: 0.3px; }
+  .b3 .ledger-mini .row {
+    display: grid; grid-template-columns: 1fr auto auto;
+    gap: 8px; align-items: center;
+    padding: 3px 0;
+    opacity: 1;
+  }
+  .b3 .ledger-mini .row .tag {
+    animation: tagBlink 4s ease-in-out infinite;
+  }
+  .b3 .ledger-mini .row:nth-child(3) .tag { animation-delay: 0.3s; }
+  .b3 .ledger-mini .row:nth-child(4) .tag { animation-delay: 0.6s; }
+  .b3 .ledger-mini .row:nth-child(5) .tag { animation-delay: 0.9s; }
+  .b3 .ledger-mini .row:nth-child(6) .tag { animation-delay: 1.2s; }
+  @keyframes tagBlink {
+    0%,10%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,183,74,0); }
+    15% { transform: scale(1.15); box-shadow: 0 0 0 3px rgba(0,183,74,0.25); }
+    30% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,183,74,0); }
+  }
+  .b3 .ledger-mini .row .n { color: #1d1d1f; font-family: var(--font-text); font-size: 10px; font-weight: 500; letter-spacing: -0.1px; }
+  .b3 .ledger-mini .row .tag {
+    font-size: 7px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    padding: 1px 4px; border-radius: 3px;
+  }
+  .b3 .ledger-mini .tag.m { background: #e7f5ec; color: #1a7a3a; }
+  .b3 .ledger-mini .tag.o { background: #eaeaf5; color: #3d3d9a; }
+  .b3 .ledger-mini .row .amt { font-family: var(--font-text); font-weight: 600; font-size: 10px; font-variant-numeric: tabular-nums; color: #1d1d1f; }
+
+
+
+  /* ============ BEAT 4: SAVE ============ */
+  .b4 .stage { background: linear-gradient(180deg, #fff 0%, #f0e7f5 100%); overflow: hidden; }
+  .b4 .chart {
+    position: absolute; inset: 16px 16px 36px;
+    display: flex; align-items: flex-end; gap: 3px;
+  }
+  .b4 .chart span {
+    flex: 1; background: linear-gradient(180deg, #0071e3, #8450b8);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.9;
+    transform-origin: bottom;
+    animation: barGrow 3.5s ease-in-out infinite;
+  }
+  .b4 .chart span:nth-child(1) { height: 40%; animation-delay: 0.0s; }
+  .b4 .chart span:nth-child(2) { height: 55%; animation-delay: 0.08s; }
+  .b4 .chart span:nth-child(3) { height: 48%; animation-delay: 0.16s; }
+  .b4 .chart span:nth-child(4) { height: 62%; animation-delay: 0.24s; }
+  .b4 .chart span:nth-child(5) { height: 70%; animation-delay: 0.32s; }
+  .b4 .chart span:nth-child(6) { height: 58%; animation-delay: 0.40s; }
+  .b4 .chart span:nth-child(7) { height: 74%; animation-delay: 0.48s; }
+  .b4 .chart span:nth-child(8) { height: 82%; animation-delay: 0.56s; }
+  .b4 .chart span:nth-child(9) { height: 68%; animation-delay: 0.64s; }
+  .b4 .chart span:nth-child(10) { height: 90%; animation-delay: 0.72s; }
+  @keyframes barGrow {
+    0%,5% { transform: scaleY(0); }
+    40%,95% { transform: scaleY(1); }
+    100% { transform: scaleY(1); }
+  }
+  .b4 .flag {
+    position: absolute; right: 14px; top: 20px;
+    background: #fff; border: 1px solid var(--rule); border-radius: 8px;
+    padding: 8px 10px;
+    font-family: var(--font-text); font-size: 9px; color: #1d1d1f;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    max-width: 140px; line-height: 1.3;
+    animation: flagPulse 3.5s ease-in-out infinite;
+  }
+  @keyframes flagPulse {
+    0%,100% { transform: translateY(0) scale(1); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+    50% { transform: translateY(-2px) scale(1.03); box-shadow: 0 10px 22px rgba(217,56,56,0.18); }
+  }
+  .b4 .flag b { color: #d93838; font-weight: 600; }
+  .b4 .flag .k { font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  @keyframes flagPop {
+    0%,45% { opacity: 0; transform: translateY(6px); }
+    60%,95% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; }
+  }
+  .b4 .piggy {
+    position: absolute; left: 16px; bottom: 12px;
+    font-family: var(--font-mono); font-size: 9px;
+    color: var(--muted);
+  }
+  .b4 .piggy b { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: #1a7a3a; letter-spacing: -0.3px; display: block; margin-top: 1px; }
+
+  /* =========================================================
+     FOOTER NOTE
+     ========================================================= */
+  .footnote {
+    max-width: 1320px; margin: 24px auto 0;
+    padding: 32px 32px 80px;
+    display: grid; grid-template-columns: 2fr 1fr 1fr;
+    gap: 56px;
+    color: rgba(10,10,10,0.64);
+    font-size: 13px; line-height: 1.6; letter-spacing: -0.1px;
+  }
+  .footnote h5 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink); margin: 0 0 10px; font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+
+  @media (max-width: 1000px) {
+    .mast .grid { grid-template-columns: 1fr; gap: 40px; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .facts .f:nth-child(2) { border-right: none; }
+    .variants { grid-template-columns: 1fr; }
+    .variant { border-right: none; }
+    .footnote { grid-template-columns: 1fr; gap: 24px; padding: 24px 24px 56px; }
+    .mast { padding: 56px 24px 32px; }
+    .directory, .lifecycle { padding: 0 24px; }
+    .lc-stage { grid-template-columns: 1fr 1fr; }
+    .lc-stage::before, .lc-stage::after { display: none; }
+    .beat { border-right: none; border-bottom: 1px solid var(--rule); }
+    .beat:nth-child(2n) { border-right: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP -->
+<div class="top">
+  <div class="inner">
+    <a class="brand" href="#"><span class="mark">L</span>LocalOCR</a>
+    <span class="crumb"><b>design</b><span class="sep">/</span>marketing<span class="sep">/</span>landing-page<span class="sep">/</span>R1</span>
+    <span class="spacer"></span>
+    <span class="stage">Round 1 · Exploring</span>
+  </div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="mast">
+  <div class="grid">
+    <div>
+      <div class="eyebrow">Landing page · three directions</div>
+      <h1>One product.<br>Three ways in.<br><span class="fade">Pick the door.</span></h1>
+      <p class="lede">LocalOCR combines two inputs the modern household spends its money through &mdash; <b>receipts on paper</b> and <b>transactions on cards</b> &mdash; into one self-hosted ledger. These three variants all sell that. They just disagree on which sentence should hit you first.</p>
+    </div>
+
+    <!-- Product card: what this actually IS -->
+    <div class="product-card">
+      <div class="tag">The product · what we&rsquo;re selling</div>
+      <h2>Every household expense, reconciled.</h2>
+      <p class="caption">Scanned receipts meet Plaid-synced transactions. Matched automatically. Yours to query.</p>
+
+      <div class="stack">
+        <div class="src ocr">
+          <div class="top-row"><span class="badge">OCR</span><span>input</span></div>
+          <div class="rcpt">
+            <b>TJ&rsquo;S</b>
+            <div class="ln"><span>Eggs</span><span>5.49</span></div>
+            <div class="ln"><span>Milk</span><span>3.99</span></div>
+            <div class="ln" style="font-weight:700"><span>TOTAL</span><span>28.48</span></div>
+          </div>
+          <div class="h">Receipts</div>
+          <div class="s">paper · PDF · photo</div>
+        </div>
+        <div class="src plaid">
+          <div class="top-row"><span class="badge">Plaid</span><span>input</span></div>
+          <div class="tx"><div class="name">PG&amp;E<span class="sub">ach · checking</span></div><div class="amt">142.04</div></div>
+          <div class="tx"><div class="name">Netflix<span class="sub">apple card</span></div><div class="amt">22.99</div></div>
+          <div class="h">Transactions</div>
+          <div class="s">12,000+ banks &amp; cards</div>
+        </div>
+      </div>
+
+      <div class="merge">
+        <div class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <div class="t">One reconciled ledger</div>
+          <div class="sub">matched automatically · self-hosted</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- MONEY LIFECYCLE — animated -->
+<section class="lifecycle">
+  <div class="lc-head">
+    <h2 class="title">The lifecycle of a dollar, <em>automated.</em></h2>
+    <span class="legend"><span class="pulse"></span>live · auto-playing</span>
+  </div>
+  <div class="lc-stage">
+
+    <!-- BEAT 1: EARN -->
+    <div class="beat b1">
+      <div class="stage" aria-label="Earning money animation">
+        <div class="paycheck">
+          <div class="title">Paycheck</div>
+          <div class="amt">+$4,280</div>
+        </div>
+        <div class="arrow-flow"></div>
+        <div class="deposit">
+          <div class="bank">Ally · checking</div>
+          <div class="bal">$8,420</div>
+          <div class="delta">+$4,280 ↑</div>
+        </div>
+        <div class="coin-rain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="cap"><span class="k">Beat 01</span><span class="num">Earn</span></div>
+      <h4>Money <em>earned.</em></h4>
+      <p>Plaid sees the paycheck hit. The ledger knows what you make, before you have to type it in.</p>
+    </div>
+
+    <!-- BEAT 2: SPEND -->
+    <div class="beat b2">
+      <div class="stage" aria-label="Spending money animation">
+        <div class="card">
+          <div class="chip"></div>
+          <div class="num">•••• 4120</div>
+          <div class="lbl">HOUSEHOLD</div>
+        </div>
+        <div class="swipe-spark"></div>
+        <div class="receipt">
+          <b>TJ&rsquo;S</b>
+          <hr>
+          <div class="ln"><span>Eggs</span><span>5.49</span></div>
+          <div class="ln"><span>Milk</span><span>3.99</span></div>
+          <hr>
+          <div class="ln" style="font-weight:700"><span>TOT</span><span>28.48</span></div>
+        </div>
+        <div class="tx-pop">
+          <span>Trader Joe&rsquo;s</span>
+          <span class="amt">−$28.48</span>
+        </div>
+      </div>
+      <div class="cap"><span class="k">Beat 02</span><span class="num">Spend</span></div>
+      <h4>Money <em>spent.</em></h4>
+      <p>Card swiped, receipt printed. Plaid catches the transaction; OCR catches the paper. Two records of one purchase.</p>
+    </div>
+
+    <!-- BEAT 3: TRACK -->
+    <div class="beat b3">
+      <div class="stage" aria-label="Tracking money animation">
+        <div class="ledger-mini">
+          <div class="hd"><b>April ledger</b><span>reconciled</span></div>
+          <div class="row"><span class="n">Trader Joe&rsquo;s</span><span class="tag m">matched</span><span class="amt">28.48</span></div>
+          <div class="row"><span class="n">Mensho Tokyo</span><span class="tag m">matched</span><span class="amt">58.90</span></div>
+          <div class="row"><span class="n">PG&amp;E auto-pay</span><span class="tag o">bank only</span><span class="amt">142.04</span></div>
+          <div class="row"><span class="n">Netflix</span><span class="tag o">bank only</span><span class="amt">22.99</span></div>
+          <div class="row"><span class="n">Walgreens</span><span class="tag m">matched</span><span class="amt">14.22</span></div>
+        </div>
+      </div>
+      <div class="cap"><span class="k">Beat 03</span><span class="num">Track</span></div>
+      <h4>Money <em>tracked.</em></h4>
+      <p>Receipts meet transactions. Matches happen automatically. The ledger writes itself while you do literally anything else.</p>
+    </div>
+
+    <!-- BEAT 4: SAVE -->
+    <div class="beat b4">
+      <div class="stage" aria-label="Saving money intelligently animation">
+        <div class="chart" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="flag">
+          <div class="k">Heads-up</div>
+          Netflix went up <b>$2/mo</b> again. Drop it?
+        </div>
+        <div class="piggy">Saved this month<b>$184</b></div>
+      </div>
+      <div class="cap"><span class="k">Beat 04</span><span class="num">Save</span></div>
+      <h4>Money <em>saved.</em></h4>
+      <p>LocalOCR flags price creep, duplicate charges, and unused subscriptions. Opinions, served with data.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- FACTS -->
+<section class="facts">
+  <div class="f">
+    <div class="k">Input · A</div>
+    <div class="v">Receipt OCR</div>
+    <div class="n">3 vision models, rotated by confidence. 94% auto-approve on real household receipts.</div>
+  </div>
+  <div class="f">
+    <div class="k">Input · B</div>
+    <div class="v">Plaid bank sync</div>
+    <div class="n">12,000+ banks &amp; cards. Pulls every swipe, ACH, and subscription transaction into the same ledger.</div>
+  </div>
+  <div class="f">
+    <div class="k">Engine</div>
+    <div class="v">Auto-reconcile</div>
+    <div class="n">Receipts match transactions by vendor, amount, and date. Gaps get flagged, not guessed.</div>
+  </div>
+  <div class="f">
+    <div class="k">Deployment</div>
+    <div class="v">Self-hosted</div>
+    <div class="n">docker-compose, SQLite, MIT-licensed. Your data stays on your box. Plaid tokens, too.</div>
+  </div>
+</section>
+
+<!-- DIRECTORY -->
+<main class="directory">
+  <div class="dir-head">
+    <h2 class="title">Variants</h2>
+    <span class="counter">03 directions · shared design system</span>
+  </div>
+
+  <div class="variants">
+
+    <!-- VARIANT A -->
+    <a class="variant" href="landing-a-technical.html">
+      <div class="head"><span class="idx">01 · A</span><span class="go">Open</span></div>
+      <h3>OCR that actually works.</h3>
+      <p class="desc">Leads with technical credibility &mdash; live scan demo, provider mix, Plaid reconciliation ledger. For people who&rsquo;ve been burned by bad OCR and want proof before they commit.</p>
+      <div class="prev">
+        <div class="prev-a" aria-hidden="true">
+          <div class="n"><span class="m">L</span>LocalOCR</div>
+          <div class="body">
+            <div style="flex:1">
+              <div class="tag">~/ localocr &mdash; v1.0</div>
+              <div class="h">OCR that<br><em>actually</em><br>works.</div>
+              <p class="sub">OCR + Plaid. Every receipt. Every transaction.</p>
+              <div class="btns"><span class="btn p">Join</span><span class="btn g">Demo</span></div>
+            </div>
+            <div class="scan"></div>
+          </div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Lead with</dt><dd>Technical proof</dd>
+        <dt>Plaid placement</dt><dd>Hero stat + section</dd>
+        <dt>Mood</dt><dd>Black, confident</dd>
+        <dt>Best for</dt><dd>Skeptics &amp; homelab crowd</dd>
+      </dl>
+    </a>
+
+    <!-- VARIANT B -->
+    <a class="variant" href="landing-b-household.html">
+      <div class="head"><span class="idx">02 · B</span><span class="go">Open</span></div>
+      <h3>Every receipt. One place.</h3>
+      <p class="desc">Warm, household-first framing. The outcome (shoebox &rarr; organized) comes before the method. Receipts as characters on the page, with room to layer Plaid in below.</p>
+      <div class="prev">
+        <div class="prev-b" aria-hidden="true">
+          <div class="n"><span class="m">L</span>LocalOCR</div>
+          <div class="body">
+            <div>
+              <div class="h">Every<br>receipt.<br>One place.</div>
+              <p class="sub">Paper receipts + bank transactions, reconciled.</p>
+              <span class="btn">Join the waitlist</span>
+            </div>
+            <div class="pile">
+              <div class="r r1"><div class="h0">TJ&rsquo;S</div><hr><div>28.48</div></div>
+              <div class="r r2"><div class="h0">MENSHO</div><hr><div>58.90</div></div>
+              <div class="r r3"><div class="h0">PG&amp;E</div><hr><div>142.04</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Lead with</dt><dd>Outcome, not method</dd>
+        <dt>Plaid placement</dt><dd>Split-bill &amp; ledger section</dd>
+        <dt>Mood</dt><dd>Light, human</dd>
+        <dt>Best for</dt><dd>Non-technical households</dd>
+      </dl>
+    </a>
+
+    <!-- VARIANT C -->
+    <a class="variant" href="landing-c-privacy.html">
+      <div class="head"><span class="idx">03 · C</span><span class="go">Open</span></div>
+      <h3>Your receipts. Your server.</h3>
+      <p class="desc">Privacy-first, cinematic. Most polarizing of the three. Plaid reads as a feature, not a liability &mdash; because nothing leaves your box except what you authorize.</p>
+      <div class="prev">
+        <div class="prev-c" aria-hidden="true">
+          <div class="n"><span class="m">L</span>LocalOCR</div>
+          <div class="body">
+            <div class="tag">Privacy-first</div>
+            <div class="h">Your receipts.<em>Your server.</em></div>
+            <p class="sub">No cloud. No telemetry. Plaid tokens stay local.</p>
+            <div class="btns"><span class="btn p">Join</span><span class="btn g">Install</span></div>
+          </div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Lead with</dt><dd>Principle</dd>
+        <dt>Plaid placement</dt><dd>In the privacy story</dd>
+        <dt>Mood</dt><dd>Black + blue halo</dd>
+        <dt>Best for</dt><dd>Self-host-or-nothing</dd>
+      </dl>
+    </a>
+
+  </div>
+</main>
+
+<!-- FOOTNOTE -->
+<section class="footnote">
+  <div>
+    <h5>How to read this page</h5>
+    Click a variant to open the full landing page. Each one has a top bar letting you hop between the three &mdash; so you can scroll, click next, and compare the same section treatment across all three without coming back here.
+  </div>
+  <div>
+    <h5>Shared across all three</h5>
+    Design tokens · nav · footer · waitlist form · section rhythm · button system · the Plaid reconciliation story (just presented at different points in the scroll).
+  </div>
+  <div>
+    <h5>What diverges</h5>
+    Hero composition · opening line tone · section ordering · where Plaid enters the argument · dark/light alternation cadence.
+  </div>
+</section>
+
+</body></html>

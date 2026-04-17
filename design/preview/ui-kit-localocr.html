@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>LocalOCR — Extended UI Kit</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text-primary); font-family: var(--font-text); -webkit-font-smoothing: antialiased; }
+
+  .kit { max-width: 1360px; margin: 0 auto; padding: 48px 32px 96px; display: flex; flex-direction: column; gap: 56px; }
+  .kit-head { display:flex; justify-content:space-between; align-items:baseline; padding: 8px 0 12px; border-bottom: 1px solid var(--color-border); }
+  .kit-head h1 { font-family: var(--font-display); font-size: 40px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.1; margin: 0; }
+  .kit-head .tag { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); }
+
+  .section { display: flex; flex-direction: column; gap: 16px; }
+  .section-title { display:flex; justify-content:space-between; align-items:baseline; }
+  .section-title h2 { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -0.374px; margin: 0; }
+  .section-title .hint { font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
+
+  /* -------- Browser window chrome -------- */
+  .win { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: rgba(0,0,0,0.18) 0px 12px 40px 0px, rgba(0,0,0,0.06) 0px 2px 8px 0px; }
+  .win-bar { display:flex; align-items:center; gap:8px; padding: 10px 14px; background: #ededf2; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .win-dots { display:flex; gap:6px; }
+  .win-dots span { width:11px; height:11px; border-radius:50%; background:#d0d0d5; }
+  .win-dots span:nth-child(1){background:#ff5f57} .win-dots span:nth-child(2){background:#febc2e} .win-dots span:nth-child(3){background:#28c840}
+  .win-url { flex:1; text-align:center; font-family: var(--font-mono); font-size: 11px; color: rgba(0,0,0,0.56); background:#f5f5f7; padding: 4px 10px; border-radius: 6px; max-width: 460px; margin: 0 auto; }
+  .win-body { background: #f5f5f7; }
+
+  /* -------- Top bar (app nav) -------- */
+  .appnav { background: rgba(0,0,0,0.82); backdrop-filter: saturate(180%) blur(20px); color: #fff; padding: 10px 24px; display:flex; align-items:center; gap:24px; font-size: 12px; font-weight: 400; }
+  .appnav .brand { display:flex; align-items:center; gap:8px; font-weight: 600; font-family: var(--font-display); font-size: 15px; letter-spacing: -0.2px; }
+  .appnav .brand .mark { width: 18px; height: 18px; border-radius: 4px; background: #0071e3; display:flex; align-items:center; justify-content:center; font-weight: 700; font-size: 10px; color: #fff; }
+  .appnav nav { display:flex; gap:22px; }
+  .appnav nav a { color: #fff; opacity: 0.86; text-decoration: none; }
+  .appnav nav a.active { opacity: 1; }
+  .appnav .spacer { flex:1; }
+  .appnav .user { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#34a36b,#2a8a95); color: #fff; display:flex; align-items:center; justify-content:center; font-weight: 600; font-size: 11px; }
+  .appnav .searchpill { background: rgba(255,255,255,0.12); border-radius: 980px; padding: 4px 12px; display:flex; align-items:center; gap:8px; color: rgba(255,255,255,0.72); font-size: 12px; min-width: 220px; }
+
+  /* -------- Dashboard layout -------- */
+  .dash { padding: 32px 48px 48px; }
+  .dash .hero { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom: 24px; }
+  .dash .hero h1 { font-family: var(--font-display); font-size: 40px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.1; margin: 0 0 4px; color: #1d1d1f; }
+  .dash .hero .sub { font-family: var(--font-display); font-size: 21px; font-weight: 400; color: rgba(0,0,0,0.56); letter-spacing: 0.231px; }
+  .cta-row { display:flex; gap: 10px; align-items:center; }
+  .cta-primary { background:#0071e3; color:#fff; border:1px solid transparent; border-radius: 8px; padding: 10px 18px; font-size: 15px; font-weight: 400; letter-spacing:-0.2px; cursor:pointer; font-family: var(--font-text); }
+  .cta-pill { border-radius: 980px; padding: 8px 18px; font-size: 14px; color:#0066cc; border: 1px solid #0066cc; background:transparent; font-family: var(--font-text); letter-spacing:-0.224px; cursor:pointer; }
+
+  .stat-row { display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat { background:#fff; border-radius: 8px; padding: 18px 20px; box-shadow: rgba(0,0,0,0.06) 0 1px 3px; }
+  .stat .lbl { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.56); letter-spacing: -0.12px; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+  .stat .val { font-family: var(--font-display); font-size: 34px; font-weight: 600; letter-spacing: -0.374px; line-height: 1.1; color: #1d1d1f; font-variant-numeric: tabular-nums; }
+  .stat .delta { font-size: 12px; color: rgba(0,0,0,0.56); margin-top: 6px; letter-spacing: -0.12px; display:flex; align-items:center; gap:4px; }
+  .stat .delta.up { color: #00803a; }
+  .stat .delta.dn { color: #b3271e; }
+
+  .dash-grid { display:grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
+
+  /* Receipt list (left) */
+  .panel { background:#fff; border-radius: 10px; padding: 18px 22px; box-shadow: rgba(0,0,0,0.06) 0 1px 3px; }
+  .panel-hd { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 14px; }
+  .panel-hd h3 { font-family: var(--font-display); font-size: 21px; font-weight: 700; letter-spacing: 0.231px; margin: 0; }
+  .panel-hd .see { font-size: 14px; color: #0066cc; letter-spacing: -0.224px; text-decoration:none; }
+  .filters { display:flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .chip { border-radius: 980px; padding: 5px 12px; font-size: 12px; font-weight: 600; letter-spacing: -0.12px; background: #f5f5f7; color: rgba(0,0,0,0.8); cursor: pointer; border: 1px solid transparent; }
+  .chip.on { background: #1d1d1f; color: #fff; }
+  .chip.cat { color: #fff; }
+
+  .rlist { display: flex; flex-direction: column; }
+  .rlist .r { display:grid; grid-template-columns: 40px 1fr auto auto auto; align-items:center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .rlist .r:last-child { border-bottom: none; }
+  .thumb { width: 40px; height: 52px; border-radius: 4px; background: linear-gradient(160deg,#ededf2,#d9d9de); position: relative; overflow:hidden; }
+  .thumb::after { content:""; position:absolute; inset: 14% 18%; background: repeating-linear-gradient(to bottom, #8e8e94 0 2px, transparent 2px 5px); opacity: 0.6; }
+  .rlist .nm { font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: -0.374px; line-height: 1.24; }
+  .rlist .mt { font-size: 12px; color: rgba(0,0,0,0.56); letter-spacing: -0.12px; margin-top: 2px; }
+  .rlist .tot { font-family: var(--font-display); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; color: #1d1d1f; }
+  .rlist .cat-pill { border-radius: 980px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .rlist .conf-pill { border-radius: 980px; padding: 3px 10px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; display:inline-flex; align-items:center; gap:5px; }
+  .conf-high { background: rgba(0,183,74,0.12); color:#00803a; }
+  .conf-med  { background: rgba(255,149,0,0.14); color:#a85a00; }
+  .conf-low  { background: rgba(255,59,48,0.12); color:#b3271e; }
+
+  /* Category breakdown (right) */
+  .cat-row { display:grid; grid-template-columns: 14px 1fr auto auto; gap: 10px; align-items:center; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-row .dot { width:10px; height:10px; border-radius:50%; }
+  .cat-row .nm { font-size: 14px; font-weight: 600; letter-spacing: -0.224px; }
+  .cat-row .amt { font-family: var(--font-display); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cat-row .pct { font-size: 11px; color: rgba(0,0,0,0.56); font-variant-numeric: tabular-nums; }
+  .bar-track { grid-column: 1 / -1; height: 4px; background: #ededf2; border-radius: 999px; overflow: hidden; margin-top: 4px; }
+  .bar-fill { height: 100%; }
+
+  .side-stack { display:flex; flex-direction: column; gap: 20px; }
+
+  /* Processing card */
+  .proc .job { padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .proc .job:last-child { border-bottom: none; }
+  .proc .jh { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 6px; }
+  .proc .jh .t { font-size: 14px; font-weight: 600; letter-spacing:-0.22px; }
+  .proc .jh .m { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); }
+  .proc .track { height: 4px; background: #ededf2; border-radius: 999px; overflow: hidden; }
+  .proc .fill-run { height:100%; background:#0071e3; width: 64%; }
+  .proc .fill-retry { height:100%; background:#ff9500; width: 42%; }
+  .proc .fill-done { height:100%; background:#00b74a; width: 100%; }
+  .proc .tag { display:inline-flex; align-items:center; gap: 5px; border-radius: 980px; padding: 2px 8px; background: #ededf2; color: rgba(0,0,0,0.8); font-size: 10px; font-weight: 600; letter-spacing:0.1px; margin-top: 6px; }
+
+  /* -------- Review / correction screen -------- */
+  .review { display:grid; grid-template-columns: 1fr 480px; gap: 0; min-height: 640px; }
+  .review .left { background: #000; padding: 32px; display:flex; flex-direction:column; }
+  .review .left .ccrumbs { color: rgba(255,255,255,0.64); font-size: 12px; letter-spacing: -0.12px; margin-bottom: 20px; }
+  .review .left .ccrumbs a { color: #2997ff; text-decoration: none; }
+  .review .photo { flex: 1; display:flex; align-items:center; justify-content:center; position:relative; }
+  .receipt-paper { background: #f5f3ee; color: #1d1d1f; border-radius: 2px; padding: 32px 28px; width: 320px; box-shadow: 0 40px 80px rgba(0,0,0,0.6); font-family: var(--font-mono); font-size: 13px; line-height: 1.55; position: relative; }
+  .receipt-paper .hdr { text-align:center; font-weight: 700; letter-spacing: 0.3px; }
+  .receipt-paper .sub { text-align:center; font-size: 11px; color: rgba(0,0,0,0.56); margin-top: 2px; }
+  .receipt-paper hr { border: none; border-top: 1px dashed rgba(0,0,0,0.25); margin: 12px 0; }
+  .receipt-paper .line { display:flex; justify-content: space-between; }
+  .receipt-paper .total { font-weight: 700; margin-top: 4px; }
+  .hl-box { position: absolute; border: 2px solid #0071e3; border-radius: 3px; background: rgba(0,113,227,0.14); pointer-events:none; }
+  .hl-box.med { border-color:#ff9500; background: rgba(255,149,0,0.14); }
+  .hl-box.low { border-color:#ff3b30; background: rgba(255,59,48,0.14); }
+  .zoom-controls { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); background: rgba(210,210,215,0.64); backdrop-filter: blur(12px); border-radius: 980px; padding: 6px; display:flex; gap: 6px; }
+  .zoom-controls button { background: transparent; border: none; color: rgba(0,0,0,0.72); width: 30px; height: 30px; border-radius: 50%; font-size: 15px; cursor: pointer; }
+
+  .review .right { background: #fff; padding: 28px 28px; display:flex; flex-direction:column; }
+  .review .right h3 { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -0.374px; margin: 0 0 2px; line-height: 1.14; }
+  .review .right .deck { color: rgba(0,0,0,0.56); font-size: 14px; letter-spacing: -0.224px; margin-bottom: 18px; }
+  .fieldset { display:flex; flex-direction:column; gap: 12px; }
+  .field { display:flex; flex-direction:column; gap: 4px; }
+  .field .flab { font-size: 12px; font-weight: 600; color: rgba(0,0,0,0.8); letter-spacing: -0.12px; display:flex; align-items:center; gap: 6px; }
+  .field .fin { font-family: var(--font-text); font-size: 17px; letter-spacing: -0.374px; padding: 10px 14px; background: #fff; border: 1px solid rgba(0,0,0,0.22); border-radius: 8px; color: #1d1d1f; font-variant-numeric: tabular-nums; }
+  .field .fin.focus { outline: 2px solid #0071e3; outline-offset: 2px; border-color: rgba(0,113,227,0.5); }
+  .field .fin.low { border-color: rgba(255,59,48,0.4); background: rgba(255,59,48,0.04); }
+  .field .fin.med { border-color: rgba(255,149,0,0.4); }
+  .field .hint { font-size: 11px; color: rgba(0,0,0,0.56); letter-spacing: -0.1px; }
+  .field .hint.err { color: #ff3b30; }
+
+  .items-hd { font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing:-0.374px; margin: 18px 0 8px; }
+  .lineitem { display:grid; grid-template-columns: 1fr 68px; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(0,0,0,0.06); align-items:center; }
+  .lineitem .nm { font-size: 15px; letter-spacing: -0.3px; }
+  .lineitem .px { font-family: var(--font-display); font-size: 15px; font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+  .lineitem.flag .nm::after { content: " ⚠"; color: #ff3b30; margin-left: 2px; }
+  .review-actions { margin-top: auto; padding-top: 18px; display:flex; gap:10px; align-items:center; }
+  .review-actions .spc { flex:1; }
+
+  /* -------- Upload / scanning screen -------- */
+  .upload-screen { padding: 40px 48px; min-height: 560px; }
+  .upload-hero { text-align:center; max-width: 620px; margin: 0 auto 28px; }
+  .upload-hero h1 { font-family: var(--font-display); font-size: 40px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.1; margin: 0 0 8px; }
+  .upload-hero p { color: rgba(0,0,0,0.56); font-size: 17px; letter-spacing: -0.374px; margin: 0; }
+  .big-drop { background: #fff; border: 2px dashed rgba(0,0,0,0.14); border-radius: 16px; padding: 56px 32px; text-align:center; max-width: 880px; margin: 0 auto; transition: all 240ms cubic-bezier(0.25,1,0.5,1); }
+  .big-drop .ring { width: 84px; height: 84px; margin: 0 auto 16px; border-radius: 50%; background: rgba(0,113,227,0.08); display:flex; align-items:center; justify-content:center; color:#0071e3; }
+  .big-drop h2 { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.374px; line-height: 1.14; margin: 0 0 4px; }
+  .big-drop p { color: rgba(0,0,0,0.56); font-size: 14px; letter-spacing:-0.224px; margin: 0 0 18px; }
+  .big-drop .actions { display:flex; justify-content:center; gap: 10px; }
+  .supported { color: rgba(0,0,0,0.48); font-size: 11px; letter-spacing: -0.08px; margin-top: 14px; }
+
+  .queue { max-width: 880px; margin: 20px auto 0; display:flex; flex-direction:column; gap: 8px; }
+  .qitem { background: #fff; border-radius: 10px; padding: 14px 16px; display:grid; grid-template-columns: 44px 1fr 140px auto; gap: 14px; align-items:center; box-shadow: rgba(0,0,0,0.06) 0 1px 3px; }
+  .qthumb { width:44px; height:56px; border-radius:4px; background: linear-gradient(160deg,#ededf2,#d9d9de); position:relative; overflow:hidden; }
+  .qthumb::after { content:""; position:absolute; inset:15% 18%; background: repeating-linear-gradient(to bottom, #8e8e94 0 2px, transparent 2px 5px); opacity:0.6; }
+  .qname { font-family: var(--font-display); font-size: 15px; font-weight: 600; letter-spacing:-0.3px; line-height: 1.2; }
+  .qmeta { font-size: 11px; color: rgba(0,0,0,0.56); letter-spacing:-0.1px; margin-top: 3px; font-family: var(--font-mono); }
+  .qbar { height: 4px; background: #ededf2; border-radius: 999px; overflow:hidden; margin-top: 4px; }
+  .qfill { height:100%; background:#0071e3; }
+  .qstatus { text-align:right; }
+  .qstatus .st { font-size: 12px; font-weight: 600; letter-spacing:-0.12px; }
+  .qstatus .sm { font-family: var(--font-mono); font-size: 10px; color: rgba(0,0,0,0.56); }
+  .qprog { display:flex; flex-direction:column; gap: 3px; }
+
+  /* focus simulated */
+  .fin.focus { box-shadow: 0 0 0 2px #0071e3, 0 0 0 4px rgba(0,113,227,0.18); }
+
+  .footer { text-align:center; color: rgba(0,0,0,0.48); font-size: 11px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="kit">
+
+  <div class="kit-head">
+    <div>
+      <h1>LocalOCR — Extended UI Kit</h1>
+      <div style="color: rgba(0,0,0,0.56); font-size: 14px; letter-spacing:-0.224px; margin-top: 4px">
+        Three product surfaces demonstrating tokens in context: Dashboard · Review · Upload
+      </div>
+    </div>
+    <div class="tag">tokens → screens</div>
+  </div>
+
+  <!-- ================== DASHBOARD ================== -->
+  <div class="section">
+    <div class="section-title"><h2>Dashboard</h2><span class="hint">/ receipts · index</span></div>
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-url">localocr.home.arpa / receipts</div>
+      </div>
+      <div class="win-body">
+        <div class="appnav">
+          <div class="brand"><div class="mark">L</div>LocalOCR</div>
+          <nav>
+            <a href="#" class="active">Receipts</a>
+            <a href="#">Obligations</a>
+            <a href="#">People</a>
+            <a href="#">Vendors</a>
+            <a href="#">Settings</a>
+          </nav>
+          <div class="spacer"></div>
+          <div class="searchpill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            Search receipts, items, vendors…
+          </div>
+          <div class="user">MR</div>
+        </div>
+
+        <div class="dash">
+          <div class="hero">
+            <div>
+              <h1>Your receipts.</h1>
+              <div class="sub">247 scanned this year · 3 pending review</div>
+            </div>
+            <div class="cta-row">
+              <button class="cta-pill">Import folder &rsaquo;</button>
+              <button class="cta-primary">+ Scan receipt</button>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat">
+              <div class="lbl">This month</div>
+              <div class="val">$2,847</div>
+              <div class="delta dn">▾ $312 vs Mar · 9.9%</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Receipts</div>
+              <div class="val">23</div>
+              <div class="delta up">▴ 4 vs Mar</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Auto-accuracy</div>
+              <div class="val">94%</div>
+              <div class="delta">24-month rolling average</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">Needs review</div>
+              <div class="val" style="color:#a85a00">3</div>
+              <div class="delta" style="color:#a85a00">Medium confidence</div>
+            </div>
+          </div>
+
+          <div class="dash-grid">
+
+            <div class="panel">
+              <div class="panel-hd">
+                <h3>Recent</h3>
+                <a href="#" class="see">See all &rsaquo;</a>
+              </div>
+              <div class="filters">
+                <span class="chip on">All</span>
+                <span class="chip cat" style="background:#34a36b">Grocery</span>
+                <span class="chip cat" style="background:#d37c2b">Restaurant</span>
+                <span class="chip cat" style="background:#3a7cbd">Utility</span>
+                <span class="chip cat" style="background:#2a8a95">Subscription</span>
+                <span class="chip">Needs review · 3</span>
+              </div>
+              <div class="rlist">
+                <div class="r">
+                  <div class="thumb"></div>
+                  <div>
+                    <div class="nm">Trader Joe&rsquo;s · Divisadero</div>
+                    <div class="mt">Apr 14 · 14 items · Grocery</div>
+                  </div>
+                  <span class="cat-pill" style="background:#34a36b">Grocery</span>
+                  <span class="conf-pill conf-high">✓ 0.94</span>
+                  <div class="tot">$74.31</div>
+                </div>
+                <div class="r">
+                  <div class="thumb"></div>
+                  <div>
+                    <div class="nm">Mensho Tokyo</div>
+                    <div class="mt">Apr 12 · 4 items · Restaurant</div>
+                  </div>
+                  <span class="cat-pill" style="background:#d37c2b">Restaurant</span>
+                  <span class="conf-pill conf-med">! 0.71</span>
+                  <div class="tot">$58.90</div>
+                </div>
+                <div class="r">
+                  <div class="thumb"></div>
+                  <div>
+                    <div class="nm">PG&amp;E · April bill</div>
+                    <div class="mt">Apr 08 · Auto-categorized · Utility</div>
+                  </div>
+                  <span class="cat-pill" style="background:#3a7cbd">Utility</span>
+                  <span class="conf-pill conf-high">✓ 0.98</span>
+                  <div class="tot">$142.04</div>
+                </div>
+                <div class="r">
+                  <div class="thumb"></div>
+                  <div>
+                    <div class="nm">Claire&rsquo;s Boutique</div>
+                    <div class="mt">Apr 10 · needs review · faded paper</div>
+                  </div>
+                  <span class="cat-pill" style="background:#8450b8">Personal</span>
+                  <span class="conf-pill conf-low">⚠ 0.38</span>
+                  <div class="tot">$24.50</div>
+                </div>
+                <div class="r">
+                  <div class="thumb"></div>
+                  <div>
+                    <div class="nm">Netflix</div>
+                    <div class="mt">Apr 05 · Auto · Subscription</div>
+                  </div>
+                  <span class="cat-pill" style="background:#2a8a95">Subscription</span>
+                  <span class="conf-pill conf-high">✓ 1.00</span>
+                  <div class="tot">$22.99</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="side-stack">
+              <div class="panel">
+                <div class="panel-hd"><h3>By category</h3><span style="font-size:12px;color:rgba(0,0,0,0.56)">April</span></div>
+                <div class="cat-row">
+                  <div class="dot" style="background:#34a36b"></div>
+                  <div class="nm">Grocery</div>
+                  <div class="amt">$864</div>
+                  <div class="pct">30%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#34a36b;width:70%"></div></div>
+                </div>
+                <div class="cat-row">
+                  <div class="dot" style="background:#d37c2b"></div>
+                  <div class="nm">Restaurant</div>
+                  <div class="amt">$612</div>
+                  <div class="pct">22%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#d37c2b;width:50%"></div></div>
+                </div>
+                <div class="cat-row">
+                  <div class="dot" style="background:#3a7cbd"></div>
+                  <div class="nm">Utility</div>
+                  <div class="amt">$482</div>
+                  <div class="pct">17%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#3a7cbd;width:39%"></div></div>
+                </div>
+                <div class="cat-row">
+                  <div class="dot" style="background:#2a8a95"></div>
+                  <div class="nm">Subscription</div>
+                  <div class="amt">$364</div>
+                  <div class="pct">13%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#2a8a95;width:30%"></div></div>
+                </div>
+                <div class="cat-row">
+                  <div class="dot" style="background:#8450b8"></div>
+                  <div class="nm">Personal</div>
+                  <div class="amt">$281</div>
+                  <div class="pct">10%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:#8450b8;width:24%"></div></div>
+                </div>
+                <div class="cat-row">
+                  <div class="dot" style="background:rgba(0,0,0,0.56)"></div>
+                  <div class="nm">Other</div>
+                  <div class="amt">$244</div>
+                  <div class="pct">8%</div>
+                  <div class="bar-track"><div class="bar-fill" style="background:rgba(0,0,0,0.56);width:20%"></div></div>
+                </div>
+              </div>
+
+              <div class="panel proc">
+                <div class="panel-hd"><h3>Processing</h3><span class="conf-pill conf-high">2 active</span></div>
+                <div class="job">
+                  <div class="jh"><div class="t">PG&amp;E · March statement</div><div class="m">64% · Gemini 2.5</div></div>
+                  <div class="track"><div class="fill-run"></div></div>
+                  <span class="tag">OCR → Normalize</span>
+                </div>
+                <div class="job">
+                  <div class="jh"><div class="t">Safeway · Apr 13</div><div class="m">Retry 2 of 3</div></div>
+                  <div class="track"><div class="fill-retry"></div></div>
+                  <span class="tag" style="background:rgba(255,149,0,0.14);color:#a85a00">Switching to OpenAI Vision</span>
+                </div>
+                <div class="job">
+                  <div class="jh"><div class="t">Netflix · Apr 05</div><div class="m">Complete · 1.2s</div></div>
+                  <div class="track"><div class="fill-done"></div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== REVIEW ================== -->
+  <div class="section">
+    <div class="section-title"><h2>Review &amp; correct</h2><span class="hint">/ receipts / r_9f3a · low-confidence fields highlighted</span></div>
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-url">localocr.home.arpa / receipts / r_9f3a</div>
+      </div>
+      <div class="review">
+        <div class="left">
+          <div class="ccrumbs"><a href="#">Receipts</a> &rsaquo; <a href="#">Claire&rsquo;s Boutique</a></div>
+          <div class="photo">
+            <div class="receipt-paper" style="position:relative">
+              <div class="hdr">CLAIRE&rsquo;S BOUTIQUE</div>
+              <div class="sub">Stonestown Galleria · SF, CA</div>
+              <hr>
+              <div class="line"><span>Date</span><span>04/10/26</span></div>
+              <div class="line"><span>Txn #</span><span>8842-1097</span></div>
+              <hr>
+              <div class="line"><span>Hair clips 6ct</span><span>7.99</span></div>
+              <div class="line"><span>Earrings sterling</span><span>12.50</span></div>
+              <div class="line"><span>Hoodie S</span><span>—</span></div>
+              <hr>
+              <div class="line"><span>Subtotal</span><span>22.49</span></div>
+              <div class="line"><span>Tax</span><span>2.01</span></div>
+              <div class="line total"><span>TOTAL</span><span>24.50</span></div>
+              <!-- highlight boxes -->
+              <div class="hl-box med" style="top: 96px; left: 14px; right: 14px; height: 26px;"></div>
+              <div class="hl-box low" style="top: 172px; left: 14px; right: 14px; height: 22px;"></div>
+              <div class="hl-box" style="bottom: 40px; left: 14px; right: 14px; height: 22px;"></div>
+            </div>
+            <div class="zoom-controls">
+              <button>−</button><button>⤢</button><button>+</button><button>↺</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="right">
+          <h3>Claire&rsquo;s Boutique</h3>
+          <div class="deck">3 fields need attention · 2 medium · 1 low confidence</div>
+          <div class="fieldset">
+            <div class="field">
+              <div class="flab">Vendor <span class="conf-pill conf-high">✓ 0.92</span></div>
+              <input class="fin" value="Claire's Boutique">
+            </div>
+            <div class="field">
+              <div class="flab">Date <span class="conf-pill conf-med">! 0.68</span></div>
+              <input class="fin med focus" value="2026-04-10">
+              <div class="hint">Parsed from &ldquo;04/10/26&rdquo; — verify format MM/DD/YY</div>
+            </div>
+            <div class="field">
+              <div class="flab">Total <span class="conf-pill conf-high">✓ 0.91</span></div>
+              <input class="fin" value="$24.50">
+            </div>
+            <div class="field">
+              <div class="flab">Hoodie line price <span class="conf-pill conf-low">⚠ 0.22</span></div>
+              <input class="fin low" value="—">
+              <div class="hint err">Could not parse numeric — image crease. Enter manually.</div>
+            </div>
+          </div>
+
+          <div class="items-hd">Line items</div>
+          <div class="lineitem"><div class="nm">Hair clips 6ct</div><div class="px">$7.99</div></div>
+          <div class="lineitem"><div class="nm">Earrings sterling silver</div><div class="px">$12.50</div></div>
+          <div class="lineitem flag"><div class="nm">Hoodie S</div><div class="px" style="color:#ff3b30">—</div></div>
+
+          <div class="review-actions">
+            <button class="cta-pill">Reject &amp; rescan</button>
+            <div class="spc"></div>
+            <button class="cta-pill">Save draft</button>
+            <button class="cta-primary">Approve &amp; save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== UPLOAD ================== -->
+  <div class="section">
+    <div class="section-title"><h2>Upload &amp; scan</h2><span class="hint">/ receipts / new · drop-to-scan</span></div>
+    <div class="win">
+      <div class="win-bar">
+        <div class="win-dots"><span></span><span></span><span></span></div>
+        <div class="win-url">localocr.home.arpa / receipts / new</div>
+      </div>
+      <div class="win-body">
+        <div class="upload-screen">
+          <div class="upload-hero">
+            <h1>Drop receipts. We&rsquo;ll read them.</h1>
+            <p>Everything stays on your server. No cloud. No tracking.</p>
+          </div>
+          <div class="big-drop">
+            <div class="ring">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M20 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>
+            </div>
+            <h2>Drop a receipt here</h2>
+            <p>Or choose how you&rsquo;d like to add one</p>
+            <div class="actions">
+              <button class="cta-primary">Choose files</button>
+              <button class="cta-pill">Watch folder &rsaquo;</button>
+              <button class="cta-pill">Email in &rsaquo;</button>
+            </div>
+            <div class="supported">Supports JPEG · PNG · HEIC · PDF &nbsp;·&nbsp; up to 25&nbsp;MB each</div>
+          </div>
+
+          <div class="queue">
+            <div class="qitem">
+              <div class="qthumb"></div>
+              <div>
+                <div class="qname">trader-joes-0414.jpg</div>
+                <div class="qprog">
+                  <div class="qmeta">2.1&nbsp;MB · Gemini 2.5 Flash · OCR</div>
+                  <div class="qbar"><div class="qfill" style="width:62%"></div></div>
+                </div>
+              </div>
+              <span class="conf-pill conf-high">✓ 0.94</span>
+              <div class="qstatus"><div class="st" style="color:#0071e3">Processing</div><div class="sm">~2s</div></div>
+            </div>
+            <div class="qitem">
+              <div class="qthumb"></div>
+              <div>
+                <div class="qname">pge-statement-march.pdf</div>
+                <div class="qprog">
+                  <div class="qmeta">1.4&nbsp;MB · Claude Vision · Normalizing</div>
+                  <div class="qbar"><div class="qfill" style="width:88%"></div></div>
+                </div>
+              </div>
+              <span class="conf-pill conf-high">✓ 0.98</span>
+              <div class="qstatus"><div class="st" style="color:#0071e3">Almost done</div><div class="sm">&lt;1s</div></div>
+            </div>
+            <div class="qitem">
+              <div class="qthumb"></div>
+              <div>
+                <div class="qname">safeway-0413.heic</div>
+                <div class="qprog">
+                  <div class="qmeta">Retry 2 of 3 · switching to OpenAI Vision</div>
+                  <div class="qbar"><div class="qfill" style="width:42%;background:#ff9500"></div></div>
+                </div>
+              </div>
+              <span class="conf-pill conf-med">! 0.54</span>
+              <div class="qstatus"><div class="st" style="color:#a85a00">Retrying</div><div class="sm">provider swap</div></div>
+            </div>
+            <div class="qitem">
+              <div class="qthumb"></div>
+              <div>
+                <div class="qname">claires-0410.jpg</div>
+                <div class="qprog">
+                  <div class="qmeta">Complete · 3 fields need review</div>
+                  <div class="qbar"><div class="qfill" style="width:100%;background:#00b74a"></div></div>
+                </div>
+              </div>
+              <span class="conf-pill conf-low">⚠ 0.38</span>
+              <div class="qstatus"><div class="st" style="color:#00803a">Needs review</div><div class="sm">open →</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">LocalOCR Extended UI Kit · design tokens applied</div>
+</div>
+
+</body></html>

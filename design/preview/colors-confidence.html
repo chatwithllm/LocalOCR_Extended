@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>Colors — OCR Confidence</title>
+<link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 20px 24px; }
+  .row-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .row-title .title { font-family: var(--font-display); font-size: 15px; font-weight:600; letter-spacing:-0.2px; }
+  .bucket { border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; display:flex; align-items:center; gap: 14px; }
+  .bucket .mark { width: 28px; height: 28px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-weight: 700; color:#fff; font-size: 14px; }
+  .bucket .label { font-size: 13px; font-weight: 600; letter-spacing:-0.2px; }
+  .bucket .range { font-family: var(--font-mono); font-size: 11px; margin-left: auto; }
+  .bucket .pill { border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight:600; font-variant-numeric: tabular-nums; }
+
+  .high   { background: rgba(0,183,74,0.12); }
+  .high .mark { background:#00b74a; }
+  .high .label, .high .range, .high .pill { color: #00803a; }
+  .high .pill  { background: rgba(0,183,74,0.20); }
+
+  .med    { background: rgba(255,149,0,0.14); }
+  .med .mark { background:#ff9500; }
+  .med .label, .med .range, .med .pill { color: #a85a00; }
+  .med .pill   { background: rgba(255,149,0,0.24); }
+
+  .low    { background: rgba(255,59,48,0.12); }
+  .low .mark { background:#ff3b30; }
+  .low .label, .low .range, .low .pill { color: #b3271e; }
+  .low .pill   { background: rgba(255,59,48,0.20); }
+</style>
+</head><body>
+<div class="card">
+  <div class="row-title"><span class="title">OCR confidence</span><span class="meta">Value + glyph — never color alone</span></div>
+  <div class="bucket high">
+    <div class="mark">✓</div>
+    <div class="label">High — matches grade</div>
+    <div class="range">≥ 0.85</div>
+    <div class="pill">0.94</div>
+  </div>
+  <div class="bucket med">
+    <div class="mark">!</div>
+    <div class="label">Medium — review recommended</div>
+    <div class="range">0.60 – 0.84</div>
+    <div class="pill">0.73</div>
+  </div>
+  <div class="bucket low">
+    <div class="mark">⚠</div>
+    <div class="label">Low — requires correction</div>
+    <div class="range">&lt; 0.60</div>
+    <div class="pill">0.41</div>
+  </div>
+</div>
+</body></html>
