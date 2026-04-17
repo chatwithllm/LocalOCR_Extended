@@ -798,6 +798,110 @@ def confirm_staged_transaction(staged_id: int):
     }), 200
 
 
+@plaid_bp.route("/staged-transactions/bulk-confirm", methods=["POST"])
+@require_write_access
+def bulk_confirm_staged_transactions():
+    """Confirm many staged transactions in one request.
+
+    Body:
+      {"ids": [1, 2, 3]}        # confirm this exact set
+      {"all_ready": true}       # confirm every status='ready_to_import' row
+                                 for the current user (up to `max` rows)
+      {"max": 200}               # optional cap, default 500, hard max 2000
+    Per-row failures are collected and reported back; successes are committed
+    row-by-row so a single bad row can't roll back the rest.
+    """
+    from src.backend.handle_receipt_upload import _create_manual_receipt_entry
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get("ids") or []
+    all_ready = bool(payload.get("all_ready"))
+    try:
+        cap = int(payload.get("max") or 500)
+    except (TypeError, ValueError):
+        cap = 500
+    cap = max(1, min(cap, 2000))
+
+    session = g.db_session
+    q = (
+        session.query(PlaidStagedTransaction)
+        .filter(PlaidStagedTransaction.user_id == user_id)
+        .filter(PlaidStagedTransaction.status == "ready_to_import")
+    )
+    if not all_ready:
+        if not isinstance(ids, list) or not ids:
+            return jsonify({"error": "Provide ids=[...] or all_ready=true"}), 400
+        # Normalise to ints and dedupe.
+        try:
+            id_set = {int(x) for x in ids}
+        except (TypeError, ValueError):
+            return jsonify({"error": "ids must be a list of integers"}), 400
+        q = q.filter(PlaidStagedTransaction.id.in_(id_set))
+    staged_rows = q.order_by(PlaidStagedTransaction.id.asc()).limit(cap).all()
+
+    confirmed = 0
+    failed = []
+    for staged in staged_rows:
+        try:
+            amount = float(staged.amount or 0)
+            date_str = staged.transaction_date.isoformat() if staged.transaction_date else None
+            if not date_str:
+                failed.append({"id": staged.id, "error": "missing date"})
+                continue
+            receipt_type = staged.suggested_receipt_type or "general_expense"
+            store_name = staged.merchant_name or staged.name or "Unknown Merchant"
+            body = {
+                "store": store_name,
+                "date": date_str,
+                "total": abs(amount),
+                "subtotal": abs(amount),
+                "tax": 0,
+                "tip": 0,
+                "transaction_type": "refund" if amount < 0 else "purchase",
+                "default_spending_domain": staged.suggested_spending_domain or "general_expense",
+                "default_budget_category": staged.suggested_budget_category or "other",
+                "items": [],
+                "confidence": 1.0,
+            }
+            if receipt_type in {"household_bill", "utility_bill"}:
+                body.update({
+                    "bill_provider_name": staged.merchant_name or staged.name,
+                    "bill_provider_type": "other",
+                    "bill_service_types": [],
+                    "bill_billing_cycle": "monthly",
+                    "bill_is_recurring": True,
+                    "bill_auto_pay": False,
+                })
+            source_label = f"plaid:{staged.plaid_account_id or 'unknown'}"
+            _, purchase = _create_manual_receipt_entry(
+                session,
+                body,
+                receipt_type,
+                user_id,
+                source_label=source_label,
+                ocr_engine="plaid",
+            )
+            staged.status = "confirmed"
+            staged.confirmed_purchase_id = purchase.id
+            staged.confirmed_at = datetime.utcnow()
+            session.commit()
+            confirmed += 1
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("bulk confirm failed for staged=%s: %s", staged.id, exc)
+            session.rollback()
+            failed.append({"id": staged.id, "error": str(exc)[:200]})
+
+    return jsonify({
+        "confirmed": confirmed,
+        "attempted": len(staged_rows),
+        "failed": failed,
+    }), 200
+
+
 @plaid_bp.route("/staged-transactions/<int:staged_id>/dismiss", methods=["POST"])
 @require_write_access
 def dismiss_staged_transaction(staged_id: int):

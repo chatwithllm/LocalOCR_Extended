@@ -3532,6 +3532,85 @@
         align-items: center;
       }
 
+      /* Accounts dashboard (Phase 2): compact toolbar that wraps on narrow
+         viewports without any button stretching to full width. */
+      .accounts-card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .accounts-toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+      }
+      .accounts-toolbar .btn,
+      .accounts-toolbar select,
+      .accounts-toolbar input[type="month"] {
+        flex: 0 0 auto;
+        width: auto;
+      }
+      .accounts-toolbar__icon {
+        min-width: 36px;
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      @media (max-width: 640px) {
+        .accounts-toolbar {
+          width: 100%;
+          justify-content: flex-start;
+        }
+        /* On small screens the primary CTA earns its own line; secondary
+           buttons wrap inline beside each other. */
+        .accounts-toolbar #accounts-connect-btn {
+          flex: 1 1 100%;
+        }
+      }
+      .accounts-item-actions .btn {
+        flex: 0 0 auto;
+      }
+
+      /* .summary-row defaults to `display: grid` (line ~7232) which ignores
+         our flex-direction inline style and lays the bank row out in two
+         columns. Force single-column stacking for Accounts-page rows. */
+      .summary-row.accounts-item {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px;
+      }
+      .accounts-item .summary-row__title {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .accounts-sub-list {
+        margin: 8px 0 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+      }
+      .accounts-sub-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .accounts-sub-row__label {
+        min-width: 0;
+        flex: 1 1 140px;
+        overflow-wrap: anywhere;
+      }
+      .accounts-sub-row__value {
+        flex: 0 0 auto;
+        text-align: right;
+        white-space: nowrap;
+      }
+
       .shopping-quick-toolbar {
         display: flex;
         gap: 8px;
@@ -11834,6 +11913,13 @@
         </div>
         <div
           class="nav-item"
+          id="nav-accounts"
+          onclick="nav('accounts', this)"
+        >
+          <span class="nav-icon">🏦</span> Accounts
+        </div>
+        <div
+          class="nav-item"
           id="nav-analytics"
           onclick="nav('analytics', this)"
         >
@@ -14227,6 +14313,182 @@
           </div>
         </div>
 
+        <!-- Accounts Dashboard (Phase 2) -->
+        <!--
+          PHASE 2: Accounts Dashboard. Three panels on a single page.
+          Guardrails (spec §4.5): keep each JS function ≤80 LOC, no
+          duplicate element IDs, only net-new DOM. If you add fields here,
+          also update loadConnectedAccounts / loadPlaidTransactionsList /
+          loadPlaidSpendingTrends below.
+        -->
+        <div class="page" id="page-accounts">
+          <div class="page-header">
+            <div>
+              <h1>Accounts</h1>
+              <p id="accounts-subtitle">Connected banks, recent transactions, and spending trends.</p>
+            </div>
+          </div>
+
+          <!-- Panel 1 — Connected Accounts -->
+          <div class="card" id="accounts-connections-card">
+            <div class="card-header accounts-card-header">
+              <span class="card-title">🏦 Connected Accounts</span>
+              <div class="accounts-toolbar">
+                <button
+                  class="btn btn-primary btn-sm"
+                  id="accounts-connect-btn"
+                  onclick="openPlaidLink()"
+                  disabled
+                >
+                  ＋ Connect Bank
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  id="accounts-refresh-balances-btn"
+                  onclick="refreshPlaidBalances()"
+                  title="Refresh balances for all connected banks"
+                >
+                  💵 Refresh Balances
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm accounts-toolbar__icon"
+                  onclick="loadConnectedAccounts()"
+                  aria-label="Reload connected accounts"
+                  title="Reload without refreshing balances"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div
+              id="accounts-connections-note"
+              style="color: var(--muted); font-size: 0.84rem"
+            >
+              Connect a bank or credit card via Plaid to auto-import transactions. Imported transactions land in a review queue and are never saved as receipts without your confirmation.
+            </div>
+            <div id="accounts-connections-body" style="margin-top: 16px">
+              <div class="empty-state"><p>Loading connected accounts…</p></div>
+            </div>
+          </div>
+
+          <!-- Panel 2 — Transactions -->
+          <div class="card" id="accounts-transactions-card">
+            <div class="card-header accounts-card-header">
+              <span class="card-title">🧾 Transactions</span>
+              <div class="accounts-toolbar">
+                <div
+                  class="bills-tab-bar"
+                  role="tablist"
+                  aria-label="Transaction views"
+                >
+                  <button
+                    type="button"
+                    class="bills-tab"
+                    role="tab"
+                    aria-selected="true"
+                    data-accounts-tab="spending"
+                    onclick="setAccountsTransactionsTab('spending')"
+                  >
+                    All spending
+                  </button>
+                  <button
+                    type="button"
+                    class="bills-tab"
+                    role="tab"
+                    aria-selected="false"
+                    data-accounts-tab="transfers"
+                    onclick="setAccountsTransactionsTab('transfers')"
+                  >
+                    Transfers &amp; bills
+                  </button>
+                </div>
+                <select
+                  id="accounts-tx-account-filter"
+                  class="restaurant-period-select"
+                  onchange="loadPlaidTransactionsList()"
+                  aria-label="Filter by account"
+                >
+                  <option value="">All accounts</option>
+                </select>
+                <input
+                  type="month"
+                  id="accounts-tx-month"
+                  class="btn btn-ghost btn-sm"
+                  onchange="loadPlaidTransactionsList()"
+                  aria-label="Filter by month"
+                />
+                <button
+                  class="btn btn-ghost btn-sm accounts-toolbar__icon"
+                  onclick="loadPlaidTransactionsList()"
+                  aria-label="Refresh transactions"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <!-- Pending review: staged transactions that are not yet
+                 confirmed purchases. Hidden when the queue is empty. -->
+            <div
+              id="accounts-review-wrap"
+              style="margin-top:10px;display:none;border:1px solid var(--border);border-radius:10px;padding:10px;background:color-mix(in srgb, var(--warning,#d97706) 6%, transparent)"
+            >
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+                <strong>Pending review</strong>
+                <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                  <span id="accounts-review-summary" style="color:var(--muted);font-size:0.82rem"></span>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    id="accounts-review-confirm-all"
+                    onclick="confirmAllPlaidStaged()"
+                  >
+                    Confirm all
+                  </button>
+                </span>
+              </div>
+              <div id="accounts-review-body"></div>
+            </div>
+            <div id="accounts-tx-summary" style="color: var(--muted); font-size: 0.84rem; margin-top: 8px"></div>
+            <div id="accounts-tx-body" style="margin-top: 12px">
+              <div class="empty-state"><p>Loading transactions…</p></div>
+            </div>
+            <div
+              id="accounts-tx-pagination"
+              style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px"
+            ></div>
+          </div>
+
+          <!-- Panel 3 — Spending Trends -->
+          <div class="card" id="accounts-trends-card">
+            <div class="card-header accounts-card-header">
+              <span class="card-title">📊 Spending Trends</span>
+              <div class="accounts-toolbar">
+                <select
+                  id="accounts-trends-window"
+                  class="restaurant-period-select"
+                  onchange="loadPlaidSpendingTrends()"
+                  aria-label="Trend window"
+                >
+                  <option value="3">Last 3 months</option>
+                  <option value="6">Last 6 months</option>
+                  <option value="12" selected>Last 12 months</option>
+                </select>
+                <button
+                  class="btn btn-ghost btn-sm accounts-toolbar__icon"
+                  onclick="loadPlaidSpendingTrends()"
+                  aria-label="Refresh trends"
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+            <div id="accounts-trends-summary" style="color: var(--muted); font-size: 0.84rem; margin-top: 4px"></div>
+            <div id="accounts-trends-body" style="margin-top: 12px">
+              <div class="empty-state"><p>Loading spending trends…</p></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Analytics -->
         <div class="page" id="page-analytics">
           <div class="page-header">
@@ -14665,66 +14927,7 @@
               <div id="trusted-devices-body"></div>
             </div>
           </div>
-          <div class="card" id="plaid-settings-card">
-            <div class="card-header">
-              <span class="card-title">🏦 Bank Connections</span>
-              <div class="table-toolbar">
-                <button
-                  class="btn btn-primary btn-sm"
-                  id="plaid-connect-btn"
-                  onclick="openPlaidLink()"
-                  disabled
-                >
-                  Connect Bank
-                </button>
-                <button
-                  class="btn btn-ghost btn-sm"
-                  onclick="loadPlaidItems()"
-                  aria-label="Refresh bank connections"
-                >
-                  🔄
-                </button>
-              </div>
-            </div>
-            <div
-              id="plaid-settings-note"
-              style="color: var(--muted); font-size: 0.84rem"
-            >
-              Connect a bank or credit card via Plaid to auto-import transactions. Imported transactions land in a review queue and are never saved as receipts without your confirmation.
-            </div>
-            <div id="plaid-settings-body" style="margin-top: 16px">
-              <div class="empty-state"><p>Loading bank connections…</p></div>
-            </div>
-          </div>
-          <div class="card" id="plaid-review-card">
-            <div class="card-header">
-              <span class="card-title">🧾 Review Imported Transactions</span>
-              <div class="table-toolbar">
-                <select
-                  id="plaid-review-filter"
-                  class="restaurant-period-select"
-                  onchange="loadPlaidStagedTransactions()"
-                >
-                  <option value="ready_to_import" selected>Ready to import</option>
-                  <option value="duplicate_flagged">Possible duplicates</option>
-                  <option value="skipped_pending">Pending / skipped</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="dismissed">Dismissed</option>
-                </select>
-                <button
-                  class="btn btn-ghost btn-sm restaurant-refresh-btn"
-                  onclick="loadPlaidStagedTransactions()"
-                  aria-label="Refresh"
-                >
-                  🔄
-                </button>
-              </div>
-            </div>
-            <div id="plaid-review-summary" style="color: var(--muted); font-size: 0.84rem; margin-top: 4px"></div>
-            <div id="plaid-review-body" style="margin-top: 12px">
-              <div class="empty-state"><p>Loading review queue…</p></div>
-            </div>
-          </div>
+          <!-- Bank Connections and Review cards moved to Accounts page (Phase 2, D5). -->
           <div class="card">
             <div class="card-header">
               <span class="card-title">📷 Snapshot Review</span>
@@ -22533,6 +22736,7 @@
         }
         if (page === "analytics") loadAnalytics();
         if (page === "bills") loadBills();
+        if (page === "accounts") loadAccountsPage();
         if (page === "contributions") loadContributions();
         if (page === "settings") {
           document.getElementById("settings-token").value = TOKEN;
@@ -22551,8 +22755,6 @@
             loadSnapshotReviewQueue();
             loadAdminAiModels();
             loadAdminAiUsage();
-            loadPlaidItems();
-            loadPlaidStagedTransactions();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -23827,104 +24029,19 @@
         });
       }
 
+      // Phase 2: loadPlaidItems / loadPlaidStagedTransactions are now thin
+      // shims that redirect to the Accounts dashboard loaders. The old
+      // Settings cards (plaid-settings-card, plaid-review-card) were removed
+      // in the same PR (D5). These shims keep existing callers —
+      // openPlaidLink.onSuccess, syncPlaidItem, disconnectPlaidItem,
+      // confirmPlaidStaged, dismissPlaidStaged, flagPlaidStagedDuplicate —
+      // working without each needing to know about the new page.
       async function loadPlaidItems() {
-        const body = document.getElementById("plaid-settings-body");
-        const note = document.getElementById("plaid-settings-note");
-        const connectBtn = document.getElementById("plaid-connect-btn");
-        if (!body) return;
-        if (!currentUser) {
-          if (note) note.textContent = "Sign in to manage bank connections.";
-          body.innerHTML = "";
-          if (connectBtn) connectBtn.disabled = true;
-          return;
-        }
-        try {
-          const res = await api(`/plaid/items`);
-          if (!res.ok) {
-            body.innerHTML =
-              '<div class="empty-state"><p>Could not load bank connections.</p></div>';
-            if (connectBtn) connectBtn.disabled = true;
-            return;
-          }
-          const payload = await res.json();
-          plaidStatusCache = {
-            configured: Boolean(payload.configured),
-            env: payload.env || "sandbox",
-          };
-          if (connectBtn) {
-            connectBtn.disabled = !payload.configured;
-            connectBtn.title = payload.configured
-              ? `Connect a bank (${payload.env})`
-              : "Plaid is not configured on this server. Set PLAID_CLIENT_ID and PLAID_SECRET in .env.";
-          }
-          if (note) {
-            note.textContent = payload.configured
-              ? `Plaid environment: ${payload.env}. Transactions land in a review queue and are never saved as receipts without your confirmation.`
-              : "Plaid is not configured on this server. Ask an administrator to set PLAID_CLIENT_ID / PLAID_SECRET in the .env file.";
-          }
-          const items = payload.items || [];
-          if (!items.length) {
-            body.innerHTML =
-              '<div class="empty-state"><p>No banks connected yet. Click <strong>Connect Bank</strong> to link your first account.</p></div>';
-            return;
-          }
-          body.innerHTML = `
-            <ul class="summary-row-list">
-              ${items
-                .map((item) => {
-                  const accountEntries = (item.accounts || []).map((acc) => {
-                    const parts = [];
-                    parts.push(escHtml(acc.name || acc.official_name || "Account"));
-                    if (acc.subtype) parts.push(escHtml(String(acc.subtype).replace(/_/g, " ")));
-                    if (acc.mask) parts.push(`····${escHtml(acc.mask)}`);
-                    return parts.join(" · ");
-                  });
-                  const accountsHtml = accountEntries.length
-                    ? accountEntries.map((line) => `<div>${line}</div>`).join("")
-                    : "<div>No account details</div>";
-                  const statusBadge =
-                    item.status === "login_required"
-                      ? '<span style="color:var(--color-error,#d33);font-weight:700">Login required</span>'
-                      : item.status === "active"
-                        ? '<span style="color:var(--color-success,#2e9d6e);font-weight:700">Connected</span>'
-                        : `<span style="color:var(--muted)">${escHtml(item.status)}</span>`;
-                  const syncLine = `${statusBadge} · Last sync ${escHtml(formatPlaidSyncTime(item.last_sync_at))}`;
-                  const errorLine = item.last_sync_error
-                    ? `<div class="summary-row__meta" style="color:var(--color-error,#d33)">${escHtml(item.last_sync_error)}</div>`
-                    : "";
-                  return `
-                    <li class="summary-row-host">
-                      <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:6px">
-                        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;width:100%">
-                          <div style="min-width:0;flex:1 1 auto">
-                            <div class="summary-row__title" title="${escAttr(item.institution_name || "Institution")}">${escHtml(item.institution_name || "Institution")}</div>
-                            <div class="summary-row__meta">${accountsHtml}</div>
-                            <div class="summary-row__meta">${syncLine}</div>
-                            ${errorLine}
-                          </div>
-                          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">
-                            ${
-                              item.status === "login_required"
-                                ? `<button type="button" class="btn btn-primary btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
-                                : `<button type="button" class="btn btn-ghost btn-sm" onclick="syncPlaidItem(${item.id})">Sync Now</button>`
-                            }
-                            <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
-                          </div>
-                        </div>
-                      </div>
-                    </li>`;
-                })
-                .join("")}
-            </ul>
-            <p style="color:var(--muted);font-size:0.8rem;margin-top:10px">
-              To add another bank or credit card, click <strong>Connect Bank</strong> above. Each institution is a separate connection; disconnecting one leaves the others untouched.
-            </p>`;
-        } catch (err) {
-          console.error("loadPlaidItems failed", err);
-          body.innerHTML =
-            '<div class="empty-state"><p>Could not load bank connections.</p></div>';
-          if (connectBtn) connectBtn.disabled = true;
-        }
+        // Callers expect this to "refresh the bank connections UI". On the
+        // Accounts page that is loadConnectedAccounts(); on any other page
+        // there is no visible bank list to refresh, so we no-op.
+        if (!document.getElementById("accounts-connections-body")) return;
+        await loadConnectedAccounts();
       }
 
       async function openPlaidLink(existingItemId = null) {
@@ -23936,7 +24053,7 @@
           toast("Plaid Link is still loading — try again in a moment.", "error");
           return;
         }
-        const connectBtn = document.getElementById("plaid-connect-btn");
+        const connectBtn = document.getElementById("accounts-connect-btn");
         if (connectBtn) connectBtn.disabled = true;
         try {
           const body = existingItemId ? { item_id: existingItemId } : {};
@@ -23946,7 +24063,18 @@
           });
           const payload = await res.json().catch(() => ({}));
           if (!res.ok || !payload.link_token) {
-            toast(payload.error || "Could not start Plaid Link", "error");
+            const errText = payload.error || "Could not start Plaid Link";
+            const isAuthErr =
+              payload.error_code === "INVALID_API_KEYS" ||
+              /invalid\s+client_id|invalid[_\s]?api[_\s]?keys/i.test(errText);
+            if (isAuthErr) {
+              toast(
+                `Plaid rejected the credentials (${errText}). Update PLAID_CLIENT_ID / PLAID_SECRET in .env and restart the backend.`,
+                "error",
+              );
+            } else {
+              toast(errText, "error");
+            }
             if (connectBtn) connectBtn.disabled = false;
             return;
           }
@@ -24017,7 +24145,7 @@
       }
 
       async function syncPlaidItem(itemId) {
-        const connectBtn = document.getElementById("plaid-connect-btn");
+        const connectBtn = document.getElementById("accounts-connect-btn");
         if (connectBtn) connectBtn.disabled = true;
         toast("Syncing transactions…", "info");
         try {
@@ -24047,83 +24175,16 @@
         return staged.merchant_name || staged.name || "Unknown merchant";
       }
 
+      // Phase 2: plaid-review-card is gone; the staged-review list is not
+      // currently surfaced in the Accounts page. Keep this as a no-op so
+      // confirm/dismiss/flag callers don't explode. Once the Transactions
+      // panel grows inline review actions this will call loadPlaidTransactionsList().
       async function loadPlaidStagedTransactions() {
-        const body = document.getElementById("plaid-review-body");
-        const summary = document.getElementById("plaid-review-summary");
-        const filterEl = document.getElementById("plaid-review-filter");
-        if (!body) return;
-        const status = filterEl?.value || "ready_to_import";
-        if (!currentUser) {
-          body.innerHTML = '<div class="empty-state"><p>Sign in to review imported transactions.</p></div>';
-          if (summary) summary.textContent = "";
-          return;
-        }
-        try {
-          const res = await api(`/plaid/staged-transactions?status=${encodeURIComponent(status)}`);
-          if (!res.ok) {
-            body.innerHTML = '<div class="empty-state"><p>Could not load review queue.</p></div>';
-            if (summary) summary.textContent = "";
-            return;
-          }
-          const payload = await res.json();
-          const counts = payload.counts || {};
-          if (summary) {
-            const parts = [];
-            if (counts.ready_to_import) parts.push(`${counts.ready_to_import} ready`);
-            if (counts.duplicate_flagged) parts.push(`${counts.duplicate_flagged} possible duplicate${counts.duplicate_flagged === 1 ? "" : "s"}`);
-            if (counts.skipped_pending) parts.push(`${counts.skipped_pending} pending`);
-            if (counts.confirmed) parts.push(`${counts.confirmed} confirmed`);
-            summary.textContent = parts.length
-              ? parts.join(" · ")
-              : "No Plaid transactions staged yet. Connect a bank above and sync.";
-          }
-          const rows = payload.staged_transactions || [];
-          if (!rows.length) {
-            body.innerHTML = `<div class="empty-state"><p>Nothing to review in this view.</p></div>`;
-            return;
-          }
-          body.innerHTML = `
-            <ul class="summary-row-list">
-              ${rows
-                .map((row) => {
-                  const isRefund = Number(row.amount) < 0;
-                  const amountStr = `${isRefund ? "-" : ""}${formatMoney(Math.abs(Number(row.amount || 0)))}`;
-                  const dateStr = row.transaction_date ? formatPrettyDate(row.transaction_date) : "—";
-                  const typeLabel = row.suggested_receipt_type ? formatLabel(row.suggested_receipt_type, "Unknown") : "—";
-                  const categoryLabel = row.plaid_category_primary || "Uncategorized";
-                  const institutionLabel = row.institution_name ? ` · ${escHtml(row.institution_name)}` : "";
-                  const pendingLabel = row.pending ? ' · <span style="color:var(--warning,#d97706)">pending</span>' : "";
-                  const dupLabel = row.status === "duplicate_flagged" && row.duplicate_purchase_id
-                    ? ` · <span style="color:var(--warning,#d97706)">duplicate of receipt #${row.duplicate_purchase_id}</span>`
-                    : "";
-                  const actionButtons = ["confirmed", "dismissed"].includes(row.status)
-                    ? ""
-                    : `
-                      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="confirmPlaidStaged(${row.id})">Confirm</button>
-                        ${row.status !== "duplicate_flagged" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="flagPlaidStagedDuplicate(${row.id})">Duplicate</button>` : ""}
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="dismissPlaidStaged(${row.id})">Dismiss</button>
-                      </div>`;
-                  return `
-                    <li class="summary-row-host" style="align-items:stretch">
-                      <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:6px">
-                        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
-                          <div class="summary-row__title" title="${escAttr(formatPlaidStagedTitle(row))}">${escHtml(formatPlaidStagedTitle(row))}</div>
-                          <div class="summary-row__value" style="color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"}">${amountStr}</div>
-                        </div>
-                        <div class="summary-row__meta">
-                          ${escHtml(dateStr)} · ${escHtml(typeLabel)} · ${escHtml(categoryLabel)}${institutionLabel}${pendingLabel}${dupLabel}
-                        </div>
-                        ${actionButtons}
-                      </div>
-                    </li>`;
-                })
-                .join("")}
-            </ul>`;
-        } catch (err) {
-          console.error("loadPlaidStagedTransactions failed", err);
-          body.innerHTML = '<div class="empty-state"><p>Could not load review queue.</p></div>';
-        }
+        if (!document.getElementById("accounts-tx-body")) return;
+        await Promise.all([
+          loadPlaidTransactionsList(),
+          loadAccountsReviewQueue(),
+        ]);
       }
 
       async function confirmPlaidStaged(stagedId) {
@@ -24183,6 +24244,634 @@
           console.error("flagPlaidStagedDuplicate failed", err);
           toast("Could not flag as duplicate", "error");
         }
+      }
+
+      // =============================================================
+      // Accounts Dashboard — Phase 2
+      // Three panels: Connected Accounts, Transactions, Spending Trends.
+      // Guardrails (spec §4.5): each loader is independent; do not share
+      // state across panels. Element IDs live under accounts-*. No external
+      // chart library — Panel 3 renders SVG bars + a data table (spec §4.11).
+      // =============================================================
+      let accountsTxTab = "spending"; // "spending" | "transfers"
+      let accountsTxOffset = 0;
+      const ACCOUNTS_TX_LIMIT = 50;
+      let accountsConnectedCache = { items: [], accounts: [] };
+
+      function formatBalanceCents(cents, currency) {
+        if (cents === null || cents === undefined) return "—";
+        const v = Number(cents) / 100;
+        const cur = (currency || "USD").toUpperCase();
+        try {
+          return v.toLocaleString(undefined, { style: "currency", currency: cur });
+        } catch (_) {
+          return `$${v.toFixed(2)}`;
+        }
+      }
+
+      function formatRelativeTime(iso) {
+        if (!iso) return "never";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "never";
+        const delta = Math.round((Date.now() - d.getTime()) / 1000);
+        if (delta < 60) return "just now";
+        if (delta < 3600) return `${Math.round(delta / 60)}m ago`;
+        if (delta < 86400) return `${Math.round(delta / 3600)}h ago`;
+        return formatPlaidSyncTime(iso);
+      }
+
+      async function loadAccountsPage() {
+        if (!currentUser) {
+          const body = document.getElementById("accounts-connections-body");
+          if (body) body.innerHTML =
+            '<div class="empty-state"><p>Sign in to view your connected accounts.</p></div>';
+          return;
+        }
+        // Populate the month filter with the current month by default.
+        const monthEl = document.getElementById("accounts-tx-month");
+        if (monthEl && !monthEl.value) {
+          const now = new Date();
+          const yyyy = now.getFullYear();
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          monthEl.value = `${yyyy}-${mm}`;
+        }
+        accountsTxOffset = 0;
+        await loadConnectedAccounts();
+        // Load the rest in parallel — they don't depend on each other.
+        await Promise.all([
+          loadPlaidTransactionsList(),
+          loadPlaidSpendingTrends(),
+          loadAccountsReviewQueue(),
+        ]);
+      }
+
+      // Pending review: shows staged transactions awaiting confirm/dismiss.
+      // Hidden when empty. This was the old "Review Imported Transactions"
+      // card from Settings, now inlined above the Transactions list so the
+      // Accounts page covers the full staged → confirmed lifecycle.
+      async function loadAccountsReviewQueue() {
+        const wrap = document.getElementById("accounts-review-wrap");
+        const body = document.getElementById("accounts-review-body");
+        const summary = document.getElementById("accounts-review-summary");
+        if (!wrap || !body || !summary) return;
+        if (!currentUser) {
+          wrap.style.display = "none";
+          return;
+        }
+        try {
+          const res = await api(`/plaid/staged-transactions?status=ready_to_import`);
+          if (!res.ok) {
+            wrap.style.display = "none";
+            return;
+          }
+          const payload = await res.json();
+          const counts = payload.counts || {};
+          const rows = payload.staged_transactions || [];
+          if (!rows.length) {
+            // Still surface the duplicate-flagged count so users know to revisit.
+            if (counts.duplicate_flagged) {
+              wrap.style.display = "";
+              summary.textContent = `${counts.duplicate_flagged} possible duplicate${counts.duplicate_flagged === 1 ? "" : "s"} flagged`;
+              body.innerHTML = `<div style="color:var(--muted);font-size:0.85rem">Nothing ready to import. Visit Settings → review queue to resolve flagged duplicates.</div>`;
+            } else {
+              wrap.style.display = "none";
+            }
+            return;
+          }
+          wrap.style.display = "";
+          summary.textContent = `${rows.length} awaiting confirm`;
+          body.innerHTML = `<ul class="summary-row-list">${rows
+            .map((row) => {
+              const isRefund = Number(row.amount) < 0;
+              const amountStr = `${isRefund ? "-" : ""}${formatMoney(Math.abs(Number(row.amount || 0)))}`;
+              const dateStr = row.transaction_date ? formatPrettyDate(row.transaction_date) : "—";
+              const typeLabel = row.suggested_receipt_type ? formatLabel(row.suggested_receipt_type, "Unknown") : "—";
+              const categoryLabel = row.plaid_category_primary || "Uncategorized";
+              const instLabel = row.institution_name ? ` · ${escHtml(row.institution_name)}` : "";
+              const pendingLabel = row.pending ? ' · <span style="color:var(--warning,#d97706)">pending</span>' : "";
+              return `
+                <li class="summary-row-host">
+                  <div class="summary-row accounts-item" style="gap:6px">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline">
+                      <div class="summary-row__title" style="overflow-wrap:anywhere">${escHtml(formatPlaidStagedTitle(row))}</div>
+                      <div class="summary-row__value" style="color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"};white-space:nowrap">${amountStr}</div>
+                    </div>
+                    <div class="summary-row__meta">
+                      ${escHtml(dateStr)} · ${escHtml(typeLabel)} · ${escHtml(String(categoryLabel).replace(/_/g, " "))}${instLabel}${pendingLabel}
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                      <button type="button" class="btn btn-primary btn-sm" onclick="confirmPlaidStagedFromAccounts(${row.id})">Confirm</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="flagPlaidStagedFromAccounts(${row.id})">Duplicate</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="dismissPlaidStagedFromAccounts(${row.id})">Dismiss</button>
+                    </div>
+                  </div>
+                </li>`;
+            })
+            .join("")}</ul>`;
+        } catch (err) {
+          console.error("loadAccountsReviewQueue failed", err);
+          wrap.style.display = "none";
+        }
+      }
+
+      // Thin wrappers that refresh BOTH the review queue and the confirmed
+      // transactions list after an action (so confirmed rows appear in Panel 2
+      // without a manual reload).
+      async function confirmPlaidStagedFromAccounts(stagedId) {
+        await confirmPlaidStaged(stagedId);
+        await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+      }
+      async function dismissPlaidStagedFromAccounts(stagedId) {
+        await dismissPlaidStaged(stagedId);
+        await loadAccountsReviewQueue();
+      }
+      async function flagPlaidStagedFromAccounts(stagedId) {
+        await flagPlaidStagedDuplicate(stagedId);
+        await loadAccountsReviewQueue();
+      }
+
+      async function confirmAllPlaidStaged() {
+        if (!currentUser) return;
+        const btn = document.getElementById("accounts-review-confirm-all");
+        if (!confirm("Confirm every pending transaction? This turns them all into receipts at once.")) {
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = "Confirming…"; }
+        try {
+          const res = await api(`/plaid/staged-transactions/bulk-confirm`, {
+            method: "POST",
+            body: JSON.stringify({ all_ready: true, max: 500 }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Bulk confirm failed", "error");
+          } else {
+            const failedN = (payload.failed || []).length;
+            const msg = failedN
+              ? `Confirmed ${payload.confirmed} of ${payload.attempted} — ${failedN} failed`
+              : `Confirmed ${payload.confirmed} transactions ✅`;
+            toast(msg, failedN ? "info" : "success");
+          }
+        } catch (err) {
+          console.error("confirmAllPlaidStaged failed", err);
+          toast("Bulk confirm failed", "error");
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = "Confirm all"; }
+          await Promise.all([
+            loadAccountsReviewQueue(),
+            loadPlaidTransactionsList(),
+            loadPlaidSpendingTrends(),
+          ]);
+        }
+      }
+
+      async function loadConnectedAccounts() {
+        const body = document.getElementById("accounts-connections-body");
+        const note = document.getElementById("accounts-connections-note");
+        const connectBtn = document.getElementById("accounts-connect-btn");
+        const refreshBtn = document.getElementById("accounts-refresh-balances-btn");
+        if (!body) return;
+        if (!currentUser) {
+          if (note) note.textContent = "Sign in to manage bank connections.";
+          body.innerHTML = "";
+          if (connectBtn) connectBtn.disabled = true;
+          if (refreshBtn) refreshBtn.disabled = true;
+          return;
+        }
+        try {
+          const [itemsRes, acctsRes] = await Promise.all([
+            api(`/plaid/items`),
+            api(`/plaid/accounts`),
+          ]);
+          if (!itemsRes.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load bank connections.</p></div>';
+            if (connectBtn) connectBtn.disabled = true;
+            if (refreshBtn) refreshBtn.disabled = true;
+            return;
+          }
+          const itemsPayload = await itemsRes.json();
+          const acctsPayload = acctsRes.ok ? await acctsRes.json() : { accounts: [] };
+          plaidStatusCache = {
+            configured: Boolean(itemsPayload.configured),
+            env: itemsPayload.env || "sandbox",
+          };
+          if (connectBtn) {
+            connectBtn.disabled = !itemsPayload.configured;
+            connectBtn.title = itemsPayload.configured
+              ? `Connect a bank (${itemsPayload.env})`
+              : "Plaid is not configured on this server. Set PLAID_CLIENT_ID and PLAID_SECRET in .env.";
+          }
+          if (note) {
+            note.textContent = itemsPayload.configured
+              ? `Plaid environment: ${itemsPayload.env}. Balances refresh on demand (max once per 5 minutes).`
+              : "Plaid is not configured on this server. Ask an administrator to set PLAID_CLIENT_ID / PLAID_SECRET in the .env file.";
+          }
+          const items = itemsPayload.items || [];
+          const accounts = acctsPayload.accounts || [];
+          accountsConnectedCache = { items, accounts };
+          if (refreshBtn) refreshBtn.disabled = !items.length;
+          // Seed the account filter dropdown on Panel 2.
+          const filterEl = document.getElementById("accounts-tx-account-filter");
+          if (filterEl) {
+            const current = filterEl.value;
+            const options = ['<option value="">All accounts</option>'];
+            accounts.forEach((a) => {
+              const label = `${escHtml(a.name || "Account")}${a.mask ? ` ····${escHtml(a.mask)}` : ""}`;
+              options.push(
+                `<option value="${escAttr(a.plaid_account_id)}">${label}</option>`,
+              );
+            });
+            filterEl.innerHTML = options.join("");
+            if (current && accounts.some((a) => a.plaid_account_id === current)) {
+              filterEl.value = current;
+            }
+          }
+          if (!items.length) {
+            body.innerHTML =
+              '<div class="empty-state"><p>No banks connected yet. Click <strong>＋ Connect Bank</strong> above to link your first account.</p></div>';
+            return;
+          }
+          // Group sub-accounts by plaid_item_id.
+          const byItem = new Map();
+          accounts.forEach((a) => {
+            const arr = byItem.get(a.plaid_item_id) || [];
+            arr.push(a);
+            byItem.set(a.plaid_item_id, arr);
+          });
+          body.innerHTML = renderConnectedAccountsCards(items, byItem);
+        } catch (err) {
+          console.error("loadConnectedAccounts failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load bank connections.</p></div>';
+          if (connectBtn) connectBtn.disabled = true;
+          if (refreshBtn) refreshBtn.disabled = true;
+        }
+      }
+
+      function renderConnectedAccountsCards(items, byItem) {
+        return `<ul class="summary-row-list">${items
+          .map((item) => {
+            const subs = byItem.get(item.id) || [];
+            const statusBadge =
+              item.status === "login_required"
+                ? '<span style="color:var(--color-error,#d33);font-weight:700">Login required</span>'
+                : item.status === "active"
+                  ? '<span style="color:var(--color-success,#2e9d6e);font-weight:700">Connected</span>'
+                  : `<span style="color:var(--muted)">${escHtml(item.status)}</span>`;
+            const nickname = item.nickname && item.nickname.trim()
+              ? `<span style="color:var(--muted);font-weight:500"> — ${escHtml(item.nickname)}</span>`
+              : "";
+            // Collapse per-row "balance not yet refreshed" clutter: if NO
+            // sub-account has a balance, hide the right column entirely and
+            // show one card-level hint below the list.
+            const anyHasBalance = subs.some(
+              (a) => a.balance_cents !== null && a.balance_cents !== undefined,
+            );
+            const subsHtml = subs.length
+              ? `<ul class="accounts-sub-list">${subs
+                  .map((a) => {
+                    const nameBits = [];
+                    nameBits.push(escHtml(a.name || "Account"));
+                    if (a.subtype) nameBits.push(escHtml(String(a.subtype).replace(/_/g, " ")));
+                    if (a.mask) nameBits.push(`····${escHtml(a.mask)}`);
+                    const label = nameBits.join(" · ");
+                    const hasBalance = a.balance_cents !== null && a.balance_cents !== undefined;
+                    let right = "";
+                    if (hasBalance) {
+                      const bal = formatBalanceCents(a.balance_cents, a.balance_currency);
+                      const ts = a.balance_updated_at
+                        ? `<span style="color:var(--muted);font-size:0.78rem"> · ${escHtml(formatRelativeTime(a.balance_updated_at))}</span>`
+                        : "";
+                      right = `<strong style="color:var(--text)">${bal}</strong>${ts}`;
+                    } else if (anyHasBalance) {
+                      // Only some rows missing — mark each individually with a dash.
+                      right = '<span style="color:var(--muted)">—</span>';
+                    }
+                    // If no row in this item has a balance, right stays empty
+                    // and the card-level hint below covers it.
+                    const valueCell = right
+                      ? `<span class="accounts-sub-row__value">${right}</span>`
+                      : "";
+                    return `<li class="accounts-sub-row"><span class="accounts-sub-row__label">${label}</span>${valueCell}</li>`;
+                  })
+                  .join("")}</ul>${
+                  !anyHasBalance
+                    ? '<div style="margin-top:6px;color:var(--muted);font-size:0.8rem">💤 Balances not yet refreshed — tap <strong>💵 Refresh Balances</strong> above.</div>'
+                    : ""
+                }`
+              : '<div class="summary-row__meta" style="margin-top:6px">No sub-accounts found yet. Try Sync Now.</div>';
+            const syncLine = `${statusBadge} · Last sync ${escHtml(formatPlaidSyncTime(item.last_sync_at))}`;
+            let errorLine = "";
+            if (item.last_sync_error) {
+              const errStr = String(item.last_sync_error);
+              const isAuthErr = /invalid\s+client_id|INVALID_API_KEYS|invalid[_\s]?api[_\s]?keys/i.test(errStr);
+              const hint = isAuthErr
+                ? '<div style="color:var(--muted);font-size:0.8rem;margin-top:2px">→ Check <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> in <code>.env</code>, then disconnect &amp; reconnect this bank.</div>'
+                : "";
+              errorLine = `<div class="summary-row__meta" style="color:var(--color-error,#d33)">⚠️ ${escHtml(errStr)}</div>${hint}`;
+            }
+            const reauthOrSync = item.status === "login_required"
+              ? `<button type="button" class="btn btn-primary btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
+              : `<button type="button" class="btn btn-ghost btn-sm" onclick="syncPlaidItem(${item.id})">Sync Now</button>`;
+            return `
+              <li class="summary-row-host">
+                <div class="summary-row accounts-item" style="flex-direction:column;align-items:stretch;gap:8px">
+                  <div class="summary-row__title" title="${escAttr(item.institution_name || "Institution")}" style="overflow-wrap:anywhere">${escHtml(item.institution_name || "Institution")}${nickname}</div>
+                  <div class="summary-row__meta">${syncLine}</div>
+                  ${errorLine}
+                  ${subsHtml}
+                  <div class="accounts-item-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                    ${reauthOrSync}
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="renamePlaidItem(${item.id}, '${escAttr(item.nickname || item.institution_name || "")}')">Rename</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
+                  </div>
+                </div>
+              </li>`;
+          })
+          .join("")}</ul>`;
+      }
+
+      async function refreshPlaidBalances() {
+        if (!currentUser) return;
+        const btn = document.getElementById("accounts-refresh-balances-btn");
+        if (btn) btn.disabled = true;
+        try {
+          const res = await api(`/plaid/accounts/refresh-balances`, { method: "POST" });
+          const payload = await res.json().catch(() => ({}));
+          if (res.status === 429) {
+            const wait = payload.retry_after_seconds || 300;
+            toast(`Balances were refreshed recently. Try again in ~${Math.ceil(wait / 60)} min.`, "info");
+          } else if (!res.ok) {
+            toast(payload.error || "Could not refresh balances", "error");
+          } else {
+            const n = (payload.accounts || []).length;
+            toast(`Refreshed balances for ${n} account${n === 1 ? "" : "s"} ✅`, "success");
+          }
+        } catch (err) {
+          console.error("refreshPlaidBalances failed", err);
+          toast("Could not refresh balances", "error");
+        } finally {
+          if (btn) btn.disabled = false;
+          await loadConnectedAccounts();
+        }
+      }
+
+      async function renamePlaidItem(itemId, currentNickname) {
+        const next = prompt("Nickname for this bank (blank to clear):", currentNickname || "");
+        if (next === null) return; // cancelled
+        const trimmed = next.trim().slice(0, 64);
+        try {
+          const res = await api(`/plaid/items/${itemId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ nickname: trimmed }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not rename bank", "error");
+            return;
+          }
+          toast("Nickname saved", "success");
+          await loadConnectedAccounts();
+        } catch (err) {
+          console.error("renamePlaidItem failed", err);
+          toast("Could not rename bank", "error");
+        }
+      }
+
+      function setAccountsTransactionsTab(tab) {
+        accountsTxTab = tab === "transfers" ? "transfers" : "spending";
+        document.querySelectorAll('[data-accounts-tab]').forEach((el) => {
+          const active = el.getAttribute("data-accounts-tab") === accountsTxTab;
+          el.setAttribute("aria-selected", active ? "true" : "false");
+          el.classList.toggle("active", active);
+        });
+        accountsTxOffset = 0;
+        loadPlaidTransactionsList();
+      }
+
+      // Category sets for the two tabs. Plaid "primary" categories are our
+      // source of truth until richer normalization lands (spec §4.10).
+      const TRANSFER_CATEGORIES = new Set([
+        "LOAN_PAYMENTS", "TRANSFER_IN", "TRANSFER_OUT", "BANK_FEES",
+        "RENT_AND_UTILITIES", "GOVERNMENT_AND_NON_PROFIT",
+      ]);
+
+      async function loadPlaidTransactionsList() {
+        const body = document.getElementById("accounts-tx-body");
+        const summary = document.getElementById("accounts-tx-summary");
+        const pager = document.getElementById("accounts-tx-pagination");
+        if (!body) return;
+        if (!currentUser) {
+          body.innerHTML = '<div class="empty-state"><p>Sign in to view transactions.</p></div>';
+          if (summary) summary.textContent = "";
+          if (pager) pager.innerHTML = "";
+          return;
+        }
+        const monthVal = document.getElementById("accounts-tx-month")?.value || "";
+        const accountId = document.getElementById("accounts-tx-account-filter")?.value || "";
+        const params = new URLSearchParams();
+        params.set("limit", String(ACCOUNTS_TX_LIMIT));
+        params.set("offset", String(accountsTxOffset));
+        if (accountId) params.set("account_id", accountId);
+        if (monthVal) {
+          // YYYY-MM → first/last day of month.
+          const [y, m] = monthVal.split("-").map(Number);
+          if (y && m) {
+            const last = new Date(y, m, 0).getDate();
+            params.set("start", `${monthVal}-01`);
+            params.set("end", `${monthVal}-${String(last).padStart(2, "0")}`);
+          }
+        }
+        try {
+          const res = await api(`/plaid/transactions?${params.toString()}`);
+          if (!res.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load transactions.</p></div>';
+            if (summary) summary.textContent = "";
+            if (pager) pager.innerHTML = "";
+            return;
+          }
+          const payload = await res.json();
+          const all = payload.transactions || [];
+          const filtered = all.filter((t) => {
+            const cat = String(t.plaid_category_primary || "").toUpperCase();
+            const isTransfer = TRANSFER_CATEGORIES.has(cat);
+            return accountsTxTab === "transfers" ? isTransfer : !isTransfer;
+          });
+          if (summary) {
+            const totalLabel = payload.total === 1 ? "1 transaction" : `${payload.total} transactions`;
+            summary.textContent = filtered.length
+              ? `Showing ${filtered.length} of ${totalLabel} (server total across all categories).`
+              : `${totalLabel} total — none match the current tab.`;
+          }
+          if (!filtered.length) {
+            body.innerHTML = `<div class="empty-state"><p>No ${accountsTxTab === "transfers" ? "transfers or bill payments" : "spending transactions"} found for this filter.</p></div>`;
+          } else {
+            body.innerHTML = renderAccountsTransactionRows(filtered);
+          }
+          // Pagination — server totals, not post-filter totals.
+          if (pager) {
+            const total = Number(payload.total || 0);
+            const hasPrev = accountsTxOffset > 0;
+            const hasNext = accountsTxOffset + ACCOUNTS_TX_LIMIT < total;
+            pager.innerHTML = `
+              <span style="color:var(--muted);font-size:0.82rem">
+                Page ${Math.floor(accountsTxOffset / ACCOUNTS_TX_LIMIT) + 1}
+                · rows ${accountsTxOffset + 1}–${Math.min(accountsTxOffset + ACCOUNTS_TX_LIMIT, total)} of ${total}
+              </span>
+              <span style="display:flex;gap:6px">
+                <button type="button" class="btn btn-ghost btn-sm" ${hasPrev ? "" : "disabled"} onclick="changeAccountsTxPage(-1)">← Prev</button>
+                <button type="button" class="btn btn-ghost btn-sm" ${hasNext ? "" : "disabled"} onclick="changeAccountsTxPage(1)">Next →</button>
+              </span>`;
+          }
+        } catch (err) {
+          console.error("loadPlaidTransactionsList failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load transactions.</p></div>';
+        }
+      }
+
+      function changeAccountsTxPage(delta) {
+        const next = accountsTxOffset + delta * ACCOUNTS_TX_LIMIT;
+        if (next < 0) return;
+        accountsTxOffset = next;
+        loadPlaidTransactionsList();
+      }
+
+      function renderAccountsTransactionRows(rows) {
+        // Build a lookup from plaid_account_id → display label.
+        const acctMap = new Map();
+        (accountsConnectedCache.accounts || []).forEach((a) => {
+          acctMap.set(a.plaid_account_id, `${a.name || "Account"}${a.mask ? ` ····${a.mask}` : ""}`);
+        });
+        return `<ul class="summary-row-list">${rows.map((t) => {
+          const amount = Number(t.amount || 0);
+          const isRefund = amount < 0;
+          const amountStr = `${isRefund ? "-" : ""}${formatMoney(Math.abs(amount))}`;
+          const dateStr = t.date ? formatPrettyDate(t.date) : "—";
+          const merchant = t.merchant || "Unknown merchant";
+          const catLabel = t.plaid_category_primary || "Uncategorized";
+          const acctLabel = t.plaid_account_id ? acctMap.get(t.plaid_account_id) || t.plaid_account_id : "";
+          const acctChip = acctLabel ? ` · <span style="color:var(--muted)">${escHtml(acctLabel)}</span>` : "";
+          return `
+            <li class="summary-row-host">
+              <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+                  <div class="summary-row__title" title="${escAttr(merchant)}">${escHtml(merchant)}</div>
+                  <div class="summary-row__value" style="color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"}">${amountStr}</div>
+                </div>
+                <div class="summary-row__meta">
+                  ${escHtml(dateStr)} · ${escHtml(String(catLabel).replace(/_/g, " "))}${acctChip}
+                </div>
+              </div>
+            </li>`;
+        }).join("")}</ul>`;
+      }
+
+      async function loadPlaidSpendingTrends() {
+        const body = document.getElementById("accounts-trends-body");
+        const summary = document.getElementById("accounts-trends-summary");
+        if (!body) return;
+        if (!currentUser) {
+          body.innerHTML = '<div class="empty-state"><p>Sign in to view spending trends.</p></div>';
+          if (summary) summary.textContent = "";
+          return;
+        }
+        const months = Number(document.getElementById("accounts-trends-window")?.value || 12);
+        try {
+          const res = await api(`/plaid/spending-trends?months=${months}`);
+          if (!res.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load spending trends.</p></div>';
+            if (summary) summary.textContent = "";
+            return;
+          }
+          const payload = await res.json();
+          const series = payload.series || [];
+          if (!series.length) {
+            body.innerHTML = '<div class="empty-state"><p>No Plaid-imported purchases in this window yet. Confirm some transactions and check back.</p></div>';
+            if (summary) summary.textContent = "";
+            return;
+          }
+          // Aggregate by month total for the bar chart, and by category for totals.
+          const byMonth = new Map();
+          const byCategory = new Map();
+          let grandTotal = 0;
+          series.forEach((row) => {
+            byMonth.set(row.month, (byMonth.get(row.month) || 0) + Number(row.total || 0));
+            byCategory.set(row.category, (byCategory.get(row.category) || 0) + Number(row.total || 0));
+            grandTotal += Number(row.total || 0);
+          });
+          const monthsSorted = [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+          const categoriesSorted = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
+          if (summary) {
+            summary.textContent = `${monthsSorted.length} month${monthsSorted.length === 1 ? "" : "s"} · ${formatMoney(grandTotal)} total across ${categoriesSorted.length} categories`;
+          }
+          body.innerHTML = renderSpendingTrendsChart(monthsSorted, categoriesSorted, grandTotal);
+        } catch (err) {
+          console.error("loadPlaidSpendingTrends failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load spending trends.</p></div>';
+        }
+      }
+
+      function renderSpendingTrendsChart(monthsSorted, categoriesSorted, grandTotal) {
+        // Plain SVG bar chart (no external chart lib — see spec §4.11).
+        const maxVal = Math.max(1, ...monthsSorted.map(([, v]) => v));
+        const barW = 36;
+        const gap = 14;
+        const chartH = 180;
+        const axisH = 26;
+        const width = Math.max(320, monthsSorted.length * (barW + gap) + gap);
+        const height = chartH + axisH + 16;
+        const bars = monthsSorted.map(([month, val], i) => {
+          const h = Math.max(2, Math.round((val / maxVal) * chartH));
+          const x = gap + i * (barW + gap);
+          const y = chartH - h + 8;
+          const label = month.slice(5); // MM
+          return `
+            <g>
+              <rect x="${x}" y="${y}" width="${barW}" height="${h}"
+                    rx="4" ry="4" fill="var(--accent,#2e7d6b)">
+                <title>${escAttr(month)} · ${formatMoney(val)}</title>
+              </rect>
+              <text x="${x + barW / 2}" y="${chartH + 22}" text-anchor="middle"
+                    font-size="10" fill="var(--muted)">${escHtml(label)}</text>
+              <text x="${x + barW / 2}" y="${y - 4}" text-anchor="middle"
+                    font-size="9" fill="var(--muted)">${escHtml(formatMoney(val).replace(/\.\d+$/, ""))}</text>
+            </g>`;
+        }).join("");
+        const chartSvg = `
+          <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+            <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"
+                 role="img" aria-label="Monthly spending bars" style="max-width:100%;display:block">
+              <line x1="0" y1="${chartH + 8}" x2="${width}" y2="${chartH + 8}" stroke="var(--border)" stroke-width="1"/>
+              ${bars}
+            </svg>
+          </div>`;
+        const catRows = categoriesSorted.slice(0, 12).map(([cat, val]) => {
+          const pct = grandTotal > 0 ? Math.round((val / grandTotal) * 100) : 0;
+          return `
+            <tr>
+              <td style="padding:4px 8px">${escHtml(String(cat).replace(/_/g, " "))}</td>
+              <td style="padding:4px 8px;text-align:right;white-space:nowrap">${formatMoney(val)}</td>
+              <td style="padding:4px 8px;text-align:right;color:var(--muted);width:50px">${pct}%</td>
+            </tr>`;
+        }).join("");
+        const moreNote = categoriesSorted.length > 12
+          ? `<div style="color:var(--muted);font-size:0.82rem;margin-top:4px">…and ${categoriesSorted.length - 12} more categories.</div>`
+          : "";
+        const catTable = `
+          <div style="margin-top:14px">
+            <div style="font-weight:700;margin-bottom:4px">By category</div>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+              <thead>
+                <tr style="color:var(--muted);text-align:left">
+                  <th style="padding:4px 8px;font-weight:600">Category</th>
+                  <th style="padding:4px 8px;font-weight:600;text-align:right">Total</th>
+                  <th style="padding:4px 8px;font-weight:600;text-align:right">Share</th>
+                </tr>
+              </thead>
+              <tbody>${catRows}</tbody>
+            </table>
+            ${moreNote}
+          </div>`;
+        return chartSvg + catTable;
       }
 
       async function loadSnapshotReviewQueue() {
