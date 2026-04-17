@@ -1,0 +1,228 @@
+/* ===================================================================
+ * design-system.css — Apple-cinematic last-mile polish.
+ *
+ * This file layers on top of the existing index.html <style> block
+ * (which already implements the design-system primitives for buttons,
+ * cards, inputs, and badges against design/design-tokens.json).
+ *
+ * Scope here: global rhythm that's hard to apply per-component
+ *   1. Tabular numerals everywhere numbers live (spec requirement)
+ *   2. Toast — 4px colored left-accent stripe per spec
+ *   3. Pre / code / OCR raw-text blocks → SF Mono 13px
+ *   4. Sidebar active-item gets the Apple accent indicator
+ *   5. Confidence badges auto-prepend ✓ / ! / ⚠ glyphs
+ *      (spec rule: never encode confidence in colour alone)
+ *   6. Low-confidence input helper stroke (for aria-invalid="true"
+ *      paired with aria-describedby)
+ *   7. Global focus-visible hardening
+ *
+ * This stylesheet is linked last in <head> so its declarations win
+ * the cascade against the main <style> block.
+ * =================================================================== */
+
+/* ---------- 1. Tabular numerals for money / counts -------------- */
+.stat-value,
+.stat-number,
+.amount,
+.cash-total,
+.ledger-row,
+.ledger-total,
+.budget-amount,
+.budget-remaining,
+.price,
+.price-value,
+.receipt-total,
+.tabular,
+.monetary,
+.duration,
+.confidence-value,
+td.num,
+td[data-type="number"],
+td[data-type="currency"],
+table.data-table td,
+table.numeric td {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- 2. Toast — 4px left-accent stripe ------------------ */
+#toast {
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-text);
+  font-size: var(--font-body);
+  letter-spacing: var(--font-body-tracking);
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+#toast.success {
+  border-left-color: var(--color-success);
+  border-top-color: var(--color-border);
+  border-right-color: var(--color-border);
+  border-bottom-color: var(--color-border);
+}
+#toast.error {
+  border-left-color: var(--color-error);
+  border-top-color: var(--color-border);
+  border-right-color: var(--color-border);
+  border-bottom-color: var(--color-border);
+}
+#toast.warning,
+#toast.warn {
+  border-left-color: var(--color-warning);
+  border-top-color: var(--color-border);
+  border-right-color: var(--color-border);
+  border-bottom-color: var(--color-border);
+}
+#toast.info {
+  border-left-color: var(--color-info);
+  border-top-color: var(--color-border);
+  border-right-color: var(--color-border);
+  border-bottom-color: var(--color-border);
+}
+
+/* Action-toast — same stripe treatment */
+#action-toast {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-3);
+}
+#action-toast.success  { border-left-color: var(--color-success); }
+#action-toast.error    { border-left-color: var(--color-error); }
+#action-toast.warning  { border-left-color: var(--color-warning); }
+.action-toast-message {
+  font-family: var(--font-text);
+  font-size: var(--font-body);
+  letter-spacing: var(--font-body-tracking);
+  color: var(--color-text-primary);
+}
+.action-toast-button {
+  font-family: var(--font-text);
+  color: var(--color-link);
+  font-weight: 600;
+}
+
+/* ---------- 3. Pre / code / OCR raw text → SF Mono 13px ------- */
+pre,
+code,
+kbd,
+samp,
+.mono,
+.ocr-text,
+.ocr-raw,
+.raw-ocr,
+.receipt-raw,
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+pre {
+  background: var(--color-surface-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+code:not(pre code) {
+  background: var(--color-surface-3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ---------- 4. Sidebar active indicator ------------------------ */
+/* The left rail active state gets a sharper accent — consistent
+ * with the "one accent only" rule in SKILL.md. */
+.nav-item.active {
+  position: relative;
+}
+.nav-item.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  background: var(--color-brand);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 113, 227, 0.18);
+}
+
+/* ---------- 5. Confidence badges: auto-glyph ------------------- */
+/* Spec rule: never encode confidence in colour alone.
+ * Auto-prepend ✓ / ! / ⚠ unless the markup already has one. */
+.badge--confidence-high::before,
+.badge--confidence-medium::before,
+.badge--confidence-low::before {
+  margin-right: 3px;
+  font-weight: 700;
+  font-feature-settings: normal;
+}
+.badge--confidence-high:not([data-no-glyph])::before   { content: "✓"; }
+.badge--confidence-medium:not([data-no-glyph])::before { content: "!"; }
+.badge--confidence-low:not([data-no-glyph])::before    { content: "⚠"; }
+
+/* ---------- 6. Input invalid helper line ---------------------- */
+input[aria-invalid="true"] + .form-helper,
+select[aria-invalid="true"] + .form-helper,
+textarea[aria-invalid="true"] + .form-helper,
+input[aria-invalid="true"] ~ .form-helper,
+.form-group[data-invalid="true"] .form-helper {
+  color: var(--color-error);
+  font-size: var(--font-xs);
+  letter-spacing: var(--font-xs-tracking);
+  margin-top: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.form-group[data-invalid="true"] .form-helper::before {
+  content: "⚠";
+  color: var(--color-error);
+}
+
+/* ---------- 7. Global focus-visible hardening ----------------- */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--stroke-2) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- 8. Body: SF Pro optical-sizing body rhythm -------- */
+body {
+  font-family: var(--font-text);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  letter-spacing: var(--font-body-tracking);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+h1, h2 { font-family: var(--font-display); letter-spacing: -0.4px; }
+h3, h4, h5, h6 { font-family: var(--font-display); letter-spacing: -0.2px; }
+
+/* ---------- 9. Scrollbars — subtle Apple-style ---------------- */
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); background-clip: content-box; border: 2px solid transparent; }
+}
+
+/* ---------- 10. Reduced motion -------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -11832,6 +11832,9 @@
         display: none;
       }
     </style>
+    <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
+         <style> block so its declarations win the cascade. -->
+    <link rel="stylesheet" href="/styles/design-system.css" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>

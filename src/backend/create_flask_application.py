@@ -147,6 +147,15 @@ def register_error_handlers(app):
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
         return send_from_directory(frontend_dir, "index.html")
 
+    @app.route("/styles/<path:filename>")
+    def serve_frontend_styles(filename):
+        """Serve stylesheets from src/frontend/styles/."""
+        import os
+        styles_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "frontend", "styles"
+        )
+        return send_from_directory(styles_dir, filename)
+
     @app.route("/design/")
     @app.route("/design/<path:filename>")
     def serve_design_system(filename="preview/ui-kit-localocr.html"):
