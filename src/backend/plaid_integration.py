@@ -19,6 +19,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 
 from plaid.exceptions import ApiException
+from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.item_remove_request import ItemRemoveRequest
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -26,7 +27,12 @@ from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUse
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 
 from src.backend.create_flask_application import require_auth, require_write_access
-from src.backend.initialize_database_schema import PlaidItem, PlaidStagedTransaction
+from src.backend.initialize_database_schema import (
+    PlaidAccount,
+    PlaidItem,
+    PlaidStagedTransaction,
+    Purchase,
+)
 from src.backend.plaid_transaction_mapper import annotate_all_ready_staged
 from src.backend.plaid_client import (
     PlaidConfigurationError,
@@ -95,6 +101,79 @@ def _serialize_item(item: PlaidItem) -> dict:
 def _current_user_id() -> int | None:
     user = getattr(g, "current_user", None)
     return int(user.id) if user else None
+
+
+def _upsert_plaid_accounts_from_metadata(session, item: PlaidItem, accounts_meta: list) -> None:
+    """Ensure a plaid_accounts row exists for each sub-account in accounts_meta.
+
+    Called from the Link exchange path so GET /plaid/accounts returns rows
+    immediately after linking, before any balance refresh. Does not touch
+    balance_cents / balance_updated_at — those stay NULL until the first
+    explicit refresh-balances call.
+
+    Idempotent on (plaid_item_id, plaid_account_id) via the migration's
+    unique constraint.
+    """
+    if not accounts_meta:
+        return
+    for acct in accounts_meta:
+        if not isinstance(acct, dict):
+            continue
+        # Plaid Link's onSuccess metadata.accounts[] uses "id"; the
+        # Transactions / Balance API response uses "account_id". Accept
+        # both so this helper works from either callsite.
+        plaid_account_id = (
+            acct.get("account_id")
+            or acct.get("plaid_account_id")
+            or acct.get("id")
+            or ""
+        ).strip()
+        if not plaid_account_id:
+            continue
+        existing = (
+            session.query(PlaidAccount)
+            .filter_by(plaid_item_id=item.id, plaid_account_id=plaid_account_id)
+            .first()
+        )
+        name = acct.get("name") or acct.get("official_name")
+        mask = acct.get("mask")
+        acct_type = acct.get("type")
+        acct_subtype = acct.get("subtype")
+        if existing:
+            # Refresh metadata only; leave balance columns alone.
+            existing.account_name = name or existing.account_name
+            existing.account_mask = mask or existing.account_mask
+            existing.account_type = acct_type or existing.account_type
+            existing.account_subtype = acct_subtype or existing.account_subtype
+        else:
+            session.add(
+                PlaidAccount(
+                    plaid_item_id=item.id,
+                    user_id=item.user_id,
+                    plaid_account_id=plaid_account_id,
+                    account_name=name,
+                    account_mask=mask,
+                    account_type=acct_type,
+                    account_subtype=acct_subtype,
+                )
+            )
+
+
+def _serialize_plaid_account(acct: PlaidAccount) -> dict:
+    return {
+        "id": acct.id,
+        "plaid_item_id": acct.plaid_item_id,
+        "plaid_account_id": acct.plaid_account_id,
+        "name": acct.account_name,
+        "mask": acct.account_mask,
+        "type": acct.account_type,
+        "subtype": acct.account_subtype,
+        "balance_cents": acct.balance_cents,
+        "balance_currency": acct.balance_iso_currency_code,
+        "balance_updated_at": (
+            acct.balance_updated_at.isoformat() if acct.balance_updated_at else None
+        ),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +301,8 @@ def exchange_public_token():
             status="active",
         )
         session.add(item_record)
+    session.flush()  # ensure item_record.id is populated before upserting accounts
+    _upsert_plaid_accounts_from_metadata(session, item_record, accounts_meta)
     session.commit()
 
     return jsonify({
@@ -797,6 +878,341 @@ def delete_item(item_id: int):
         except Exception as exc:  # noqa: BLE001
             logger.warning("Plaid disconnect error for item %s: %s", item.plaid_item_id, exc)
 
+    # Clean up dependent plaid_accounts rows before deleting the parent item
+    # (no cascade configured on the FK).
+    session.query(PlaidAccount).filter_by(plaid_item_id=item.id).delete(
+        synchronize_session=False
+    )
     session.delete(item)
     session.commit()
     return jsonify({"deleted_id": item_id}), 200
+
+
+# ---------------------------------------------------------------------------
+# Accounts Dashboard routes (Phase 1b — read-only views + rename + balance
+# refresh). All strictly scoped by current_user.id. No admin bypass.
+# ---------------------------------------------------------------------------
+
+# Server-side throttle: one balance refresh per user every N seconds. We check
+# max(plaid_accounts.balance_updated_at) for the user; if it's within the
+# window we 429. This protects the Plaid billing quota and matches the spec.
+BALANCE_REFRESH_TTL_SECONDS = 5 * 60
+
+
+@plaid_bp.route("/items/<int:item_id>", methods=["PATCH"])
+@require_write_access
+def patch_item(item_id: int):
+    """Rename a linked Plaid item (nickname only)."""
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    payload = request.get_json(silent=True) or {}
+    if "nickname" not in payload:
+        return jsonify({"error": "Only 'nickname' is editable"}), 400
+    nickname_raw = payload.get("nickname")
+    if nickname_raw is None:
+        nickname = None
+    else:
+        nickname = str(nickname_raw).strip() or None
+        if nickname is not None and len(nickname) > 64:
+            return jsonify({"error": "Nickname must be 64 characters or fewer"}), 400
+
+    session = g.db_session
+    item = (
+        session.query(PlaidItem)
+        .filter_by(id=item_id, user_id=user_id)
+        .first()
+    )
+    if not item:
+        return jsonify({"error": "Plaid item not found"}), 404
+    item.nickname = nickname
+    session.commit()
+    return jsonify({
+        "id": item.id,
+        "nickname": item.nickname,
+    }), 200
+
+
+@plaid_bp.route("/accounts", methods=["GET"])
+@require_auth
+def list_accounts():
+    """List the current user's Plaid sub-accounts with cached balances.
+
+    Does NOT call Plaid. Use POST /plaid/accounts/refresh-balances to
+    refresh balance_cents / balance_updated_at.
+    """
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    session = g.db_session
+    accounts = (
+        session.query(PlaidAccount)
+        .filter_by(user_id=user_id)
+        .order_by(PlaidAccount.plaid_item_id.asc(), PlaidAccount.id.asc())
+        .all()
+    )
+    return jsonify({
+        "accounts": [_serialize_plaid_account(a) for a in accounts],
+    }), 200
+
+
+@plaid_bp.route("/accounts/refresh-balances", methods=["POST"])
+@require_write_access
+def refresh_balances():
+    """Refresh balances for all of the current user's linked items.
+
+    Throttled: 429 if any of the user's accounts were refreshed in the last
+    5 minutes. On success, per-account balance_cents and balance_updated_at
+    are updated; the response mirrors GET /plaid/accounts shape.
+    """
+    if not is_plaid_configured():
+        return jsonify({"error": "Plaid is not configured on this server."}), 503
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    session = g.db_session
+    now = datetime.utcnow()
+
+    # Throttle check — look at the most recent balance update across this
+    # user's accounts.
+    latest = (
+        session.query(PlaidAccount.balance_updated_at)
+        .filter(PlaidAccount.user_id == user_id)
+        .filter(PlaidAccount.balance_updated_at.isnot(None))
+        .order_by(PlaidAccount.balance_updated_at.desc())
+        .first()
+    )
+    if latest and latest[0] is not None:
+        elapsed = (now - latest[0]).total_seconds()
+        if elapsed < BALANCE_REFRESH_TTL_SECONDS:
+            retry_after = int(BALANCE_REFRESH_TTL_SECONDS - elapsed) + 1
+            return (
+                jsonify({
+                    "error": "Balances were refreshed recently.",
+                    "retry_after_seconds": retry_after,
+                }),
+                429,
+                {"Retry-After": str(retry_after)},
+            )
+
+    items = session.query(PlaidItem).filter_by(user_id=user_id, status="active").all()
+    if not items:
+        return jsonify({"accounts": [], "refreshed_items": 0}), 200
+
+    client = get_client()
+    refreshed_items = 0
+    for item in items:
+        try:
+            access_token = decrypt_api_key(item.access_token_encrypted)
+            bal_req = AccountsBalanceGetRequest(access_token=access_token)
+            bal_res = client.accounts_balance_get(bal_req)
+        except ApiException as exc:
+            logger.warning(
+                "Balance refresh failed for item %s: %s", item.plaid_item_id, exc
+            )
+            continue
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Balance refresh unexpected error item %s: %s", item.plaid_item_id, exc
+            )
+            continue
+
+        for plaid_acct in bal_res.get("accounts") or []:
+            plaid_acct_id = str(plaid_acct.get("account_id") or "").strip()
+            if not plaid_acct_id:
+                continue
+            balances = plaid_acct.get("balances") or {}
+            current = balances.get("current")
+            currency = balances.get("iso_currency_code") or "USD"
+            balance_cents = None
+            if current is not None:
+                try:
+                    balance_cents = int(round(float(current) * 100))
+                except (TypeError, ValueError):
+                    balance_cents = None
+
+            row = (
+                session.query(PlaidAccount)
+                .filter_by(plaid_item_id=item.id, plaid_account_id=plaid_acct_id)
+                .first()
+            )
+            if row is None:
+                # Plaid returned an account we don't have a row for yet —
+                # lazily create it (e.g., account added at the institution
+                # after the original link).
+                row = PlaidAccount(
+                    plaid_item_id=item.id,
+                    user_id=user_id,
+                    plaid_account_id=plaid_acct_id,
+                    account_name=plaid_acct.get("name") or plaid_acct.get("official_name"),
+                    account_mask=plaid_acct.get("mask"),
+                    account_type=str(plaid_acct.get("type")) if plaid_acct.get("type") else None,
+                    account_subtype=(
+                        str(plaid_acct.get("subtype")) if plaid_acct.get("subtype") else None
+                    ),
+                )
+                session.add(row)
+            row.balance_cents = balance_cents
+            row.balance_iso_currency_code = currency
+            row.balance_updated_at = now
+        refreshed_items += 1
+
+    session.commit()
+
+    accounts = (
+        session.query(PlaidAccount)
+        .filter_by(user_id=user_id)
+        .order_by(PlaidAccount.plaid_item_id.asc(), PlaidAccount.id.asc())
+        .all()
+    )
+    return jsonify({
+        "accounts": [_serialize_plaid_account(a) for a in accounts],
+        "refreshed_items": refreshed_items,
+    }), 200
+
+
+@plaid_bp.route("/transactions", methods=["GET"])
+@require_auth
+def list_plaid_transactions():
+    """Paginated list of confirmed Plaid-sourced purchases for the current user.
+
+    Source of truth is the `purchases` table, filtered to rows with
+    plaid_transaction_id IS NOT NULL. Never reads plaid_staged_transactions
+    (that is the Review queue; this endpoint is for the Accounts dashboard
+    history view).
+
+    Query params:
+      account_id  — optional Plaid account_id (string); matches via the
+                    linked PlaidStagedTransaction sibling row.
+      start, end  — ISO-8601 dates (inclusive) bounding Purchase.date.
+      category    — matches Purchase.default_budget_category.
+      merchant    — case-insensitive substring match on the sibling
+                    PlaidStagedTransaction.merchant_name.
+      limit, offset — pagination (limit default 100, max 500).
+    """
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    account_id = (request.args.get("account_id") or "").strip() or None
+    start_raw = (request.args.get("start") or "").strip() or None
+    end_raw = (request.args.get("end") or "").strip() or None
+    category = (request.args.get("category") or "").strip() or None
+    merchant = (request.args.get("merchant") or "").strip() or None
+    try:
+        limit = int(request.args.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    try:
+        offset = int(request.args.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
+    session = g.db_session
+    q = (
+        session.query(Purchase, PlaidStagedTransaction)
+        .outerjoin(
+            PlaidStagedTransaction,
+            PlaidStagedTransaction.confirmed_purchase_id == Purchase.id,
+        )
+        .filter(Purchase.user_id == user_id)
+        .filter(PlaidStagedTransaction.id.isnot(None))
+    )
+    if start_raw:
+        q = q.filter(Purchase.date >= start_raw)
+    if end_raw:
+        q = q.filter(Purchase.date <= end_raw + " 23:59:59")
+    if category:
+        q = q.filter(Purchase.default_budget_category == category)
+    if account_id:
+        q = q.filter(PlaidStagedTransaction.plaid_account_id == account_id)
+    if merchant:
+        q = q.filter(PlaidStagedTransaction.merchant_name.ilike(f"%{merchant}%"))
+
+    total = q.count()
+    rows = (
+        q.order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+    transactions = []
+    for purchase, staged in rows:
+        transactions.append({
+            "purchase_id": purchase.id,
+            "date": purchase.date.isoformat() if purchase.date else None,
+            "amount": purchase.total_amount,
+            "merchant": (staged.merchant_name or staged.name) if staged else None,
+            "plaid_account_id": staged.plaid_account_id if staged else None,
+            "plaid_category_primary": staged.plaid_category_primary if staged else None,
+            "plaid_category_detailed": staged.plaid_category_detailed if staged else None,
+            "budget_category": purchase.default_budget_category,
+            "spending_domain": purchase.default_spending_domain,
+            "transaction_type": purchase.transaction_type,
+        })
+    return jsonify({
+        "transactions": transactions,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }), 200
+
+
+@plaid_bp.route("/spending-trends", methods=["GET"])
+@require_auth
+def spending_trends():
+    """Monthly spending totals by category for the current user.
+
+    Returns the last N months (default 12, max 24) of Plaid-sourced
+    confirmed purchases, aggregated by (month, default_budget_category).
+
+    Receipt-sourced purchases and Plaid-sourced purchases are NOT merged
+    here — Panel 3's UI decides whether to stack or split them (see
+    spec Section 4.10 on taxonomy mismatch).
+    """
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    try:
+        months = int(request.args.get("months") or 12)
+    except (TypeError, ValueError):
+        months = 12
+    months = max(1, min(months, 24))
+
+    session = g.db_session
+    # Use raw SQL for GROUP BY on strftime — SQLAlchemy's func.strftime works
+    # but keeping this explicit avoids confusion over dialect differences.
+    import sqlalchemy as _sa
+    sql = _sa.text(
+        """
+        SELECT strftime('%Y-%m', p.date) AS month,
+               p.default_budget_category AS category,
+               SUM(p.total_amount) AS total,
+               COUNT(*) AS n
+          FROM purchases p
+          JOIN plaid_staged_transactions s ON s.confirmed_purchase_id = p.id
+         WHERE p.user_id = :uid
+           AND p.date >= date('now', :window)
+         GROUP BY month, category
+         ORDER BY month ASC, category ASC
+        """
+    )
+    window = f"-{months} months"
+    rows = session.execute(sql, {"uid": user_id, "window": window}).fetchall()
+    series = [
+        {
+            "month": r[0],
+            "category": r[1] or "uncategorized",
+            "total": float(r[2] or 0.0),
+            "count": int(r[3] or 0),
+        }
+        for r in rows
+    ]
+    return jsonify({
+        "months": months,
+        "series": series,
+    }), 200

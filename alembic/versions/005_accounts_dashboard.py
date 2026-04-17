@@ -146,9 +146,13 @@ def upgrade() -> None:
             for acct in accounts:
                 if not isinstance(acct, dict):
                     continue
+                # Plaid Link's metadata.accounts[] stores the id under "id".
+                # The Transactions/Balance APIs use "account_id". Accept both
+                # so the backfill works regardless of which shape was stored.
                 plaid_account_id = (
                     acct.get("account_id")
                     or acct.get("plaid_account_id")
+                    or acct.get("id")
                     or ""
                 ).strip()
                 if not plaid_account_id:
