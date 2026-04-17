@@ -12876,6 +12876,13 @@
               <div class="table-wrap">
                 <div id="inv-table-body"></div>
               </div>
+              <input
+                id="product-snapshot-input"
+                type="file"
+                accept="image/*"
+                style="display: none"
+                onchange="uploadProductSnapshotFromPicker(event)"
+              />
             </div>
           </div>
 
@@ -17164,6 +17171,7 @@
       let receiptBudgetRequestId = 0;
       let shoppingSnapshotTargetItemId = null;
       let receiptSnapshotTargetItem = null;
+      let productSnapshotTargetItem = null;
       let currentUserStats = {
         receipts_today: 0,
         receipts_month: 0,
@@ -26140,6 +26148,8 @@
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Update location" aria-label="Update location" onclick="updateInventoryLocation(${i.id}, decodeURIComponent('${encodeURIComponent(i.location || "Pantry")}'))"><span class="icon">📍</span><span class="label">${escHtml(formatLabel(i.location, "Pantry"))}</span></button>
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.manual_low ? "Clear low flag" : "Mark low"}" aria-label="${i.manual_low ? "Clear low flag" : "Mark low"}" onclick="setProductLowStatus(${i.product_id}, ${!i.manual_low})"><span class="icon">${i.manual_low ? "🟢" : "🟡"}</span><span class="label">${i.manual_low ? "Clear Low" : "Low"}</span></button>
                 <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="Consume one" aria-label="Consume one" onclick="consumeItem(${i.id})"><span class="icon">−1</span><span class="label">Consume</span></button>
+                ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${i.latest_snapshot?.image_url ? "Replace photo" : "Add photo"}" aria-label="${i.latest_snapshot?.image_url ? "Replace photo" : "Add photo"}" onclick="selectProductSnapshotFile(${i.product_id}, '${encodeURIComponent(i.product_name || "")}')"><span class="icon">📷</span><span class="label">${i.latest_snapshot?.image_url ? "Replace" : "Photo"}</span></button>` : ""}
+                ${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="View photo" aria-label="View photo" onclick="openProductSnapshot('${escAttr(i.latest_snapshot.image_url)}')"><span class="icon">🖼</span><span class="label">View</span></button>` : ""}
                 <button type="button" class="btn btn-sm btn-danger action-icon-btn" title="Delete item" aria-label="Delete item" onclick="deleteInventoryItem(${i.id})"><span class="icon">🗑</span><span class="label">Delete</span></button>
               </div>
             </div>
@@ -26223,6 +26233,8 @@
                       <button type="button" class="btn btn-sm btn-ghost" onclick="updateInventoryLocation(${item.id}, decodeURIComponent('${encodeURIComponent(item.location || "Pantry")}'))">📍 ${escHtml(formatLabel(item.location, "Pantry"))}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.product_id}, ${!item.manual_low})">${item.manual_low ? "Clear Low" : "Low"}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="consumeItem(${item.id})">−1 Consume</button>
+                      ${item.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectProductSnapshotFile(${item.product_id}, '${encodeURIComponent(item.product_name || "")}')">📷 ${item.latest_snapshot?.image_url ? "Replace" : "Add"} Photo</button>` : ""}
+                      ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openProductSnapshot('${escAttr(item.latest_snapshot.image_url)}')">🖼 View</button>` : ""}
                       <button type="button" class="btn btn-sm btn-danger" onclick="deleteInventoryItem(${item.id})">🗑 Delete</button>
                     </div>
                   </div>
@@ -26232,17 +26244,29 @@
               </div>
             </details>
           </td>
-          <td style="color:var(--muted);font-size:0.82rem">
-            ${[
-              `Qty ${group.quantity}`,
-              locationLabel,
-              i.latest_price?.price != null
-                ? formatMoney(i.latest_price.price)
-                : null,
-            ]
-              .filter(Boolean)
-              .map((value) => escHtml(String(value)))
-              .join(" · ")}
+          <td>
+            <div style="display:flex;gap:10px;align-items:center">
+              ${
+                i.latest_snapshot?.image_url
+                  ? `<img src="${escAttr(i.latest_snapshot.image_url)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)" onclick="openProductSnapshot('${escAttr(i.latest_snapshot.image_url)}')" />`
+                  : `<div style="width:48px;height:48px;border-radius:6px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.75rem">📷</div>`
+              }
+              <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                <div style="color:var(--muted);font-size:0.82rem">
+                  ${[
+                    `Qty ${group.quantity}`,
+                    locationLabel,
+                    i.latest_price?.price != null
+                      ? formatMoney(i.latest_price.price)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .map((value) => escHtml(String(value)))
+                    .join(" · ")}
+                </div>
+                ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" style="align-self:flex-start" onclick="selectProductSnapshotFile(${i.product_id}, '${encodeURIComponent(i.product_name || "")}')">${i.latest_snapshot?.image_url ? "Replace Photo" : "Add Photo"}</button>` : ""}
+              </div>
+            </div>
           </td>
           <td>
             <div class="action-strip">
@@ -27034,6 +27058,8 @@
                       <div class="inventory-mobile-actions">
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })"><span class="icon">🛒</span><span class="label">Add</span></button>
                         <button type="button" class="btn btn-sm btn-ghost action-icon-btn" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))"><span class="icon">✏️</span><span class="label">Rename</span></button>
+                        <button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="${item.latest_snapshot?.image_url ? "Replace photo" : "Add photo"}" onclick="selectProductSnapshotFile(${item.id}, '${encodeURIComponent(item.name)}')"><span class="icon">📷</span><span class="label">${item.latest_snapshot?.image_url ? "Replace" : "Photo"}</span></button>
+                        ${item.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost action-icon-btn" title="View photo" onclick="openProductSnapshot('${escAttr(item.latest_snapshot.image_url)}')"><span class="icon">🖼</span><span class="label">View</span></button>` : ""}
                         <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || "other")}</select>
                       </div>
                       <div style="display:grid;gap:8px;grid-template-columns:minmax(92px, 0.8fr) minmax(0, 1fr) auto;align-items:end">
@@ -27116,9 +27142,11 @@
                       }
                     </div>
                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                      ${item.latest_snapshot?.image_url ? `<img src="${escAttr(item.latest_snapshot.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)" onclick="openProductSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />` : ""}
                       <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })" aria-label="Add to shopping list" title="Add to shopping list">🛒</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? "Clear Low" : "Low"}</button>
                       <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
+                      <button type="button" class="btn btn-sm btn-ghost" onclick="selectProductSnapshotFile(${item.id}, '${encodeURIComponent(item.name)}')">📷 ${item.latest_snapshot?.image_url ? "Replace" : "Add"} Photo</button>
                       <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || "other")}</select>
                       <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || "each")}</select>
                       <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || "")}" placeholder="18 count, 1 gal" />
@@ -31808,6 +31836,56 @@
       function openReceiptItemSnapshot(imageUrl) {
         if (!imageUrl) return;
         openImageLightbox(imageUrl, "Receipt Item Photo");
+      }
+
+      function selectProductSnapshotFile(productId, encodedName) {
+        productSnapshotTargetItem = {
+          productId: productId || null,
+          itemName: decodeURIComponent(encodedName || ""),
+        };
+        const input = document.getElementById("product-snapshot-input");
+        if (!input || !productId) return;
+        input.value = "";
+        input.click();
+      }
+
+      async function uploadProductSnapshotFromPicker(event) {
+        const input = event?.target;
+        const file = input?.files?.[0];
+        const target = productSnapshotTargetItem;
+        productSnapshotTargetItem = null;
+        if (!file || !target?.productId) return;
+
+        const form = new FormData();
+        form.append("image", file);
+        form.append("product_id", String(target.productId));
+        form.append("source_context", "manual");
+        if (target.itemName)
+          form.append("notes", `Product photo · ${target.itemName}`);
+        try {
+          const res = await fetch(`${API_BASE}/product-snapshots/upload`, {
+            method: "POST",
+            credentials: "include",
+            headers: getHeaders(false),
+            body: form,
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not save product photo", "error");
+            return;
+          }
+          toast("Product photo saved ✅", "success");
+          if (catalogMode === "products") await loadProducts(inventorySearchQuery);
+          else await loadInventory();
+        } catch (error) {
+          console.error(error);
+          toast("Could not save product photo", "error");
+        }
+      }
+
+      function openProductSnapshot(imageUrl) {
+        if (!imageUrl) return;
+        openImageLightbox(imageUrl, "Product Photo");
       }
 
       function openImageLightbox(imageUrl, title = "Item Photo") {

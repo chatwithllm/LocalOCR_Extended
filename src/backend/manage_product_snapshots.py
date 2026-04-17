@@ -33,6 +33,7 @@ ALLOWED_SOURCE_CONTEXTS = {
     "during_purchase",
     "after_purchase",
     "receipt_backfill",
+    "manual",
 }
 ALLOWED_STATUSES = {"unreviewed", "linked", "needs_review", "archived"}
 
