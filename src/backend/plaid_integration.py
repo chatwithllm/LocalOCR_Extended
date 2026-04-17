@@ -324,9 +324,11 @@ def sync_plaid_item_inner(session, item: PlaidItem) -> dict:
     try:
         while has_more and pages < 10:  # safety cap
             pages += 1
+            # Plaid's SDK requires cursor to be a string. For the first sync
+            # (no prior cursor), the correct value per Plaid docs is "".
             sync_req = TransactionsSyncRequest(
                 access_token=access_token,
-                cursor=cursor or None,
+                cursor=cursor,
                 count=500,
             )
             response = client.transactions_sync(sync_req).to_dict()
