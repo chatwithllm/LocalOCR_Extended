@@ -24,9 +24,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY src/ /app/src/
-COPY alembic/ /app/alembic/ 
+COPY alembic/ /app/alembic/
 COPY alembic.ini /app/alembic.ini
 COPY scripts/ /app/scripts/
+COPY design/ /app/design/
 
 # Create data directories (volumes will override these)
 RUN mkdir -p /data/db /data/receipts /data/backups
