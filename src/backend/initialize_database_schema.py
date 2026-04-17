@@ -709,12 +709,49 @@ class PlaidItem(Base):
     last_sync_status = Column(String(40), nullable=True)  # "ok", "error", "login_required"
     last_sync_error = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default="active")  # active, disconnected, login_required
+    nickname = Column(String(64), nullable=True)  # user-supplied friendly name for the item (editable via PATCH /plaid/items/<id>)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (
         Index("ix_plaid_items_user_id", "user_id"),
         Index("ix_plaid_items_status", "status"),
+    )
+
+
+class PlaidAccount(Base):
+    """Per-sub-account record under a PlaidItem (checking/savings/credit card).
+
+    Supersedes the `plaid_items.accounts_json` blob as the source of truth for
+    account metadata and cached balances. Balances are refreshed on demand via
+    POST /plaid/accounts/refresh-balances (5-min per-user throttle); there is
+    no scheduler-driven refresh.
+
+    user_id is denormalized from the parent plaid_items row to keep per-user
+    scoping a single-table filter, matching the pattern used by
+    plaid_staged_transactions.
+    """
+
+    __tablename__ = "plaid_accounts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    plaid_item_id = Column(Integer, ForeignKey("plaid_items.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plaid_account_id = Column(String(64), nullable=False)  # Plaid's account identifier; unique per item
+    account_name = Column(String(255), nullable=True)
+    account_mask = Column(String(8), nullable=True)
+    account_type = Column(String(32), nullable=True)
+    account_subtype = Column(String(32), nullable=True)
+    balance_cents = Column(Integer, nullable=True)  # current balance × 100, null until first refresh
+    balance_iso_currency_code = Column(String(3), nullable=False, default="USD")
+    balance_updated_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_plaid_accounts_user_id", "user_id"),
+        Index("ix_plaid_accounts_item_id", "plaid_item_id"),
+        UniqueConstraint("plaid_item_id", "plaid_account_id", name="uq_plaid_accounts_item_account"),
     )
 
 
