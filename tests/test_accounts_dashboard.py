@@ -417,3 +417,181 @@ def test_migration_005_upgrade_downgrade_roundtrip(tmp_path):
     c.execute("SELECT version_num FROM alembic_version")
     assert c.fetchone()[0] == "005_accounts_dashboard"
     conn.close()
+
+
+# ---------------------------------------------------------------------------
+# POST /plaid/staged-transactions/bulk-confirm (Phase 2)
+# ---------------------------------------------------------------------------
+
+def _seed_staged(app, user_id, item_id, account_id, count, date=None):
+    """Insert `count` ready_to_import staged transactions for a user.
+
+    Returns the list of inserted IDs in creation order.
+    """
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    _, SF = _get_db()
+    session = SF()
+    ids = []
+    try:
+        for i in range(count):
+            row = PlaidStagedTransaction(
+                plaid_item_id=item_id,
+                user_id=user_id,
+                # plaid_transaction_id has a UNIQUE constraint, so randomise
+                # per insertion and per test to avoid collisions between
+                # tests in the module-scoped fixture.
+                plaid_transaction_id=f"ptx_{user_id}_{item_id}_{i}_{os.urandom(3).hex()}",
+                plaid_account_id=account_id,
+                amount=12.34 + i,
+                iso_currency_code="USD",
+                transaction_date=date or date_cls.today(),
+                name=f"Test merchant {i}",
+                merchant_name=f"Test merchant {i}",
+                suggested_receipt_type="general_expense",
+                suggested_spending_domain="general_expense",
+                suggested_budget_category="other",
+                status="ready_to_import",
+                raw_json="{}",
+            )
+            session.add(row)
+            session.flush()
+            ids.append(row.id)
+        session.commit()
+    finally:
+        session.close()
+    return ids
+
+
+def _cleanup_staged(app):
+    """Delete every staged row so tests don't bleed state into each other."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        session.query(PlaidStagedTransaction).delete()
+        session.commit()
+    finally:
+        session.close()
+
+
+def test_bulk_confirm_happy_path_with_explicit_ids(app, seeded_ids):
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    _cleanup_staged(app)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=2,
+    )
+
+    status, body = _invoke(
+        app,
+        "POST",
+        "/plaid/staged-transactions/bulk-confirm",
+        seeded_ids["user_a"],
+        json_data={"ids": staged_ids},
+    )
+    assert status == 200, body
+    assert body["attempted"] == 2
+    assert body["confirmed"] == 2
+    assert body["failed"] == []
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        rows = (
+            session.query(PlaidStagedTransaction)
+            .filter(PlaidStagedTransaction.id.in_(staged_ids))
+            .all()
+        )
+        assert all(r.status == "confirmed" for r in rows)
+        assert all(r.confirmed_purchase_id is not None for r in rows)
+    finally:
+        session.close()
+    _cleanup_staged(app)
+
+
+def test_bulk_confirm_isolation_user_b_cannot_confirm_user_a_rows(app, seeded_ids):
+    """User B targeting User A's staged IDs must confirm zero rows."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    _cleanup_staged(app)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=2,
+    )
+
+    status, body = _invoke(
+        app,
+        "POST",
+        "/plaid/staged-transactions/bulk-confirm",
+        seeded_ids["user_b"],
+        json_data={"ids": staged_ids},
+    )
+    assert status == 200, body
+    assert body["attempted"] == 0
+    assert body["confirmed"] == 0
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        rows = (
+            session.query(PlaidStagedTransaction)
+            .filter(PlaidStagedTransaction.id.in_(staged_ids))
+            .all()
+        )
+        # User A's rows must be untouched.
+        assert all(r.status == "ready_to_import" for r in rows)
+        assert all(r.confirmed_purchase_id is None for r in rows)
+    finally:
+        session.close()
+    _cleanup_staged(app)
+
+
+def test_bulk_confirm_all_ready_respects_max_cap(app, seeded_ids):
+    _cleanup_staged(app)
+    _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=3,
+    )
+
+    status, body = _invoke(
+        app,
+        "POST",
+        "/plaid/staged-transactions/bulk-confirm",
+        seeded_ids["user_a"],
+        json_data={"all_ready": True, "max": 2},
+    )
+    assert status == 200, body
+    assert body["attempted"] == 2  # cap honored
+    assert body["confirmed"] == 2
+    _cleanup_staged(app)
+
+
+def test_bulk_confirm_rejects_empty_payload(app, seeded_ids):
+    """Without ids or all_ready the endpoint must 400 rather than silently
+    confirming nothing."""
+    status, body = _invoke(
+        app,
+        "POST",
+        "/plaid/staged-transactions/bulk-confirm",
+        seeded_ids["user_a"],
+        json_data={},
+    )
+    assert status == 400, body
+    assert "error" in body
