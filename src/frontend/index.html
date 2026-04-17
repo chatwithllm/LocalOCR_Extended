@@ -3870,14 +3870,21 @@
 
       .card-header-inline-stat {
         margin-left: auto;
-        font-size: 0.9rem;
-        font-weight: 800;
+        font-size: 0.78rem;
+        font-weight: 700;
         color: var(--muted);
-        background: transparent;
-        border: none;
-        padding: 0;
+        background: rgba(148, 163, 184, 0.18);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 999px;
+        padding: 2px 10px;
+        min-width: 26px;
+        text-align: center;
         cursor: pointer;
         font-family: inherit;
+        line-height: 1.4;
+      }
+      .card-header-inline-stat:hover {
+        background: rgba(148, 163, 184, 0.28);
       }
 
       .shopping-recs-header-actions {
@@ -4824,7 +4831,7 @@
       .shopping-web-edit-grid {
         display: grid;
         grid-template-columns:
-          minmax(104px, 116px) minmax(104px, 116px) minmax(180px, 220px)
+          minmax(150px, 190px) minmax(104px, 116px) minmax(180px, 220px)
           minmax(120px, 132px);
         gap: 8px;
         align-items: end;
@@ -4855,8 +4862,8 @@
       }
 
       .shopping-web-edit-field.compact-store select {
-        min-width: 88px;
-        max-width: 116px;
+        min-width: 140px;
+        max-width: 190px;
       }
 
       .shopping-web-edit-grid .btn {
@@ -4893,7 +4900,7 @@
 
       .shopping-mobile-compact-grid {
         display: grid;
-        grid-template-columns: minmax(68px, 78px) minmax(96px, 108px) minmax(
+        grid-template-columns: minmax(130px, 1.4fr) minmax(96px, 108px) minmax(
             0,
             1fr
           );
@@ -19085,7 +19092,11 @@
         if (body) body.style.display = collapsed ? "none" : "";
         if (card)
           card.classList.toggle("shopping-section-collapsed", collapsed);
-        if (toggle && sectionKey !== "recommendations")
+        if (
+          toggle &&
+          sectionKey !== "recommendations" &&
+          sectionKey !== "current-list"
+        )
           toggle.textContent = collapsed ? "Expand" : "Collapse";
         if (headerToggle && sectionKey === "quick-find") {
           headerToggle.setAttribute(
@@ -26187,8 +26198,8 @@
                 ${group.items
                   .map(
                     (item) => `
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-                    <div style="min-width:0;flex:1">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+                    <div style="min-width:0">
                       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <div style="font-weight:600">${escHtml(simplifyInventoryDisplayName(item.product_name || "Unknown"))}</div>
                         ${item.manual_low || item.is_low ? '<span class="badge badge-low">Low</span>' : '<span class="badge badge-ok">OK</span>'}
@@ -27107,8 +27118,8 @@
                 ${group.items
                   .map(
                     (item) => `
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-                    <div style="min-width:0;flex:1">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
+                    <div style="min-width:0">
                       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <div style="font-weight:600">${escHtml(item.name)}</div>
                         ${item.manual_low ? '<span class="badge badge-low">Low</span>' : item.is_low ? '<span class="badge badge-low">Low</span>' : ""}
@@ -28507,7 +28518,7 @@
                   }
                 </div>
                 ${item.expandedFullName ? `<div class="shopping-mobile-item-meta" style="margin-top:2px">Full name: ${escHtml(item.expandedFullName)}</div>` : ""}
-                <div class="shopping-mobile-compact-grid">
+                ${item.status === "purchased" ? "" : `<div class="shopping-mobile-compact-grid">
                   <div class="shopping-mobile-compact-field compact-store">
                     <label title="${escAttr(item.preferred_store || item.effective_store || "Any store")}">Store</label>
                     <select
@@ -28555,7 +28566,7 @@
                     class="btn btn-sm btn-ghost"
                     onclick="event.stopPropagation(); updateShoppingGroupDetails([${item.ids.join(",")}], ${item.primaryProductId || "null"}, decodeURIComponent('${encodeURIComponent(item.key)}'), decodeURIComponent('${encodeURIComponent(item.preferred_store || item.effective_store || "")}'))"
                   >Update</button>
-                </div>
+                </div>`}
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(",")}])">−1</button>
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(",")}], '${item.status === "purchased" ? "open" : "purchased"}')">${item.status === "purchased" ? "Reopen" : "Bought"}</button>
@@ -28656,7 +28667,7 @@
                       ${item.expandedFullName ? `<div style="color:var(--muted);font-size:0.76rem;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Full name: ${escHtml(item.expandedFullName)}</div>` : ""}
                     </div>
                   </div>
-                  <div class="shopping-web-edit-row">
+                  ${item.status === "purchased" ? "" : `<div class="shopping-web-edit-row">
                     <div class="shopping-web-edit-grid">
                       <div class="shopping-web-edit-field compact-store">
                         <label>🏬</label>
@@ -28701,7 +28712,7 @@
                         ${renderShoppingDesktopInlineActions(item)}
                       </div>
                     </div>
-                  </div>
+                  </div>`}
                 </td>
                 <td>${escHtml(formatLabel(item.category, "Other"))}</td>
                 <td>${item.quantity}</td>
@@ -34877,18 +34888,24 @@
           targetId === "shopping-recs-body"
             ? document.getElementById("shopping-recommendations-summary-count")
             : null;
+        const recsCard =
+          targetId === "shopping-recs-body"
+            ? document.getElementById("shopping-recommendations-card")
+            : null;
         if (!body) return;
         if (!res.ok) {
           body.innerHTML =
             '<div class="empty-state"><p>Could not load recommendations.</p></div>';
           if (countEl) countEl.textContent = "0";
           if (summaryCountEl) summaryCountEl.textContent = "0";
+          if (recsCard) recsCard.style.display = "none";
           return;
         }
         const data = await res.json();
         const list = data.recommendations || [];
         if (countEl) countEl.textContent = String(list.length);
         if (summaryCountEl) summaryCountEl.textContent = String(list.length);
+        if (recsCard) recsCard.style.display = list.length ? "" : "none";
         const compactShopping = targetId === "shopping-recs-body";
         body.innerHTML = list.length
           ? list

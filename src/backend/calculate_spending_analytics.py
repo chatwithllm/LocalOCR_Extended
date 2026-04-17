@@ -126,6 +126,67 @@ def _transaction_counts(purchases):
     return purchase_count, refund_count
 
 
+_BILL_RECEIPT_TYPES = {"utility_bill", "household_bill"}
+_BILL_ITEM_KEYWORDS = (
+    "gas charge",
+    "water charge",
+    "sewer charge",
+    "electric charge",
+    "trash charge",
+    "service charge",
+    "monthly service",
+    "account balance as of",
+    "balance forward",
+    "late fee",
+    "kwh",
+    "ccf",
+    "usage charge",
+    "distribution charge",
+    "delivery charge",
+    "fuel charge",
+)
+
+
+def _is_bill_item_name(name: str | None) -> bool:
+    """Heuristic: does this item name look like a utility/bill line item?"""
+    lowered = str(name or "").strip().lower()
+    if not lowered:
+        return False
+    return any(keyword in lowered for keyword in _BILL_ITEM_KEYWORDS)
+
+
+def _bill_provider_store_ids(session) -> set[int]:
+    """Return store_ids for any merchant that has ever been seen as a bill provider.
+
+    Once a merchant has had even a single household_obligations receipt (or a
+    BillMeta sidecar), we treat all receipts from that merchant as bills — this
+    papers over OCR misclassifications where some receipts from the same
+    utility land in general_expense by mistake.
+    """
+    store_ids: set[int] = set()
+    for row in (
+        session.query(Purchase.store_id)
+        .filter(
+            Purchase.store_id.isnot(None),
+            Purchase.domain.in_(("household_obligations", "utility")),
+        )
+        .distinct()
+        .all()
+    ):
+        if row[0] is not None:
+            store_ids.add(int(row[0]))
+    for row in (
+        session.query(Purchase.store_id)
+        .join(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(Purchase.store_id.isnot(None))
+        .distinct()
+        .all()
+    ):
+        if row[0] is not None:
+            store_ids.add(int(row[0]))
+    return store_ids
+
+
 @analytics_bp.route("/expense-summary", methods=["GET"])
 @require_auth
 def get_general_expense_summary():
@@ -137,6 +198,8 @@ def get_general_expense_summary():
     months_back = request.args.get("months", 6, type=int)
     cutoff = datetime.now(timezone.utc) - timedelta(days=months_back * 30)
 
+    bill_store_ids = _bill_provider_store_ids(session)
+
     purchases = (
         session.query(Purchase, Store, TelegramReceipt)
         .outerjoin(Store, Purchase.store_id == Store.id)
@@ -147,6 +210,8 @@ def get_general_expense_summary():
     )
 
     total_spend = 0.0
+    excluded_bill_purchases = 0
+    excluded_bill_items = 0
     purchase_total = 0.0
     refund_total = 0.0
     merchant_summary = defaultdict(lambda: {"visits": 0, "refunds": 0, "total": 0.0, "purchase_total": 0.0, "refund_total": 0.0, "latest_date": None})
@@ -155,6 +220,19 @@ def get_general_expense_summary():
     recent_receipts = []
 
     for purchase, store, record in purchases:
+        # Skip bill/utility receipts that landed in general_expense via OCR
+        # misclassification (merchant previously identified as a bill provider,
+        # receipt_type flagged as a bill, or default domain says household).
+        receipt_type = str(getattr(record, "receipt_type", "") or "").strip().lower()
+        default_domain = str(getattr(purchase, "default_spending_domain", "") or "").strip().lower()
+        if (
+            (purchase.store_id is not None and int(purchase.store_id) in bill_store_ids)
+            or receipt_type in _BILL_RECEIPT_TYPES
+            or default_domain in {"household_obligations", "utility"}
+        ):
+            excluded_bill_purchases += 1
+            continue
+
         sign = purchase_amount_sign(purchase)
         total = signed_purchase_total(purchase)
         transaction_type = normalize_transaction_type(getattr(purchase, "transaction_type", None))
@@ -185,6 +263,9 @@ def get_general_expense_summary():
         for item in items or []:
             name = str((item or {}).get("name", "") or "").strip()
             if not name:
+                continue
+            if _is_bill_item_name(name):
+                excluded_bill_items += 1
                 continue
             quantity = float((item or {}).get("quantity") or 1) * sign
             unit_price = float((item or {}).get("unit_price") or 0)
@@ -260,6 +341,8 @@ def get_general_expense_summary():
         "top_items": top_items,
         "category_breakdown": category_breakdown,
         "recent_receipts": recent_receipts[:12],
+        "excluded_bill_purchases": excluded_bill_purchases,
+        "excluded_bill_items": excluded_bill_items,
     }), 200
 
 
