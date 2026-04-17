@@ -14706,6 +14706,14 @@
             <div class="card-header">
               <span class="card-title">🏠 Household Users</span>
               <div class="table-toolbar">
+                <button
+                  id="user-add-btn"
+                  class="btn btn-ghost btn-sm"
+                  onclick="openHouseholdUserForm()"
+                  style="display: none"
+                >
+                  + Add User
+                </button>
                 <label for="users-sort">Sort</label>
                 <select id="users-sort" onchange="setUsersSort(this.value)">
                   <option value="name_asc" selected>Name A-Z</option>
@@ -14719,6 +14727,7 @@
               </div>
             </div>
             <div id="user-admin-panel" style="display: none">
+              <div id="user-form-wrap" style="display: none">
               <!-- Invite User form (Google OAuth invite) -->
               <div
                 id="invite-user-section"
@@ -14774,6 +14783,9 @@
                 >
                   <button class="btn btn-primary" onclick="createInvite()">
                     Send Invite Link
+                  </button>
+                  <button class="btn btn-ghost" onclick="hideHouseholdUserForm()">
+                    Cancel
                   </button>
                 </div>
                 <div
@@ -14863,11 +14875,15 @@
                     </select>
                   </div>
                 </div>
-                <div style="margin-top: 16px">
+                <div style="margin-top: 16px; display:flex; gap:10px; flex-wrap:wrap">
                   <button class="btn btn-primary" onclick="createUser()">
                     Add Household User
                   </button>
+                  <button class="btn btn-ghost" onclick="hideHouseholdUserForm()">
+                    Cancel
+                  </button>
                 </div>
+              </div>
               </div>
             </div>
             <div
@@ -17265,6 +17281,9 @@
         module_view_mode: "separate",
       };
       let householdUsers = [];
+      // Household Users: same head/tail collapse pattern as the other lists.
+      const HOUSEHOLD_USERS_INITIAL_VISIBLE = 3;
+      let householdUsersExpanded = false;
       let reviewQueueItems = [];
       // Catalog Review: collapse long lists so the page stays scannable.
       // Default to showing REVIEW_QUEUE_INITIAL_VISIBLE; a "Show N more"
@@ -26061,9 +26080,12 @@
           "pending-invites-section",
         );
 
+        const addBtn = document.getElementById("user-add-btn");
+
         if (!currentUser) {
           householdUsers = [];
           panel.style.display = "none";
+          if (addBtn) addBtn.style.display = "none";
           note.textContent = "Sign in to manage household users.";
           body.innerHTML =
             '<div class="empty-state"><p>Sign in to view household users.</p></div>';
@@ -26073,6 +26095,7 @@
         if (currentUser.role !== "admin") {
           householdUsers = [];
           panel.style.display = "none";
+          if (addBtn) addBtn.style.display = "none";
           note.textContent = "Only admins can manage household users.";
           body.innerHTML =
             '<div class="empty-state"><p>Your account can use the app, but only admins can create or view household accounts.</p></div>';
@@ -26080,6 +26103,7 @@
         }
 
         panel.style.display = "block";
+        if (addBtn) addBtn.style.display = "";
         const usersSortEl = document.getElementById("users-sort");
         if (usersSortEl && usersSortEl.value !== usersSort)
           usersSortEl.value = usersSort;
@@ -26123,9 +26147,18 @@
         if (!householdUsers.length) {
           body.innerHTML =
             '<div class="empty-state"><div class="icon">👤</div><p>No household users yet. Add one above.</p></div>';
-        } else if (isCompactMobileReceiptView()) {
-          body.innerHTML = `<div class="mobile-data-list">
-      ${householdUsers
+        } else {
+          const totalUsers = householdUsers.length;
+          const canCollapseUsers =
+            totalUsers > HOUSEHOLD_USERS_INITIAL_VISIBLE;
+          const visibleUsers =
+            canCollapseUsers && !householdUsersExpanded
+              ? householdUsers.slice(0, HOUSEHOLD_USERS_INITIAL_VISIBLE)
+              : householdUsers;
+          const hiddenUsers = totalUsers - visibleUsers.length;
+          if (isCompactMobileReceiptView()) {
+            body.innerHTML = `<div class="mobile-data-list">
+      ${visibleUsers
         .map(
           (user) => `
         <div class="mobile-data-card">
@@ -26150,12 +26183,22 @@
         </div>`,
         )
         .join("")}
+      ${canCollapseUsers
+        ? `<div style="text-align:center;padding:8px 0">
+             <button type="button" class="btn btn-sm btn-ghost" onclick="toggleHouseholdUsersExpanded()">
+               ${householdUsersExpanded ? "▲ Show less" : `▼ Show ${hiddenUsers} more`}
+             </button>
+             <div style="color:var(--muted);font-size:0.78rem;margin-top:6px">
+               ${householdUsersExpanded ? `Showing all ${totalUsers}` : `Showing ${visibleUsers.length} of ${totalUsers}`}
+             </div>
+           </div>`
+        : ""}
     </div>`;
-        } else {
-          body.innerHTML = `
+          } else {
+            body.innerHTML = `
     <table>
       <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Password</th><th>Google</th><th>Created</th><th>Actions</th></tr></thead>
-      <tbody>${householdUsers
+      <tbody>${visibleUsers
         .map(
           (user) => `
         <tr>
@@ -26174,8 +26217,19 @@
         </tr>`,
         )
         .join("")}
+        ${canCollapseUsers
+          ? `<tr><td colspan="8" style="text-align:center;padding:12px">
+               <button type="button" class="btn btn-sm btn-ghost" onclick="toggleHouseholdUsersExpanded()">
+                 ${householdUsersExpanded ? "▲ Show less" : `▼ Show ${hiddenUsers} more`}
+               </button>
+               <div style="color:var(--muted);font-size:0.78rem;margin-top:6px">
+                 ${householdUsersExpanded ? `Showing all ${totalUsers}` : `Showing ${visibleUsers.length} of ${totalUsers}`}
+               </div>
+             </td></tr>`
+          : ""}
       </tbody>
     </table>`;
+          }
         }
 
         // Load pending invites if OAuth is enabled
@@ -26217,6 +26271,25 @@
         document.getElementById("user-avatar").value = "";
         document.getElementById("user-role").value = "user";
         toast(`Created ${data.user?.name || "user"} ✅`, "success");
+        hideHouseholdUserForm();
+        loadUsers();
+      }
+
+      // Household Users form visibility — hidden until admin clicks
+      // "+ Add User". Mirrors the AI Model Editor pattern so the Settings
+      // page doesn't lead with a form that most visits don't need.
+      function openHouseholdUserForm() {
+        const wrap = document.getElementById("user-form-wrap");
+        if (!wrap) return;
+        wrap.style.display = "";
+        wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      function hideHouseholdUserForm() {
+        const wrap = document.getElementById("user-form-wrap");
+        if (wrap) wrap.style.display = "none";
+      }
+      function toggleHouseholdUsersExpanded() {
+        householdUsersExpanded = !householdUsersExpanded;
         loadUsers();
       }
 
