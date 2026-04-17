@@ -197,13 +197,18 @@ def run_dedup_check(session: Session, staged: PlaidStagedTransaction) -> int | N
     window_start = txn_date - timedelta(days=1)
     window_end = txn_date + timedelta(days=1)
 
-    candidates = (
+    # Scope to the owning user so household members don't cross-match each
+    # other's receipts. Legacy purchases without user_id fall through (rare;
+    # only possible for receipts imported before multi-user support landed).
+    candidates_query = (
         session.query(Purchase, Store)
         .outerjoin(Store, Store.id == Purchase.store_id)
         .filter(Purchase.date >= datetime.combine(window_start, datetime.min.time()))
         .filter(Purchase.date <= datetime.combine(window_end, datetime.max.time()))
-        .all()
     )
+    if staged.user_id is not None:
+        candidates_query = candidates_query.filter(Purchase.user_id == staged.user_id)
+    candidates = candidates_query.all()
     for purchase, store in candidates:
         if abs(abs(float(purchase.total_amount or 0)) - target_amount) > 0.01:
             continue

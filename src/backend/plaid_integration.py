@@ -417,10 +417,18 @@ def sync_item_transactions(item_id: int):
 def plaid_webhook():
     """Plaid sends webhooks for TRANSACTIONS_DEFAULT_UPDATE and friends.
 
-    Validation: we scope updates by plaid_item_id in the payload, which is only
-    known to us and Plaid. For production deployments a Plaid webhook verification
-    key ought to be wired in; documented in the Plaid dashboard and gated behind
-    PLAID_WEBHOOK_VERIFICATION_KEY (not set by default).
+    SECURITY — TODO before opening this endpoint to the public internet:
+    Plaid signs each webhook with a JWT passed in the `Plaid-Verification`
+    header. We must verify it against Plaid's public key
+    (/webhook_verification_key/get) before trusting any field in the body.
+    Without verification, anyone who guesses a real `item_id` can trigger
+    syncs or flip our item to "login_required" by POSTing crafted JSON.
+
+    Current state is intentional for sandbox testing only — sandbox webhooks
+    are initiated from the Plaid dashboard against a localhost/ngrok tunnel
+    and the attack surface is zero. For production this check MUST be
+    implemented. Tracked as the webhook-verification TODO in the Plaid
+    review notes; see plaid.com/docs/api/webhooks/webhook-verification.
     """
     payload = request.get_json(silent=True) or {}
     webhook_type = payload.get("webhook_type") or ""
