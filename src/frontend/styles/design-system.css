@@ -990,3 +990,288 @@ body {
     transition: opacity 100ms linear;
   }
 }
+
+
+/* ===================================================================
+ * NOTION THEME — opt-in component layer (data-theme="notion" | "notion-dark")
+ *
+ * Apple themes are unaffected. Spec:
+ * design/Design System inspired by Notion.md
+ *
+ * Philosophy (spec §2):
+ *   - Warm paper, not cold glass
+ *   - Whisper borders (1px), multi-layer sub-0.05 shadows
+ *   - Notion Blue (#0075de) is the only saturated chrome color
+ *   - Tiny movement (≤4px translate, scale 0.98–1.02), never bouncy
+ *   - Differentiation by pill badge + icon, never palette swap
+ * =================================================================== */
+
+/* ---------- Notion: page canvas + body ----------------------- */
+:root[data-theme="notion"] body,
+:root[data-theme="notion-dark"] body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+/* Tabular numerics for ledger feel — applied to any cell with the
+   .num-tabular helper, plus generic .stat-value chrome. (Spec §4 numerics.) */
+:root[data-theme="notion"] .num-tabular,
+:root[data-theme="notion-dark"] .num-tabular,
+:root[data-theme="notion"] .stat-value,
+:root[data-theme="notion-dark"] .stat-value {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ---------- Notion: Buttons ---------------------------------- */
+/* Spec §5: 8/16 padding, 4px radius, 15px / weight 600. Hover bg
+   shift only. Active scale(0.98). Focus 2px outline. */
+:root[data-theme="notion"] .btn,
+:root[data-theme="notion-dark"] .btn {
+  border-radius: var(--radius-xs);
+  padding: 8px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion"] .btn.btn-sm,
+:root[data-theme="notion-dark"] .btn.btn-sm {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+:root[data-theme="notion"] .btn-primary,
+:root[data-theme="notion-dark"] .btn-primary {
+  background: var(--color-brand);
+  color: var(--color-brand-contrast);
+}
+:root[data-theme="notion"] .btn-primary:hover,
+:root[data-theme="notion-dark"] .btn-primary:hover {
+  background: var(--color-brand-hover);
+}
+
+:root[data-theme="notion"] .btn-secondary,
+:root[data-theme="notion-dark"] .btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-text-primary);
+}
+:root[data-theme="notion-dark"] .btn-secondary {
+  background: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme="notion"] .btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+:root[data-theme="notion-dark"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+:root[data-theme="notion"] .btn-ghost,
+:root[data-theme="notion-dark"] .btn-ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+:root[data-theme="notion"] .btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="notion-dark"] .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Destructive — confirmation modals only per spec §5. */
+:root[data-theme="notion"] .btn-danger,
+:root[data-theme="notion-dark"] .btn-danger {
+  background: var(--color-surface);
+  color: #c4002b;
+  border-color: #f0c4cc;
+}
+:root[data-theme="notion-dark"] .btn-danger {
+  color: var(--color-error);
+  border-color: rgba(240, 88, 110, 0.40);
+}
+:root[data-theme="notion"] .btn-danger:hover,
+:root[data-theme="notion-dark"] .btn-danger:hover {
+  background: var(--color-error-soft);
+}
+
+:root[data-theme="notion"] .btn:active,
+:root[data-theme="notion-dark"] .btn:active {
+  transform: scale(0.98);
+}
+
+:root[data-theme="notion"] .btn:focus-visible,
+:root[data-theme="notion-dark"] .btn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+:root[data-theme="notion"] .btn:disabled,
+:root[data-theme="notion-dark"] .btn:disabled {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+:root[data-theme="notion-dark"] .btn:disabled {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ---------- Notion: Cards ----------------------------------- */
+/* Spec §5: white bg, whisper border, 12px radius, --shadow-2. Hover
+   intensifies shadow only — no lift, no border color change. */
+:root[data-theme="notion"] .card,
+:root[data-theme="notion-dark"] .card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  transition: box-shadow var(--duration-base) var(--ease-standard);
+}
+:root[data-theme="notion"] .card[role="button"]:hover,
+:root[data-theme="notion"] .card.card--interactive:hover,
+:root[data-theme="notion-dark"] .card[role="button"]:hover,
+:root[data-theme="notion-dark"] .card.card--interactive:hover {
+  box-shadow: var(--shadow-3);
+}
+
+/* Featured/hero card — 16px radius + deep shadow + warm-white interior. */
+:root[data-theme="notion"] .card.card--featured,
+:root[data-theme="notion-dark"] .card.card--featured {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  background: var(--color-warm-paper);
+}
+
+/* ---------- Notion: Sidebar + nav items --------------------- */
+/* Spec §5: 240px sidebar (the existing layout already provides this),
+   white bg, right whisper border. Nav items 15px / 500, 8px 12px,
+   5px radius. Active = brand-soft bg + brand text + 600. */
+:root[data-theme="notion"] .sidebar,
+:root[data-theme="notion-dark"] .sidebar {
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+:root[data-theme="notion"] .nav-item,
+:root[data-theme="notion-dark"] .nav-item {
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion"] .nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="notion-dark"] .nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="notion"] .nav-item.active,
+:root[data-theme="notion-dark"] .nav-item.active {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-weight: 600;
+}
+/* Disable the Apple accent-bar ::after indicator under Notion. */
+:root[data-theme="notion"] .nav-item.active::after,
+:root[data-theme="notion-dark"] .nav-item.active::after {
+  display: none;
+}
+
+/* ---------- Notion: Form inputs ----------------------------- */
+/* Spec §5: white bg, 1px #dddddd border, 4px radius, 6px 10px
+   padding, 16px / 400. Focus = #097fe8 border + 2px outer ring. */
+:root[data-theme="notion"] input[type="text"],
+:root[data-theme="notion"] input[type="email"],
+:root[data-theme="notion"] input[type="password"],
+:root[data-theme="notion"] input[type="number"],
+:root[data-theme="notion"] input[type="search"],
+:root[data-theme="notion"] input[type="date"],
+:root[data-theme="notion"] input[type="tel"],
+:root[data-theme="notion"] input[type="url"],
+:root[data-theme="notion"] select,
+:root[data-theme="notion"] textarea,
+:root[data-theme="notion-dark"] input[type="text"],
+:root[data-theme="notion-dark"] input[type="email"],
+:root[data-theme="notion-dark"] input[type="password"],
+:root[data-theme="notion-dark"] input[type="number"],
+:root[data-theme="notion-dark"] input[type="search"],
+:root[data-theme="notion-dark"] input[type="date"],
+:root[data-theme="notion-dark"] input[type="tel"],
+:root[data-theme="notion-dark"] input[type="url"],
+:root[data-theme="notion-dark"] select,
+:root[data-theme="notion-dark"] textarea {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid #dddddd;
+  border-radius: var(--radius-xs);
+  padding: 6px 10px;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: inherit;
+  box-shadow: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion-dark"] input,
+:root[data-theme="notion-dark"] select,
+:root[data-theme="notion-dark"] textarea {
+  border-color: var(--color-border);
+}
+:root[data-theme="notion"] input::placeholder,
+:root[data-theme="notion"] textarea::placeholder,
+:root[data-theme="notion-dark"] input::placeholder,
+:root[data-theme="notion-dark"] textarea::placeholder {
+  color: var(--color-text-muted);
+}
+:root[data-theme="notion"] input:focus-visible,
+:root[data-theme="notion"] select:focus-visible,
+:root[data-theme="notion"] textarea:focus-visible,
+:root[data-theme="notion-dark"] input:focus-visible,
+:root[data-theme="notion-dark"] select:focus-visible,
+:root[data-theme="notion-dark"] textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 2px rgba(9, 127, 232, 0.20);
+}
+
+/* Receipt correction editor — numeric inputs right-aligned + tabular. */
+:root[data-theme="notion"] .receipt-editor-grid input[type="number"],
+:root[data-theme="notion-dark"] .receipt-editor-grid input[type="number"],
+:root[data-theme="notion"] input.num-tabular,
+:root[data-theme="notion-dark"] input.num-tabular {
+  text-align: right;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ---------- Notion: Chips ----------------------------------- */
+:root[data-theme="notion"] .chip,
+:root[data-theme="notion-dark"] .chip {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion"] .chip:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="notion-dark"] .chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="notion"] .chip.active,
+:root[data-theme="notion-dark"] .chip.active {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
