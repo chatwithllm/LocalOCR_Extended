@@ -13409,6 +13409,16 @@
                     <button
                       type="button"
                       class="inventory-sort-chip"
+                      id="inventory-sort-domain-recent"
+                      onclick="setInventorySort('domain_recent')"
+                      aria-label="Group by domain, most recently bought first"
+                      title="Group by domain · most recent buys first"
+                    >
+                      📋
+                    </button>
+                    <button
+                      type="button"
+                      class="inventory-sort-chip"
                       id="inventory-sort-name-asc"
                       onclick="setInventorySort('name_asc')"
                       aria-label="Sort inventory A to Z"
@@ -17965,7 +17975,7 @@
       let inventorySearchAssistLoading = false;
       let inventorySearchAssistToken = 0;
       let productCategoryFilters = new Set();
-      let inventorySort = "name_asc";
+      let inventorySort = "domain_recent";
       let productSort = "name_asc";
       let shoppingSort = "name_asc";
       let receiptSort = "date_desc";
@@ -19628,6 +19638,9 @@
 
       function updateInventorySortControls() {
         document
+          .getElementById("inventory-sort-domain-recent")
+          ?.classList.toggle("active", inventorySort === "domain_recent");
+        document
           .getElementById("inventory-sort-name-asc")
           ?.classList.toggle("active", inventorySort === "name_asc");
         document
@@ -19817,6 +19830,120 @@
 
       function getInventoryItems(data) {
         return data?.items || data?.inventory || [];
+      }
+
+      // ===========================================================
+      // Inventory domain grouping — rolls the granular product
+      // categories up to five top-level domains so the default
+      // Inventory view is scannable by context ("Grocery" vs
+      // "Household" vs "Personal Care") instead of alphabetical soup.
+      // ===========================================================
+      const INVENTORY_CATEGORY_TO_DOMAIN = {
+        produce: "grocery",
+        dairy: "grocery",
+        snacks: "grocery",
+        bakery: "grocery",
+        meat: "grocery",
+        frozen: "grocery",
+        beverages: "grocery",
+        condiments: "grocery",
+        seafood: "grocery",
+        grains: "grocery",
+        household: "household",
+        personal_care: "personal_care",
+        pharmacy: "personal_care",
+        toiletries: "personal_care",
+        apparel: "apparel",
+      };
+      const INVENTORY_DOMAIN_ORDER = [
+        "grocery",
+        "household",
+        "personal_care",
+        "apparel",
+        "other",
+      ];
+      const INVENTORY_DOMAIN_LABELS = {
+        grocery: { icon: "🛒", label: "Grocery" },
+        household: { icon: "🏠", label: "Household" },
+        personal_care: { icon: "🧴", label: "Personal Care" },
+        apparel: { icon: "👕", label: "Apparel" },
+        other: { icon: "📦", label: "Other" },
+      };
+
+      function inventoryDomainFor(categoryOrItem) {
+        const raw =
+          typeof categoryOrItem === "string"
+            ? categoryOrItem
+            : categoryOrItem?.category;
+        const key = String(raw || "").trim().toLowerCase();
+        return INVENTORY_CATEGORY_TO_DOMAIN[key] || "other";
+      }
+
+      function inventoryDomainLabel(domain) {
+        return INVENTORY_DOMAIN_LABELS[domain] || INVENTORY_DOMAIN_LABELS.other;
+      }
+
+      function inventoryLastPurchaseDate(item) {
+        // recent_receipts is sorted date desc in the backend serializer.
+        const d = item?.recent_receipts?.[0]?.date;
+        return d && typeof d === "string" ? d : null;
+      }
+
+      // Display-time quantity formatter. Fixes floating-point cruft like
+      // "Bananas qty 5.109999999999999" (accumulated from summed decimal
+      // purchases) without changing the stored value.
+      function formatInventoryQuantity(qty) {
+        const n = Number(qty || 0);
+        if (!Number.isFinite(n)) return "0";
+        if (Number.isInteger(n)) return String(n);
+        return n
+          .toFixed(2)
+          .replace(/0+$/, "")
+          .replace(/\.$/, "");
+      }
+
+      // Per-domain collapse state persisted in localStorage so the user's
+      // layout preferences stick between refreshes.
+      function getInventoryDomainCollapse() {
+        try {
+          return (
+            JSON.parse(localStorage.getItem("inventoryDomainCollapse") || "{}") ||
+            {}
+          );
+        } catch (_) {
+          return {};
+        }
+      }
+      function setInventoryDomainCollapse(domain, collapsed) {
+        const state = getInventoryDomainCollapse();
+        state[domain] = !!collapsed;
+        try {
+          localStorage.setItem(
+            "inventoryDomainCollapse",
+            JSON.stringify(state),
+          );
+        } catch (_) {}
+      }
+      function isInventoryDomainCollapsed(domain, itemCount) {
+        const state = getInventoryDomainCollapse();
+        if (Object.prototype.hasOwnProperty.call(state, domain)) {
+          return !!state[domain];
+        }
+        // Default: large domains expanded, small ones (<=3 items) collapsed.
+        return itemCount <= 3;
+      }
+      function toggleInventoryDomainCollapse(domain) {
+        const state = getInventoryDomainCollapse();
+        const current = !!state[domain];
+        setInventoryDomainCollapse(domain, !current);
+        const section = document.querySelector(
+          `.inventory-domain-section[data-domain="${domain}"]`,
+        );
+        if (section) {
+          section.classList.toggle("is-collapsed", !current);
+          const chev = section.querySelector(".inventory-domain-chevron");
+          if (chev) chev.textContent = !current ? "▸" : "▾";
+        }
       }
 
       function getSpendingPeriods(data) {
@@ -28217,6 +28344,22 @@
         filteredItems.sort((a, b) => {
           const leftName = simplifyInventoryDisplayName(a.product_name);
           const rightName = simplifyInventoryDisplayName(b.product_name);
+          if (inventorySort === "domain_recent") {
+            // Primary: domain rank per INVENTORY_DOMAIN_ORDER.
+            const leftDomain = inventoryDomainFor(a);
+            const rightDomain = inventoryDomainFor(b);
+            const leftRank = INVENTORY_DOMAIN_ORDER.indexOf(leftDomain);
+            const rightRank = INVENTORY_DOMAIN_ORDER.indexOf(rightDomain);
+            if (leftRank !== rightRank) return leftRank - rightRank;
+            // Secondary: most recently purchased first.
+            const leftLast = inventoryLastPurchaseDate(a) || "";
+            const rightLast = inventoryLastPurchaseDate(b) || "";
+            if (leftLast !== rightLast) {
+              return leftLast < rightLast ? 1 : -1;
+            }
+            // Tiebreaker: A→Z on name.
+            return compareText(leftName, rightName, "asc");
+          }
           if (inventorySort === "name_desc")
             return compareText(leftName, rightName, "desc");
           if (inventorySort === "price_desc")
@@ -28333,10 +28476,7 @@
           return;
         }
         if (window.innerWidth <= 640) {
-          body.innerHTML = `
-      <div class="inventory-mobile-list">
-        ${displayGroups
-          .map((group) => {
+          const renderMobileCard = (group) => {
             const i = group.primaryItem;
             const locationLabel = getInventoryGroupLocationLabel(group);
             const categoryLabel =
@@ -28358,7 +28498,7 @@
               <div style="min-width:0">
                 <div class="inventory-mobile-name">${i.is_regular_use ? '<span class="inv-regular-star" title="Regular use">⭐</span> ' : ""}${escHtml(group.display_name)}</div>
                 <div class="inventory-mobile-meta">${[
-                  `Qty ${escHtml(String(group.quantity))}`,
+                  `Qty ${escHtml(formatInventoryQuantity(group.quantity))}`,
                   locationLabel,
                   variantNote,
                 ].join(" · ")}</div>
@@ -28441,9 +28581,74 @@
             </div>
           </div>
         `;
-          })
-          .join("")}
-      </div>`;
+          };
+
+          if (inventorySort === "domain_recent") {
+            // Grouped view: Running Low (pinned) + per-domain collapsible
+            // sections. Items inside each section are already sorted by
+            // (domain, last_purchase_date desc, name) above.
+            const lowGroups = displayGroups.filter(
+              (g) => g.manual_low || g.is_low,
+            );
+            const domainBuckets = new Map();
+            for (const g of displayGroups) {
+              const d = inventoryDomainFor(g.primaryItem);
+              if (!domainBuckets.has(d)) domainBuckets.set(d, []);
+              domainBuckets.get(d).push(g);
+            }
+            const sections = [];
+            if (lowGroups.length) {
+              sections.push(`
+                <div class="inventory-domain-section inventory-domain-section--low" data-domain="__low__">
+                  <div class="inventory-domain-header" role="presentation">
+                    <span class="inventory-domain-icon">🔴</span>
+                    <span class="inventory-domain-title">Running Low</span>
+                    <span class="inventory-domain-count">${lowGroups.length}</span>
+                  </div>
+                  <div class="inventory-domain-body">
+                    ${lowGroups.map(renderMobileCard).join("")}
+                  </div>
+                </div>
+              `);
+            }
+            for (const domain of INVENTORY_DOMAIN_ORDER) {
+              const groups = domainBuckets.get(domain);
+              if (!groups || !groups.length) continue;
+              const spec = inventoryDomainLabel(domain);
+              const collapsed = isInventoryDomainCollapsed(
+                domain,
+                groups.length,
+              );
+              sections.push(`
+                <div class="inventory-domain-section ${collapsed ? "is-collapsed" : ""}" data-domain="${escAttr(domain)}">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('${escAttr(domain)}')"
+                    aria-expanded="${!collapsed}"
+                  >
+                    <span class="inventory-domain-icon">${escHtml(spec.icon)}</span>
+                    <span class="inventory-domain-title">${escHtml(spec.label)}</span>
+                    <span class="inventory-domain-count">${groups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${groups.map(renderMobileCard).join("")}
+                  </div>
+                </div>
+              `);
+            }
+            body.innerHTML = `
+              <div class="inventory-mobile-list inventory-mobile-list--grouped">
+                ${sections.join("")}
+              </div>`;
+          } else {
+            // Flat view: preserves existing A/Z/$/qty/location sort paths.
+            body.innerHTML = `
+              <div class="inventory-mobile-list">
+                ${displayGroups.map(renderMobileCard).join("")}
+              </div>`;
+          }
           return;
         }
         body.innerHTML = `
@@ -28476,7 +28681,7 @@
                       </div>
                       <div style="color:var(--muted);font-size:0.78rem">
                         ${[
-                          `Qty ${item.quantity ?? 0}`,
+                          `Qty ${formatInventoryQuantity(item.quantity)}`,
                           item.location,
                           item.brand,
                           item.size,
@@ -28540,7 +28745,7 @@
               <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
                 <div style="color:var(--muted);font-size:0.82rem">
                   ${[
-                    `Qty ${group.quantity}`,
+                    `Qty ${formatInventoryQuantity(group.quantity)}`,
                     locationLabel,
                     i.latest_price?.price != null
                       ? formatMoney(i.latest_price.price)

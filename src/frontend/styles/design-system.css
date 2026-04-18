@@ -1846,3 +1846,112 @@ body.trusted-device-kitchen-display *:focus-visible {
   display: flex;
   gap: 6px;
 }
+
+/* ===================================================================
+ * Inventory — domain grouping layout
+ * Default Inventory view groups items by domain (Grocery / Household
+ * / Personal Care / Apparel / Other) with a pinned "Running Low"
+ * section at the top. Items inside each section are already sorted
+ * by (domain, last_purchase_date desc, name) in the JS layer.
+ * =================================================================== */
+.inventory-mobile-list--grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.inventory-domain-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inventory-domain-section.is-collapsed .inventory-domain-body {
+  display: none;
+}
+.inventory-domain-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-text-primary, inherit);
+  text-align: left;
+}
+.inventory-domain-header:hover {
+  background: var(--color-surface-3, rgba(0, 0, 0, 0.05));
+}
+.inventory-domain-section--low .inventory-domain-header {
+  cursor: default;
+  background: rgba(228, 77, 66, 0.10);
+  border-color: rgba(228, 77, 66, 0.22);
+  color: var(--color-error, #c4002b);
+}
+.inventory-domain-icon {
+  font-size: 1rem;
+  flex: 0 0 auto;
+}
+.inventory-domain-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.125px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inventory-domain-count {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--color-surface, rgba(255, 255, 255, 0.5));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary, inherit);
+  font-variant-numeric: tabular-nums;
+}
+.inventory-domain-chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-muted, var(--muted, #888));
+  font-size: 0.85rem;
+}
+.inventory-domain-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Clay: louder section headers matching ink-bordered tile language. */
+:root[data-theme="clay"] .inventory-domain-header,
+:root[data-theme="clay-dark"] .inventory-domain-header {
+  border: var(--stroke-2) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+  background: var(--color-surface-2);
+}
+:root[data-theme="clay"] .inventory-domain-section--low .inventory-domain-header,
+:root[data-theme="clay-dark"] .inventory-domain-section--low .inventory-domain-header {
+  background: var(--color-swatch-pomegranate-soft, rgba(232, 93, 106, 0.14));
+  border-color: var(--color-swatch-pomegranate, #e85d6a);
+  color: var(--color-swatch-pomegranate, #e85d6a);
+}
+
+/* Notion: paper-calm headers — warm whisper with muted chevron. */
+:root[data-theme="notion"] .inventory-domain-header,
+:root[data-theme="notion-dark"] .inventory-domain-header {
+  background: var(--color-warm-paper, #f6f5f4);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+}
+:root[data-theme="notion"] .inventory-domain-section--low .inventory-domain-header,
+:root[data-theme="notion-dark"] .inventory-domain-section--low .inventory-domain-header {
+  background: #fdf2f4;
+  border-color: #f0c4cc;
+  color: #c4002b;
+}
