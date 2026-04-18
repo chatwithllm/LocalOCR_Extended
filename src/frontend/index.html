@@ -20368,6 +20368,7 @@
       }
 
       function moveShoppingSwipe(event, key) {
+        shoppingLongPressCheckMove(event);
         const state = shoppingSwipeState[key];
         const touch = event.touches?.[0];
         if (!state || !touch) return;
@@ -20376,6 +20377,8 @@
         state.lastX = touch.clientX;
         if (dx > 12 && Math.abs(dx) > Math.abs(dy)) {
           state.swiping = true;
+          // Swipe has taken over — don't also fire a long-press later.
+          shoppingLongPressCancel();
           const summary = event.currentTarget;
           if (summary) {
             const translate = Math.min(dx, 84);
@@ -20395,6 +20398,9 @@
       }
 
       async function endShoppingSwipe(event, key) {
+        // If long-press already fired, the finger lift is just the release;
+        // don't also interpret it as the end of a swipe.
+        shoppingLongPressCancel();
         const state = shoppingSwipeState[key];
         const summary = event.currentTarget;
         if (!state) {
@@ -20423,6 +20429,183 @@
 
       function cancelShoppingSwipe(key) {
         delete shoppingSwipeState[key];
+        shoppingLongPressCancel();
+      }
+
+      // ===========================================================
+      // Shopping-list long-press context menu
+      // -----------------------------------------------------------
+      // Parallels the Inventory long-press pattern (invHandleTouchStart +
+      // .inv-context-menu). The swipe-to-mark-bought gesture still owns
+      // horizontal motion — this hold fires only on a still press.
+      // ===========================================================
+      const SHOP_LONG_PRESS_MS = 500;
+      let shopLpTimer = null;
+      let shopLpFired = false;
+      let shopLpStartX = 0;
+      let shopLpStartY = 0;
+
+      function shoppingLongPressStart(event, payloadJson) {
+        shopLpFired = false;
+        const touch = event.touches?.[0];
+        shopLpStartX = touch?.clientX ?? 0;
+        shopLpStartY = touch?.clientY ?? 0;
+        shoppingLongPressCancel();
+        shopLpTimer = setTimeout(() => {
+          shopLpFired = true;
+          shopLpTimer = null;
+          if (navigator.vibrate) {
+            try { navigator.vibrate(15); } catch (_) {}
+          }
+          shoppingOpenContextMenu(payloadJson, shopLpStartX, shopLpStartY);
+        }, SHOP_LONG_PRESS_MS);
+      }
+
+      function shoppingLongPressCancel() {
+        if (shopLpTimer) {
+          clearTimeout(shopLpTimer);
+          shopLpTimer = null;
+        }
+      }
+
+      function shoppingLongPressCheckMove(event) {
+        if (!shopLpTimer) return;
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        const dx = Math.abs(touch.clientX - shopLpStartX);
+        const dy = Math.abs(touch.clientY - shopLpStartY);
+        if (dx > 8 || dy > 8) shoppingLongPressCancel();
+      }
+
+      function shoppingHandleContextMenu(event, payloadJson) {
+        event.preventDefault();
+        shopLpFired = true;
+        shoppingOpenContextMenu(payloadJson, event.clientX, event.clientY);
+      }
+
+      function shoppingHandleClickGuard(event) {
+        if (shopLpFired) {
+          shopLpFired = false;
+          event.stopPropagation();
+          event.preventDefault();
+          return true;
+        }
+        return false;
+      }
+
+      function shoppingOpenContextMenu(payloadJson, x, y) {
+        // Reuse the inventory menu DOM/CSS — single source of truth.
+        if (typeof invCloseContextMenu === "function") invCloseContextMenu();
+        let data;
+        try {
+          data = JSON.parse(decodeURIComponent(payloadJson));
+        } catch (e) {
+          return;
+        }
+        const productId = data.productId || null;
+        const name = data.name || "";
+        const itemIds = Array.isArray(data.itemIds) ? data.itemIds : [];
+        const isRegular = !!data.isRegular;
+
+        const menu = document.createElement("div");
+        menu.className = "inv-context-menu";
+        menu.setAttribute("role", "menu");
+        menu.innerHTML = `
+          <div class="inv-context-title">${escHtml(name) || "Shopping Item"}</div>
+          <button type="button" class="inv-context-item" data-action="rename">
+            <span class="inv-context-icon">✏️</span>
+            <span>Rename</span>
+          </button>
+          <button type="button" class="inv-context-item" data-action="regular">
+            <span class="inv-context-icon">${isRegular ? "✩" : "⭐"}</span>
+            <span>${isRegular ? "Remove from Regulars" : "Mark as Regular Use"}</span>
+          </button>
+          <button type="button" class="inv-context-item" data-action="remove">
+            <span class="inv-context-icon">🗑</span>
+            <span>Remove from List</span>
+          </button>
+        `;
+        menu.style.visibility = "hidden";
+        document.body.appendChild(menu);
+        const rect = menu.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const left = Math.max(8, Math.min(x, vw - rect.width - 8));
+        const top = Math.max(8, Math.min(y, vh - rect.height - 8));
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+        menu.style.visibility = "visible";
+
+        menu.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          e.stopPropagation();
+          if (typeof invCloseContextMenu === "function") invCloseContextMenu();
+          shoppingRunContextAction(btn.dataset.action, {
+            productId,
+            name,
+            itemIds,
+            isRegular,
+          });
+        });
+
+        setTimeout(() => {
+          document.addEventListener("click", invContextOutsideHandler, true);
+          document.addEventListener(
+            "touchstart",
+            invContextOutsideHandler,
+            true,
+          );
+        }, 10);
+      }
+
+      async function shoppingRunContextAction(action, ctx) {
+        if (action === "rename") {
+          renameShoppingDisplayItem(ctx.itemIds, ctx.productId, ctx.name);
+          return;
+        }
+        if (action === "regular") {
+          await toggleProductRegularUse(
+            ctx.productId,
+            !ctx.isRegular,
+            ctx.name,
+          );
+          return;
+        }
+        if (action === "remove") {
+          if (!ctx.itemIds?.length) {
+            toast("Nothing to remove", "error");
+            return;
+          }
+          if (
+            !(await askForConfirmation(
+              `Remove ${ctx.name || "this item"} from your shopping list?`,
+              "Remove from list",
+            ))
+          )
+            return;
+          await deleteShoppingGroupItems(ctx.itemIds);
+          return;
+        }
+      }
+
+      function buildShoppingLongPressPayload(item) {
+        const primaryId =
+          item?.primaryItem?.id || item?.ids?.[0] || null;
+        return encodeURIComponent(
+          JSON.stringify({
+            productId: item?.primaryItem?.product_id || null,
+            name:
+              formatShoppingDisplayName(item) ||
+              item?.primaryItem?.name ||
+              "",
+            itemIds: Array.isArray(item?.ids) ? item.ids : [primaryId].filter(Boolean),
+            isRegular: !!(
+              item?.primaryItem?.is_regular_use ||
+              item?.is_regular_use
+            ),
+          }),
+        );
       }
 
       function toggleShoppingMobileItem(itemId) {
@@ -31296,12 +31479,13 @@
               (item) => `
             <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.key] ? "expanded" : ""}">
               <div class="shopping-mobile-item-summary" role="button" tabindex="0"
-                onclick="handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                onclick="if(shoppingHandleClickGuard(event)) return; handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}"
-                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(",")}], '${escAttr(item.status || "open")}')"
+                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(",")}], '${escAttr(item.status || "open")}'); shoppingLongPressStart(event, '${buildShoppingLongPressPayload(item)}')"
                 ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
+                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                oncontextmenu="shoppingHandleContextMenu(event, '${buildShoppingLongPressPayload(item)}')">
                   <div class="shopping-mobile-item-main">
                     ${
                       item.latest_snapshot?.image_url
