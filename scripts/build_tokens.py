@@ -130,6 +130,37 @@ def _emit_legacy_aliases() -> str:
     return "\n".join(lines)
 
 
+def _emit_theme_override(theme_name: str, theme: dict) -> str:
+    """Emit a `[data-theme=<name>]` block that overrides any Apple tokens the
+    theme touches: colors, radius, shadow, motion durations/eases, and
+    per-step typography tracking. Each theme only has to declare what
+    differs; everything else inherits from `:root`.
+    """
+    selector = f":root[data-theme=\"{theme_name}\"]"
+    lines = [f"{selector} {{"]
+
+    for key, value in theme.get("color", {}).items():
+        lines.append(_var(f"color-{key}", value))
+
+    for key, value in theme.get("radius", {}).items():
+        lines.append(_var(f"radius-{key}", value))
+
+    for level, value in theme.get("shadow", {}).items():
+        lines.append(_var(f"shadow-{level}", value))
+
+    for key, value in theme.get("duration", {}).items():
+        lines.append(_var(f"duration-{key}", value))
+
+    for key, value in theme.get("ease", {}).items():
+        lines.append(_var(f"ease-{key}", value))
+
+    for step, tracking in theme.get("typography-tracking", {}).items():
+        lines.append(_var(f"font-{step}-tracking", tracking))
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
 def build(tokens: dict) -> str:
     parts: list[str] = [
         "/* AUTO-GENERATED — do not edit.\n"
@@ -147,6 +178,12 @@ def build(tokens: dict) -> str:
         _emit_motion(tokens["motion"]),
         _emit_legacy_aliases(),
     ]
+
+    # Opt-in themes (Clay, etc.) are emitted after the Apple base so their
+    # [data-theme="<name>"] selectors cascade on top.
+    for theme_name, theme in tokens.get("themes", {}).items():
+        parts.append(_emit_theme_override(theme_name, theme))
+
     return "\n\n".join(parts) + "\n"
 
 
