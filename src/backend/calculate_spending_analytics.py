@@ -1041,6 +1041,10 @@ def get_recurring_obligations():
             "current_entry": None,
             "latest_date": None,
             "latest_due_date": None,
+            "latest_auto_pay": False,
+            "latest_payment_status": None,
+            "latest_payment_confirmed_at": None,
+            "latest_billing_cycle": None,
             "provider_id": meta.provider_id,
             "service_line_id": meta.service_line_id,
         })
@@ -1052,14 +1056,26 @@ def get_recurring_obligations():
             "amount": signed_total,
             "transaction_type": transaction_type,
             "due_date": meta.due_date.isoformat() if meta.due_date else None,
+            "auto_pay": bool(meta.auto_pay),
+            "payment_status": meta.payment_status,
         }
         obligation["history"].append(history_entry)
 
         if billing_cycle == selected_month and obligation["current_entry"] is None:
             obligation["current_entry"] = history_entry
 
-        if purchase.date and (obligation["latest_date"] is None or purchase.date > obligation["latest_date"]):
+        # Track the most-recent BillMeta's auto-pay + payment status so the
+        # status derivation below can recognise an already-settled autopay
+        # obligation (the sync-autopay sweep may have flipped payment_status
+        # to "paid" on the *previous* month's BillMeta; without this the
+        # current-month view renders "OVERDUE" even though the bill in hand
+        # is fully settled).
+        if purchase.date and (obligation["latest_date"] is None or purchase.date >= obligation["latest_date"]):
             obligation["latest_date"] = purchase.date
+            obligation["latest_auto_pay"] = bool(meta.auto_pay)
+            obligation["latest_payment_status"] = (meta.payment_status or "").strip().lower() or None
+            obligation["latest_payment_confirmed_at"] = meta.payment_confirmed_at
+            obligation["latest_billing_cycle"] = billing_cycle
         if meta.due_date and (obligation["latest_due_date"] is None or meta.due_date > obligation["latest_due_date"]):
             obligation["latest_due_date"] = meta.due_date
 
@@ -1086,10 +1102,27 @@ def get_recurring_obligations():
         )
         variance = round(actual_amount - expected_amount, 2) if current_entry else round(-expected_amount, 2)
         status = "entered" if current_entry else ("outstanding" if is_due else "not_due")
+
+        # Autopay-settled rescue: when the latest BillMeta has auto_pay=True
+        # and its payment_status has been flipped to "paid" by the
+        # sync-autopay sweep, don't surface the obligation as outstanding
+        # /overdue in the current view. The user set up autopay explicitly;
+        # the previous cycle's bill is confirmed paid, and no action is
+        # required until the next bill actually arrives from the provider.
+        is_autopay_settled = (
+            status == "outstanding"
+            and bool(obligation.get("latest_auto_pay"))
+            and obligation.get("latest_payment_status") == "paid"
+        )
+        if is_autopay_settled:
+            status = "autopay_settled"
+
         if status == "entered":
             entered_count += 1
         elif status == "outstanding":
             outstanding_count += 1
+        elif status == "autopay_settled":
+            entered_count += 1
         if amount_pattern == "fixed":
             fixed_count += 1
         elif amount_pattern == "variable":
@@ -1099,6 +1132,7 @@ def get_recurring_obligations():
         expected_total += expected_amount
         actual_total += actual_amount
 
+        latest_payment_confirmed_at = obligation.get("latest_payment_confirmed_at")
         obligation_list.append({
             "provider_name": obligation["provider_name"],
             "provider_type": obligation["provider_type"],
@@ -1117,6 +1151,11 @@ def get_recurring_obligations():
             "current_entry": current_entry,
             "last_seen_date": obligation["latest_date"].strftime("%Y-%m-%d") if obligation["latest_date"] else None,
             "last_due_date": obligation["latest_due_date"].isoformat() if obligation["latest_due_date"] else None,
+            "is_autopay": bool(obligation.get("latest_auto_pay")),
+            "is_autopay_settled": status == "autopay_settled",
+            "latest_payment_status": obligation.get("latest_payment_status"),
+            "latest_payment_confirmed_at": latest_payment_confirmed_at.isoformat() if latest_payment_confirmed_at else None,
+            "latest_billing_cycle_month": obligation.get("latest_billing_cycle"),
             "history_count": len(obligation["history"]),
             "history_preview": obligation["history"][:4],
             "provider_category": "utility",

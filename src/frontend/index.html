@@ -1487,6 +1487,9 @@
       .bill-card[data-bill-status="paid"] {
         --status-color: var(--success);
       }
+      .bill-card[data-bill-status="autopay-settled"] {
+        --status-color: var(--success);
+      }
       .bill-card[data-bill-status="upcoming"] {
         --status-color: var(--accent);
       }
@@ -38121,6 +38124,8 @@
       function billStatusFor(obligation) {
         if (!obligation) return "upcoming";
         const status = (obligation.status || "").toLowerCase();
+        if (status === "autopay_settled" || obligation.is_autopay_settled)
+          return "autopay-settled";
         if (status === "entered" || status === "paid") return "paid";
         if (status === "overdue") return "overdue";
         if (status === "outstanding") {
@@ -38142,6 +38147,8 @@
         switch (status) {
           case "paid":
             return { text: "✓ Entered", cls: "paid" };
+          case "autopay-settled":
+            return { text: "💳 Auto-Paid", cls: "paid" };
           case "overdue":
             return { text: "❗ Overdue", cls: "overdue" };
           case "due-soon":
