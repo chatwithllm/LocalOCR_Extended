@@ -32,8 +32,15 @@ from src.backend.initialize_database_schema import (
     PlaidItem,
     PlaidStagedTransaction,
     Purchase,
+    Store,
+    TelegramReceipt,
 )
-from src.backend.plaid_transaction_mapper import annotate_all_ready_staged
+from src.backend.plaid_transaction_mapper import annotate_all_ready_staged, map_plaid_transaction
+from src.backend.plaid_receipt_matcher import (
+    DATE_WINDOW_DAYS,
+    find_matching_purchase,
+    merchants_match,
+)
 from src.backend.plaid_client import (
     PlaidConfigurationError,
     country_codes_from_strings,
@@ -729,13 +736,55 @@ def confirm_staged_transaction(staged_id: int):
         return jsonify({"error": f"Transaction is already {staged.status}"}), 409
 
     overrides = request.get_json(silent=True) or {}
+    force = bool(overrides.get("force"))
+
+    # --- Guard A: block transfers / CC payments / income ----------------
+    # The mapper's skip flag fires on TRANSFER_IN/OUT, INCOME, Transfer,
+    # Deposit. These are not real expenses and should never land in the
+    # receipt list unless the user explicitly overrides.
+    mapped_hint = map_plaid_transaction(staged)
+    if mapped_hint.get("skip") and not force:
+        return jsonify({
+            "error": (
+                "This transaction looks like a transfer, credit-card payment, "
+                "deposit, or income — not a purchase. Pass force=true to "
+                "import anyway."
+            ),
+            "reason": "skipped_category",
+            "category": staged.plaid_category_primary,
+        }), 422
+
+    # --- Guard B: auto-match against an existing receipt ---------------
+    # If the user already has a Purchase within ±3 days, same amount, and
+    # a matching merchant (alias-aware), link to it instead of creating
+    # a dupe. The staged row is still marked confirmed; no new
+    # TelegramReceipt/Purchase is created.
+    amount = float(staged.amount or 0)
+    if not force:
+        existing = find_matching_purchase(
+            session,
+            user_id,
+            amount,
+            staged.transaction_date,
+            staged.merchant_name or staged.name,
+        )
+        if existing is not None:
+            staged.status = "confirmed"
+            staged.confirmed_purchase_id = existing.id
+            staged.confirmed_at = datetime.utcnow()
+            session.commit()
+            return jsonify({
+                "staged": _serialize_staged(staged),
+                "purchase_id": existing.id,
+                "receipt_record_id": None,
+                "matched_existing": True,
+            }), 200
+
     receipt_type = (
         overrides.get("receipt_type")
         or staged.suggested_receipt_type
         or "general_expense"
     )
-
-    amount = float(staged.amount or 0)
     transaction_type = "refund" if amount < 0 else "purchase"
     store_name = overrides.get("store") or staged.merchant_name or staged.name or "Unknown Merchant"
     date_str = overrides.get("date")
@@ -843,7 +892,10 @@ def bulk_confirm_staged_transactions():
         q = q.filter(PlaidStagedTransaction.id.in_(id_set))
     staged_rows = q.order_by(PlaidStagedTransaction.id.asc()).limit(cap).all()
 
+    force = bool(payload.get("force"))
     confirmed = 0
+    matched = 0
+    skipped = []
     failed = []
     for staged in staged_rows:
         try:
@@ -852,6 +904,34 @@ def bulk_confirm_staged_transactions():
             if not date_str:
                 failed.append({"id": staged.id, "error": "missing date"})
                 continue
+
+            # --- Guard A: skip transfers/CC payments/income ---------
+            mapped_hint = map_plaid_transaction(staged)
+            if mapped_hint.get("skip") and not force:
+                skipped.append({
+                    "id": staged.id,
+                    "reason": "skipped_category",
+                    "category": staged.plaid_category_primary,
+                })
+                continue
+
+            # --- Guard B: auto-match against an existing receipt ----
+            if not force:
+                existing = find_matching_purchase(
+                    session,
+                    user_id,
+                    amount,
+                    staged.transaction_date,
+                    staged.merchant_name or staged.name,
+                )
+                if existing is not None:
+                    staged.status = "confirmed"
+                    staged.confirmed_purchase_id = existing.id
+                    staged.confirmed_at = datetime.utcnow()
+                    session.commit()
+                    matched += 1
+                    continue
+
             receipt_type = staged.suggested_receipt_type or "general_expense"
             store_name = staged.merchant_name or staged.name or "Unknown Merchant"
             body = {
@@ -897,6 +977,8 @@ def bulk_confirm_staged_transactions():
 
     return jsonify({
         "confirmed": confirmed,
+        "matched_existing": matched,
+        "skipped": skipped,
         "attempted": len(staged_rows),
         "failed": failed,
     }), 200
@@ -950,6 +1032,297 @@ def flag_staged_duplicate(staged_id: int):
     staged.status = "duplicate_flagged"
     session.commit()
     return jsonify({"staged": _serialize_staged(staged)}), 200
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — manual link + attach-upload for staged transactions
+# ---------------------------------------------------------------------------
+# If Guard B's fuzzy matcher misses, the user has two escape hatches:
+#   1. Link the staged row to an existing receipt they already uploaded.
+#   2. Attach a new photo/PDF of the receipt — we run OCR and link the
+#      resulting Purchase.
+# Both write staged.confirmed_purchase_id + status='confirmed' without
+# creating a duplicate Purchase from Plaid data.
+# ---------------------------------------------------------------------------
+
+def _staged_for_current_user(staged_id: int) -> tuple[PlaidStagedTransaction | None, object]:
+    """Return (staged_row, error_response) for the current user's staged tx."""
+    user_id = _current_user_id()
+    if user_id is None:
+        return None, (jsonify({"error": "Authenticated user required"}), 401)
+    session = g.db_session
+    staged = (
+        session.query(PlaidStagedTransaction)
+        .filter_by(id=staged_id, user_id=user_id)
+        .first()
+    )
+    if not staged:
+        return None, (jsonify({"error": "Staged transaction not found"}), 404)
+    return staged, None
+
+
+@plaid_bp.route(
+    "/staged-transactions/<int:staged_id>/match-candidates",
+    methods=["GET"],
+)
+@require_auth
+def staged_match_candidates(staged_id: int):
+    """Return up to 20 Purchase rows that could plausibly be this staged tx.
+
+    Ranking is deliberately simple — merchant-match first (alias or token),
+    then amount closeness, then date closeness. The UI lets the user pick.
+    We include a widened date window (±14 days, not ±3) and a wider amount
+    tolerance ($5 or 20%) because this is a *human picker*, not an
+    auto-match — we'd rather offer too many than too few.
+    """
+    from datetime import timedelta
+
+    staged, err = _staged_for_current_user(staged_id)
+    if err:
+        return err
+    session = g.db_session
+    user_id = staged.user_id
+
+    amount = abs(float(staged.amount or 0))
+    date = staged.transaction_date
+    if date is None:
+        return jsonify({"candidates": []}), 200
+
+    lo = date - timedelta(days=14)
+    hi = date + timedelta(days=15)
+    dollar_tol = max(5.0, amount * 0.20)
+
+    rows = (
+        session.query(Purchase, Store)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .filter(Purchase.user_id == user_id)
+        .filter(Purchase.date >= lo)
+        .filter(Purchase.date < hi)
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(200)  # prune heavy users before we score in Python
+        .all()
+    )
+
+    staged_merchant = staged.merchant_name or staged.name
+
+    scored = []
+    for purchase, store in rows:
+        p_amount = abs(float(purchase.total_amount or 0))
+        amount_delta = abs(p_amount - amount)
+        if amount_delta > dollar_tol:
+            continue
+        date_delta_days = abs((purchase.date.date() - date).days) if purchase.date else 99
+        store_name = store.name if store is not None else None
+        merchant_hit = merchants_match(staged_merchant, store_name)
+
+        # Rank: merchant-match first, then amount closeness, then date.
+        # Lower score = better.
+        score = (
+            0 if merchant_hit else 1,
+            round(amount_delta, 2),
+            date_delta_days,
+        )
+        scored.append((score, purchase, store))
+
+    scored.sort(key=lambda t: t[0])
+    top = scored[:20]
+
+    return jsonify({
+        "candidates": [
+            {
+                "purchase_id": purchase.id,
+                "store": (store.name if store is not None else None),
+                "total_amount": float(purchase.total_amount or 0),
+                "date": purchase.date.date().isoformat() if purchase.date else None,
+                "merchant_match": bool(score[0] == 0),
+                "amount_delta": score[1],
+                "date_delta_days": score[2],
+            }
+            for score, purchase, store in top
+        ],
+        "staged": {
+            "amount": amount,
+            "date": date.isoformat() if hasattr(date, "isoformat") else None,
+            "merchant": staged_merchant,
+        },
+    }), 200
+
+
+@plaid_bp.route(
+    "/staged-transactions/<int:staged_id>/link-receipt",
+    methods=["POST"],
+)
+@require_write_access
+def link_staged_to_receipt(staged_id: int):
+    """Link a staged transaction to an existing Purchase the user already owns.
+
+    Body: {"purchase_id": int}  or  {"receipt_id": int}
+    (receipt_id is a TelegramReceipt.id — we resolve it to its purchase.)
+    """
+    staged, err = _staged_for_current_user(staged_id)
+    if err:
+        return err
+    if staged.status in {"confirmed", "dismissed"}:
+        return jsonify({"error": f"Transaction is already {staged.status}"}), 409
+
+    payload = request.get_json(silent=True) or {}
+    purchase_id = payload.get("purchase_id")
+    receipt_id = payload.get("receipt_id")
+    if purchase_id is None and receipt_id is None:
+        return jsonify({"error": "Provide purchase_id or receipt_id"}), 400
+
+    session = g.db_session
+    purchase = None
+    if purchase_id is not None:
+        try:
+            purchase_id = int(purchase_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "purchase_id must be an integer"}), 400
+        purchase = (
+            session.query(Purchase)
+            .filter_by(id=purchase_id, user_id=staged.user_id)
+            .first()
+        )
+    elif receipt_id is not None:
+        try:
+            receipt_id = int(receipt_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "receipt_id must be an integer"}), 400
+        receipt = (
+            session.query(TelegramReceipt)
+            .filter_by(id=receipt_id, user_id=staged.user_id)
+            .first()
+        )
+        if receipt and receipt.purchase_id:
+            purchase = (
+                session.query(Purchase)
+                .filter_by(id=receipt.purchase_id, user_id=staged.user_id)
+                .first()
+            )
+
+    if purchase is None:
+        return jsonify({"error": "Receipt not found or not owned by you"}), 404
+
+    staged.status = "confirmed"
+    staged.confirmed_purchase_id = purchase.id
+    staged.confirmed_at = datetime.utcnow()
+    session.commit()
+
+    return jsonify({
+        "staged": _serialize_staged(staged),
+        "purchase_id": purchase.id,
+        "matched_existing": True,
+    }), 200
+
+
+@plaid_bp.route(
+    "/staged-transactions/<int:staged_id>/attach-upload",
+    methods=["POST"],
+)
+@require_write_access
+def attach_upload_to_staged(staged_id: int):
+    """Upload a receipt image and link the resulting Purchase to this staged tx.
+
+    Accepts the same multipart 'image' field as /receipts/upload. We route
+    through the same OCR pipeline; on success we set staged.confirmed_purchase_id
+    to the new Purchase.id and mark the staged row confirmed.
+    """
+    from src.backend.extract_receipt_data import process_receipt
+    from src.backend.handle_receipt_upload import (
+        ALLOWED_EXTENSIONS,
+        _compute_file_hash,
+        _get_receipts_root,
+        _save_failed_receipt,
+    )
+    import os
+    from datetime import datetime as _dt
+    from uuid import uuid4
+
+    staged, err = _staged_for_current_user(staged_id)
+    if err:
+        return err
+    if staged.status in {"confirmed", "dismissed"}:
+        return jsonify({"error": f"Transaction is already {staged.status}"}), 409
+
+    if "image" not in request.files:
+        return jsonify({"error": "No receipt file provided. Use 'image' field."}), 400
+    image_file = request.files["image"]
+    if not image_file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+    ext = os.path.splitext(image_file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({
+            "error": f"Unsupported file type: {ext}",
+            "allowed": list(ALLOWED_EXTENSIONS),
+        }), 400
+
+    timestamp = _dt.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{uuid4().hex[:8]}{ext}"
+    year_month = _dt.now().strftime("%Y/%m")
+    save_dir = os.path.join(_get_receipts_root(), year_month)
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+    try:
+        image_file.save(save_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("attach-upload save failed: %s", exc)
+        return jsonify({"error": "Failed to save receipt file"}), 500
+
+    session = g.db_session
+    file_hash = _compute_file_hash(save_path)
+    receipt_type_hint = staged.suggested_receipt_type or None
+
+    try:
+        result = process_receipt(
+            image_path=save_path,
+            source=f"plaid-attach:{staged_id}",
+            user_id=staged.user_id,
+            receipt_type_hint=receipt_type_hint,
+            file_hash=file_hash,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("attach-upload OCR failed: %s", exc)
+        failed_id = _save_failed_receipt(
+            image_path=save_path,
+            error_message=str(exc)[:500],
+            receipt_type_hint=receipt_type_hint,
+            user_id=staged.user_id,
+            file_hash=file_hash,
+            session=session,
+        )
+        return jsonify({
+            "status": "failed",
+            "error": "OCR processing failed",
+            "receipt_id": failed_id,
+            "can_retry": True,
+        }), 500
+
+    purchase_id = result.get("purchase_id")
+    if not purchase_id:
+        # OCR completed but didn't produce a Purchase (e.g. 'review' status
+        # without a finalized row, or 'failed'). Leave staged alone so the
+        # user can retry — the receipt row will exist for manual review.
+        return jsonify({
+            "status": result.get("status", "unknown"),
+            "receipt_id": result.get("receipt_id"),
+            "error": result.get("error"),
+            "message": (
+                "Receipt saved but not yet linked — review it in Receipts, "
+                "then come back and use Link existing."
+            ),
+        }), 202
+
+    staged.status = "confirmed"
+    staged.confirmed_purchase_id = purchase_id
+    staged.confirmed_at = datetime.utcnow()
+    session.commit()
+
+    return jsonify({
+        "staged": _serialize_staged(staged),
+        "purchase_id": purchase_id,
+        "receipt_id": result.get("receipt_id"),
+        "status": result.get("status"),
+    }), 200
 
 
 @plaid_bp.route("/items/<int:item_id>", methods=["DELETE"])

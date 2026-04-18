@@ -1582,6 +1582,284 @@ def cleanup_failed_receipts():
     }), 200
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 — retroactive dedup scan + merge
+# ---------------------------------------------------------------------------
+# Users who already have duplicate receipts from before Guard B was in place
+# need a way to find them and consolidate. dedup-scan walks the user's
+# Purchase table and returns candidate pairs using the same merchant
+# alias + amount/date tolerances as the staged-confirm auto-match. merge
+# then collapses the drop into the keep: reparent nullable refs, delete
+# unique-constrained sidecars on drop, delete drop Purchase.
+# ---------------------------------------------------------------------------
+
+def _merge_pick_keep_drop(a, b, a_items: int, b_items: int, a_has_image: bool, b_has_image: bool):
+    """Heuristic: return (keep, drop) given two merge candidates.
+
+    Priority: more receipt_items → has OCR image → earliest created.
+    """
+    if a_items != b_items:
+        return (a, b) if a_items > b_items else (b, a)
+    if a_has_image != b_has_image:
+        return (a, b) if a_has_image else (b, a)
+    # Fall back to earlier id (older row is the one the user has been
+    # referencing longer; merge newer dupe into it).
+    return (a, b) if a.id < b.id else (b, a)
+
+
+@receipts_bp.route("/dedup-scan", methods=["GET"])
+@require_auth
+def dedup_scan_receipts():
+    """Scan the current user's Purchases for duplicate pairs.
+
+    Returns a list of candidate pairs {keep_id, drop_id, ...} using the
+    same tolerances as the Plaid matcher (±$0.02, ±3 days, alias/token
+    merchant match). Keep vs drop is suggested by `_merge_pick_keep_drop`.
+
+    Scales to ~10k Purchases comfortably (bucket by date, compare within
+    ±3-day window). Larger users can filter by date range via ?since=.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from sqlalchemy import func as _func
+    from src.backend.initialize_database_schema import (
+        Purchase,
+        ReceiptItem,
+        Store,
+        TelegramReceipt,
+    )
+    from src.backend.plaid_receipt_matcher import (
+        AMOUNT_EPSILON,
+        DATE_WINDOW_DAYS,
+        merchants_match,
+    )
+
+    user = getattr(g, "current_user", None)
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    user_id = user.id
+
+    session = g.db_session
+
+    # Optional narrowing window — default: 180 days back.
+    since_raw = request.args.get("since")
+    since = None
+    if since_raw:
+        try:
+            since = _dt.fromisoformat(since_raw)
+        except ValueError:
+            return jsonify({"error": "since must be ISO date"}), 400
+    else:
+        since = _dt.utcnow() - _td(days=180)
+
+    q = (
+        session.query(Purchase, Store)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .filter(Purchase.user_id == user_id)
+        .filter(Purchase.date >= since)
+        .order_by(Purchase.date.asc(), Purchase.id.asc())
+    )
+    rows = q.all()
+    if not rows:
+        return jsonify({"pairs": [], "scanned": 0}), 200
+
+    # Pre-compute item counts and image presence in bulk to avoid N+1.
+    purchase_ids = [p.id for p, _ in rows]
+    item_counts = dict(
+        session.query(ReceiptItem.purchase_id, _func.count(ReceiptItem.id))
+        .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+        .group_by(ReceiptItem.purchase_id)
+        .all()
+    )
+    receipt_by_purchase: dict[int, TelegramReceipt] = {}
+    for r in (
+        session.query(TelegramReceipt)
+        .filter(TelegramReceipt.purchase_id.in_(purchase_ids))
+        .all()
+    ):
+        # Prefer the first (oldest) receipt record per purchase.
+        if r.purchase_id not in receipt_by_purchase:
+            receipt_by_purchase[r.purchase_id] = r
+
+    pairs = []
+    seen_drop_ids: set[int] = set()
+    # Window-compare: for each row, compare against forward rows within
+    # ±DATE_WINDOW_DAYS until the date delta exceeds the window.
+    for i, (p_i, s_i) in enumerate(rows):
+        if p_i.id in seen_drop_ids:
+            continue
+        amount_i = abs(float(p_i.total_amount or 0))
+        if amount_i == 0:
+            continue
+        for j in range(i + 1, len(rows)):
+            p_j, s_j = rows[j]
+            if p_j.id in seen_drop_ids:
+                continue
+            # Bail as soon as the date window is exceeded (rows are sorted).
+            date_delta = (p_j.date - p_i.date).days
+            if date_delta > DATE_WINDOW_DAYS:
+                break
+            amount_j = abs(float(p_j.total_amount or 0))
+            if abs(amount_i - amount_j) > AMOUNT_EPSILON:
+                continue
+            name_i = s_i.name if s_i else None
+            name_j = s_j.name if s_j else None
+            if not merchants_match(name_i, name_j):
+                continue
+
+            items_i = int(item_counts.get(p_i.id, 0))
+            items_j = int(item_counts.get(p_j.id, 0))
+            rec_i = receipt_by_purchase.get(p_i.id)
+            rec_j = receipt_by_purchase.get(p_j.id)
+            img_i = bool(rec_i and rec_i.image_path)
+            img_j = bool(rec_j and rec_j.image_path)
+
+            keep, drop = _merge_pick_keep_drop(p_i, p_j, items_i, items_j, img_i, img_j)
+            keep_store = s_i if keep is p_i else s_j
+            drop_store = s_i if drop is p_i else s_j
+            keep_items = items_i if keep is p_i else items_j
+            drop_items = items_i if drop is p_i else items_j
+            keep_has_image = img_i if keep is p_i else img_j
+
+            pairs.append({
+                "keep_id": keep.id,
+                "drop_id": drop.id,
+                "keep": {
+                    "purchase_id": keep.id,
+                    "store": keep_store.name if keep_store else None,
+                    "total_amount": float(keep.total_amount or 0),
+                    "date": keep.date.date().isoformat() if keep.date else None,
+                    "item_count": keep_items,
+                    "has_image": keep_has_image,
+                },
+                "drop": {
+                    "purchase_id": drop.id,
+                    "store": drop_store.name if drop_store else None,
+                    "total_amount": float(drop.total_amount or 0),
+                    "date": drop.date.date().isoformat() if drop.date else None,
+                    "item_count": drop_items,
+                },
+            })
+            # Don't flag drop again against a third row.
+            seen_drop_ids.add(drop.id)
+            # Also skip the window-forward comparisons from this i once
+            # we've found a partner — we only want one pair per i.
+            break
+
+    return jsonify({
+        "pairs": pairs,
+        "scanned": len(rows),
+        "since": since.isoformat() if since else None,
+    }), 200
+
+
+@receipts_bp.route("/merge", methods=["POST"])
+@require_write_access
+def merge_receipts():
+    """Consolidate two Purchase rows into one.
+
+    Body: {"keep_id": int, "drop_id": int}
+    Both must be owned by the current user. Drop's nullable references
+    are reparented to keep; unique-constrained sidecars (BillMeta,
+    CashTransaction) are moved only if keep has none, else deleted;
+    drop Purchase is deleted.
+    """
+    from src.backend.initialize_database_schema import (
+        BillAllocation,
+        BillMeta,
+        CashTransaction,
+        PlaidStagedTransaction,
+        ProductSnapshot,
+        Purchase,
+        ReceiptItem,
+        TelegramReceipt,
+    )
+
+    user = getattr(g, "current_user", None)
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    user_id = user.id
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        keep_id = int(payload.get("keep_id"))
+        drop_id = int(payload.get("drop_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "keep_id and drop_id must be integers"}), 400
+    if keep_id == drop_id:
+        return jsonify({"error": "keep_id and drop_id must differ"}), 400
+
+    session = g.db_session
+    keep = session.query(Purchase).filter_by(id=keep_id, user_id=user_id).first()
+    drop = session.query(Purchase).filter_by(id=drop_id, user_id=user_id).first()
+    if not keep or not drop:
+        return jsonify({"error": "Purchase not found or not owned by you"}), 404
+
+    # --- Reparent nullable FKs drop → keep -----------------------------
+    # ProductSnapshot.purchase_id (nullable) — safe to reparent.
+    session.query(ProductSnapshot).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+    # PlaidStagedTransaction.confirmed_purchase_id / duplicate_purchase_id.
+    session.query(PlaidStagedTransaction).filter_by(
+        confirmed_purchase_id=drop.id
+    ).update({"confirmed_purchase_id": keep.id}, synchronize_session=False)
+    session.query(PlaidStagedTransaction).filter_by(
+        duplicate_purchase_id=drop.id
+    ).update({"duplicate_purchase_id": keep.id}, synchronize_session=False)
+
+    # --- TelegramReceipt — keep keep's receipt, delete drop's ----------
+    # Reparenting would leave two receipts for one purchase, defeating
+    # the dedup. If keep has none but drop does, reparent; else delete.
+    keep_receipt = session.query(TelegramReceipt).filter_by(purchase_id=keep.id).first()
+    drop_receipts = session.query(TelegramReceipt).filter_by(purchase_id=drop.id).all()
+    for rec in drop_receipts:
+        if keep_receipt is None:
+            rec.purchase_id = keep.id
+            keep_receipt = rec
+        else:
+            session.delete(rec)
+
+    # --- ReceiptItem — reparent any drop items to keep -----------------
+    # Typical case: Plaid-drop has no items; OCR-keep has them. If both
+    # have items (unusual), we still reparent — duplicates in the item
+    # list are a separate cleanup concern.
+    session.query(ReceiptItem).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+
+    # --- BillAllocation — reparent (bills can span multiple lines) -----
+    session.query(BillAllocation).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+
+    # --- BillMeta — unique per purchase; move if keep has none ---------
+    keep_bm = session.query(BillMeta).filter_by(purchase_id=keep.id).first()
+    drop_bm = session.query(BillMeta).filter_by(purchase_id=drop.id).first()
+    if drop_bm is not None:
+        if keep_bm is None:
+            drop_bm.purchase_id = keep.id
+        else:
+            session.delete(drop_bm)
+
+    # --- CashTransaction — unique per purchase; move if keep has none --
+    keep_ct = session.query(CashTransaction).filter_by(purchase_id=keep.id).first()
+    drop_ct = session.query(CashTransaction).filter_by(purchase_id=drop.id).first()
+    if drop_ct is not None:
+        if keep_ct is None:
+            drop_ct.purchase_id = keep.id
+        else:
+            session.delete(drop_ct)
+
+    # --- Finally delete drop Purchase ----------------------------------
+    session.delete(drop)
+    session.commit()
+
+    return jsonify({
+        "kept_purchase_id": keep.id,
+        "dropped_purchase_id": drop_id,
+    }), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/bill-status", methods=["PUT"])
 @require_write_access
 def update_receipt_bill_status(receipt_id):

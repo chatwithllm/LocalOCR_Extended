@@ -13998,6 +13998,25 @@
               </div>
             </div>
           </div>
+          <!-- Phase 3: Retroactive duplicate review
+               Walks the user's Purchase table and surfaces pairs that look
+               like the same real-world charge (same amount ±$0.02, ±3 days,
+               merchant alias match). Per-pair Merge button collapses the
+               drop Purchase into the keep. Collapsed by default; scan is
+               on-demand so we don't pay for it on every Receipts render. -->
+          <div class="card" id="receipts-dedup-card" style="margin-bottom:12px">
+            <div class="card-header">
+              <span class="card-title">Review duplicates</span>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-ghost btn-sm" onclick="runDedupScan()" id="receipts-dedup-scan-btn">Scan for duplicates</button>
+              </div>
+            </div>
+            <div id="receipts-dedup-body" style="padding:8px 12px">
+              <div class="empty-state" style="color:var(--muted);font-size:0.9rem">
+                Click <strong>Scan for duplicates</strong> to find receipts that look like the same charge (e.g. a photo upload and a Plaid-imported transaction). Merging drops one and keeps the other — the link from any staged transaction is reparented automatically.
+              </div>
+            </div>
+          </div>
           <div class="receipt-detail-grid">
             <div class="card">
               <div class="card-header">
@@ -24453,6 +24472,8 @@
                     </div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                       <button type="button" class="btn btn-primary btn-sm" onclick="confirmPlaidStagedFromAccounts(${row.id})">Confirm</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="openLinkReceiptPicker(${row.id})">Link…</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="triggerAttachReceipt(${row.id})">Attach…</button>
                       <button type="button" class="btn btn-ghost btn-sm" onclick="flagPlaidStagedFromAccounts(${row.id})">Duplicate</button>
                       <button type="button" class="btn btn-ghost btn-sm" onclick="dismissPlaidStagedFromAccounts(${row.id})">Dismiss</button>
                     </div>
@@ -24480,6 +24501,150 @@
       async function flagPlaidStagedFromAccounts(stagedId) {
         await flagPlaidStagedDuplicate(stagedId);
         await loadAccountsReviewQueue();
+      }
+
+      // =============================================================
+      // Phase 2 dedup-escape-hatches: Link existing / Attach new
+      // =============================================================
+
+      async function openLinkReceiptPicker(stagedId) {
+        // Fetch ranked candidates and render them in a modal. User picks
+        // one → POST /link-receipt. If none fits, offer a fallback that
+        // takes any purchase_id (free-text) the user types.
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}/match-candidates`);
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Could not load matches", "error");
+            return;
+          }
+          const cands = payload.candidates || [];
+          const staged = payload.staged || {};
+          const stagedLine = `${escHtml(staged.merchant || "—")} · ${formatMoney(Number(staged.amount || 0))} · ${escHtml(staged.date || "—")}`;
+          const rowsHtml = cands.length
+            ? cands.map((c) => {
+                const dateStr = c.date ? formatPrettyDate(c.date) : "—";
+                const deltaLabel = c.merchant_match
+                  ? '<span style="color:var(--success,#16a34a)">merchant match</span>'
+                  : '<span style="color:var(--muted)">no merchant match</span>';
+                const amountDelta = c.amount_delta > 0 ? ` · Δ$${c.amount_delta.toFixed(2)}` : "";
+                const dateDelta = c.date_delta_days > 0 ? ` · ${c.date_delta_days}d off` : "";
+                return `
+                  <li style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border,#eee)">
+                    <div>
+                      <div><strong>${escHtml(c.store || "Unknown store")}</strong> — ${formatMoney(c.total_amount)}</div>
+                      <div style="color:var(--muted);font-size:0.85rem">${escHtml(dateStr)} · ${deltaLabel}${amountDelta}${dateDelta}</div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="doLinkReceipt(${stagedId}, ${c.purchase_id})">Link</button>
+                  </li>`;
+              }).join("")
+            : '<li style="color:var(--muted);padding:12px 0">No nearby receipts found. You can still link by Purchase ID below.</li>';
+
+          const modalHtml = `
+            <div id="link-picker-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center" onclick="closeLinkReceiptPicker(event)">
+              <div style="background:var(--surface,#fff);border-radius:12px;padding:20px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+                <h3 style="margin:0 0 8px 0">Link to an existing receipt</h3>
+                <div style="color:var(--muted);font-size:0.9rem;margin-bottom:12px">Staged: ${stagedLine}</div>
+                <ul style="list-style:none;margin:0;padding:0">${rowsHtml}</ul>
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#eee)">
+                  <label style="font-size:0.85rem;color:var(--muted)">Or paste a Purchase ID:</label>
+                  <div style="display:flex;gap:6px;margin-top:4px">
+                    <input type="number" id="link-picker-manual-id" placeholder="e.g. 1234" style="flex:1;padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:6px" />
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="doLinkReceiptFromInput(${stagedId})">Link by ID</button>
+                  </div>
+                </div>
+                <div style="margin-top:12px;text-align:right">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="closeLinkReceiptPicker()">Cancel</button>
+                </div>
+              </div>
+            </div>`;
+          const host = document.createElement("div");
+          host.innerHTML = modalHtml;
+          document.body.appendChild(host.firstElementChild);
+        } catch (err) {
+          console.error("openLinkReceiptPicker failed", err);
+          toast("Could not open link picker", "error");
+        }
+      }
+
+      function closeLinkReceiptPicker(ev) {
+        if (ev && ev.target && ev.target.id !== "link-picker-overlay") return;
+        const overlay = document.getElementById("link-picker-overlay");
+        if (overlay) overlay.remove();
+      }
+
+      async function doLinkReceipt(stagedId, purchaseId) {
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}/link-receipt`, {
+            method: "POST",
+            body: JSON.stringify({ purchase_id: Number(purchaseId) }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Link failed", "error");
+            return;
+          }
+          toast("Linked to existing receipt ✅", "success");
+          closeLinkReceiptPicker();
+          await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+        } catch (err) {
+          console.error("doLinkReceipt failed", err);
+          toast("Link failed", "error");
+        }
+      }
+
+      function doLinkReceiptFromInput(stagedId) {
+        const el = document.getElementById("link-picker-manual-id");
+        const raw = el && el.value ? el.value.trim() : "";
+        if (!raw) { toast("Enter a Purchase ID", "error"); return; }
+        const pid = Number(raw);
+        if (!Number.isFinite(pid) || pid <= 0) { toast("Invalid Purchase ID", "error"); return; }
+        doLinkReceipt(stagedId, pid);
+      }
+
+      function triggerAttachReceipt(stagedId) {
+        // Spawn a hidden file input; user picks a file; we upload via
+        // /plaid/staged-transactions/<id>/attach-upload.
+        let input = document.getElementById("attach-receipt-input");
+        if (input) input.remove();
+        input = document.createElement("input");
+        input.type = "file";
+        input.id = "attach-receipt-input";
+        input.accept = ".jpg,.jpeg,.png,.webp,.heic,.pdf";
+        input.style.display = "none";
+        input.onchange = async () => {
+          if (!input.files || !input.files[0]) return;
+          const file = input.files[0];
+          toast("Uploading receipt…", "info");
+          const fd = new FormData();
+          fd.append("image", file);
+          try {
+            const res = await api(`/plaid/staged-transactions/${stagedId}/attach-upload`, {
+              method: "POST",
+              body: fd,
+              // api() auto-detects FormData and skips the JSON header so
+              // the browser sets multipart boundary correctly.
+            });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              toast(payload.error || payload.message || "Upload failed", "error");
+              return;
+            }
+            if (payload.purchase_id) {
+              toast("Receipt attached & linked ✅", "success");
+            } else {
+              toast(payload.message || "Receipt saved — review it and link manually", "info");
+            }
+            await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+          } catch (err) {
+            console.error("triggerAttachReceipt upload failed", err);
+            toast("Upload failed", "error");
+          } finally {
+            input.remove();
+          }
+        };
+        document.body.appendChild(input);
+        input.click();
       }
 
       async function confirmAllPlaidStaged() {
@@ -32053,6 +32218,100 @@
       function hideUploadScanPanel() {
         const panel = document.getElementById("upload-scan-progress");
         if (panel) panel.setAttribute("hidden", "");
+      }
+
+      // ============================================================
+      // Receipts — Phase 3 dedup scan + merge
+      // ============================================================
+      async function runDedupScan() {
+        const body = document.getElementById("receipts-dedup-body");
+        const btn = document.getElementById("receipts-dedup-scan-btn");
+        if (!body) return;
+        if (btn) { btn.disabled = true; btn.textContent = "Scanning…"; }
+        try {
+          const res = await api(`/receipts/dedup-scan`);
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            body.innerHTML = `<div style="color:var(--error,#dc2626)">${escHtml(payload.error || "Scan failed")}</div>`;
+            return;
+          }
+          const pairs = payload.pairs || [];
+          if (!pairs.length) {
+            body.innerHTML = `<div style="color:var(--muted);font-size:0.9rem">No duplicate pairs found in the last 180 days of receipts.</div>`;
+            return;
+          }
+          body.innerHTML = `
+            <div style="color:var(--muted);font-size:0.85rem;margin-bottom:8px">
+              Found <strong>${pairs.length}</strong> possible duplicate pair${pairs.length === 1 ? "" : "s"}. Scanned ${payload.scanned || 0} receipts.
+            </div>
+            <ul style="list-style:none;padding:0;margin:0">
+              ${pairs.map((pair) => renderDedupPair(pair)).join("")}
+            </ul>`;
+        } catch (err) {
+          console.error("runDedupScan failed", err);
+          body.innerHTML = `<div style="color:var(--error,#dc2626)">Scan failed</div>`;
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = "Scan for duplicates"; }
+        }
+      }
+
+      function renderDedupPair(pair) {
+        const keep = pair.keep || {};
+        const drop = pair.drop || {};
+        const dateStr = (iso) => (iso ? formatPrettyDate(iso) : "—");
+        const itemLabel = (n) => `${n} item${n === 1 ? "" : "s"}`;
+        const imgBadge = keep.has_image
+          ? ' <span style="color:var(--success,#16a34a);font-size:0.8rem">has image</span>'
+          : "";
+        return `
+          <li id="dedup-pair-${pair.drop_id}" style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px;margin-bottom:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center">
+              <div style="border-right:1px solid var(--border,#eee);padding-right:12px">
+                <div style="font-size:0.7rem;text-transform:uppercase;color:var(--success,#16a34a);letter-spacing:0.05em">Keep</div>
+                <div style="font-weight:600">${escHtml(keep.store || "Unknown store")}</div>
+                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(keep.total_amount)} · ${escHtml(dateStr(keep.date))} · ${itemLabel(keep.item_count || 0)}${imgBadge}</div>
+              </div>
+              <div>
+                <div style="font-size:0.7rem;text-transform:uppercase;color:var(--warning,#d97706);letter-spacing:0.05em">Drop</div>
+                <div style="font-weight:600">${escHtml(drop.store || "Unknown store")}</div>
+                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(drop.total_amount)} · ${escHtml(dateStr(drop.date))} · ${itemLabel(drop.item_count || 0)}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <button type="button" class="btn btn-primary btn-sm" onclick="mergeReceiptsPair(${pair.keep_id}, ${pair.drop_id})">Merge</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="swapDedupPair(${pair.keep_id}, ${pair.drop_id})" title="Use the other row as Keep">Swap</button>
+              </div>
+            </div>
+          </li>`;
+      }
+
+      async function mergeReceiptsPair(keepId, dropId) {
+        if (!confirm(`Merge receipt #${dropId} into #${keepId}? The drop receipt will be deleted.`)) {
+          return;
+        }
+        try {
+          const res = await api(`/receipts/merge`, {
+            method: "POST",
+            body: JSON.stringify({ keep_id: Number(keepId), drop_id: Number(dropId) }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Merge failed", "error");
+            return;
+          }
+          toast("Merged ✅", "success");
+          const li = document.getElementById(`dedup-pair-${dropId}`);
+          if (li) li.remove();
+          await loadReceipts();
+        } catch (err) {
+          console.error("mergeReceiptsPair failed", err);
+          toast("Merge failed", "error");
+        }
+      }
+
+      function swapDedupPair(keepId, dropId) {
+        // Just rerun the merge with the IDs reversed — the user thinks
+        // the wrong row was chosen as Keep.
+        mergeReceiptsPair(dropId, keepId);
       }
 
       // ============================================================

@@ -363,8 +363,11 @@ def test_migration_005_upgrade_downgrade_roundtrip(tmp_path):
         env=env,
         cwd=repo_root,
     )
+    # Pin to 005 explicitly (not "head") so this test continues to exercise
+    # the 005-specific invariants even as later migrations (006+) land.
     subprocess.run(
-        [alembic_bin, "-c", ini, "upgrade", "head"], check=True, env=env, cwd=repo_root
+        [alembic_bin, "-c", ini, "upgrade", "005_accounts_dashboard"],
+        check=True, env=env, cwd=repo_root,
     )
 
     import sqlite3
@@ -407,9 +410,10 @@ def test_migration_005_upgrade_downgrade_roundtrip(tmp_path):
     assert c.fetchone() is None
     conn.close()
 
-    # Re-upgrade to head.
+    # Re-upgrade to 005 (pinned, see above).
     subprocess.run(
-        [alembic_bin, "-c", ini, "upgrade", "head"], check=True, env=env, cwd=repo_root
+        [alembic_bin, "-c", ini, "upgrade", "005_accounts_dashboard"],
+        check=True, env=env, cwd=repo_root,
     )
 
     conn = sqlite3.connect(str(db_path))
@@ -466,14 +470,30 @@ def _seed_staged(app, user_id, item_id, account_id, count, date=None):
 
 
 def _cleanup_staged(app):
-    """Delete every staged row so tests don't bleed state into each other."""
+    """Delete every staged + downstream purchase/receipt/store row so tests
+    don't bleed state into each other.
+
+    Confirming a staged txn creates a Purchase (and possibly a Store +
+    TelegramReceipt); without cleaning those, the next test's seeded
+    staged rows can auto-match the previous test's leftovers via Guard B
+    in bulk-confirm — producing matched_existing hits instead of fresh
+    confirmations.
+    """
     from src.backend.create_flask_application import _get_db
-    from src.backend.initialize_database_schema import PlaidStagedTransaction
+    from src.backend.initialize_database_schema import (
+        PlaidStagedTransaction,
+        Purchase,
+        Store,
+        TelegramReceipt,
+    )
 
     _, SF = _get_db()
     session = SF()
     try:
         session.query(PlaidStagedTransaction).delete()
+        session.query(TelegramReceipt).delete()
+        session.query(Purchase).delete()
+        session.query(Store).delete()
         session.commit()
     finally:
         session.close()
@@ -595,3 +615,213 @@ def test_bulk_confirm_rejects_empty_payload(app, seeded_ids):
     )
     assert status == 400, body
     assert "error" in body
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — /staged-transactions/<id>/match-candidates
+# Phase 2 — /staged-transactions/<id>/link-receipt
+# ---------------------------------------------------------------------------
+
+def _mk_purchase_for_user(app, user_id, store_name, amount, when):
+    """Helper: create a Store + Purchase owned by user_id."""
+    from datetime import datetime as _dt, time as _time
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Purchase, Store
+
+    _, SF = _get_db()
+    s = SF()
+    try:
+        store = Store(name=store_name)
+        s.add(store)
+        s.flush()
+        dt = _dt.combine(when, _time.min) if hasattr(when, "year") and not isinstance(when, _dt) else when
+        p = Purchase(user_id=user_id, store_id=store.id, total_amount=amount, date=dt)
+        s.add(p)
+        s.commit()
+        return p.id
+    finally:
+        s.close()
+
+
+def test_match_candidates_returns_ranked_list(app, seeded_ids):
+    """match-candidates should return the closest Purchase first (merchant match)."""
+    from datetime import date as _date
+    _cleanup_staged(app)
+    today = _date.today()
+
+    # Owned by user_a: near-perfect match (+$0.01, same day, alias merchant).
+    _mk_purchase_for_user(app, seeded_ids["user_a"], "Anthropic, PBC", 25.00, today)
+    # A distractor: same amount but different merchant + 10 days off.
+    _mk_purchase_for_user(app, seeded_ids["user_a"], "Target", 25.00, today - timedelta(days=10))
+
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+    # Rewrite the staged row so it looks like a Claude.ai $25 charge today.
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+    _, SF = _get_db()
+    s = SF()
+    try:
+        row = s.get(PlaidStagedTransaction, staged_ids[0])
+        row.amount = 25.00
+        row.merchant_name = "CLAUDE.AI SU"
+        row.transaction_date = today
+        s.commit()
+    finally:
+        s.close()
+
+    status, body = _invoke(
+        app,
+        "GET",
+        f"/plaid/staged-transactions/{staged_ids[0]}/match-candidates",
+        seeded_ids["user_a"],
+    )
+    assert status == 200, body
+    cands = body["candidates"]
+    assert len(cands) >= 1
+    # First candidate should be the alias-matched Anthropic purchase.
+    assert cands[0]["store"] == "Anthropic, PBC"
+    assert cands[0]["merchant_match"] is True
+    _cleanup_staged(app)
+
+
+def test_match_candidates_isolation(app, seeded_ids):
+    """User B must not see match candidates for User A's staged tx."""
+    _cleanup_staged(app)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+    status, body = _invoke(
+        app,
+        "GET",
+        f"/plaid/staged-transactions/{staged_ids[0]}/match-candidates",
+        seeded_ids["user_b"],
+    )
+    assert status == 404, body
+    _cleanup_staged(app)
+
+
+def test_link_receipt_happy_path(app, seeded_ids):
+    """Linking a staged tx to an existing Purchase should mark it confirmed."""
+    from datetime import date as _date
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    _cleanup_staged(app)
+    today = _date.today()
+    pid = _mk_purchase_for_user(app, seeded_ids["user_a"], "Tesla Inc", 100.00, today)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+
+    status, body = _invoke(
+        app,
+        "POST",
+        f"/plaid/staged-transactions/{staged_ids[0]}/link-receipt",
+        seeded_ids["user_a"],
+        json_data={"purchase_id": pid},
+    )
+    assert status == 200, body
+    assert body["matched_existing"] is True
+    assert body["purchase_id"] == pid
+
+    _, SF = _get_db()
+    s = SF()
+    try:
+        row = s.get(PlaidStagedTransaction, staged_ids[0])
+        assert row.status == "confirmed"
+        assert row.confirmed_purchase_id == pid
+    finally:
+        s.close()
+    _cleanup_staged(app)
+
+
+def test_link_receipt_rejects_other_users_purchase(app, seeded_ids):
+    """User A must not be able to link to a Purchase owned by User B."""
+    from datetime import date as _date
+    _cleanup_staged(app)
+    today = _date.today()
+    pid_b = _mk_purchase_for_user(app, seeded_ids["user_b"], "Netflix", 15.00, today)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+    status, body = _invoke(
+        app,
+        "POST",
+        f"/plaid/staged-transactions/{staged_ids[0]}/link-receipt",
+        seeded_ids["user_a"],
+        json_data={"purchase_id": pid_b},
+    )
+    assert status == 404, body
+    _cleanup_staged(app)
+
+
+def test_link_receipt_rejects_empty_body(app, seeded_ids):
+    _cleanup_staged(app)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+    status, body = _invoke(
+        app,
+        "POST",
+        f"/plaid/staged-transactions/{staged_ids[0]}/link-receipt",
+        seeded_ids["user_a"],
+        json_data={},
+    )
+    assert status == 400, body
+    _cleanup_staged(app)
+
+
+def test_link_receipt_conflict_when_already_confirmed(app, seeded_ids):
+    """Re-linking a confirmed staged row must 409."""
+    from datetime import date as _date
+    _cleanup_staged(app)
+    today = _date.today()
+    pid = _mk_purchase_for_user(app, seeded_ids["user_a"], "Kroger", 40.00, today)
+    staged_ids = _seed_staged(
+        app,
+        seeded_ids["user_a"],
+        seeded_ids["item"],
+        "acc_1",
+        count=1,
+    )
+    # First link succeeds.
+    status, _ = _invoke(
+        app,
+        "POST",
+        f"/plaid/staged-transactions/{staged_ids[0]}/link-receipt",
+        seeded_ids["user_a"],
+        json_data={"purchase_id": pid},
+    )
+    assert status == 200
+    # Second link on the same staged row must 409.
+    status, body = _invoke(
+        app,
+        "POST",
+        f"/plaid/staged-transactions/{staged_ids[0]}/link-receipt",
+        seeded_ids["user_a"],
+        json_data={"purchase_id": pid},
+    )
+    assert status == 409, body
+    _cleanup_staged(app)
