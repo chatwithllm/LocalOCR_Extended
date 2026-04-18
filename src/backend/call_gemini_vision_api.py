@@ -328,12 +328,14 @@ def identify_product_via_gemini(
     image_bytes, mime_type = _load_and_compress_image(image_path)
 
     client = genai.Client(api_key=resolved_api_key)
+    # 1024 tokens — 512 was truncating pretty-printed JSON mid-object on
+    # multi-field product responses (saw real truncation at "unit":).
     result = _generate_gemini_json(
         client=client,
         image_bytes=image_bytes,
         mime_type=mime_type,
         prompt=PRODUCT_IDENTIFY_PROMPT,
-        max_output_tokens=512,
+        max_output_tokens=1024,
         model_name=resolved_model,
     )
 
