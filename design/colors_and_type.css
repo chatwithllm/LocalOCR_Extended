@@ -41,6 +41,24 @@
        format("woff2");
 }
 
+/* ---------- Roobert (Clay theme) ----------------------------
+   Licensed file is expected at src/frontend/fonts/roobert/ for
+   prod deploys. If absent, the stack below falls through to the
+   variable Inter already loaded above — the Clay stylistic-set
+   calls (ss01, ss03, ss10, ss11, ss12) become silent no-ops on
+   Inter, which is an acceptable graceful degradation per the
+   Clay spec §0 Hard Constraints.
+   ------------------------------------------------------------ */
+@font-face {
+  font-family: "Roobert";
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: local("Roobert"),
+       url("/fonts/roobert/RoobertVariable.woff2") format("woff2-variations"),
+       url("/fonts/roobert/Roobert-Regular.woff2") format("woff2");
+}
+
 /* ============================================================
    LIGHT — default theme
    ============================================================ */
@@ -107,6 +125,166 @@
   --color-cat-personal-service:  #8450b8;
   --color-cat-subscription:      #2a8a95;
   --color-cat-other:             rgba(0, 0, 0, 0.56);
+}
+
+/* ============================================================
+   CLAY (opt-in, light)
+   ============================================================
+   Warm cream canvas + named swatch palette. Selected via
+   `[data-theme="clay"]`. Full spec:
+   design/Design System Inspired by Clay.md
+   ============================================================ */
+[data-theme="clay"] {
+  --color-brand:               #8fbf9f;    /* Matcha */
+  --color-brand-hover:         #7fb091;
+  --color-brand-pressed:       #6fa181;
+  --color-brand-soft:          rgba(143, 191, 159, 0.16);
+  --color-brand-contrast:      #1a1a1a;    /* ink on matcha — NOT white */
+  --color-link:                #4a7a6b;
+
+  --color-bg:                  #faf9f7;    /* cream */
+  --color-bg-inverse:          #1a1a1a;
+  --color-surface:             #ffffff;
+  --color-surface-2:           #f2efe8;    /* cream-deep */
+  --color-surface-3:           #e8e4db;
+  --color-surface-4:           #ddd7cc;
+  --color-surface-inverse:     #1a1a1a;
+
+  --color-overlay:             rgba(26, 26, 26, 0.48);
+  --color-overlay-soft:        rgba(242, 239, 232, 0.64);
+  --color-glass-nav:           rgba(26, 26, 26, 0.80);
+
+  --color-text-primary:        #1a1a1a;    /* ink */
+  --color-text-secondary:      rgba(26, 26, 26, 0.70);
+  --color-text-muted:          rgba(26, 26, 26, 0.50);
+  --color-text-disabled:       rgba(26, 26, 26, 0.36);
+  --color-text-inverse:        #faf9f7;
+
+  --color-border:              rgba(26, 26, 26, 0.12);
+  --color-border-strong:       #1a1a1a;    /* hard-shadow silhouette */
+  --color-border-brand:        #8fbf9f;
+  --color-focus:               #8fbf9f;
+
+  --color-success:             #8fbf9f;    /* Matcha */
+  --color-success-soft:        rgba(143, 191, 159, 0.16);
+  --color-warning:             #f5d86e;    /* Lemon */
+  --color-warning-soft:        rgba(245, 216, 110, 0.18);
+  --color-error:               #e85d6a;    /* Pomegranate */
+  --color-error-soft:          rgba(232, 93, 106, 0.14);
+  --color-error-hover:         #d34a57;
+  --color-info:                #5b7fc9;    /* Blueberry */
+  --color-info-soft:           rgba(91, 127, 201, 0.16);
+
+  --color-confidence-high:        #8fbf9f;
+  --color-confidence-medium:      #f5d86e;
+  --color-confidence-low:         #e85d6a;
+  --color-confidence-high-soft:   rgba(143, 191, 159, 0.16);
+  --color-confidence-medium-soft: rgba(245, 216, 110, 0.18);
+  --color-confidence-low-soft:    rgba(232, 93, 106, 0.14);
+
+  --color-cat-grocery:           #8fbf9f;  /* Matcha */
+  --color-cat-restaurant:        #ec7bb0;  /* Dragonfruit */
+  --color-cat-utility:           #5b7fc9;  /* Blueberry */
+  --color-cat-personal-service:  #b19cd9;  /* Ube */
+  --color-cat-subscription:      #8470b0;  /* Ube, darker */
+  --color-cat-other:             rgba(26, 26, 26, 0.50);
+
+  /* Clay-unique: named swatches + semantic ink/cream. */
+  --color-swatch-matcha:         #8fbf9f;
+  --color-swatch-slushie:        #a7c8e8;
+  --color-swatch-lemon:          #f5d86e;
+  --color-swatch-ube:            #b19cd9;
+  --color-swatch-pomegranate:    #e85d6a;
+  --color-swatch-blueberry:      #5b7fc9;
+  --color-swatch-dragonfruit:    #ec7bb0;
+  --color-ink:                   #1a1a1a;
+  --color-cream:                 #faf9f7;
+  --color-cream-deep:            #f2efe8;
+
+  /* Radius (§5) — Clay is chunkier than Apple. */
+  --radius-xs:    8px;
+  --radius-sm:    12px;
+  --radius-md:    16px;
+  --radius-lg:    24px;
+  --radius-xl:    40px;
+  --radius-pill:  999px;
+
+  /* Shadow (§6) — hard offsets, no blur. */
+  --shadow-1: -3px 3px 0 0 #1a1a1a;
+  --shadow-2: -4px 4px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --shadow-3: -6px 6px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-4: -8px 8px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-5: -12px 12px 0 0 #1a1a1a, inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+  /* Motion (§7) — slower + overshoot spring. */
+  --duration-fast:       180ms;
+  --duration-base:       280ms;
+  --duration-slow:       400ms;
+  --duration-elaborate:  600ms;
+  --ease-spring:         cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-standard:       cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* Typography tracking (§3) — neutral, not negative. */
+  --font-hero-track:    -0.12px;
+  --font-4xl-track:     -0.08px;
+  --font-3xl-track:     0;
+  --font-2xl-track:     0;
+  --font-xl-track:      0;
+  --font-lg-track:      0;
+  --font-md-track:      0;
+  --font-body-track:    0;
+  --font-sm-track:      0;
+  --font-xs-track:      0;
+  --font-nano-track:    0.4px;
+
+  /* Font stack: Roobert first, Inter fallback. */
+  --font-display:
+    "Roobert", "Inter var", -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-text:
+    "Roobert", "Inter var", -apple-system, BlinkMacSystemFont,
+    "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ============================================================
+   CLAY (opt-in, dark) — warm charcoal + cream hard shadows
+   ============================================================ */
+[data-theme="clay-dark"] {
+  --color-brand:               #a5d1b2;
+  --color-brand-hover:         #b5d9c0;
+  --color-brand-pressed:       #95c1a2;
+  --color-brand-soft:          rgba(165, 209, 178, 0.20);
+  --color-brand-contrast:      #161513;
+  --color-link:                #a5d1b2;
+
+  --color-bg:                  #161513;    /* warm charcoal, not pure black */
+  --color-surface:             #211f1c;
+  --color-surface-2:           #2a2724;
+  --color-surface-3:           #332f2b;
+  --color-surface-4:           #3d3934;
+
+  --color-text-primary:        #f2efe8;
+  --color-text-secondary:      rgba(242, 239, 232, 0.80);
+  --color-text-muted:          rgba(242, 239, 232, 0.56);
+  --color-text-disabled:       rgba(242, 239, 232, 0.36);
+  --color-text-inverse:        #161513;
+
+  --color-border:              rgba(242, 239, 232, 0.14);
+  --color-border-strong:       #f2efe8;    /* cream hard-shadow in dark */
+  --color-border-brand:        #a5d1b2;
+  --color-focus:               #a5d1b2;
+
+  --color-success:             #a5d1b2;
+  --color-warning:             #f2d882;
+  --color-error:               #f07b85;
+  --color-info:                #8fa6d9;
+
+  /* Shadows flip to cream so they remain visible on charcoal. */
+  --shadow-1: -3px 3px 0 0 #f2efe8;
+  --shadow-2: -4px 4px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-3: -6px 6px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --shadow-4: -8px 8px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --shadow-5: -12px 12px 0 0 #f2efe8, inset 0 2px 0 rgba(255, 255, 255, 0.10);
 }
 
 /* ============================================================
@@ -186,6 +364,16 @@
     "SF Mono", "Menlo", "JetBrains Mono", "Consolas", monospace;
 
   --font-feature-body: "kern", "liga";
+
+  /* Clay stylistic-set bundle — no-ops on Inter, active on Roobert. */
+  --font-feature-clay: "kern", "liga", "ss01", "ss03", "ss10", "ss11", "ss12";
+}
+
+/* Global feature settings — applies to every element. Roobert swaps
+   in its playful alternates; Inter silently ignores the ss* calls. */
+:root[data-theme="clay"],
+:root[data-theme="clay-dark"] {
+  font-feature-settings: var(--font-feature-clay);
 }
 
 /* ---------- TYPE SCALE (13 steps) --------------------------

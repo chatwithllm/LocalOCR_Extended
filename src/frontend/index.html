@@ -5,21 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🛒 Grocery Manager</title>
     <script>
-      // Pre-paint theme setter (Apple Phase 1). Reads localStorage /
-      // prefers-color-scheme before stylesheets load so the first
-      // painted frame lands on the correct canvas without a flash.
+      // Pre-paint theme setter. Reads localStorage / prefers-color-scheme
+      // before stylesheets load so the first painted frame lands on the
+      // correct canvas without a flash. Accepts: light, dark, clay,
+      // clay-dark. Older stored values (light/dark) remain valid so the
+      // Clay rollout is backward compatible.
       (function () {
         try {
           var stored = localStorage.getItem("theme");
+          var valid = { light: 1, dark: 1, clay: 1, "clay-dark": 1 };
           var prefersDark =
             window.matchMedia &&
             window.matchMedia("(prefers-color-scheme: dark)").matches;
-          var theme =
-            stored === "light" || stored === "dark"
-              ? stored
-              : prefersDark
-                ? "dark"
-                : "light";
+          var theme = valid[stored]
+            ? stored
+            : prefersDark
+              ? "dark"
+              : "light";
           document.documentElement.setAttribute("data-theme", theme);
         } catch (_) {
           document.documentElement.setAttribute("data-theme", "light");
@@ -14969,6 +14971,31 @@
           </div>
           <div class="card">
             <div class="card-header">
+              <span class="card-title">🎨 Appearance</span>
+            </div>
+            <div class="form-group">
+              <label for="theme-picker">Theme</label>
+              <select
+                id="theme-picker"
+                onchange="setTheme(this.value)"
+                aria-label="Choose visual theme"
+                style="max-width:320px"
+              >
+                <option value="light">☀️ Apple Light</option>
+                <option value="dark">🌙 Apple Dark</option>
+                <option value="clay">🍡 Clay Light</option>
+                <option value="clay-dark">🌰 Clay Dark</option>
+              </select>
+              <div
+                style="margin-top:6px;font-size:0.82rem;color:var(--muted)"
+              >
+                Apple is the cinematic default. Clay adds warm cream
+                canvas, named swatches, and chunky rounded tiles.
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
               <span class="card-title">🏠 Household Users</span>
               <div class="table-toolbar">
                 <button
@@ -22774,7 +22801,15 @@
       // ============================================================
       // Navigation
       // ============================================================
-      // ---- Theme toggle (Apple Phase 1) ----
+      // ---- Theme toggle (cycles Apple Light → Apple Dark → Clay Light
+      //                    → Clay Dark → Apple Light → …) ----
+      const THEME_CYCLE = ["light", "dark", "clay", "clay-dark"];
+      const THEME_LABEL = {
+        light:       { icon: "☀️",  label: "Apple Light" },
+        dark:        { icon: "🌙",  label: "Apple Dark" },
+        clay:        { icon: "🍡",  label: "Clay Light" },
+        "clay-dark": { icon: "🌰",  label: "Clay Dark" },
+      };
       function currentTheme() {
         return (
           document.documentElement.getAttribute("data-theme") || "light"
@@ -22784,36 +22819,51 @@
         const btn = document.getElementById("theme-toggle");
         if (!btn) return;
         const theme = currentTheme();
+        const next =
+          THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length];
+        const spec = THEME_LABEL[theme] || THEME_LABEL.light;
+        const nextSpec = THEME_LABEL[next] || THEME_LABEL.light;
         const icon = btn.querySelector(".theme-toggle__icon");
         const label = btn.querySelector(".theme-toggle__label");
-        if (theme === "light") {
-          if (icon) icon.textContent = "☀️";
-          if (label) label.textContent = "Light";
-          btn.setAttribute("aria-label", "Switch to dark theme");
-          btn.setAttribute("title", "Switch to dark theme");
-        } else {
-          if (icon) icon.textContent = "🌙";
-          if (label) label.textContent = "Dark";
-          btn.setAttribute("aria-label", "Switch to light theme");
-          btn.setAttribute("title", "Switch to light theme");
-        }
+        if (icon) icon.textContent = spec.icon;
+        if (label) label.textContent = spec.label;
+        btn.setAttribute("aria-label", "Switch to " + nextSpec.label);
+        btn.setAttribute("title", "Switch to " + nextSpec.label);
       }
       function toggleTheme() {
-        const next = currentTheme() === "light" ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", next);
+        const current = currentTheme();
+        const idx = THEME_CYCLE.indexOf(current);
+        const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+        setTheme(next);
+      }
+      function setTheme(theme) {
+        if (!THEME_LABEL[theme]) return;
+        document.documentElement.setAttribute("data-theme", theme);
         try {
-          localStorage.setItem("theme", next);
+          localStorage.setItem("theme", theme);
         } catch (_) {}
         applyThemeToggleLabel();
+        // Keep any visible Settings picker in sync.
+        const picker = document.getElementById("theme-picker");
+        if (picker) picker.value = theme;
         if (
           document
             .getElementById("page-design-gallery")
             ?.classList.contains("active")
         ) {
-          renderAppleGallerySwatches();
+          if (typeof renderAppleGallerySwatches === "function") {
+            renderAppleGallerySwatches();
+          }
+          if (typeof renderClayGallery === "function") {
+            renderClayGallery();
+          }
         }
       }
-      document.addEventListener("DOMContentLoaded", applyThemeToggleLabel);
+      document.addEventListener("DOMContentLoaded", function () {
+        applyThemeToggleLabel();
+        const picker = document.getElementById("theme-picker");
+        if (picker) picker.value = currentTheme();
+      });
 
       // ---- Processing overlay helpers (Apple Phase 5) ----
       function showProcessingOverlay(opts) {
