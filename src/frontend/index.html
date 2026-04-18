@@ -29721,13 +29721,41 @@
         groups.sort((a, b) => {
           const effectiveSort =
             catalogMode === "products"
-              ? inventorySort === "name_desc"
-                ? "name_desc"
-                : inventorySort === "price_desc" ||
-                    inventorySort === "price_asc"
-                  ? "recent_desc"
-                  : "name_asc"
+              ? inventorySort === "domain_recent"
+                ? "domain_recent"
+                : inventorySort === "name_desc"
+                  ? "name_desc"
+                  : inventorySort === "price_desc" ||
+                      inventorySort === "price_asc"
+                    ? "recent_desc"
+                    : "name_asc"
               : productSort;
+          if (effectiveSort === "domain_recent") {
+            // Primary: domain rank; tie-break by most recent purchase, then name.
+            const leftDomain = inventoryDomainFor(a.primaryItem);
+            const rightDomain = inventoryDomainFor(b.primaryItem);
+            const leftRank = INVENTORY_DOMAIN_ORDER.indexOf(leftDomain);
+            const rightRank = INVENTORY_DOMAIN_ORDER.indexOf(rightDomain);
+            if (leftRank !== rightRank) return leftRank - rightRank;
+            const leftLast = a.items.reduce(
+              (latest, item) =>
+                item.last_purchase_date &&
+                (!latest || item.last_purchase_date > latest)
+                  ? item.last_purchase_date
+                  : latest,
+              "",
+            );
+            const rightLast = b.items.reduce(
+              (latest, item) =>
+                item.last_purchase_date &&
+                (!latest || item.last_purchase_date > latest)
+                  ? item.last_purchase_date
+                  : latest,
+              "",
+            );
+            if (leftLast !== rightLast) return leftLast < rightLast ? 1 : -1;
+            return compareText(a.family, b.family, "asc");
+          }
           if (effectiveSort === "variants_desc")
             return (
               compareNumber(a.count, b.count, "desc") ||
@@ -29781,11 +29809,10 @@
             '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>';
           return;
         }
-        if (catalogMode === "products" && window.innerWidth <= 640) {
-          body.innerHTML = `
-      <div class="inventory-mobile-list">
-        ${groups
-          .map((group) => {
+        if (catalogMode === "products") {
+          // Shared card renderer used by both the flat mobile list and
+          // the domain-grouped view (any width).
+          const renderProductCard = (group) => {
             const key = `product:${group.key}`;
             const primary = group.primaryItem;
             const latestPurchase = group.items.reduce(
@@ -29886,10 +29913,135 @@
               </div>
             </div>
           `;
-          })
-          .join("")}
-      </div>`;
-          return;
+          };
+
+          // Grouped view (Running Low + domain sections + category
+          // subsections) — matches the Inventory pattern. Runs on any
+          // screen width when inventorySort is "domain_recent".
+          if (inventorySort === "domain_recent") {
+            const familyIsLow = (g) =>
+              (g.items || []).some((it) => it.manual_low || it.is_low);
+            const lowGroups = groups.filter(familyIsLow);
+            const domainBuckets = new Map();
+            for (const g of groups) {
+              const d = inventoryDomainFor(g.primaryItem);
+              if (!domainBuckets.has(d)) domainBuckets.set(d, []);
+              domainBuckets.get(d).push(g);
+            }
+            const sections = [];
+            if (lowGroups.length) {
+              const lowCollapsed = isInventoryDomainCollapsed(
+                "__low__",
+                lowGroups.length,
+              );
+              sections.push(`
+                <div class="inventory-domain-section inventory-domain-section--low ${lowCollapsed ? "is-collapsed" : ""}" data-domain="__low__">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('__low__')"
+                    aria-expanded="${!lowCollapsed}"
+                  >
+                    <span class="inventory-domain-icon">🔴</span>
+                    <span class="inventory-domain-title">Running Low</span>
+                    <span class="inventory-domain-count">${lowGroups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${lowCollapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${lowGroups.map(renderProductCard).join("")}
+                  </div>
+                </div>
+              `);
+            }
+            for (const domain of INVENTORY_DOMAIN_ORDER) {
+              const dGroups = domainBuckets.get(domain);
+              if (!dGroups || !dGroups.length) continue;
+              const spec = inventoryDomainLabel(domain);
+              const collapsed = isInventoryDomainCollapsed(
+                domain,
+                dGroups.length,
+              );
+              const categoryBuckets = new Map();
+              for (const g of dGroups) {
+                const rawCat =
+                  String(g.primaryItem?.category || "")
+                    .trim()
+                    .toLowerCase() || "uncategorized";
+                if (!categoryBuckets.has(rawCat))
+                  categoryBuckets.set(rawCat, []);
+                categoryBuckets.get(rawCat).push(g);
+              }
+              const categoryKeys = [...categoryBuckets.keys()].sort(
+                (a, b) =>
+                  categoryBuckets.get(b).length -
+                  categoryBuckets.get(a).length,
+              );
+              let bodyHtml;
+              if (categoryKeys.length <= 1) {
+                bodyHtml = dGroups.map(renderProductCard).join("");
+              } else {
+                bodyHtml = categoryKeys
+                  .map((cat) => {
+                    const catGroups = categoryBuckets.get(cat);
+                    const catCollapsed = isInventoryCategoryCollapsed(
+                      cat,
+                      catGroups.length,
+                    );
+                    const catLabel = inventoryCategoryLabel(cat);
+                    return `
+                      <div class="inventory-category-section ${catCollapsed ? "is-collapsed" : ""}" data-category="${escAttr(cat)}">
+                        <button
+                          type="button"
+                          class="inventory-category-header"
+                          onclick="toggleInventoryCategoryCollapse('${escAttr(cat)}')"
+                          aria-expanded="${!catCollapsed}"
+                        >
+                          <span class="inventory-category-title">${escHtml(catLabel)}</span>
+                          <span class="inventory-category-count">${catGroups.length}</span>
+                          <span class="inventory-category-chevron" aria-hidden="true">${catCollapsed ? "▸" : "▾"}</span>
+                        </button>
+                        <div class="inventory-category-body">
+                          ${catGroups.map(renderProductCard).join("")}
+                        </div>
+                      </div>`;
+                  })
+                  .join("");
+              }
+              sections.push(`
+                <div class="inventory-domain-section ${collapsed ? "is-collapsed" : ""}" data-domain="${escAttr(domain)}">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('${escAttr(domain)}')"
+                    aria-expanded="${!collapsed}"
+                  >
+                    <span class="inventory-domain-icon">${escHtml(spec.icon)}</span>
+                    <span class="inventory-domain-title">${escHtml(spec.label)}</span>
+                    <span class="inventory-domain-count">${dGroups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${bodyHtml}
+                  </div>
+                </div>
+              `);
+            }
+            body.innerHTML = `
+              <div class="inventory-mobile-list inventory-mobile-list--grouped">
+                ${sections.join("")}
+              </div>`;
+            return;
+          }
+
+          // Flat mobile list (A / Z / $ / recent / variants sorts).
+          if (window.innerWidth <= 640) {
+            body.innerHTML = `
+              <div class="inventory-mobile-list">
+                ${groups.map(renderProductCard).join("")}
+              </div>`;
+            return;
+          }
+          // Falls through to desktop <table> below for flat sorts.
         }
         body.innerHTML = `
     <table>
