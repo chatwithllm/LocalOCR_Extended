@@ -164,6 +164,7 @@ def _serialize_product(session, product: Product) -> dict:
         "inventory_threshold": inventory_item.threshold if inventory_item else None,
         "manual_low": bool(inventory_item.manual_low) if inventory_item else False,
         "is_low": is_low,
+        "is_regular_use": bool(getattr(product, "is_regular_use", False) or False),
     }
 
 

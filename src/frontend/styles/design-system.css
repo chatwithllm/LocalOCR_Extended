@@ -554,3 +554,439 @@ h3, h4, h5, h6 { font-family: var(--font-display); letter-spacing: -0.2px; }
   box-shadow: var(--shadow-3);
   transform: translate(-2px, -2px);
 }
+
+/* ---------- Shopping: Ready-to-Bill reconcile field ---------- */
+/* Inline variant (desktop table cell): compact, clear label. */
+.shopping-actual-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+.shopping-actual-field label {
+  color: var(--muted, #666);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.shopping-actual-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.shopping-actual-prefix {
+  position: absolute;
+  left: 8px;
+  color: var(--muted, #666);
+  font-weight: 600;
+  pointer-events: none;
+}
+.shopping-actual-field input {
+  padding-left: 18px;
+  width: 96px;
+  font-weight: 600;
+}
+.shopping-actual-check {
+  color: #2fa36b;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.shopping-actual-hint {
+  color: var(--muted, #666);
+  font-size: 0.78rem;
+  margin-left: auto;
+}
+
+/* Strip variant (mobile): full-width band between summary and detail,
+   always visible when in ready-to-bill mode. */
+.shopping-actual-field--strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 0;
+  border-top: 1px solid var(--color-border, #e5e5e5);
+  background: rgba(0, 0, 0, 0.02);
+}
+.shopping-actual-field--strip label {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+}
+.shopping-actual-field--strip .shopping-actual-input-wrap {
+  flex: 1 1 auto;
+}
+.shopping-actual-field--strip input {
+  width: 100%;
+  min-height: 38px;
+  font-size: 1rem;
+  padding-left: 22px;
+}
+.shopping-actual-field--strip .shopping-actual-prefix {
+  left: 10px;
+  font-size: 1rem;
+}
+
+/* Empty state — gently pull attention. */
+.shopping-actual-field--strip.is-empty {
+  background: rgba(245, 216, 110, 0.10);
+}
+.shopping-actual-field--strip.is-filled {
+  background: rgba(47, 163, 107, 0.08);
+}
+
+/* Clay theme: louder, friendlier. */
+:root[data-theme="clay"] .shopping-actual-field--strip,
+:root[data-theme="clay-dark"] .shopping-actual-field--strip {
+  border-top: var(--stroke-2) solid var(--color-border);
+  padding: 12px 16px;
+  gap: 12px;
+}
+:root[data-theme="clay"] .shopping-actual-field--strip.is-empty,
+:root[data-theme="clay-dark"] .shopping-actual-field--strip.is-empty {
+  background: var(--color-swatch-lemon-soft);
+}
+:root[data-theme="clay"] .shopping-actual-field--strip.is-filled,
+:root[data-theme="clay-dark"] .shopping-actual-field--strip.is-filled {
+  background: var(--color-swatch-matcha-soft);
+}
+:root[data-theme="clay"] .shopping-actual-field--strip input,
+:root[data-theme="clay-dark"] .shopping-actual-field--strip input {
+  border-radius: var(--radius-md);
+  border: var(--stroke-2) solid var(--color-border);
+  background: var(--color-bg-primary, #fff);
+}
+:root[data-theme="clay"] .shopping-actual-field--strip label,
+:root[data-theme="clay-dark"] .shopping-actual-field--strip label {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* ---------- Shopping: Past Trips card ---------- */
+#shopping-past-trips-card {
+  margin-top: 12px;
+}
+.shopping-past-trips-header {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.shopping-past-trips-header #shopping-past-trips-chevron {
+  color: var(--muted, #666);
+  font-size: 0.9rem;
+}
+.shopping-past-trip {
+  border-top: 1px solid var(--color-border, #e5e5e5);
+}
+.shopping-past-trip:first-child {
+  border-top: none;
+}
+/* Past Trips — friendly block layout, with a fixed-column grid on the
+   totals line so the dollar amounts line up vertically across rows. */
+.shopping-past-trip-summary {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.shopping-past-trip-summary:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+.shopping-past-trip-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shopping-past-trip-date {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Header row: date on the left, variance pill on the right, so the
+   totals line below is free to hold just Est + Actual. */
+.pt-headrow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.pt-headrow .shopping-past-trip-date {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pt-headrow .shopping-past-trip-variance {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* Totals row — inline Est / Actual. The tabular-nums + fixed min-width
+   on .pt-v puts every dollar value in the same-width slot, so "Actual"
+   (and therefore the Actual value) line up vertically across rows. */
+.shopping-past-trip-totals {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  font-size: 0.9rem;
+  color: var(--muted, #666);
+}
+.pt-kv {
+  white-space: nowrap;
+}
+.pt-v {
+  color: var(--color-text, inherit);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  min-width: 58px;
+  text-align: right;
+  margin-left: 3px;
+}
+.shopping-past-trip-variance {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.shopping-past-trip-variance.over {
+  background: rgba(224, 79, 79, 0.12);
+  color: #c23030;
+}
+.shopping-past-trip-variance.under {
+  background: rgba(47, 163, 107, 0.14);
+  color: #1f7a4e;
+}
+.shopping-past-trip-variance.flat {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--muted, #666);
+}
+.shopping-past-trip-count {
+  font-size: 0.82rem;
+  color: var(--muted, #666);
+}
+.shopping-past-trip-chevron {
+  color: var(--muted, #666);
+  flex: 0 0 auto;
+}
+.shopping-past-trip-detail {
+  padding: 6px 14px 14px;
+  background: rgba(0, 0, 0, 0.02);
+}
+.shopping-past-trip-items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.shopping-past-trip-items th,
+.shopping-past-trip-items td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
+}
+.shopping-past-trip-items th {
+  color: var(--muted, #666);
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.shopping-past-trip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Clay: warmer panel + soft row hover tied to swatch tokens. */
+:root[data-theme="clay"] .shopping-past-trip-detail,
+:root[data-theme="clay-dark"] .shopping-past-trip-detail {
+  background: var(--color-swatch-slushie-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 14px 14px;
+}
+:root[data-theme="clay"] .shopping-past-trip-summary:hover,
+:root[data-theme="clay-dark"] .shopping-past-trip-summary:hover {
+  background: var(--color-swatch-matcha-soft);
+}
+:root[data-theme="clay"] .shopping-past-trip-variance.under,
+:root[data-theme="clay-dark"] .shopping-past-trip-variance.under {
+  background: var(--color-swatch-matcha-soft);
+  color: var(--color-swatch-matcha);
+}
+:root[data-theme="clay"] .shopping-past-trip-variance.over,
+:root[data-theme="clay-dark"] .shopping-past-trip-variance.over {
+  background: var(--color-swatch-pomegranate-soft);
+  color: var(--color-swatch-pomegranate);
+}
+
+/* ---------- Inventory: long-press context menu ---------- */
+.inv-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 6px;
+  background: var(--color-surface, var(--surface, #1b1b1d));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  animation: inv-ctx-in 0.14s ease-out;
+  color: var(--color-text, inherit);
+  user-select: none;
+  -webkit-user-select: none;
+}
+@keyframes inv-ctx-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.inv-context-title {
+  padding: 8px 12px 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--muted, #888);
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-context-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+}
+.inv-context-item:hover,
+.inv-context-item:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+.inv-context-icon {
+  font-size: 1.1rem;
+  flex: 0 0 22px;
+  text-align: center;
+}
+
+.inv-regular-star {
+  font-size: 0.95em;
+  margin-right: 2px;
+}
+
+/* Clay: friendlier context menu matching Clay surface tokens. */
+:root[data-theme="clay"] .inv-context-menu,
+:root[data-theme="clay-dark"] .inv-context-menu {
+  border-width: var(--stroke-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-4);
+  padding: 8px;
+}
+:root[data-theme="clay"] .inv-context-item:hover,
+:root[data-theme="clay-dark"] .inv-context-item:hover {
+  background: var(--color-swatch-matcha-soft);
+}
+
+/* === Overscroll Navigation Affordance ===
+   Pull past the top/bottom of a page to navigate to the previous/next
+   sidebar page. Suppresses iOS browser pull-to-refresh so our handler
+   owns the gesture; the trade-off is that page-level rubber-band is
+   gone, but the labeled banner gives explicit visual feedback. */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
+.osn {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface, #1f2024);
+  color: var(--color-text, #fff);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+  font-size: 0.92rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity 140ms ease-out, background 160ms ease-out,
+    color 160ms ease-out;
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.osn.is-visible {
+  opacity: 1;
+}
+.osn.is-bottom {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.osn.is-armed {
+  background: rgba(46, 160, 67, 0.18);
+  color: #2fa36b;
+  border-color: rgba(46, 160, 67, 0.3);
+}
+.osn.is-disabled {
+  opacity: 0.55;
+}
+.osn.is-snapping {
+  transition: opacity 220ms ease-out, transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform: translateX(-50%) translateY(0) !important;
+}
+.osn__arrow {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Clay theme: louder armed pill using matcha tokens. */
+:root[data-theme="clay"] .osn,
+:root[data-theme="clay-dark"] .osn {
+  border-width: var(--stroke-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+:root[data-theme="clay"] .osn.is-armed,
+:root[data-theme="clay-dark"] .osn.is-armed {
+  background: var(--color-swatch-matcha-soft);
+  color: var(--color-swatch-matcha);
+  border-color: var(--color-swatch-matcha);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .osn {
+    transition: opacity 100ms linear;
+  }
+  .osn.is-snapping {
+    transition: opacity 100ms linear;
+  }
+}

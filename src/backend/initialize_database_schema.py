@@ -114,6 +114,7 @@ class Product(Base):
     reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     category = Column(String(100), nullable=True)
     barcode = Column(String(50), nullable=True)
+    is_regular_use = Column(Boolean, nullable=True, default=False)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
