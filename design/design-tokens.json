@@ -425,6 +425,255 @@
         "4": "-8px 8px 0 0 #f2efe8, inset 0 1px 0 rgba(255,255,255,0.10)",
         "5": "-12px 12px 0 0 #f2efe8, inset 0 2px 0 rgba(255,255,255,0.10)"
       }
+    },
+    "notion": {
+      "source": "design/Design System inspired by Notion.md",
+      "color": {
+        "brand": "#0075de",
+        "brand-hover": "#005bab",
+        "brand-pressed": "#005bab",
+        "brand-soft": "rgba(0, 117, 222, 0.08)",
+        "brand-contrast": "#ffffff",
+        "link": "#0075de",
+
+        "bg": "#ffffff",
+        "bg-inverse": "#31302e",
+        "surface": "#ffffff",
+        "surface-2": "#f6f5f4",
+        "surface-3": "#fafaf9",
+        "surface-4": "#ededeb",
+        "surface-inverse": "#31302e",
+
+        "overlay": "rgba(0, 0, 0, 0.40)",
+        "overlay-soft": "rgba(246, 245, 244, 0.72)",
+        "glass-nav": "rgba(255, 255, 255, 0.92)",
+
+        "text-primary": "rgba(0, 0, 0, 0.95)",
+        "text-secondary": "#615d59",
+        "text-muted": "#a39e98",
+        "text-disabled": "#a39e98",
+        "text-inverse": "#f5f5f4",
+
+        "border": "rgba(0, 0, 0, 0.10)",
+        "border-strong": "rgba(0, 0, 0, 0.16)",
+        "border-brand": "#0075de",
+        "focus": "#097fe8",
+
+        "success": "#1aae39",
+        "success-soft": "rgba(26, 174, 57, 0.12)",
+        "warning": "#dd5b00",
+        "warning-soft": "rgba(221, 91, 0, 0.10)",
+        "error": "#c4002b",
+        "error-soft": "#fdf2f4",
+        "error-hover": "#9c0023",
+        "info": "#097fe8",
+        "info-soft": "#f2f9ff",
+
+        "confidence-high": "#1aae39",
+        "confidence-medium": "#dd5b00",
+        "confidence-low": "#c4002b",
+        "confidence-high-soft": "rgba(26, 174, 57, 0.12)",
+        "confidence-medium-soft": "rgba(221, 91, 0, 0.12)",
+        "confidence-low-soft": "rgba(196, 0, 43, 0.10)",
+
+        "cat-grocery": "#8a5a00",
+        "cat-restaurant": "#a0216e",
+        "cat-utility": "#2a4a99",
+        "cat-personal-service": "#391c57",
+        "cat-subscription": "#2a9d99",
+        "cat-other": "#615d59",
+
+        "domain-grocery-bg": "#fef5e7",
+        "domain-grocery-text": "#8a5a00",
+        "domain-restaurant-bg": "#fde8f0",
+        "domain-restaurant-text": "#a0216e",
+        "domain-expense-bg": "#edf2fb",
+        "domain-expense-text": "#2a4a99",
+
+        "badge-info-bg": "#f2f9ff",
+        "badge-info-text": "#097fe8",
+        "badge-streak-bg": "#fde8f0",
+        "badge-streak-text": "#a0216e",
+        "badge-scope-bg": "rgba(0, 0, 0, 0.05)",
+        "badge-scope-text": "#615d59",
+
+        "navy": "#213183",
+        "warm-paper": "#f6f5f4",
+        "warm-paper-row": "#fafaf9"
+      },
+      "radius": {
+        "0": "0",
+        "xs": "4px",
+        "sm": "5px",
+        "md": "8px",
+        "lg": "12px",
+        "xl": "16px",
+        "pill": "9999px",
+        "full": "50%"
+      },
+      "shadow": {
+        "0": "none",
+        "1": "0 0 0 1px rgba(0, 0, 0, 0.06)",
+        "2": "rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px",
+        "3": "rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.02) 0px 7px 15px, rgba(0,0,0,0.04) 0px 14px 28px, rgba(0,0,0,0.05) 0px 23px 52px",
+        "4": "rgba(0,0,0,0.02) 0px 2px 6px, rgba(0,0,0,0.03) 0px 8px 18px, rgba(0,0,0,0.04) 0px 18px 36px, rgba(0,0,0,0.05) 0px 30px 60px",
+        "5": "rgba(0,0,0,0.03) 0px 4px 10px, rgba(0,0,0,0.04) 0px 12px 28px, rgba(0,0,0,0.05) 0px 24px 56px, rgba(0,0,0,0.06) 0px 48px 96px"
+      },
+      "duration": {
+        "instant": "100ms",
+        "fast": "150ms",
+        "base": "200ms",
+        "slow": "240ms",
+        "elaborate": "320ms",
+        "scan-loop": "1600ms"
+      },
+      "ease": {
+        "out": "cubic-bezier(0.2, 0, 0, 1)",
+        "in-out": "cubic-bezier(0.42, 0, 0.58, 1)",
+        "in": "cubic-bezier(0.4, 0, 1, 1)",
+        "spring": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "standard": "cubic-bezier(0.2, 0, 0, 1)"
+      },
+      "typography-tracking": {
+        "hero": "-2.125px",
+        "4xl": "-1.875px",
+        "3xl": "-1.5px",
+        "2xl": "-0.625px",
+        "xl": "-0.25px",
+        "lg": "-0.125px",
+        "lg-reg": "-0.125px",
+        "md": "0",
+        "body": "0",
+        "body-em": "0",
+        "sm": "0",
+        "sm-em": "0",
+        "xs": "0",
+        "xs-em": "0",
+        "nano": "0.125px"
+      }
+    },
+    "notion-dark": {
+      "source": "design/Design System inspired by Notion.md §8 Kitchen Display dark variant",
+      "color": {
+        "brand": "#62aef0",
+        "brand-hover": "#7cbcf3",
+        "brand-pressed": "#4f9fe5",
+        "brand-soft": "rgba(98, 174, 240, 0.16)",
+        "brand-contrast": "#1a1a1a",
+        "link": "#62aef0",
+
+        "bg": "#31302e",
+        "bg-inverse": "#ffffff",
+        "surface": "#3a3937",
+        "surface-2": "#41403d",
+        "surface-3": "#48464334",
+        "surface-4": "#535149",
+        "surface-inverse": "#ffffff",
+
+        "overlay": "rgba(0, 0, 0, 0.64)",
+        "overlay-soft": "rgba(58, 57, 55, 0.72)",
+        "glass-nav": "rgba(49, 48, 46, 0.92)",
+
+        "text-primary": "#f5f5f4",
+        "text-secondary": "rgba(245, 245, 244, 0.78)",
+        "text-muted": "rgba(245, 245, 244, 0.54)",
+        "text-disabled": "rgba(245, 245, 244, 0.36)",
+        "text-inverse": "#1a1a1a",
+
+        "border": "rgba(245, 245, 244, 0.14)",
+        "border-strong": "rgba(245, 245, 244, 0.24)",
+        "border-brand": "#62aef0",
+        "focus": "#62aef0",
+
+        "success": "#3ec45a",
+        "success-soft": "rgba(62, 196, 90, 0.18)",
+        "warning": "#f08a40",
+        "warning-soft": "rgba(240, 138, 64, 0.18)",
+        "error": "#f0586e",
+        "error-soft": "rgba(240, 88, 110, 0.16)",
+        "error-hover": "#f37388",
+        "info": "#62aef0",
+        "info-soft": "rgba(98, 174, 240, 0.18)",
+
+        "confidence-high": "#3ec45a",
+        "confidence-medium": "#f08a40",
+        "confidence-low": "#f0586e",
+        "confidence-high-soft": "rgba(62, 196, 90, 0.18)",
+        "confidence-medium-soft": "rgba(240, 138, 64, 0.18)",
+        "confidence-low-soft": "rgba(240, 88, 110, 0.16)",
+
+        "cat-grocery": "#e0a955",
+        "cat-restaurant": "#e98ec0",
+        "cat-utility": "#7da4e8",
+        "cat-personal-service": "#a994d3",
+        "cat-subscription": "#5dbcb6",
+        "cat-other": "rgba(245, 245, 244, 0.62)",
+
+        "domain-grocery-bg": "rgba(224, 169, 85, 0.18)",
+        "domain-grocery-text": "#e8b86e",
+        "domain-restaurant-bg": "rgba(233, 142, 192, 0.18)",
+        "domain-restaurant-text": "#f3a8d0",
+        "domain-expense-bg": "rgba(125, 164, 232, 0.18)",
+        "domain-expense-text": "#9bbcef",
+
+        "badge-info-bg": "rgba(98, 174, 240, 0.18)",
+        "badge-info-text": "#9ec8f0",
+        "badge-streak-bg": "rgba(233, 142, 192, 0.18)",
+        "badge-streak-text": "#f3a8d0",
+        "badge-scope-bg": "rgba(245, 245, 244, 0.10)",
+        "badge-scope-text": "rgba(245, 245, 244, 0.78)",
+
+        "navy": "#7689c8",
+        "warm-paper": "#3a3937",
+        "warm-paper-row": "#41403d"
+      },
+      "radius": {
+        "0": "0",
+        "xs": "4px",
+        "sm": "5px",
+        "md": "8px",
+        "lg": "12px",
+        "xl": "16px",
+        "pill": "9999px",
+        "full": "50%"
+      },
+      "shadow": {
+        "0": "none",
+        "1": "0 0 0 1px rgba(245, 245, 244, 0.08)",
+        "2": "rgba(0,0,0,0.30) 0px 4px 18px, rgba(0,0,0,0.24) 0px 2.025px 7.84688px, rgba(0,0,0,0.18) 0px 0.8px 2.925px",
+        "3": "rgba(0,0,0,0.16) 0px 1px 3px, rgba(0,0,0,0.20) 0px 3px 7px, rgba(0,0,0,0.24) 0px 7px 15px, rgba(0,0,0,0.30) 0px 14px 28px",
+        "4": "rgba(0,0,0,0.20) 0px 2px 6px, rgba(0,0,0,0.26) 0px 8px 18px, rgba(0,0,0,0.32) 0px 18px 36px",
+        "5": "rgba(0,0,0,0.24) 0px 4px 10px, rgba(0,0,0,0.30) 0px 12px 28px, rgba(0,0,0,0.36) 0px 24px 56px"
+      },
+      "duration": {
+        "instant": "100ms",
+        "fast": "150ms",
+        "base": "200ms",
+        "slow": "240ms",
+        "elaborate": "320ms"
+      },
+      "ease": {
+        "out": "cubic-bezier(0.2, 0, 0, 1)",
+        "spring": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "standard": "cubic-bezier(0.2, 0, 0, 1)"
+      },
+      "typography-tracking": {
+        "hero": "-2.125px",
+        "4xl": "-1.875px",
+        "3xl": "-1.5px",
+        "2xl": "-0.625px",
+        "xl": "-0.25px",
+        "lg": "-0.125px",
+        "lg-reg": "-0.125px",
+        "md": "0",
+        "body": "0",
+        "body-em": "0",
+        "sm": "0",
+        "sm-em": "0",
+        "xs": "0",
+        "xs-em": "0",
+        "nano": "0.125px"
+      }
     }
   }
 }
