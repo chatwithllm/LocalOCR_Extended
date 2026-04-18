@@ -39050,6 +39050,9 @@
       }
 
       setInterval(() => {
+        // Skip when the tab isn't visible — no point burning cycles or
+        // hitting the sync-autopay endpoint while the user is elsewhere.
+        if (document.hidden) return;
         if (
           SHOPPING_HELPER_MODE ||
           document.getElementById("page-shopping")?.classList.contains("active")
@@ -39065,7 +39068,9 @@
         } else if (
           document.getElementById("page-bills")?.classList.contains("active")
         ) {
-          loadBills();
+          // Suppress the skeleton flash — periodic refresh should repaint
+          // in place, not blank the card grid each tick.
+          loadBills({ showSkeleton: false });
         }
       }, 15000);
 
