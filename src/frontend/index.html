@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260418b" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260418c" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -28659,13 +28659,23 @@
             }
             const sections = [];
             if (lowGroups.length) {
+              const lowCollapsed = isInventoryDomainCollapsed(
+                "__low__",
+                lowGroups.length,
+              );
               sections.push(`
-                <div class="inventory-domain-section inventory-domain-section--low" data-domain="__low__">
-                  <div class="inventory-domain-header" role="presentation">
+                <div class="inventory-domain-section inventory-domain-section--low ${lowCollapsed ? "is-collapsed" : ""}" data-domain="__low__">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('__low__')"
+                    aria-expanded="${!lowCollapsed}"
+                  >
                     <span class="inventory-domain-icon">🔴</span>
                     <span class="inventory-domain-title">Running Low</span>
                     <span class="inventory-domain-count">${lowGroups.length}</span>
-                  </div>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${lowCollapsed ? "▸" : "▾"}</span>
+                  </button>
                   <div class="inventory-domain-body">
                     ${lowGroups.map(renderItemCard).join("")}
                   </div>

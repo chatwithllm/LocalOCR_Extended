@@ -1886,7 +1886,6 @@ body.trusted-device-kitchen-display *:focus-visible {
   background: var(--color-surface-3, rgba(0, 0, 0, 0.06));
 }
 .inventory-domain-section--low .inventory-domain-header {
-  cursor: default;
   background: rgba(228, 77, 66, 0.14);
   border-color: rgba(228, 77, 66, 0.32);
   color: var(--color-error, #c4002b);
@@ -1928,8 +1927,47 @@ body.trusted-device-kitchen-display *:focus-visible {
 .inventory-domain-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  margin-top: 2px;
+  background: var(--inv-domain-tint, rgba(0, 0, 0, 0.025));
+  border-left: 3px solid var(--inv-domain-accent, var(--color-border, rgba(0, 0, 0, 0.12)));
+  border-radius: 0 12px 12px 0;
+}
+
+/* Domain-specific accent colors — visible differentiator between
+   sections even when all are expanded. Variables are consumed by
+   .inventory-domain-body via --inv-domain-accent / --inv-domain-tint. */
+.inventory-domain-section[data-domain="__low__"] {
+  --inv-domain-accent: rgba(228, 77, 66, 0.55);
+  --inv-domain-tint: rgba(228, 77, 66, 0.06);
+}
+.inventory-domain-section[data-domain="grocery"] {
+  --inv-domain-accent: rgba(26, 174, 57, 0.55);
+  --inv-domain-tint: rgba(26, 174, 57, 0.05);
+}
+.inventory-domain-section[data-domain="household"] {
+  --inv-domain-accent: rgba(9, 127, 232, 0.50);
+  --inv-domain-tint: rgba(9, 127, 232, 0.05);
+}
+.inventory-domain-section[data-domain="personal_care"] {
+  --inv-domain-accent: rgba(160, 33, 110, 0.55);
+  --inv-domain-tint: rgba(160, 33, 110, 0.05);
+}
+.inventory-domain-section[data-domain="apparel"] {
+  --inv-domain-accent: rgba(221, 91, 0, 0.55);
+  --inv-domain-tint: rgba(221, 91, 0, 0.05);
+}
+.inventory-domain-section[data-domain="other"] {
+  --inv-domain-accent: rgba(128, 128, 128, 0.45);
+  --inv-domain-tint: rgba(128, 128, 128, 0.05);
+}
+
+/* Dark themes need slightly stronger tint to be visible on black. */
+:root[data-theme="dark"] .inventory-domain-body,
+:root[data-theme="clay-dark"] .inventory-domain-body,
+:root[data-theme="notion-dark"] .inventory-domain-body {
+  background: color-mix(in srgb, var(--inv-domain-accent, rgba(255, 255, 255, 0.08)) 14%, transparent);
 }
 
 /* Clay: louder section headers matching ink-bordered tile language. */
