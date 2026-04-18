@@ -28531,8 +28531,12 @@
             : '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>';
           return;
         }
-        if (window.innerWidth <= 640) {
-          const renderMobileCard = (group) => {
+        // Card renderer — used by both mobile flat view AND by the
+        // domain-grouped view on any screen size. Named "mobile" for
+        // backwards-compat with the original single-path layout; the
+        // markup works fine at desktop widths too because the outer
+        // grouped-view container has a max-width-aware style.
+        const renderItemCard = (group) => {
             const i = group.primaryItem;
             const locationLabel = getInventoryGroupLocationLabel(group);
             const categoryLabel =
@@ -28639,10 +28643,11 @@
         `;
           };
 
-          if (inventorySort === "domain_recent") {
-            // Grouped view: Running Low (pinned) + per-domain collapsible
-            // sections. Items inside each section are already sorted by
-            // (domain, last_purchase_date desc, name) above.
+        // Grouped view runs on every screen size when inventorySort is
+        // "domain_recent" (the default). It uses the same renderItemCard
+        // helper above, with Running Low pinned at top + domain sections
+        // (and category subsections inside each multi-category domain).
+        if (inventorySort === "domain_recent") {
             const lowGroups = displayGroups.filter(
               (g) => g.manual_low || g.is_low,
             );
@@ -28662,7 +28667,7 @@
                     <span class="inventory-domain-count">${lowGroups.length}</span>
                   </div>
                   <div class="inventory-domain-body">
-                    ${lowGroups.map(renderMobileCard).join("")}
+                    ${lowGroups.map(renderItemCard).join("")}
                   </div>
                 </div>
               `);
@@ -28696,7 +28701,7 @@
               let bodyHtml;
               if (categoryKeys.length <= 1) {
                 // Single category — flat render, no nested header.
-                bodyHtml = groups.map(renderMobileCard).join("");
+                bodyHtml = groups.map(renderItemCard).join("");
               } else {
                 bodyHtml = categoryKeys
                   .map((cat) => {
@@ -28719,7 +28724,7 @@
                           <span class="inventory-category-chevron" aria-hidden="true">${catCollapsed ? "▸" : "▾"}</span>
                         </button>
                         <div class="inventory-category-body">
-                          ${catGroups.map(renderMobileCard).join("")}
+                          ${catGroups.map(renderItemCard).join("")}
                         </div>
                       </div>`;
                   })
@@ -28749,14 +28754,16 @@
               <div class="inventory-mobile-list inventory-mobile-list--grouped">
                 ${sections.join("")}
               </div>`;
-          } else {
-            // Flat view: preserves existing A/Z/$/qty/location sort paths.
+            return;
+        }
+
+        if (window.innerWidth <= 640) {
+            // Mobile flat view — preserves existing A/Z/$/qty/location paths.
             body.innerHTML = `
               <div class="inventory-mobile-list">
-                ${displayGroups.map(renderMobileCard).join("")}
+                ${displayGroups.map(renderItemCard).join("")}
               </div>`;
-          }
-          return;
+            return;
         }
         body.innerHTML = `
     <table>
