@@ -1590,6 +1590,19 @@
         font-size: 0.78rem;
         color: var(--muted);
       }
+      .bill-card__autopay-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: var(--space-2);
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--color-success, #1aae39);
+        background: var(--color-success-soft, rgba(26, 174, 57, 0.10));
+        border-radius: var(--radius-sm);
+        border: 1px solid color-mix(in srgb, var(--color-success, #1aae39) 24%, transparent);
+      }
       .bill-card__actions {
         display: flex;
         gap: var(--space-2);
@@ -38502,6 +38515,9 @@
                 ),
               )}')">Enter Bill</button>`
             : "";
+        const autopayLine = obligation.is_autopay_settled
+          ? `<div class="bill-card__autopay-line">💳 Paid via autopay on ${escHtml(formatBillDateShort(obligation.latest_payment_confirmed_at))}${obligation.latest_billing_cycle_month ? ` · for ${escHtml(formatBillingCycleShort(obligation.latest_billing_cycle_month))}` : ""}</div>`
+          : "";
         return `
           <article class="bill-card" data-bill-status="${status}">
             <header class="bill-card__head">
@@ -38523,11 +38539,33 @@
                 <div class="bill-card__stat-sub">Δ ${formatMoney(obligation.variance || 0)}</div>
               </div>
             </div>
+            ${autopayLine}
             <footer class="bill-card__footer">
               <div class="bill-card__footer-meta">Last seen ${escHtml(obligation.last_seen_date || "—")} · Due ${escHtml(obligation.last_due_date || "—")}</div>
               <div class="bill-card__actions">${editBtn}${openBtn}${primaryBtn}</div>
             </footer>
           </article>`;
+      }
+
+      function formatBillDateShort(iso) {
+        if (!iso) return "—";
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+        const sameYear = d.getFullYear() === new Date().getFullYear();
+        return d.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: sameYear ? undefined : "numeric",
+        });
+      }
+
+      function formatBillingCycleShort(cycleMonth) {
+        if (!cycleMonth || typeof cycleMonth !== "string") return cycleMonth || "";
+        const match = cycleMonth.match(/^(\d{4})-(\d{2})$/);
+        if (!match) return cycleMonth;
+        const d = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+        if (Number.isNaN(d.getTime())) return cycleMonth;
+        return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
       }
 
       function renderProvidersSection(providers, monthlyByProvider) {
