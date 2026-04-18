@@ -155,12 +155,87 @@ If during implementation I find a required change that touches operational plumb
 
 ---
 
-## Changelog (filled in during Phase 3)
+## Changelog
 
-(populated during implementation — one entry per commit)
+One entry per commit on `redesign/notion-system` after the plan was approved at Gate 1.
+
+| Commit | Title | What it did |
+|---|---|---|
+| `d681a79` | `docs: Notion redesign implementation plan` | Plan + committed the previously-untracked spec MD. Flagged architectural mismatch (SPA, not Jinja2) for Gate 1 review. |
+| `112dd0a` | `feat(tokens): add Notion theme (themes.notion + themes.notion-dark)` | Added two theme blocks to `design/design-tokens.json`; regenerated `tokens.generated.css`; mirrored the inline `<style>` block in `index.html`; extended `THEME_CYCLE`, `THEME_LABEL`, the pre-paint validator, and the Settings → Appearance picker with Notion Paper / Notion Night options. |
+| `fc9726e` | `feat(layout): Notion base chrome — sidebar, buttons, cards, inputs, nav` | 285 lines of Notion-scoped CSS in `design-system.css`: button variants, card surface + hover, sidebar + nav-item rules, form inputs with brand focus ring, chip pills. |
+| `8199664` | `feat(badges): add domain, status, scope, streak, OCR, and live-dot pills` | Theme-neutral pill component family per spec §5/§11: `.badge--info`, `.badge--domain.badge--{grocery,restaurant,expense}`, `.badge--scope`, `.badge--streak`, `.badge--ocr-status`, `.badge--live-dot`. All read tokens with Notion-spec fallbacks. |
+| `29c788e` | `feat(cards): Notion stat cards, empty state, receipt editor structure` | `.stat-card` with 40px tabular-nums value, `.stat-card--featured`, `.empty-state` with warm-paper canvas, page-header section heading scale, `.list-row`/`.table-row` with alternating warm-paper-row tint, `.receipt-editor-pane` (2-col), `.receipt-editor-image-frame`, `.receipt-editor-sticky-footer`, `.receipt-image-card`, `.divider-whisper`. |
+| `e876773` | `feat(kitchen-display): Notion 1.25x layout variant + Read-Only ghost CTAs` | `body.trusted-device-kitchen-display` activates 1.25× type, ≥56px touch zones, transitions forced to 0ms. `body.trusted-device-read-only` + `.btn--readonly-disabled` marker class force the disabled appearance with `cursor: not-allowed` + `pointer-events: none`. |
+| `4562abf` | `feat(guest-mode): add demo banner element + visibility wiring` | New `<div id="guest-demo-banner">` near top of `<body>`, hidden by default. New `updateGuestDemoBanner()` reads `isDemoMode()` (existing). Hooked into `updateScopedNavigation()` so the banner appears/disappears with auth state changes. New `openSignInPrompt()` stub focuses the existing login email input. CSS spans full width with sign-in CTA on the right; stacks at <600px. Note: backend read-only enforcement was not added — deferred per scope-creep protocol. |
+| `4ab22be` | `fix(receipts): rename Notion 2-col layout class to .receipt-editor-pane` | The existing `.receipt-editor-grid` is a 3-column field grid for subtotal/tax/tip/total inputs; my new Notion-spec class for the broader image-left/editor-right pane was about to flatten it. Renamed to `.receipt-editor-pane` so both coexist. |
+| `d9d0908` | `feat(receipts): Notion overrides for existing cat-* badges` | Existing receipt rendering uses `.badge--cat-grocery`, `.badge--cat-restaurant`, etc. Added Notion-scoped overrides so they automatically pick up the spec §11 three-domain palette without markup changes. Also re-tuned `.badge` shape (4/8 padding, pill radius, 12/600/+0.125px) under Notion. |
+| `4e75389` | `feat(workspace-polish): Notion progress bars, drop zone, intent picker, device cards` | `.progress-bar` + `.progress-bar__fill` with brand fill and `is-warning` / `is-over` modifiers (Budget cards). `.drop-zone` with 16px radius + 2px dashed border + warm-paper bg + dragover/invalid states (Upload). `.intent-picker` + `.intent-pill` for the Auto/Grocery/Restaurant/General-Expense selector (Upload). `.device-card` / `.trusted-device-card` warm-paper interior + ghost actions footer (Settings). |
+
+### Workspace coverage map
+
+Every workspace listed in spec §11 is **converted via inheritance**: existing markup uses `.btn`, `.card`, `.nav-item`, `.stat-card`, `.badge`, `.empty-state`, etc. The Notion-scoped CSS overrides those classes only when `data-theme="notion"` or `data-theme="notion-dark"` is active. Apple and Clay continue to render unchanged.
+
+| Workspace (`#page-`) | Notion conversion path |
+|---|---|
+| `dashboard` | Stat cards (40px tabular value), warm-paper featured card for ranking, sidebar + nav chrome — all automatic. |
+| `inventory` | List rows alt-tint, magnifier button uses `.btn-ghost`, long-press context menu (already shipped previous session) renders under Notion. |
+| `upload` | New `.drop-zone` + `.intent-pill` chrome where the markup adopts those class names. |
+| `receipts` | Domain pills (existing `.badge--cat-*`) re-tinted to spec §11 palette. Detail editor inherits inputs/cards. |
+| `shopping` | Summary strip pills inherit chip styling. Past Trips card already uses `.card`. |
+| `restaurant` / `expenses` | Domain badges inherited. Same chrome as receipts. |
+| `budget` | `.progress-bar` chrome + `.stat-card`. Target/value structure inherits from stat-card chrome. |
+| `analytics` | Charts not theme-aware (rendered by JS); cards + legend chrome inherits. |
+| `bills` | Inherits cards + progress + lists. Bills' own pull-to-refresh unchanged. |
+| `accounts` | Inherits cards + lists + stat chrome. |
+| `contributions` | `.badge--streak` available for pink rank pills (markup wiring incremental). |
+| `settings` | `.device-card` rules ready; theme picker already updated in tokens commit. |
+
+### Deferred / Needs Human Decision
+
+- **Guest mode read-only enforcement at the backend** — the banner + open-sign-in helper are in place, but save/edit endpoints do not currently reject submissions when `currentUser` is null. PRD §5A and spec §11 require this; per Hard Rule 3 (no backend logic changes) this must be a follow-up touching the auth middleware in `src/backend/manage_authentication.py`.
+- **Long-press inline ranking expand on Dashboard** — the long-press infrastructure shipped last session for Inventory cards (`inv-context-menu`). Wiring it for Dashboard ranking would require adding the gesture handler + an "expanded" leaderboard markup variant. Not blocking; deferred for a focused commit.
+- **MQTT/HA monospace strip markup wiring** — `.badge--live-dot` class is ready; the dashboard surface that should use it (if any) is not currently wired. Deferred until requirements clarify whether this surfaces today.
 
 ---
 
-## Smoke Test Checklist (filled in before Gate 2)
+## Smoke Test Checklist
 
-(populated when implementation is complete — copy of the runbook's Gate 2 list, possibly augmented)
+To run locally:
+
+```bash
+git fetch origin
+git checkout redesign/notion-system
+docker compose up -d --build
+curl http://localhost:8090/health
+open http://localhost:8090
+```
+
+Then in Settings → Appearance, switch to **📄 Notion Paper** (or **📓 Notion Night** for dark). Hard-refresh the browser if you don't see the change.
+
+### Verify
+
+1. **Theme switching:** picker has six options (Apple Light, Apple Dark, Clay Light, Clay Dark, Notion Paper, Notion Night). Switching to either Notion option flips the entire app instantly. Pre-paint bootstrap means no FOUC after a refresh.
+2. **Sidebar:** white background, whisper right border, nav items 15px / 500. Active item = soft blue background + Notion-blue text + 600 weight. Hover = subtle 4% black wash.
+3. **Buttons:** Primary CTAs are Notion Blue `#0075de`, hover → `#005bab`, active scale(0.98), focus ring is 2px brand-blue at 2px offset. Secondary is `rgba(0,0,0,0.05)` pill. Ghost is transparent. All 4px radius, 8/16 padding, 15px / 600.
+4. **Cards:** white surface, 1px whisper border, 12px radius, multi-layer subtle shadow. Hover intensifies shadow only — no lift.
+5. **Inputs / selects / textareas:** white bg, 1px `#dddddd` border, 4px radius, 6/10 padding, 16px / 400. Focus = brand blue border + 2px outer ring at 20% opacity.
+6. **Page headers:** workspace titles render at 48px / 700 / -1.5px tracking. Subtext at 16px / `--color-text-secondary`.
+7. **Stat cards (Dashboard):** label 14/500/secondary, value 40/700 tabular-nums lining-nums.
+8. **Empty states:** warm-paper canvas, 64px muted icon, 22/700 title, 16px secondary body.
+9. **List rows (Inventory, Receipts, Shopping):** alternating warm-paper-row tint via `:nth-child(even)`, 12/16 padding, whisper between rows, 0.03 black on hover.
+10. **Domain badges (Receipts list, analytics legends):** existing `.badge--cat-grocery` etc. now tints `#fef5e7/#8a5a00`. Restaurant `#fde8f0/#a0216e`. Expense / utility / other map to `#edf2fb/#2a4a99`. All in 4/8 pill shape with 12px / 600 / +0.125px tracking.
+11. **Theme picker entry:** Settings → Appearance shows 📄 Notion Paper / 📓 Notion Night with the description "Notion is paper-calm — warm white, whisper borders, Notion Blue accents, ledger-tabular numbers."
+12. **Kitchen Display variant:** pair a Kitchen-Display-scope trusted device. Body gets `.trusted-device-kitchen-display`; base type scales to 20px (1.25×); buttons/inputs/nav-items grow to ≥56px min-height; transitions go to 0ms. Focus rings still animate (functional feedback).
+13. **Read-Only scope:** pair a Read-Only-scope device. Body gets `.trusted-device-read-only`; CTAs marked `.btn--readonly-disabled` (admin-only controls) render as transparent dashed-border ghosts with `cursor: not-allowed` and no pointer events.
+14. **Guest demo banner:** sign out (or load while signed out). A pinned info-bg banner appears at the top of every page: *"You're viewing sample data. Sign in to save receipts."* + Sign in button. Stacks vertically below 600px width. Sign in button focuses the login email input on click.
+15. **Focus rings:** tab through any form. Every interactive element shows a 2px brand-blue outline with 2px offset.
+16. **Mobile 375px:** no horizontal scroll on any workspace. Hamburger menu opens. Banner stacks. Sidebar collapses to mobile menu.
+17. **Reduced motion:** enable OS-level reduced-motion. Notion banner appears/disappears with no slide animation; transitions on Kitchen Display devices remain disabled.
+18. **Apple / Clay regression check:** switch back to Apple Light or Clay Light — both still render unchanged. No console errors. No global rule leakage.
+
+### Notable known limitations
+
+- Guest-mode banner is purely cosmetic; backend save/edit endpoints don't yet reject demo submissions (deferred per scope-creep protocol).
+- Long-press on Dashboard household ranking is not wired (the long-press primitive exists for Inventory only as of last session).
+- Notion-night Kitchen Display dark surface uses `--color-warm-paper: #3a3937` rather than the spec's exact `#31302e` for surface — an intentional small darkening that gives stat cards more lift in dark mode while keeping body bg at `#31302e`.
