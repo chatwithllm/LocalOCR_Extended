@@ -1275,3 +1275,104 @@ body {
   color: var(--color-brand);
   border-color: var(--color-brand);
 }
+
+/* ---------- Notion: Pill badges (theme-neutral classes) ----- */
+/* Per spec §5 Pill Badges + §11 Three-domain differentiation:
+   - 4/8 padding, 9999px radius, 12px / weight 600, +0.125px tracking
+   - Always paired with an icon (emoji in markup, or .badge--icon ::before)
+   - Tokens fall back to Notion default values so the classes work in
+     any theme; Apple/Clay receive the spec colors out of the box. */
+.badge--pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.125px;
+  white-space: nowrap;
+  line-height: 1.33;
+  border: none;
+}
+
+/* Status / info — "Manual entry", "OCR reviewed", "New", "Live" */
+.badge--info {
+  background: var(--color-badge-info-bg, #f2f9ff);
+  color: var(--color-badge-info-text, #097fe8);
+}
+
+/* Domain — paired with shopping-basket / utensils / receipt icon */
+.badge--domain.badge--grocery {
+  background: var(--color-domain-grocery-bg, #fef5e7);
+  color: var(--color-domain-grocery-text, #8a5a00);
+}
+.badge--domain.badge--restaurant {
+  background: var(--color-domain-restaurant-bg, #fde8f0);
+  color: var(--color-domain-restaurant-text, #a0216e);
+}
+.badge--domain.badge--expense {
+  background: var(--color-domain-expense-bg, #edf2fb);
+  color: var(--color-domain-expense-text, #2a4a99);
+}
+
+/* Trusted-device scope — Shared Household / Kitchen Display / Read Only */
+.badge--scope {
+  background: var(--color-badge-scope-bg, rgba(0, 0, 0, 0.05));
+  color: var(--color-badge-scope-text, #615d59);
+}
+.badge--scope.badge--scope-readonly::before {
+  content: "🔒";
+  font-size: 11px;
+  margin-right: 2px;
+}
+
+/* Contribution streak / rank — pink, sparing use */
+.badge--streak {
+  background: var(--color-badge-streak-bg, #fde8f0);
+  color: var(--color-badge-streak-text, #a0216e);
+}
+
+/* OCR status — appears at the top of the receipt correction editor.
+   Spec §11 calls for "OCR reviewed · 2m ago" tinted info pill. */
+.badge--ocr-status {
+  background: var(--color-badge-info-bg, #f2f9ff);
+  color: var(--color-badge-info-text, #097fe8);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.125px;
+}
+.badge--ocr-status::before {
+  content: "✓";
+  font-weight: 700;
+}
+
+/* Live-dot (MQTT/HA readouts — spec §11 final paragraph) */
+.badge--live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--color-warm-paper, #f6f5f4);
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+}
+.badge--live-dot::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+.badge--live-dot.is-live::before {
+  background: var(--color-success, #1aae39);
+}
