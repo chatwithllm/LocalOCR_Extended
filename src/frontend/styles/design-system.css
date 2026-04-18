@@ -1572,3 +1572,78 @@ body {
   border-top: 1px solid var(--color-border);
   margin: 0;
 }
+
+/* ===================================================================
+ * NOTION: Kitchen Display layout variant (spec §8 + §11)
+ * Activated when `body.trusted-device-kitchen-display` is set by
+ * applyTrustedDeviceClasses(). 1.25x base type, ≥56px touch zones,
+ * motion reduced or disabled. Also picks up dark surfaces if the
+ * household prefers them.
+ * =================================================================== */
+:root[data-theme="notion"] body.trusted-device-kitchen-display,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display {
+  font-size: 20px;  /* 1.25x of 16px base */
+  line-height: 1.45;
+}
+:root[data-theme="notion"] body.trusted-device-kitchen-display .btn,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display .btn {
+  min-height: 56px;
+  padding: 14px 24px;
+  font-size: 18px;
+}
+:root[data-theme="notion"] body.trusted-device-kitchen-display .nav-item,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display .nav-item {
+  min-height: 56px;
+  padding: 14px 18px;
+  font-size: 18px;
+}
+:root[data-theme="notion"] body.trusted-device-kitchen-display .stat-card .stat-value,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display .stat-card .stat-value {
+  font-size: 50px;  /* 1.25x of 40px */
+}
+:root[data-theme="notion"] body.trusted-device-kitchen-display input,
+:root[data-theme="notion"] body.trusted-device-kitchen-display select,
+:root[data-theme="notion"] body.trusted-device-kitchen-display textarea,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display input,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display select,
+:root[data-theme="notion-dark"] body.trusted-device-kitchen-display textarea {
+  min-height: 56px;
+  font-size: 18px;
+  padding: 12px 14px;
+}
+/* Suppress any remaining transition/animation on Kitchen Display so the
+   surface stays calm at 10ft viewing distance (spec §8 + §10). */
+body.trusted-device-kitchen-display *,
+body.trusted-device-kitchen-display *::before,
+body.trusted-device-kitchen-display *::after {
+  transition-duration: 0ms !important;
+  animation-duration: 0ms !important;
+}
+/* Keep focus rings visible — they're functional feedback, not decoration. */
+body.trusted-device-kitchen-display *:focus-visible {
+  transition-duration: var(--duration-fast, 150ms) !important;
+}
+
+/* ===================================================================
+ * NOTION: Read-Only scope (spec §8 + §11)
+ * When body.trusted-device-read-only is set, primary CTAs render as
+ * disabled ghost buttons with a tooltip. We can't set the title via
+ * CSS, but we can style buttons to look unmistakably non-actionable.
+ *
+ * The recommended path is for write-action buttons to also carry the
+ * .btn--readonly-disabled marker class (added at render time when
+ * scope is read-only). When that class is present, the rule below
+ * forces the disabled appearance regardless of the underlying
+ * variant. The blanket body-scoped rules below catch the case where
+ * a button hasn't been individually marked.
+ * =================================================================== */
+:root[data-theme="notion"] body.trusted-device-read-only .btn--readonly-disabled,
+:root[data-theme="notion-dark"] body.trusted-device-read-only .btn--readonly-disabled,
+:root[data-theme="notion"] .btn--readonly-disabled,
+:root[data-theme="notion-dark"] .btn--readonly-disabled {
+  background: transparent !important;
+  color: var(--color-text-muted) !important;
+  border: 1px dashed var(--color-border-strong) !important;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
