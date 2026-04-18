@@ -1871,33 +1871,35 @@ body.trusted-device-kitchen-display *:focus-visible {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
-  border-radius: 10px;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 14px;
   cursor: pointer;
   font: inherit;
   color: var(--color-text-primary, inherit);
   text-align: left;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 .inventory-domain-header:hover {
-  background: var(--color-surface-3, rgba(0, 0, 0, 0.05));
+  background: var(--color-surface-3, rgba(0, 0, 0, 0.06));
 }
 .inventory-domain-section--low .inventory-domain-header {
   cursor: default;
-  background: rgba(228, 77, 66, 0.10);
-  border-color: rgba(228, 77, 66, 0.22);
+  background: rgba(228, 77, 66, 0.14);
+  border-color: rgba(228, 77, 66, 0.32);
   color: var(--color-error, #c4002b);
 }
 .inventory-domain-icon {
-  font-size: 1rem;
+  font-size: 1.25rem;
+  line-height: 1;
   flex: 0 0 auto;
 }
 .inventory-domain-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: -0.125px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.25px;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -1906,24 +1908,28 @@ body.trusted-device-kitchen-display *:focus-visible {
 }
 .inventory-domain-count {
   flex: 0 0 auto;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  background: var(--color-surface, rgba(255, 255, 255, 0.5));
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
-  font-size: 0.78rem;
+  background: var(--color-surface, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-secondary, inherit);
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 .inventory-domain-chevron {
   flex: 0 0 auto;
   color: var(--color-text-muted, var(--muted, #888));
-  font-size: 0.85rem;
+  font-size: 1rem;
+  min-width: 14px;
+  text-align: center;
 }
 .inventory-domain-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  padding-top: 4px;
 }
 
 /* Clay: louder section headers matching ink-bordered tile language. */
@@ -1957,13 +1963,14 @@ body.trusted-device-kitchen-display *:focus-visible {
 }
 
 /* ---------- Inventory: category subsections inside domain --- */
-/* Category sections are visually subordinate to domain sections —
-   smaller header, thinner border, indented body, muted chevron. */
+/* Category sections sit inside an expanded domain. Visually subordinate
+   to domain headers (smaller type, lighter weight) but substantial
+   enough to read as real section headers, not captions. */
 .inventory-category-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 8px;
+  margin-top: 6px;
 }
 .inventory-category-section.is-collapsed .inventory-category-body {
   display: none;
@@ -1972,25 +1979,23 @@ body.trusted-device-kitchen-display *:focus-visible {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
-  border-radius: 0;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  border-radius: 10px;
   cursor: pointer;
   font: inherit;
-  color: var(--color-text-secondary, var(--muted, #615d59));
+  color: var(--color-text-primary, inherit);
   text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 .inventory-category-header:hover {
-  color: var(--color-text-primary, inherit);
+  background: var(--color-surface-3, rgba(0, 0, 0, 0.06));
 }
 .inventory-category-title {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  letter-spacing: -0.125px;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -1999,36 +2004,44 @@ body.trusted-device-kitchen-display *:focus-visible {
 }
 .inventory-category-count {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--color-surface, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  font-size: 0.78rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted, var(--muted, #888));
+  color: var(--color-text-secondary, var(--muted, #615d59));
 }
 .inventory-category-chevron {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   color: var(--color-text-muted, var(--muted, #888));
+  min-width: 14px;
+  text-align: center;
 }
 .inventory-category-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-left: 4px;
+  gap: 10px;
+  padding-left: 8px;
 }
 
 /* Clay: category headers pick up the theme's hard-edged chip accent. */
 :root[data-theme="clay"] .inventory-category-header,
 :root[data-theme="clay-dark"] .inventory-category-header {
-  border-bottom-width: var(--stroke-2);
-  border-bottom-color: var(--color-border-strong);
+  border: var(--stroke-2) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
 }
 
-/* Notion: whisper underline + warm-paper hover. */
+/* Notion: warm-paper tint + whisper border. */
 :root[data-theme="notion"] .inventory-category-header,
 :root[data-theme="notion-dark"] .inventory-category-header {
-  border-bottom-color: var(--color-border);
+  background: var(--color-warm-paper, #f6f5f4);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
 }
 :root[data-theme="notion"] .inventory-category-header:hover,
 :root[data-theme="notion-dark"] .inventory-category-header:hover {
-  background: var(--color-warm-paper, transparent);
+  background: var(--color-surface-3, var(--color-warm-paper));
 }
