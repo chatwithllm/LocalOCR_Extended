@@ -1688,3 +1688,37 @@ body.trusted-device-kitchen-display *:focus-visible {
     padding: 10px 12px;
   }
 }
+
+/* ---------- Notion: Override existing .badge--cat-* classes ----
+   So existing receipt rendering automatically picks up the Notion
+   domain palette without markup changes. Spec §11 three-domain
+   differentiation insists on the exact #fef5e7/#8a5a00 etc. recipe,
+   not a color-mix derivative. */
+:root[data-theme="notion"] .badge--cat-grocery,
+:root[data-theme="notion-dark"] .badge--cat-grocery {
+  color: var(--color-domain-grocery-text);
+  background: var(--color-domain-grocery-bg);
+}
+:root[data-theme="notion"] .badge--cat-restaurant,
+:root[data-theme="notion-dark"] .badge--cat-restaurant {
+  color: var(--color-domain-restaurant-text);
+  background: var(--color-domain-restaurant-bg);
+}
+:root[data-theme="notion"] .badge--cat-utility,
+:root[data-theme="notion-dark"] .badge--cat-utility,
+:root[data-theme="notion"] .badge--cat-other,
+:root[data-theme="notion-dark"] .badge--cat-other {
+  color: var(--color-domain-expense-text);
+  background: var(--color-domain-expense-bg);
+}
+/* All cat-* badges adopt the Notion pill recipe per spec §5: 4/8
+   padding, pill radius, 12/600/0.125px tracking. */
+:root[data-theme="notion"] .badge,
+:root[data-theme="notion-dark"] .badge {
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.125px;
+  line-height: 1.33;
+}
