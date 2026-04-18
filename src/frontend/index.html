@@ -32174,7 +32174,7 @@
             ? ` · ${Math.round((r.confidence || 0) * 100)}% confidence`
             : "";
           const openBtn = r.receipt_id
-            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewReceipt(${r.receipt_id})">Open in Receipts</button>`
+            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); jumpToReceipt(${r.receipt_id})">Open in Receipts</button>`
             : "";
           const warningHtml = (r.warnings || []).length
             ? `<div class="batch-row__detail-warning">${escHtml(r.warnings[0])}</div>`
