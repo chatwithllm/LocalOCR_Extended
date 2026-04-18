@@ -797,6 +797,31 @@ class PlaidStagedTransaction(Base):
     )
 
 
+class DedupDismissal(Base):
+    """Pair of Purchase ids the user has explicitly marked as NOT duplicates.
+
+    Stored with purchase_id_low < purchase_id_high so a single row covers
+    both directions. The dedup-scan endpoint filters pairs against this
+    table so the same false-positive (e.g. two legit same-day, same-amount
+    charges under a shared merchant alias) doesn't keep resurfacing.
+    """
+    __tablename__ = "dedup_dismissals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    purchase_id_low = Column(Integer, ForeignKey("purchases.id"), nullable=False)
+    purchase_id_high = Column(Integer, ForeignKey("purchases.id"), nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "purchase_id_low", "purchase_id_high",
+            name="uq_dedup_dismissal_pair",
+        ),
+        Index("ix_dedup_dismissal_user", "user_id"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Schema Initialization
 # ---------------------------------------------------------------------------

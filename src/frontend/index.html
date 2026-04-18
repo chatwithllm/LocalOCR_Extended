@@ -32279,6 +32279,7 @@
               <div style="display:flex;flex-direction:column;gap:4px">
                 <button type="button" class="btn btn-primary btn-sm" onclick="mergeReceiptsPair(${pair.keep_id}, ${pair.drop_id})">Merge</button>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="swapDedupPair(${pair.keep_id}, ${pair.drop_id})" title="Use the other row as Keep">Swap</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="dismissDedupPair(${pair.keep_id}, ${pair.drop_id})" title="These are NOT duplicates — stop flagging this pair">Not a dup</button>
               </div>
             </div>
           </li>`;
@@ -32312,6 +32313,29 @@
         // Just rerun the merge with the IDs reversed — the user thinks
         // the wrong row was chosen as Keep.
         mergeReceiptsPair(dropId, keepId);
+      }
+
+      async function dismissDedupPair(keepId, dropId) {
+        // Persist a "NOT a duplicate" decision so this pair stops
+        // resurfacing on future scans (e.g. two legit same-day charges
+        // at one merchant).
+        try {
+          const res = await api(`/receipts/dedup-dismiss`, {
+            method: "POST",
+            body: JSON.stringify({ keep_id: Number(keepId), drop_id: Number(dropId) }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(payload.error || "Dismiss failed", "error");
+            return;
+          }
+          toast("Marked as not a duplicate", "success");
+          const li = document.getElementById(`dedup-pair-${dropId}`);
+          if (li) li.remove();
+        } catch (err) {
+          console.error("dismissDedupPair failed", err);
+          toast("Dismiss failed", "error");
+        }
       }
 
       // ============================================================

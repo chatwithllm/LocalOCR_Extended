@@ -1622,6 +1622,7 @@ def dedup_scan_receipts():
     from datetime import datetime as _dt, timedelta as _td
     from sqlalchemy import func as _func
     from src.backend.initialize_database_schema import (
+        DedupDismissal,
         Purchase,
         ReceiptItem,
         Store,
@@ -1680,6 +1681,16 @@ def dedup_scan_receipts():
         if r.purchase_id not in receipt_by_purchase:
             receipt_by_purchase[r.purchase_id] = r
 
+    # Pairs the user has explicitly marked as NOT duplicates — filter these
+    # out so a false-positive (e.g. two same-day, same-amount legit charges
+    # at one merchant) doesn't keep resurfacing after each scan.
+    dismissed_pairs: set[tuple[int, int]] = {
+        (row.purchase_id_low, row.purchase_id_high)
+        for row in session.query(DedupDismissal)
+        .filter(DedupDismissal.user_id == user_id)
+        .all()
+    }
+
     pairs = []
     seen_drop_ids: set[int] = set()
     # Window-compare: for each row, compare against forward rows within
@@ -1704,6 +1715,10 @@ def dedup_scan_receipts():
             name_i = s_i.name if s_i else None
             name_j = s_j.name if s_j else None
             if not merchants_match(name_i, name_j):
+                continue
+            # User has already told us this pair is NOT a duplicate.
+            pair_key = (min(p_i.id, p_j.id), max(p_i.id, p_j.id))
+            if pair_key in dismissed_pairs:
                 continue
 
             items_i = int(item_counts.get(p_i.id, 0))
@@ -1857,6 +1872,68 @@ def merge_receipts():
     return jsonify({
         "kept_purchase_id": keep.id,
         "dropped_purchase_id": drop_id,
+    }), 200
+
+
+@receipts_bp.route("/dedup-dismiss", methods=["POST"])
+@require_write_access
+def dismiss_dedup_pair():
+    """Persist a "these are NOT duplicates" decision for two Purchase ids.
+
+    Body: {"keep_id": int, "drop_id": int} — the two ids from a dedup-scan
+    pair. Names match merge's payload for UI symmetry; the endpoint stores
+    them as an unordered pair (low < high) so a single row covers both
+    directions. Future dedup-scan runs skip any pair present here.
+    """
+    from src.backend.initialize_database_schema import DedupDismissal, Purchase
+
+    user = getattr(g, "current_user", None)
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    user_id = user.id
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        a_id = int(payload.get("keep_id"))
+        b_id = int(payload.get("drop_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "keep_id and drop_id must be integers"}), 400
+    if a_id == b_id:
+        return jsonify({"error": "keep_id and drop_id must differ"}), 400
+
+    session = g.db_session
+    # Both must belong to the caller — prevents cross-user pair poisoning.
+    owned = (
+        session.query(Purchase.id)
+        .filter(Purchase.user_id == user_id, Purchase.id.in_([a_id, b_id]))
+        .all()
+    )
+    if len(owned) != 2:
+        return jsonify({"error": "Purchase not found or not owned by you"}), 404
+
+    low, high = (a_id, b_id) if a_id < b_id else (b_id, a_id)
+
+    existing = (
+        session.query(DedupDismissal)
+        .filter_by(user_id=user_id, purchase_id_low=low, purchase_id_high=high)
+        .first()
+    )
+    if existing is None:
+        session.add(DedupDismissal(
+            user_id=user_id,
+            purchase_id_low=low,
+            purchase_id_high=high,
+        ))
+        session.commit()
+        created = True
+    else:
+        created = False
+
+    return jsonify({
+        "dismissed": True,
+        "created": created,
+        "purchase_id_low": low,
+        "purchase_id_high": high,
     }), 200
 
 

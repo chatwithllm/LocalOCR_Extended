@@ -137,6 +137,7 @@ def _wipe(user_id):
     """Reset all dedup state for one user between tests."""
     from src.backend.create_flask_application import _get_db
     from src.backend.initialize_database_schema import (
+        DedupDismissal,
         PlaidStagedTransaction,
         Purchase,
         ReceiptItem,
@@ -146,6 +147,7 @@ def _wipe(user_id):
     _, SF = _get_db()
     s = SF()
     try:
+        s.query(DedupDismissal).filter_by(user_id=user_id).delete(synchronize_session=False)
         pids = [p.id for p in s.query(Purchase).filter_by(user_id=user_id).all()]
         if pids:
             s.query(ReceiptItem).filter(ReceiptItem.purchase_id.in_(pids)).delete(synchronize_session=False)
@@ -394,3 +396,154 @@ def test_merge_rejects_bad_payload(app, user_ids):
         json_data={"keep_id": "not-an-int"},
     )
     assert status == 400, body
+
+
+# ---------------------------------------------------------------------------
+# dedup-dismiss — persistent "not a duplicate" decisions
+# ---------------------------------------------------------------------------
+
+def test_dismiss_hides_pair_from_future_scans(app, user_ids):
+    """After dismissing, the same pair should not show up again.
+
+    Regression target: user reported two legit same-day same-amount charges
+    ("Meena" dance vs music) kept reappearing in the dedup UI with no way
+    to keep both.
+    """
+    uid = user_ids["user_a"]
+    _wipe(uid)
+    today = _date.today()
+    a_id = _mk_purchase(uid, "Meena School Of Dance", 100.00, today)
+    b_id = _mk_purchase(uid, "Meena School Of Music", 100.00, today)
+
+    status, body = _invoke(app, "GET", "/receipts/dedup-scan", uid)
+    assert status == 200, body
+    assert len(body["pairs"]) == 1, "alias-match should flag the pair pre-dismiss"
+    pair = body["pairs"][0]
+
+    status, dbody = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid,
+        json_data={"keep_id": pair["keep_id"], "drop_id": pair["drop_id"]},
+    )
+    assert status == 200, dbody
+    assert dbody["dismissed"] is True
+    assert dbody["created"] is True
+    assert dbody["purchase_id_low"] == min(a_id, b_id)
+    assert dbody["purchase_id_high"] == max(a_id, b_id)
+
+    status, body2 = _invoke(app, "GET", "/receipts/dedup-scan", uid)
+    assert status == 200, body2
+    assert body2["pairs"] == [], "dismissed pair must not resurface"
+    _wipe(uid)
+
+
+def test_dismiss_is_idempotent(app, user_ids):
+    """Dismissing the same pair twice should succeed both times (created=False on repeat)."""
+    uid = user_ids["user_a"]
+    _wipe(uid)
+    today = _date.today()
+    a_id = _mk_purchase(uid, "Some Shop", 50.00, today)
+    b_id = _mk_purchase(uid, "Some Shop", 50.00, today)
+
+    payload = {"keep_id": a_id, "drop_id": b_id}
+    status, body = _invoke(app, "POST", "/receipts/dedup-dismiss", uid, json_data=payload)
+    assert status == 200, body
+    assert body["created"] is True
+
+    status2, body2 = _invoke(app, "POST", "/receipts/dedup-dismiss", uid, json_data=payload)
+    assert status2 == 200, body2
+    assert body2["created"] is False, "second dismiss must be a no-op, not a duplicate row"
+    _wipe(uid)
+
+
+def test_dismiss_is_order_independent(app, user_ids):
+    """Dismissing (a,b) and then (b,a) should hit the same row (low/high normalization)."""
+    uid = user_ids["user_a"]
+    _wipe(uid)
+    today = _date.today()
+    a_id = _mk_purchase(uid, "Merchant X", 12.34, today)
+    b_id = _mk_purchase(uid, "Merchant X", 12.34, today)
+
+    status, body = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid,
+        json_data={"keep_id": a_id, "drop_id": b_id},
+    )
+    assert status == 200 and body["created"] is True
+
+    status2, body2 = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid,
+        json_data={"keep_id": b_id, "drop_id": a_id},
+    )
+    assert status2 == 200, body2
+    assert body2["created"] is False, "reversed-order dismiss must not create a second row"
+    _wipe(uid)
+
+
+def test_dismiss_rejects_cross_user_ids(app, user_ids):
+    """A user must not be able to dismiss a pair that includes another user's purchase."""
+    uid_a = user_ids["user_a"]
+    uid_b = user_ids["user_b"]
+    _wipe(uid_a)
+    _wipe(uid_b)
+    today = _date.today()
+    a_id = _mk_purchase(uid_a, "Shared Name", 10.00, today)
+    b_id = _mk_purchase(uid_b, "Shared Name", 10.00, today)
+
+    status, body = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid_a,
+        json_data={"keep_id": a_id, "drop_id": b_id},
+    )
+    assert status == 404, body
+    _wipe(uid_a)
+    _wipe(uid_b)
+
+
+def test_dismiss_rejects_same_id_pair(app, user_ids):
+    uid = user_ids["user_a"]
+    _wipe(uid)
+    pid = _mk_purchase(uid, "Solo", 9.99, _date.today())
+    status, body = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid,
+        json_data={"keep_id": pid, "drop_id": pid},
+    )
+    assert status == 400, body
+    _wipe(uid)
+
+
+def test_dismiss_rejects_bad_payload(app, user_ids):
+    uid = user_ids["user_a"]
+    status, body = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid,
+        json_data={"keep_id": "nope"},
+    )
+    assert status == 400, body
+
+
+def test_dismiss_is_user_scoped(app, user_ids):
+    """User A's dismiss should not suppress an unrelated dupe pair for user B."""
+    uid_a = user_ids["user_a"]
+    uid_b = user_ids["user_b"]
+    _wipe(uid_a)
+    _wipe(uid_b)
+    today = _date.today()
+    a1 = _mk_purchase(uid_a, "Alias Co", 7.50, today)
+    a2 = _mk_purchase(uid_a, "Alias Co", 7.50, today)
+    b1 = _mk_purchase(uid_b, "Alias Co", 7.50, today)
+    b2 = _mk_purchase(uid_b, "Alias Co", 7.50, today)
+
+    # user_a dismisses their pair.
+    status, body = _invoke(
+        app, "POST", "/receipts/dedup-dismiss", uid_a,
+        json_data={"keep_id": a1, "drop_id": a2},
+    )
+    assert status == 200, body
+
+    # user_a's scan: empty. user_b's scan: still flags their pair.
+    status_a, body_a = _invoke(app, "GET", "/receipts/dedup-scan", uid_a)
+    assert status_a == 200 and body_a["pairs"] == []
+    status_b, body_b = _invoke(app, "GET", "/receipts/dedup-scan", uid_b)
+    assert status_b == 200, body_b
+    assert len(body_b["pairs"]) == 1
+    ids = {body_b["pairs"][0]["keep_id"], body_b["pairs"][0]["drop_id"]}
+    assert ids == {b1, b2}
+    _wipe(uid_a)
+    _wipe(uid_b)
