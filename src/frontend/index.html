@@ -12279,6 +12279,26 @@
   </head>
 
   <body>
+    <!-- Notion: guest demo banner. Hidden by default; revealed by
+         updateGuestDemoBanner() once isDemoMode() returns true. -->
+    <div
+      id="guest-demo-banner"
+      class="guest-demo-banner"
+      role="status"
+      aria-live="polite"
+      hidden
+    >
+      <span class="guest-demo-banner__label"
+        >You're viewing sample data. Sign in to save receipts.</span
+      >
+      <button
+        type="button"
+        class="btn btn-primary btn-sm guest-demo-banner__cta"
+        onclick="openSignInPrompt()"
+      >
+        Sign in
+      </button>
+    </div>
     <div class="layout">
       <div
         class="mobile-overlay"
@@ -18970,6 +18990,35 @@
         return authCheckComplete && !currentUser && !SHOPPING_HELPER_MODE;
       }
 
+      // Guest demo banner — pinned reminder that the visitor is browsing
+      // sample data. Spec §11 / Notion redesign.
+      function updateGuestDemoBanner() {
+        const banner = document.getElementById("guest-demo-banner");
+        if (!banner) return;
+        if (isDemoMode()) {
+          banner.removeAttribute("hidden");
+        } else {
+          banner.setAttribute("hidden", "");
+        }
+      }
+
+      // Stub opener — most save/edit CTAs in guest mode should reroute
+      // to the sign-in flow. If a richer modal exists later, this hook
+      // is the single point to enhance. For now, scroll the user to
+      // the existing login surface and focus its email input.
+      function openSignInPrompt() {
+        const emailInput =
+          document.getElementById("login-email") ||
+          document.querySelector('input[type="email"]');
+        if (emailInput) {
+          emailInput.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => emailInput.focus(), 320);
+          return;
+        }
+        // Fallback: navigate to settings page where session controls live.
+        if (typeof nav === "function") nav("settings");
+      }
+
       function formatAppName(name) {
         return (
           String(name || "LocalOCR Extended")
@@ -19825,6 +19874,10 @@
           }
           item.style.display = kitchenAllowed.has(page) ? "" : "none";
         });
+        // Notion guest demo banner is gated by the same auth state.
+        if (typeof updateGuestDemoBanner === "function") {
+          updateGuestDemoBanner();
+        }
       }
 
       function getScopedPreferredPage() {
