@@ -16119,6 +16119,89 @@
                 <div style="font-family: var(--font-text); font-size: var(--font-xs); color: var(--color-text-muted)">xs — Footnotes, timestamps.</div>
               </div>
             </section>
+
+            <!-- ======================================================
+                 Clay tab — only rendered meaningfully when the active
+                 theme is clay / clay-dark. Content is live-bound to
+                 :root tokens, so switching the picker re-paints this
+                 section automatically.
+                 ====================================================== -->
+            <section class="apple-gallery__section" id="clay-gallery">
+              <div class="apple-gallery__head">
+                <h2>Clay 🍡</h2>
+                <p>
+                  Named-swatch palette, hard-offset shadows, chunky ink borders.
+                  Switch theme in Settings → Appearance to see Clay live.
+                </p>
+              </div>
+
+              <div class="card">
+                <div
+                  style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:600;margin-bottom:8px"
+                >Named swatches</div>
+                <div
+                  id="clay-swatches"
+                  style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px"
+                ></div>
+              </div>
+
+              <div class="card" style="margin-top:20px">
+                <div
+                  style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:600;margin-bottom:8px"
+                >Shadow scale</div>
+                <div
+                  id="clay-shadows"
+                  style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;padding:8px"
+                ></div>
+              </div>
+
+              <div class="card" style="margin-top:20px">
+                <div
+                  style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:600;margin-bottom:12px"
+                >Buttons</div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+                  <button class="btn btn-primary">Primary</button>
+                  <button class="btn btn-secondary">Secondary</button>
+                  <button class="btn btn-ghost">Ghost</button>
+                  <button class="btn btn-danger">Danger</button>
+                  <button class="btn btn-primary btn-sm">Small</button>
+                  <button class="btn btn-primary" disabled>Disabled</button>
+                </div>
+                <div
+                  style="margin-top:10px;color:var(--color-text-secondary);font-size:var(--font-sm)"
+                >Hover any button to see the <code>rotate(-8deg)</code> tilt + shadow reveal.</div>
+              </div>
+
+              <div class="card" style="margin-top:20px">
+                <div
+                  style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:600;margin-bottom:12px"
+                >Chips</div>
+                <div
+                  id="clay-chips"
+                  style="display:flex;flex-wrap:wrap;gap:10px"
+                ></div>
+              </div>
+
+              <div class="card" style="margin-top:20px">
+                <div
+                  style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:600;margin-bottom:12px"
+                >Type scale</div>
+                <div style="display:grid;gap:10px">
+                  <div style="font-family:var(--font-display);font-size:var(--font-hero);font-weight:var(--font-hero-weight);line-height:var(--font-hero-lh);letter-spacing:var(--font-hero-tracking)">Hero — 56 px</div>
+                  <div style="font-family:var(--font-display);font-size:var(--font-4xl);font-weight:var(--font-4xl-weight);line-height:var(--font-4xl-lh);letter-spacing:var(--font-4xl-tracking)">4xl — Section heading</div>
+                  <div style="font-family:var(--font-display);font-size:var(--font-3xl);font-weight:var(--font-3xl-weight);line-height:var(--font-3xl-lh);letter-spacing:var(--font-3xl-tracking)">3xl — Page hero</div>
+                  <div style="font-family:var(--font-display);font-size:var(--font-2xl);font-weight:var(--font-2xl-weight);line-height:var(--font-2xl-lh);letter-spacing:var(--font-2xl-tracking)">2xl — Card title</div>
+                  <div style="font-family:var(--font-display);font-size:var(--font-xl);font-weight:var(--font-xl-weight);line-height:var(--font-xl-lh)">xl — Modal heading</div>
+                  <div style="font-family:var(--font-display);font-size:var(--font-lg);font-weight:var(--font-lg-weight);line-height:var(--font-lg-lh)">lg — List item title</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-md);font-weight:var(--font-md-weight);line-height:var(--font-md-lh)">md — Large body</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-body);line-height:var(--font-body-lh);letter-spacing:var(--font-body-tracking)">body — 17 px default body copy.</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-body);font-weight:var(--font-body-em-weight);line-height:var(--font-body-em-lh)">body-em — emphasized body</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-sm);color:var(--color-text-secondary)">sm — caption</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-xs);color:var(--color-text-muted)">xs — chip label</div>
+                  <div style="font-family:var(--font-text);font-size:var(--font-nano);font-weight:var(--font-nano-weight);line-height:var(--font-nano-lh);letter-spacing:var(--font-nano-tracking);text-transform:uppercase;color:var(--color-text-muted)">nano — mini uppercase label</div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </main>
@@ -23019,6 +23102,55 @@
             </div>`;
         }).join("");
       }
+      // ---- Clay gallery renderer --------------------------------
+      // Populates the swatch / shadow / chip grids in the Clay section
+      // of #page-design-gallery. Pulls values live from :root so
+      // theme-switching auto-updates.
+      const CLAY_SWATCH_KEYS = [
+        "matcha", "slushie", "lemon", "ube",
+        "pomegranate", "blueberry", "dragonfruit",
+      ];
+      const CLAY_CATEGORY_CHIPS = [
+        { label: "Grocery",    key: "cat-grocery" },
+        { label: "Restaurant", key: "cat-restaurant" },
+        { label: "Utility",    key: "cat-utility" },
+        { label: "Service",    key: "cat-personal-service" },
+        { label: "Subscr.",    key: "cat-subscription" },
+        { label: "Other",      key: "cat-other" },
+        { label: "✓ High",     key: "confidence-high" },
+        { label: "! Medium",   key: "confidence-medium" },
+        { label: "⚠ Low",      key: "confidence-low" },
+      ];
+      function renderClayGallery() {
+        const cs = getComputedStyle(document.documentElement);
+        const sw = document.getElementById("clay-swatches");
+        if (sw) {
+          sw.innerHTML = CLAY_SWATCH_KEYS.map((name) => {
+            const hex = cs.getPropertyValue(`--color-swatch-${name}`).trim() || "—";
+            return `
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="height:96px;border-radius:var(--radius-lg);border:2px solid var(--color-border-strong);background:var(--color-swatch-${name});box-shadow:var(--shadow-3)"></div>
+                <div style="font-family:var(--font-display);font-weight:600;text-transform:capitalize">${name}</div>
+                <div style="font-family:var(--font-mono);font-size:var(--font-xs);color:var(--color-text-muted)">${hex}</div>
+              </div>`;
+          }).join("");
+        }
+        const sh = document.getElementById("clay-shadows");
+        if (sh) {
+          sh.innerHTML = [1, 2, 3, 4, 5].map((lv) => `
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+              <div style="width:100px;height:100px;background:var(--color-surface);border:2px solid var(--color-border-strong);border-radius:var(--radius-lg);box-shadow:var(--shadow-${lv})"></div>
+              <div style="font-family:var(--font-mono);font-size:var(--font-xs)">shadow-${lv}</div>
+            </div>`).join("");
+        }
+        const ch = document.getElementById("clay-chips");
+        if (ch) {
+          ch.innerHTML = CLAY_CATEGORY_CHIPS.map(({ label, key }) => `
+            <span class="chip" style="background:var(--color-${key}-soft,var(--color-${key}));color:var(--color-text-primary);border-color:var(--color-border-strong)">${label}</span>
+          `).join("");
+        }
+      }
+
       function openAppleGallery() {
         const page = document.getElementById("page-design-gallery");
         if (!page) return;
@@ -23030,6 +23162,7 @@
           .forEach((n) => n.classList.remove("active"));
         page.classList.add("active");
         renderAppleGallerySwatches();
+        renderClayGallery();
       }
       window.addEventListener("DOMContentLoaded", () => {
         if (window.location.hash === "#gallery") openAppleGallery();
