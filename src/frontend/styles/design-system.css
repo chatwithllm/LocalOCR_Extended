@@ -1503,14 +1503,17 @@ body {
 /* Spec §11 receipt correction editor: image-left/editor-right at
    ≥1080px, stacked at <1080. Image lives in a 12px-radius card with
    a whisper internal border so it reads as a framed photo. Sticky
-   footer holds Save/Cancel with whisper top border. */
-.receipt-editor-grid {
+   footer holds Save/Cancel with whisper top border.
+   Named .receipt-editor-pane to avoid colliding with the existing
+   .receipt-editor-grid (a 3-column field grid inside the editor body
+   defined in index.html:6433). */
+.receipt-editor-pane {
   display: grid;
   grid-template-columns: 1fr;
   gap: 24px;
 }
 @media (min-width: 1080px) {
-  .receipt-editor-grid {
+  .receipt-editor-pane {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     align-items: start;
   }
