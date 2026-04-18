@@ -1722,3 +1722,127 @@ body.trusted-device-kitchen-display *:focus-visible {
   letter-spacing: 0.125px;
   line-height: 1.33;
 }
+
+/* ---------- Notion: Budget progress bar (spec §5) ----------
+   6px tall track, brand fill, color shifts to warning/error as
+   spend approaches/crosses target. Existing .progress-bar markup
+   gets re-tuned under Notion. */
+:root[data-theme="notion"] .progress-bar,
+:root[data-theme="notion-dark"] .progress-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+:root[data-theme="notion-dark"] .progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="notion"] .progress-bar__fill,
+:root[data-theme="notion-dark"] .progress-bar__fill {
+  height: 100%;
+  background: var(--color-brand);
+  border-radius: 9999px;
+  transition: width var(--duration-base) var(--ease-standard);
+}
+:root[data-theme="notion"] .progress-bar.is-warning .progress-bar__fill,
+:root[data-theme="notion-dark"] .progress-bar.is-warning .progress-bar__fill {
+  background: var(--color-warning);
+}
+:root[data-theme="notion"] .progress-bar.is-over .progress-bar__fill,
+:root[data-theme="notion-dark"] .progress-bar.is-over .progress-bar__fill {
+  background: var(--color-error);
+}
+
+/* ---------- Notion: Upload Receipt drop zone (spec §11) -----
+   16px radius, 2px dashed border, warm-white bg, icon + prompt
+   centered. Existing .drop-zone markup picks this up. */
+:root[data-theme="notion"] .drop-zone,
+:root[data-theme="notion-dark"] .drop-zone {
+  background: var(--color-warm-paper);
+  border: 2px dashed #dddddd;
+  border-radius: var(--radius-xl);
+  padding: 48px 24px;
+  text-align: center;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion-dark"] .drop-zone {
+  border-color: var(--color-border-strong);
+}
+:root[data-theme="notion"] .drop-zone:hover,
+:root[data-theme="notion"] .drop-zone.is-dragover,
+:root[data-theme="notion-dark"] .drop-zone:hover,
+:root[data-theme="notion-dark"] .drop-zone.is-dragover {
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand);
+}
+:root[data-theme="notion"] .drop-zone.is-invalid,
+:root[data-theme="notion-dark"] .drop-zone.is-invalid {
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+}
+
+/* ---------- Notion: Intent picker pills (spec §11 Upload) ----
+   4 pills: Auto / Grocery / Restaurant / General Expense.
+   9999px radius, selected = brand fill + white text. */
+:root[data-theme="notion"] .intent-picker,
+:root[data-theme="notion-dark"] .intent-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+:root[data-theme="notion"] .intent-pill,
+:root[data-theme="notion-dark"] .intent-pill {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion"] .intent-pill:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="notion-dark"] .intent-pill:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+:root[data-theme="notion"] .intent-pill.is-selected,
+:root[data-theme="notion-dark"] .intent-pill.is-selected {
+  background: var(--color-brand);
+  color: var(--color-brand-contrast);
+  border-color: var(--color-brand);
+}
+
+/* ---------- Notion: Trusted device card (spec §11 Settings) -
+   12px radius, whisper border, warm-white interior, scope badges
+   on the right, ghost actions in the footer. The codebase already
+   uses .device-card or .trusted-device-card patterns; this re-tunes
+   under Notion. */
+:root[data-theme="notion"] .device-card,
+:root[data-theme="notion-dark"] .device-card,
+:root[data-theme="notion"] .trusted-device-card,
+:root[data-theme="notion-dark"] .trusted-device-card {
+  background: var(--color-warm-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+:root[data-theme="notion"] .device-card .device-card__actions,
+:root[data-theme="notion-dark"] .device-card .device-card__actions,
+:root[data-theme="notion"] .trusted-device-card .trusted-device-card__actions,
+:root[data-theme="notion-dark"] .trusted-device-card .trusted-device-card__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
