@@ -1376,3 +1376,199 @@ body {
 .badge--live-dot.is-live::before {
   background: var(--color-success, #1aae39);
 }
+
+/* ---------- Notion: Stat cards (Dashboard) ------------------ */
+/* Spec §5: white bg, whisper border, 12px radius, --shadow-card.
+   Spec §12: label 14/500/secondary, value 40/700/near-black with
+   tabular-nums, optional trend below. */
+:root[data-theme="notion"] .stat-card,
+:root[data-theme="notion-dark"] .stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  padding: 24px;
+}
+:root[data-theme="notion"] .stat-card .stat-label,
+:root[data-theme="notion-dark"] .stat-card .stat-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+:root[data-theme="notion"] .stat-card .stat-value,
+:root[data-theme="notion-dark"] .stat-card .stat-value {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.625px;
+}
+/* Featured ranking card (top-three Dashboard household ranking). */
+:root[data-theme="notion"] .stat-card.stat-card--featured,
+:root[data-theme="notion-dark"] .stat-card.stat-card--featured {
+  background: var(--color-warm-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+}
+
+/* ---------- Notion: Empty state ----------------------------- */
+/* Spec §5: warm-white bg, 64px icon in muted, 22/700 title,
+   16/secondary body, optional CTA. */
+:root[data-theme="notion"] .empty-state,
+:root[data-theme="notion-dark"] .empty-state {
+  background: var(--color-warm-paper);
+  border-radius: var(--radius-xl);
+  padding: 48px 32px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+:root[data-theme="notion"] .empty-state .icon,
+:root[data-theme="notion-dark"] .empty-state .icon {
+  font-size: 64px;
+  color: var(--color-text-muted);
+  display: block;
+  margin: 0 auto 16px;
+}
+:root[data-theme="notion"] .empty-state h3,
+:root[data-theme="notion"] .empty-state .empty-state-title,
+:root[data-theme="notion-dark"] .empty-state h3,
+:root[data-theme="notion-dark"] .empty-state .empty-state-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+  letter-spacing: -0.25px;
+}
+:root[data-theme="notion"] .empty-state p,
+:root[data-theme="notion-dark"] .empty-state p {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+/* ---------- Notion: Section headings ------------------------ */
+/* Spec §4 hierarchy: Section Heading 48/700, Sub-heading 26/700,
+   Card Title 22/700. The existing h1/h2/h3 in the SPA need a
+   theme-scoped re-tuning. */
+:root[data-theme="notion"] .page-header h1,
+:root[data-theme="notion-dark"] .page-header h1 {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.0;
+  letter-spacing: -1.5px;
+  color: var(--color-text-primary);
+}
+:root[data-theme="notion"] .page-header p,
+:root[data-theme="notion-dark"] .page-header p {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+:root[data-theme="notion"] .card-title,
+:root[data-theme="notion-dark"] .card-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+}
+
+/* ---------- Notion: List rows + alternating warm tint ------- */
+/* Spec §5 Data Surfaces: white bg, alternating warm-paper-row tint,
+   whisper between rows, 12/16 padding, hover row → 0.03 black wash. */
+:root[data-theme="notion"] .list-row,
+:root[data-theme="notion-dark"] .list-row,
+:root[data-theme="notion"] .table-row,
+:root[data-theme="notion-dark"] .table-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+:root[data-theme="notion"] .list-row:nth-child(even),
+:root[data-theme="notion-dark"] .list-row:nth-child(even) {
+  background: var(--color-warm-paper-row);
+}
+:root[data-theme="notion"] .list-row:hover,
+:root[data-theme="notion-dark"] .list-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+:root[data-theme="notion-dark"] .list-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ---------- Notion: Receipt correction editor structural --- */
+/* Spec §11 receipt correction editor: image-left/editor-right at
+   ≥1080px, stacked at <1080. Image lives in a 12px-radius card with
+   a whisper internal border so it reads as a framed photo. Sticky
+   footer holds Save/Cancel with whisper top border. */
+.receipt-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+@media (min-width: 1080px) {
+  .receipt-editor-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.receipt-editor-image-frame {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+}
+.receipt-editor-image-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+.receipt-editor-image-tools {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  justify-content: flex-end;
+}
+
+.receipt-editor-sticky-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  z-index: 10;
+}
+
+/* Receipt-image card frame (per spec §5 — image fills top half with
+   12 12 0 0 radius, internal whisper, body padding 16, white bg). */
+.receipt-image-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.receipt-image-card .receipt-image-card__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+.receipt-image-card .receipt-image-card__body {
+  padding: 16px;
+}
+
+/* ---------- Notion: Whisper divider ------------------------- */
+.divider-whisper {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
