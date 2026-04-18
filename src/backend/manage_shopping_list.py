@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from flask import Blueprint, jsonify, request, g
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 
 from src.backend.contribution_scores import (
     award_contribution_event,
@@ -127,12 +127,12 @@ def _get_current_session(session) -> ShoppingSession | None:
     )
 
 
-def _get_or_create_active_session(session) -> ShoppingSession:
+def _ensure_current_session(session) -> ShoppingSession:
     """Return the newest non-closed session, creating one if none exists.
 
-    If the newest non-closed session is in `ready_to_bill`, it is demoted back
-    to `active` so newly-added items don't get trapped on a list the user is
-    already trying to reconcile.
+    Read-safe: does NOT demote `ready_to_bill` back to `active`. Use this
+    for read paths (e.g. GET /shopping-list) so the reconcile status sticks
+    across refreshes.
     """
     current = _get_current_session(session)
     if current is None:
@@ -143,7 +143,17 @@ def _get_or_create_active_session(session) -> ShoppingSession:
         )
         session.add(current)
         session.flush()
-        return current
+    return current
+
+
+def _get_or_create_active_session(session) -> ShoppingSession:
+    """Return the newest non-closed session, creating one if none exists.
+
+    If the newest non-closed session is in `ready_to_bill`, it is demoted back
+    to `active` so newly-added items don't get trapped on a list the user is
+    already trying to reconcile. Use for write paths that append items.
+    """
+    current = _ensure_current_session(session)
     if current.status == "ready_to_bill":
         current.status = "active"
         session.flush()
@@ -352,7 +362,7 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
     for items where the user has recorded what they actually paid.
     """
 
-    current_session = _get_or_create_active_session(session)
+    current_session = _ensure_current_session(session)
     _adopt_orphan_items_into(session, current_session)
     session.commit()
 
@@ -780,7 +790,10 @@ def finalize_session():
             return float(item.actual_price) * float(item.quantity or 0)
         return _estimated_line_total_row(item)
 
-    estimated_snapshot = round(sum(_estimated_line_total_row(i) for i in open_items + purchased_items), 2)
+    # Snapshot totals against purchased items only. The session's history is
+    # what the user actually rang up — items still open weren't part of this
+    # trip and will carry over to the successor session.
+    estimated_snapshot = round(sum(_estimated_line_total_row(i) for i in purchased_items), 2)
     actual_snapshot = round(sum(_actual_line_total_row(i) for i in purchased_items), 2)
 
     current.status = "closed"
@@ -795,10 +808,19 @@ def finalize_session():
         created_by_id=getattr(getattr(g, "current_user", None), "id", None),
     )
     session.add(successor)
+    session.flush()
+
+    # Carry still-open items forward so multi-store planning isn't lost —
+    # e.g., if the user finalized a Kroger trip, their Costco items stay
+    # on the next list instead of being archived into the closed session.
+    for item in open_items:
+        item.shopping_session_id = successor.id
+
     session.commit()
     return jsonify({
         "closed_session": _serialize_session(current),
         "active_session": _serialize_session(successor),
+        "carried_over_count": len(open_items),
     }), 200
 
 
@@ -809,8 +831,12 @@ def reopen_session():
 
     If the current session is already `ready_to_bill`, reopen demotes it to
     `active`. If the caller passes `{"session_id": N}`, that specific session
-    is reopened (and any currently-open session is left alone — callers should
-    finalize the current one first if they want a clean swap).
+    is reopened.
+
+    When reopening a specific closed session while a *different* non-closed
+    session already exists, we swap intelligently:
+      - Current session is empty → it's deleted to make room (no data lost).
+      - Current session has items → 409 so the caller can finalize it first.
     """
     session = g.db_session
     data = request.get_json(silent=True) or {}
@@ -835,6 +861,27 @@ def reopen_session():
         if target is None:
             return jsonify({"error": "No session available to reopen"}), 400
 
+    # When reopening a past/closed trip explicitly, clear the way for it to
+    # become the canonical current session.
+    if target.status == "closed":
+        current = _get_current_session(session)
+        if current is not None and current.id != target.id:
+            current_item_count = (
+                session.query(ShoppingListItem)
+                .filter(ShoppingListItem.shopping_session_id == current.id)
+                .count()
+            )
+            if current_item_count > 0:
+                return jsonify({
+                    "error": (
+                        "Your current shopping list has items. Finalize it "
+                        "first, then reopen this past trip."
+                    ),
+                    "conflict_session_id": current.id,
+                }), 409
+            session.delete(current)
+            session.flush()
+
     target.status = "active"
     target.closed_at = None
     session.commit()
@@ -844,16 +891,78 @@ def reopen_session():
 @shopping_list_bp.route("/sessions", methods=["GET"])
 @require_auth
 def list_sessions():
-    """History endpoint: list all sessions, newest first."""
+    """History endpoint: list sessions, newest first, with item counts.
+
+    Optional query params:
+      ?status=closed  — only closed sessions (for Past Trips UI)
+      ?status=all     — every session (default)
+    """
     session = g.db_session
-    sessions = (
-        session.query(ShoppingSession)
+    status_filter = (request.args.get("status") or "all").lower()
+
+    purchased_flag = case((ShoppingListItem.status == "purchased", 1), else_=0)
+    query = (
+        session.query(
+            ShoppingSession,
+            func.count(ShoppingListItem.id).label("item_count"),
+            func.coalesce(func.sum(purchased_flag), 0).label("purchased_count"),
+        )
+        .outerjoin(
+            ShoppingListItem,
+            ShoppingListItem.shopping_session_id == ShoppingSession.id,
+        )
+        .group_by(ShoppingSession.id)
         .order_by(ShoppingSession.created_at.desc(), ShoppingSession.id.desc())
+    )
+    if status_filter == "closed":
+        query = query.filter(ShoppingSession.status == "closed")
+
+    rows = query.all()
+    payload = []
+    for shopping_session, item_count, purchased_count in rows:
+        row = _serialize_session(shopping_session) or {}
+        row["item_count"] = int(item_count or 0)
+        row["purchased_count"] = int(purchased_count or 0)
+        est = row.get("estimated_total_snapshot")
+        act = row.get("actual_total_snapshot")
+        row["variance"] = (
+            round(float(act) - float(est), 2)
+            if est is not None and act is not None
+            else None
+        )
+        payload.append(row)
+    return jsonify({"sessions": payload, "count": len(payload)}), 200
+
+
+@shopping_list_bp.route("/sessions/<int:session_id>", methods=["GET"])
+@require_auth
+def get_session_detail(session_id: int):
+    """Detail endpoint for a past/current session — session metadata + items.
+
+    Used by the Past Trips expand-to-view behaviour so we don't fetch every
+    closed session's line items upfront.
+    """
+    session = g.db_session
+    shopping_session = (
+        session.query(ShoppingSession).filter_by(id=session_id).first()
+    )
+    if shopping_session is None:
+        return jsonify({"error": "Shopping session not found"}), 404
+
+    items = (
+        session.query(ShoppingListItem)
+        .filter(ShoppingListItem.shopping_session_id == shopping_session.id)
+        .order_by(
+            ShoppingListItem.status.asc(),
+            ShoppingListItem.created_at.asc(),
+            ShoppingListItem.id.asc(),
+        )
         .all()
     )
     return jsonify({
-        "sessions": [_serialize_session(s) for s in sessions],
-        "count": len(sessions),
+        "session": _serialize_session(shopping_session),
+        "items": [_serialize_item(item) for item in items],
+        "count": len(items),
     }), 200
 
 

@@ -138,6 +138,7 @@ def list_inventory():
                 "threshold": item.threshold,
                 "manual_low": bool(item.manual_low),
                 "is_low": _is_item_low(item),
+                "is_regular_use": bool(getattr(item.product, "is_regular_use", False) or False),
                 "updated_by": item.updated_by,
                 "last_updated": item.last_updated.isoformat() if item.last_updated else None,
             }
@@ -414,6 +415,31 @@ def set_low_status(product_id):
         "product_name": get_product_display_name(product),
         "manual_low": bool(item.manual_low if item else manual_low),
         "is_low": _is_item_low(item) if item else manual_low,
+    }), 200
+
+
+@inventory_bp.route("/products/<int:product_id>/regular-use", methods=["PUT"])
+@require_write_access
+def set_regular_use(product_id):
+    """Flag (or clear) a product as a 'regular use' staple.
+
+    The flag is informational today — it powers the small star badge and a
+    future "Regulars" quick-add list. Toggling does not modify inventory.
+    """
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    is_regular = bool(data.get("is_regular_use", True))
+
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    product.is_regular_use = is_regular
+    session.commit()
+    return jsonify({
+        "product_id": product.id,
+        "product_name": get_product_display_name(product),
+        "is_regular_use": bool(product.is_regular_use),
     }), 200
 
 
