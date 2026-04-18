@@ -461,3 +461,96 @@ h3, h4, h5, h6 { font-family: var(--font-display); letter-spacing: -0.2px; }
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-3);
 }
+
+/* ---------- Clay: dedup pair card — Lemon left border -------- */
+/* Give duplicate pairs a playful Lemon accent stripe so they stand
+   out from regular receipt rows under Clay. The element still uses
+   its inline border styles for Apple; we override under Clay only. */
+:root[data-theme="clay"] .dedup-pair-card,
+:root[data-theme="clay-dark"] .dedup-pair-card {
+  border: var(--stroke-2) solid var(--color-border) !important;
+  border-left: 6px solid var(--color-swatch-lemon) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow var(--duration-base) var(--ease-spring),
+              transform var(--duration-base) var(--ease-spring);
+}
+:root[data-theme="clay"] .dedup-pair-card:hover,
+:root[data-theme="clay-dark"] .dedup-pair-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translate(-1px, -1px);
+}
+
+/* ---------- Clay: Upload dropzone — cream-deep canvas -------- */
+/* Swap the gray-surface dropzone for a warm cream-deep canvas, bump
+   the radius to 40px, thicken the dashed ink border, and replace the
+   shake/invalid animations with a Matcha pulse on drag-over. */
+:root[data-theme="clay"] .drop-zone,
+:root[data-theme="clay-dark"] .drop-zone {
+  background: var(--color-cream-deep);
+  border: var(--stroke-2) dashed var(--color-text-primary);
+  border-radius: var(--radius-xl);
+  color: var(--color-text-secondary);
+}
+:root[data-theme="clay"] .drop-zone:hover,
+:root[data-theme="clay"] .drop-zone:focus-visible,
+:root[data-theme="clay-dark"] .drop-zone:hover,
+:root[data-theme="clay-dark"] .drop-zone:focus-visible {
+  background: var(--color-swatch-matcha-soft);
+  border-color: var(--color-swatch-matcha);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-2);
+}
+@keyframes clay-dropzone-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-swatch-matcha-soft); }
+  50%      { box-shadow: 0 0 0 12px transparent; }
+}
+:root[data-theme="clay"] .drop-zone[data-state="dragover"],
+:root[data-theme="clay-dark"] .drop-zone[data-state="dragover"] {
+  background: var(--color-swatch-matcha-soft);
+  border-color: var(--color-swatch-matcha);
+  color: var(--color-text-primary);
+  animation: clay-dropzone-pulse 900ms var(--ease-spring) infinite;
+}
+:root[data-theme="clay"] .drop-zone[data-state="invalid"],
+:root[data-theme="clay-dark"] .drop-zone[data-state="invalid"] {
+  background: var(--color-swatch-pomegranate-soft);
+  border-color: var(--color-swatch-pomegranate);
+  color: var(--color-swatch-pomegranate);
+}
+
+/* ---------- Clay: Dashboard KPI cards — swatch tints --------- */
+/* Paint the first three stat cards in Slushie / Lemon / Matcha soft
+   tints to bring playfulness onto the dashboard without touching
+   Apple styling. `.dashboard-stats-grid` scope keeps this from
+   leaking into other stat grids. */
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card,
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card {
+  border: var(--stroke-2) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  transition: box-shadow var(--duration-base) var(--ease-spring),
+              transform var(--duration-base) var(--ease-spring);
+}
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card:nth-child(1),
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card:nth-child(1) {
+  background: var(--color-swatch-slushie-soft);
+}
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card:nth-child(2),
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card:nth-child(2) {
+  background: var(--color-swatch-lemon-soft);
+}
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card:nth-child(3),
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card:nth-child(3) {
+  background: var(--color-swatch-matcha-soft);
+}
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card:nth-child(4),
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card:nth-child(4) {
+  background: var(--color-swatch-ube-soft);
+}
+:root[data-theme="clay"] .dashboard-stats-grid > .stat-card:hover,
+:root[data-theme="clay-dark"] .dashboard-stats-grid > .stat-card:hover {
+  box-shadow: var(--shadow-3);
+  transform: translate(-2px, -2px);
+}

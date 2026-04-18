@@ -32666,7 +32666,7 @@
           ? ' <span style="color:var(--success,#16a34a);font-size:0.8rem">has image</span>'
           : "";
         return `
-          <li id="dedup-pair-${pair.drop_id}" style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px;margin-bottom:8px">
+          <li id="dedup-pair-${pair.drop_id}" class="dedup-pair-card" style="border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:12px;margin-bottom:8px">
             <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center">
               <div style="border-right:1px solid var(--border,#eee);padding-right:12px">
                 <div style="font-size:0.7rem;text-transform:uppercase;color:var(--success,#16a34a);letter-spacing:0.05em">Keep</div>
@@ -32687,6 +32687,20 @@
           </li>`;
       }
 
+      // Dismiss helper — under Clay themes, play the exit keyframe before
+      // removing the element. Under Apple/other themes, remove immediately.
+      function dismissDedupPairElement(li) {
+        if (!li) return;
+        const theme = document.documentElement.getAttribute("data-theme") || "";
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        if (theme.startsWith("clay") && !reduce) {
+          li.classList.add("clay-dedup-dismissed");
+          setTimeout(() => { li.remove(); }, 420);
+        } else {
+          li.remove();
+        }
+      }
+
       async function mergeReceiptsPair(keepId, dropId) {
         if (!confirm(`Merge receipt #${dropId} into #${keepId}? The drop receipt will be deleted.`)) {
           return;
@@ -32703,7 +32717,7 @@
           }
           toast("Merged ✅", "success");
           const li = document.getElementById(`dedup-pair-${dropId}`);
-          if (li) li.remove();
+          dismissDedupPairElement(li);
           await loadReceipts();
         } catch (err) {
           console.error("mergeReceiptsPair failed", err);
@@ -32733,7 +32747,7 @@
           }
           toast("Marked as not a duplicate", "success");
           const li = document.getElementById(`dedup-pair-${dropId}`);
-          if (li) li.remove();
+          dismissDedupPairElement(li);
         } catch (err) {
           console.error("dismissDedupPair failed", err);
           toast("Dismiss failed", "error");
