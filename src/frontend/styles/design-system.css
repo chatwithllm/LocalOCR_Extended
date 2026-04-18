@@ -2083,3 +2083,49 @@ body.trusted-device-kitchen-display *:focus-visible {
 :root[data-theme="notion-dark"] .inventory-category-header:hover {
   background: var(--color-surface-3, var(--color-warm-paper));
 }
+
+/* ---------- Shopping: "Identify from Photo" row --------------
+   Sits at the top of the manual-add form. The camera button sits
+   on the left; the in-flight status and the captured preview
+   thumbnail appear inline to its right. */
+.shop-identify-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
+  border: 1px dashed var(--color-border, rgba(0, 0, 0, 0.15));
+  border-radius: var(--radius-md, 10px);
+}
+.shop-identify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.shop-identify-btn__icon {
+  font-size: 1.05rem;
+}
+.shop-identify-btn[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+.shop-identify-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, var(--muted, #666));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shop-identify-preview {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+}

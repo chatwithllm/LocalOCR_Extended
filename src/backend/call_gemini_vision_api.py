@@ -143,6 +143,37 @@ Rules:
 - Return ONLY valid JSON.
 """
 
+PRODUCT_IDENTIFY_PROMPT = """
+Identify the product shown in this photo (typically a packaged grocery, pantry,
+or household item). Return ONLY a raw JSON object — no markdown, no code
+fences, no explanation.
+
+{
+    "name": "Short, shopper-friendly product name (e.g. 'Almond Milk', 'Basmati Rice', 'Paper Towels'). Do NOT include brand in the name field.",
+    "brand": "Primary brand name on the label, or null if none visible",
+    "size": "Size/weight as printed, e.g. '12 oz', '454 g', '5 lb', '1 gal', or null",
+    "unit": "One of: each, lb, oz, g, kg, ml, l, gal, count, pack — default to 'each'",
+    "category": "One of: produce, dairy, snacks, bakery, meat, seafood, frozen, beverages, condiments, grains, household, personal_care, apparel, other",
+    "confidence": 0.85
+}
+
+Rules:
+- Focus on the most prominent product label. If multiple items are visible,
+  pick the one closest to the center of the frame.
+- "name" should be what a shopper would write on a list — generic + concise.
+- "brand" is optional; leave null if the photo shows a generic item (fresh
+  produce, bulk items) or if no brand is clearly legible.
+- "category" must be one of the allowed values. Use "other" if uncertain.
+  Pantry items like rice, flour, pasta → grains.
+  Drinks (soda, water, juice) → beverages.
+  Candy, chips, cookies → snacks.
+  Cleaning supplies, detergent, paper towels → household.
+  Shampoo, soap, toothpaste, vitamins, OTC medicine → personal_care.
+- confidence is a 0-1 float reflecting how sure you are this is a single
+  identifiable product.
+- Return ONLY valid JSON.
+"""
+
 # ---------------------------------------------------------------------------
 # Gemini OCR Function
 # ---------------------------------------------------------------------------
@@ -268,6 +299,66 @@ def extract_receipt_summary_via_gemini(
         payload["data"].setdefault("confidence", 0.85)
         return payload
     result.setdefault("confidence", 0.85)
+    return result
+
+
+def identify_product_via_gemini(
+    image_path: str,
+    api_key: str | None = None,
+    model_name: str | None = None,
+) -> dict:
+    """Identify a product from a photo of its packaging.
+
+    Used by the Shopping-list manual-add "photo-first" flow: user snaps the
+    product, this returns {name, brand, size, unit, category, confidence}
+    so the form can prefill.
+
+    Returns:
+        dict with keys: name, brand, size, unit, category, confidence.
+        Missing fields default to null / "other" / 0.0.
+
+    Raises:
+        ValueError if GEMINI_API_KEY is not configured.
+    """
+    resolved_api_key = (api_key or GEMINI_API_KEY or "").strip()
+    resolved_model = (model_name or GEMINI_MODEL or "").strip()
+    if not resolved_api_key:
+        raise ValueError("GEMINI_API_KEY not configured")
+
+    image_bytes, mime_type = _load_and_compress_image(image_path)
+
+    client = genai.Client(api_key=resolved_api_key)
+    result = _generate_gemini_json(
+        client=client,
+        image_bytes=image_bytes,
+        mime_type=mime_type,
+        prompt=PRODUCT_IDENTIFY_PROMPT,
+        max_output_tokens=512,
+        model_name=resolved_model,
+    )
+
+    # Normalize + defaults so the caller gets a predictable shape.
+    result.setdefault("name", None)
+    result.setdefault("brand", None)
+    result.setdefault("size", None)
+    result.setdefault("unit", "each")
+    result.setdefault("category", "other")
+    result.setdefault("confidence", 0.5)
+
+    allowed_categories = {
+        "produce", "dairy", "snacks", "bakery", "meat", "seafood",
+        "frozen", "beverages", "condiments", "grains", "household",
+        "personal_care", "apparel", "other",
+    }
+    if result["category"] not in allowed_categories:
+        result["category"] = "other"
+
+    logger.info(
+        f"Gemini product identify: name={result.get('name')!r} | "
+        f"category={result.get('category')} | "
+        f"confidence={_safe_float(result.get('confidence', 0)):.2f} | "
+        f"model={resolved_model}"
+    )
     return result
 
 

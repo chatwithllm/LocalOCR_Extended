@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260418c" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260418d" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13889,6 +13889,34 @@
               >
                 Hide
               </button>
+            </div>
+            <div id="shop-identify-row" class="shop-identify-row">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm shop-identify-btn"
+                onclick="triggerShopIdentifyPhoto()"
+                id="shop-identify-btn"
+              >
+                <span class="shop-identify-btn__icon">📷</span>
+                <span class="shop-identify-btn__label"
+                  >Identify from Photo</span
+                >
+              </button>
+              <input
+                type="file"
+                id="shop-identify-input"
+                accept="image/*"
+                capture="environment"
+                style="display: none"
+                onchange="handleShopIdentifyPhoto(event)"
+              />
+              <span id="shop-identify-status" class="shop-identify-status"></span>
+              <img
+                id="shop-identify-preview"
+                class="shop-identify-preview"
+                alt=""
+                style="display: none"
+              />
             </div>
             <div class="form-grid">
               <div class="form-group">
@@ -30701,6 +30729,7 @@
           toast("Enter an item name", "error");
           return;
         }
+        const snapshotId = window.__shopIdentifySnapshotId || null;
         await quickAddToShoppingList({
           name,
           category:
@@ -30712,6 +30741,7 @@
           quantity: parseFloat(document.getElementById("shop-qty").value) || 1,
           note: document.getElementById("shop-note").value.trim(),
           source: "manual",
+          snapshot_id: snapshotId,
         });
         document.getElementById("shop-name").value = "";
         document.getElementById("shop-category").value = "other";
@@ -30719,7 +30749,107 @@
         document.getElementById("shop-manual-price").value = "";
         document.getElementById("shop-qty").value = "1";
         document.getElementById("shop-note").value = "";
+        resetShopIdentifyPhoto();
         toggleManualShoppingForm(false);
+      }
+
+      // -----------------------------------------------------------
+      // Shopping manual-add: photo-first "Identify from Photo" flow.
+      // Tapping the button opens the camera. On capture we POST the
+      // image to /shopping-list/identify-product-photo — Gemini
+      // returns {name, category, brand, size, unit, confidence} and
+      // a snapshot_id. The form prefills and the snapshot follows
+      // through when the user saves, so the photo gets linked to
+      // the product + shopping item.
+      // -----------------------------------------------------------
+      function triggerShopIdentifyPhoto() {
+        const input = document.getElementById("shop-identify-input");
+        if (input) {
+          input.value = ""; // allow re-selecting the same file
+          input.click();
+        }
+      }
+
+      function resetShopIdentifyPhoto() {
+        window.__shopIdentifySnapshotId = null;
+        const preview = document.getElementById("shop-identify-preview");
+        if (preview) {
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+        }
+        const status = document.getElementById("shop-identify-status");
+        if (status) status.textContent = "";
+        const btn = document.getElementById("shop-identify-btn");
+        if (btn) btn.disabled = false;
+      }
+
+      async function handleShopIdentifyPhoto(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const status = document.getElementById("shop-identify-status");
+        const preview = document.getElementById("shop-identify-preview");
+        const btn = document.getElementById("shop-identify-btn");
+        if (status) status.textContent = "Analyzing photo…";
+        if (btn) btn.disabled = true;
+        if (preview) {
+          preview.src = URL.createObjectURL(file);
+          preview.style.display = "";
+        }
+        try {
+          const form = new FormData();
+          form.append("image", file);
+          const res = await shoppingApi(
+            "/shopping-list/identify-product-photo",
+            { method: "POST", body: form },
+          );
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const msg =
+              data.error || "Could not analyze photo. Type the item manually.";
+            if (status) status.textContent = msg;
+            if (data?.snapshot?.id) {
+              // Snapshot was saved but OCR failed — keep the id so we
+              // still link the photo when the user types + saves.
+              window.__shopIdentifySnapshotId = data.snapshot.id;
+            }
+            toast(msg, "error");
+            if (btn) btn.disabled = false;
+            return;
+          }
+          if (data.snapshot?.id) {
+            window.__shopIdentifySnapshotId = data.snapshot.id;
+          }
+          const sug = data.suggestion || {};
+          const nameInput = document.getElementById("shop-name");
+          const catSelect = document.getElementById("shop-category");
+          if (nameInput && sug.name) nameInput.value = sug.name;
+          if (catSelect && sug.category) {
+            const has = Array.from(catSelect.options || []).some(
+              (o) => o.value === sug.category,
+            );
+            if (has) catSelect.value = sug.category;
+          }
+          const conf =
+            typeof sug.confidence === "number" ? sug.confidence : null;
+          if (status) {
+            status.textContent =
+              (sug.name ? `Identified: ${sug.name}` : "Photo saved") +
+              (conf != null ? ` · ${Math.round(conf * 100)}% confidence` : "") +
+              (sug.brand ? ` · ${sug.brand}` : "") +
+              (sug.size ? ` · ${sug.size}` : "");
+          }
+          toast(
+            sug.name ? `Identified: ${sug.name}` : "Photo saved — type the name",
+            sug.name ? "success" : "info",
+          );
+        } catch (exc) {
+          console.error("Identify photo failed", exc);
+          if (status)
+            status.textContent = "Could not reach the server. Try again.";
+          toast("Could not analyze photo", "error");
+        } finally {
+          if (btn) btn.disabled = false;
+        }
       }
 
       function getShoppingStoreChoices() {
