@@ -34530,9 +34530,23 @@
             : "";
 
         if (!visibleReceipts.length) {
-          body.innerHTML = failedReceipts.length && statusFilter !== "failed"
-            ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
-            : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+          const attrFilter = window.__receiptAttributionFilter;
+          let attrEmptyMsg = "";
+          if (attrFilter === "household") {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">🏠</div><p>No receipts tagged <strong>Household</strong> yet. Open a receipt → "Attributed to" to tag one.</p></div>';
+          } else if (attrFilter === "unset") {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">✅</div><p>Every receipt is tagged. Nothing untagged right now.</p></div>';
+          } else if (attrFilter && attrFilter.startsWith("user:")) {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">👤</div><p>No receipts tagged to this person yet.</p></div>';
+          }
+          body.innerHTML = attrEmptyMsg
+            ? failedBannerHtml + attrEmptyMsg
+            : failedReceipts.length && statusFilter !== "failed"
+              ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
+              : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");

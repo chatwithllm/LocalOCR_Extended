@@ -1057,6 +1057,24 @@ def list_receipts():
     if upload_date_to:
         query = query.filter(TelegramReceipt.created_at < upload_date_to + timedelta(days=1))
 
+    # Attribution filter — apply in SQL so the 50-row display cap doesn't
+    # hide matching rows past the top of the list, and so per-store /
+    # per-month summaries reflect the same filtered set.
+    attribution_filter = (request.args.get("attribution", "") or "").strip().lower()
+    if attribution_filter == "household":
+        query = query.filter(Purchase.attribution_kind == "household")
+    elif attribution_filter == "unset":
+        query = query.filter(
+            Purchase.attribution_kind.is_(None),
+            Purchase.attribution_user_id.is_(None),
+        )
+    elif attribution_filter.startswith("user:"):
+        try:
+            attr_target_user = int(attribution_filter.split(":", 1)[1])
+            query = query.filter(Purchase.attribution_user_id == attr_target_user)
+        except (TypeError, ValueError):
+            pass
+
     records = query.order_by(TelegramReceipt.created_at.desc()).all()
     limited_records = records[:max(1, min(limit, 200))]
 
@@ -1148,9 +1166,6 @@ def list_receipts():
             )
         ]
 
-    # Attribution filter (not set / household / user:<id>)
-    attribution_filter = (request.args.get("attribution", "") or "").strip().lower()
-
     # Pre-resolve user names for the returned purchases so the list view
     # can render badges without a follow-up /auth/users round-trip.
     from src.backend.initialize_database_schema import User as _AttrUser
@@ -1163,23 +1178,6 @@ def list_receipts():
     if attr_user_ids:
         for u in session.query(_AttrUser).filter(_AttrUser.id.in_(attr_user_ids)).all():
             attr_user_names[u.id] = u.name or u.email or f"User {u.id}"
-
-    def _matches_attribution_filter(purchase):
-        if not attribution_filter:
-            return True
-        if attribution_filter == "unset":
-            return (purchase is None) or (
-                not purchase.attribution_user_id and not purchase.attribution_kind
-            )
-        if attribution_filter == "household":
-            return bool(purchase) and purchase.attribution_kind == "household"
-        if attribution_filter.startswith("user:"):
-            try:
-                target = int(attribution_filter.split(":", 1)[1])
-            except (TypeError, ValueError):
-                return True
-            return bool(purchase) and purchase.attribution_user_id == target
-        return True
 
     return jsonify({
         "receipts": [
@@ -1210,7 +1208,6 @@ def list_receipts():
                 "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
             }
             for record, purchase, store in limited_records
-            if _matches_attribution_filter(purchase)
         ],
         "count": len(records),
         "filters": {
