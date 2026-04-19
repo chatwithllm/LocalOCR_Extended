@@ -934,6 +934,19 @@ def get_receipt(receipt_id):
             ),
         }
 
+    # Look up attribution user names so the frontend can render badges
+    # without a second /auth/users round-trip.
+    from src.backend.initialize_database_schema import User as _AttrUser
+    attribution_user_ids = {
+        purchase.attribution_user_id if purchase else None,
+        *[item.attribution_user_id for item, _product in items if item.attribution_user_id],
+    }
+    attribution_user_ids.discard(None)
+    attr_users = {}
+    if attribution_user_ids:
+        for u in session.query(_AttrUser).filter(_AttrUser.id.in_(attribution_user_ids)).all():
+            attr_users[u.id] = u.name or u.email or f"User {u.id}"
+
     response_payload = {
         "id": purchase.id if purchase else receipt_record.id,
         "store": store.name if store else None,
@@ -948,6 +961,9 @@ def get_receipt(receipt_id):
         "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) if purchase else None,
         "default_budget_category": getattr(purchase, "default_budget_category", None) if purchase else None,
+        "attribution_user_id": purchase.attribution_user_id if purchase else None,
+        "attribution_kind": purchase.attribution_kind if purchase else None,
+        "attribution_user_name": attr_users.get(purchase.attribution_user_id) if purchase else None,
         "source": _receipt_source_label(receipt_record) if receipt_record else "upload",
         "created_at": receipt_record.created_at.isoformat() if receipt_record and receipt_record.created_at else None,
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
@@ -968,6 +984,9 @@ def get_receipt(receipt_id):
                 "spending_domain": item.spending_domain,
                 "budget_category": item.budget_category,
                 "extracted_by": item.extracted_by,
+                "attribution_user_id": item.attribution_user_id,
+                "attribution_kind": item.attribution_kind,
+                "attribution_user_name": attr_users.get(item.attribution_user_id),
                 "latest_snapshot": _latest_snapshot_for_receipt_item(session, item.id),
             }
             for item, product in items
@@ -1934,6 +1953,124 @@ def dismiss_dedup_pair():
         "created": created,
         "purchase_id_low": low,
         "purchase_id_high": high,
+    }), 200
+
+
+@receipts_bp.route("/<int:receipt_id>/attribution", methods=["PUT"])
+@require_write_access
+def update_receipt_attribution(receipt_id):
+    """Tag a receipt as belonging to a specific household user, to the
+    household as a whole, or clear the tag.
+
+    Body:
+      { "user_id": int | null, "kind": "household" | "personal" | null,
+        "apply_to_items": bool }
+
+    When apply_to_items is true, propagate the attribution to every
+    receipt item under this receipt. Items retain their own explicit
+    overrides across future receipt-level edits.
+    """
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem, User
+
+    session = g.db_session
+    purchase = session.query(Purchase).filter_by(id=receipt_id).first()
+    if not purchase:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    raw_user_id = data.get("user_id")
+    raw_kind = (data.get("kind") or "").strip().lower() or None
+    apply_to_items = bool(data.get("apply_to_items", False))
+
+    if raw_kind not in (None, "household", "personal"):
+        return jsonify({"error": "kind must be 'household', 'personal', or null"}), 400
+
+    user_id = None
+    if raw_user_id is not None:
+        try:
+            user_id = int(raw_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "user_id must be an integer"}), 400
+        if not session.query(User).filter_by(id=user_id).first():
+            return jsonify({"error": "user_id does not exist"}), 404
+
+    # Consistency: personal requires a user_id; household disallows one.
+    if raw_kind == "personal" and user_id is None:
+        return jsonify({"error": "kind='personal' requires a user_id"}), 400
+    if raw_kind == "household" and user_id is not None:
+        return jsonify({"error": "kind='household' must not have a user_id"}), 400
+    # Cleared attribution is both null.
+    if raw_kind is None and user_id is None:
+        # Leave as-is (explicit clear).
+        pass
+
+    purchase.attribution_user_id = user_id
+    purchase.attribution_kind = raw_kind
+
+    if apply_to_items:
+        session.query(ReceiptItem).filter_by(purchase_id=purchase.id).update(
+            {
+                "attribution_user_id": user_id,
+                "attribution_kind": raw_kind,
+            },
+            synchronize_session=False,
+        )
+
+    session.commit()
+    return jsonify({
+        "purchase_id": purchase.id,
+        "attribution_user_id": purchase.attribution_user_id,
+        "attribution_kind": purchase.attribution_kind,
+        "applied_to_items": apply_to_items,
+    }), 200
+
+
+@receipts_bp.route("/<int:receipt_id>/items/<int:item_id>/attribution", methods=["PUT"])
+@require_write_access
+def update_receipt_item_attribution(receipt_id, item_id):
+    """Set or clear per-line-item attribution.
+
+    Body: { "user_id": int | null, "kind": "household" | "personal" | null }
+    """
+    from src.backend.initialize_database_schema import ReceiptItem, User
+
+    session = g.db_session
+    item = (
+        session.query(ReceiptItem)
+        .filter_by(id=item_id, purchase_id=receipt_id)
+        .first()
+    )
+    if not item:
+        return jsonify({"error": "Receipt item not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    raw_user_id = data.get("user_id")
+    raw_kind = (data.get("kind") or "").strip().lower() or None
+
+    if raw_kind not in (None, "household", "personal"):
+        return jsonify({"error": "kind must be 'household', 'personal', or null"}), 400
+
+    user_id = None
+    if raw_user_id is not None:
+        try:
+            user_id = int(raw_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "user_id must be an integer"}), 400
+        if not session.query(User).filter_by(id=user_id).first():
+            return jsonify({"error": "user_id does not exist"}), 404
+
+    if raw_kind == "personal" and user_id is None:
+        return jsonify({"error": "kind='personal' requires a user_id"}), 400
+    if raw_kind == "household" and user_id is not None:
+        return jsonify({"error": "kind='household' must not have a user_id"}), 400
+
+    item.attribution_user_id = user_id
+    item.attribution_kind = raw_kind
+    session.commit()
+    return jsonify({
+        "receipt_item_id": item.id,
+        "attribution_user_id": item.attribution_user_id,
+        "attribution_kind": item.attribution_kind,
     }), 200
 
 

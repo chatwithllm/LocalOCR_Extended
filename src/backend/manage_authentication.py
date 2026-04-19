@@ -1169,6 +1169,36 @@ def my_stats():
     }), 200
 
 
+@auth_bp.route("/household-members", methods=["GET"])
+def list_household_members():
+    """Return the signed-in user's household roster in a trimmed form.
+
+    Any authenticated household member (not just admins) can fetch this
+    because the UI uses it to populate the receipt-attribution picker
+    — members need to see who to assign a receipt/item to.
+    """
+    user = get_authenticated_user()
+    if not user:
+        return jsonify({"error": "Authentication required"}), 401
+
+    members = (
+        g.db_session.query(User)
+        .filter(User.is_active.is_(True))
+        .order_by(User.name.asc(), User.email.asc())
+        .all()
+    )
+    return jsonify({
+        "members": [
+            {
+                "id": m.id,
+                "name": m.name or m.email or f"User {m.id}",
+                "is_self": m.id == user.id,
+            }
+            for m in members
+        ],
+    }), 200
+
+
 @auth_bp.route("/users", methods=["GET"])
 def list_users():
     """List local household users for admin management."""

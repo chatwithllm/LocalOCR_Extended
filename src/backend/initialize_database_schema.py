@@ -91,7 +91,7 @@ class User(Base):
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
-    purchases = relationship("Purchase", back_populates="user")
+    purchases = relationship("Purchase", foreign_keys="Purchase.user_id", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
     active_ai_model = relationship("AIModelConfig", foreign_keys=[active_ai_model_config_id])
 
@@ -195,6 +195,8 @@ class Purchase(Base):
     default_spending_domain = Column(String(30), nullable=False, default="grocery")
     default_budget_category = Column(String(40), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attribution_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attribution_kind = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     __table_args__ = (
@@ -204,7 +206,8 @@ class Purchase(Base):
 
     # Relationships
     store = relationship("Store", back_populates="purchases")
-    user = relationship("User", back_populates="purchases")
+    user = relationship("User", foreign_keys=[user_id], back_populates="purchases")
+    attribution_user = relationship("User", foreign_keys=[attribution_user_id])
     receipt_items = relationship("ReceiptItem", back_populates="purchase")
 
 
@@ -355,6 +358,8 @@ class ReceiptItem(Base):
     spending_domain = Column(String(30), nullable=True)
     budget_category = Column(String(40), nullable=True)
     extracted_by = Column(String(20), nullable=True)  # "gemini" or "ollama"
+    attribution_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attribution_kind = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     __table_args__ = (
@@ -364,6 +369,7 @@ class ReceiptItem(Base):
     # Relationships
     purchase = relationship("Purchase", back_populates="receipt_items")
     product = relationship("Product", back_populates="receipt_items")
+    attribution_user = relationship("User", foreign_keys=[attribution_user_id])
 
 
 class PriceHistory(Base):
