@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260418d" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260419a" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -34695,6 +34695,16 @@
         <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
+        <div class="receipt-editor-main-field field-attribution" style="grid-column:1/-1">
+          <label>Attributed to</label>
+          <select id="receipt-attribution-${receipt.id}" onchange="handleReceiptAttributionChange(${receipt.id}, this)">
+            <option value="">— not set —</option>
+            <option value="kind:household">🏠 Household (shared)</option>
+          </select>
+          <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
+            Pick a household member or "Household (shared)". Changes apply to the whole receipt and propagate to all line items (you can still override individual items below).
+          </div>
+        </div>
       </div>
       <div id="receipt-bill-meta-panel-${receipt.id}" class="receipt-bill-meta-panel" style="display:none">
         <div class="card-header" style="padding:10px 0 6px"><span class="card-title" style="font-size:0.9rem">⚡ Bill Details</span><span style="font-size:0.8rem;color:var(--muted)">Optional — fill in what the bill shows</span></div>
@@ -35215,6 +35225,15 @@
         });
         handleReceiptEditorTypeChange(receiptId);
         wireReceiptBudgetingControls(receiptId);
+        // Attribution picker + per-item selects need the household
+        // roster — async, but the current value is known so we set it
+        // immediately from markup and refine once members resolve.
+        populateReceiptAttributionSelect({
+          id: receiptId,
+          attribution_user_id: data.attribution_user_id,
+          attribution_kind: data.attribution_kind,
+        }).catch(() => {});
+        populateReceiptItemAttributionSelects(data.items || []).catch(() => {});
       }
 
       function addReceiptEditorRow(receiptId) {
@@ -35599,6 +35618,164 @@
         return window.matchMedia("(max-width: 640px)").matches;
       }
 
+      // =======================================================
+      // Receipt attribution ("who is this spend for?") helpers.
+      // =======================================================
+      let householdMembersCache = null;
+      let householdMembersPromise = null;
+
+      async function loadHouseholdMembers() {
+        if (householdMembersCache) return householdMembersCache;
+        if (householdMembersPromise) return householdMembersPromise;
+        householdMembersPromise = (async () => {
+          try {
+            const res = await api("/auth/household-members");
+            if (!res.ok) return [];
+            const data = await res.json();
+            householdMembersCache = data.members || [];
+            return householdMembersCache;
+          } catch (_) {
+            return [];
+          } finally {
+            householdMembersPromise = null;
+          }
+        })();
+        return householdMembersPromise;
+      }
+
+      function invalidateHouseholdMembersCache() {
+        householdMembersCache = null;
+      }
+
+      function attributionValueFor(obj) {
+        // Encode (kind, user_id) into a single <option value>:
+        //   "" = unset, "kind:household" = household, "user:42" = personal.
+        if (!obj) return "";
+        if (obj.attribution_kind === "household") return "kind:household";
+        if (obj.attribution_user_id) return "user:" + obj.attribution_user_id;
+        return "";
+      }
+
+      function parseAttributionValue(value) {
+        // Returns { kind, user_id } for the PUT endpoint body.
+        if (!value) return { kind: null, user_id: null };
+        if (value === "kind:household") return { kind: "household", user_id: null };
+        const m = String(value).match(/^user:(\d+)$/);
+        if (m) return { kind: "personal", user_id: Number(m[1]) };
+        return { kind: null, user_id: null };
+      }
+
+      function renderAttributionBadge(obj) {
+        if (!obj) return "";
+        if (obj.attribution_kind === "household") {
+          return ' <span class="attr-badge attr-badge--household" title="Household (shared)">🏠</span>';
+        }
+        if (obj.attribution_user_id && obj.attribution_user_name) {
+          const initial = (obj.attribution_user_name || "?")
+            .trim()
+            .charAt(0)
+            .toUpperCase();
+          return (
+            ' <span class="attr-badge attr-badge--personal" title="' +
+            escAttr(obj.attribution_user_name) +
+            '">👤 ' +
+            escHtml(initial) +
+            "</span>"
+          );
+        }
+        return "";
+      }
+
+      async function populateReceiptAttributionSelect(receipt) {
+        const members = await loadHouseholdMembers();
+        const picker = document.getElementById(
+          "receipt-attribution-" + receipt.id,
+        );
+        if (!picker) return;
+        const current = attributionValueFor(receipt);
+        picker.innerHTML =
+          '<option value="">— not set —</option>' +
+          '<option value="kind:household">🏠 Household (shared)</option>' +
+          members
+            .map(
+              (m) =>
+                `<option value="user:${m.id}">👤 ${escHtml(m.name)}${m.is_self ? " (me)" : ""}</option>`,
+            )
+            .join("");
+        picker.value = current;
+      }
+
+      async function populateReceiptItemAttributionSelects(items = []) {
+        const members = await loadHouseholdMembers();
+        const selects = document.querySelectorAll(
+          "select.receipt-item-attribution",
+        );
+        selects.forEach((sel) => {
+          const itemId = Number(sel.getAttribute("data-item-id"));
+          const item = (items || []).find(
+            (x) => Number(x.receipt_item_id) === itemId,
+          );
+          const current = attributionValueFor(item || {});
+          sel.innerHTML =
+            '<option value="">— attribution —</option>' +
+            '<option value="kind:household">🏠 Household</option>' +
+            members
+              .map(
+                (m) =>
+                  `<option value="user:${m.id}">👤 ${escHtml(m.name)}</option>`,
+              )
+              .join("");
+          sel.value = current;
+        });
+      }
+
+      async function handleReceiptAttributionChange(receiptId, select) {
+        const { kind, user_id } = parseAttributionValue(select.value);
+        const applyToItems = !select.dataset.noPropagate;
+        const res = await api(`/receipts/${receiptId}/attribution`, {
+          method: "PUT",
+          body: JSON.stringify({
+            user_id,
+            kind,
+            apply_to_items: applyToItems,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not update attribution", "error");
+          return;
+        }
+        toast("Attribution saved ✅", "success");
+        // Sync per-item dropdowns + badges by reloading the detail.
+        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
+          loadReceipts();
+        }
+      }
+
+      async function handleReceiptItemAttributionChange(event) {
+        const select = event.currentTarget || event.target;
+        const receiptId = Number(select.getAttribute("data-receipt-id"));
+        const itemId = Number(select.getAttribute("data-item-id"));
+        if (!receiptId || !itemId) return;
+        const { kind, user_id } = parseAttributionValue(select.value);
+        const res = await api(
+          `/receipts/${receiptId}/items/${itemId}/attribution`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ user_id, kind }),
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not update item attribution", "error");
+          return;
+        }
+        toast("Item attribution saved ✅", "success");
+        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
+          loadReceipts();
+        }
+      }
+
       function renderReceiptExtractedItems(receipt, items = []) {
         if (!items.length)
           return '<div class="empty-state"><p>No extracted items recorded.</p></div>';
@@ -35609,7 +35786,7 @@
           (i) => `
         <div class="receipt-detail-item-row">
           <div class="receipt-detail-item-main">
-            <div class="receipt-detail-item-name">${escHtml(i.product_name || i.name || "Unknown")}</div>
+            <div class="receipt-detail-item-name">${escHtml(i.product_name || i.name || "Unknown")}${renderAttributionBadge(i)}</div>
             <div class="receipt-detail-item-meta">
               <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
               <span>${formatMoney(i.unit_price)}</span>
@@ -35618,6 +35795,7 @@
             </div>
           </div>
           <div class="receipt-detail-item-actions">
+            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
             ${
               i.product_id
                 ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}`
@@ -35638,7 +35816,7 @@
         (i) => `
       <div class="receipt-item-card">
         <div class="receipt-item-grid">
-          <div class="receipt-item-name">${escHtml(i.product_name || i.name || "Unknown")}</div>
+          <div class="receipt-item-name">${escHtml(i.product_name || i.name || "Unknown")}${renderAttributionBadge(i)}</div>
           <div class="receipt-item-meta">
             <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
             <span>${formatMoney(i.unit_price)}</span>
@@ -35646,6 +35824,7 @@
             ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? "" : "s"}</span>` : ""}
           </div>
           <div class="receipt-item-actions">
+            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
             ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : '<span style="color:var(--muted)">No product actions</span>'}
           </div>
         </div>
