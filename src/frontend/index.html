@@ -1487,6 +1487,9 @@
       .bill-card[data-bill-status="paid"] {
         --status-color: var(--success);
       }
+      .bill-card[data-bill-status="autopay-settled"] {
+        --status-color: var(--success);
+      }
       .bill-card[data-bill-status="upcoming"] {
         --status-color: var(--accent);
       }
@@ -1586,6 +1589,19 @@
       .bill-card__footer-meta {
         font-size: 0.78rem;
         color: var(--muted);
+      }
+      .bill-card__autopay-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: var(--space-2);
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--color-success, #1aae39);
+        background: var(--color-success-soft, rgba(26, 174, 57, 0.10));
+        border-radius: var(--radius-sm);
+        border: 1px solid color-mix(in srgb, var(--color-success, #1aae39) 24%, transparent);
       }
       .bill-card__actions {
         display: flex;
@@ -12273,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260419b" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13095,6 +13111,21 @@
                 </div>
               </div>
             </div>
+            <div class="card" id="dash-spend-by-person-card">
+              <div class="card-header">
+                <span class="card-title">👥 Spend by Person</span>
+                <span
+                  class="card-header-inline-stat"
+                  id="dash-spend-by-person-month"
+                  aria-hidden="true"
+                ></span>
+              </div>
+              <div id="dash-spend-by-person" class="dash-spend-by-person">
+                <div class="empty-state">
+                  <p>Tag receipts to see per-person spend.</p>
+                </div>
+              </div>
+            </div>
             <div class="card" id="dash-recs-card">
               <div class="card-header">
                 <span class="card-title">💡 Top Picks</span>
@@ -13390,6 +13421,16 @@
                     oninput="searchInventory()"
                   />
                   <div class="inventory-sort-chips">
+                    <button
+                      type="button"
+                      class="inventory-sort-chip"
+                      id="inventory-sort-domain-recent"
+                      onclick="setInventorySort('domain_recent')"
+                      aria-label="Group by domain, most recently bought first"
+                      title="Group by domain · most recent buys first"
+                    >
+                      📋
+                    </button>
                     <button
                       type="button"
                       class="inventory-sort-chip"
@@ -13864,6 +13905,34 @@
                 Hide
               </button>
             </div>
+            <div id="shop-identify-row" class="shop-identify-row">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm shop-identify-btn"
+                onclick="triggerShopIdentifyPhoto()"
+                id="shop-identify-btn"
+              >
+                <span class="shop-identify-btn__icon">📷</span>
+                <span class="shop-identify-btn__label"
+                  >Identify from Photo</span
+                >
+              </button>
+              <input
+                type="file"
+                id="shop-identify-input"
+                accept="image/*"
+                capture="environment"
+                style="display: none"
+                onchange="handleShopIdentifyPhoto(event)"
+              />
+              <span id="shop-identify-status" class="shop-identify-status"></span>
+              <img
+                id="shop-identify-preview"
+                class="shop-identify-preview"
+                alt=""
+                style="display: none"
+              />
+            </div>
             <div class="form-grid">
               <div class="form-group">
                 <label>Name</label
@@ -14324,6 +14393,13 @@
               </div>
             </div>
             <div class="receipt-filter-body" id="receipt-filter-body">
+              <div class="form-group" style="margin-bottom:12px">
+                <label>Attributed to</label>
+                <div
+                  id="receipt-attribution-chips"
+                  class="receipt-attribution-chips"
+                ></div>
+              </div>
               <div class="form-grid">
                 <div class="form-group receipt-filter-store-group">
                   <label>Store</label
@@ -17949,7 +18025,7 @@
       let inventorySearchAssistLoading = false;
       let inventorySearchAssistToken = 0;
       let productCategoryFilters = new Set();
-      let inventorySort = "name_asc";
+      let inventorySort = "domain_recent";
       let productSort = "name_asc";
       let shoppingSort = "name_asc";
       let receiptSort = "date_desc";
@@ -19612,6 +19688,9 @@
 
       function updateInventorySortControls() {
         document
+          .getElementById("inventory-sort-domain-recent")
+          ?.classList.toggle("active", inventorySort === "domain_recent");
+        document
           .getElementById("inventory-sort-name-asc")
           ?.classList.toggle("active", inventorySort === "name_asc");
         document
@@ -19801,6 +19880,176 @@
 
       function getInventoryItems(data) {
         return data?.items || data?.inventory || [];
+      }
+
+      // ===========================================================
+      // Inventory domain grouping — rolls the granular product
+      // categories up to five top-level domains so the default
+      // Inventory view is scannable by context ("Grocery" vs
+      // "Household" vs "Personal Care") instead of alphabetical soup.
+      // ===========================================================
+      const INVENTORY_CATEGORY_TO_DOMAIN = {
+        produce: "grocery",
+        dairy: "grocery",
+        snacks: "grocery",
+        bakery: "grocery",
+        meat: "grocery",
+        frozen: "grocery",
+        beverages: "grocery",
+        condiments: "grocery",
+        seafood: "grocery",
+        grains: "grocery",
+        household: "household",
+        personal_care: "personal_care",
+        pharmacy: "personal_care",
+        toiletries: "personal_care",
+        apparel: "apparel",
+      };
+      const INVENTORY_DOMAIN_ORDER = [
+        "grocery",
+        "household",
+        "personal_care",
+        "apparel",
+        "other",
+      ];
+      const INVENTORY_DOMAIN_LABELS = {
+        grocery: { icon: "🛒", label: "Grocery" },
+        household: { icon: "🏠", label: "Household" },
+        personal_care: { icon: "🧴", label: "Personal Care" },
+        apparel: { icon: "👕", label: "Apparel" },
+        other: { icon: "📦", label: "Other" },
+      };
+
+      function inventoryDomainFor(categoryOrItem) {
+        const raw =
+          typeof categoryOrItem === "string"
+            ? categoryOrItem
+            : categoryOrItem?.category;
+        const key = String(raw || "").trim().toLowerCase();
+        return INVENTORY_CATEGORY_TO_DOMAIN[key] || "other";
+      }
+
+      function inventoryDomainLabel(domain) {
+        return INVENTORY_DOMAIN_LABELS[domain] || INVENTORY_DOMAIN_LABELS.other;
+      }
+
+      function inventoryLastPurchaseDate(item) {
+        // recent_receipts is sorted date desc in the backend serializer.
+        const d = item?.recent_receipts?.[0]?.date;
+        return d && typeof d === "string" ? d : null;
+      }
+
+      // Display-time quantity formatter. Fixes floating-point cruft like
+      // "Bananas qty 5.109999999999999" (accumulated from summed decimal
+      // purchases) without changing the stored value.
+      function formatInventoryQuantity(qty) {
+        const n = Number(qty || 0);
+        if (!Number.isFinite(n)) return "0";
+        if (Number.isInteger(n)) return String(n);
+        return n
+          .toFixed(2)
+          .replace(/0+$/, "")
+          .replace(/\.$/, "");
+      }
+
+      // Human label for a category slug — "produce" → "Produce",
+      // "personal_care" → "Personal Care". Used inside category
+      // subsections within a domain.
+      function inventoryCategoryLabel(category) {
+        const raw = String(category || "").trim().toLowerCase();
+        if (!raw) return "Uncategorized";
+        return raw
+          .split(/[_-]+/)
+          .map((word) =>
+            word ? word[0].toUpperCase() + word.slice(1) : word,
+          )
+          .join(" ");
+      }
+
+      // Per-category collapse state (inside a domain). Stored separately
+      // from domain-level collapse so users can fold a category without
+      // hiding the whole domain.
+      function getInventoryCategoryCollapse() {
+        try {
+          return (
+            JSON.parse(
+              localStorage.getItem("inventoryCategoryCollapse") || "{}",
+            ) || {}
+          );
+        } catch (_) {
+          return {};
+        }
+      }
+      function isInventoryCategoryCollapsed(category, itemCount) {
+        const state = getInventoryCategoryCollapse();
+        if (Object.prototype.hasOwnProperty.call(state, category)) {
+          return !!state[category];
+        }
+        // Default: everything inside an expanded domain stays open.
+        return false;
+      }
+      function toggleInventoryCategoryCollapse(category) {
+        const state = getInventoryCategoryCollapse();
+        const current = !!state[category];
+        state[category] = !current;
+        try {
+          localStorage.setItem(
+            "inventoryCategoryCollapse",
+            JSON.stringify(state),
+          );
+        } catch (_) {}
+        const section = document.querySelector(
+          `.inventory-category-section[data-category="${category}"]`,
+        );
+        if (section) {
+          section.classList.toggle("is-collapsed", !current);
+          const chev = section.querySelector(".inventory-category-chevron");
+          if (chev) chev.textContent = !current ? "▸" : "▾";
+        }
+      }
+
+      // Per-domain collapse state persisted in localStorage so the user's
+      // layout preferences stick between refreshes.
+      function getInventoryDomainCollapse() {
+        try {
+          return (
+            JSON.parse(localStorage.getItem("inventoryDomainCollapse") || "{}") ||
+            {}
+          );
+        } catch (_) {
+          return {};
+        }
+      }
+      function setInventoryDomainCollapse(domain, collapsed) {
+        const state = getInventoryDomainCollapse();
+        state[domain] = !!collapsed;
+        try {
+          localStorage.setItem(
+            "inventoryDomainCollapse",
+            JSON.stringify(state),
+          );
+        } catch (_) {}
+      }
+      function isInventoryDomainCollapsed(domain, itemCount) {
+        const state = getInventoryDomainCollapse();
+        if (Object.prototype.hasOwnProperty.call(state, domain)) {
+          return !!state[domain];
+        }
+        // Default: large domains expanded, small ones (<=3 items) collapsed.
+        return itemCount <= 3;
+      }
+      function toggleInventoryDomainCollapse(domain) {
+        const state = getInventoryDomainCollapse();
+        const current = !!state[domain];
+        setInventoryDomainCollapse(domain, !current);
+        const section = document.querySelector(
+          `.inventory-domain-section[data-domain="${domain}"]`,
+        );
+        if (section) {
+          section.classList.toggle("is-collapsed", !current);
+          const chev = section.querySelector(".inventory-domain-chevron");
+          if (chev) chev.textContent = !current ? "▸" : "▾";
+        }
       }
 
       function getSpendingPeriods(data) {
@@ -20169,6 +20418,7 @@
       }
 
       function moveShoppingSwipe(event, key) {
+        shoppingLongPressCheckMove(event);
         const state = shoppingSwipeState[key];
         const touch = event.touches?.[0];
         if (!state || !touch) return;
@@ -20177,6 +20427,8 @@
         state.lastX = touch.clientX;
         if (dx > 12 && Math.abs(dx) > Math.abs(dy)) {
           state.swiping = true;
+          // Swipe has taken over — don't also fire a long-press later.
+          shoppingLongPressCancel();
           const summary = event.currentTarget;
           if (summary) {
             const translate = Math.min(dx, 84);
@@ -20196,6 +20448,9 @@
       }
 
       async function endShoppingSwipe(event, key) {
+        // If long-press already fired, the finger lift is just the release;
+        // don't also interpret it as the end of a swipe.
+        shoppingLongPressCancel();
         const state = shoppingSwipeState[key];
         const summary = event.currentTarget;
         if (!state) {
@@ -20224,6 +20479,183 @@
 
       function cancelShoppingSwipe(key) {
         delete shoppingSwipeState[key];
+        shoppingLongPressCancel();
+      }
+
+      // ===========================================================
+      // Shopping-list long-press context menu
+      // -----------------------------------------------------------
+      // Parallels the Inventory long-press pattern (invHandleTouchStart +
+      // .inv-context-menu). The swipe-to-mark-bought gesture still owns
+      // horizontal motion — this hold fires only on a still press.
+      // ===========================================================
+      const SHOP_LONG_PRESS_MS = 500;
+      let shopLpTimer = null;
+      let shopLpFired = false;
+      let shopLpStartX = 0;
+      let shopLpStartY = 0;
+
+      function shoppingLongPressStart(event, payloadJson) {
+        shopLpFired = false;
+        const touch = event.touches?.[0];
+        shopLpStartX = touch?.clientX ?? 0;
+        shopLpStartY = touch?.clientY ?? 0;
+        shoppingLongPressCancel();
+        shopLpTimer = setTimeout(() => {
+          shopLpFired = true;
+          shopLpTimer = null;
+          if (navigator.vibrate) {
+            try { navigator.vibrate(15); } catch (_) {}
+          }
+          shoppingOpenContextMenu(payloadJson, shopLpStartX, shopLpStartY);
+        }, SHOP_LONG_PRESS_MS);
+      }
+
+      function shoppingLongPressCancel() {
+        if (shopLpTimer) {
+          clearTimeout(shopLpTimer);
+          shopLpTimer = null;
+        }
+      }
+
+      function shoppingLongPressCheckMove(event) {
+        if (!shopLpTimer) return;
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        const dx = Math.abs(touch.clientX - shopLpStartX);
+        const dy = Math.abs(touch.clientY - shopLpStartY);
+        if (dx > 8 || dy > 8) shoppingLongPressCancel();
+      }
+
+      function shoppingHandleContextMenu(event, payloadJson) {
+        event.preventDefault();
+        shopLpFired = true;
+        shoppingOpenContextMenu(payloadJson, event.clientX, event.clientY);
+      }
+
+      function shoppingHandleClickGuard(event) {
+        if (shopLpFired) {
+          shopLpFired = false;
+          event.stopPropagation();
+          event.preventDefault();
+          return true;
+        }
+        return false;
+      }
+
+      function shoppingOpenContextMenu(payloadJson, x, y) {
+        // Reuse the inventory menu DOM/CSS — single source of truth.
+        if (typeof invCloseContextMenu === "function") invCloseContextMenu();
+        let data;
+        try {
+          data = JSON.parse(decodeURIComponent(payloadJson));
+        } catch (e) {
+          return;
+        }
+        const productId = data.productId || null;
+        const name = data.name || "";
+        const itemIds = Array.isArray(data.itemIds) ? data.itemIds : [];
+        const isRegular = !!data.isRegular;
+
+        const menu = document.createElement("div");
+        menu.className = "inv-context-menu";
+        menu.setAttribute("role", "menu");
+        menu.innerHTML = `
+          <div class="inv-context-title">${escHtml(name) || "Shopping Item"}</div>
+          <button type="button" class="inv-context-item" data-action="rename">
+            <span class="inv-context-icon">✏️</span>
+            <span>Rename</span>
+          </button>
+          <button type="button" class="inv-context-item" data-action="regular">
+            <span class="inv-context-icon">${isRegular ? "✩" : "⭐"}</span>
+            <span>${isRegular ? "Remove from Regulars" : "Mark as Regular Use"}</span>
+          </button>
+          <button type="button" class="inv-context-item" data-action="remove">
+            <span class="inv-context-icon">🗑</span>
+            <span>Remove from List</span>
+          </button>
+        `;
+        menu.style.visibility = "hidden";
+        document.body.appendChild(menu);
+        const rect = menu.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const left = Math.max(8, Math.min(x, vw - rect.width - 8));
+        const top = Math.max(8, Math.min(y, vh - rect.height - 8));
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+        menu.style.visibility = "visible";
+
+        menu.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-action]");
+          if (!btn) return;
+          e.stopPropagation();
+          if (typeof invCloseContextMenu === "function") invCloseContextMenu();
+          shoppingRunContextAction(btn.dataset.action, {
+            productId,
+            name,
+            itemIds,
+            isRegular,
+          });
+        });
+
+        setTimeout(() => {
+          document.addEventListener("click", invContextOutsideHandler, true);
+          document.addEventListener(
+            "touchstart",
+            invContextOutsideHandler,
+            true,
+          );
+        }, 10);
+      }
+
+      async function shoppingRunContextAction(action, ctx) {
+        if (action === "rename") {
+          renameShoppingDisplayItem(ctx.itemIds, ctx.productId, ctx.name);
+          return;
+        }
+        if (action === "regular") {
+          await toggleProductRegularUse(
+            ctx.productId,
+            !ctx.isRegular,
+            ctx.name,
+          );
+          return;
+        }
+        if (action === "remove") {
+          if (!ctx.itemIds?.length) {
+            toast("Nothing to remove", "error");
+            return;
+          }
+          if (
+            !(await askForConfirmation(
+              `Remove ${ctx.name || "this item"} from your shopping list?`,
+              "Remove from list",
+            ))
+          )
+            return;
+          await deleteShoppingGroupItems(ctx.itemIds);
+          return;
+        }
+      }
+
+      function buildShoppingLongPressPayload(item) {
+        const primaryId =
+          item?.primaryItem?.id || item?.ids?.[0] || null;
+        return encodeURIComponent(
+          JSON.stringify({
+            productId: item?.primaryItem?.product_id || null,
+            name:
+              formatShoppingDisplayName(item) ||
+              item?.primaryItem?.name ||
+              "",
+            itemIds: Array.isArray(item?.ids) ? item.ids : [primaryId].filter(Boolean),
+            isRegular: !!(
+              item?.primaryItem?.is_regular_use ||
+              item?.is_regular_use
+            ),
+          }),
+        );
       }
 
       function toggleShoppingMobileItem(itemId) {
@@ -22283,7 +22715,39 @@
           const value = document.getElementById(id)?.value?.trim();
           if (value) params.set(key, value);
         });
+        // Attribution filter uses its own sticky state (chips, not a <select>).
+        if (window.__receiptAttributionFilter) {
+          params.set("attribution", window.__receiptAttributionFilter);
+        }
         return params.toString();
+      }
+
+      function setReceiptAttributionFilter(value) {
+        window.__receiptAttributionFilter = value || null;
+        document
+          .querySelectorAll(".receipt-attribution-chip")
+          .forEach((chip) => {
+            chip.classList.toggle(
+              "active",
+              (chip.dataset.value || "") === (value || ""),
+            );
+          });
+        loadReceipts();
+      }
+
+      async function renderReceiptAttributionFilterChips() {
+        const mount = document.getElementById("receipt-attribution-chips");
+        if (!mount) return;
+        const members = await loadHouseholdMembers();
+        const current = window.__receiptAttributionFilter || "";
+        const chip = (value, label) =>
+          `<button type="button" class="chip receipt-attribution-chip ${current === value ? "active" : ""}" data-value="${escAttr(value)}" onclick="setReceiptAttributionFilter('${escAttr(value)}')">${escHtml(label)}</button>`;
+        mount.innerHTML = [
+          chip("", "All"),
+          chip("household", "🏠 Household"),
+          chip("unset", "— Untagged"),
+          ...members.map((m) => chip("user:" + m.id, "👤 " + m.name)),
+        ].join("");
       }
 
       function populateReceiptFilterOptions(filters = {}) {
@@ -27845,8 +28309,73 @@
       // ============================================================
       // Dashboard
       // ============================================================
+      async function loadDashboardSpendByPerson() {
+        const body = document.getElementById("dash-spend-by-person");
+        const monthEl = document.getElementById("dash-spend-by-person-month");
+        if (!body) return;
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        try {
+          const res = await api(
+            `/analytics/spend-by-person?month=${encodeURIComponent(ym)}`,
+          );
+          if (!res.ok) {
+            body.innerHTML =
+              '<div class="empty-state"><p>Could not load per-person spend.</p></div>';
+            return;
+          }
+          const data = await res.json();
+          if (monthEl) {
+            const label = new Date(ym + "-01").toLocaleDateString(undefined, {
+              month: "short",
+            });
+            monthEl.textContent = label;
+          }
+          const rows = [];
+          (data.per_person || []).forEach((p) =>
+            rows.push({ label: "👤 " + p.name, value: p.total, kind: "person" }),
+          );
+          if ((data.household_total || 0) !== 0) {
+            rows.push({
+              label: "🏠 Household (shared)",
+              value: data.household_total,
+              kind: "household",
+            });
+          }
+          if ((data.unset_total || 0) !== 0) {
+            rows.push({
+              label: "— Untagged",
+              value: data.unset_total,
+              kind: "unset",
+            });
+          }
+          if (!rows.length) {
+            body.innerHTML =
+              '<div class="empty-state"><p>No spend this month — or nothing tagged yet.</p></div>';
+            return;
+          }
+          const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
+          body.innerHTML = rows
+            .map((r) => {
+              const pct = Math.round((Math.abs(r.value) / maxAbs) * 100);
+              return `
+                <div class="spend-person-row spend-person-row--${r.kind}">
+                  <div class="spend-person-row__label">${escHtml(r.label)}</div>
+                  <div class="spend-person-row__bar">
+                    <div class="spend-person-row__fill" style="width:${pct}%"></div>
+                  </div>
+                  <div class="spend-person-row__value">${formatMoney(r.value)}</div>
+                </div>`;
+            })
+            .join("");
+        } catch (e) {
+          console.error("loadDashboardSpendByPerson", e);
+        }
+      }
+
       async function loadDashboard() {
         try {
+          loadDashboardSpendByPerson();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
           const userAvatar = document.getElementById("dashboard-user-avatar");
@@ -28201,6 +28730,22 @@
         filteredItems.sort((a, b) => {
           const leftName = simplifyInventoryDisplayName(a.product_name);
           const rightName = simplifyInventoryDisplayName(b.product_name);
+          if (inventorySort === "domain_recent") {
+            // Primary: domain rank per INVENTORY_DOMAIN_ORDER.
+            const leftDomain = inventoryDomainFor(a);
+            const rightDomain = inventoryDomainFor(b);
+            const leftRank = INVENTORY_DOMAIN_ORDER.indexOf(leftDomain);
+            const rightRank = INVENTORY_DOMAIN_ORDER.indexOf(rightDomain);
+            if (leftRank !== rightRank) return leftRank - rightRank;
+            // Secondary: most recently purchased first.
+            const leftLast = inventoryLastPurchaseDate(a) || "";
+            const rightLast = inventoryLastPurchaseDate(b) || "";
+            if (leftLast !== rightLast) {
+              return leftLast < rightLast ? 1 : -1;
+            }
+            // Tiebreaker: A→Z on name.
+            return compareText(leftName, rightName, "asc");
+          }
           if (inventorySort === "name_desc")
             return compareText(leftName, rightName, "desc");
           if (inventorySort === "price_desc")
@@ -28316,11 +28861,12 @@
             : '<div class="empty-state"><div class="icon">🔎</div><p>No inventory items match your filters.</p></div>';
           return;
         }
-        if (window.innerWidth <= 640) {
-          body.innerHTML = `
-      <div class="inventory-mobile-list">
-        ${displayGroups
-          .map((group) => {
+        // Card renderer — used by both mobile flat view AND by the
+        // domain-grouped view on any screen size. Named "mobile" for
+        // backwards-compat with the original single-path layout; the
+        // markup works fine at desktop widths too because the outer
+        // grouped-view container has a max-width-aware style.
+        const renderItemCard = (group) => {
             const i = group.primaryItem;
             const locationLabel = getInventoryGroupLocationLabel(group);
             const categoryLabel =
@@ -28342,7 +28888,7 @@
               <div style="min-width:0">
                 <div class="inventory-mobile-name">${i.is_regular_use ? '<span class="inv-regular-star" title="Regular use">⭐</span> ' : ""}${escHtml(group.display_name)}</div>
                 <div class="inventory-mobile-meta">${[
-                  `Qty ${escHtml(String(group.quantity))}`,
+                  `Qty ${escHtml(formatInventoryQuantity(group.quantity))}`,
                   locationLabel,
                   variantNote,
                 ].join(" · ")}</div>
@@ -28425,10 +28971,139 @@
             </div>
           </div>
         `;
-          })
-          .join("")}
-      </div>`;
-          return;
+          };
+
+        // Grouped view runs on every screen size when inventorySort is
+        // "domain_recent" (the default). It uses the same renderItemCard
+        // helper above, with Running Low pinned at top + domain sections
+        // (and category subsections inside each multi-category domain).
+        if (inventorySort === "domain_recent") {
+            const lowGroups = displayGroups.filter(
+              (g) => g.manual_low || g.is_low,
+            );
+            const domainBuckets = new Map();
+            for (const g of displayGroups) {
+              const d = inventoryDomainFor(g.primaryItem);
+              if (!domainBuckets.has(d)) domainBuckets.set(d, []);
+              domainBuckets.get(d).push(g);
+            }
+            const sections = [];
+            if (lowGroups.length) {
+              const lowCollapsed = isInventoryDomainCollapsed(
+                "__low__",
+                lowGroups.length,
+              );
+              sections.push(`
+                <div class="inventory-domain-section inventory-domain-section--low ${lowCollapsed ? "is-collapsed" : ""}" data-domain="__low__">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('__low__')"
+                    aria-expanded="${!lowCollapsed}"
+                  >
+                    <span class="inventory-domain-icon">🔴</span>
+                    <span class="inventory-domain-title">Running Low</span>
+                    <span class="inventory-domain-count">${lowGroups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${lowCollapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${lowGroups.map(renderItemCard).join("")}
+                  </div>
+                </div>
+              `);
+            }
+            for (const domain of INVENTORY_DOMAIN_ORDER) {
+              const groups = domainBuckets.get(domain);
+              if (!groups || !groups.length) continue;
+              const spec = inventoryDomainLabel(domain);
+              const collapsed = isInventoryDomainCollapsed(
+                domain,
+                groups.length,
+              );
+
+              // Group by the granular category within this domain so we
+              // can offer category-level collapse inside the domain.
+              // Only meaningful when the domain contains >1 category —
+              // otherwise render flat to avoid "Household / Household".
+              const categoryBuckets = new Map();
+              for (const g of groups) {
+                const rawCat =
+                  String(g.primaryItem?.category || "").trim().toLowerCase() ||
+                  "uncategorized";
+                if (!categoryBuckets.has(rawCat))
+                  categoryBuckets.set(rawCat, []);
+                categoryBuckets.get(rawCat).push(g);
+              }
+              const categoryKeys = [...categoryBuckets.keys()].sort(
+                (a, b) => categoryBuckets.get(b).length - categoryBuckets.get(a).length,
+              );
+
+              let bodyHtml;
+              if (categoryKeys.length <= 1) {
+                // Single category — flat render, no nested header.
+                bodyHtml = groups.map(renderItemCard).join("");
+              } else {
+                bodyHtml = categoryKeys
+                  .map((cat) => {
+                    const catGroups = categoryBuckets.get(cat);
+                    const catCollapsed = isInventoryCategoryCollapsed(
+                      cat,
+                      catGroups.length,
+                    );
+                    const catLabel = inventoryCategoryLabel(cat);
+                    return `
+                      <div class="inventory-category-section ${catCollapsed ? "is-collapsed" : ""}" data-category="${escAttr(cat)}">
+                        <button
+                          type="button"
+                          class="inventory-category-header"
+                          onclick="toggleInventoryCategoryCollapse('${escAttr(cat)}')"
+                          aria-expanded="${!catCollapsed}"
+                        >
+                          <span class="inventory-category-title">${escHtml(catLabel)}</span>
+                          <span class="inventory-category-count">${catGroups.length}</span>
+                          <span class="inventory-category-chevron" aria-hidden="true">${catCollapsed ? "▸" : "▾"}</span>
+                        </button>
+                        <div class="inventory-category-body">
+                          ${catGroups.map(renderItemCard).join("")}
+                        </div>
+                      </div>`;
+                  })
+                  .join("");
+              }
+
+              sections.push(`
+                <div class="inventory-domain-section ${collapsed ? "is-collapsed" : ""}" data-domain="${escAttr(domain)}">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('${escAttr(domain)}')"
+                    aria-expanded="${!collapsed}"
+                  >
+                    <span class="inventory-domain-icon">${escHtml(spec.icon)}</span>
+                    <span class="inventory-domain-title">${escHtml(spec.label)}</span>
+                    <span class="inventory-domain-count">${groups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${bodyHtml}
+                  </div>
+                </div>
+              `);
+            }
+            body.innerHTML = `
+              <div class="inventory-mobile-list inventory-mobile-list--grouped">
+                ${sections.join("")}
+              </div>`;
+            return;
+        }
+
+        if (window.innerWidth <= 640) {
+            // Mobile flat view — preserves existing A/Z/$/qty/location paths.
+            body.innerHTML = `
+              <div class="inventory-mobile-list">
+                ${displayGroups.map(renderItemCard).join("")}
+              </div>`;
+            return;
         }
         body.innerHTML = `
     <table>
@@ -28460,7 +29135,7 @@
                       </div>
                       <div style="color:var(--muted);font-size:0.78rem">
                         ${[
-                          `Qty ${item.quantity ?? 0}`,
+                          `Qty ${formatInventoryQuantity(item.quantity)}`,
                           item.location,
                           item.brand,
                           item.size,
@@ -28524,7 +29199,7 @@
               <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
                 <div style="color:var(--muted);font-size:0.82rem">
                   ${[
-                    `Qty ${group.quantity}`,
+                    `Qty ${formatInventoryQuantity(group.quantity)}`,
                     locationLabel,
                     i.latest_price?.price != null
                       ? formatMoney(i.latest_price.price)
@@ -29193,13 +29868,41 @@
         groups.sort((a, b) => {
           const effectiveSort =
             catalogMode === "products"
-              ? inventorySort === "name_desc"
-                ? "name_desc"
-                : inventorySort === "price_desc" ||
-                    inventorySort === "price_asc"
-                  ? "recent_desc"
-                  : "name_asc"
+              ? inventorySort === "domain_recent"
+                ? "domain_recent"
+                : inventorySort === "name_desc"
+                  ? "name_desc"
+                  : inventorySort === "price_desc" ||
+                      inventorySort === "price_asc"
+                    ? "recent_desc"
+                    : "name_asc"
               : productSort;
+          if (effectiveSort === "domain_recent") {
+            // Primary: domain rank; tie-break by most recent purchase, then name.
+            const leftDomain = inventoryDomainFor(a.primaryItem);
+            const rightDomain = inventoryDomainFor(b.primaryItem);
+            const leftRank = INVENTORY_DOMAIN_ORDER.indexOf(leftDomain);
+            const rightRank = INVENTORY_DOMAIN_ORDER.indexOf(rightDomain);
+            if (leftRank !== rightRank) return leftRank - rightRank;
+            const leftLast = a.items.reduce(
+              (latest, item) =>
+                item.last_purchase_date &&
+                (!latest || item.last_purchase_date > latest)
+                  ? item.last_purchase_date
+                  : latest,
+              "",
+            );
+            const rightLast = b.items.reduce(
+              (latest, item) =>
+                item.last_purchase_date &&
+                (!latest || item.last_purchase_date > latest)
+                  ? item.last_purchase_date
+                  : latest,
+              "",
+            );
+            if (leftLast !== rightLast) return leftLast < rightLast ? 1 : -1;
+            return compareText(a.family, b.family, "asc");
+          }
           if (effectiveSort === "variants_desc")
             return (
               compareNumber(a.count, b.count, "desc") ||
@@ -29253,11 +29956,10 @@
             '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>';
           return;
         }
-        if (catalogMode === "products" && window.innerWidth <= 640) {
-          body.innerHTML = `
-      <div class="inventory-mobile-list">
-        ${groups
-          .map((group) => {
+        if (catalogMode === "products") {
+          // Shared card renderer used by both the flat mobile list and
+          // the domain-grouped view (any width).
+          const renderProductCard = (group) => {
             const key = `product:${group.key}`;
             const primary = group.primaryItem;
             const latestPurchase = group.items.reduce(
@@ -29358,10 +30060,135 @@
               </div>
             </div>
           `;
-          })
-          .join("")}
-      </div>`;
-          return;
+          };
+
+          // Grouped view (Running Low + domain sections + category
+          // subsections) — matches the Inventory pattern. Runs on any
+          // screen width when inventorySort is "domain_recent".
+          if (inventorySort === "domain_recent") {
+            const familyIsLow = (g) =>
+              (g.items || []).some((it) => it.manual_low || it.is_low);
+            const lowGroups = groups.filter(familyIsLow);
+            const domainBuckets = new Map();
+            for (const g of groups) {
+              const d = inventoryDomainFor(g.primaryItem);
+              if (!domainBuckets.has(d)) domainBuckets.set(d, []);
+              domainBuckets.get(d).push(g);
+            }
+            const sections = [];
+            if (lowGroups.length) {
+              const lowCollapsed = isInventoryDomainCollapsed(
+                "__low__",
+                lowGroups.length,
+              );
+              sections.push(`
+                <div class="inventory-domain-section inventory-domain-section--low ${lowCollapsed ? "is-collapsed" : ""}" data-domain="__low__">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('__low__')"
+                    aria-expanded="${!lowCollapsed}"
+                  >
+                    <span class="inventory-domain-icon">🔴</span>
+                    <span class="inventory-domain-title">Running Low</span>
+                    <span class="inventory-domain-count">${lowGroups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${lowCollapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${lowGroups.map(renderProductCard).join("")}
+                  </div>
+                </div>
+              `);
+            }
+            for (const domain of INVENTORY_DOMAIN_ORDER) {
+              const dGroups = domainBuckets.get(domain);
+              if (!dGroups || !dGroups.length) continue;
+              const spec = inventoryDomainLabel(domain);
+              const collapsed = isInventoryDomainCollapsed(
+                domain,
+                dGroups.length,
+              );
+              const categoryBuckets = new Map();
+              for (const g of dGroups) {
+                const rawCat =
+                  String(g.primaryItem?.category || "")
+                    .trim()
+                    .toLowerCase() || "uncategorized";
+                if (!categoryBuckets.has(rawCat))
+                  categoryBuckets.set(rawCat, []);
+                categoryBuckets.get(rawCat).push(g);
+              }
+              const categoryKeys = [...categoryBuckets.keys()].sort(
+                (a, b) =>
+                  categoryBuckets.get(b).length -
+                  categoryBuckets.get(a).length,
+              );
+              let bodyHtml;
+              if (categoryKeys.length <= 1) {
+                bodyHtml = dGroups.map(renderProductCard).join("");
+              } else {
+                bodyHtml = categoryKeys
+                  .map((cat) => {
+                    const catGroups = categoryBuckets.get(cat);
+                    const catCollapsed = isInventoryCategoryCollapsed(
+                      cat,
+                      catGroups.length,
+                    );
+                    const catLabel = inventoryCategoryLabel(cat);
+                    return `
+                      <div class="inventory-category-section ${catCollapsed ? "is-collapsed" : ""}" data-category="${escAttr(cat)}">
+                        <button
+                          type="button"
+                          class="inventory-category-header"
+                          onclick="toggleInventoryCategoryCollapse('${escAttr(cat)}')"
+                          aria-expanded="${!catCollapsed}"
+                        >
+                          <span class="inventory-category-title">${escHtml(catLabel)}</span>
+                          <span class="inventory-category-count">${catGroups.length}</span>
+                          <span class="inventory-category-chevron" aria-hidden="true">${catCollapsed ? "▸" : "▾"}</span>
+                        </button>
+                        <div class="inventory-category-body">
+                          ${catGroups.map(renderProductCard).join("")}
+                        </div>
+                      </div>`;
+                  })
+                  .join("");
+              }
+              sections.push(`
+                <div class="inventory-domain-section ${collapsed ? "is-collapsed" : ""}" data-domain="${escAttr(domain)}">
+                  <button
+                    type="button"
+                    class="inventory-domain-header"
+                    onclick="toggleInventoryDomainCollapse('${escAttr(domain)}')"
+                    aria-expanded="${!collapsed}"
+                  >
+                    <span class="inventory-domain-icon">${escHtml(spec.icon)}</span>
+                    <span class="inventory-domain-title">${escHtml(spec.label)}</span>
+                    <span class="inventory-domain-count">${dGroups.length}</span>
+                    <span class="inventory-domain-chevron" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
+                  </button>
+                  <div class="inventory-domain-body">
+                    ${bodyHtml}
+                  </div>
+                </div>
+              `);
+            }
+            body.innerHTML = `
+              <div class="inventory-mobile-list inventory-mobile-list--grouped">
+                ${sections.join("")}
+              </div>`;
+            return;
+          }
+
+          // Flat mobile list (A / Z / $ / recent / variants sorts).
+          if (window.innerWidth <= 640) {
+            body.innerHTML = `
+              <div class="inventory-mobile-list">
+                ${groups.map(renderProductCard).join("")}
+              </div>`;
+            return;
+          }
+          // Falls through to desktop <table> below for flat sorts.
         }
         body.innerHTML = `
     <table>
@@ -30021,6 +30848,7 @@
           toast("Enter an item name", "error");
           return;
         }
+        const snapshotId = window.__shopIdentifySnapshotId || null;
         await quickAddToShoppingList({
           name,
           category:
@@ -30032,6 +30860,7 @@
           quantity: parseFloat(document.getElementById("shop-qty").value) || 1,
           note: document.getElementById("shop-note").value.trim(),
           source: "manual",
+          snapshot_id: snapshotId,
         });
         document.getElementById("shop-name").value = "";
         document.getElementById("shop-category").value = "other";
@@ -30039,7 +30868,107 @@
         document.getElementById("shop-manual-price").value = "";
         document.getElementById("shop-qty").value = "1";
         document.getElementById("shop-note").value = "";
+        resetShopIdentifyPhoto();
         toggleManualShoppingForm(false);
+      }
+
+      // -----------------------------------------------------------
+      // Shopping manual-add: photo-first "Identify from Photo" flow.
+      // Tapping the button opens the camera. On capture we POST the
+      // image to /shopping-list/identify-product-photo — Gemini
+      // returns {name, category, brand, size, unit, confidence} and
+      // a snapshot_id. The form prefills and the snapshot follows
+      // through when the user saves, so the photo gets linked to
+      // the product + shopping item.
+      // -----------------------------------------------------------
+      function triggerShopIdentifyPhoto() {
+        const input = document.getElementById("shop-identify-input");
+        if (input) {
+          input.value = ""; // allow re-selecting the same file
+          input.click();
+        }
+      }
+
+      function resetShopIdentifyPhoto() {
+        window.__shopIdentifySnapshotId = null;
+        const preview = document.getElementById("shop-identify-preview");
+        if (preview) {
+          preview.style.display = "none";
+          preview.removeAttribute("src");
+        }
+        const status = document.getElementById("shop-identify-status");
+        if (status) status.textContent = "";
+        const btn = document.getElementById("shop-identify-btn");
+        if (btn) btn.disabled = false;
+      }
+
+      async function handleShopIdentifyPhoto(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const status = document.getElementById("shop-identify-status");
+        const preview = document.getElementById("shop-identify-preview");
+        const btn = document.getElementById("shop-identify-btn");
+        if (status) status.textContent = "Analyzing photo…";
+        if (btn) btn.disabled = true;
+        if (preview) {
+          preview.src = URL.createObjectURL(file);
+          preview.style.display = "";
+        }
+        try {
+          const form = new FormData();
+          form.append("image", file);
+          const res = await shoppingApi(
+            "/shopping-list/identify-product-photo",
+            { method: "POST", body: form },
+          );
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const msg =
+              data.error || "Could not analyze photo. Type the item manually.";
+            if (status) status.textContent = msg;
+            if (data?.snapshot?.id) {
+              // Snapshot was saved but OCR failed — keep the id so we
+              // still link the photo when the user types + saves.
+              window.__shopIdentifySnapshotId = data.snapshot.id;
+            }
+            toast(msg, "error");
+            if (btn) btn.disabled = false;
+            return;
+          }
+          if (data.snapshot?.id) {
+            window.__shopIdentifySnapshotId = data.snapshot.id;
+          }
+          const sug = data.suggestion || {};
+          const nameInput = document.getElementById("shop-name");
+          const catSelect = document.getElementById("shop-category");
+          if (nameInput && sug.name) nameInput.value = sug.name;
+          if (catSelect && sug.category) {
+            const has = Array.from(catSelect.options || []).some(
+              (o) => o.value === sug.category,
+            );
+            if (has) catSelect.value = sug.category;
+          }
+          const conf =
+            typeof sug.confidence === "number" ? sug.confidence : null;
+          if (status) {
+            status.textContent =
+              (sug.name ? `Identified: ${sug.name}` : "Photo saved") +
+              (conf != null ? ` · ${Math.round(conf * 100)}% confidence` : "") +
+              (sug.brand ? ` · ${sug.brand}` : "") +
+              (sug.size ? ` · ${sug.size}` : "");
+          }
+          toast(
+            sug.name ? `Identified: ${sug.name}` : "Photo saved — type the name",
+            sug.name ? "success" : "info",
+          );
+        } catch (exc) {
+          console.error("Identify photo failed", exc);
+          if (status)
+            status.textContent = "Could not reach the server. Try again.";
+          toast("Could not analyze photo", "error");
+        } finally {
+          if (btn) btn.disabled = false;
+        }
       }
 
       function getShoppingStoreChoices() {
@@ -30951,12 +31880,13 @@
               (item) => `
             <div class="shopping-mobile-item ${shoppingMobileItemExpanded[item.key] ? "expanded" : ""}">
               <div class="shopping-mobile-item-summary" role="button" tabindex="0"
-                onclick="handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                onclick="if(shoppingHandleClickGuard(event)) return; handleShoppingMobileSummaryClick(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleShoppingMobileItem(decodeURIComponent('${encodeURIComponent(item.key)}'));}"
-                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(",")}], '${escAttr(item.status || "open")}')"
+                ontouchstart="startShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'), [${item.ids.join(",")}], '${escAttr(item.status || "open")}'); shoppingLongPressStart(event, '${buildShoppingLongPressPayload(item)}')"
                 ontouchmove="moveShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
                 ontouchend="endShoppingSwipe(event, decodeURIComponent('${encodeURIComponent(item.key)}'))"
-                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))">
+                ontouchcancel="cancelShoppingSwipe(decodeURIComponent('${encodeURIComponent(item.key)}'))"
+                oncontextmenu="shoppingHandleContextMenu(event, '${buildShoppingLongPressPayload(item)}')">
                   <div class="shopping-mobile-item-main">
                     ${
                       item.latest_snapshot?.image_url
@@ -32158,7 +33088,7 @@
             ? ` · ${Math.round((r.confidence || 0) * 100)}% confidence`
             : "";
           const openBtn = r.receipt_id
-            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); viewReceipt(${r.receipt_id})">Open in Receipts</button>`
+            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); jumpToReceipt(${r.receipt_id})">Open in Receipts</button>`
             : "";
           const warningHtml = (r.warnings || []).length
             ? `<div class="batch-row__detail-warning">${escHtml(r.warnings[0])}</div>`
@@ -33525,6 +34455,7 @@
       async function loadReceipts() {
         applyReceiptFilterLayout();
         ensureDefaultReceiptFilters();
+        renderReceiptAttributionFilterChips().catch(() => {});
         const query = getReceiptFilterParams();
         const res = await api(`/receipts${query ? `?${query}` : ""}`);
         const body = document.getElementById("receipts-table-body");
@@ -33599,9 +34530,23 @@
             : "";
 
         if (!visibleReceipts.length) {
-          body.innerHTML = failedReceipts.length && statusFilter !== "failed"
-            ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
-            : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
+          const attrFilter = window.__receiptAttributionFilter;
+          let attrEmptyMsg = "";
+          if (attrFilter === "household") {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">🏠</div><p>No receipts tagged <strong>Household</strong> yet. Open a receipt → "Attributed to" to tag one.</p></div>';
+          } else if (attrFilter === "unset") {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">✅</div><p>Every receipt is tagged. Nothing untagged right now.</p></div>';
+          } else if (attrFilter && attrFilter.startsWith("user:")) {
+            attrEmptyMsg =
+              '<div class="empty-state"><div class="icon">👤</div><p>No receipts tagged to this person yet.</p></div>';
+          }
+          body.innerHTML = attrEmptyMsg
+            ? failedBannerHtml + attrEmptyMsg
+            : failedReceipts.length && statusFilter !== "failed"
+              ? failedBannerHtml + '<div class="empty-state"><p>No successful receipts in this view.</p></div>'
+              : '<div class="empty-state"><div class="icon">🧾</div><p>No receipts yet. Send one via Telegram or upload one here.</p></div>';
           if (detailCard) detailCard.style.display = "";
           if (receiptDetailGrid)
             receiptDetailGrid.classList.remove("receipts-inline-mode");
@@ -33884,6 +34829,16 @@
         <div class="receipt-editor-main-field field-subtotal"><label>Subtotal</label><input id="receipt-subtotal-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-tip"><label>Tip</label><input id="receipt-tip-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
+        <div class="receipt-editor-main-field field-attribution" style="grid-column:1/-1">
+          <label>Attributed to</label>
+          <select id="receipt-attribution-${receipt.id}" onchange="handleReceiptAttributionChange(${receipt.id}, this)">
+            <option value="">— not set —</option>
+            <option value="kind:household">🏠 Household (shared)</option>
+          </select>
+          <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
+            Pick a household member or "Household (shared)". Changes apply to the whole receipt and propagate to all line items (you can still override individual items below).
+          </div>
+        </div>
       </div>
       <div id="receipt-bill-meta-panel-${receipt.id}" class="receipt-bill-meta-panel" style="display:none">
         <div class="card-header" style="padding:10px 0 6px"><span class="card-title" style="font-size:0.9rem">⚡ Bill Details</span><span style="font-size:0.8rem;color:var(--muted)">Optional — fill in what the bill shows</span></div>
@@ -34404,6 +35359,15 @@
         });
         handleReceiptEditorTypeChange(receiptId);
         wireReceiptBudgetingControls(receiptId);
+        // Attribution picker + per-item selects need the household
+        // roster — async, but the current value is known so we set it
+        // immediately from markup and refine once members resolve.
+        populateReceiptAttributionSelect({
+          id: receiptId,
+          attribution_user_id: data.attribution_user_id,
+          attribution_kind: data.attribution_kind,
+        }).catch(() => {});
+        populateReceiptItemAttributionSelects(data.items || []).catch(() => {});
       }
 
       function addReceiptEditorRow(receiptId) {
@@ -34788,6 +35752,164 @@
         return window.matchMedia("(max-width: 640px)").matches;
       }
 
+      // =======================================================
+      // Receipt attribution ("who is this spend for?") helpers.
+      // =======================================================
+      let householdMembersCache = null;
+      let householdMembersPromise = null;
+
+      async function loadHouseholdMembers() {
+        if (householdMembersCache) return householdMembersCache;
+        if (householdMembersPromise) return householdMembersPromise;
+        householdMembersPromise = (async () => {
+          try {
+            const res = await api("/auth/household-members");
+            if (!res.ok) return [];
+            const data = await res.json();
+            householdMembersCache = data.members || [];
+            return householdMembersCache;
+          } catch (_) {
+            return [];
+          } finally {
+            householdMembersPromise = null;
+          }
+        })();
+        return householdMembersPromise;
+      }
+
+      function invalidateHouseholdMembersCache() {
+        householdMembersCache = null;
+      }
+
+      function attributionValueFor(obj) {
+        // Encode (kind, user_id) into a single <option value>:
+        //   "" = unset, "kind:household" = household, "user:42" = personal.
+        if (!obj) return "";
+        if (obj.attribution_kind === "household") return "kind:household";
+        if (obj.attribution_user_id) return "user:" + obj.attribution_user_id;
+        return "";
+      }
+
+      function parseAttributionValue(value) {
+        // Returns { kind, user_id } for the PUT endpoint body.
+        if (!value) return { kind: null, user_id: null };
+        if (value === "kind:household") return { kind: "household", user_id: null };
+        const m = String(value).match(/^user:(\d+)$/);
+        if (m) return { kind: "personal", user_id: Number(m[1]) };
+        return { kind: null, user_id: null };
+      }
+
+      function renderAttributionBadge(obj) {
+        if (!obj) return "";
+        if (obj.attribution_kind === "household") {
+          return ' <span class="attr-badge attr-badge--household" title="Household (shared)">🏠</span>';
+        }
+        if (obj.attribution_user_id && obj.attribution_user_name) {
+          const initial = (obj.attribution_user_name || "?")
+            .trim()
+            .charAt(0)
+            .toUpperCase();
+          return (
+            ' <span class="attr-badge attr-badge--personal" title="' +
+            escAttr(obj.attribution_user_name) +
+            '">👤 ' +
+            escHtml(initial) +
+            "</span>"
+          );
+        }
+        return "";
+      }
+
+      async function populateReceiptAttributionSelect(receipt) {
+        const members = await loadHouseholdMembers();
+        const picker = document.getElementById(
+          "receipt-attribution-" + receipt.id,
+        );
+        if (!picker) return;
+        const current = attributionValueFor(receipt);
+        picker.innerHTML =
+          '<option value="">— not set —</option>' +
+          '<option value="kind:household">🏠 Household (shared)</option>' +
+          members
+            .map(
+              (m) =>
+                `<option value="user:${m.id}">👤 ${escHtml(m.name)}${m.is_self ? " (me)" : ""}</option>`,
+            )
+            .join("");
+        picker.value = current;
+      }
+
+      async function populateReceiptItemAttributionSelects(items = []) {
+        const members = await loadHouseholdMembers();
+        const selects = document.querySelectorAll(
+          "select.receipt-item-attribution",
+        );
+        selects.forEach((sel) => {
+          const itemId = Number(sel.getAttribute("data-item-id"));
+          const item = (items || []).find(
+            (x) => Number(x.receipt_item_id) === itemId,
+          );
+          const current = attributionValueFor(item || {});
+          sel.innerHTML =
+            '<option value="">— attribution —</option>' +
+            '<option value="kind:household">🏠 Household</option>' +
+            members
+              .map(
+                (m) =>
+                  `<option value="user:${m.id}">👤 ${escHtml(m.name)}</option>`,
+              )
+              .join("");
+          sel.value = current;
+        });
+      }
+
+      async function handleReceiptAttributionChange(receiptId, select) {
+        const { kind, user_id } = parseAttributionValue(select.value);
+        const applyToItems = !select.dataset.noPropagate;
+        const res = await api(`/receipts/${receiptId}/attribution`, {
+          method: "PUT",
+          body: JSON.stringify({
+            user_id,
+            kind,
+            apply_to_items: applyToItems,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not update attribution", "error");
+          return;
+        }
+        toast("Attribution saved ✅", "success");
+        // Sync per-item dropdowns + badges by reloading the detail.
+        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
+          loadReceipts();
+        }
+      }
+
+      async function handleReceiptItemAttributionChange(event) {
+        const select = event.currentTarget || event.target;
+        const receiptId = Number(select.getAttribute("data-receipt-id"));
+        const itemId = Number(select.getAttribute("data-item-id"));
+        if (!receiptId || !itemId) return;
+        const { kind, user_id } = parseAttributionValue(select.value);
+        const res = await api(
+          `/receipts/${receiptId}/items/${itemId}/attribution`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ user_id, kind }),
+          },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not update item attribution", "error");
+          return;
+        }
+        toast("Item attribution saved ✅", "success");
+        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
+          loadReceipts();
+        }
+      }
+
       function renderReceiptExtractedItems(receipt, items = []) {
         if (!items.length)
           return '<div class="empty-state"><p>No extracted items recorded.</p></div>';
@@ -34798,7 +35920,7 @@
           (i) => `
         <div class="receipt-detail-item-row">
           <div class="receipt-detail-item-main">
-            <div class="receipt-detail-item-name">${escHtml(i.product_name || i.name || "Unknown")}</div>
+            <div class="receipt-detail-item-name">${escHtml(i.product_name || i.name || "Unknown")}${renderAttributionBadge(i)}</div>
             <div class="receipt-detail-item-meta">
               <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
               <span>${formatMoney(i.unit_price)}</span>
@@ -34807,6 +35929,7 @@
             </div>
           </div>
           <div class="receipt-detail-item-actions">
+            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
             ${
               i.product_id
                 ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}`
@@ -34827,7 +35950,7 @@
         (i) => `
       <div class="receipt-item-card">
         <div class="receipt-item-grid">
-          <div class="receipt-item-name">${escHtml(i.product_name || i.name || "Unknown")}</div>
+          <div class="receipt-item-name">${escHtml(i.product_name || i.name || "Unknown")}${renderAttributionBadge(i)}</div>
           <div class="receipt-item-meta">
             <span>Qty ${escHtml(String(i.quantity ?? 1))}</span>
             <span>${formatMoney(i.unit_price)}</span>
@@ -34835,6 +35958,7 @@
             ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? "" : "s"}</span>` : ""}
           </div>
           <div class="receipt-item-actions">
+            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
             ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : '<span style="color:var(--muted)">No product actions</span>'}
           </div>
         </div>
@@ -35123,7 +36247,7 @@
                     aria-hidden="true"
                   >${icon}</div>
                   <div class="result-card__body">
-                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}</h3>
+                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}${renderAttributionBadge(receipt)}</h3>
                     <div class="result-card__meta">
                       ${escHtml(receipt.date || "—")}
                       ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
@@ -35170,7 +36294,7 @@
       <li class="summary-row-host">
         <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}">
           <div class="summary-row__main">
-            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
           </div>
           <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
@@ -38121,6 +39245,8 @@
       function billStatusFor(obligation) {
         if (!obligation) return "upcoming";
         const status = (obligation.status || "").toLowerCase();
+        if (status === "autopay_settled" || obligation.is_autopay_settled)
+          return "autopay-settled";
         if (status === "entered" || status === "paid") return "paid";
         if (status === "overdue") return "overdue";
         if (status === "outstanding") {
@@ -38142,6 +39268,8 @@
         switch (status) {
           case "paid":
             return { text: "✓ Entered", cls: "paid" };
+          case "autopay-settled":
+            return { text: "💳 Auto-Paid", cls: "paid" };
           case "overdue":
             return { text: "❗ Overdue", cls: "overdue" };
           case "due-soon":
@@ -38495,6 +39623,9 @@
                 ),
               )}')">Enter Bill</button>`
             : "";
+        const autopayLine = obligation.is_autopay_settled
+          ? `<div class="bill-card__autopay-line">💳 Paid via autopay on ${escHtml(formatBillDateShort(obligation.latest_payment_confirmed_at))}${obligation.latest_billing_cycle_month ? ` · for ${escHtml(formatBillingCycleShort(obligation.latest_billing_cycle_month))}` : ""}</div>`
+          : "";
         return `
           <article class="bill-card" data-bill-status="${status}">
             <header class="bill-card__head">
@@ -38516,11 +39647,33 @@
                 <div class="bill-card__stat-sub">Δ ${formatMoney(obligation.variance || 0)}</div>
               </div>
             </div>
+            ${autopayLine}
             <footer class="bill-card__footer">
               <div class="bill-card__footer-meta">Last seen ${escHtml(obligation.last_seen_date || "—")} · Due ${escHtml(obligation.last_due_date || "—")}</div>
               <div class="bill-card__actions">${editBtn}${openBtn}${primaryBtn}</div>
             </footer>
           </article>`;
+      }
+
+      function formatBillDateShort(iso) {
+        if (!iso) return "—";
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+        const sameYear = d.getFullYear() === new Date().getFullYear();
+        return d.toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: sameYear ? undefined : "numeric",
+        });
+      }
+
+      function formatBillingCycleShort(cycleMonth) {
+        if (!cycleMonth || typeof cycleMonth !== "string") return cycleMonth || "";
+        const match = cycleMonth.match(/^(\d{4})-(\d{2})$/);
+        if (!match) return cycleMonth;
+        const d = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+        if (Number.isNaN(d.getTime())) return cycleMonth;
+        return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
       }
 
       function renderProvidersSection(providers, monthlyByProvider) {
@@ -39005,6 +40158,9 @@
       }
 
       setInterval(() => {
+        // Skip when the tab isn't visible — no point burning cycles or
+        // hitting the sync-autopay endpoint while the user is elsewhere.
+        if (document.hidden) return;
         if (
           SHOPPING_HELPER_MODE ||
           document.getElementById("page-shopping")?.classList.contains("active")
@@ -39020,7 +40176,9 @@
         } else if (
           document.getElementById("page-bills")?.classList.contains("active")
         ) {
-          loadBills();
+          // Suppress the skeleton flash — periodic refresh should repaint
+          // in place, not blank the card grid each tick.
+          loadBills({ showSkeleton: false });
         }
       }, 15000);
 

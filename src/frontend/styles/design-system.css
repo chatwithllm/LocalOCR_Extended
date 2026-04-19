@@ -1846,3 +1846,387 @@ body.trusted-device-kitchen-display *:focus-visible {
   display: flex;
   gap: 6px;
 }
+
+/* ===================================================================
+ * Inventory — domain grouping layout
+ * Default Inventory view groups items by domain (Grocery / Household
+ * / Personal Care / Apparel / Other) with a pinned "Running Low"
+ * section at the top. Items inside each section are already sorted
+ * by (domain, last_purchase_date desc, name) in the JS layer.
+ * =================================================================== */
+.inventory-mobile-list--grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.inventory-domain-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inventory-domain-section.is-collapsed .inventory-domain-body {
+  display: none;
+}
+.inventory-domain-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-text-primary, inherit);
+  text-align: left;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+.inventory-domain-header:hover {
+  background: var(--color-surface-3, rgba(0, 0, 0, 0.06));
+}
+.inventory-domain-section--low .inventory-domain-header {
+  background: rgba(228, 77, 66, 0.14);
+  border-color: rgba(228, 77, 66, 0.32);
+  color: var(--color-error, #c4002b);
+}
+.inventory-domain-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.inventory-domain-title {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.25px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inventory-domain-count {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: var(--color-surface, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary, inherit);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.inventory-domain-chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-muted, var(--muted, #888));
+  font-size: 1rem;
+  min-width: 14px;
+  text-align: center;
+}
+.inventory-domain-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  margin-top: 2px;
+  background: var(--inv-domain-tint, rgba(0, 0, 0, 0.025));
+  border-left: 3px solid var(--inv-domain-accent, var(--color-border, rgba(0, 0, 0, 0.12)));
+  border-radius: 0 12px 12px 0;
+}
+
+/* Domain-specific accent colors — visible differentiator between
+   sections even when all are expanded. Variables are consumed by
+   .inventory-domain-body via --inv-domain-accent / --inv-domain-tint. */
+.inventory-domain-section[data-domain="__low__"] {
+  --inv-domain-accent: rgba(228, 77, 66, 0.55);
+  --inv-domain-tint: rgba(228, 77, 66, 0.06);
+}
+.inventory-domain-section[data-domain="grocery"] {
+  --inv-domain-accent: rgba(26, 174, 57, 0.55);
+  --inv-domain-tint: rgba(26, 174, 57, 0.05);
+}
+.inventory-domain-section[data-domain="household"] {
+  --inv-domain-accent: rgba(9, 127, 232, 0.50);
+  --inv-domain-tint: rgba(9, 127, 232, 0.05);
+}
+.inventory-domain-section[data-domain="personal_care"] {
+  --inv-domain-accent: rgba(160, 33, 110, 0.55);
+  --inv-domain-tint: rgba(160, 33, 110, 0.05);
+}
+.inventory-domain-section[data-domain="apparel"] {
+  --inv-domain-accent: rgba(221, 91, 0, 0.55);
+  --inv-domain-tint: rgba(221, 91, 0, 0.05);
+}
+.inventory-domain-section[data-domain="other"] {
+  --inv-domain-accent: rgba(128, 128, 128, 0.45);
+  --inv-domain-tint: rgba(128, 128, 128, 0.05);
+}
+
+/* Dark themes need slightly stronger tint to be visible on black. */
+:root[data-theme="dark"] .inventory-domain-body,
+:root[data-theme="clay-dark"] .inventory-domain-body,
+:root[data-theme="notion-dark"] .inventory-domain-body {
+  background: color-mix(in srgb, var(--inv-domain-accent, rgba(255, 255, 255, 0.08)) 14%, transparent);
+}
+
+/* Clay: louder section headers matching ink-bordered tile language. */
+:root[data-theme="clay"] .inventory-domain-header,
+:root[data-theme="clay-dark"] .inventory-domain-header {
+  border: var(--stroke-2) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+  background: var(--color-surface-2);
+}
+:root[data-theme="clay"] .inventory-domain-section--low .inventory-domain-header,
+:root[data-theme="clay-dark"] .inventory-domain-section--low .inventory-domain-header {
+  background: var(--color-swatch-pomegranate-soft, rgba(232, 93, 106, 0.14));
+  border-color: var(--color-swatch-pomegranate, #e85d6a);
+  color: var(--color-swatch-pomegranate, #e85d6a);
+}
+
+/* Notion: paper-calm headers — warm whisper with muted chevron. */
+:root[data-theme="notion"] .inventory-domain-header,
+:root[data-theme="notion-dark"] .inventory-domain-header {
+  background: var(--color-warm-paper, #f6f5f4);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+}
+:root[data-theme="notion"] .inventory-domain-section--low .inventory-domain-header,
+:root[data-theme="notion-dark"] .inventory-domain-section--low .inventory-domain-header {
+  background: #fdf2f4;
+  border-color: #f0c4cc;
+  color: #c4002b;
+}
+
+/* ---------- Inventory: category subsections inside domain --- */
+/* Category sections sit inside an expanded domain. Visually subordinate
+   to domain headers (smaller type, lighter weight) but substantial
+   enough to read as real section headers, not captions. */
+.inventory-category-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.inventory-category-section.is-collapsed .inventory-category-body {
+  display: none;
+}
+.inventory-category-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-text-primary, inherit);
+  text-align: left;
+}
+.inventory-category-header:hover {
+  background: var(--color-surface-3, rgba(0, 0, 0, 0.06));
+}
+.inventory-category-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.125px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inventory-category-count {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--color-surface, rgba(255, 255, 255, 0.6));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary, var(--muted, #615d59));
+}
+.inventory-category-chevron {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  color: var(--color-text-muted, var(--muted, #888));
+  min-width: 14px;
+  text-align: center;
+}
+.inventory-category-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 8px;
+}
+
+/* Clay: category headers pick up the theme's hard-edged chip accent. */
+:root[data-theme="clay"] .inventory-category-header,
+:root[data-theme="clay-dark"] .inventory-category-header {
+  border: var(--stroke-2) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* Notion: warm-paper tint + whisper border. */
+:root[data-theme="notion"] .inventory-category-header,
+:root[data-theme="notion-dark"] .inventory-category-header {
+  background: var(--color-warm-paper, #f6f5f4);
+  border-color: var(--color-border);
+  border-radius: var(--radius-md);
+}
+:root[data-theme="notion"] .inventory-category-header:hover,
+:root[data-theme="notion-dark"] .inventory-category-header:hover {
+  background: var(--color-surface-3, var(--color-warm-paper));
+}
+
+/* ---------- Shopping: "Identify from Photo" row --------------
+   Sits at the top of the manual-add form. The camera button sits
+   on the left; the in-flight status and the captured preview
+   thumbnail appear inline to its right. */
+.shop-identify-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.03));
+  border: 1px dashed var(--color-border, rgba(0, 0, 0, 0.15));
+  border-radius: var(--radius-md, 10px);
+}
+.shop-identify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.shop-identify-btn__icon {
+  font-size: 1.05rem;
+}
+.shop-identify-btn[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+.shop-identify-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, var(--muted, #666));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shop-identify-preview {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+}
+
+/* ---------- Receipt attribution badges + pickers ------------ */
+.attr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.attr-badge--household {
+  background: rgba(9, 127, 232, 0.12);
+  color: #097fe8;
+  border: 1px solid rgba(9, 127, 232, 0.28);
+}
+.attr-badge--personal {
+  background: rgba(160, 33, 110, 0.12);
+  color: #a0216e;
+  border: 1px solid rgba(160, 33, 110, 0.28);
+}
+.receipt-item-attribution {
+  min-width: 150px;
+  font-size: 0.82rem;
+}
+.receipt-editor-main-field.field-attribution label {
+  font-weight: 700;
+}
+
+/* ---------- Receipt attribution filter chips ---------------- */
+.receipt-attribution-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.receipt-attribution-chip {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  background: transparent;
+  color: var(--color-text-primary, inherit);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.receipt-attribution-chip:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.receipt-attribution-chip.active {
+  background: rgba(9, 127, 232, 0.14);
+  border-color: #097fe8;
+  color: #097fe8;
+}
+
+/* ---------- Dashboard: Spend-by-person card ----------------- */
+.dash-spend-by-person {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.spend-person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(60px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+.spend-person-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spend-person-row__bar {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 9999px;
+  height: 8px;
+  overflow: hidden;
+  min-width: 40px;
+}
+.spend-person-row__fill {
+  height: 100%;
+  background: #097fe8;
+  border-radius: 9999px;
+  transition: width 180ms ease-out;
+}
+.spend-person-row--household .spend-person-row__fill {
+  background: #2a9d99;
+}
+.spend-person-row--unset .spend-person-row__fill {
+  background: rgba(128, 128, 128, 0.55);
+}
+.spend-person-row__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}

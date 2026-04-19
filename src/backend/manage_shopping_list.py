@@ -3,12 +3,17 @@ Shopping list endpoints.
 """
 
 import json
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from urllib.parse import quote
+from uuid import uuid4
 
 from flask import Blueprint, jsonify, request, g
 from sqlalchemy import case, func, or_
+
+logger = logging.getLogger(__name__)
 
 from src.backend.contribution_scores import (
     award_contribution_event,
@@ -480,6 +485,85 @@ def list_shared_shopping_items(token: str):
     return response, 200
 
 
+@shopping_list_bp.route("/identify-product-photo", methods=["POST"])
+@require_write_access
+def identify_product_photo():
+    """Photo-first manual add: run Gemini on the uploaded product photo and
+    return structured suggestions {name, brand, size, category, ...} so the
+    Shopping manual-add form can prefill. Also saves the photo as a pending
+    ProductSnapshot so it can be linked to the product after the user saves.
+
+    Request: multipart/form-data with a single `image` file.
+    Response 200: { "suggestion": {...}, "snapshot": { "id": N, "image_url": "..." } }
+    Response 4xx: { "error": "..." }
+    """
+    from src.backend.call_gemini_vision_api import identify_product_via_gemini
+    from src.backend.manage_product_snapshots import _get_snapshot_root
+
+    image_file = request.files.get("image")
+    if not image_file or not image_file.filename:
+        return jsonify({"error": "image field is required"}), 400
+
+    filename = image_file.filename or "photo.jpg"
+    ext = Path(filename).suffix.lower() or ".jpg"
+    if ext not in {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}:
+        return jsonify({"error": "unsupported image format"}), 400
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    year_month = datetime.now().strftime("%Y/%m")
+    unique = f"{timestamp}_{uuid4().hex[:8]}{ext}"
+    save_dir = _get_snapshot_root() / year_month
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / unique
+    try:
+        image_file.save(save_path)
+    except Exception as exc:
+        logger.error("Failed to save product-identify upload: %s", exc)
+        return jsonify({"error": "Could not save photo"}), 500
+
+    session = g.db_session
+    snapshot = ProductSnapshot(
+        user_id=getattr(getattr(g, "current_user", None), "id", None),
+        source_context="manual",
+        status="unreviewed",
+        image_path=str(save_path),
+        captured_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    session.add(snapshot)
+    session.commit()
+
+    try:
+        suggestion = identify_product_via_gemini(str(save_path))
+    except ValueError as exc:
+        # GEMINI_API_KEY not configured — return the snapshot anyway so the
+        # user can type manually, but flag the failure.
+        logger.warning("Gemini identify unavailable: %s", exc)
+        return jsonify({
+            "error": str(exc),
+            "snapshot": {
+                "id": snapshot.id,
+                "image_url": f"/product-snapshots/{snapshot.id}/image",
+            },
+        }), 503
+    except Exception as exc:
+        logger.error("Gemini product-identify failed: %s", exc, exc_info=True)
+        return jsonify({
+            "error": "Could not analyze photo. Type the item name manually.",
+            "snapshot": {
+                "id": snapshot.id,
+                "image_url": f"/product-snapshots/{snapshot.id}/image",
+            },
+        }), 502
+
+    return jsonify({
+        "suggestion": suggestion,
+        "snapshot": {
+            "id": snapshot.id,
+            "image_url": f"/product-snapshots/{snapshot.id}/image",
+        },
+    }), 200
+
+
 @shopping_list_bp.route("/items", methods=["POST"])
 @require_write_access
 def add_shopping_item():
@@ -577,6 +661,29 @@ def add_shopping_item():
     )
     session.add(item)
     session.flush()
+
+    # Photo-first manual add: identify-product-photo endpoint created an
+    # unlinked ProductSnapshot; wire it to the freshly-created item + product
+    # so the photo shows up alongside future views of either.
+    snapshot_id = data.get("snapshot_id")
+    if snapshot_id:
+        try:
+            snapshot_id_int = int(snapshot_id)
+        except (TypeError, ValueError):
+            snapshot_id_int = None
+        if snapshot_id_int:
+            snapshot = (
+                session.query(ProductSnapshot)
+                .filter_by(id=snapshot_id_int)
+                .first()
+            )
+            if snapshot:
+                snapshot.shopping_list_item_id = item.id
+                if product and not snapshot.product_id:
+                    snapshot.product_id = product.id
+                if snapshot.status == "unreviewed":
+                    snapshot.status = "linked"
+                session.flush()
     if source == "recommendation":
         award_contribution_event(
             session,
