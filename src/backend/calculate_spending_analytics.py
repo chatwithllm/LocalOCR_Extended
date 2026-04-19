@@ -989,6 +989,108 @@ def get_utility_summary():
     }), 200
 
 
+@analytics_bp.route("/spend-by-person", methods=["GET"])
+@require_auth
+def get_spend_by_person():
+    """Attribution-aware spend summary for a month.
+
+    Returns per-person spend totals based on the receipt/line-item
+    attribution fields (phase 1 of the attribution feature):
+
+      - Line items with explicit per-item attribution roll up against
+        that attribution (kind + user).
+      - Line items without per-item attribution fall back to the
+        receipt-level attribution.
+      - Items still without any attribution roll into an "unset"
+        bucket so the user can see how much hasn't been tagged yet.
+
+    Response:
+      {
+        "month": "YYYY-MM",
+        "household_total": 0.00,
+        "unset_total": 0.00,
+        "per_person": [
+          {"user_id": 7, "name": "Sam", "total": 123.45}
+        ],
+        "grand_total": 0.00
+      }
+    """
+    from src.backend.initialize_database_schema import User
+
+    session = g.db_session
+    month = (request.args.get("month") or "").strip()
+    try:
+        anchor = datetime.strptime(month, "%Y-%m") if month else datetime.now(timezone.utc)
+    except ValueError:
+        return jsonify({"error": "Month must be in YYYY-MM format"}), 400
+
+    month_start = anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_month_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month_start = month_start.replace(month=month_start.month + 1)
+
+    rows = (
+        session.query(ReceiptItem, Purchase)
+        .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
+        .filter(Purchase.date >= month_start)
+        .filter(Purchase.date < next_month_start)
+        .all()
+    )
+
+    household_total = 0.0
+    unset_total = 0.0
+    per_user_totals: dict[int, float] = {}
+
+    for item, purchase in rows:
+        line_total = float(item.quantity or 0) * float(item.unit_price or 0)
+        if (getattr(purchase, "transaction_type", None) or "").lower() == "refund":
+            line_total = -line_total
+
+        # Per-item attribution wins; fall back to receipt-level.
+        kind = item.attribution_kind or purchase.attribution_kind
+        user_id = item.attribution_user_id or purchase.attribution_user_id
+
+        if kind == "personal" and user_id:
+            per_user_totals[user_id] = per_user_totals.get(user_id, 0.0) + line_total
+        elif kind == "household":
+            household_total += line_total
+        else:
+            unset_total += line_total
+
+    user_names: dict[int, str] = {}
+    if per_user_totals:
+        for u in (
+            session.query(User)
+            .filter(User.id.in_(list(per_user_totals.keys())))
+            .all()
+        ):
+            user_names[u.id] = u.name or u.email or f"User {u.id}"
+
+    per_person = sorted(
+        [
+            {
+                "user_id": uid,
+                "name": user_names.get(uid, f"User {uid}"),
+                "total": round(total, 2),
+            }
+            for uid, total in per_user_totals.items()
+        ],
+        key=lambda row: row["total"],
+        reverse=True,
+    )
+
+    grand_total = household_total + unset_total + sum(p["total"] for p in per_person)
+
+    return jsonify({
+        "month": month_start.strftime("%Y-%m"),
+        "household_total": round(household_total, 2),
+        "unset_total": round(unset_total, 2),
+        "per_person": per_person,
+        "grand_total": round(grand_total, 2),
+    }), 200
+
+
 @analytics_bp.route("/recurring-obligations", methods=["GET"])
 @require_auth
 def get_recurring_obligations():

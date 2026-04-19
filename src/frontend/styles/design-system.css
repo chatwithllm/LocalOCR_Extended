@@ -2161,3 +2161,72 @@ body.trusted-device-kitchen-display *:focus-visible {
 .receipt-editor-main-field.field-attribution label {
   font-weight: 700;
 }
+
+/* ---------- Receipt attribution filter chips ---------------- */
+.receipt-attribution-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.receipt-attribution-chip {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  background: transparent;
+  color: var(--color-text-primary, inherit);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.receipt-attribution-chip:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.receipt-attribution-chip.active {
+  background: rgba(9, 127, 232, 0.14);
+  border-color: #097fe8;
+  color: #097fe8;
+}
+
+/* ---------- Dashboard: Spend-by-person card ----------------- */
+.dash-spend-by-person {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.spend-person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(60px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+.spend-person-row__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spend-person-row__bar {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 9999px;
+  height: 8px;
+  overflow: hidden;
+  min-width: 40px;
+}
+.spend-person-row__fill {
+  height: 100%;
+  background: #097fe8;
+  border-radius: 9999px;
+  transition: width 180ms ease-out;
+}
+.spend-person-row--household .spend-person-row__fill {
+  background: #2a9d99;
+}
+.spend-person-row--unset .spend-person-row__fill {
+  background: rgba(128, 128, 128, 0.55);
+}
+.spend-person-row__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}

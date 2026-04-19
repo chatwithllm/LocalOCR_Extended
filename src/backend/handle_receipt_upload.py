@@ -1148,6 +1148,39 @@ def list_receipts():
             )
         ]
 
+    # Attribution filter (not set / household / user:<id>)
+    attribution_filter = (request.args.get("attribution", "") or "").strip().lower()
+
+    # Pre-resolve user names for the returned purchases so the list view
+    # can render badges without a follow-up /auth/users round-trip.
+    from src.backend.initialize_database_schema import User as _AttrUser
+    attr_user_ids = sorted({
+        p.attribution_user_id
+        for _r, p, _s in limited_records
+        if p and getattr(p, "attribution_user_id", None)
+    })
+    attr_user_names = {}
+    if attr_user_ids:
+        for u in session.query(_AttrUser).filter(_AttrUser.id.in_(attr_user_ids)).all():
+            attr_user_names[u.id] = u.name or u.email or f"User {u.id}"
+
+    def _matches_attribution_filter(purchase):
+        if not attribution_filter:
+            return True
+        if attribution_filter == "unset":
+            return (purchase is None) or (
+                not purchase.attribution_user_id and not purchase.attribution_kind
+            )
+        if attribution_filter == "household":
+            return bool(purchase) and purchase.attribution_kind == "household"
+        if attribution_filter.startswith("user:"):
+            try:
+                target = int(attribution_filter.split(":", 1)[1])
+            except (TypeError, ValueError):
+                return True
+            return bool(purchase) and purchase.attribution_user_id == target
+        return True
+
     return jsonify({
         "receipts": [
             {
@@ -1165,6 +1198,9 @@ def list_receipts():
                 "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
                 "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
                 "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
+                "attribution_user_id": getattr(purchase, "attribution_user_id", None) if purchase else None,
+                "attribution_kind": getattr(purchase, "attribution_kind", None) if purchase else None,
+                "attribution_user_name": attr_user_names.get(getattr(purchase, "attribution_user_id", None)) if purchase else None,
                 "created_at": record.created_at.isoformat() if record.created_at else None,
                 "source": _receipt_source_label(record),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
@@ -1174,6 +1210,7 @@ def list_receipts():
                 "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
             }
             for record, purchase, store in limited_records
+            if _matches_attribution_filter(purchase)
         ],
         "count": len(records),
         "filters": {

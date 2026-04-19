@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260419a" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260419b" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13108,6 +13108,21 @@
                 <div class="empty-state">
                   <div class="icon">✅</div>
                   <p>All items well-stocked!</p>
+                </div>
+              </div>
+            </div>
+            <div class="card" id="dash-spend-by-person-card">
+              <div class="card-header">
+                <span class="card-title">👥 Spend by Person</span>
+                <span
+                  class="card-header-inline-stat"
+                  id="dash-spend-by-person-month"
+                  aria-hidden="true"
+                ></span>
+              </div>
+              <div id="dash-spend-by-person" class="dash-spend-by-person">
+                <div class="empty-state">
+                  <p>Tag receipts to see per-person spend.</p>
                 </div>
               </div>
             </div>
@@ -14378,6 +14393,13 @@
               </div>
             </div>
             <div class="receipt-filter-body" id="receipt-filter-body">
+              <div class="form-group" style="margin-bottom:12px">
+                <label>Attributed to</label>
+                <div
+                  id="receipt-attribution-chips"
+                  class="receipt-attribution-chips"
+                ></div>
+              </div>
               <div class="form-grid">
                 <div class="form-group receipt-filter-store-group">
                   <label>Store</label
@@ -22693,7 +22715,39 @@
           const value = document.getElementById(id)?.value?.trim();
           if (value) params.set(key, value);
         });
+        // Attribution filter uses its own sticky state (chips, not a <select>).
+        if (window.__receiptAttributionFilter) {
+          params.set("attribution", window.__receiptAttributionFilter);
+        }
         return params.toString();
+      }
+
+      function setReceiptAttributionFilter(value) {
+        window.__receiptAttributionFilter = value || null;
+        document
+          .querySelectorAll(".receipt-attribution-chip")
+          .forEach((chip) => {
+            chip.classList.toggle(
+              "active",
+              (chip.dataset.value || "") === (value || ""),
+            );
+          });
+        loadReceipts();
+      }
+
+      async function renderReceiptAttributionFilterChips() {
+        const mount = document.getElementById("receipt-attribution-chips");
+        if (!mount) return;
+        const members = await loadHouseholdMembers();
+        const current = window.__receiptAttributionFilter || "";
+        const chip = (value, label) =>
+          `<button type="button" class="chip receipt-attribution-chip ${current === value ? "active" : ""}" data-value="${escAttr(value)}" onclick="setReceiptAttributionFilter('${escAttr(value)}')">${escHtml(label)}</button>`;
+        mount.innerHTML = [
+          chip("", "All"),
+          chip("household", "🏠 Household"),
+          chip("unset", "— Untagged"),
+          ...members.map((m) => chip("user:" + m.id, "👤 " + m.name)),
+        ].join("");
       }
 
       function populateReceiptFilterOptions(filters = {}) {
@@ -28255,8 +28309,73 @@
       // ============================================================
       // Dashboard
       // ============================================================
+      async function loadDashboardSpendByPerson() {
+        const body = document.getElementById("dash-spend-by-person");
+        const monthEl = document.getElementById("dash-spend-by-person-month");
+        if (!body) return;
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        try {
+          const res = await api(
+            `/analytics/spend-by-person?month=${encodeURIComponent(ym)}`,
+          );
+          if (!res.ok) {
+            body.innerHTML =
+              '<div class="empty-state"><p>Could not load per-person spend.</p></div>';
+            return;
+          }
+          const data = await res.json();
+          if (monthEl) {
+            const label = new Date(ym + "-01").toLocaleDateString(undefined, {
+              month: "short",
+            });
+            monthEl.textContent = label;
+          }
+          const rows = [];
+          (data.per_person || []).forEach((p) =>
+            rows.push({ label: "👤 " + p.name, value: p.total, kind: "person" }),
+          );
+          if ((data.household_total || 0) !== 0) {
+            rows.push({
+              label: "🏠 Household (shared)",
+              value: data.household_total,
+              kind: "household",
+            });
+          }
+          if ((data.unset_total || 0) !== 0) {
+            rows.push({
+              label: "— Untagged",
+              value: data.unset_total,
+              kind: "unset",
+            });
+          }
+          if (!rows.length) {
+            body.innerHTML =
+              '<div class="empty-state"><p>No spend this month — or nothing tagged yet.</p></div>';
+            return;
+          }
+          const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
+          body.innerHTML = rows
+            .map((r) => {
+              const pct = Math.round((Math.abs(r.value) / maxAbs) * 100);
+              return `
+                <div class="spend-person-row spend-person-row--${r.kind}">
+                  <div class="spend-person-row__label">${escHtml(r.label)}</div>
+                  <div class="spend-person-row__bar">
+                    <div class="spend-person-row__fill" style="width:${pct}%"></div>
+                  </div>
+                  <div class="spend-person-row__value">${formatMoney(r.value)}</div>
+                </div>`;
+            })
+            .join("");
+        } catch (e) {
+          console.error("loadDashboardSpendByPerson", e);
+        }
+      }
+
       async function loadDashboard() {
         try {
+          loadDashboardSpendByPerson();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
           const userAvatar = document.getElementById("dashboard-user-avatar");
@@ -34336,6 +34455,7 @@
       async function loadReceipts() {
         applyReceiptFilterLayout();
         ensureDefaultReceiptFilters();
+        renderReceiptAttributionFilterChips().catch(() => {});
         const query = getReceiptFilterParams();
         const res = await api(`/receipts${query ? `?${query}` : ""}`);
         const body = document.getElementById("receipts-table-body");
@@ -36113,7 +36233,7 @@
                     aria-hidden="true"
                   >${icon}</div>
                   <div class="result-card__body">
-                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}</h3>
+                    <h3 class="result-card__title">${escHtml(receipt.store || "Unknown")}${renderAttributionBadge(receipt)}</h3>
                     <div class="result-card__meta">
                       ${escHtml(receipt.date || "—")}
                       ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
@@ -36160,7 +36280,7 @@
       <li class="summary-row-host">
         <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}">
           <div class="summary-row__main">
-            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}</div>
+            <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
           </div>
           <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
