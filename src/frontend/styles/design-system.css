@@ -2469,12 +2469,36 @@ body.trusted-device-kitchen-display *:focus-visible {
   .accounts-breakdown-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
-  }
-  .accounts-breakdown-row__counts {
-    justify-content: flex-start;
+    gap: 2px;
+    padding: 6px 8px;
     font-size: 0.88rem;
   }
+  .accounts-breakdown-row__name {
+    font-size: 0.92rem;
+    line-height: 1.25;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .accounts-breakdown-row__counts {
+    justify-content: space-between;
+    gap: 0 4px;
+    font-size: 0.84rem;
+  }
+  .accounts-breakdown-row__cell,
+  .accounts-breakdown-row__total {
+    /* Tight horizontal rhythm — every count cell gets just enough
+       room for "⚡ 12" at worst. */
+    min-width: 40px;
+  }
+  .accounts-breakdown-row__total {
+    margin-left: 0;
+    padding-left: 8px;
+  }
+}
+/* Slightly tighter vertical rhythm on all viewports — the breakdown
+   is a scannable summary, not an interactive list. */
+#accounts-breakdown-body .accounts-breakdown-row + .accounts-breakdown-row {
+  margin-top: 2px;
 }
 
 /* ---------- Spend-by-person month navigator ---------------- */
