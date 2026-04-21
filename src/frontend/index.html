@@ -983,7 +983,10 @@
          repeated on every page and ate vertical space. */
       .page-header::before { display: none; }
 
-      .page-header > div {
+      /* Only target the title wrapper (first direct div), not sibling
+         toolbars like .inventory-page-controls which manage their own
+         grid/flex layout (and were being clobbered by this rule). */
+      .page-header > div:first-child {
         display: flex;
         align-items: baseline;
         gap: 10px;
@@ -20018,8 +20021,9 @@
         if (Object.prototype.hasOwnProperty.call(state, category)) {
           return !!state[category];
         }
-        // Default: everything inside an expanded domain stays open.
-        return false;
+        // Default: start collapsed so the page loads compact. User can
+        // open specific categories; preference persists in localStorage.
+        return true;
       }
       function toggleInventoryCategoryCollapse(category) {
         const state = getInventoryCategoryCollapse();
@@ -20068,8 +20072,10 @@
         if (Object.prototype.hasOwnProperty.call(state, domain)) {
           return !!state[domain];
         }
-        // Default: large domains expanded, small ones (<=3 items) collapsed.
-        return itemCount <= 3;
+        // Default: every domain starts collapsed so the page loads
+        // compact; user expands what they care about. Preference
+        // persists in localStorage, so next visit remembers choices.
+        return true;
       }
       function toggleInventoryDomainCollapse(domain) {
         const state = getInventoryDomainCollapse();
@@ -38047,21 +38053,26 @@
             analyticsSortEl.value = analyticsSort;
           body.innerHTML = periods.length
             ? compact
-              ? renderMobileMetricCards(
-                  periods.map((p) => ({
-                    title: p.period,
-                    value: formatMoney(p.total),
-                    meta: formatPeriodBreakdownMeta(p),
-                    cells: [
-                      {
-                        label: "Purchases",
-                        value: String(p.purchase_count ?? 0),
-                      },
-                      { label: "Refunds", value: String(p.refund_count ?? 0) },
-                      { label: "Net", value: formatMoney(p.total) },
-                    ],
-                  })),
-                )
+              ? `<ul class="summary-row-list">${periods
+                  .map((p) => {
+                    const purchases = Number(p.purchase_count ?? 0);
+                    const refunds = Number(p.refund_count ?? 0);
+                    const bits = [
+                      `${purchases} purchase${purchases === 1 ? "" : "s"}`,
+                    ];
+                    if (refunds) bits.push(`${refunds} refund${refunds === 1 ? "" : "s"}`);
+                    return `
+                      <li class="summary-row-host">
+                        <div class="summary-row" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px">
+                          <div style="min-width:0">
+                            <div class="summary-row__title">${escHtml(p.period)}</div>
+                            <div class="summary-row__meta">${escHtml(bits.join(" · "))}</div>
+                          </div>
+                          <div class="summary-row__value" style="white-space:nowrap">${formatMoney(p.total)}</div>
+                        </div>
+                      </li>`;
+                  })
+                  .join("")}</ul>`
               : `<table>
             <thead><tr><th>Period</th><th>Net</th><th>Purchases</th><th>Refunds</th><th>Receipts</th></tr></thead>
             <tbody>${periods.map((p) => `<tr><td>${p.period}</td><td>${formatMoney(p.total)}</td><td>${p.purchase_count ?? 0}</td><td>${p.refund_count ?? 0}</td><td>${p.count ?? "—"}</td></tr>`).join("")}</tbody>
