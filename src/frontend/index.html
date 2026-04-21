@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421c" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421d" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13114,11 +13114,15 @@
             <div class="card" id="dash-spend-by-person-card">
               <div class="card-header">
                 <span class="card-title">👥 Spend by Person</span>
-                <span
-                  class="card-header-inline-stat"
-                  id="dash-spend-by-person-month"
-                  aria-hidden="true"
-                ></span>
+                <span class="spend-by-person-monthnav" id="dash-spend-by-person-monthnav">
+                  <button type="button" class="spend-by-person-monthnav__btn"
+                    aria-label="Previous month"
+                    onclick="shiftSpendByPersonMonth(-1)">‹</button>
+                  <span id="dash-spend-by-person-month" class="spend-by-person-monthnav__label"></span>
+                  <button type="button" class="spend-by-person-monthnav__btn"
+                    aria-label="Next month"
+                    onclick="shiftSpendByPersonMonth(1)">›</button>
+                </span>
               </div>
               <div id="dash-spend-by-person" class="dash-spend-by-person">
                 <div class="empty-state">
@@ -28326,12 +28330,26 @@
       // ============================================================
       // Dashboard
       // ============================================================
+      function _currentSpendByPersonYM() {
+        if (!window.__spendByPersonYM) {
+          const now = new Date();
+          window.__spendByPersonYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        }
+        return window.__spendByPersonYM;
+      }
+
+      function shiftSpendByPersonMonth(delta) {
+        const [y, m] = _currentSpendByPersonYM().split("-").map(Number);
+        const d = new Date(y, m - 1 + delta, 1);
+        window.__spendByPersonYM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        loadDashboardSpendByPerson();
+      }
+
       async function loadDashboardSpendByPerson() {
         const body = document.getElementById("dash-spend-by-person");
         const monthEl = document.getElementById("dash-spend-by-person-month");
         if (!body) return;
-        const now = new Date();
-        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const ym = _currentSpendByPersonYM();
         try {
           const res = await api(
             `/analytics/spend-by-person?month=${encodeURIComponent(ym)}`,
@@ -28343,10 +28361,15 @@
           }
           const data = await res.json();
           if (monthEl) {
-            const label = new Date(ym + "-01").toLocaleDateString(undefined, {
-              month: "short",
-            });
-            monthEl.textContent = label;
+            // Build date via local constructor, not string parser, so a
+            // UTC-negative timezone doesn't roll the 1st back to prev month.
+            const [yy, mm] = ym.split("-").map(Number);
+            const d = new Date(yy, mm - 1, 1);
+            const now = new Date();
+            const sameMonth =
+              d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+            const short = d.toLocaleDateString(undefined, { month: "short" });
+            monthEl.textContent = sameMonth ? short : `${short} ${d.getFullYear()}`;
           }
           const rows = [];
           (data.per_person || []).forEach((p) =>

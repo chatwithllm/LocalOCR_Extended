@@ -2231,6 +2231,43 @@ body.trusted-device-kitchen-display *:focus-visible {
   white-space: nowrap;
 }
 
+/* ---------- Spend-by-person month navigator ---------------- */
+.spend-by-person-monthnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  background: transparent;
+}
+.spend-by-person-monthnav__btn {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--color-text-secondary, var(--muted, #888));
+  border-radius: 9999px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.spend-by-person-monthnav__btn:hover {
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.1));
+  color: var(--color-text-primary, inherit);
+}
+.spend-by-person-monthnav__label {
+  min-width: 44px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-primary, inherit);
+  padding: 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Attribution multi-select picker ----------------- */
 .attr-picker-wrap {
   position: relative;
