@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421d" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421m" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13113,7 +13113,7 @@
             </div>
             <div class="card" id="dash-spend-by-person-card">
               <div class="card-header">
-                <span class="card-title">👥 Spend by Person</span>
+                <span class="card-title" onclick="toggleDashboardSection('spend-by-person')" style="cursor:pointer" title="Click to collapse / expand">💰 Spend by Person</span>
                 <span class="spend-by-person-monthnav" id="dash-spend-by-person-monthnav">
                   <button type="button" class="spend-by-person-monthnav__btn"
                     aria-label="Previous month"
@@ -21422,10 +21422,12 @@
         const bodyMap = {
           "low-stock": "dash-low-stock",
           recommendations: "dash-recs",
+          "spend-by-person": "dash-spend-by-person",
         };
         const cardMap = {
           "low-stock": "dash-low-stock-card",
           recommendations: "dash-recs-card",
+          "spend-by-person": "dash-spend-by-person-card",
         };
         const body = document.getElementById(bodyMap[sectionKey]);
         const card = document.getElementById(cardMap[sectionKey]);
@@ -28392,8 +28394,13 @@
           if (!rows.length) {
             body.innerHTML =
               '<div class="empty-state"><p>No spend this month — or nothing tagged yet.</p></div>';
+            // Keep body.dataset.empty unset — the empty-state message is
+            // what users need to see, unlike Low Stock which hides its
+            // celebratory state. Still apply collapsed preference.
+            updateDashboardSectionVisibility("spend-by-person");
             return;
           }
+          updateDashboardSectionVisibility("spend-by-person");
           const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
           body.innerHTML = rows
             .map((r) => {
@@ -40654,8 +40661,175 @@
 
         function commitNavigation(pageId) {
           const navEl = getNavItemEl(pageId);
+          const dirAtCommit = direction; // captured before reset
+          const label = getPageNavLabel(pageId);
+          let icon = "";
+          if (navEl) {
+            const iconEl = navEl.querySelector(".nav-icon");
+            if (iconEl) icon = iconEl.textContent.trim();
+          }
           cooldownUntil = Date.now() + COMMIT_COOLDOWN_MS;
-          window.nav && window.nav(pageId, navEl);
+          // Iris transition: open the veil over the current page first,
+          // swap pages while covered, then close the veil to reveal the
+          // new page. Porthole-style cue that something happened.
+          playIrisTransition(dirAtCommit, icon, label, () => {
+            window.nav && window.nav(pageId, navEl);
+          });
+        }
+
+        function playIrisTransition(dir, icon, label, swapFn) {
+          const x = "50%";
+          const y = dir > 0 ? "100%" : dir < 0 ? "0%" : "50%";
+          const clip0 = "circle(0% at " + x + " " + y + ")";
+          const clipFull = "circle(160% at " + x + " " + y + ")";
+          const OPEN_MS = 320;
+          const HOLD_MS = 650; // long enough to read the matrix rain
+          const CLOSE_MS = 360;
+          const reduced =
+            window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+          const veil = document.createElement("div");
+          veil.className = "iris-veil";
+          veil.style.zIndex = "100000";
+          // Start invisible (empty circle).
+          veil.style.clipPath = clip0;
+          veil.style.webkitClipPath = clip0;
+
+          // Matrix rain canvas behind the badge.
+          const canvas = document.createElement("canvas");
+          canvas.className = "iris-matrix-canvas";
+          veil.appendChild(canvas);
+
+          const badge = document.createElement("div");
+          badge.className = "iris-veil__badge";
+          badge.innerHTML =
+            (icon ? '<span>' + icon + "</span>" : "") +
+            "<span>" + (label || "").replace(/</g, "&lt;") + "</span>";
+          veil.appendChild(badge);
+          document.body.appendChild(veil);
+
+          // Start matrix rain as soon as the veil mounts.
+          const stopMatrix = startMatrixRain(canvas);
+
+          // Force layout so the first transition starts from clip0.
+          void veil.offsetHeight;
+
+          if (reduced) {
+            // No motion — just cover, swap, uncover via opacity.
+            veil.style.clipPath = "none";
+            veil.style.webkitClipPath = "none";
+            veil.style.opacity = "0.95";
+            veil.style.transition = "opacity 180ms linear";
+            setTimeout(() => {
+              try { swapFn && swapFn(); } catch (e) { console.error(e); }
+              setTimeout(() => {
+                veil.style.opacity = "0";
+                setTimeout(() => veil.remove(), 220);
+              }, HOLD_MS);
+            }, 180);
+            return;
+          }
+
+          // Phase 1: open. CSS transition on clip-path — deterministic
+          // and well-supported since values are fully-resolved strings.
+          veil.style.transition =
+            "clip-path " + OPEN_MS + "ms cubic-bezier(0.22, 1, 0.36, 1), " +
+            "-webkit-clip-path " + OPEN_MS + "ms cubic-bezier(0.22, 1, 0.36, 1)";
+          requestAnimationFrame(() => {
+            veil.style.clipPath = clipFull;
+            veil.style.webkitClipPath = clipFull;
+          });
+
+          // Phase 2: fully covered → swap pages + reveal the badge.
+          setTimeout(() => {
+            veil.classList.add("is-held");
+            try { swapFn && swapFn(); } catch (e) { console.error(e); }
+          }, OPEN_MS);
+
+          // Phase 3: close — contract circle, revealing new page.
+          setTimeout(() => {
+            veil.classList.remove("is-held");
+            veil.style.transition =
+              "clip-path " + CLOSE_MS + "ms cubic-bezier(0.22, 1, 0.36, 1), " +
+              "-webkit-clip-path " + CLOSE_MS + "ms cubic-bezier(0.22, 1, 0.36, 1)";
+            veil.style.clipPath = clip0;
+            veil.style.webkitClipPath = clip0;
+          }, OPEN_MS + HOLD_MS);
+
+          // Phase 4: cleanup.
+          setTimeout(() => {
+            stopMatrix && stopMatrix();
+            veil.remove();
+          }, OPEN_MS + HOLD_MS + CLOSE_MS + 50);
+        }
+
+        function startMatrixRain(canvas) {
+          const ctx = canvas.getContext("2d");
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          let rafId = null;
+          let stopped = false;
+          const chars =
+            "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$%&@#";
+          const fontSize = 16;
+          let cols = 0;
+          let drops = [];
+
+          function resize() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            canvas.width = Math.floor(w * dpr);
+            canvas.height = Math.floor(h * dpr);
+            canvas.style.width = w + "px";
+            canvas.style.height = h + "px";
+            ctx.scale(dpr, dpr);
+            cols = Math.max(1, Math.floor(w / fontSize));
+            // Seed each column at a random vertical offset so rain
+            // doesn't appear as a perfect row on frame 1.
+            drops = new Array(cols)
+              .fill(0)
+              .map(() => Math.floor(Math.random() * (h / fontSize)));
+          }
+          resize();
+
+          ctx.font = fontSize + "px 'Courier New', monospace";
+
+          function draw() {
+            if (stopped) return;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            // Fade previous frame to create trail effect.
+            ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = "#0fdc6a";
+            ctx.font = fontSize + "px 'Courier New', monospace";
+            for (let i = 0; i < drops.length; i++) {
+              const ch = chars.charAt(
+                Math.floor(Math.random() * chars.length),
+              );
+              const yPos = drops[i] * fontSize;
+              // Bright leading glyph, dimmer trail behind.
+              ctx.fillStyle = "#b6ffd0";
+              ctx.fillText(ch, i * fontSize, yPos);
+              ctx.fillStyle = "#0fdc6a";
+              if (yPos > 0) {
+                ctx.fillText(
+                  chars.charAt(Math.floor(Math.random() * chars.length)),
+                  i * fontSize,
+                  yPos - fontSize,
+                );
+              }
+              if (yPos > h && Math.random() > 0.97) drops[i] = 0;
+              drops[i]++;
+            }
+            rafId = requestAnimationFrame(draw);
+          }
+          draw();
+
+          return () => {
+            stopped = true;
+            if (rafId) cancelAnimationFrame(rafId);
+          };
         }
 
         function resetOverscrollNav() {
