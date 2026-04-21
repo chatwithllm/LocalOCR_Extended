@@ -972,29 +972,34 @@
 
       /* ---- Header ---- */
       .page-header {
-        margin-bottom: 28px;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
       }
 
-      .page-header::before {
-        content: attr(data-brand);
-        display: block;
-        color: var(--muted);
-        font-size: 0.74rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 6px;
+      /* "EXTENDED" brand caption removed — it was redundant app branding
+         repeated on every page and ate vertical space. */
+      .page-header::before { display: none; }
+
+      .page-header > div {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
       }
 
       .page-header h1 {
-        font-size: 1.6rem;
+        font-size: 1.25rem;
         font-weight: 700;
+        margin: 0;
       }
 
       .page-header p {
         color: var(--muted);
-        font-size: 0.9rem;
-        margin-top: 4px;
+        font-size: 0.85rem;
+        margin: 0;
       }
 
       .inventory-page-controls {
@@ -12289,7 +12294,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421m" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421q" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -14914,7 +14919,7 @@
           <!-- Panel 1 — Connected Accounts -->
           <div class="card" id="accounts-connections-card">
             <div class="card-header accounts-card-header">
-              <span class="card-title">🏦 Connected Accounts</span>
+              <span class="card-title" onclick="toggleAccountsSection('accounts-connections-card')" style="cursor:pointer;user-select:none" title="Click to collapse / expand">🏦 Connected Accounts</span>
               <div class="accounts-toolbar">
                 <button
                   class="btn btn-primary btn-sm"
@@ -14953,10 +14958,18 @@
             </div>
           </div>
 
+          <!-- Activity-by-account summary: its own collapsible tile. -->
+          <div class="card" id="accounts-breakdown-card" style="display:none">
+            <div class="card-header accounts-card-header">
+              <span class="card-title" onclick="toggleAccountsSection('accounts-breakdown-card')" style="cursor:pointer;user-select:none" title="💳 purchases · ⚡ autopay · 💰 interest · ↩ refunds — click to collapse / expand">📊 Activity by Account</span>
+            </div>
+            <div id="accounts-breakdown-body" style="margin-top:12px"></div>
+          </div>
+
           <!-- Panel 2 — Transactions -->
           <div class="card" id="accounts-transactions-card">
             <div class="card-header accounts-card-header">
-              <span class="card-title">🧾 Transactions</span>
+              <span class="card-title" onclick="toggleAccountsSection('accounts-transactions-card')" style="cursor:pointer;user-select:none" title="Click to collapse / expand">🧾 Transactions</span>
               <div class="accounts-toolbar">
                 <div
                   class="bills-tab-bar"
@@ -14987,7 +15000,7 @@
                 <select
                   id="accounts-tx-account-filter"
                   class="restaurant-period-select"
-                  onchange="loadPlaidTransactionsList()"
+                  onchange="resetAccountsTxOffsetAndReload()"
                   aria-label="Filter by account"
                 >
                   <option value="">All accounts</option>
@@ -14996,7 +15009,7 @@
                   type="month"
                   id="accounts-tx-month"
                   class="btn btn-ghost btn-sm"
-                  onchange="loadPlaidTransactionsList()"
+                  onchange="resetAccountsTxOffsetAndReload()"
                   aria-label="Filter by month"
                 />
                 <button
@@ -15043,7 +15056,7 @@
           <!-- Panel 3 — Spending Trends -->
           <div class="card" id="accounts-trends-card">
             <div class="card-header accounts-card-header">
-              <span class="card-title">📊 Spending Trends</span>
+              <span class="card-title" onclick="toggleAccountsSection('accounts-trends-card')" style="cursor:pointer;user-select:none" title="Click to collapse / expand">📊 Spending Trends</span>
               <div class="accounts-toolbar">
                 <select
                   id="accounts-trends-window"
@@ -25564,6 +25577,7 @@
         await Promise.all([
           loadPlaidTransactionsList(),
           loadAccountsReviewQueue(),
+          loadAccountsBreakdown(),
         ]);
       }
 
@@ -25660,6 +25674,49 @@
         return formatPlaidSyncTime(iso);
       }
 
+      // ---- Accounts page: collapsible cards --------------------------
+      // Default-collapsed so the page loads compact; user expands what
+      // they care about. State persists in localStorage across reloads.
+      const ACCOUNTS_COLLAPSED_KEY = "accounts_sections_collapsed_v1";
+      const ACCOUNTS_SECTION_DEFAULTS = {
+        "accounts-connections-card": true,
+        "accounts-breakdown-card": true,
+        "accounts-transactions-card": true,
+        "accounts-trends-card": true,
+      };
+      function _readAccountsCollapsedState() {
+        try {
+          return JSON.parse(localStorage.getItem(ACCOUNTS_COLLAPSED_KEY)) || {};
+        } catch (_e) {
+          return {};
+        }
+      }
+      function _writeAccountsCollapsedState(state) {
+        try {
+          localStorage.setItem(ACCOUNTS_COLLAPSED_KEY, JSON.stringify(state));
+        } catch (_e) {}
+      }
+      function toggleAccountsSection(cardId) {
+        const card = document.getElementById(cardId);
+        if (!card) return;
+        card.classList.toggle("accounts-collapsed");
+        const state = _readAccountsCollapsedState();
+        state[cardId] = card.classList.contains("accounts-collapsed");
+        _writeAccountsCollapsedState(state);
+      }
+      function applyAccountsCollapsedState() {
+        const saved = _readAccountsCollapsedState();
+        Object.keys(ACCOUNTS_SECTION_DEFAULTS).forEach((cardId) => {
+          const card = document.getElementById(cardId);
+          if (!card) return;
+          const collapsed =
+            saved[cardId] !== undefined
+              ? Boolean(saved[cardId])
+              : ACCOUNTS_SECTION_DEFAULTS[cardId];
+          card.classList.toggle("accounts-collapsed", collapsed);
+        });
+      }
+
       async function loadAccountsPage() {
         if (!currentUser) {
           const body = document.getElementById("accounts-connections-body");
@@ -25667,6 +25724,9 @@
             '<div class="empty-state"><p>Sign in to view your connected accounts.</p></div>';
           return;
         }
+        // Apply persisted collapse state before loaders fire so the page
+        // renders compact without a flash of expanded content.
+        applyAccountsCollapsedState();
         // Populate the month filter with the current month by default.
         const monthEl = document.getElementById("accounts-tx-month");
         if (monthEl && !monthEl.value) {
@@ -25682,6 +25742,7 @@
           loadPlaidTransactionsList(),
           loadPlaidSpendingTrends(),
           loadAccountsReviewQueue(),
+          loadAccountsBreakdown(),
         ]);
       }
 
@@ -25699,7 +25760,11 @@
           return;
         }
         try {
-          const res = await api(`/plaid/staged-transactions?status=ready_to_import`);
+          const accountId =
+            document.getElementById("accounts-tx-account-filter")?.value || "";
+          const params = new URLSearchParams({ status: "ready_to_import" });
+          if (accountId) params.set("account_id", accountId);
+          const res = await api(`/plaid/staged-transactions?${params.toString()}`);
           if (!res.ok) {
             wrap.style.display = "none";
             return;
@@ -25761,7 +25826,7 @@
       // without a manual reload).
       async function confirmPlaidStagedFromAccounts(stagedId) {
         await confirmPlaidStaged(stagedId);
-        await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+        await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadAccountsBreakdown(), loadPlaidSpendingTrends()]);
       }
       async function dismissPlaidStagedFromAccounts(stagedId) {
         await dismissPlaidStaged(stagedId);
@@ -25855,7 +25920,7 @@
           }
           toast("Linked to existing receipt ✅", "success");
           closeLinkReceiptPicker();
-          await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+          await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadAccountsBreakdown(), loadPlaidSpendingTrends()]);
         } catch (err) {
           console.error("doLinkReceipt failed", err);
           toast("Link failed", "error");
@@ -25904,7 +25969,7 @@
             } else {
               toast(payload.message || "Receipt saved — review it and link manually", "info");
             }
-            await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadPlaidSpendingTrends()]);
+            await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadAccountsBreakdown(), loadPlaidSpendingTrends()]);
           } catch (err) {
             console.error("triggerAttachReceipt upload failed", err);
             toast("Upload failed", "error");
@@ -26197,6 +26262,7 @@
         const params = new URLSearchParams();
         params.set("limit", String(ACCOUNTS_TX_LIMIT));
         params.set("offset", String(accountsTxOffset));
+        params.set("kind", accountsTxTab === "transfers" ? "transfers" : "spending");
         if (accountId) params.set("account_id", accountId);
         if (monthVal) {
           // YYYY-MM → first/last day of month.
@@ -26216,17 +26282,14 @@
             return;
           }
           const payload = await res.json();
-          const all = payload.transactions || [];
-          const filtered = all.filter((t) => {
-            const cat = String(t.plaid_category_primary || "").toUpperCase();
-            const isTransfer = TRANSFER_CATEGORIES.has(cat);
-            return accountsTxTab === "transfers" ? isTransfer : !isTransfer;
-          });
+          // Tab + account + month filtering all happen server-side now,
+          // so payload.transactions is already the final list.
+          const filtered = payload.transactions || [];
           if (summary) {
             const totalLabel = payload.total === 1 ? "1 transaction" : `${payload.total} transactions`;
             summary.textContent = filtered.length
-              ? `Showing ${filtered.length} of ${totalLabel} (server total across all categories).`
-              : `${totalLabel} total — none match the current tab.`;
+              ? `Showing ${filtered.length} of ${totalLabel} for this tab.`
+              : `${totalLabel} in this tab — nothing matches the current filter.`;
           }
           if (!filtered.length) {
             body.innerHTML = `<div class="empty-state"><p>No ${accountsTxTab === "transfers" ? "transfers or bill payments" : "spending transactions"} found for this filter.</p></div>`;
@@ -26259,6 +26322,91 @@
         if (next < 0) return;
         accountsTxOffset = next;
         loadPlaidTransactionsList();
+      }
+
+      function resetAccountsTxOffsetAndReload() {
+        accountsTxOffset = 0;
+        // Both the confirmed-transaction list AND the pending-review
+        // queue above it should honor the account-filter dropdown so
+        // the two views stay in sync.
+        loadPlaidTransactionsList();
+        loadAccountsReviewQueue();
+        loadAccountsBreakdown();
+      }
+
+      async function loadAccountsBreakdown() {
+        const wrap = document.getElementById("accounts-breakdown-card");
+        const body = document.getElementById("accounts-breakdown-body");
+        if (!wrap || !body || !currentUser) return;
+        const monthVal =
+          document.getElementById("accounts-tx-month")?.value || "";
+        const params = new URLSearchParams();
+        if (monthVal) {
+          const [y, m] = monthVal.split("-").map(Number);
+          if (y && m) {
+            const last = new Date(y, m, 0).getDate();
+            params.set("start", `${monthVal}-01`);
+            params.set("end", `${monthVal}-${String(last).padStart(2, "0")}`);
+          }
+        }
+        try {
+          const res = await api(
+            `/plaid/transaction-breakdown${params.toString() ? "?" + params.toString() : ""}`,
+          );
+          if (!res.ok) {
+            wrap.style.display = "none";
+            return;
+          }
+          const payload = await res.json();
+          const accounts = payload.accounts || [];
+          if (!accounts.length) {
+            wrap.style.display = "none";
+            return;
+          }
+          wrap.style.display = "";
+          const activeId =
+            document.getElementById("accounts-tx-account-filter")?.value || "";
+          const dimIfZero = (n) =>
+            `<span class="accounts-breakdown-row__cell ${n === 0 ? "accounts-breakdown-row__cell--zero" : ""}">${n}</span>`;
+          body.innerHTML = accounts
+            .map((a) => {
+              const isActive = activeId && activeId === a.plaid_account_id;
+              // Prefer bank nickname over the raw account name; mask is
+              // appended either way so you can still distinguish
+              // accounts within the same nicknamed bank.
+              const primary = (a.nickname && a.nickname.trim())
+                ? a.nickname.trim()
+                : (a.name || "Account");
+              const maskStr = a.mask ? ` ····${escHtml(a.mask)}` : "";
+              return `
+                <div class="accounts-breakdown-row ${isActive ? "is-active" : ""}"
+                  data-account-id="${escAttr(a.plaid_account_id)}"
+                  onclick="pickAccountsBreakdownRow('${escAttr(a.plaid_account_id)}')"
+                  title="Click to filter transactions to this account">
+                  <div class="accounts-breakdown-row__name">${escHtml(primary)}${maskStr}</div>
+                  <div class="accounts-breakdown-row__counts">
+                    <span class="accounts-breakdown-row__cell ${a.counts.purchase === 0 ? "accounts-breakdown-row__cell--zero" : ""}" title="Purchases">💳 ${a.counts.purchase}</span>
+                    <span class="accounts-breakdown-row__cell ${a.counts.autopay === 0 ? "accounts-breakdown-row__cell--zero" : ""}" title="Autopay / transfers">⚡ ${a.counts.autopay}</span>
+                    <span class="accounts-breakdown-row__cell ${a.counts.interest === 0 ? "accounts-breakdown-row__cell--zero" : ""}" title="Interest / fees">💰 ${a.counts.interest}</span>
+                    <span class="accounts-breakdown-row__cell ${a.counts.refund === 0 ? "accounts-breakdown-row__cell--zero" : ""}" title="Refunds">↩ ${a.counts.refund}</span>
+                    <span class="accounts-breakdown-row__total" title="Total">= ${a.total}</span>
+                  </div>
+                </div>`;
+            })
+            .join("");
+        } catch (err) {
+          console.error("loadAccountsBreakdown failed", err);
+          wrap.style.display = "none";
+        }
+      }
+
+      function pickAccountsBreakdownRow(plaidAccountId) {
+        const filterEl = document.getElementById("accounts-tx-account-filter");
+        if (!filterEl) return;
+        // Toggle: if already filtered to this account, clear it instead.
+        const next = filterEl.value === plaidAccountId ? "" : plaidAccountId;
+        filterEl.value = next;
+        resetAccountsTxOffsetAndReload();
       }
 
       function renderAccountsTransactionRows(rows) {

@@ -17,6 +17,7 @@ import logging
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
+from sqlalchemy import or_
 
 from plaid.exceptions import ApiException
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
@@ -698,6 +699,9 @@ def list_staged_transactions():
     status_filter = (request.args.get("status") or "").strip().lower()
     if status_filter in {"ready_to_import", "duplicate_flagged", "skipped_pending", "confirmed", "dismissed"}:
         query = query.filter_by(status=status_filter)
+    account_id = (request.args.get("account_id") or "").strip() or None
+    if account_id:
+        query = query.filter(PlaidStagedTransaction.plaid_account_id == account_id)
     rows = query.limit(500).all()
 
     items_by_id = {
@@ -1562,6 +1566,119 @@ def refresh_balances():
     }), 200
 
 
+@plaid_bp.route("/transaction-breakdown", methods=["GET"])
+@require_auth
+def transaction_breakdown():
+    """Per-account transaction counts grouped by category class.
+
+    Source: plaid_staged_transactions (every Plaid-imported row, covers
+    both confirmed and pending-review states so the breakdown matches
+    what users actually see in the Accounts page).
+
+    Query params:
+      start, end  — ISO dates (inclusive) bounding transaction_date.
+                    Omit for "all time".
+
+    Response:
+      {
+        "accounts": [
+          {
+            "plaid_account_id": "...",
+            "name": "BOA Balance Rewards",
+            "mask": "4605",
+            "counts": {"purchase": 42, "autopay": 8, "interest": 3, "refund": 1},
+            "total": 54
+          }, ...
+        ]
+      }
+    """
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    start_raw = (request.args.get("start") or "").strip() or None
+    end_raw = (request.args.get("end") or "").strip() or None
+
+    session = g.db_session
+    q = session.query(PlaidStagedTransaction).filter(
+        PlaidStagedTransaction.user_id == user_id,
+    )
+    if start_raw:
+        q = q.filter(PlaidStagedTransaction.transaction_date >= start_raw)
+    if end_raw:
+        q = q.filter(PlaidStagedTransaction.transaction_date <= end_raw)
+
+    AUTOPAY_CATS = {"LOAN_PAYMENTS", "TRANSFER_OUT", "RENT_AND_UTILITIES"}
+    INTEREST_CATS = {"BANK_FEES"}
+
+    acct_rows = (
+        session.query(PlaidAccount)
+        .filter_by(user_id=user_id)
+        .all()
+    )
+    # Build a (nickname, name, mask) per plaid_account_id. Nickname is
+    # stored on the PlaidItem (bank level) so multiple accounts under
+    # the same bank share a nickname. Frontend prefers nickname over
+    # account name when rendering.
+    item_nicknames = {
+        it.id: it.nickname
+        for it in session.query(PlaidItem).filter_by(user_id=user_id).all()
+    }
+    def _clean_name(name: str, mask: str) -> str:
+        """Strip the trailing mask if Plaid's account_name already ends
+        with those digits (e.g. "BOA Beginning Balance 4517" — we'd
+        append ····4517 and show the mask twice)."""
+        n = (name or "Account").strip()
+        m = (mask or "").strip()
+        if m and n.endswith(m):
+            # Drop the trailing mask + any preceding whitespace/dash/dot.
+            return n[: -len(m)].rstrip(" -·.").strip() or "Account"
+        return n
+
+    acct_meta = {
+        a.plaid_account_id: (
+            item_nicknames.get(a.plaid_item_id),
+            _clean_name(a.account_name, a.account_mask),
+            a.account_mask or "",
+        )
+        for a in acct_rows
+    }
+    by_account: dict[str, dict[str, int]] = {}
+    for tx in q.all():
+        if not tx.plaid_account_id:
+            continue
+        cat = (tx.plaid_category_primary or "").upper()
+        if (tx.amount or 0) < 0:
+            bucket = "refund"
+        elif cat in AUTOPAY_CATS:
+            bucket = "autopay"
+        elif cat in INTEREST_CATS:
+            bucket = "interest"
+        else:
+            bucket = "purchase"
+        slot = by_account.setdefault(
+            tx.plaid_account_id,
+            {"purchase": 0, "autopay": 0, "interest": 0, "refund": 0},
+        )
+        slot[bucket] += 1
+
+    accounts = []
+    for plaid_account_id, counts in by_account.items():
+        nickname, name, mask = acct_meta.get(
+            plaid_account_id, (None, "Account", "")
+        )
+        total = sum(counts.values())
+        accounts.append({
+            "plaid_account_id": plaid_account_id,
+            "nickname": nickname,
+            "name": name,
+            "mask": mask,
+            "counts": counts,
+            "total": total,
+        })
+    accounts.sort(key=lambda a: a["total"], reverse=True)
+    return jsonify({"accounts": accounts}), 200
+
+
 @plaid_bp.route("/transactions", methods=["GET"])
 @require_auth
 def list_plaid_transactions():
@@ -1590,6 +1707,7 @@ def list_plaid_transactions():
     end_raw = (request.args.get("end") or "").strip() or None
     category = (request.args.get("category") or "").strip() or None
     merchant = (request.args.get("merchant") or "").strip() or None
+    kind = (request.args.get("kind") or "").strip().lower() or None
     try:
         limit = int(request.args.get("limit") or 100)
     except (TypeError, ValueError):
@@ -1621,6 +1739,23 @@ def list_plaid_transactions():
         q = q.filter(PlaidStagedTransaction.plaid_account_id == account_id)
     if merchant:
         q = q.filter(PlaidStagedTransaction.merchant_name.ilike(f"%{merchant}%"))
+    # Tab split: spending vs transfers & bills. Applied server-side so
+    # the count / pagination reflect the visible bucket honestly (the
+    # client-side-only filter was confusing when a full page fell into
+    # the other bucket).
+    TRANSFER_CATS = {
+        "LOAN_PAYMENTS", "TRANSFER_IN", "TRANSFER_OUT",
+        "BANK_FEES", "RENT_AND_UTILITIES", "GOVERNMENT_AND_NON_PROFIT",
+    }
+    if kind == "transfers":
+        q = q.filter(PlaidStagedTransaction.plaid_category_primary.in_(TRANSFER_CATS))
+    elif kind == "spending":
+        q = q.filter(
+            or_(
+                PlaidStagedTransaction.plaid_category_primary.is_(None),
+                ~PlaidStagedTransaction.plaid_category_primary.in_(TRANSFER_CATS),
+            )
+        )
 
     total = q.count()
     rows = (
