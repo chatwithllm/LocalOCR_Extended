@@ -26173,6 +26173,7 @@
                   <div class="accounts-item-actions" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
                     ${reauthOrSync}
                     <button type="button" class="btn btn-ghost btn-sm" onclick="renamePlaidItem(${item.id}, '${escAttr(item.nickname || item.institution_name || "")}')">Rename</button>
+                    ${currentUser?.role === "admin" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="sharePlaidItem(${item.id})">Share…${(item.shared_with_user_ids && item.shared_with_user_ids.length) ? ` (${item.shared_with_user_ids.length})` : ""}</button>` : ""}
                     <button type="button" class="btn btn-ghost btn-sm" onclick="disconnectPlaidItem(${item.id}, '${escAttr(item.institution_name || "this institution")}')">Disconnect</button>
                   </div>
                 </div>
@@ -26203,6 +26204,103 @@
         } finally {
           if (btn) btn.disabled = false;
           await loadConnectedAccounts();
+        }
+      }
+
+      async function sharePlaidItem(itemId) {
+        if (!currentUser || currentUser.role !== "admin") return;
+        const item = (accountsConnectedCache.items || []).find(
+          (i) => i.id === itemId,
+        );
+        if (!item) {
+          toast("Bank not found", "error");
+          return;
+        }
+        // Pull household roster (reuses the cache from the attribution
+        // picker). Exclude the bank's owner — they always see it.
+        const members = await loadHouseholdMembers();
+        const ownerId = Number(item.owner_user_id);
+        const candidates = (members || []).filter(
+          (m) => Number(m.id) !== ownerId,
+        );
+        const current = new Set(
+          (item.shared_with_user_ids || []).map(Number),
+        );
+
+        const overlay = document.getElementById("confirm-overlay");
+        const titleEl = document.getElementById("confirm-title");
+        const bodyEl = document.getElementById("confirm-body");
+        const okBtn = document.getElementById("confirm-ok");
+        const cancelBtn = document.getElementById("confirm-cancel");
+        if (!overlay || !bodyEl || !okBtn || !cancelBtn) return;
+
+        const bankLabel = item.nickname || item.institution_name || "Bank";
+        titleEl.textContent = `Share ${bankLabel}`;
+        const rows = candidates.length
+          ? candidates.map((m) => {
+              const checked = current.has(Number(m.id));
+              return `<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">
+                <input type="checkbox" data-user-id="${m.id}" ${checked ? "checked" : ""} style="accent-color:#097fe8" />
+                <span>👤 ${escHtml(m.name)}${m.is_self ? " (me)" : ""}</span>
+              </label>`;
+            }).join("")
+          : '<div style="color:var(--muted);font-size:0.85rem">No other household members to share with yet.</div>';
+        bodyEl.innerHTML = `
+          <div style="text-align:left">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+              The linker always sees this bank. Pick additional members who should also see its accounts, transactions, and breakdown.
+            </div>
+            <div>${rows}</div>
+          </div>`;
+        okBtn.textContent = "Save";
+        okBtn.className = "btn btn-primary";
+        cancelBtn.textContent = "Cancel";
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const result = await new Promise((resolve) => {
+          const finish = (out) => {
+            overlay.classList.remove("show");
+            overlay.setAttribute("aria-hidden", "true");
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            overlay.onclick = null;
+            document.onkeydown = null;
+            bodyEl.textContent = "Are you sure?";
+            okBtn.textContent = "Confirm";
+            resolve(out);
+          };
+          okBtn.onclick = () => {
+            const picked = Array.from(
+              bodyEl.querySelectorAll('input[type="checkbox"]:checked'),
+            ).map((c) => Number(c.getAttribute("data-user-id")));
+            finish(picked);
+          };
+          cancelBtn.onclick = () => finish(null);
+          overlay.onclick = (ev) => {
+            if (ev.target === overlay) finish(null);
+          };
+          document.onkeydown = (ev) => {
+            if (ev.key === "Escape") finish(null);
+          };
+        });
+
+        if (result === null) return;
+        try {
+          const res = await api(`/plaid/items/${itemId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ shared_with_user_ids: result }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not update sharing", "error");
+            return;
+          }
+          toast("Sharing updated ✅", "success");
+          await loadConnectedAccounts();
+        } catch (err) {
+          console.error("sharePlaidItem failed", err);
+          toast("Could not update sharing", "error");
         }
       }
 
