@@ -196,6 +196,7 @@ class Purchase(Base):
     default_budget_category = Column(String(40), nullable=False, default="grocery")
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     attribution_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attribution_user_ids = Column(Text, nullable=True)
     attribution_kind = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
@@ -359,6 +360,7 @@ class ReceiptItem(Base):
     budget_category = Column(String(40), nullable=True)
     extracted_by = Column(String(20), nullable=True)  # "gemini" or "ollama"
     attribution_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    attribution_user_ids = Column(Text, nullable=True)
     attribution_kind = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 

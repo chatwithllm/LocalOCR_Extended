@@ -995,12 +995,14 @@ def get_spend_by_person():
     """Attribution-aware spend summary for a month.
 
     Returns per-person spend totals based on the receipt/line-item
-    attribution fields (phase 1 of the attribution feature):
+    attribution fields:
 
       - Line items with explicit per-item attribution roll up against
-        that attribution (kind + user).
+        that attribution (kind + user_ids).
       - Line items without per-item attribution fall back to the
         receipt-level attribution.
+      - For shared items (2+ user_ids), the line total is split evenly
+        across participants — each gets their pro-rata share.
       - Items still without any attribution roll into an "unset"
         bucket so the user can see how much hasn't been tagged yet.
 
@@ -1015,7 +1017,20 @@ def get_spend_by_person():
         "grand_total": 0.00
       }
     """
+    import json as _json
     from src.backend.initialize_database_schema import User
+
+    def _ids(obj) -> list[int]:
+        raw = getattr(obj, "attribution_user_ids", None)
+        if raw:
+            try:
+                parsed = _json.loads(raw)
+                if isinstance(parsed, list):
+                    return [int(x) for x in parsed if x is not None]
+            except (TypeError, ValueError):
+                pass
+        legacy = getattr(obj, "attribution_user_id", None)
+        return [int(legacy)] if legacy else []
 
     session = g.db_session
     month = (request.args.get("month") or "").strip()
@@ -1048,13 +1063,24 @@ def get_spend_by_person():
             line_total = -line_total
 
         # Per-item attribution wins; fall back to receipt-level.
-        kind = item.attribution_kind or purchase.attribution_kind
-        user_id = item.attribution_user_id or purchase.attribution_user_id
+        item_ids = _ids(item)
+        item_kind = item.attribution_kind
+        purchase_ids = _ids(purchase)
+        purchase_kind = purchase.attribution_kind
 
-        if kind == "personal" and user_id:
-            per_user_totals[user_id] = per_user_totals.get(user_id, 0.0) + line_total
-        elif kind == "household":
+        if item_kind or item_ids:
+            kind = item_kind or ("shared" if len(item_ids) >= 2 else "personal" if item_ids else None)
+            ids = item_ids
+        else:
+            kind = purchase_kind or ("shared" if len(purchase_ids) >= 2 else "personal" if purchase_ids else None)
+            ids = purchase_ids
+
+        if kind == "household":
             household_total += line_total
+        elif kind in ("personal", "shared") and ids:
+            share = line_total / len(ids)
+            for uid in ids:
+                per_user_totals[uid] = per_user_totals.get(uid, 0.0) + share
         else:
             unset_total += line_total
 
