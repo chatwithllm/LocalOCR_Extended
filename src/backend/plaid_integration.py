@@ -84,6 +84,20 @@ def _plaid_error_response(exc: ApiException):
     }), 502
 
 
+def _iso_utc(dt) -> str | None:
+    """Serialize a naive-UTC datetime as an ISO string the browser can
+    parse as UTC. Without the 'Z' suffix, `new Date(iso)` in the browser
+    interprets the string as local time, shifting displayed timestamps
+    by the user's offset.
+    """
+    if dt is None:
+        return None
+    iso = dt.isoformat()
+    if iso.endswith("Z") or "+" in iso[10:] or (len(iso) > 19 and iso[-6:-3].startswith("-") and iso[-3] == ":"):
+        return iso
+    return iso + "Z"
+
+
 def _serialize_item(item: PlaidItem) -> dict:
     accounts = []
     if item.accounts_json:
@@ -95,13 +109,14 @@ def _serialize_item(item: PlaidItem) -> dict:
         "id": item.id,
         "institution_id": item.institution_id,
         "institution_name": item.institution_name,
+        "nickname": item.nickname,
         "accounts": accounts,
         "products": (item.products or "").split(",") if item.products else [],
         "status": item.status,
-        "last_sync_at": item.last_sync_at.isoformat() if item.last_sync_at else None,
+        "last_sync_at": _iso_utc(item.last_sync_at),
         "last_sync_status": item.last_sync_status,
         "last_sync_error": item.last_sync_error,
-        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "created_at": _iso_utc(item.created_at),
     }
 
 
@@ -177,9 +192,7 @@ def _serialize_plaid_account(acct: PlaidAccount) -> dict:
         "subtype": acct.account_subtype,
         "balance_cents": acct.balance_cents,
         "balance_currency": acct.balance_iso_currency_code,
-        "balance_updated_at": (
-            acct.balance_updated_at.isoformat() if acct.balance_updated_at else None
-        ),
+        "balance_updated_at": _iso_utc(acct.balance_updated_at),
     }
 
 
