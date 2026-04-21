@@ -20166,9 +20166,32 @@
       }
 
       function getLastPage() {
-        return normalizeStoredPage(
+        const stored = normalizeStoredPage(
           localStorage.getItem(PAGE_STORAGE_KEY) || "dashboard",
         );
+        // If the remembered page is now disallowed for this user, fall
+        // back to the first allowed sidebar page (or Settings as a last
+        // resort since it's always reachable).
+        if (typeof canAccessPage === "function" && !canAccessPage(stored)) {
+          const allowed = typeof getAllowedPages === "function"
+            ? getAllowedPages()
+            : null;
+          if (allowed && allowed.size) {
+            // Return the first allowed page that's also in the canonical
+            // sidebar order so we don't accidentally redirect somewhere
+            // unexpected.
+            const order = [
+              "dashboard", "inventory", "upload", "receipts", "shopping",
+              "restaurant", "expenses", "budget", "bills", "accounts",
+              "analytics", "contributions", "settings",
+            ];
+            for (const p of order) {
+              if (allowed.has(p)) return p;
+            }
+          }
+          return "settings";
+        }
+        return stored;
       }
 
       function setShoppingListView(view) {
@@ -23956,6 +23979,54 @@
         if (window.location.hash === "#gallery") openAppleGallery();
       });
 
+      // ---- Per-user page-access restriction --------------------------
+      // `currentUser.allowed_pages` is either null (no restriction, legacy
+      // behaviour) or a list of page ids the user may see. Admins bypass.
+      function getAllowedPages() {
+        if (!currentUser) return null;
+        if (currentUser.role === "admin") return null; // bypass
+        const list = currentUser.allowed_pages;
+        if (!Array.isArray(list)) return null;
+        return new Set(list.map((p) => String(p).toLowerCase()));
+      }
+
+      function canAccessPage(pageId) {
+        const allowed = getAllowedPages();
+        if (allowed === null) return true;
+        // Settings remains reachable so the user can at least manage their
+        // own profile / sign out — otherwise empty allowed_pages bricks them.
+        if (pageId === "settings") return true;
+        return allowed.has(String(pageId).toLowerCase());
+      }
+
+      function applyUserPageAccessRestrictions() {
+        const allowed = getAllowedPages();
+        const items = document.querySelectorAll('.nav-item[onclick^="nav("]');
+        items.forEach((el) => {
+          const m = String(el.getAttribute("onclick") || "").match(
+            /nav\(\s*['"]([^'"]+)['"]/,
+          );
+          if (!m) return;
+          const pageId = m[1];
+          // Settings/dashboard are always visible when the user has some
+          // restriction (so Settings can be used as the escape hatch).
+          if (allowed === null) {
+            // No restriction → leave visibility to other layers (kitchen
+            // display, config, etc.). We don't force-show because that
+            // would undo those existing layers.
+            return;
+          }
+          const keep = pageId === "settings" || allowed.has(pageId.toLowerCase());
+          if (!keep) {
+            el.dataset.hiddenByAccess = "1";
+            el.style.display = "none";
+          } else if (el.dataset.hiddenByAccess === "1") {
+            el.style.display = "";
+            delete el.dataset.hiddenByAccess;
+          }
+        });
+      }
+
       function nav(page, el) {
         if (typeof window.resetOverscrollNav === "function") {
           window.resetOverscrollNav();
@@ -23963,6 +24034,12 @@
         const requestedPage = page;
         if (page === "products") {
           page = "inventory";
+        }
+        // Per-user access check — fall back to Settings when the user
+        // tries to reach a page they aren't granted (Settings is always
+        // reachable so they can see their profile / sign out).
+        if (!canAccessPage(page)) {
+          page = "settings";
         }
         if (
           isKitchenDisplayTrustedDevice() &&
@@ -24375,6 +24452,7 @@
             currentUserStats = data.stats || currentUserStats;
             householdLeaderboard = data.leaderboard || householdLeaderboard;
             if (data.app_config) applyAppConfig(data.app_config);
+            applyUserPageAccessRestrictions();
             banner.classList.remove("show");
             authCheckComplete = true;
             updateDemoModeUi();
@@ -24430,6 +24508,7 @@
               householdLeaderboard =
                 loginData.leaderboard || householdLeaderboard;
               if (loginData.app_config) applyAppConfig(loginData.app_config);
+              applyUserPageAccessRestrictions();
               if (currentUser?.role === "admin") {
                 lastSuccessfulAdminAuth = {
                   email: storedLogin.email,
@@ -27326,6 +27405,7 @@
         currentUserStats = data.stats || currentUserStats;
         householdLeaderboard = data.leaderboard || householdLeaderboard;
         if (data.app_config) applyAppConfig(data.app_config);
+        applyUserPageAccessRestrictions();
         storeBrowserLogin(email, password);
         if (currentUser?.role === "admin") {
           lastSuccessfulAdminAuth = { email, password };
@@ -27595,6 +27675,8 @@
           </div>
           <div class="mobile-action-row">
             <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
+            <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
+            <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
             <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </div>
@@ -27629,6 +27711,8 @@
           <td style="color:var(--muted);font-size:0.8rem">${user.created_at ? user.created_at.split("T")[0] : "—"}</td>
           <td style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
+            <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
+            <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
             <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </td>
@@ -28143,6 +28227,7 @@
         if (currentUser && data.user && currentUser.id === data.user.id) {
           currentUser = data.user;
           updateSettingsSessionFields();
+          applyUserPageAccessRestrictions();
           const preview = document.getElementById("settings-avatar-preview");
           if (preview) preview.textContent = getUserAvatar(currentUser);
           const avatarInput = document.getElementById("settings-avatar");
@@ -28217,6 +28302,146 @@
             is_active: user.is_active !== false,
           },
           "User updated ✅",
+        );
+      }
+
+      // Canonical sidebar page ids + display labels — used by the admin
+      // Pages picker. Keep this in sync with the sidebar DOM.
+      const ALL_SIDEBAR_PAGES = [
+        ["dashboard", "📊 Dashboard"],
+        ["inventory", "📦 Inventory"],
+        ["upload", "📸 Upload Receipt"],
+        ["receipts", "🧾 Receipts"],
+        ["shopping", "🛒 Shopping List"],
+        ["restaurant", "🍽️ Restaurant"],
+        ["expenses", "🧾 Expenses"],
+        ["budget", "💰 Budget"],
+        ["bills", "⚡ Bills"],
+        ["accounts", "🏦 Accounts"],
+        ["analytics", "📈 Analytics"],
+        ["contributions", "🏅 Contributions"],
+        ["settings", "⚙️ Settings"],
+      ];
+
+      async function toggleUserRole(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) {
+          toast("User not found", "error");
+          return;
+        }
+        const makingAdmin = user.role !== "admin";
+        const action = makingAdmin ? "Promote to admin" : "Demote to user";
+        const warning = makingAdmin
+          ? `Promote ${user.name} to admin? Admins can manage all users, change any settings, and bypass page restrictions.`
+          : `Demote ${user.name} back to a regular user? They'll lose admin privileges.`;
+        const confirmed = await askForConfirmation(warning, action);
+        if (!confirmed) return;
+        await updateUser(
+          userId,
+          {
+            name: user.name,
+            email: user.email,
+            role: makingAdmin ? "admin" : "user",
+            is_active: user.is_active !== false,
+          },
+          makingAdmin ? "Promoted to admin ✅" : "Demoted to user ✅",
+        );
+      }
+
+      async function editUserPages(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) {
+          toast("User not found", "error");
+          return;
+        }
+        // Admin role bypasses the restriction; surface that so the admin
+        // understands toggles here won't hide anything from them.
+        const adminBypass = user.role === "admin";
+        const current = Array.isArray(user.allowed_pages)
+          ? new Set(user.allowed_pages)
+          : null;
+
+        const overlay = document.getElementById("confirm-overlay");
+        const titleEl = document.getElementById("confirm-title");
+        const bodyEl = document.getElementById("confirm-body");
+        const okBtn = document.getElementById("confirm-ok");
+        const cancelBtn = document.getElementById("confirm-cancel");
+        if (!overlay || !bodyEl || !okBtn || !cancelBtn) return;
+
+        titleEl.textContent = `Pages for ${user.name}`;
+        const rows = ALL_SIDEBAR_PAGES.map(([id, label]) => {
+          const isOn = current === null
+            ? true
+            : current.has(id);
+          return `<label style="display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer">
+            <input type="checkbox" data-page-id="${id}" ${isOn ? "checked" : ""} style="accent-color:#097fe8" />
+            <span>${label}</span>
+          </label>`;
+        }).join("");
+        bodyEl.innerHTML = `
+          <div style="text-align:left">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+              ${adminBypass ? "⚠️ This user is an <strong>admin</strong> and will see every page regardless of these checks." : "Check the pages this user can see in the sidebar. Settings is always reachable."}
+            </div>
+            <div id="pages-picker-body">${rows}</div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button type="button" class="btn btn-sm btn-ghost" id="pages-picker-all">Select all</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="pages-picker-none">Clear all</button>
+            </div>
+          </div>`;
+        const allBtn = document.getElementById("pages-picker-all");
+        const noneBtn = document.getElementById("pages-picker-none");
+        if (allBtn) allBtn.onclick = () => {
+          bodyEl.querySelectorAll('input[type="checkbox"]').forEach((c) => (c.checked = true));
+        };
+        if (noneBtn) noneBtn.onclick = () => {
+          bodyEl.querySelectorAll('input[type="checkbox"]').forEach((c) => (c.checked = false));
+        };
+        okBtn.textContent = "Save";
+        okBtn.className = "btn btn-primary";
+        cancelBtn.textContent = "Cancel";
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const result = await new Promise((resolve) => {
+          const finish = (out) => {
+            overlay.classList.remove("show");
+            overlay.setAttribute("aria-hidden", "true");
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            overlay.onclick = null;
+            document.onkeydown = null;
+            // Restore default confirm dialog body for next use.
+            bodyEl.textContent = "Are you sure?";
+            okBtn.textContent = "Confirm";
+            resolve(out);
+          };
+          okBtn.onclick = () => {
+            const picked = Array.from(
+              bodyEl.querySelectorAll('input[type="checkbox"]:checked'),
+            ).map((c) => c.getAttribute("data-page-id"));
+            finish(picked);
+          };
+          cancelBtn.onclick = () => finish(null);
+          overlay.onclick = (ev) => {
+            if (ev.target === overlay) finish(null);
+          };
+          document.onkeydown = (ev) => {
+            if (ev.key === "Escape") finish(null);
+          };
+        });
+
+        if (result === null) return;
+        await updateUser(
+          userId,
+          {
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            is_active: user.is_active !== false,
+            allowed_pages: result,
+          },
+          "Pages updated ✅",
         );
       }
 
