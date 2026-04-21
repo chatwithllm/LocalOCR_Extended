@@ -2365,6 +2365,23 @@ body.trusted-device-kitchen-display *:focus-visible {
   font-weight: 700;
 }
 
+/* ---------- Settings locked-down view ---------------------- */
+/* Applied to #page-settings when the user hasn't been granted Settings
+   in allowed_pages. Keeps Settings reachable as an escape hatch for
+   Sign Out + identity summary, hides the rest of the surface. */
+#page-settings.settings-locked .card:not(#settings-session-card) {
+  display: none !important;
+}
+/* Inside the Session card, hide everything that isn't the identity
+   summary or the Sign Out button. Avatar editor, "Details" expand,
+   password controls, etc. all disappear. */
+#page-settings.settings-locked #settings-session-card #session-avatar-wrap,
+#page-settings.settings-locked #settings-session-card #session-details-wrap,
+#page-settings.settings-locked #settings-session-card .btn[onclick*="toggleSessionAvatar"],
+#page-settings.settings-locked #settings-session-card .btn[onclick*="toggleSessionDetails"] {
+  display: none !important;
+}
+
 /* ---------- Sidebar: restricted (non-granted) nav items ---- */
 /* User-facing signal that the page exists but isn't included in this
    user's allowed_pages. Item stays in the sidebar so the user has a

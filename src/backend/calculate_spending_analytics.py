@@ -994,6 +994,10 @@ def get_utility_summary():
 def get_spend_by_person():
     """Attribution-aware spend summary for a month.
 
+    Gated: admin or users with at least one linked/shared PlaidItem.
+    Otherwise returns 403 — the per-person totals reveal household
+    members' spending behaviour and shouldn't leak to restricted users.
+
     Returns per-person spend totals based on the receipt/line-item
     attribution fields:
 
@@ -1019,6 +1023,29 @@ def get_spend_by_person():
     """
     import json as _json
     from src.backend.initialize_database_schema import User
+
+    # Access gate: sensitive household-wide spending breakdown.
+    # Admin bypass; everyone else needs an explicit "spend-by-person"
+    # entry in their allowed_pages list. Bank-sharing alone is NOT
+    # enough — that unlocks Accounts but not this aggregate view.
+    current = getattr(g, "current_user", None)
+    if current is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    if (current.role or "") != "admin":
+        raw_pages = getattr(current, "allowed_pages", None)
+        granted = False
+        if raw_pages is None:
+            # NULL = legacy "no restriction" users see everything.
+            granted = True
+        else:
+            try:
+                parsed = _json.loads(raw_pages)
+                if isinstance(parsed, list):
+                    granted = "spend-by-person" in [str(p) for p in parsed]
+            except (TypeError, ValueError):
+                granted = False
+        if not granted:
+            return jsonify({"error": "Not available for this account."}), 403
 
     def _ids(obj) -> list[int]:
         raw = getattr(obj, "attribution_user_ids", None)
