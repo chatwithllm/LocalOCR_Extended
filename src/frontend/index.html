@@ -26679,17 +26679,20 @@
           const openBtn = t.purchase_id
             ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); jumpToReceipt(${t.purchase_id})" title="Open this purchase in the Receipts editor">Open in Receipts</button>`
             : "";
+          // Explicit display:flex overrides the .summary-row grid
+          // default (which stacks title / meta / button into 3 grid
+          // columns and causes overlap on narrow screens).
           return `
             <li class="summary-row-host">
-              <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:4px">
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
-                  <div class="summary-row__title" title="${escAttr(merchant)}">${escHtml(merchant)}</div>
-                  <div class="summary-row__value" style="color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"}">${amountStr}</div>
+              <div class="summary-row" style="display:flex;flex-direction:column;align-items:stretch;gap:4px">
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap">
+                  <div class="summary-row__title" title="${escAttr(merchant)}" style="flex:1 1 auto;min-width:0">${escHtml(merchant)}</div>
+                  <div class="summary-row__value" style="flex:0 0 auto;color:${isRefund ? "var(--warning,#d97706)" : "var(--text)"}">${amountStr}</div>
                 </div>
-                <div class="summary-row__meta">
+                <div class="summary-row__meta" style="word-break:break-word">
                   ${escHtml(dateStr)} · ${escHtml(String(catLabel).replace(/_/g, " "))}${acctChip}
                 </div>
-                ${openBtn ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">${openBtn}</div>` : ""}
+                ${openBtn ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${openBtn}</div>` : ""}
               </div>
             </li>`;
         }).join("")}</ul>`;
