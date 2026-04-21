@@ -84,6 +84,7 @@ class User(Base):
     api_token_hash = Column(String(255), nullable=True)
     password_reset_requested_at = Column(DateTime, nullable=True)
     session_version = Column(Integer, nullable=False, default=0)
+    allowed_pages = Column(Text, nullable=True)  # JSON array; NULL = no restriction
     google_sub = Column(String(255), nullable=True, unique=True)  # Google stable user ID
     google_email = Column(String(255), nullable=True)             # Google account email (display)
     active_ai_model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=True)

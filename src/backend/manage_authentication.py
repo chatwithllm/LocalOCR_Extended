@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 import qrcode
 from flask import Blueprint, jsonify, request, g, session, redirect, send_file, render_template_string, has_request_context
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from src.backend.contribution_scores import sum_bonus_points, sum_floating_points
 from src.backend.initialize_database_schema import (
@@ -258,6 +258,49 @@ def is_admin(user: User | None) -> bool:
     return bool(user and user.role == "admin")
 
 
+def _parse_allowed_pages(raw) -> list[str] | None:
+    """Decode the allowed_pages JSON column. None = no restriction."""
+    import json as _json
+    if raw is None:
+        return None
+    try:
+        parsed = _json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(x) for x in parsed]
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+# Pages the admin cannot be locked out of (prevents bricking their account
+# during self-edit). Admins bypass the allowed_pages restriction anyway,
+# but this enforces the rule at the API level too for future-proofing.
+_ALWAYS_ALLOWED_FOR_ADMIN_SELF = {"dashboard", "settings"}
+
+
+def _serialize_allowed_pages(value) -> str | None:
+    """Normalize an allowed_pages payload into the stored JSON string.
+
+    None / missing → None (no restriction, legacy behaviour).
+    Empty list     → '[]' (explicit: no pages granted).
+    Populated      → JSON array of de-duplicated page ids.
+    """
+    import json as _json
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("allowed_pages must be a list")
+    cleaned: list[str] = []
+    seen = set()
+    for item in value:
+        page = str(item).strip().lower()
+        if not page or page in seen:
+            continue
+        seen.add(page)
+        cleaned.append(page)
+    return _json.dumps(cleaned)
+
+
 def serialize_user(user: User) -> dict:
     """Return a safe JSON representation for auth responses."""
     return {
@@ -275,6 +318,7 @@ def serialize_user(user: User) -> dict:
         "password_reset_requested_at": (
             user.password_reset_requested_at.isoformat() if user.password_reset_requested_at else None
         ),
+        "allowed_pages": _parse_allowed_pages(getattr(user, "allowed_pages", None)),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     }
@@ -383,11 +427,15 @@ def _get_admin_actor_from_request_payload(data: dict | None = None) -> User | No
     if not identifier or not password:
         return None
 
+    ident_lower = identifier.lower()
     user = (
         g.db_session.query(User)
         .filter(
             User.is_active.is_(True),
-            or_(User.email == identifier, User.name == identifier),
+            or_(
+                func.lower(User.email) == ident_lower,
+                func.lower(User.name) == ident_lower,
+            ),
         )
         .first()
     )
@@ -607,9 +655,18 @@ def login():
     if not identifier or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
+    # Case-insensitive identifier match — users shouldn't have to remember
+    # whether they typed "Chamu" or "chamu" at signup. Password check
+    # stays byte-exact.
+    ident_lower = identifier.lower()
     user = (
         g.db_session.query(User)
-        .filter(or_(User.email == identifier, User.name == identifier))
+        .filter(
+            or_(
+                func.lower(User.email) == ident_lower,
+                func.lower(User.name) == ident_lower,
+            )
+        )
         .first()
     )
     if not user or not verify_password(user, password):
@@ -647,7 +704,11 @@ def forgot_password():
     if not email or not is_valid_login_email(email):
         return jsonify({"message": "If that account exists, the admin can now see the reset request."}), 200
 
-    user = g.db_session.query(User).filter_by(email=email).first()
+    user = (
+        g.db_session.query(User)
+        .filter(func.lower(User.email) == email.lower())
+        .first()
+    )
     if user and user.is_active:
         user.password_reset_requested_at = datetime.now(timezone.utc)
         g.db_session.commit()
@@ -1248,11 +1309,25 @@ def create_user():
 
     existing = (
         g.db_session.query(User)
-        .filter(or_(User.email == email, User.name == name))
+        .filter(
+            or_(
+                func.lower(User.email) == email.lower(),
+                func.lower(User.name) == name.lower(),
+            )
+        )
         .first()
     )
     if existing:
         return jsonify({"error": "A user with that name or email already exists"}), 409
+
+    # Page-access restriction. Default new users to an empty list so
+    # the admin has to explicitly grant each page — safer than granting
+    # all pages and remembering to prune.
+    raw_pages = data.get("allowed_pages", [])
+    try:
+        allowed_pages_json = _serialize_allowed_pages(raw_pages)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     created = User(
         name=name,
@@ -1261,6 +1336,7 @@ def create_user():
         is_active=True,
         avatar_emoji=(data.get("avatar_emoji") or "").strip() or pick_default_avatar(name or email),
         password_hash=hash_password(password),
+        allowed_pages=allowed_pages_json,
     )
     g.db_session.add(created)
     g.db_session.commit()
@@ -1311,7 +1387,10 @@ def update_user(user_id: int):
         g.db_session.query(User)
         .filter(
             User.id != target.id,
-            or_(User.email == email, User.name == name),
+            or_(
+                func.lower(User.email) == email.lower(),
+                func.lower(User.name) == name.lower(),
+            ),
         )
         .first()
     )
@@ -1337,6 +1416,25 @@ def update_user(user_id: int):
     if password:
         target.password_hash = hash_password(password)
         target.password_reset_requested_at = None
+
+    # allowed_pages is admin-only. Non-admins editing their own profile
+    # can't change their own restriction set (would defeat the purpose).
+    if is_admin(actor) and "allowed_pages" in data:
+        try:
+            pages_json = _serialize_allowed_pages(data.get("allowed_pages"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        # Self-edit guardrail: admin editing themselves keeps Dashboard
+        # + Settings no matter what, so they can't brick their own
+        # access. (Admins bypass the restriction anyway, but enforce
+        # the invariant in case role changes later.)
+        if acting_on_self and pages_json is not None:
+            parsed = _parse_allowed_pages(pages_json) or []
+            for must in _ALWAYS_ALLOWED_FOR_ADMIN_SELF:
+                if must not in parsed:
+                    parsed.append(must)
+            pages_json = _serialize_allowed_pages(parsed)
+        target.allowed_pages = pages_json
 
     g.db_session.commit()
     logger.info("User %s updated by admin %s", target.email, actor.email or actor.id)
@@ -1447,9 +1545,10 @@ def _find_or_create_oauth_user(
         user.google_email = google_email
         return user
 
-    # Path B — same email, link google_sub
+    # Path B — same email, link google_sub (case-insensitive match
+    # so Google-provided casing doesn't miss existing accounts).
     user = session.query(User).filter(
-        User.email == google_email,
+        func.lower(User.email) == (google_email or "").lower(),
         User.is_active.is_(True),
     ).first()
     if user:
@@ -1520,8 +1619,9 @@ def create_invite():
         return jsonify({"error": "Role must be 'admin' or 'user'"}), 400
 
     # Block invite if there is already an active user with this email
+    # (case-insensitive to catch legacy rows stored with mixed casing).
     existing = g.db_session.query(User).filter(
-        User.email == email, User.is_active.is_(True)
+        func.lower(User.email) == email.lower(), User.is_active.is_(True)
     ).first()
     if existing:
         return jsonify({"error": "An active user with this email already exists"}), 409
