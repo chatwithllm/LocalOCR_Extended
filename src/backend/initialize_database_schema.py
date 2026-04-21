@@ -85,6 +85,9 @@ class User(Base):
     password_reset_requested_at = Column(DateTime, nullable=True)
     session_version = Column(Integer, nullable=False, default=0)
     allowed_pages = Column(Text, nullable=True)  # JSON array; NULL = no restriction
+    last_login_at = Column(DateTime, nullable=True)
+    current_session_started_at = Column(DateTime, nullable=True)
+    last_login_user_agent = Column(String(500), nullable=True)
     google_sub = Column(String(255), nullable=True, unique=True)  # Google stable user ID
     google_email = Column(String(255), nullable=True)             # Google account email (display)
     active_ai_model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=True)

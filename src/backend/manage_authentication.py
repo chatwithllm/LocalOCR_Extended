@@ -174,6 +174,26 @@ def _set_browser_session(user: User):
     session["session_version"] = int(user.session_version or 0)
     session.pop("trusted_device_id", None)
     session.permanent = True
+    # Capture activity markers so Settings can show the user when/where
+    # they last signed in. last_login_at moves forward to the PREVIOUS
+    # current_session start (not "now") so the user can see an actual
+    # prior login, not an always-"just-now" value.
+    now = datetime.now(timezone.utc)
+    ua = (request.headers.get("User-Agent") or "").strip()[:500] if has_request_context() else None
+    try:
+        prior_session_start = getattr(user, "current_session_started_at", None)
+        user.last_login_at = prior_session_start or now
+        user.current_session_started_at = now
+        if ua:
+            user.last_login_user_agent = ua
+        g.db_session.add(user)
+        g.db_session.commit()
+    except Exception:  # noqa: BLE001
+        # Never block login on a bookkeeping failure.
+        try:
+            g.db_session.rollback()
+        except Exception:
+            pass
 
 
 def _set_trusted_device_session(user: User, device: TrustedDevice):
@@ -353,6 +373,22 @@ def serialize_user(user: User) -> dict:
         ),
         "allowed_pages": _parse_allowed_pages(getattr(user, "allowed_pages", None)),
         "has_plaid_visibility": _user_has_plaid_visibility(user),
+        "last_login_at": (
+            (user.last_login_at.isoformat() + "Z")
+            if getattr(user, "last_login_at", None) and not user.last_login_at.isoformat().endswith("Z")
+            else (user.last_login_at.isoformat() if getattr(user, "last_login_at", None) else None)
+        ),
+        "current_session_started_at": (
+            (user.current_session_started_at.isoformat() + "Z")
+            if getattr(user, "current_session_started_at", None)
+            and not user.current_session_started_at.isoformat().endswith("Z")
+            else (
+                user.current_session_started_at.isoformat()
+                if getattr(user, "current_session_started_at", None)
+                else None
+            )
+        ),
+        "last_login_user_agent": getattr(user, "last_login_user_agent", None),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     }

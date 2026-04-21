@@ -12294,7 +12294,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421r" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421t" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13113,25 +13113,6 @@
                 <div class="empty-state">
                   <div class="icon">✅</div>
                   <p>All items well-stocked!</p>
-                </div>
-              </div>
-            </div>
-            <div class="card" id="dash-spend-by-person-card">
-              <div class="card-header">
-                <span class="card-title" onclick="toggleDashboardSection('spend-by-person')" style="cursor:pointer" title="Click to collapse / expand">💰 Spend by Person</span>
-                <span class="spend-by-person-monthnav" id="dash-spend-by-person-monthnav">
-                  <button type="button" class="spend-by-person-monthnav__btn"
-                    aria-label="Previous month"
-                    onclick="shiftSpendByPersonMonth(-1)">‹</button>
-                  <span id="dash-spend-by-person-month" class="spend-by-person-monthnav__label"></span>
-                  <button type="button" class="spend-by-person-monthnav__btn"
-                    aria-label="Next month"
-                    onclick="shiftSpendByPersonMonth(1)">›</button>
-                </span>
-              </div>
-              <div id="dash-spend-by-person" class="dash-spend-by-person">
-                <div class="empty-state">
-                  <p>Tag receipts to see per-person spend.</p>
                 </div>
               </div>
             </div>
@@ -14966,6 +14947,30 @@
             <div id="accounts-breakdown-body" style="margin-top:12px"></div>
           </div>
 
+          <!-- Spend by Person (moved from Dashboard — sensitive per-person
+               financial info, so it lives behind the Accounts gate). Only
+               rendered when the current user is admin or has Plaid
+               visibility; otherwise hidden via the loader. -->
+          <div class="card" id="dash-spend-by-person-card" style="display:none">
+            <div class="card-header accounts-card-header">
+              <span class="card-title" onclick="toggleAccountsSection('dash-spend-by-person-card')" style="cursor:pointer;user-select:none" title="Click to collapse / expand">💰 Spend by Person</span>
+              <span class="accounts-toolbar">
+                <span class="spend-by-person-monthnav" id="dash-spend-by-person-monthnav">
+                  <button type="button" class="spend-by-person-monthnav__btn"
+                    aria-label="Previous month"
+                    onclick="event.stopPropagation(); shiftSpendByPersonMonth(-1)">‹</button>
+                  <span id="dash-spend-by-person-month" class="spend-by-person-monthnav__label"></span>
+                  <button type="button" class="spend-by-person-monthnav__btn"
+                    aria-label="Next month"
+                    onclick="event.stopPropagation(); shiftSpendByPersonMonth(1)">›</button>
+                </span>
+              </span>
+            </div>
+            <div id="dash-spend-by-person" class="dash-spend-by-person" style="margin-top:12px">
+              <div class="empty-state"><p>Tag receipts to see per-person spend.</p></div>
+            </div>
+          </div>
+
           <!-- Panel 2 — Transactions -->
           <div class="card" id="accounts-transactions-card">
             <div class="card-header accounts-card-header">
@@ -15250,7 +15255,7 @@
             <h1>Settings</h1>
             <p>Configure your Grocery Manager</p>
           </div>
-          <div class="card">
+          <div class="card" id="settings-session-card">
             <div class="card-header">
               <span class="card-title">👤 Session</span>
             </div>
@@ -15319,6 +15324,17 @@
                   <input id="settings-pairing-host" value="—" disabled />
                 </div>
               </div>
+            </div>
+          </div>
+          <!-- My Activity — surfaces the user's own login history + session +
+               recent stats. Always visible when signed in; empty-state
+               gracefully when fields aren't populated yet. -->
+          <div class="card" id="settings-my-activity-card">
+            <div class="card-header">
+              <span class="card-title">📈 My Activity</span>
+            </div>
+            <div id="settings-my-activity-body" style="display:grid;gap:8px">
+              <div class="empty-state"><p>Sign in to see your activity.</p></div>
             </div>
           </div>
           <div class="card">
@@ -21458,12 +21474,10 @@
         const bodyMap = {
           "low-stock": "dash-low-stock",
           recommendations: "dash-recs",
-          "spend-by-person": "dash-spend-by-person",
         };
         const cardMap = {
           "low-stock": "dash-low-stock-card",
           recommendations: "dash-recs-card",
-          "spend-by-person": "dash-spend-by-person-card",
         };
         const body = document.getElementById(bodyMap[sectionKey]);
         const card = document.getElementById(cardMap[sectionKey]);
@@ -24020,6 +24034,16 @@
 
       function applyUserPageAccessRestrictions() {
         const allowed = getAllowedPages();
+        // Settings is always reachable as an escape hatch, but we hide
+        // the advanced surface (preferences, integrations, etc.) when
+        // the user wasn't explicitly granted Settings. They still get
+        // their identity summary + Sign Out.
+        const settingsPage = document.getElementById("page-settings");
+        if (settingsPage) {
+          const settingsLocked =
+            allowed !== null && !allowed.has("settings");
+          settingsPage.classList.toggle("settings-locked", settingsLocked);
+        }
         const items = document.querySelectorAll('.nav-item[onclick^="nav("]');
         items.forEach((el) => {
           const m = String(el.getAttribute("onclick") || "").match(
@@ -24796,6 +24820,83 @@
             ? `${authLabel} · ${host}`
             : "—";
         }
+        renderMyActivityCard();
+      }
+
+      function _describeUserAgent(ua) {
+        if (!ua) return "Unknown device";
+        const s = String(ua);
+        let os = "";
+        if (/iphone|ipad|ipod/i.test(s)) os = "iOS";
+        else if (/android/i.test(s)) os = "Android";
+        else if (/mac os x/i.test(s)) os = "macOS";
+        else if (/windows/i.test(s)) os = "Windows";
+        else if (/linux/i.test(s)) os = "Linux";
+        let browser = "";
+        // Edge / Opera first, since they also match Chrome/Safari UAs.
+        if (/edg\//i.test(s)) browser = "Edge";
+        else if (/opr\/|opera/i.test(s)) browser = "Opera";
+        else if (/firefox/i.test(s)) browser = "Firefox";
+        else if (/crios|chrome/i.test(s)) browser = "Chrome";
+        else if (/safari/i.test(s)) browser = "Safari";
+        if (browser && os) return `${browser} on ${os}`;
+        return browser || os || "Unknown device";
+      }
+
+      function _formatDurationAgo(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        const secs = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+        if (secs < 60) return "just now";
+        const mins = Math.floor(secs / 60);
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) {
+          const remMin = mins % 60;
+          return remMin ? `${hrs}h ${remMin}m ago` : `${hrs}h ago`;
+        }
+        const days = Math.floor(hrs / 24);
+        return days === 1 ? "yesterday" : `${days} days ago`;
+      }
+
+      function renderMyActivityCard() {
+        const body = document.getElementById("settings-my-activity-body");
+        if (!body) return;
+        if (!currentUser) {
+          body.innerHTML =
+            '<div class="empty-state"><p>Sign in to see your activity.</p></div>';
+          return;
+        }
+        const last = currentUser.last_login_at;
+        const current = currentUser.current_session_started_at;
+        const ua = currentUser.last_login_user_agent || navigator.userAgent;
+        const device = _describeUserAgent(ua);
+        const lastLine = last
+          ? `Last login: ${formatPlaidSyncTime(last)} · ${_formatDurationAgo(last)}`
+          : `Last login: (first recorded session)`;
+        const sessionLine = current
+          ? `Signed in ${_formatDurationAgo(current)} · ${escHtml(device)}`
+          : `Current session · ${escHtml(device)}`;
+        // Activity stats — reuse currentUserStats which is populated at
+        // auth time + refreshed after user updates.
+        const stats = currentUserStats || {};
+        const receipts = Number(stats.receipts_total || stats.receipts_this_month || 0);
+        const shoppingItems = Number(stats.shopping_items_added || 0);
+        const monthSpend = Number(stats.month_spend_cents || 0) / 100;
+        const statBits = [];
+        if (receipts) statBits.push(`${receipts} receipt${receipts === 1 ? "" : "s"}`);
+        if (shoppingItems) statBits.push(`${shoppingItems} shopping item${shoppingItems === 1 ? "" : "s"} added`);
+        if (monthSpend) statBits.push(`${formatMoney(monthSpend)} tracked this month`);
+        const statsLine = statBits.length
+          ? statBits.join(" · ")
+          : "No recent activity recorded yet.";
+        body.innerHTML = `
+          <div style="font-size:0.9rem">
+            <div style="margin-bottom:4px">🕒 ${escHtml(lastLine)}</div>
+            <div style="margin-bottom:4px;color:var(--muted)">💻 ${sessionLine}</div>
+            <div style="margin-top:6px">✨ ${escHtml(statsLine)}</div>
+          </div>`;
       }
 
       function toggleSessionDetails() {
@@ -25727,6 +25828,7 @@
       const ACCOUNTS_SECTION_DEFAULTS = {
         "accounts-connections-card": true,
         "accounts-breakdown-card": true,
+        "dash-spend-by-person-card": true,
         "accounts-transactions-card": true,
         "accounts-trends-card": true,
       };
@@ -25789,6 +25891,7 @@
           loadPlaidSpendingTrends(),
           loadAccountsReviewQueue(),
           loadAccountsBreakdown(),
+          loadDashboardSpendByPerson(),
         ]);
       }
 
@@ -28607,7 +28710,9 @@
       }
 
       // Canonical sidebar page ids + display labels — used by the admin
-      // Pages picker. Keep this in sync with the sidebar DOM.
+      // Pages picker. Keep this in sync with the sidebar DOM. Entries
+      // prefixed with "—" are sub-features (not sidebar tabs); they gate
+      // specific cards inside pages rather than sidebar visibility.
       const ALL_SIDEBAR_PAGES = [
         ["dashboard", "📊 Dashboard"],
         ["inventory", "📦 Inventory"],
@@ -28622,6 +28727,7 @@
         ["analytics", "📈 Analytics"],
         ["contributions", "🏅 Contributions"],
         ["settings", "⚙️ Settings"],
+        ["spend-by-person", "↳ 💰 Spend by Person (sensitive — under Accounts)"],
       ];
 
       async function toggleUserRole(userId) {
@@ -28874,9 +28980,26 @@
       }
 
       async function loadDashboardSpendByPerson() {
+        const card = document.getElementById("dash-spend-by-person-card");
         const body = document.getElementById("dash-spend-by-person");
         const monthEl = document.getElementById("dash-spend-by-person-month");
         if (!body) return;
+        // Gate: sensitive per-person financial info. Admin always sees
+        // it; everyone else needs an explicit "spend-by-person" grant
+        // in their allowed_pages. Sharing a bank is NOT enough — the
+        // bank grants Accounts visibility, this grants the aggregate
+        // household breakdown which reveals others' behaviour.
+        const isAdmin = currentUser?.role === "admin";
+        const allowed = typeof getAllowedPages === "function"
+          ? getAllowedPages()
+          : null;
+        const grantedExplicit =
+          allowed === null ? true : allowed.has("spend-by-person");
+        if (!currentUser || (!isAdmin && !grantedExplicit)) {
+          if (card) card.style.display = "none";
+          return;
+        }
+        if (card) card.style.display = "";
         const ym = _currentSpendByPersonYM();
         try {
           const res = await api(
@@ -28920,13 +29043,8 @@
           if (!rows.length) {
             body.innerHTML =
               '<div class="empty-state"><p>No spend this month — or nothing tagged yet.</p></div>';
-            // Keep body.dataset.empty unset — the empty-state message is
-            // what users need to see, unlike Low Stock which hides its
-            // celebratory state. Still apply collapsed preference.
-            updateDashboardSectionVisibility("spend-by-person");
             return;
           }
-          updateDashboardSectionVisibility("spend-by-person");
           const maxAbs = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
           body.innerHTML = rows
             .map((r) => {
@@ -28948,7 +29066,7 @@
 
       async function loadDashboard() {
         try {
-          loadDashboardSpendByPerson();
+          // Spend-by-Person moved to the Accounts page — don't load here.
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
           const userAvatar = document.getElementById("dashboard-user-avatar");
