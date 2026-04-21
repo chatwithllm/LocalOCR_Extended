@@ -1474,7 +1474,15 @@ def approve_receipt(receipt_id):
         return jsonify({"error": "No OCR data available for review approval"}), 400
 
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(ocr_data)
-    requires_items = str(receipt_type or "").strip().lower() not in {"utility_bill", "household_bill"}
+    # Only grocery/pharmacy/restaurant genuinely need itemization —
+    # everything else (utility/bill/general expense/retail) is "a total
+    # at a merchant" and shouldn't force the user to fabricate line
+    # items. Previously General Expense receipts (e.g. a glamping
+    # booking, online charge) couldn't be saved without fake items.
+    _ITEMLESS_TYPES = {
+        "utility_bill", "household_bill", "general_expense", "retail_items",
+    }
+    requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
     missing = [field for field in required_fields if not ocr_data.get(field)]
     if missing:
@@ -1531,7 +1539,15 @@ def update_receipt(receipt_id):
 
     sanitized = _sanitize_receipt_payload(merged_ocr_data)
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
-    requires_items = str(receipt_type or "").strip().lower() not in {"utility_bill", "household_bill"}
+    # Only grocery/pharmacy/restaurant genuinely need itemization —
+    # everything else (utility/bill/general expense/retail) is "a total
+    # at a merchant" and shouldn't force the user to fabricate line
+    # items. Previously General Expense receipts (e.g. a glamping
+    # booking, online charge) couldn't be saved without fake items.
+    _ITEMLESS_TYPES = {
+        "utility_bill", "household_bill", "general_expense", "retail_items",
+    }
+    requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
     missing = [field for field in required_fields if not sanitized.get(field)]
     if missing:

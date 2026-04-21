@@ -147,6 +147,20 @@ def _parse_shared_user_ids(raw) -> list[int]:
     return []
 
 
+def _fetch_visible_staged(session, staged_id: int, user_id: int):
+    """Load a PlaidStagedTransaction the current user is allowed to see
+    (own or shared-via PlaidItem). Returns the row or None if the user
+    can't touch it. Admins see every row.
+    """
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    q = session.query(PlaidStagedTransaction).filter_by(id=staged_id)
+    if visible_ids is not None:
+        if not visible_ids:
+            return None
+        q = q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+    return q.first()
+
+
 def _visible_plaid_item_ids(session, user_id: int) -> list[int] | None:
     """Return the list of plaid_items.id values visible to `user_id`.
 
@@ -849,11 +863,7 @@ def confirm_staged_transaction(staged_id: int):
         return jsonify({"error": "Authenticated user required"}), 401
 
     session = g.db_session
-    staged = (
-        session.query(PlaidStagedTransaction)
-        .filter_by(id=staged_id, user_id=user_id)
-        .first()
-    )
+    staged = _fetch_visible_staged(session, staged_id, user_id)
     if not staged:
         return jsonify({"error": "Staged transaction not found"}), 404
     if staged.status in {"confirmed", "dismissed"}:
@@ -1000,15 +1010,25 @@ def bulk_confirm_staged_transactions():
     cap = max(1, min(cap, 2000))
 
     session = g.db_session
-    q = (
-        session.query(PlaidStagedTransaction)
-        .filter(PlaidStagedTransaction.user_id == user_id)
-        .filter(PlaidStagedTransaction.status == "ready_to_import")
+    # Match the visibility rule used by the list endpoint: admin sees
+    # everything, non-admin sees own + shared. Previously this query
+    # filtered strictly by user_id, which returned 0 rows for admins
+    # trying to confirm transactions on banks linked under other users
+    # (e.g. a joint BOA that the admin manages but whose PlaidItem is
+    # owned by a spouse).
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    q = session.query(PlaidStagedTransaction).filter(
+        PlaidStagedTransaction.status == "ready_to_import"
     )
+    if visible_ids is not None:
+        q = (
+            q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else q.filter(sa_false())
+        )
     if not all_ready:
         if not isinstance(ids, list) or not ids:
             return jsonify({"error": "Provide ids=[...] or all_ready=true"}), 400
-        # Normalise to ints and dedupe.
         try:
             id_set = {int(x) for x in ids}
         except (TypeError, ValueError):
@@ -1115,11 +1135,7 @@ def dismiss_staged_transaction(staged_id: int):
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     session = g.db_session
-    staged = (
-        session.query(PlaidStagedTransaction)
-        .filter_by(id=staged_id, user_id=user_id)
-        .first()
-    )
+    staged = _fetch_visible_staged(session, staged_id, user_id)
     if not staged:
         return jsonify({"error": "Staged transaction not found"}), 404
     if staged.status == "confirmed":
@@ -1137,11 +1153,7 @@ def flag_staged_duplicate(staged_id: int):
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     session = g.db_session
-    staged = (
-        session.query(PlaidStagedTransaction)
-        .filter_by(id=staged_id, user_id=user_id)
-        .first()
-    )
+    staged = _fetch_visible_staged(session, staged_id, user_id)
     if not staged:
         return jsonify({"error": "Staged transaction not found"}), 404
     if staged.status == "confirmed":
@@ -1175,11 +1187,7 @@ def _staged_for_current_user(staged_id: int) -> tuple[PlaidStagedTransaction | N
     if user_id is None:
         return None, (jsonify({"error": "Authenticated user required"}), 401)
     session = g.db_session
-    staged = (
-        session.query(PlaidStagedTransaction)
-        .filter_by(id=staged_id, user_id=user_id)
-        .first()
-    )
+    staged = _fetch_visible_staged(session, staged_id, user_id)
     if not staged:
         return None, (jsonify({"error": "Staged transaction not found"}), 404)
     return staged, None
