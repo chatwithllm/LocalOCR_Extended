@@ -12294,7 +12294,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421q" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421r" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -24009,6 +24009,12 @@
         // Settings remains reachable so the user can at least manage their
         // own profile / sign out — otherwise empty allowed_pages bricks them.
         if (pageId === "settings") return true;
+        // Accounts auto-unlocks when the user has at least one linked or
+        // shared PlaidItem — sharing a bank implies admin wants them to
+        // see it, and the Accounts page is the only place to view it.
+        if (pageId === "accounts" && currentUser?.has_plaid_visibility) {
+          return true;
+        }
         return allowed.has(String(pageId).toLowerCase());
       }
 
@@ -24021,22 +24027,32 @@
           );
           if (!m) return;
           const pageId = m[1];
-          // Settings/dashboard are always visible when the user has some
-          // restriction (so Settings can be used as the escape hatch).
+          // No restriction → clear any previous restricted styling so
+          // promoting a user to admin (or clearing allowed_pages) takes
+          // effect without a reload.
           if (allowed === null) {
-            // No restriction → leave visibility to other layers (kitchen
-            // display, config, etc.). We don't force-show because that
-            // would undo those existing layers.
+            el.classList.remove("nav-item--restricted");
+            // Clean up legacy hide flag (older builds used display:none).
+            if (el.dataset.hiddenByAccess === "1") {
+              el.style.display = "";
+              delete el.dataset.hiddenByAccess;
+            }
             return;
           }
-          const keep = pageId === "settings" || allowed.has(pageId.toLowerCase());
-          if (!keep) {
-            el.dataset.hiddenByAccess = "1";
-            el.style.display = "none";
-          } else if (el.dataset.hiddenByAccess === "1") {
+          // Route through canAccessPage so all the special cases
+          // (settings always reachable, accounts auto-unlocks when
+          // a bank is shared) are applied consistently with nav() and
+          // getLastPage().
+          const keep = canAccessPage(pageId);
+          // Always show the item; mark non-granted pages as restricted
+          // (dimmed + not clickable via CSS). Users see every section
+          // so they know what exists, but can't navigate into what the
+          // admin hasn't granted them.
+          if (el.dataset.hiddenByAccess === "1") {
             el.style.display = "";
             delete el.dataset.hiddenByAccess;
           }
+          el.classList.toggle("nav-item--restricted", !keep);
         });
       }
 
@@ -24044,15 +24060,45 @@
         if (typeof window.resetOverscrollNav === "function") {
           window.resetOverscrollNav();
         }
-        const requestedPage = page;
+        let requestedPage = page;
         if (page === "products") {
           page = "inventory";
         }
-        // Per-user access check — fall back to Settings when the user
-        // tries to reach a page they aren't granted (Settings is always
-        // reachable so they can see their profile / sign out).
+        // Per-user access check — redirect to the first page the user
+        // CAN access (typically Dashboard) rather than silently dumping
+        // them on Settings. Rewire `requestedPage` + `el` so the header,
+        // sidebar highlight, and stored last-page all match the actual
+        // resolved page (prevents the "Bills title + Settings content"
+        // mismatch you saw).
         if (!canAccessPage(page)) {
-          page = "settings";
+          const allowed = getAllowedPages();
+          let fallback = "settings";
+          if (allowed && allowed.size) {
+            const order = [
+              "dashboard", "inventory", "upload", "receipts", "shopping",
+              "restaurant", "expenses", "budget", "bills", "accounts",
+              "analytics", "contributions",
+            ];
+            for (const p of order) {
+              if (allowed.has(p)) { fallback = p; break; }
+            }
+          }
+          // Silent redirect — the sidebar already hides disallowed
+          // items, so this path only fires on programmatic nav (URL
+          // hash, stored last-page, console). No toast = no noise.
+          page = fallback;
+          requestedPage = fallback;
+          // Swap the nav-item highlight to the fallback item.
+          const items = document.querySelectorAll(
+            '.sidebar .nav-item[onclick^="nav("]',
+          );
+          el = null;
+          for (const candidate of items) {
+            const m = String(candidate.getAttribute("onclick") || "").match(
+              /nav\(\s*['"]([^'"]+)['"]/,
+            );
+            if (m && m[1] === fallback) { el = candidate; break; }
+          }
         }
         if (
           isKitchenDisplayTrustedDevice() &&
@@ -26053,8 +26099,10 @@
               : "Plaid is not configured on this server. Set PLAID_CLIENT_ID and PLAID_SECRET in .env.";
           }
           if (note) {
+            const autoHrs = Number(itemsPayload.auto_sync_hours || 24);
+            const autoLine = ` Transactions auto-sync every ${autoHrs}h on page visit; admins can also trigger a manual sync per bank.`;
             note.textContent = itemsPayload.configured
-              ? `Plaid environment: ${itemsPayload.env}. Balances refresh on demand (max once per 5 minutes).`
+              ? `Plaid environment: ${itemsPayload.env}. Balances refresh on demand (max once per 5 minutes).${autoLine}`
               : "Plaid is not configured on this server. Ask an administrator to set PLAID_CLIENT_ID / PLAID_SECRET in the .env file.";
           }
           const items = itemsPayload.items || [];
@@ -26160,9 +26208,12 @@
                 : "";
               errorLine = `<div class="summary-row__meta" style="color:var(--color-error,#d33)">⚠️ ${escHtml(errStr)}</div>${hint}`;
             }
+            const isAdminRole = currentUser?.role === "admin";
             const reauthOrSync = item.status === "login_required"
               ? `<button type="button" class="btn btn-primary btn-sm" onclick="openPlaidLink(${item.id})">Re-authenticate</button>`
-              : `<button type="button" class="btn btn-ghost btn-sm" onclick="syncPlaidItem(${item.id})">Sync Now</button>`;
+              : (isAdminRole
+                ? `<button type="button" class="btn btn-ghost btn-sm" onclick="syncPlaidItem(${item.id})">Sync Now</button>`
+                : `<button type="button" class="btn btn-ghost btn-sm" disabled title="Auto-sync runs on a schedule. Ask an admin for an on-demand sync." style="opacity:0.55;cursor:not-allowed">Sync Now (admin-only)</button>`);
             return `
               <li class="summary-row-host">
                 <div class="summary-row accounts-item" style="flex-direction:column;align-items:stretch;gap:8px">
@@ -28631,7 +28682,7 @@
         bodyEl.innerHTML = `
           <div style="text-align:left">
             <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
-              ${adminBypass ? "⚠️ This user is an <strong>admin</strong> and will see every page regardless of these checks." : "Check the pages this user can see in the sidebar. Settings is always reachable."}
+              ${adminBypass ? "⚠️ This user is an <strong>admin</strong> and will see every page regardless of these checks." : "Check the pages this user can see in the sidebar. Settings is always reachable. Accounts unlocks automatically when a bank is shared with this user."}
             </div>
             <div id="pages-picker-body">${rows}</div>
             <div style="display:flex;gap:8px;margin-top:10px">

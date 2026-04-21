@@ -2365,6 +2365,20 @@ body.trusted-device-kitchen-display *:focus-visible {
   font-weight: 700;
 }
 
+/* ---------- Sidebar: restricted (non-granted) nav items ---- */
+/* User-facing signal that the page exists but isn't included in this
+   user's allowed_pages. Item stays in the sidebar so the user has a
+   mental model of the whole app, but is dimmed and non-clickable. */
+.nav-item.nav-item--restricted {
+  opacity: 0.32;
+  pointer-events: none;
+  filter: saturate(0.4);
+  cursor: not-allowed;
+}
+.nav-item.nav-item--restricted .nav-icon {
+  opacity: 0.7;
+}
+
 /* ---------- Accounts: collapsible cards ------------------- */
 #page-accounts .card.accounts-collapsed > *:not(.card-header) {
   display: none !important;
