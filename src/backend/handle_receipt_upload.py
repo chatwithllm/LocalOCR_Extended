@@ -1060,18 +1060,53 @@ def list_receipts():
     # Attribution filter — apply in SQL so the 50-row display cap doesn't
     # hide matching rows past the top of the list, and so per-store /
     # per-month summaries reflect the same filtered set.
+    #
+    # Matches if EITHER the Purchase itself is tagged OR any of its
+    # ReceiptItems are tagged. This covers (a) whole-receipt tagging
+    # (user picked from the receipt-level dropdown — Purchase row has
+    # the tag) and (b) partial tagging (user only tagged specific line
+    # items — only ReceiptItem rows have the tag, Purchase stays null).
+    # Without this, case (b) receipts were invisible to the filter.
     attribution_filter = (request.args.get("attribution", "") or "").strip().lower()
     if attribution_filter == "household":
-        query = query.filter(Purchase.attribution_kind == "household")
+        tagged_purchase_ids = (
+            session.query(ReceiptItem.purchase_id)
+            .filter(ReceiptItem.attribution_kind == "household")
+        )
+        query = query.filter(
+            or_(
+                Purchase.attribution_kind == "household",
+                Purchase.id.in_(tagged_purchase_ids),
+            )
+        )
     elif attribution_filter == "unset":
+        any_tagged_item_ids = (
+            session.query(ReceiptItem.purchase_id)
+            .filter(
+                or_(
+                    ReceiptItem.attribution_kind.isnot(None),
+                    ReceiptItem.attribution_user_id.isnot(None),
+                )
+            )
+        )
         query = query.filter(
             Purchase.attribution_kind.is_(None),
             Purchase.attribution_user_id.is_(None),
+            ~Purchase.id.in_(any_tagged_item_ids),
         )
     elif attribution_filter.startswith("user:"):
         try:
             attr_target_user = int(attribution_filter.split(":", 1)[1])
-            query = query.filter(Purchase.attribution_user_id == attr_target_user)
+            tagged_purchase_ids = (
+                session.query(ReceiptItem.purchase_id)
+                .filter(ReceiptItem.attribution_user_id == attr_target_user)
+            )
+            query = query.filter(
+                or_(
+                    Purchase.attribution_user_id == attr_target_user,
+                    Purchase.id.in_(tagged_purchase_ids),
+                )
+            )
         except (TypeError, ValueError):
             pass
 
