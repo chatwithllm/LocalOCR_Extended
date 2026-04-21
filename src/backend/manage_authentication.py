@@ -301,6 +301,39 @@ def _serialize_allowed_pages(value) -> str | None:
     return _json.dumps(cleaned)
 
 
+def _user_has_plaid_visibility(user: User) -> bool:
+    """Return True when the user can see at least one PlaidItem — either
+    one they linked themselves, or one shared with them by an admin.
+
+    Used to auto-unlock the Accounts page in the sidebar when admin has
+    shared a bank with this user even if the Pages modal doesn't
+    explicitly grant Accounts. Sharing expresses intent strongly enough
+    that a second permission ceremony would just cause bugs like
+    "I shared BOA with her, why can't she see Accounts?".
+    """
+    try:
+        from src.backend.initialize_database_schema import PlaidItem
+    except ImportError:
+        return False
+    session = g.db_session
+    # Owned item short-circuits.
+    if session.query(PlaidItem.id).filter(PlaidItem.user_id == user.id).first():
+        return True
+    # Scan shared_with_user_ids. The plaid_items table is tiny (one row
+    # per linked bank) so a Python-side scan is fine.
+    import json as _json
+    for (raw,) in session.query(PlaidItem.shared_with_user_ids).all():
+        if not raw:
+            continue
+        try:
+            ids = _json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(ids, list) and user.id in ids:
+            return True
+    return False
+
+
 def serialize_user(user: User) -> dict:
     """Return a safe JSON representation for auth responses."""
     return {
@@ -319,6 +352,7 @@ def serialize_user(user: User) -> dict:
             user.password_reset_requested_at.isoformat() if user.password_reset_requested_at else None
         ),
         "allowed_pages": _parse_allowed_pages(getattr(user, "allowed_pages", None)),
+        "has_plaid_visibility": _user_has_plaid_visibility(user),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     }

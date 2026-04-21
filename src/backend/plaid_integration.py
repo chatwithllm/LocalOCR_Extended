@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
@@ -392,11 +393,51 @@ def list_items():
     if visible_ids is not None:
         q = q.filter(PlaidItem.id.in_(visible_ids)) if visible_ids else q.filter(sa_false())
     items = q.all()
+
+    # Lazy auto-sync: if an item the caller can see hasn't been synced
+    # within the configured window, sync it once before returning. Costs
+    # one Plaid /transactions/sync call per stale item per window, shared
+    # across the household (any member's page view triggers it).
+    _auto_sync_stale_items(session, items)
+
     return jsonify({
         "configured": is_plaid_configured(),
         "env": get_plaid_env_name(),
         "items": [_serialize_item(it) for it in items],
+        "auto_sync_hours": _auto_sync_window_hours(),
     }), 200
+
+
+def _auto_sync_window_hours() -> int:
+    """Hours between allowed auto-syncs. Override via env; default 24."""
+    raw = os.getenv("PLAID_AUTO_SYNC_HOURS", "24").strip()
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 24
+
+
+def _auto_sync_stale_items(session, items: list) -> None:
+    """For each item in `items`, trigger a sync if last_sync_at is older
+    than the configured auto-sync window. Silent on failure (logs only)
+    so a single broken bank doesn't blow up the page load for the user.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    if not is_plaid_configured():
+        return
+    window = _td(hours=_auto_sync_window_hours())
+    now = _dt.utcnow()
+    for item in items:
+        if item.status != "active":
+            continue
+        if item.last_sync_at and (now - item.last_sync_at) < window:
+            continue
+        try:
+            sync_plaid_item_inner(session, item)
+        except Exception as exc:  # noqa: BLE001
+            logger.info(
+                "Auto-sync skipped for item %s: %s", item.plaid_item_id, exc
+            )
 
 
 def _plaid_transaction_to_row(txn_dict: dict) -> dict:
@@ -539,19 +580,26 @@ def sync_plaid_item_inner(session, item: PlaidItem) -> dict:
 @plaid_bp.route("/items/<int:item_id>/sync", methods=["POST"])
 @require_write_access
 def sync_item_transactions(item_id: int):
-    """Fetch new/modified/removed transactions for a Plaid item and stage them."""
+    """Fetch new/modified/removed transactions for a Plaid item and stage them.
+
+    Manual sync is admin-only — Plaid bills each /transactions/sync call,
+    so we gate the big red button behind elevated access. Non-admin users
+    still get fresh data via the lazy auto-sync path in list_items().
+    """
     if not is_plaid_configured():
         return jsonify({"error": "Plaid is not configured on this server."}), 503
     user_id = _current_user_id()
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
+    if not _current_user_is_admin():
+        return jsonify({
+            "error": "Manual sync is admin-only. Data refreshes automatically on a schedule.",
+        }), 403
 
     session = g.db_session
-    item = (
-        session.query(PlaidItem)
-        .filter_by(id=item_id, user_id=user_id)
-        .first()
-    )
+    # Admins can sync any item (not just their own) so they can maintain
+    # household banks linked under other users.
+    item = session.query(PlaidItem).filter_by(id=item_id).first()
     if not item:
         return jsonify({"error": "Plaid item not found"}), 404
 
