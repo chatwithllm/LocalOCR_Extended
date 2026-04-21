@@ -1475,12 +1475,14 @@ def approve_receipt(receipt_id):
 
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(ocr_data)
     # Only grocery/pharmacy/restaurant genuinely need itemization —
-    # everything else (utility/bill/general expense/retail) is "a total
-    # at a merchant" and shouldn't force the user to fabricate line
-    # items. Previously General Expense receipts (e.g. a glamping
-    # booking, online charge) couldn't be saved without fake items.
+    # everything else (utility/bill/general expense/retail/event/
+    # unknown) is "a total at a merchant" and shouldn't force the user
+    # to fabricate line items. Previously General Expense / Event
+    # receipts (e.g. a glamping booking, concert ticket) couldn't be
+    # saved without fake items.
     _ITEMLESS_TYPES = {
-        "utility_bill", "household_bill", "general_expense", "retail_items",
+        "utility_bill", "household_bill", "general_expense",
+        "retail_items", "event", "unknown",
     }
     requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
@@ -1540,12 +1542,14 @@ def update_receipt(receipt_id):
     sanitized = _sanitize_receipt_payload(merged_ocr_data)
     receipt_type = payload.get("receipt_type") or record.receipt_type or classify_receipt_data(sanitized)
     # Only grocery/pharmacy/restaurant genuinely need itemization —
-    # everything else (utility/bill/general expense/retail) is "a total
-    # at a merchant" and shouldn't force the user to fabricate line
-    # items. Previously General Expense receipts (e.g. a glamping
-    # booking, online charge) couldn't be saved without fake items.
+    # everything else (utility/bill/general expense/retail/event/
+    # unknown) is "a total at a merchant" and shouldn't force the user
+    # to fabricate line items. Previously General Expense / Event
+    # receipts (e.g. a glamping booking, concert ticket) couldn't be
+    # saved without fake items.
     _ITEMLESS_TYPES = {
-        "utility_bill", "household_bill", "general_expense", "retail_items",
+        "utility_bill", "household_bill", "general_expense",
+        "retail_items", "event", "unknown",
     }
     requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
