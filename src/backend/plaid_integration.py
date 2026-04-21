@@ -17,7 +17,7 @@ import logging
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify, g
-from sqlalchemy import or_
+from sqlalchemy import or_, false as sa_false
 
 from plaid.exceptions import ApiException
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
@@ -117,6 +117,8 @@ def _serialize_item(item: PlaidItem) -> dict:
         "last_sync_at": _iso_utc(item.last_sync_at),
         "last_sync_status": item.last_sync_status,
         "last_sync_error": item.last_sync_error,
+        "shared_with_user_ids": _parse_shared_user_ids(getattr(item, "shared_with_user_ids", None)),
+        "owner_user_id": item.user_id,
         "created_at": _iso_utc(item.created_at),
     }
 
@@ -124,6 +126,53 @@ def _serialize_item(item: PlaidItem) -> dict:
 def _current_user_id() -> int | None:
     user = getattr(g, "current_user", None)
     return int(user.id) if user else None
+
+
+def _current_user_is_admin() -> bool:
+    user = getattr(g, "current_user", None)
+    return bool(user and getattr(user, "role", None) == "admin")
+
+
+def _parse_shared_user_ids(raw) -> list[int]:
+    """Decode plaid_items.shared_with_user_ids (JSON array of user ids)."""
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            return [int(x) for x in parsed if x is not None]
+    except (TypeError, ValueError):
+        pass
+    return []
+
+
+def _visible_plaid_item_ids(session, user_id: int) -> list[int] | None:
+    """Return the list of plaid_items.id values visible to `user_id`.
+
+    Returns `None` when the caller is an admin — callers should interpret
+    that as "no restriction, see every item" and skip filtering. Otherwise
+    returns a concrete list (possibly empty) of ids combining:
+      * items the user personally linked (plaid_items.user_id == me), and
+      * items shared with them via shared_with_user_ids.
+    """
+    if _current_user_is_admin():
+        return None
+    own_ids = {
+        row[0]
+        for row in session.query(PlaidItem.id)
+        .filter(PlaidItem.user_id == user_id)
+        .all()
+    }
+    shared_ids: set[int] = set()
+    # SQLite doesn't have great JSON containment operators in older
+    # versions, so scan the small plaid_items table in-Python. The
+    # total row count is tiny (one per link), so this is cheap.
+    for row_id, raw in session.query(
+        PlaidItem.id, PlaidItem.shared_with_user_ids
+    ).all():
+        if user_id in _parse_shared_user_ids(raw):
+            shared_ids.add(int(row_id))
+    return list(own_ids | shared_ids)
 
 
 def _upsert_plaid_accounts_from_metadata(session, item: PlaidItem, accounts_meta: list) -> None:
@@ -338,12 +387,11 @@ def list_items():
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     session = g.db_session
-    items = (
-        session.query(PlaidItem)
-        .filter_by(user_id=user_id)
-        .order_by(PlaidItem.created_at.desc())
-        .all()
-    )
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    q = session.query(PlaidItem).order_by(PlaidItem.created_at.desc())
+    if visible_ids is not None:
+        q = q.filter(PlaidItem.id.in_(visible_ids)) if visible_ids else q.filter(sa_false())
+    items = q.all()
     return jsonify({
         "configured": is_plaid_configured(),
         "env": get_plaid_env_name(),
@@ -691,11 +739,17 @@ def list_staged_transactions():
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     session = g.db_session
-    query = (
-        session.query(PlaidStagedTransaction)
-        .filter_by(user_id=user_id)
-        .order_by(PlaidStagedTransaction.transaction_date.desc(), PlaidStagedTransaction.id.desc())
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    query = session.query(PlaidStagedTransaction).order_by(
+        PlaidStagedTransaction.transaction_date.desc(),
+        PlaidStagedTransaction.id.desc(),
     )
+    if visible_ids is not None:
+        query = (
+            query.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else query.filter(sa_false())
+        )
     status_filter = (request.args.get("status") or "").strip().lower()
     if status_filter in {"ready_to_import", "duplicate_flagged", "skipped_pending", "confirmed", "dismissed"}:
         query = query.filter_by(status=status_filter)
@@ -704,10 +758,12 @@ def list_staged_transactions():
         query = query.filter(PlaidStagedTransaction.plaid_account_id == account_id)
     rows = query.limit(500).all()
 
-    items_by_id = {
-        it.id: it
-        for it in session.query(PlaidItem).filter_by(user_id=user_id).all()
-    }
+    # Item lookup covers both owned + shared items so serialized rows
+    # get nickname / institution when available.
+    items_q = session.query(PlaidItem)
+    if visible_ids is not None:
+        items_q = items_q.filter(PlaidItem.id.in_(visible_ids)) if visible_ids else items_q.filter(sa_false())
+    items_by_id = {it.id: it for it in items_q.all()}
     serialized = [_serialize_staged(r, items_by_id.get(r.plaid_item_id)) for r in rows]
     counts = {
         "ready_to_import": 0,
@@ -716,11 +772,14 @@ def list_staged_transactions():
         "confirmed": 0,
         "dismissed": 0,
     }
-    for row in (
-        session.query(PlaidStagedTransaction.status, PlaidStagedTransaction.id)
-        .filter_by(user_id=user_id)
-        .all()
-    ):
+    counts_q = session.query(PlaidStagedTransaction.status, PlaidStagedTransaction.id)
+    if visible_ids is not None:
+        counts_q = (
+            counts_q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else counts_q.filter(sa_false())
+        )
+    for row in counts_q.all():
         status_key = row[0]
         if status_key in counts:
             counts[status_key] += 1
@@ -1396,34 +1455,83 @@ BALANCE_REFRESH_TTL_SECONDS = 5 * 60
 @plaid_bp.route("/items/<int:item_id>", methods=["PATCH"])
 @require_write_access
 def patch_item(item_id: int):
-    """Rename a linked Plaid item (nickname only)."""
+    """Edit a linked Plaid item: nickname and/or shared_with_user_ids.
+
+    Nickname: any authenticated user who owns or is shared on the item
+    can rename it.
+
+    shared_with_user_ids: admin-only — non-admins can't grant/revoke
+    access because it's a permission change on other household members.
+    """
+    from src.backend.initialize_database_schema import User
+
     user_id = _current_user_id()
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     payload = request.get_json(silent=True) or {}
-    if "nickname" not in payload:
-        return jsonify({"error": "Only 'nickname' is editable"}), 400
-    nickname_raw = payload.get("nickname")
-    if nickname_raw is None:
-        nickname = None
-    else:
-        nickname = str(nickname_raw).strip() or None
-        if nickname is not None and len(nickname) > 64:
-            return jsonify({"error": "Nickname must be 64 characters or fewer"}), 400
+    allowed_keys = {"nickname", "shared_with_user_ids"}
+    unknown = set(payload.keys()) - allowed_keys
+    if unknown:
+        return jsonify({"error": f"Unknown fields: {sorted(unknown)}"}), 400
+    if not payload:
+        return jsonify({"error": "No fields to update"}), 400
 
     session = g.db_session
-    item = (
-        session.query(PlaidItem)
-        .filter_by(id=item_id, user_id=user_id)
-        .first()
-    )
+    item = session.query(PlaidItem).filter_by(id=item_id).first()
     if not item:
         return jsonify({"error": "Plaid item not found"}), 404
-    item.nickname = nickname
+    # Authorization: admin always; otherwise linker only (renaming
+    # someone else's shared bank would be surprising).
+    if not _current_user_is_admin() and item.user_id != user_id:
+        return jsonify({"error": "Not authorized to edit this item"}), 403
+
+    if "nickname" in payload:
+        raw = payload.get("nickname")
+        if raw is None:
+            item.nickname = None
+        else:
+            nick = str(raw).strip() or None
+            if nick is not None and len(nick) > 64:
+                return jsonify({"error": "Nickname must be 64 characters or fewer"}), 400
+            item.nickname = nick
+
+    if "shared_with_user_ids" in payload:
+        if not _current_user_is_admin():
+            return jsonify({"error": "Admin access required to change sharing"}), 403
+        raw_list = payload.get("shared_with_user_ids")
+        if raw_list is None:
+            item.shared_with_user_ids = None
+        else:
+            if not isinstance(raw_list, list):
+                return jsonify({"error": "shared_with_user_ids must be a list"}), 400
+            cleaned: list[int] = []
+            seen: set[int] = set()
+            for v in raw_list:
+                try:
+                    uid = int(v)
+                except (TypeError, ValueError):
+                    return jsonify({"error": "shared_with_user_ids must contain integers"}), 400
+                if uid in seen or uid == item.user_id:
+                    # Owner is always implicit; don't duplicate.
+                    continue
+                seen.add(uid)
+                cleaned.append(uid)
+            if cleaned:
+                found = {
+                    r[0]
+                    for r in session.query(User.id).filter(User.id.in_(cleaned)).all()
+                }
+                missing = [i for i in cleaned if i not in found]
+                if missing:
+                    return jsonify({"error": f"Unknown user ids: {missing}"}), 400
+            item.shared_with_user_ids = json.dumps(cleaned) if cleaned else None
+
     session.commit()
     return jsonify({
         "id": item.id,
         "nickname": item.nickname,
+        "shared_with_user_ids": _parse_shared_user_ids(item.shared_with_user_ids),
+        "owner_user_id": item.user_id,
     }), 200
 
 
@@ -1439,12 +1547,13 @@ def list_accounts():
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
     session = g.db_session
-    accounts = (
-        session.query(PlaidAccount)
-        .filter_by(user_id=user_id)
-        .order_by(PlaidAccount.plaid_item_id.asc(), PlaidAccount.id.asc())
-        .all()
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    q = session.query(PlaidAccount).order_by(
+        PlaidAccount.plaid_item_id.asc(), PlaidAccount.id.asc()
     )
+    if visible_ids is not None:
+        q = q.filter(PlaidAccount.plaid_item_id.in_(visible_ids)) if visible_ids else q.filter(sa_false())
+    accounts = q.all()
     return jsonify({
         "accounts": [_serialize_plaid_account(a) for a in accounts],
     }), 200
@@ -1599,9 +1708,14 @@ def transaction_breakdown():
     end_raw = (request.args.get("end") or "").strip() or None
 
     session = g.db_session
-    q = session.query(PlaidStagedTransaction).filter(
-        PlaidStagedTransaction.user_id == user_id,
-    )
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    q = session.query(PlaidStagedTransaction)
+    if visible_ids is not None:
+        q = (
+            q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else q.filter(sa_false())
+        )
     if start_raw:
         q = q.filter(PlaidStagedTransaction.transaction_date >= start_raw)
     if end_raw:
@@ -1610,18 +1724,21 @@ def transaction_breakdown():
     AUTOPAY_CATS = {"LOAN_PAYMENTS", "TRANSFER_OUT", "RENT_AND_UTILITIES"}
     INTEREST_CATS = {"BANK_FEES"}
 
-    acct_rows = (
-        session.query(PlaidAccount)
-        .filter_by(user_id=user_id)
-        .all()
-    )
-    # Build a (nickname, name, mask) per plaid_account_id. Nickname is
-    # stored on the PlaidItem (bank level) so multiple accounts under
-    # the same bank share a nickname. Frontend prefers nickname over
-    # account name when rendering.
+    # Pull accounts + items scoped by visibility so shared users see
+    # nickname / name metadata for the banks they have access to.
+    acct_q = session.query(PlaidAccount)
+    item_q = session.query(PlaidItem)
+    if visible_ids is not None:
+        if visible_ids:
+            acct_q = acct_q.filter(PlaidAccount.plaid_item_id.in_(visible_ids))
+            item_q = item_q.filter(PlaidItem.id.in_(visible_ids))
+        else:
+            acct_q = acct_q.filter(sa_false())
+            item_q = item_q.filter(sa_false())
+    acct_rows = acct_q.all()
     item_nicknames = {
         it.id: it.nickname
-        for it in session.query(PlaidItem).filter_by(user_id=user_id).all()
+        for it in item_q.all()
     }
     def _clean_name(name: str, mask: str) -> str:
         """Strip the trailing mask if Plaid's account_name already ends
@@ -1720,15 +1837,23 @@ def list_plaid_transactions():
     offset = max(0, offset)
 
     session = g.db_session
+    visible_ids = _visible_plaid_item_ids(session, user_id)
     q = (
         session.query(Purchase, PlaidStagedTransaction)
         .outerjoin(
             PlaidStagedTransaction,
             PlaidStagedTransaction.confirmed_purchase_id == Purchase.id,
         )
-        .filter(Purchase.user_id == user_id)
         .filter(PlaidStagedTransaction.id.isnot(None))
     )
+    # Visibility: admin sees every Plaid purchase; others see only those
+    # whose PlaidItem is owned-by or shared-with them.
+    if visible_ids is not None:
+        q = (
+            q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else q.filter(sa_false())
+        )
     if start_raw:
         q = q.filter(Purchase.date >= start_raw)
     if end_raw:
@@ -1809,25 +1934,48 @@ def spending_trends():
     months = max(1, min(months, 24))
 
     session = g.db_session
-    # Use raw SQL for GROUP BY on strftime — SQLAlchemy's func.strftime works
-    # but keeping this explicit avoids confusion over dialect differences.
+    # Visibility: admin sees everyone's Plaid purchases; non-admin sees
+    # those tied to items they own or were shared. Build the id list as
+    # a comma-joined literal of validated ints — safe (we just pulled
+    # them from our own DB and cast to int) and avoids parameter
+    # expansion issues for IN (...) in raw text SQL.
+    visible_ids = _visible_plaid_item_ids(session, user_id)
     import sqlalchemy as _sa
-    sql = _sa.text(
-        """
-        SELECT strftime('%Y-%m', p.date) AS month,
-               p.default_budget_category AS category,
-               SUM(p.total_amount) AS total,
-               COUNT(*) AS n
-          FROM purchases p
-          JOIN plaid_staged_transactions s ON s.confirmed_purchase_id = p.id
-         WHERE p.user_id = :uid
-           AND p.date >= date('now', :window)
-         GROUP BY month, category
-         ORDER BY month ASC, category ASC
-        """
-    )
     window = f"-{months} months"
-    rows = session.execute(sql, {"uid": user_id, "window": window}).fetchall()
+    if visible_ids is None:
+        sql = _sa.text(
+            """
+            SELECT strftime('%Y-%m', p.date) AS month,
+                   p.default_budget_category AS category,
+                   SUM(p.total_amount) AS total,
+                   COUNT(*) AS n
+              FROM purchases p
+              JOIN plaid_staged_transactions s ON s.confirmed_purchase_id = p.id
+             WHERE p.date >= date('now', :window)
+             GROUP BY month, category
+             ORDER BY month ASC, category ASC
+            """
+        )
+        rows = session.execute(sql, {"window": window}).fetchall()
+    elif not visible_ids:
+        rows = []
+    else:
+        ids_literal = ",".join(str(int(i)) for i in visible_ids)
+        sql = _sa.text(
+            f"""
+            SELECT strftime('%Y-%m', p.date) AS month,
+                   p.default_budget_category AS category,
+                   SUM(p.total_amount) AS total,
+                   COUNT(*) AS n
+              FROM purchases p
+              JOIN plaid_staged_transactions s ON s.confirmed_purchase_id = p.id
+             WHERE s.plaid_item_id IN ({ids_literal})
+               AND p.date >= date('now', :window)
+             GROUP BY month, category
+             ORDER BY month ASC, category ASC
+            """
+        )
+        rows = session.execute(sql, {"window": window}).fetchall()
     series = [
         {
             "month": r[0],

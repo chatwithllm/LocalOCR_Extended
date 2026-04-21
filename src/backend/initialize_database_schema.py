@@ -720,6 +720,7 @@ class PlaidItem(Base):
     last_sync_error = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default="active")  # active, disconnected, login_required
     nickname = Column(String(64), nullable=True)  # user-supplied friendly name for the item (editable via PATCH /plaid/items/<id>)
+    shared_with_user_ids = Column(Text, nullable=True)  # JSON array of user ids granted visibility; NULL/[] = linker-only
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
