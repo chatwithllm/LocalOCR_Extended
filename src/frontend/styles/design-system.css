@@ -2230,3 +2230,104 @@ body.trusted-device-kitchen-display *:focus-visible {
   font-variant-numeric: tabular-nums lining-nums;
   white-space: nowrap;
 }
+
+/* ---------- Attribution multi-select picker ----------------- */
+.attr-picker-wrap {
+  position: relative;
+  display: inline-block;
+}
+.attr-picker-trigger {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.15));
+  background-color: transparent;
+  background-image: none;
+  color: var(--color-text-primary, inherit);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.attr-picker-trigger:hover {
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+}
+.attr-picker-trigger.is-open {
+  border-color: #097fe8;
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+}
+.attr-picker-trigger .attr-caret {
+  opacity: 0.55;
+  font-size: 0.7rem;
+}
+.attr-picker-panel {
+  position: absolute;
+  z-index: 1200;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--color-surface, var(--color-surface-1, #1b1b1d));
+  color: var(--color-text-primary, inherit);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-2, 0 6px 18px rgba(0, 0, 0, 0.35));
+  padding: 6px;
+  font-size: 0.88rem;
+}
+.attr-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-text-primary, inherit);
+}
+.attr-picker-option:hover {
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.1));
+}
+.attr-picker-option.is-active {
+  background: rgba(9, 127, 232, 0.18);
+  color: #4aa3ff;
+  font-weight: 600;
+}
+.attr-picker-option input[type="radio"],
+.attr-picker-option input[type="checkbox"] {
+  accent-color: #097fe8;
+  margin: 0;
+}
+.attr-picker-divider {
+  height: 1px;
+  background: var(--color-border, rgba(0, 0, 0, 0.1));
+  margin: 4px 0;
+}
+.attr-picker-caption {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #888);
+}
+.attr-badge--shared {
+  background: rgba(148, 78, 194, 0.12);
+  color: #944ec2;
+  border: 1px solid rgba(148, 78, 194, 0.28);
+}
+@media (max-width: 640px) {
+  .attr-picker-panel {
+    right: auto;
+    left: 0;
+  }
+}

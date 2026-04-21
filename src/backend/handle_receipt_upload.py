@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, g, send_file
 from PIL import Image, ImageOps
-from sqlalchemy import or_
+from sqlalchemy import or_, and_, not_, text as sql_text
 
 from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.budgeting_domains import (
@@ -39,6 +39,45 @@ logger = logging.getLogger(__name__)
 receipts_bp = Blueprint("receipts", __name__, url_prefix="/receipts")
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"}
+
+
+def _attribution_user_ids(obj) -> list[int]:
+    """Extract attribution user ids from a Purchase/ReceiptItem.
+
+    Prefers the JSON array column `attribution_user_ids`; falls back to
+    the legacy single-user column so rows that predate migration 009
+    still work. Returns an empty list for untagged or household rows.
+    """
+    if obj is None:
+        return []
+    raw = getattr(obj, "attribution_user_ids", None)
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                return [int(x) for x in parsed if x is not None]
+        except (TypeError, ValueError):
+            pass
+    legacy = getattr(obj, "attribution_user_id", None)
+    return [int(legacy)] if legacy else []
+
+
+def _serialize_user_ids(user_ids) -> str | None:
+    """Serialize a user_ids list for DB storage. Returns None for empty."""
+    if not user_ids:
+        return None
+    cleaned = []
+    seen = set()
+    for uid in user_ids:
+        try:
+            i = int(uid)
+        except (TypeError, ValueError):
+            continue
+        if i in seen:
+            continue
+        seen.add(i)
+        cleaned.append(i)
+    return json.dumps(cleaned) if cleaned else None
 
 
 def _get_receipts_root() -> str:
@@ -937,15 +976,39 @@ def get_receipt(receipt_id):
     # Look up attribution user names so the frontend can render badges
     # without a second /auth/users round-trip.
     from src.backend.initialize_database_schema import User as _AttrUser
-    attribution_user_ids = {
-        purchase.attribution_user_id if purchase else None,
-        *[item.attribution_user_id for item, _product in items if item.attribution_user_id],
-    }
-    attribution_user_ids.discard(None)
+    purchase_attr_ids = _attribution_user_ids(purchase)
+    all_attr_ids = set(purchase_attr_ids)
+    for item, _product in items:
+        all_attr_ids.update(_attribution_user_ids(item))
     attr_users = {}
-    if attribution_user_ids:
-        for u in session.query(_AttrUser).filter(_AttrUser.id.in_(attribution_user_ids)).all():
+    if all_attr_ids:
+        for u in session.query(_AttrUser).filter(_AttrUser.id.in_(all_attr_ids)).all():
             attr_users[u.id] = u.name or u.email or f"User {u.id}"
+
+    def _names_for(ids: list[int]) -> list[str]:
+        return [attr_users[i] for i in ids if i in attr_users]
+
+    def _item_payload(item, product):
+        item_ids = _attribution_user_ids(item)
+        return {
+            "receipt_item_id": item.id,
+            "product_id": item.product_id,
+            "product_name": product.name,
+            "category": product.category,
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "unit": item.unit,
+            "size_label": item.size_label,
+            "spending_domain": item.spending_domain,
+            "budget_category": item.budget_category,
+            "extracted_by": item.extracted_by,
+            "attribution_user_id": item.attribution_user_id,
+            "attribution_user_ids": item_ids,
+            "attribution_user_names": _names_for(item_ids),
+            "attribution_kind": item.attribution_kind,
+            "attribution_user_name": attr_users.get(item_ids[0]) if item_ids else None,
+            "latest_snapshot": _latest_snapshot_for_receipt_item(session, item.id),
+        }
 
     response_payload = {
         "id": purchase.id if purchase else receipt_record.id,
@@ -962,8 +1025,10 @@ def get_receipt(receipt_id):
         "default_spending_domain": getattr(purchase, "default_spending_domain", None) if purchase else None,
         "default_budget_category": getattr(purchase, "default_budget_category", None) if purchase else None,
         "attribution_user_id": purchase.attribution_user_id if purchase else None,
+        "attribution_user_ids": purchase_attr_ids,
+        "attribution_user_names": _names_for(purchase_attr_ids),
         "attribution_kind": purchase.attribution_kind if purchase else None,
-        "attribution_user_name": attr_users.get(purchase.attribution_user_id) if purchase else None,
+        "attribution_user_name": attr_users.get(purchase_attr_ids[0]) if purchase_attr_ids else None,
         "source": _receipt_source_label(receipt_record) if receipt_record else "upload",
         "created_at": receipt_record.created_at.isoformat() if receipt_record and receipt_record.created_at else None,
         "image_url": f"/receipts/{purchase.id if purchase else receipt_record.id}/image" if receipt_record and receipt_record.image_path else None,
@@ -972,23 +1037,7 @@ def get_receipt(receipt_id):
         "raw_ocr_data": raw_ocr_data,
         "editable_data": editable_data,
         "items": [
-            {
-                "receipt_item_id": item.id,
-                "product_id": item.product_id,
-                "product_name": product.name,
-                "category": product.category,
-                "quantity": item.quantity,
-                "unit_price": item.unit_price,
-                "unit": item.unit,
-                "size_label": item.size_label,
-                "spending_domain": item.spending_domain,
-                "budget_category": item.budget_category,
-                "extracted_by": item.extracted_by,
-                "attribution_user_id": item.attribution_user_id,
-                "attribution_kind": item.attribution_kind,
-                "attribution_user_name": attr_users.get(item.attribution_user_id),
-                "latest_snapshot": _latest_snapshot_for_receipt_item(session, item.id),
-            }
+            _item_payload(item, product)
             for item, product in items
         ],
     }
@@ -1061,54 +1110,84 @@ def list_receipts():
     # hide matching rows past the top of the list, and so per-store /
     # per-month summaries reflect the same filtered set.
     #
-    # Matches if EITHER the Purchase itself is tagged OR any of its
-    # ReceiptItems are tagged. This covers (a) whole-receipt tagging
-    # (user picked from the receipt-level dropdown — Purchase row has
-    # the tag) and (b) partial tagging (user only tagged specific line
-    # items — only ReceiptItem rows have the tag, Purchase stays null).
-    # Without this, case (b) receipts were invisible to the filter.
-    attribution_filter = (request.args.get("attribution", "") or "").strip().lower()
-    if attribution_filter == "household":
-        tagged_purchase_ids = (
-            session.query(ReceiptItem.purchase_id)
-            .filter(ReceiptItem.attribution_kind == "household")
+    # Matches if EITHER the Purchase itself OR any of its ReceiptItems
+    # carries a matching tag. Supports multi-select (comma-separated
+    # tokens) with OR-union semantics across tokens.
+    #
+    # Token grammar: "household" | "unset" | "user:<id>"
+    attribution_raw = (request.args.get("attribution", "") or "").strip().lower()
+    attribution_tokens = [t.strip() for t in attribution_raw.split(",") if t.strip()]
+
+    def _user_id_matches(col_single, col_json, target_uid: int):
+        """Match if legacy single col equals uid OR json array contains uid.
+
+        SQLite `json_each` scans the array; works whether the column is
+        null, an empty array, or a populated array. `target_uid` is
+        validated as int before reaching here, so safe to interpolate.
+        """
+        table = col_json.table.name
+        col = col_json.key
+        json_has = sql_text(
+            f"EXISTS (SELECT 1 FROM json_each({table}.{col}) "
+            f"WHERE value = {int(target_uid)})"
         )
-        query = query.filter(
-            or_(
-                Purchase.attribution_kind == "household",
-                Purchase.id.in_(tagged_purchase_ids),
-            )
-        )
-    elif attribution_filter == "unset":
-        any_tagged_item_ids = (
-            session.query(ReceiptItem.purchase_id)
-            .filter(
-                or_(
-                    ReceiptItem.attribution_kind.isnot(None),
-                    ReceiptItem.attribution_user_id.isnot(None),
+        return or_(col_single == target_uid, json_has)
+
+    if attribution_tokens:
+        conditions = []
+        for token in attribution_tokens:
+            if token == "household":
+                item_match = session.query(ReceiptItem.purchase_id).filter(
+                    ReceiptItem.attribution_kind == "household"
                 )
-            )
-        )
-        query = query.filter(
-            Purchase.attribution_kind.is_(None),
-            Purchase.attribution_user_id.is_(None),
-            ~Purchase.id.in_(any_tagged_item_ids),
-        )
-    elif attribution_filter.startswith("user:"):
-        try:
-            attr_target_user = int(attribution_filter.split(":", 1)[1])
-            tagged_purchase_ids = (
-                session.query(ReceiptItem.purchase_id)
-                .filter(ReceiptItem.attribution_user_id == attr_target_user)
-            )
-            query = query.filter(
-                or_(
-                    Purchase.attribution_user_id == attr_target_user,
-                    Purchase.id.in_(tagged_purchase_ids),
+                conditions.append(
+                    or_(
+                        Purchase.attribution_kind == "household",
+                        Purchase.id.in_(item_match),
+                    )
                 )
-            )
-        except (TypeError, ValueError):
-            pass
+            elif token == "unset":
+                any_tagged_item_ids = session.query(ReceiptItem.purchase_id).filter(
+                    or_(
+                        ReceiptItem.attribution_kind.isnot(None),
+                        ReceiptItem.attribution_user_id.isnot(None),
+                        and_(
+                            ReceiptItem.attribution_user_ids.isnot(None),
+                            ReceiptItem.attribution_user_ids != "[]",
+                        ),
+                    )
+                )
+                conditions.append(
+                    and_(
+                        Purchase.attribution_kind.is_(None),
+                        Purchase.attribution_user_id.is_(None),
+                        or_(
+                            Purchase.attribution_user_ids.is_(None),
+                            Purchase.attribution_user_ids == "[]",
+                        ),
+                        ~Purchase.id.in_(any_tagged_item_ids),
+                    )
+                )
+            elif token.startswith("user:"):
+                try:
+                    uid = int(token.split(":", 1)[1])
+                except (TypeError, ValueError):
+                    continue
+                purchase_match = _user_id_matches(
+                    Purchase.attribution_user_id, Purchase.attribution_user_ids, uid
+                )
+                item_uid_match = _user_id_matches(
+                    ReceiptItem.attribution_user_id, ReceiptItem.attribution_user_ids, uid
+                )
+                item_match = session.query(ReceiptItem.purchase_id).filter(item_uid_match)
+                conditions.append(
+                    or_(
+                        purchase_match,
+                        Purchase.id.in_(item_match),
+                    )
+                )
+        if conditions:
+            query = query.filter(or_(*conditions))
 
     records = query.order_by(TelegramReceipt.created_at.desc()).all()
     limited_records = records[:max(1, min(limit, 200))]
@@ -1463,6 +1542,23 @@ def update_receipt(receipt_id):
     current_user = getattr(g, "current_user", None)
     user_id = current_user.id if current_user else None
     purchase = session.query(Purchase).filter_by(id=record.purchase_id).first() if record.purchase_id else None
+
+    # Snapshot per-item attribution before the clear+recreate wipes it.
+    # /update deletes and rebuilds receipt_items from the sanitized payload,
+    # which carries no attribution fields — without this snapshot, every
+    # save-receipt-edit silently untags everything the user previously tagged.
+    preserved_item_attribution: dict = {}
+    if purchase:
+        from src.backend.initialize_database_schema import ReceiptItem as _RI
+        for it in session.query(_RI).filter_by(purchase_id=purchase.id).all():
+            if it.attribution_user_id or it.attribution_user_ids or it.attribution_kind:
+                slot = preserved_item_attribution.setdefault(it.product_id, [])
+                slot.append({
+                    "user_id": it.attribution_user_id,
+                    "user_ids": it.attribution_user_ids,
+                    "kind": it.attribution_kind,
+                })
+
     if purchase:
         _clear_purchase_detail_data(session, purchase)
         session.flush()
@@ -1481,6 +1577,26 @@ def update_receipt(receipt_id):
     record.raw_ocr_json = json.dumps(sanitized)
     record.ocr_engine = record.ocr_engine or "manual_review"
     record.ocr_confidence = sanitized.get("confidence") or record.ocr_confidence or 1.0
+
+    # Restore per-item attribution onto the freshly-recreated rows.
+    # Match by product_id; when multiple items share a product_id, consume
+    # the snapshot slots in order so each row gets back its own tag.
+    if preserved_item_attribution:
+        from src.backend.initialize_database_schema import ReceiptItem as _RI2
+        rebuilt = (
+            session.query(_RI2)
+            .filter_by(purchase_id=purchase_id)
+            .order_by(_RI2.id)
+            .all()
+        )
+        for it in rebuilt:
+            slot = preserved_item_attribution.get(it.product_id)
+            if slot:
+                saved = slot.pop(0)
+                it.attribution_user_id = saved["user_id"]
+                it.attribution_user_ids = saved["user_ids"]
+                it.attribution_kind = saved["kind"]
+
     session.commit()
 
     return jsonify({
@@ -2025,19 +2141,80 @@ def dismiss_dedup_pair():
     }), 200
 
 
+def _normalize_attribution_payload(data, session, User):
+    """Parse + validate an attribution request body.
+
+    Accepts either the new `user_ids: [int]` array or the legacy
+    `user_id: int` scalar. Derives `kind` when not supplied:
+      0 ids + kind=null        → cleared (untagged)
+      0 ids + kind=household   → household
+      1 id                     → personal (auto-derives kind)
+      2+ ids                   → shared   (auto-derives kind)
+
+    Returns (ok, result). On ok=True result is a dict with keys
+    `user_ids` (list[int]), `kind` (str|None). On ok=False result is
+    a (json_payload, status_code) tuple.
+    """
+    raw_kind = (data.get("kind") or "").strip().lower() or None
+    if raw_kind not in (None, "household", "personal", "shared"):
+        return False, ({"error": "kind must be 'household', 'personal', 'shared', or null"}, 400)
+
+    raw_ids = data.get("user_ids")
+    if raw_ids is None and "user_id" in data:
+        single = data.get("user_id")
+        raw_ids = [single] if single is not None else []
+    if raw_ids is None:
+        raw_ids = []
+    if not isinstance(raw_ids, list):
+        return False, ({"error": "user_ids must be a list"}, 400)
+
+    user_ids: list[int] = []
+    for v in raw_ids:
+        try:
+            user_ids.append(int(v))
+        except (TypeError, ValueError):
+            return False, ({"error": "user_ids must contain integers"}, 400)
+    # De-dupe, preserve order.
+    seen = set()
+    user_ids = [i for i in user_ids if not (i in seen or seen.add(i))]
+
+    if user_ids:
+        found = session.query(User.id).filter(User.id.in_(user_ids)).all()
+        found_ids = {r[0] for r in found}
+        missing = [i for i in user_ids if i not in found_ids]
+        if missing:
+            return False, ({"error": f"user_ids do not exist: {missing}"}, 404)
+
+    # Derive kind when omitted.
+    if raw_kind is None:
+        if len(user_ids) == 1:
+            raw_kind = "personal"
+        elif len(user_ids) >= 2:
+            raw_kind = "shared"
+        # 0 ids stays None (cleared)
+
+    # Consistency checks.
+    if raw_kind == "household" and user_ids:
+        return False, ({"error": "kind='household' must not have user_ids"}, 400)
+    if raw_kind == "personal" and len(user_ids) != 1:
+        return False, ({"error": "kind='personal' requires exactly one user_id"}, 400)
+    if raw_kind == "shared" and len(user_ids) < 2:
+        return False, ({"error": "kind='shared' requires 2+ user_ids"}, 400)
+
+    return True, {"user_ids": user_ids, "kind": raw_kind}
+
+
 @receipts_bp.route("/<int:receipt_id>/attribution", methods=["PUT"])
 @require_write_access
 def update_receipt_attribution(receipt_id):
-    """Tag a receipt as belonging to a specific household user, to the
-    household as a whole, or clear the tag.
+    """Tag a receipt as belonging to one/multiple household users, the
+    whole household, or clear the tag.
 
     Body:
-      { "user_id": int | null, "kind": "household" | "personal" | null,
+      { "user_ids": [int], "kind": "household"|"personal"|"shared"|null,
         "apply_to_items": bool }
 
-    When apply_to_items is true, propagate the attribution to every
-    receipt item under this receipt. Items retain their own explicit
-    overrides across future receipt-level edits.
+    Legacy `user_id: int` is still accepted for backwards compat.
     """
     from src.backend.initialize_database_schema import Purchase, ReceiptItem, User
 
@@ -2047,40 +2224,28 @@ def update_receipt_attribution(receipt_id):
         return jsonify({"error": "Receipt not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    raw_user_id = data.get("user_id")
-    raw_kind = (data.get("kind") or "").strip().lower() or None
     apply_to_items = bool(data.get("apply_to_items", False))
 
-    if raw_kind not in (None, "household", "personal"):
-        return jsonify({"error": "kind must be 'household', 'personal', or null"}), 400
+    ok, result = _normalize_attribution_payload(data, session, User)
+    if not ok:
+        payload, status = result
+        return jsonify(payload), status
 
-    user_id = None
-    if raw_user_id is not None:
-        try:
-            user_id = int(raw_user_id)
-        except (TypeError, ValueError):
-            return jsonify({"error": "user_id must be an integer"}), 400
-        if not session.query(User).filter_by(id=user_id).first():
-            return jsonify({"error": "user_id does not exist"}), 404
+    user_ids = result["user_ids"]
+    kind = result["kind"]
+    legacy_single = user_ids[0] if len(user_ids) == 1 else None
+    ids_json = _serialize_user_ids(user_ids)
 
-    # Consistency: personal requires a user_id; household disallows one.
-    if raw_kind == "personal" and user_id is None:
-        return jsonify({"error": "kind='personal' requires a user_id"}), 400
-    if raw_kind == "household" and user_id is not None:
-        return jsonify({"error": "kind='household' must not have a user_id"}), 400
-    # Cleared attribution is both null.
-    if raw_kind is None and user_id is None:
-        # Leave as-is (explicit clear).
-        pass
-
-    purchase.attribution_user_id = user_id
-    purchase.attribution_kind = raw_kind
+    purchase.attribution_user_id = legacy_single
+    purchase.attribution_user_ids = ids_json
+    purchase.attribution_kind = kind
 
     if apply_to_items:
         session.query(ReceiptItem).filter_by(purchase_id=purchase.id).update(
             {
-                "attribution_user_id": user_id,
-                "attribution_kind": raw_kind,
+                "attribution_user_id": legacy_single,
+                "attribution_user_ids": ids_json,
+                "attribution_kind": kind,
             },
             synchronize_session=False,
         )
@@ -2089,6 +2254,7 @@ def update_receipt_attribution(receipt_id):
     return jsonify({
         "purchase_id": purchase.id,
         "attribution_user_id": purchase.attribution_user_id,
+        "attribution_user_ids": user_ids,
         "attribution_kind": purchase.attribution_kind,
         "applied_to_items": apply_to_items,
     }), 200
@@ -2099,7 +2265,8 @@ def update_receipt_attribution(receipt_id):
 def update_receipt_item_attribution(receipt_id, item_id):
     """Set or clear per-line-item attribution.
 
-    Body: { "user_id": int | null, "kind": "household" | "personal" | null }
+    Body: { "user_ids": [int], "kind": "household"|"personal"|"shared"|null }
+    Legacy `user_id: int` is still accepted.
     """
     from src.backend.initialize_database_schema import ReceiptItem, User
 
@@ -2113,32 +2280,23 @@ def update_receipt_item_attribution(receipt_id, item_id):
         return jsonify({"error": "Receipt item not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    raw_user_id = data.get("user_id")
-    raw_kind = (data.get("kind") or "").strip().lower() or None
+    ok, result = _normalize_attribution_payload(data, session, User)
+    if not ok:
+        payload, status = result
+        return jsonify(payload), status
 
-    if raw_kind not in (None, "household", "personal"):
-        return jsonify({"error": "kind must be 'household', 'personal', or null"}), 400
+    user_ids = result["user_ids"]
+    kind = result["kind"]
+    legacy_single = user_ids[0] if len(user_ids) == 1 else None
 
-    user_id = None
-    if raw_user_id is not None:
-        try:
-            user_id = int(raw_user_id)
-        except (TypeError, ValueError):
-            return jsonify({"error": "user_id must be an integer"}), 400
-        if not session.query(User).filter_by(id=user_id).first():
-            return jsonify({"error": "user_id does not exist"}), 404
-
-    if raw_kind == "personal" and user_id is None:
-        return jsonify({"error": "kind='personal' requires a user_id"}), 400
-    if raw_kind == "household" and user_id is not None:
-        return jsonify({"error": "kind='household' must not have a user_id"}), 400
-
-    item.attribution_user_id = user_id
-    item.attribution_kind = raw_kind
+    item.attribution_user_id = legacy_single
+    item.attribution_user_ids = _serialize_user_ids(user_ids)
+    item.attribution_kind = kind
     session.commit()
     return jsonify({
         "receipt_item_id": item.id,
         "attribution_user_id": item.attribution_user_id,
+        "attribution_user_ids": user_ids,
         "attribution_kind": item.attribution_kind,
     }), 200
 

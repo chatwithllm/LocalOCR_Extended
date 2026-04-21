@@ -12289,7 +12289,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260419b" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260421c" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -22715,23 +22715,38 @@
           const value = document.getElementById(id)?.value?.trim();
           if (value) params.set(key, value);
         });
-        // Attribution filter uses its own sticky state (chips, not a <select>).
-        if (window.__receiptAttributionFilter) {
-          params.set("attribution", window.__receiptAttributionFilter);
+        // Attribution filter is a multi-select chip set. Backend accepts
+        // comma-separated tokens (OR semantics).
+        const tokens = window.__receiptAttributionTokens;
+        if (Array.isArray(tokens) && tokens.length) {
+          params.set("attribution", tokens.join(","));
         }
         return params.toString();
       }
 
+      function _getAttrTokenSet() {
+        if (!Array.isArray(window.__receiptAttributionTokens)) {
+          window.__receiptAttributionTokens = [];
+        }
+        return new Set(window.__receiptAttributionTokens);
+      }
+
       function setReceiptAttributionFilter(value) {
-        window.__receiptAttributionFilter = value || null;
-        document
-          .querySelectorAll(".receipt-attribution-chip")
-          .forEach((chip) => {
-            chip.classList.toggle(
-              "active",
-              (chip.dataset.value || "") === (value || ""),
-            );
-          });
+        // Toggle behaviour:
+        //   "" (All) → clear all tokens.
+        //   "household"/"user:N"/"unset" → toggle membership.
+        //   Selecting "unset" while members are selected is allowed (OR union).
+        const set = _getAttrTokenSet();
+        if (!value) {
+          window.__receiptAttributionTokens = [];
+        } else if (set.has(value)) {
+          set.delete(value);
+          window.__receiptAttributionTokens = Array.from(set);
+        } else {
+          set.add(value);
+          window.__receiptAttributionTokens = Array.from(set);
+        }
+        renderReceiptAttributionFilterChips();
         loadReceipts();
       }
 
@@ -22739,9 +22754,11 @@
         const mount = document.getElementById("receipt-attribution-chips");
         if (!mount) return;
         const members = await loadHouseholdMembers();
-        const current = window.__receiptAttributionFilter || "";
-        const chip = (value, label) =>
-          `<button type="button" class="chip receipt-attribution-chip ${current === value ? "active" : ""}" data-value="${escAttr(value)}" onclick="setReceiptAttributionFilter('${escAttr(value)}')">${escHtml(label)}</button>`;
+        const active = _getAttrTokenSet();
+        const chip = (value, label) => {
+          const isActive = value === "" ? active.size === 0 : active.has(value);
+          return `<button type="button" class="chip receipt-attribution-chip ${isActive ? "active" : ""}" data-value="${escAttr(value)}" onclick="setReceiptAttributionFilter('${escAttr(value)}')">${escHtml(label)}</button>`;
+        };
         mount.innerHTML = [
           chip("", "All"),
           chip("household", "🏠 Household"),
@@ -30777,9 +30794,21 @@
           !isCompactMobileReceiptView() &&
           document.getElementById("page-receipts")?.classList.contains("active")
         ) {
-          selectedReceiptId =
-            Number(selectedReceiptId) === targetId ? null : targetId;
+          const willOpen = Number(selectedReceiptId) !== targetId;
+          selectedReceiptId = willOpen ? targetId : null;
           await loadReceipts();
+          // Only scroll when opening (not when collapsing). Defer until
+          // the inline detail element exists in the re-rendered DOM.
+          if (willOpen) {
+            requestAnimationFrame(() => {
+              const target =
+                document.getElementById(`receipt-inline-detail-${targetId}`) ||
+                document.getElementById("receipt-detail-body");
+              if (target && typeof target.scrollIntoView === "function") {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            });
+          }
           return;
         }
         await viewReceipt(targetId);
@@ -34530,17 +34559,24 @@
             : "";
 
         if (!visibleReceipts.length) {
-          const attrFilter = window.__receiptAttributionFilter;
+          const attrTokens = Array.isArray(window.__receiptAttributionTokens)
+            ? window.__receiptAttributionTokens
+            : [];
           let attrEmptyMsg = "";
-          if (attrFilter === "household") {
-            attrEmptyMsg =
-              '<div class="empty-state"><div class="icon">🏠</div><p>No receipts tagged <strong>Household</strong> yet. Open a receipt → "Attributed to" to tag one.</p></div>';
-          } else if (attrFilter === "unset") {
-            attrEmptyMsg =
-              '<div class="empty-state"><div class="icon">✅</div><p>Every receipt is tagged. Nothing untagged right now.</p></div>';
-          } else if (attrFilter && attrFilter.startsWith("user:")) {
-            attrEmptyMsg =
-              '<div class="empty-state"><div class="icon">👤</div><p>No receipts tagged to this person yet.</p></div>';
+          if (attrTokens.length) {
+            const onlyHousehold =
+              attrTokens.length === 1 && attrTokens[0] === "household";
+            const onlyUnset = attrTokens.length === 1 && attrTokens[0] === "unset";
+            if (onlyHousehold) {
+              attrEmptyMsg =
+                '<div class="empty-state"><div class="icon">🏠</div><p>No receipts tagged <strong>Household</strong> yet. Open a receipt → "Attributed to" to tag one.</p></div>';
+            } else if (onlyUnset) {
+              attrEmptyMsg =
+                '<div class="empty-state"><div class="icon">✅</div><p>Every receipt is tagged. Nothing untagged right now.</p></div>';
+            } else {
+              attrEmptyMsg =
+                '<div class="empty-state"><div class="icon">👤</div><p>No receipts match the selected attribution chips.</p></div>';
+            }
           }
           body.innerHTML = attrEmptyMsg
             ? failedBannerHtml + attrEmptyMsg
@@ -34611,6 +34647,9 @@
           if (el) el.value = "";
         });
         selectedReceiptMonth = null;
+        // Clear attribution chip selection too so Reset means "reset everything".
+        window.__receiptAttributionTokens = [];
+        renderReceiptAttributionFilterChips().catch(() => {});
         ensureDefaultReceiptFilters(true);
         populateReceiptFilterOptions(receiptFilterOptions);
         loadReceipts();
@@ -34831,12 +34870,19 @@
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-attribution" style="grid-column:1/-1">
           <label>Attributed to</label>
-          <select id="receipt-attribution-${receipt.id}" onchange="handleReceiptAttributionChange(${receipt.id}, this)">
-            <option value="">— not set —</option>
-            <option value="kind:household">🏠 Household (shared)</option>
-          </select>
+          <div class="attr-picker-wrap">
+            <button type="button"
+              id="receipt-attribution-${receipt.id}"
+              class="attr-picker-trigger"
+              data-scope="receipt"
+              data-receipt-id="${receipt.id}"
+              onclick="toggleAttributionPicker(event, 'receipt', ${receipt.id})">
+              <span class="attr-picker-label">— not set —</span>
+              <span class="attr-caret">▾</span>
+            </button>
+          </div>
           <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
-            Pick a household member or "Household (shared)". Changes apply to the whole receipt and propagate to all line items (you can still override individual items below).
+            Pick household, one person, or check multiple for shared items. Changes apply to the whole receipt and propagate to all line items (you can override individual items below).
           </div>
         </div>
       </div>
@@ -34972,6 +35018,18 @@
         ) {
           selectedReceiptId = targetId;
           await loadReceipts();
+          // After re-render, scroll the inline detail (or detail body as
+          // fallback) into view. Defer one frame so the new DOM exists.
+          if (shouldScroll) {
+            requestAnimationFrame(() => {
+              const target =
+                document.getElementById(`receipt-inline-detail-${targetId}`) ||
+                document.getElementById("receipt-detail-body");
+              if (target && typeof target.scrollIntoView === "function") {
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            });
+          }
           return;
         }
 
@@ -35359,15 +35417,19 @@
         });
         handleReceiptEditorTypeChange(receiptId);
         wireReceiptBudgetingControls(receiptId);
-        // Attribution picker + per-item selects need the household
-        // roster — async, but the current value is known so we set it
-        // immediately from markup and refine once members resolve.
-        populateReceiptAttributionSelect({
-          id: receiptId,
-          attribution_user_id: data.attribution_user_id,
-          attribution_kind: data.attribution_kind,
-        }).catch(() => {});
-        populateReceiptItemAttributionSelects(data.items || []).catch(() => {});
+        // Attribution picker + per-item triggers need the household
+        // roster — async; the full receipt payload (including
+        // attribution_user_ids) is cached so the popover can read from it.
+        refreshAttributionTriggers(
+          {
+            id: receiptId,
+            attribution_user_id: data.attribution_user_id,
+            attribution_user_ids: data.attribution_user_ids,
+            attribution_kind: data.attribution_kind,
+            attribution_user_names: data.attribution_user_names,
+          },
+          data.items || [],
+        ).catch(() => {});
       }
 
       function addReceiptEditorRow(receiptId) {
@@ -35781,28 +35843,56 @@
         householdMembersCache = null;
       }
 
-      function attributionValueFor(obj) {
-        // Encode (kind, user_id) into a single <option value>:
-        //   "" = unset, "kind:household" = household, "user:42" = personal.
-        if (!obj) return "";
-        if (obj.attribution_kind === "household") return "kind:household";
-        if (obj.attribution_user_id) return "user:" + obj.attribution_user_id;
-        return "";
+      function attributionStateFor(obj) {
+        // Normalize a purchase/item attribution into { kind, userIds[] }.
+        if (!obj) return { kind: null, userIds: [] };
+        const ids = Array.isArray(obj.attribution_user_ids)
+          ? obj.attribution_user_ids.map(Number).filter(Boolean)
+          : obj.attribution_user_id
+            ? [Number(obj.attribution_user_id)]
+            : [];
+        let kind = obj.attribution_kind || null;
+        if (!kind) {
+          if (ids.length >= 2) kind = "shared";
+          else if (ids.length === 1) kind = "personal";
+        }
+        return { kind, userIds: ids };
       }
 
-      function parseAttributionValue(value) {
-        // Returns { kind, user_id } for the PUT endpoint body.
-        if (!value) return { kind: null, user_id: null };
-        if (value === "kind:household") return { kind: "household", user_id: null };
-        const m = String(value).match(/^user:(\d+)$/);
-        if (m) return { kind: "personal", user_id: Number(m[1]) };
-        return { kind: null, user_id: null };
+      function attributionTriggerLabel(state, members = []) {
+        if (!state) return "— attribution —";
+        if (state.kind === "household") return "🏠 Household";
+        if (!state.userIds || !state.userIds.length) return "— attribution —";
+        const byId = new Map((members || []).map((m) => [Number(m.id), m]));
+        const names = state.userIds
+          .map((id) => (byId.get(Number(id)) || {}).name || "?")
+          .filter(Boolean);
+        if (names.length === 1) return "👤 " + names[0];
+        if (names.length === 2) return "👤 " + names.join(" · ");
+        return "👤 " + names[0] + " +" + (names.length - 1);
       }
 
       function renderAttributionBadge(obj) {
         if (!obj) return "";
         if (obj.attribution_kind === "household") {
           return ' <span class="attr-badge attr-badge--household" title="Household (shared)">🏠</span>';
+        }
+        const state = attributionStateFor(obj);
+        if (state.userIds && state.userIds.length >= 2) {
+          const names = obj.attribution_user_names && obj.attribution_user_names.length
+            ? obj.attribution_user_names
+            : [];
+          const initials = names.length
+            ? names.map((n) => (n || "?").trim().charAt(0).toUpperCase()).join("·")
+            : state.userIds.length + " ppl";
+          const title = names.length ? names.join(", ") : state.userIds.length + " people";
+          return (
+            ' <span class="attr-badge attr-badge--shared" title="Shared · ' +
+            escAttr(title) +
+            '">👤 ' +
+            escHtml(initials) +
+            "</span>"
+          );
         }
         if (obj.attribution_user_id && obj.attribution_user_name) {
           const initial = (obj.attribution_user_name || "?")
@@ -35820,93 +35910,205 @@
         return "";
       }
 
-      async function populateReceiptAttributionSelect(receipt) {
+      // Cache of the latest-loaded receipt detail so the picker can read
+      // per-item state without a round-trip.
+      let _lastLoadedReceiptDetail = null;
+
+      function _setTriggerLabel(triggerEl, state, members) {
+        if (!triggerEl) return;
+        const labelEl = triggerEl.querySelector(".attr-picker-label");
+        if (labelEl) labelEl.textContent = attributionTriggerLabel(state, members);
+      }
+
+      async function refreshAttributionTriggers(receipt, items = []) {
         const members = await loadHouseholdMembers();
-        const picker = document.getElementById(
+        _lastLoadedReceiptDetail = { receipt, items };
+        const receiptTrigger = document.getElementById(
           "receipt-attribution-" + receipt.id,
         );
-        if (!picker) return;
-        const current = attributionValueFor(receipt);
-        picker.innerHTML =
-          '<option value="">— not set —</option>' +
-          '<option value="kind:household">🏠 Household (shared)</option>' +
-          members
-            .map(
-              (m) =>
-                `<option value="user:${m.id}">👤 ${escHtml(m.name)}${m.is_self ? " (me)" : ""}</option>`,
-            )
-            .join("");
-        picker.value = current;
-      }
-
-      async function populateReceiptItemAttributionSelects(items = []) {
-        const members = await loadHouseholdMembers();
-        const selects = document.querySelectorAll(
-          "select.receipt-item-attribution",
-        );
-        selects.forEach((sel) => {
-          const itemId = Number(sel.getAttribute("data-item-id"));
-          const item = (items || []).find(
-            (x) => Number(x.receipt_item_id) === itemId,
+        if (receiptTrigger) {
+          _setTriggerLabel(receiptTrigger, attributionStateFor(receipt), members);
+        }
+        (items || []).forEach((i) => {
+          if (!i.receipt_item_id) return;
+          const t = document.getElementById(
+            "receipt-item-attribution-" + i.receipt_item_id,
           );
-          const current = attributionValueFor(item || {});
-          sel.innerHTML =
-            '<option value="">— attribution —</option>' +
-            '<option value="kind:household">🏠 Household</option>' +
-            members
-              .map(
-                (m) =>
-                  `<option value="user:${m.id}">👤 ${escHtml(m.name)}</option>`,
-              )
-              .join("");
-          sel.value = current;
+          if (t) _setTriggerLabel(t, attributionStateFor(i), members);
         });
       }
 
-      async function handleReceiptAttributionChange(receiptId, select) {
-        const { kind, user_id } = parseAttributionValue(select.value);
-        const applyToItems = !select.dataset.noPropagate;
-        const res = await api(`/receipts/${receiptId}/attribution`, {
-          method: "PUT",
-          body: JSON.stringify({
-            user_id,
-            kind,
-            apply_to_items: applyToItems,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          toast(data.error || "Could not update attribution", "error");
-          return;
-        }
-        toast("Attribution saved ✅", "success");
-        // Sync per-item dropdowns + badges by reloading the detail.
-        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
-          loadReceipts();
-        }
+      // Back-compat shims (other callers still invoke these).
+      async function populateReceiptAttributionSelect(receipt) {
+        await refreshAttributionTriggers(receipt, _lastLoadedReceiptDetail?.items || []);
+      }
+      async function populateReceiptItemAttributionSelects(items = []) {
+        const receipt = _lastLoadedReceiptDetail?.receipt;
+        if (receipt) await refreshAttributionTriggers(receipt, items);
       }
 
-      async function handleReceiptItemAttributionChange(event) {
-        const select = event.currentTarget || event.target;
-        const receiptId = Number(select.getAttribute("data-receipt-id"));
-        const itemId = Number(select.getAttribute("data-item-id"));
-        if (!receiptId || !itemId) return;
-        const { kind, user_id } = parseAttributionValue(select.value);
-        const res = await api(
-          `/receipts/${receiptId}/items/${itemId}/attribution`,
-          {
-            method: "PUT",
-            body: JSON.stringify({ user_id, kind }),
-          },
-        );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          toast(data.error || "Could not update item attribution", "error");
+      // ---- Attribution picker popover manager ----
+      let _attrPickerActive = null; // { panelEl, triggerEl, scope, receiptId, itemId }
+
+      function _closeAttributionPicker() {
+        if (!_attrPickerActive) return;
+        _attrPickerActive.panelEl.remove();
+        _attrPickerActive.triggerEl?.classList.remove("is-open");
+        _attrPickerActive = null;
+        document.removeEventListener("mousedown", _onAttrPickerOutside, true);
+        document.removeEventListener("touchstart", _onAttrPickerOutside, true);
+      }
+
+      function _onAttrPickerOutside(ev) {
+        if (!_attrPickerActive) return;
+        const { panelEl, triggerEl } = _attrPickerActive;
+        if (panelEl.contains(ev.target) || triggerEl.contains(ev.target)) return;
+        _closeAttributionPicker();
+      }
+
+      async function toggleAttributionPicker(event, scope, receiptId, itemId) {
+        event.preventDefault();
+        event.stopPropagation();
+        const triggerEl = event.currentTarget;
+        // Clicking the same open trigger closes.
+        if (_attrPickerActive && _attrPickerActive.triggerEl === triggerEl) {
+          _closeAttributionPicker();
           return;
         }
-        toast("Item attribution saved ✅", "success");
-        if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
-          loadReceipts();
+        _closeAttributionPicker();
+
+        const members = await loadHouseholdMembers();
+        const detail = _lastLoadedReceiptDetail || {};
+        let currentObj = null;
+        if (scope === "receipt") {
+          currentObj = detail.receipt || null;
+        } else {
+          currentObj = (detail.items || []).find(
+            (x) => Number(x.receipt_item_id) === Number(itemId),
+          );
+        }
+        const state = attributionStateFor(currentObj || {});
+
+        const panelEl = document.createElement("div");
+        panelEl.className = "attr-picker-panel";
+        panelEl.addEventListener("click", (e) => e.stopPropagation());
+
+        const renderPanel = () => {
+          const kind = state.kind;
+          const ids = new Set((state.userIds || []).map(Number));
+          const unsetActive = !kind && ids.size === 0;
+          const householdActive = kind === "household";
+          let html = "";
+          html += `<label class="attr-picker-option ${unsetActive ? "is-active" : ""}"><input type="radio" name="attr-mode" value="unset" ${unsetActive ? "checked" : ""}/> <span>— not set —</span></label>`;
+          html += `<label class="attr-picker-option ${householdActive ? "is-active" : ""}"><input type="radio" name="attr-mode" value="household" ${householdActive ? "checked" : ""}/> <span>🏠 Household (shared)</span></label>`;
+          html += '<div class="attr-picker-divider"></div>';
+          html += '<div class="attr-picker-caption">Per person (check 2+ for shared)</div>';
+          (members || []).forEach((m) => {
+            const checked = ids.has(Number(m.id));
+            html += `<label class="attr-picker-option ${checked ? "is-active" : ""}"><input type="checkbox" name="attr-user" value="${Number(m.id)}" ${checked ? "checked" : ""}/> <span>👤 ${escHtml(m.name)}${m.is_self ? " (me)" : ""}</span></label>`;
+          });
+          panelEl.innerHTML = html;
+        };
+        renderPanel();
+
+        const readState = () => {
+          const mode = panelEl.querySelector('input[name="attr-mode"]:checked')?.value;
+          const checkedIds = Array.from(
+            panelEl.querySelectorAll('input[name="attr-user"]:checked'),
+          ).map((el) => Number(el.value));
+          if (checkedIds.length) {
+            return {
+              kind: checkedIds.length >= 2 ? "shared" : "personal",
+              userIds: checkedIds,
+            };
+          }
+          if (mode === "household") return { kind: "household", userIds: [] };
+          return { kind: null, userIds: [] };
+        };
+
+        panelEl.addEventListener("change", async () => {
+          const next = readState();
+          // Mutual exclusivity: picking a member un-selects household/unset radio.
+          if (next.userIds.length) {
+            panelEl.querySelectorAll('input[name="attr-mode"]').forEach((r) => (r.checked = false));
+          } else if (next.kind === "household" || !next.kind) {
+            panelEl.querySelectorAll('input[name="attr-user"]').forEach((c) => (c.checked = false));
+          }
+          // Refresh visual state.
+          panelEl.querySelectorAll(".attr-picker-option").forEach((opt) => {
+            const input = opt.querySelector("input");
+            opt.classList.toggle("is-active", !!input?.checked);
+          });
+          state.kind = next.kind;
+          state.userIds = next.userIds;
+          _setTriggerLabel(triggerEl, next, members);
+          // Save.
+          await _saveAttributionFromPicker(scope, receiptId, itemId, next);
+        });
+
+        // Position + mount.
+        document.body.appendChild(panelEl);
+        const rect = triggerEl.getBoundingClientRect();
+        panelEl.style.position = "fixed";
+        panelEl.style.top = rect.bottom + 6 + "px";
+        panelEl.style.right = "auto";
+        panelEl.style.left = Math.max(
+          8,
+          Math.min(
+            rect.left,
+            window.innerWidth - panelEl.offsetWidth - 8,
+          ),
+        ) + "px";
+        triggerEl.classList.add("is-open");
+        _attrPickerActive = { panelEl, triggerEl, scope, receiptId, itemId };
+        // Give the outside-click listener a tick to avoid firing on the opening click.
+        setTimeout(() => {
+          document.addEventListener("mousedown", _onAttrPickerOutside, true);
+          document.addEventListener("touchstart", _onAttrPickerOutside, true);
+        }, 0);
+      }
+
+      async function _saveAttributionFromPicker(scope, receiptId, itemId, next) {
+        const body = { user_ids: next.userIds, kind: next.kind };
+        let url;
+        if (scope === "receipt") {
+          url = `/receipts/${receiptId}/attribution`;
+          body.apply_to_items = true;
+        } else {
+          url = `/receipts/${receiptId}/items/${itemId}/attribution`;
+        }
+        try {
+          const res = await api(url, { method: "PUT", body: JSON.stringify(body) });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not update attribution", "error");
+            return;
+          }
+          // Update local cache so re-open reflects the new state.
+          if (_lastLoadedReceiptDetail) {
+            const applyTo = (obj) => {
+              if (!obj) return;
+              obj.attribution_kind = next.kind;
+              obj.attribution_user_ids = next.userIds.slice();
+              obj.attribution_user_id = next.userIds.length === 1 ? next.userIds[0] : null;
+            };
+            if (scope === "receipt") {
+              applyTo(_lastLoadedReceiptDetail.receipt);
+              (_lastLoadedReceiptDetail.items || []).forEach(applyTo);
+            } else {
+              const it = (_lastLoadedReceiptDetail.items || []).find(
+                (x) => Number(x.receipt_item_id) === Number(itemId),
+              );
+              applyTo(it);
+            }
+          }
+          toast("Attribution saved ✅", "success");
+          // Defer list refresh so badges/total chip counts pick up.
+          if (typeof selectedReceiptId !== "undefined" && selectedReceiptId) {
+            loadReceipts();
+          }
+        } catch (err) {
+          toast("Could not update attribution", "error");
         }
       }
 
@@ -35929,7 +36131,7 @@
             </div>
           </div>
           <div class="receipt-detail-item-actions">
-            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
+            ${i.receipt_item_id ? `<div class="attr-picker-wrap"><button type="button" class="attr-picker-trigger receipt-item-attribution" id="receipt-item-attribution-${i.receipt_item_id}" data-scope="item" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onclick="toggleAttributionPicker(event, 'item', ${receipt.id}, ${i.receipt_item_id})"><span class="attr-picker-label">— attribution —</span><span class="attr-caret">▾</span></button></div>` : ""}
             ${
               i.product_id
                 ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}`
@@ -35958,7 +36160,7 @@
             ${i.latest_snapshot?.count ? `<span>${escHtml(String(i.latest_snapshot.count))} photo${i.latest_snapshot.count === 1 ? "" : "s"}</span>` : ""}
           </div>
           <div class="receipt-item-actions">
-            ${i.receipt_item_id ? `<select class="inline-select receipt-item-attribution" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onchange="handleReceiptItemAttributionChange(event)"><option value="">— attribution —</option><option value="kind:household"${(i.attribution_kind === "household") ? " selected" : ""}>🏠 Household</option></select>` : ""}
+            ${i.receipt_item_id ? `<div class="attr-picker-wrap"><button type="button" class="attr-picker-trigger receipt-item-attribution" id="receipt-item-attribution-${i.receipt_item_id}" data-scope="item" data-receipt-id="${receipt.id}" data-item-id="${i.receipt_item_id}" onclick="toggleAttributionPicker(event, 'item', ${receipt.id}, ${i.receipt_item_id})"><span class="attr-picker-label">— attribution —</span><span class="attr-caret">▾</span></button></div>` : ""}
             ${i.product_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${i.product_id}, decodeURIComponent('${encodeURIComponent(i.product_name || i.name || "")}'))">Rename</button><select class="inline-select" onchange="updateProductCategory(${i.product_id}, this.value)">${renderProductCategoryOptionTags(i.category || "other")}</select><button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, ${i.product_id}, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : i.receipt_item_id ? `<button type="button" class="btn btn-sm btn-ghost" onclick="selectReceiptItemSnapshotFile(${i.receipt_item_id}, null, '${encodeURIComponent(i.product_name || i.name || "")}')">Add Photo</button>${i.latest_snapshot?.image_url ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptItemSnapshot('${escAttr(i.latest_snapshot.image_url)}')">View Photo</button>` : ""}` : '<span style="color:var(--muted)">No product actions</span>'}
           </div>
         </div>
