@@ -26424,6 +26424,9 @@
           const catLabel = t.plaid_category_primary || "Uncategorized";
           const acctLabel = t.plaid_account_id ? acctMap.get(t.plaid_account_id) || t.plaid_account_id : "";
           const acctChip = acctLabel ? ` · <span style="color:var(--muted)">${escHtml(acctLabel)}</span>` : "";
+          const openBtn = t.purchase_id
+            ? `<button type="button" class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); jumpToReceipt(${t.purchase_id})" title="Open this purchase in the Receipts editor">Open in Receipts</button>`
+            : "";
           return `
             <li class="summary-row-host">
               <div class="summary-row" style="flex-direction:column;align-items:stretch;gap:4px">
@@ -26434,6 +26437,7 @@
                 <div class="summary-row__meta">
                   ${escHtml(dateStr)} · ${escHtml(String(catLabel).replace(/_/g, " "))}${acctChip}
                 </div>
+                ${openBtn ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">${openBtn}</div>` : ""}
               </div>
             </li>`;
         }).join("")}</ul>`;
