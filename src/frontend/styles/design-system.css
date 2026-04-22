@@ -2501,6 +2501,164 @@ body.trusted-device-kitchen-display *:focus-visible {
   margin-top: 2px;
 }
 
+/* ---------- Receipts Processed activity chart ------------- */
+/* Clean line-area chart + stats strip. Inspired by modern finance
+   apps (Monarch, Copilot) — shape at a glance, detail on hover. */
+.receipts-activity-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.receipts-activity-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.receipts-activity-stat {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+  min-width: 0;
+}
+.receipts-activity-stat__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.receipts-activity-stat__value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1.1;
+  color: var(--color-text-primary, inherit);
+}
+.receipts-activity-stat__sub {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.receipts-activity-chart {
+  position: relative;
+  width: 100%;
+  height: 160px;
+}
+.receipts-activity-chart svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.receipts-activity-chart__axis {
+  stroke: var(--color-border, rgba(127, 127, 127, 0.18));
+  stroke-width: 1;
+}
+.receipts-activity-chart__area {
+  fill: url(#receipts-activity-gradient);
+}
+.receipts-activity-chart__line {
+  fill: none;
+  stroke: #4aa3ff;
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Keep stroke at 2 logical pixels regardless of SVG viewBox scaling —
+     without this, preserveAspectRatio='none' on wide containers warps
+     the line weight asymmetrically and the chart reads as angular. */
+  vector-effect: non-scaling-stroke;
+}
+.receipts-activity-chart__dot {
+  fill: #4aa3ff;
+  stroke: var(--color-surface, #1f2024);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.receipts-activity-chart__hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+.receipts-activity-chart__hit:hover + .receipts-activity-chart__dot,
+.receipts-activity-chart__dot--active {
+  opacity: 1;
+}
+.receipts-activity-chart__hover-line {
+  stroke: rgba(74, 163, 255, 0.35);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0;
+  pointer-events: none;
+}
+.receipts-activity-tooltip {
+  position: absolute;
+  top: 0;
+  background: var(--color-surface, #1f2024);
+  border: 1px solid var(--color-border, rgba(127, 127, 127, 0.3));
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  white-space: nowrap;
+  z-index: 3;
+}
+.receipts-activity-tooltip__period {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-bottom: 2px;
+}
+.receipts-activity-tooltip__count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.receipts-activity-tooltip__amount {
+  margin-top: 2px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #4aa3ff;
+}
+.receipts-activity-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+@media (max-width: 640px) {
+  .receipts-activity-stat__value {
+    font-size: 1rem;
+  }
+  .receipts-activity-stat__label {
+    font-size: 0.62rem;
+  }
+  .receipts-activity-stats {
+    gap: 6px;
+  }
+  .receipts-activity-stat {
+    padding: 5px 8px;
+  }
+  .receipts-activity-chart {
+    height: 140px;
+  }
+}
+.spend-by-person-monthnav__btn.is-active {
+  color: var(--color-text-primary, inherit);
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.12));
+}
+
 /* ---------- Spend-by-person month navigator ---------------- */
 .spend-by-person-monthnav {
   display: inline-flex;

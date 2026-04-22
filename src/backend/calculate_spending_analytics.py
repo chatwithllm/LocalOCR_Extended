@@ -17,7 +17,8 @@ from flask import Blueprint, request, jsonify, g
 
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
-    Purchase, ReceiptItem, Product, Store, PriceHistory, BillMeta, BillProvider, BillServiceLine, CashTransaction
+    Purchase, ReceiptItem, Product, Store, PriceHistory, BillMeta, BillProvider, BillServiceLine, CashTransaction,
+    TelegramReceipt,
 )
 from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
@@ -1473,3 +1474,90 @@ def get_bill_projections():
     except Exception as e:
         logger.error(f"Failed to generate bill projections: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@analytics_bp.route("/receipts-activity", methods=["GET"])
+@require_auth
+def receipts_activity():
+    """Bucketed counts of receipts processed over time.
+
+    Query params:
+      grain  — "day" | "week" | "month" (default "day")
+      count  — how many buckets to return (default 30 / 12 / 12
+               depending on grain; capped at 90 for day, 52 for week,
+               24 for month)
+
+    Returns the most-recent N buckets, oldest first. Source is
+    TelegramReceipt.created_at which is when the app finished
+    processing the receipt (OCR + DB write). Counts ALL receipts the
+    current user can see — admins see everything, others see their own.
+    """
+    current = getattr(g, "current_user", None)
+    if current is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    grain = (request.args.get("grain") or "day").strip().lower()
+    if grain not in {"day", "week", "month"}:
+        return jsonify({"error": "grain must be day, week, or month"}), 400
+
+    bucket_caps = {"day": 90, "week": 52, "month": 24}
+    bucket_defaults = {"day": 30, "week": 12, "month": 12}
+    try:
+        count = int(request.args.get("count") or bucket_defaults[grain])
+    except (TypeError, ValueError):
+        count = bucket_defaults[grain]
+    count = max(1, min(count, bucket_caps[grain]))
+
+    session = g.db_session
+    # Group key: SQLite strftime works for all three.
+    fmt = {"day": "%Y-%m-%d", "week": "%Y-W%W", "month": "%Y-%m"}[grain]
+    import sqlalchemy as _sa
+    # Admin bypass; otherwise scope to current users receipts via the
+    # Purchase.user_id join that TelegramReceipt already has. We always
+    # left-join Purchase so we can sum total_amount per bucket — counts
+    # can be deceiving (1 receipt at $500 vs 60 at $5 each), so the
+    # chart surfaces both metrics.
+    is_admin = (current.role or "") == "admin"
+    if is_admin:
+        sql = _sa.text(
+            f"""
+            SELECT strftime(:fmt, tr.created_at) AS bucket,
+                   COUNT(*)                      AS n,
+                   COALESCE(SUM(p.total_amount), 0) AS amt
+              FROM telegram_receipts tr
+              LEFT JOIN purchases p ON p.id = tr.purchase_id
+             WHERE tr.created_at IS NOT NULL
+             GROUP BY bucket
+             ORDER BY bucket DESC
+             LIMIT :lim
+            """
+        )
+        rows = session.execute(sql, {"fmt": fmt, "lim": count}).fetchall()
+    else:
+        sql = _sa.text(
+            f"""
+            SELECT strftime(:fmt, tr.created_at) AS bucket,
+                   COUNT(*)                      AS n,
+                   COALESCE(SUM(p.total_amount), 0) AS amt
+              FROM telegram_receipts tr
+              LEFT JOIN purchases p ON p.id = tr.purchase_id
+             WHERE tr.created_at IS NOT NULL
+               AND (p.user_id = :uid OR p.user_id IS NULL)
+             GROUP BY bucket
+             ORDER BY bucket DESC
+             LIMIT :lim
+            """
+        )
+        rows = session.execute(sql, {"fmt": fmt, "lim": count, "uid": current.id}).fetchall()
+    # Flip to oldest-first for the UI bar chart.
+    buckets = [
+        {"period": r[0], "count": int(r[1] or 0), "amount": float(r[2] or 0.0)}
+        for r in reversed(rows)
+    ]
+    return jsonify({
+        "grain": grain,
+        "count": len(buckets),
+        "buckets": buckets,
+        "total": sum(b["count"] for b in buckets),
+        "total_amount": round(sum(b["amount"] for b in buckets), 2),
+    }), 200
+
