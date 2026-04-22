@@ -578,7 +578,34 @@ def sync_plaid_item_inner(session, item: PlaidItem) -> dict:
         if error_code == "ITEM_LOGIN_REQUIRED":
             item.status = "login_required"
         item.last_sync_status = "error"
-        item.last_sync_error = body.get("error_message") or str(exc)[:500]
+        # Friendly message for the user. Order matters:
+        #   1. Structured Plaid error_message (best — they wrote it for humans)
+        #   2. Transient gateway errors (503/504/upstream/connection refused)
+        #      → "Plaid temporarily unavailable" (actionable: just wait)
+        #   3. Fallback: first 200 chars of the exception, stripped
+        friendly: str | None = body.get("error_message") or None
+        if not friendly:
+            status = int(getattr(exc, "status", 0) or 0)
+            raw = str(exc)
+            transient_markers = (
+                "Service Unavailable",
+                "Gateway Timeout",
+                "upstream connect error",
+                "Connection refused",
+                "connect failure",
+                "EOF",
+            )
+            if status in (502, 503, 504) or any(m in raw for m in transient_markers):
+                friendly = (
+                    "Plaid is temporarily unavailable. Will retry on next "
+                    "auto-sync — no action needed."
+                )
+            else:
+                # Trim the usual HTTPHeaderDict(...) noise so the chip stays
+                # readable. Keep the first line only, cap at 200 chars.
+                first_line = raw.splitlines()[0] if raw else ""
+                friendly = (first_line or raw)[:200]
+        item.last_sync_error = friendly
         item.last_sync_at = datetime.utcnow()
         session.commit()
         raise
