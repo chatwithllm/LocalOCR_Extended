@@ -1097,10 +1097,30 @@ def list_receipts():
         query = query.filter(~TelegramReceipt.telegram_user_id.startswith("manual:"))
     elif source_filter == "upload":
         query = query.filter(TelegramReceipt.telegram_user_id.startswith("upload"))
+    # Purchase-date range — for review-status receipts that have no
+    # Purchase row yet, fall back to upload date so they don't get
+    # invisibly filtered out and trap users who can't find their
+    # freshly-uploaded receipt.
     if purchase_date_from:
-        query = query.filter(Purchase.date >= purchase_date_from)
+        query = query.filter(
+            or_(
+                Purchase.date >= purchase_date_from,
+                and_(
+                    Purchase.id.is_(None),
+                    TelegramReceipt.created_at >= purchase_date_from,
+                ),
+            )
+        )
     if purchase_date_to:
-        query = query.filter(Purchase.date < purchase_date_to + timedelta(days=1))
+        query = query.filter(
+            or_(
+                Purchase.date < purchase_date_to + timedelta(days=1),
+                and_(
+                    Purchase.id.is_(None),
+                    TelegramReceipt.created_at < purchase_date_to + timedelta(days=1),
+                ),
+            )
+        )
     if upload_date_from:
         query = query.filter(TelegramReceipt.created_at >= upload_date_from)
     if upload_date_to:

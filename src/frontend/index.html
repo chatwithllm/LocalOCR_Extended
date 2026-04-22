@@ -35692,12 +35692,17 @@
 
         const statusFilter = (document.getElementById("receipt-filter-status")?.value || "").toLowerCase();
         const failedReceipts = receipts.filter((r) => (r.status || "").toLowerCase() === "failed");
+        // Review-status receipts (low-confidence OCR, awaiting manual
+        // input) have no Purchase yet so they'd be filtered out by the
+        // hasData check below — keep them visible so users can see and
+        // fix them.
         const visibleReceipts =
           statusFilter === "failed"
             ? receipts
             : receipts.filter((r) => {
                 const status = (r.status || "").toLowerCase();
                 if (status === "failed") return false;
+                if (status === "review") return true;
                 const hasData = (r.store && r.store.trim()) || receiptDisplayTotal(r) || r.purchase_id;
                 return Boolean(hasData);
               });
@@ -36024,20 +36029,24 @@
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-attribution" style="grid-column:1/-1">
           <label>Attributed to</label>
-          <div class="attr-picker-wrap">
-            <button type="button"
-              id="receipt-attribution-${receipt.id}"
-              class="attr-picker-trigger"
-              data-scope="receipt"
-              data-receipt-id="${receipt.id}"
-              onclick="toggleAttributionPicker(event, 'receipt', ${receipt.id})">
-              <span class="attr-picker-label">— not set —</span>
-              <span class="attr-caret">▾</span>
-            </button>
-          </div>
-          <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
-            Pick household, one person, or check multiple for shared items. Changes apply to the whole receipt and propagate to all line items (you can override individual items below).
-          </div>
+          ${(receipt.status === "review" || !receipt.purchase_id) && receipt.status !== "processed"
+            ? `<div style="font-size:0.82rem;color:var(--muted);padding:8px 10px;background:var(--color-surface-2,rgba(127,127,127,0.08));border-radius:8px">
+                 🔒 Save this receipt first (Store · Date · Total), then come back to tag who it's for.
+               </div>`
+            : `<div class="attr-picker-wrap">
+                <button type="button"
+                  id="receipt-attribution-${receipt.id}"
+                  class="attr-picker-trigger"
+                  data-scope="receipt"
+                  data-receipt-id="${receipt.id}"
+                  onclick="toggleAttributionPicker(event, 'receipt', ${receipt.id})">
+                  <span class="attr-picker-label">— not set —</span>
+                  <span class="attr-caret">▾</span>
+                </button>
+              </div>
+              <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
+                Pick household, one person, or check multiple for shared items. Changes apply to the whole receipt and propagate to all line items (you can override individual items below).
+              </div>`}
         </div>
       </div>
       <div id="receipt-bill-meta-panel-${receipt.id}" class="receipt-bill-meta-panel" style="display:none">
@@ -37200,12 +37209,31 @@
           await _saveAttributionFromPicker(scope, receiptId, itemId, next);
         });
 
-        // Position + mount.
+        // Position + mount. Flip above the trigger if there isn't
+        // enough room below (typical on mobile when a per-item picker
+        // sits near the bottom of the screen and the browser chrome +
+        // bottom safe-area cover the last options — "vironika" at the
+        // tail of the list).
         document.body.appendChild(panelEl);
         const rect = triggerEl.getBoundingClientRect();
         panelEl.style.position = "fixed";
-        panelEl.style.top = rect.bottom + 6 + "px";
         panelEl.style.right = "auto";
+        // Clamp max-height to the viewport so the list scrolls when
+        // long rather than growing off-screen.
+        const safeBottom = window.innerHeight - 16;
+        const spaceBelow = window.innerHeight - rect.bottom - 12;
+        const spaceAbove = rect.top - 12;
+        const wanted = panelEl.offsetHeight;
+        const placeAbove = wanted > spaceBelow && spaceAbove > spaceBelow;
+        const availableH = placeAbove ? spaceAbove : spaceBelow;
+        panelEl.style.maxHeight = Math.max(160, availableH) + "px";
+        if (placeAbove) {
+          panelEl.style.top = "auto";
+          panelEl.style.bottom = (window.innerHeight - rect.top + 6) + "px";
+        } else {
+          panelEl.style.bottom = "auto";
+          panelEl.style.top = rect.bottom + 6 + "px";
+        }
         panelEl.style.left = Math.max(
           8,
           Math.min(

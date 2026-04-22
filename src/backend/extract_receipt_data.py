@@ -514,9 +514,21 @@ def _score_restaurant_candidate(data: dict) -> float:
 
 def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
     """Validate that OCR output contains all required fields."""
+    # Only grocery/restaurant/pharmacy genuinely need line items. Bills,
+    # general expenses, retail totals, events (e.g. prepaid lunch voucher
+    # the user paid for as one line), and uncategorised receipts are
+    # valid as "store + date + total" alone — forcing line items routed
+    # these to the review queue with no Purchase, making them invisible
+    # to the user.
+    _ITEMLESS_TYPES = {
+        "utility_bill", "household_bill", "general_expense",
+        "retail_items", "event", "unknown",
+    }
+    normalized_type = str(receipt_type or "").strip().lower()
+    requires_items = normalized_type not in _ITEMLESS_TYPES
+
     required_fields = ["store", "date", "total"]
-    # For non-bill receipts, items are required
-    if receipt_type not in {"utility_bill", "household_bill"}:
+    if requires_items:
         required_fields.append("items")
 
     for field in required_fields:
@@ -532,7 +544,7 @@ def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
         logger.warning("Validation failed: OCR returned an invalid receipt date: %s", data.get("date"))
         return False
 
-    if receipt_type in {"utility_bill", "household_bill"}:
+    if not requires_items:
         return True
 
     if not isinstance(data["items"], list) or len(data["items"]) == 0:
