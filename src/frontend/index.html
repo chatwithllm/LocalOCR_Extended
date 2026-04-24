@@ -4552,8 +4552,42 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        margin-left: auto;
         flex: 0 0 auto;
+      }
+
+      .shopping-current-total {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--color-brand) 6%, transparent);
+        font-size: 0.78rem;
+        color: var(--muted);
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .shopping-current-total[hidden] {
+        display: none;
+      }
+
+      .shopping-current-total .value {
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--text);
+      }
+
+      @media (max-width: 640px) {
+        .shopping-current-total {
+          font-size: 0.72rem;
+          padding: 4px 10px;
+        }
+        .shopping-current-total .value {
+          font-size: 0.92rem;
+        }
       }
 
       .shopping-sort-chip {
@@ -12374,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424d" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424e" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -14189,6 +14223,12 @@
               >
                 Current List
               </button>
+              <div
+                id="shopping-current-list-total"
+                class="shopping-current-total"
+                aria-live="polite"
+                hidden
+              ></div>
               <div class="shopping-current-head-actions">
                 <button
                   type="button"
@@ -33588,6 +33628,7 @@
       function renderShoppingListTable() {
         const body = document.getElementById("shopping-table-body");
         if (!body) return;
+        const totalEl = document.getElementById("shopping-current-list-total");
         const selectedStatus = SHOPPING_HELPER_MODE ? "" : shoppingListView;
         const query = shoppingSearchQuery;
         const baseItems = shoppingListCache.filter((item) => {
@@ -33609,6 +33650,31 @@
                 .some((value) => String(value).toLowerCase().includes(query)),
             )
           : baseItems;
+        const aggregateTotal = Math.round(
+          items.reduce((sum, item) => {
+            const estimate =
+              item.estimateTotal != null
+                ? Number(item.estimateTotal || 0)
+                : Number(item.latest_price?.price || 0) *
+                  Number(item.quantity || 1);
+            return sum + estimate;
+          }, 0) * 100,
+        ) / 100;
+        if (totalEl) {
+          if (items.length && aggregateTotal > 0) {
+            const label =
+              selectedStatus === "purchased"
+                ? "Closed total"
+                : selectedStatus === "open"
+                  ? "Open total"
+                  : "List total";
+            totalEl.innerHTML = `<span>${label}</span> <span class="value">${formatMoney(aggregateTotal)}</span>`;
+            totalEl.hidden = false;
+          } else {
+            totalEl.hidden = true;
+            totalEl.innerHTML = "";
+          }
+        }
         if (!items.length) {
           const emptyLabel = selectedStatus === "purchased" ? "closed" : "open";
           body.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${query ? "No shopping items match your search." : `No ${emptyLabel} shopping items right now.`}</p></div>`;
