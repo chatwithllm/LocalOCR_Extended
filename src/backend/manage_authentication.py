@@ -1610,6 +1610,34 @@ def rotate_service_account(user_id: int):
     }), 200
 
 
+@auth_bp.route("/service-accounts/<int:user_id>", methods=["DELETE"])
+def delete_service_account(user_id: int):
+    """Permanently remove a service account and invalidate its token.
+
+    Admin only. Service-accounts only — human-user deletion requires
+    separate review of attribution / receipts / ownership and is not
+    exposed via this endpoint.
+    """
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+    target = g.db_session.query(User).filter_by(id=user_id, role="service").first()
+    if not target:
+        return jsonify({"error": "Service account not found"}), 404
+    name = target.name
+    try:
+        g.db_session.delete(target)
+        g.db_session.commit()
+    except Exception as exc:
+        g.db_session.rollback()
+        logger.exception("Failed to delete service account '%s'", name)
+        return jsonify({"error": f"Could not delete: {exc}"}), 409
+    logger.info("Service account '%s' deleted by admin %s", name, actor.email or actor.id)
+    return jsonify({"deleted": True, "id": user_id, "name": name}), 200
+
+
 @auth_bp.route("/service-accounts/<int:user_id>", methods=["PATCH"])
 def update_service_account(user_id: int):
     """Admin-only updates to a service account's policy fields.
