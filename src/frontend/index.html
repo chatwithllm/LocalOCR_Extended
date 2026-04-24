@@ -12374,7 +12374,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260421z" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260423e" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -13065,7 +13065,8 @@
               ></div>
             </div>
           </div>
-          <div class="stats-grid dashboard-stats-grid" id="dashboard-stats-row">
+          <!-- Row 1: Inventory health — full width. -->
+          <div class="stats-grid dashboard-stats-grid dashboard-inventory-row" id="dashboard-stats-row">
             <div class="stat-card dashboard-combo-stat">
               <div class="dashboard-combo-grid">
                 <div
@@ -13106,6 +13107,23 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Row 2: Spending by Category — top 6 categories desc,
+               horizontal bars, each with month-over-month delta. -->
+          <div class="card dashboard-spending-row" id="dashboard-spending-card">
+            <div class="card-header">
+              <span class="card-title">💳 Spending by Category</span>
+              <span class="card-header-inline-stat" id="dashboard-spending-total">—</span>
+            </div>
+            <div class="spending-by-category" id="dashboard-spending-body">
+              <div class="empty-state" style="padding:12px 0"><p>Loading…</p></div>
+            </div>
+          </div>
+
+          <!-- Keep the legacy budget card hidden so any code path that
+               still references it doesn't crash. -->
+          <div style="display:none">
             <div
               class="stat-card dashboard-stat-link dashboard-budget-card"
               role="button"
@@ -13184,7 +13202,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </div><!-- /legacy hidden budget wrapper -->
 
           <div class="dashboard-alert-grid">
             <div class="card" id="dash-low-stock-card">
@@ -14492,6 +14510,17 @@
             </div>
             <div class="receipt-filter-body" id="receipt-filter-body">
               <div class="form-group" style="margin-bottom:12px">
+                <label>Search</label>
+                <input
+                  id="receipt-search-input"
+                  type="search"
+                  placeholder="Filter by store, merchant, or category…"
+                  oninput="onReceiptSearchInput()"
+                  autocomplete="off"
+                  style="width:100%"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom:12px">
                 <label>Attributed to</label>
                 <div
                   id="receipt-attribution-chips"
@@ -14572,6 +14601,16 @@
               </div>
             </div>
           </div>
+          <!-- Collapsible "Summary" section — contains the 6 stat
+               tiles and Purchases-By-Month chart. Default-collapsed
+               because they're ambient info, not primary for a list
+               view. User clicks the title to expand; state persists. -->
+          <div class="card" id="receipts-summary-section" style="margin-bottom:12px">
+            <div class="card-header" onclick="toggleReceiptsSummary()" style="cursor:pointer;user-select:none" title="Click to collapse / expand">
+              <span class="card-title">📊 Summary</span>
+              <span id="receipts-summary-caret" style="color:var(--muted);font-size:0.85rem">▸ Show</span>
+            </div>
+            <div id="receipts-summary-body" style="display:none">
           <div
             class="stats-grid receipt-summary-tiles-compact"
             id="receipt-summary-cards"
@@ -14652,6 +14691,8 @@
               </div>
             </div>
           </div>
+            </div><!-- /#receipts-summary-body -->
+          </div><!-- /#receipts-summary-section -->
           <!-- Phase 3: Retroactive duplicate review
                Walks the user's Purchase table and surfaces pairs that look
                like the same real-world charge (same amount ±$0.02, ±3 days,
@@ -22870,6 +22911,102 @@
           .sort((a, b) => a.family.localeCompare(b.family));
       }
 
+      // ---- Receipts page summary collapse + search helpers -----------
+      function toggleReceiptsSummary() {
+        const body = document.getElementById("receipts-summary-body");
+        const caret = document.getElementById("receipts-summary-caret");
+        if (!body) return;
+        const isOpen = body.style.display !== "none";
+        body.style.display = isOpen ? "none" : "";
+        if (caret) caret.textContent = isOpen ? "▸ Show" : "▾ Hide";
+        try {
+          localStorage.setItem(
+            "receipts_summary_collapsed",
+            isOpen ? "1" : "0",
+          );
+        } catch (_e) {}
+      }
+
+      function _applyReceiptsSummaryCollapsedState() {
+        const body = document.getElementById("receipts-summary-body");
+        const caret = document.getElementById("receipts-summary-caret");
+        if (!body) return;
+        let saved = "1";
+        try {
+          saved = localStorage.getItem("receipts_summary_collapsed") || "1";
+        } catch (_e) {}
+        const collapsed = saved !== "0";
+        body.style.display = collapsed ? "none" : "";
+        if (caret) caret.textContent = collapsed ? "▸ Show" : "▾ Hide";
+      }
+
+      let _receiptSearchDebounce = null;
+      function onReceiptSearchInput() {
+        clearTimeout(_receiptSearchDebounce);
+        _receiptSearchDebounce = setTimeout(() => loadReceipts(), 180);
+      }
+
+      let receiptMonthTableSort = { column: "date", direction: "desc" };
+
+      function _receiptsMonthTableTh(column, label) {
+        const active = receiptMonthTableSort.column === column;
+        const arrow = active
+          ? receiptMonthTableSort.direction === "asc"
+            ? " ↑"
+            : " ↓"
+          : "";
+        return `<th class="sortable-receipts-th${active ? " is-active" : ""}" onclick="setReceiptMonthTableSort('${column}')" style="cursor:pointer;user-select:none">${escHtml(label)}${arrow}</th>`;
+      }
+
+      function _sortReceiptsForMonthTable(rows) {
+        const { column, direction } = receiptMonthTableSort;
+        const dir = direction === "asc" ? 1 : -1;
+        const copy = [...rows];
+        copy.sort((a, b) => {
+          let av, bv;
+          switch (column) {
+            case "total":
+              av = Number(receiptDisplayTotal(a) || 0);
+              bv = Number(receiptDisplayTotal(b) || 0);
+              return (av - bv) * dir;
+            case "store":
+              av = (a.store || "").toLowerCase();
+              bv = (b.store || "").toLowerCase();
+              return av.localeCompare(bv) * dir;
+            case "transaction":
+              av = (a.transaction_type || "").toLowerCase();
+              bv = (b.transaction_type || "").toLowerCase();
+              return av.localeCompare(bv) * dir;
+            case "source":
+              av = (a.source || "").toLowerCase();
+              bv = (b.source || "").toLowerCase();
+              return av.localeCompare(bv) * dir;
+            case "date":
+            default:
+              av = a.date || "";
+              bv = b.date || "";
+              return av.localeCompare(bv) * dir;
+          }
+        });
+        return copy;
+      }
+
+      function setReceiptMonthTableSort(column) {
+        if (receiptMonthTableSort.column === column) {
+          receiptMonthTableSort.direction =
+            receiptMonthTableSort.direction === "asc" ? "desc" : "asc";
+        } else {
+          receiptMonthTableSort.column = column;
+          receiptMonthTableSort.direction =
+            column === "store" || column === "transaction" || column === "source"
+              ? "asc"
+              : "desc";
+        }
+        if (typeof renderReceiptSummaries === "function" && window._lastReceiptSummary) {
+          renderReceiptSummaries(window._lastReceiptSummary);
+        }
+      }
+
       function getReceiptFilterParams() {
         const params = new URLSearchParams();
         const mappings = [
@@ -23024,6 +23161,8 @@
       }
 
       function renderReceiptSummaries(summary = {}) {
+        // Cache so the month-table sort can re-render without a round-trip.
+        window._lastReceiptSummary = summary;
         latestReceiptSummary = summary || {};
         const receiptStoreSortEl =
           document.getElementById("receipt-store-sort");
@@ -23212,9 +23351,16 @@
               <span style="color:var(--muted);font-size:0.84rem">${activeMonthData.purchase_count ?? 0} purchases · ${activeMonthData.refund_count ?? 0} refunds · Net ${formatMoney(activeMonthData.total_amount)}</span>
             </div>
             <div class="table-wrap">
-              <table>
-                <thead><tr><th>Date</th><th>Store</th><th>Total</th><th>Transaction</th><th>Source</th><th>Open</th></tr></thead>
-                <tbody>${(activeMonthData.receipts || [])
+              <table class="sortable-receipts-table">
+                <thead><tr>
+                  ${_receiptsMonthTableTh("date", "Date")}
+                  ${_receiptsMonthTableTh("store", "Store")}
+                  ${_receiptsMonthTableTh("total", "Total")}
+                  ${_receiptsMonthTableTh("transaction", "Transaction")}
+                  ${_receiptsMonthTableTh("source", "Source")}
+                  <th>Open</th>
+                </tr></thead>
+                <tbody>${_sortReceiptsForMonthTable(activeMonthData.receipts || [])
                   .map(
                     (receipt) => `
                   <tr>
@@ -29098,6 +29244,231 @@
         loadDashboardSpendByPerson();
       }
 
+      // ---- Dashboard: Spending by Category (top 6 desc) ----
+      const _CATEGORY_META = {
+        grocery:         { icon: "🛒", label: "Grocery" },
+        restaurant:      { icon: "🍽", label: "Restaurant" },
+        event:           { icon: "🎉", label: "Event" },
+        general_expense: { icon: "💳", label: "General" },
+        utility:         { icon: "💡", label: "Utility" },
+        household:       { icon: "🏠", label: "Household" },
+        household_bill:  { icon: "🏠", label: "Household Bill" },
+        utility_bill:    { icon: "💡", label: "Utility Bill" },
+        retail_items:    { icon: "🛍", label: "Retail" },
+        personal_care:   { icon: "🧴", label: "Personal Care" },
+        apparel:         { icon: "👕", label: "Apparel" },
+        pharmacy:        { icon: "💊", label: "Pharmacy" },
+        other:           { icon: "📦", label: "Other" },
+      };
+
+      function _formatCategoryLabel(cat) {
+        if (!cat) return "Other";
+        const meta = _CATEGORY_META[cat.toLowerCase()];
+        if (meta) return meta.label;
+        return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      function _formatCategoryIcon(cat) {
+        if (!cat) return "📦";
+        const meta = _CATEGORY_META[cat.toLowerCase()];
+        return meta ? meta.icon : "📦";
+      }
+
+      const _CATEGORY_FLOW_COLORS = [
+        "#4aa3ff", "#149890", "#2fa36b",
+        "#e0a134", "#c94d4d", "#7d52c9",
+      ];
+
+      async function loadSpendingFlow() {
+        const body = document.getElementById("dashboard-spending-flow-body");
+        const totalEl = document.getElementById("dashboard-spending-flow-total");
+        if (!body) return;
+        if (!currentUser) {
+          body.innerHTML = '<div class="empty-state"><p>Sign in to see spending flow.</p></div>';
+          if (totalEl) totalEl.textContent = "";
+          return;
+        }
+        try {
+          const now = new Date();
+          const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const res = await api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=6`);
+          if (!res.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load spending flow.</p></div>';
+            return;
+          }
+          const data = await res.json();
+          const rows = (data.categories || []).filter((r) => (r.amount || 0) > 0);
+          if (totalEl) totalEl.textContent = formatMoney(data.total || 0);
+          if (!rows.length) {
+            body.innerHTML = '<div class="empty-state"><p>No spend this month yet.</p></div>';
+            return;
+          }
+
+          // Sankey geometry — labels need fixed vertical slots, not
+          // tight ones scaled to ribbon width. Previously small rows
+          // (Dining 4%, Subscriptions 3%) collapsed to 14-px strips
+          // whose labels overlapped the row above.
+          const W = 600;
+          const PAD_TOP = 18;
+          const PAD_BOT = 18;
+          const ROW_H = 56;            // fixed vertical slot per label
+          const ROW_GAP = 8;
+          const SOURCE_W = 14;
+          const TARGET_W = 14;
+          const LEFT_X = 72;
+          const RIGHT_X = W - 230;
+          const H = PAD_TOP + PAD_BOT + rows.length * ROW_H + (rows.length - 1) * ROW_GAP;
+
+          const total = rows.reduce((s, r) => s + (r.amount || 0), 0) || 1;
+          const srcHeight = H - PAD_TOP - PAD_BOT;
+
+          // Target nodes: fixed-height slots. Ribbon height at the
+          // target matches the slot; at the source it matches the
+          // share of total. The bezier ribbon naturally fans out/in
+          // between the two widths — this is canonical Sankey.
+          const targets = rows.map((r, idx) => {
+            const y0 = PAD_TOP + idx * (ROW_H + ROW_GAP);
+            return { row: r, idx, y0, y1: y0 + ROW_H, h: ROW_H };
+          });
+
+          // Source-side ribbon slice per category = proportional height.
+          const srcSlices = rows.map((r) => (r.amount / total) * srcHeight);
+          let srcY = PAD_TOP;
+          const ribbons = targets.map((t, i) => {
+            const s0 = srcY;
+            const s1 = srcY + srcSlices[i];
+            srcY += srcSlices[i];
+            return { ...t, s0, s1 };
+          });
+
+          // Build the SVG.
+          const bezierX1 = LEFT_X + SOURCE_W + (RIGHT_X - LEFT_X - SOURCE_W) / 2;
+          const bezierX2 = RIGHT_X - (RIGHT_X - LEFT_X - SOURCE_W) / 2;
+          const ribbonsHtml = ribbons
+            .map((rb) => {
+              const color = _CATEGORY_FLOW_COLORS[rb.idx % _CATEGORY_FLOW_COLORS.length];
+              const d = `M ${LEFT_X + SOURCE_W} ${rb.s0}
+                        C ${bezierX1} ${rb.s0}, ${bezierX2} ${rb.y0}, ${RIGHT_X} ${rb.y0}
+                        L ${RIGHT_X} ${rb.y1}
+                        C ${bezierX2} ${rb.y1}, ${bezierX1} ${rb.s1}, ${LEFT_X + SOURCE_W} ${rb.s1}
+                        Z`;
+              return `<path class="spending-flow__ribbon" d="${d.replace(/\s+/g, " ")}" fill="${color}" />`;
+            })
+            .join("");
+          const targetNodesHtml = ribbons
+            .map((rb) => {
+              const color = _CATEGORY_FLOW_COLORS[rb.idx % _CATEGORY_FLOW_COLORS.length];
+              return `<rect class="spending-flow__node" x="${RIGHT_X}" y="${rb.y0}" width="${TARGET_W}" height="${rb.h}" fill="${color}" rx="2" />`;
+            })
+            .join("");
+          const targetLabelsHtml = ribbons
+            .map((rb) => {
+              // 3-line stack anchored to top of row → predictable
+              // vertical rhythm that never collides with the row below.
+              const topY = rb.y0 + 14;
+              const labelX = RIGHT_X + TARGET_W + 10;
+              const label = _formatCategoryLabel(rb.row.category);
+              const icon = _formatCategoryIcon(rb.row.category);
+              const amt = formatMoney(rb.row.amount || 0);
+              const share = rb.row.share_pct ?? 0;
+              const deltaTxt = rb.row.delta_pct !== null && rb.row.delta_pct !== undefined
+                ? ` · ${rb.row.delta_pct > 0 ? "↑" : rb.row.delta_pct < 0 ? "↓" : "·"} ${Math.abs(rb.row.delta_pct)}% vs last`
+                : "";
+              return `
+                <text class="spending-flow__target-label" x="${labelX}" y="${topY}">${escHtml(icon)} ${escHtml(label)}</text>
+                <text class="spending-flow__target-value" x="${labelX}" y="${topY + 16}">${amt}</text>
+                <text class="spending-flow__target-sub" x="${labelX}" y="${topY + 30}">${share}%${deltaTxt}</text>
+              `;
+            })
+            .join("");
+          const sourceNode = `<rect class="spending-flow__node spending-flow__source-bar" x="${LEFT_X}" y="${PAD_TOP}" width="${SOURCE_W}" height="${srcHeight}" rx="2" />`;
+          const sourceLabel = `
+            <text class="spending-flow__source-label" x="${LEFT_X - 6}" y="${PAD_TOP + srcHeight / 2 - 5}" text-anchor="end">Total</text>
+            <text class="spending-flow__source-sub" x="${LEFT_X - 6}" y="${PAD_TOP + srcHeight / 2 + 10}" text-anchor="end">${formatMoney(data.total || 0)}</text>
+          `;
+          body.innerHTML = `
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Spending flow">
+              ${ribbonsHtml}
+              ${sourceNode}
+              ${sourceLabel}
+              ${targetNodesHtml}
+              ${targetLabelsHtml}
+            </svg>`;
+        } catch (err) {
+          console.error("loadSpendingFlow failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load spending flow.</p></div>';
+        }
+      }
+
+      async function loadSpendingByCategory() {
+        const body = document.getElementById("dashboard-spending-body");
+        const totalEl = document.getElementById("dashboard-spending-total");
+        if (!body) return;
+        if (!currentUser) {
+          body.innerHTML = '<div class="empty-state"><p>Sign in to see spending.</p></div>';
+          if (totalEl) totalEl.textContent = "";
+          return;
+        }
+        try {
+          const now = new Date();
+          const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const res = await api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=6`);
+          if (!res.ok) {
+            body.innerHTML = '<div class="empty-state"><p>Could not load spending.</p></div>';
+            if (totalEl) totalEl.textContent = "";
+            return;
+          }
+          const data = await res.json();
+          const rows = data.categories || [];
+          if (totalEl) totalEl.textContent = formatMoney(data.total || 0);
+          if (!rows.length) {
+            body.innerHTML = '<div class="empty-state"><p>No spend this month yet.</p></div>';
+            return;
+          }
+          const maxAmt = Math.max(...rows.map((r) => r.amount || 0), 1);
+          body.innerHTML = rows
+            .map((r, idx) => {
+              // Bar width = this category's share of the biggest
+              // category (so the leader fills 100%, others scale
+              // proportionally). Percent label inside the fill is the
+              // share of TOTAL spend for the month.
+              const widthPct = Math.round(((r.amount || 0) / maxAmt) * 100);
+              const sharePct = r.share_pct ?? 0;
+              let deltaHtml = "";
+              if (r.delta_pct !== null && r.delta_pct !== undefined) {
+                const arrow = r.delta_pct > 0 ? "↑" : r.delta_pct < 0 ? "↓" : "·";
+                const tone = r.delta_pct > 0 ? "bad" : r.delta_pct < 0 ? "good" : "";
+                const mag = Math.abs(r.delta_pct);
+                deltaHtml = `<span class="spending-row__amount-delta spending-row__amount-delta--${tone}">${arrow} ${mag}% vs last</span>`;
+              }
+              const colorClass = `spending-row--c${idx % 6}`;
+              // Only show the % label when the bar is wide enough to
+              // visually contain it; narrow bars get a cleaner look.
+              const pctHtml = widthPct >= 18
+                ? `<span class="spending-row__pct">${sharePct}%</span>`
+                : "";
+              return `
+                <div class="spending-row ${colorClass}">
+                  <div class="spending-row__label">
+                    <span class="spending-row__icon">${_formatCategoryIcon(r.category)}</span>
+                    <span class="spending-row__name" title="${escAttr(_formatCategoryLabel(r.category))}">${escHtml(_formatCategoryLabel(r.category))}</span>
+                  </div>
+                  <div class="spending-row__bar">
+                    <div class="spending-row__fill" style="width:${widthPct}%"></div>
+                    ${pctHtml}
+                  </div>
+                  <div class="spending-row__amount">
+                    <span class="spending-row__amount-value">${formatMoney(r.amount || 0)}</span>
+                    ${deltaHtml}
+                  </div>
+                </div>`;
+            })
+            .join("");
+        } catch (err) {
+          console.error("loadSpendingByCategory failed", err);
+          body.innerHTML = '<div class="empty-state"><p>Could not load spending.</p></div>';
+        }
+      }
+
       // ---- Receipts processed activity chart ------------------------
       let receiptsActivityGrain = "day";
 
@@ -29488,6 +29859,7 @@
         try {
           // Spend-by-Person moved to the Accounts page — don't load here.
           loadReceiptsActivity();
+          loadSpendingByCategory();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
           const userAvatar = document.getElementById("dashboard-user-avatar");
@@ -35638,6 +36010,7 @@
       async function loadReceipts() {
         applyReceiptFilterLayout();
         ensureDefaultReceiptFilters();
+        _applyReceiptsSummaryCollapsedState();
         renderReceiptAttributionFilterChips().catch(() => {});
         const query = getReceiptFilterParams();
         const res = await api(`/receipts${query ? `?${query}` : ""}`);
@@ -35696,7 +36069,7 @@
         // input) have no Purchase yet so they'd be filtered out by the
         // hasData check below — keep them visible so users can see and
         // fix them.
-        const visibleReceipts =
+        let visibleReceipts =
           statusFilter === "failed"
             ? receipts
             : receipts.filter((r) => {
@@ -35706,6 +36079,23 @@
                 const hasData = (r.store && r.store.trim()) || receiptDisplayTotal(r) || r.purchase_id;
                 return Boolean(hasData);
               });
+        // Client-side search filter — instant match against store name,
+        // receipt-type, and source. Case-insensitive substring.
+        const searchQuery = (document.getElementById("receipt-search-input")?.value || "").trim().toLowerCase();
+        if (searchQuery) {
+          visibleReceipts = visibleReceipts.filter((r) => {
+            const hay = [
+              r.store,
+              r.receipt_type,
+              r.source,
+              r.transaction_type,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            return hay.includes(searchQuery);
+          });
+        }
         const failedBannerHtml =
           failedReceipts.length && statusFilter !== "failed"
             ? `<div class="receipt-failed-banner">
@@ -35808,6 +36198,8 @@
         selectedReceiptMonth = null;
         // Clear attribution chip selection too so Reset means "reset everything".
         window.__receiptAttributionTokens = [];
+        const searchEl = document.getElementById("receipt-search-input");
+        if (searchEl) searchEl.value = "";
         renderReceiptAttributionFilterChips().catch(() => {});
         ensureDefaultReceiptFilters(true);
         populateReceiptFilterOptions(receiptFilterOptions);

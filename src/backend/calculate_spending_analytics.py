@@ -1476,6 +1476,101 @@ def get_bill_projections():
         return jsonify({"error": str(e)}), 500
 
 
+@analytics_bp.route("/spending-by-category", methods=["GET"])
+@require_auth
+def spending_by_category():
+    """Top-N spending categories for a month with prev-month delta.
+
+    Groups purchases by Purchase.default_budget_category. Current month
+    (or the month passed in ?month=YYYY-MM) gets compared against the
+    preceding month so each row can show a "↑/↓ X% vs last month"
+    delta — same vocabulary as the existing budget-card deltas.
+
+    Query params:
+      month  — YYYY-MM (default: current month)
+      limit  — max categories to return (default 6, max 12)
+
+    Response:
+      {
+        "month": "2026-04",
+        "total": 1234.56,
+        "categories": [
+          {"category": "grocery", "amount": 600.12,
+           "prev_amount": 550.00, "delta_pct": 9,
+           "share_pct": 48},
+          ...
+        ]
+      }
+    """
+    import sqlalchemy as _sa
+    session = g.db_session
+    month_raw = (request.args.get("month") or "").strip()
+    try:
+        anchor = datetime.strptime(month_raw, "%Y-%m") if month_raw else datetime.now(timezone.utc)
+    except ValueError:
+        return jsonify({"error": "month must be YYYY-MM"}), 400
+    try:
+        limit = int(request.args.get("limit") or 6)
+    except (TypeError, ValueError):
+        limit = 6
+    limit = max(1, min(limit, 12))
+
+    month_start = anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_start = month_start.replace(month=month_start.month + 1)
+    prev_start = (month_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    def _agg(start, end):
+        rows = (
+            session.query(
+                Purchase.default_budget_category,
+                _sa.func.sum(Purchase.total_amount).label("amt"),
+            )
+            .filter(Purchase.date >= start, Purchase.date < end)
+            .filter(
+                _sa.or_(
+                    Purchase.transaction_type.is_(None),
+                    Purchase.transaction_type != "refund",
+                )
+            )
+            .group_by(Purchase.default_budget_category)
+            .all()
+        )
+        return {(r[0] or "other"): float(r[1] or 0.0) for r in rows}
+
+    current = _agg(month_start, next_start)
+    previous = _agg(prev_start, month_start)
+
+    # Sort by current-month amount desc, take top `limit`.
+    sorted_categories = sorted(
+        current.items(), key=lambda kv: kv[1], reverse=True
+    )[:limit]
+    total = sum(current.values()) or 1.0
+
+    def _delta_pct(curr, prev):
+        if prev <= 0:
+            return None
+        return int(round(((curr - prev) / prev) * 100))
+
+    categories = [
+        {
+            "category": cat,
+            "amount": round(amt, 2),
+            "prev_amount": round(previous.get(cat, 0.0), 2),
+            "delta_pct": _delta_pct(amt, previous.get(cat, 0.0)),
+            "share_pct": int(round((amt / total) * 100)) if total else 0,
+        }
+        for cat, amt in sorted_categories
+    ]
+    return jsonify({
+        "month": month_start.strftime("%Y-%m"),
+        "total": round(sum(current.values()), 2),
+        "categories": categories,
+    }), 200
+
+
 @analytics_bp.route("/receipts-activity", methods=["GET"])
 @require_auth
 def receipts_activity():

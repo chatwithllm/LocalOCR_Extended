@@ -2382,6 +2382,203 @@ body.trusted-device-kitchen-display *:focus-visible {
   display: none !important;
 }
 
+/* ---------- Dashboard: Spending by Category + Inventory row --- */
+/* Force the inventory row to span a single full-width column; the
+   mobile media query at index.html:9368 pins .dashboard-stats-grid
+   to 2 columns which was squishing us on both desktop + mobile. */
+#page-dashboard > .dashboard-stats-grid.dashboard-inventory-row,
+.dashboard-stats-grid.dashboard-inventory-row {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.dashboard-spending-row {
+  margin-bottom: 20px;
+}
+.dashboard-spending-row .card-header-inline-stat {
+  cursor: default;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-primary, inherit);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+}
+/* Horizontal bars, one row per category. Each row has a full-width
+   100% track; the colored fill width = that category's share of the
+   top (biggest) category. Labels + amount + delta live on the same
+   row so nothing overlaps — unlike the column version whose narrow
+   cells crushed mobile labels together. */
+.spending-by-category {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px 0;
+}
+.spending-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.1fr) minmax(0, 2fr) minmax(92px, auto);
+  gap: 12px;
+  align-items: center;
+}
+.spending-row__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.spending-row__icon { font-size: 1.05rem; }
+.spending-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spending-row__bar {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.12));
+  overflow: hidden;
+}
+.spending-row__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  transform-origin: left;
+  transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  min-width: 4px;
+}
+.spending-row__pct {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.spending-row__amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.spending-row__amount-value {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.spending-row__amount-delta {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.spending-row__amount-delta--good { color: #2fa36b; }
+.spending-row__amount-delta--bad { color: #e0803a; }
+
+/* Per-row palette — blue → teal → green → amber → rose → violet. */
+.spending-row--c0 .spending-row__fill { background: linear-gradient(90deg, #4aa3ff 0%, #097fe8 100%); }
+.spending-row--c1 .spending-row__fill { background: linear-gradient(90deg, #3ec1bd 0%, #149890 100%); }
+.spending-row--c2 .spending-row__fill { background: linear-gradient(90deg, #5bd3a0 0%, #2fa36b 100%); }
+.spending-row--c3 .spending-row__fill { background: linear-gradient(90deg, #f5c36b 0%, #e0a134 100%); }
+.spending-row--c4 .spending-row__fill { background: linear-gradient(90deg, #f28a8a 0%, #c94d4d 100%); }
+.spending-row--c5 .spending-row__fill { background: linear-gradient(90deg, #b590e8 0%, #7d52c9 100%); }
+
+@media (max-width: 640px) {
+  .spending-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label  amount"
+      "bar    bar";
+    row-gap: 3px;
+    column-gap: 10px;
+  }
+  .spending-row__label  { grid-area: label; }
+  .spending-row__amount { grid-area: amount; }
+  .spending-row__bar    { grid-area: bar; height: 10px; }
+  .spending-row__pct    { font-size: 0.65rem; right: 6px; }
+}
+
+/* ---------- Spending Flow (Sankey-style) -------------------- */
+.spending-flow {
+  width: 100%;
+}
+.spending-flow svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.spending-flow__source-label {
+  fill: var(--color-text-primary, #fff);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+}
+.spending-flow__source-sub {
+  fill: var(--muted, #888);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.spending-flow__target-label {
+  fill: var(--color-text-primary, #fff);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.spending-flow__target-value {
+  fill: var(--color-text-primary, #fff);
+  font-size: 12px;
+  font-weight: 800;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.spending-flow__target-sub {
+  fill: var(--muted, #888);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.spending-flow__ribbon {
+  fill-opacity: 0.55;
+  transition: fill-opacity 160ms ease;
+}
+.spending-flow__ribbon:hover {
+  fill-opacity: 0.85;
+}
+.spending-flow__source-bar {
+  fill: #4aa3ff;
+}
+.spending-flow__node {
+  stroke: var(--color-surface, #1f2024);
+  stroke-width: 1;
+}
+@media (max-width: 640px) {
+  .spending-flow__source-label { font-size: 10px; }
+  .spending-flow__source-sub { font-size: 9px; }
+  .spending-flow__target-label { font-size: 10px; }
+  .spending-flow__target-value { font-size: 10px; }
+  .spending-flow__target-sub { font-size: 9px; }
+}
+
+/* ---------- Sortable table headers (receipts month table) --- */
+.sortable-receipts-table th.sortable-receipts-th {
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.sortable-receipts-table th.sortable-receipts-th:hover {
+  color: var(--color-brand, #097fe8);
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+}
+.sortable-receipts-table th.sortable-receipts-th.is-active {
+  color: var(--color-brand, #097fe8);
+}
+
 /* ---------- Sidebar: restricted (non-granted) nav items ---- */
 /* User-facing signal that the page exists but isn't included in this
    user's allowed_pages. Item stays in the sidebar so the user has a
