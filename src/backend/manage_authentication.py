@@ -373,6 +373,8 @@ def serialize_user(user: User) -> dict:
         ),
         "allowed_pages": _parse_allowed_pages(getattr(user, "allowed_pages", None)),
         "has_plaid_visibility": _user_has_plaid_visibility(user),
+        "allow_write": bool(getattr(user, "allow_write", False)),
+        "is_service": (user.role or "") == "service",
         "last_login_at": (
             (user.last_login_at.isoformat() + "Z")
             if getattr(user, "last_login_at", None) and not user.last_login_at.isoformat().endswith("Z")
@@ -1415,6 +1417,86 @@ def create_user():
     return jsonify({"user": serialize_user(created)}), 201
 
 
+@auth_bp.route("/service-accounts", methods=["POST"])
+def create_service_account():
+    """Create a non-human API-only account with a bearer token.
+
+    Admin only. Returns the raw token ONCE — never again retrievable
+    since only the hash is stored. Defaults to read-only unless
+    allow_write=true is passed.
+
+    Body: {"name": str, "allow_write": bool (default false)}
+    """
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    if len(name) > 100:
+        return jsonify({"error": "Name must be 100 characters or fewer"}), 400
+    allow_write = bool(data.get("allow_write", False))
+
+    # Reject duplicate service names (case-insensitive).
+    existing = (
+        g.db_session.query(User)
+        .filter(func.lower(User.name) == name.lower(), User.role == "service")
+        .first()
+    )
+    if existing:
+        return jsonify({"error": "A service account with that name exists"}), 409
+
+    token = secrets.token_urlsafe(32)
+    created = User(
+        name=name,
+        email=None,
+        role="service",
+        is_active=True,
+        avatar_emoji="🤖",
+        password_hash=None,
+        api_token_hash=hash_token(token),
+        allow_write=allow_write,
+    )
+    g.db_session.add(created)
+    g.db_session.commit()
+    logger.info(
+        "Service account '%s' created by admin %s (allow_write=%s)",
+        name, actor.email or actor.id, allow_write,
+    )
+    return jsonify({
+        "user": serialize_user(created),
+        "token": token,
+        "note": "Save this token now — it cannot be retrieved again.",
+    }), 201
+
+
+@auth_bp.route("/service-accounts/<int:user_id>/rotate", methods=["POST"])
+def rotate_service_account(user_id: int):
+    """Issue a new bearer token, invalidating the old one."""
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+    target = g.db_session.query(User).filter_by(id=user_id, role="service").first()
+    if not target:
+        return jsonify({"error": "Service account not found"}), 404
+    token = secrets.token_urlsafe(32)
+    target.api_token_hash = hash_token(token)
+    target.session_version = int(target.session_version or 0) + 1
+    g.db_session.commit()
+    logger.info("Service account '%s' rotated by admin %s", target.name, actor.email or actor.id)
+    return jsonify({
+        "user": serialize_user(target),
+        "token": token,
+        "note": "Save this token now — it cannot be retrieved again.",
+    }), 200
+
+
 @auth_bp.route("/users/<int:user_id>", methods=["PUT"])
 def update_user(user_id: int):
     """Update an existing household user. Admins can edit anyone; users can update their own basic profile."""
@@ -1505,6 +1587,12 @@ def update_user(user_id: int):
                     parsed.append(must)
             pages_json = _serialize_allowed_pages(parsed)
         target.allowed_pages = pages_json
+
+    # allow_write toggle is admin-only; used primarily for service
+    # accounts but harmless on human users (their writes go through
+    # session cookies which aren't gated by this field).
+    if is_admin(actor) and "allow_write" in data:
+        target.allow_write = bool(data.get("allow_write"))
 
     g.db_session.commit()
     logger.info("User %s updated by admin %s", target.email, actor.email or actor.id)

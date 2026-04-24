@@ -88,6 +88,7 @@ class User(Base):
     last_login_at = Column(DateTime, nullable=True)
     current_session_started_at = Column(DateTime, nullable=True)
     last_login_user_agent = Column(String(500), nullable=True)
+    allow_write = Column(Boolean, nullable=False, default=False)
     google_sub = Column(String(255), nullable=True, unique=True)  # Google stable user ID
     google_email = Column(String(255), nullable=True)             # Google account email (display)
     active_ai_model_config_id = Column(Integer, ForeignKey("ai_model_configs.id"), nullable=True)

@@ -102,13 +102,21 @@ def require_write_access(f):
     def decorated(*args, **kwargs):
         from src.backend.manage_authentication import is_read_only_device_request
 
-        _user, error = _require_authenticated_user()
+        user, error = _require_authenticated_user()
         if error:
             return error
         if is_read_only_device_request():
             return jsonify({
                 "error": "This trusted device is in read-only mode",
                 "scope": "read_only",
+            }), 403
+        # Service accounts are read-only unless explicitly granted
+        # allow_write. Rejects external apps (e.g. smart mirror
+        # display) from mutating household data without opt-in.
+        if user and getattr(user, "role", None) == "service" and not bool(getattr(user, "allow_write", False)):
+            return jsonify({
+                "error": "This service account is read-only",
+                "scope": "service_read_only",
             }), 403
         return f(*args, **kwargs)
     return decorated

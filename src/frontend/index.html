@@ -15534,6 +15534,14 @@
                 >
                   + Add User
                 </button>
+                <button
+                  id="service-account-add-btn"
+                  class="btn btn-ghost btn-sm"
+                  onclick="openServiceAccountForm()"
+                  style="display: none"
+                >
+                  + Service Account
+                </button>
                 <label for="users-sort">Sort</label>
                 <select id="users-sort" onchange="setUsersSort(this.value)">
                   <option value="name_asc" selected>Name A-Z</option>
@@ -28256,11 +28264,13 @@
         );
 
         const addBtn = document.getElementById("user-add-btn");
+        const svcBtn = document.getElementById("service-account-add-btn");
 
         if (!currentUser) {
           householdUsers = [];
           panel.style.display = "none";
           if (addBtn) addBtn.style.display = "none";
+          if (svcBtn) svcBtn.style.display = "none";
           note.textContent = "Sign in to manage household users.";
           body.innerHTML =
             '<div class="empty-state"><p>Sign in to view household users.</p></div>';
@@ -28271,6 +28281,7 @@
           householdUsers = [];
           panel.style.display = "none";
           if (addBtn) addBtn.style.display = "none";
+          if (svcBtn) svcBtn.style.display = "none";
           note.textContent = "Only admins can manage household users.";
           body.innerHTML =
             '<div class="empty-state"><p>Your account can use the app, but only admins can create or view household accounts.</p></div>';
@@ -28279,6 +28290,7 @@
 
         panel.style.display = "block";
         if (addBtn) addBtn.style.display = "";
+        if (svcBtn) svcBtn.style.display = "";
         const usersSortEl = document.getElementById("users-sort");
         if (usersSortEl && usersSortEl.value !== usersSort)
           usersSortEl.value = usersSort;
@@ -28351,10 +28363,13 @@
             <div class="mobile-data-cell"><div class="mobile-data-cell-label">Created</div><div class="mobile-data-cell-value">${escHtml(user.created_at ? user.created_at.split("T")[0] : "—")}</div></div>
           </div>
           <div class="mobile-action-row">
-            <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
-            <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
-            <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
-            <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
+            ${user.is_service
+              ? `<button class="btn btn-sm btn-ghost" onclick="rotateServiceAccount(${user.id})">🔁 Rotate Token</button>
+                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>`
+              : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
+                 <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
+                 <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
+                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>`}
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </div>
         </div>`,
@@ -28387,10 +28402,13 @@
           <td>${user.has_google ? '<span title="' + escAttr(user.google_email || "") + '">✅ <span style="font-size:.8rem;color:var(--muted)">' + escHtml(user.google_email || "") + "</span></span>" : "—"}</td>
           <td style="color:var(--muted);font-size:0.8rem">${user.created_at ? user.created_at.split("T")[0] : "—"}</td>
           <td style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
-            <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
-            <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
-            <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
+            ${user.is_service
+              ? `<button class="btn btn-sm btn-ghost" onclick="rotateServiceAccount(${user.id})">🔁 Rotate Token</button>
+                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>`
+              : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
+                 <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
+                 <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
+                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>`}
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </td>
         </tr>`,
@@ -29026,6 +29044,142 @@
           },
           makingAdmin ? "Promoted to admin ✅" : "Demoted to user ✅",
         );
+      }
+
+      // ---- Service accounts ---------------------------------------
+      async function openServiceAccountForm() {
+        if (currentUser?.role !== "admin") return;
+        const name = await askForTextInput(
+          "Give this service a short name (e.g. 'Smart Mirror', 'Home Dashboard'). Not an email — it's just a label.",
+          "New Service Account",
+          "",
+          { placeholder: "Smart Mirror" },
+        );
+        if (name === null) return;
+        const trimmed = name.trim();
+        if (!trimmed) {
+          toast("Name is required", "error");
+          return;
+        }
+        const writeChoice = await askForConfirmation(
+          "Allow this service to WRITE (create/edit/delete receipts, shopping items, etc.)?\n\nPick Cancel for read-only (safer). Pick OK to grant write access.",
+          `Write access for ${trimmed}?`,
+        );
+        const allow_write = Boolean(writeChoice);
+        try {
+          const res = await api("/auth/service-accounts", {
+            method: "POST",
+            body: JSON.stringify({ name: trimmed, allow_write }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not create service account", "error");
+            return;
+          }
+          _showServiceTokenModal(trimmed, data.token);
+          await loadUsers();
+        } catch (err) {
+          console.error("openServiceAccountForm failed", err);
+          toast("Could not create service account", "error");
+        }
+      }
+
+      async function rotateServiceAccount(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) return;
+        const confirmed = await askForConfirmation(
+          `Rotate the bearer token for ${user.name}? The OLD token will stop working immediately. Any external app (e.g. your smart mirror) will need the new token to keep connecting.`,
+          "Rotate token?",
+        );
+        if (!confirmed) return;
+        try {
+          const res = await api(`/auth/service-accounts/${userId}/rotate`, {
+            method: "POST",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not rotate token", "error");
+            return;
+          }
+          _showServiceTokenModal(user.name, data.token);
+        } catch (err) {
+          console.error("rotateServiceAccount failed", err);
+          toast("Could not rotate token", "error");
+        }
+      }
+
+      async function toggleServiceAccountWrite(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) return;
+        const next = !user.allow_write;
+        const msg = next
+          ? `Grant WRITE access to ${user.name}? This service will be able to create/edit/delete data via the API.`
+          : `Revoke write access for ${user.name}? This service will become read-only immediately.`;
+        const ok = await askForConfirmation(msg, next ? "Grant write access?" : "Make read-only?");
+        if (!ok) return;
+        await updateUser(
+          userId,
+          {
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            is_active: user.is_active !== false,
+            allow_write: next,
+          },
+          next ? "Write access granted ✅" : "Now read-only ✅",
+        );
+      }
+
+      function _showServiceTokenModal(name, token) {
+        const overlay = document.getElementById("confirm-overlay");
+        const titleEl = document.getElementById("confirm-title");
+        const bodyEl = document.getElementById("confirm-body");
+        const okBtn = document.getElementById("confirm-ok");
+        const cancelBtn = document.getElementById("confirm-cancel");
+        if (!overlay || !bodyEl || !okBtn || !cancelBtn) {
+          window.prompt(`Token for ${name}:`, token);
+          return;
+        }
+        titleEl.textContent = `Token for ${name}`;
+        bodyEl.innerHTML = `
+          <div style="text-align:left">
+            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">
+              ⚠️ Save this token now — it will <strong>never</strong> be shown again.
+              Rotating regenerates a new one (and invalidates this one).
+              Use it as <code>Authorization: Bearer &lt;token&gt;</code>.
+            </div>
+            <input id="svc-token-display" readonly value="${escAttr(token)}"
+              style="width:100%;font-family:monospace;font-size:0.85rem;padding:8px 10px;border-radius:8px;border:1px solid var(--color-border);background:var(--color-surface)" />
+          </div>`;
+        okBtn.textContent = "📋 Copy";
+        okBtn.className = "btn btn-primary";
+        cancelBtn.textContent = "Done";
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const finish = () => {
+          overlay.classList.remove("show");
+          overlay.setAttribute("aria-hidden", "true");
+          okBtn.onclick = null;
+          cancelBtn.onclick = null;
+          overlay.onclick = null;
+          document.onkeydown = null;
+          bodyEl.textContent = "Are you sure?";
+          okBtn.textContent = "Confirm";
+        };
+        okBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(token);
+            toast("Token copied to clipboard", "success");
+          } catch (_e) {
+            const el = document.getElementById("svc-token-display");
+            if (el) { el.select(); document.execCommand("copy"); }
+            toast("Token copied", "success");
+          }
+        };
+        cancelBtn.onclick = finish;
+        overlay.onclick = (ev) => { if (ev.target === overlay) finish(); };
+        document.onkeydown = (ev) => { if (ev.key === "Escape") finish(); };
       }
 
       async function editUserPages(userId) {
