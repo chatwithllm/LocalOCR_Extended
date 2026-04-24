@@ -12374,7 +12374,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424c" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424d" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -28401,7 +28401,8 @@
               : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
                  <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
                  <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
-                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>`}
+                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
+                 ${currentUser && user.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteHouseholdUser(${user.id})" title="Permanently remove this user (blocked if they own data)">🗑️ Delete</button>` : ""}`}
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </div>
         </div>`,
@@ -28442,7 +28443,8 @@
               : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
                  <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
                  <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
-                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>`}
+                 <button class="btn btn-sm btn-ghost" onclick="resetUserPassword(${user.id})">Reset Password</button>
+                 ${currentUser && user.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteHouseholdUser(${user.id})" title="Permanently remove this user (blocked if they own data)">🗑️ Delete</button>` : ""}`}
             <button class="btn btn-sm ${user.is_active === false ? "btn-primary" : "btn-danger"}" onclick="toggleUserActive(${user.id})">${user.is_active === false ? "Activate" : "Deactivate"}</button>
           </td>
         </tr>`,
@@ -29412,6 +29414,48 @@
           },
           "Password reset ✅",
         );
+      }
+
+      async function deleteHouseholdUser(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) {
+          toast("User not found", "error");
+          return;
+        }
+        if (currentUser && user.id === currentUser.id) {
+          toast("You cannot delete your own account", "error");
+          return;
+        }
+        const confirmed = await askForConfirmation(
+          `Permanently delete ${user.name}? Trusted devices, dedup history, and AI-model access for this user are wiped. Attribution on past receipts becomes unassigned. Blocked if they still own purchases, budgets, bank connections, or contribution events — deactivate instead.`,
+          `Delete ${user.name}?`,
+        );
+        if (!confirmed) return;
+        try {
+          const res = await api(`/auth/users/${userId}`, { method: "DELETE" });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (res.status === 409 && data.blockers) {
+              const parts = Object.entries(data.blockers)
+                .filter(([, v]) => Number(v) > 0)
+                .map(([k, v]) => `${v} ${k.replace(/_/g, " ")}`);
+              toast(
+                parts.length
+                  ? `Cannot delete — ${user.name} still owns: ${parts.join(", ")}. Deactivate instead.`
+                  : data.error || "Cannot delete — user has dependencies.",
+                "error",
+              );
+            } else {
+              toast(data.error || "Could not delete user", "error");
+            }
+            return;
+          }
+          toast(`Deleted ${user.name} ✅`, "success");
+          await loadUsers();
+        } catch (err) {
+          console.error("deleteHouseholdUser failed", err);
+          toast("Could not delete user", "error");
+        }
       }
 
       async function toggleUserActive(userId) {

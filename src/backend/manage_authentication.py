@@ -1724,6 +1724,157 @@ def update_service_account(user_id: int):
     return jsonify({"user": serialize_user(target)}), 200
 
 
+@auth_bp.route("/users/<int:user_id>", methods=["DELETE"])
+def delete_user(user_id: int):
+    """Permanently remove a human user (admin only).
+
+    Refuses if the user owns data that would lose meaning (purchases,
+    receipts, budgets, Plaid items, contribution events). In that
+    case returns 409 with per-table counts so the admin can reassign
+    or deactivate instead. When the user has no meaningful ownership,
+    cascade-deletes their personal side-tables (trusted devices,
+    dedup dismissals, AI-model access) and nulls-out every nullable
+    audit FK that references them (attribution_user_id, reviewed_by,
+    created_by_id, etc.) so no table is left with a dangling id.
+
+    Extra guardrails:
+      - Cannot delete yourself.
+      - Cannot delete the last active admin.
+    """
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+    if int(actor.id) == int(user_id):
+        return jsonify({"error": "You cannot delete your own account"}), 403
+
+    target = g.db_session.query(User).filter_by(id=user_id).first()
+    if not target:
+        return jsonify({"error": "User not found"}), 404
+    if (target.role or "") == "service":
+        return jsonify({
+            "error": "Use the service-account endpoint to delete service accounts",
+        }), 400
+
+    if (target.role or "") == "admin":
+        other_admins = (
+            g.db_session.query(User)
+            .filter(User.id != target.id, User.role == "admin", User.is_active == True)  # noqa: E712
+            .count()
+        )
+        if other_admins == 0:
+            return jsonify({
+                "error": "Cannot delete the last active admin. Promote another user first.",
+            }), 409
+
+    # Count meaningful ownership. Lazy imports keep this endpoint free
+    # of hard coupling to domain tables at module load.
+    from src.backend.initialize_database_schema import (
+        Budget,
+        BudgetChangeLog,
+        ContributionEvent,
+        DedupDismissal,
+        DevicePairingSession,
+        PlaidItem,
+        PlaidAccount,
+        PlaidStagedTransaction,
+        Purchase,
+        ReceiptItem,
+        ShoppingListItem,
+        ShoppingSession,
+        TrustedDevice,
+        UserAIModelAccess,
+    )
+
+    uid = int(target.id)
+    blockers: dict[str, int] = {}
+
+    def _count(query):
+        try:
+            return int(query.count())
+        except Exception:
+            return 0
+
+    # In this app "receipts" are Purchase rows — a single table.
+    blockers["purchases"] = _count(
+        g.db_session.query(Purchase).filter(Purchase.user_id == uid)
+    )
+    blockers["budgets"] = _count(
+        g.db_session.query(Budget).filter(Budget.user_id == uid)
+    )
+    blockers["plaid_items"] = _count(
+        g.db_session.query(PlaidItem).filter(PlaidItem.user_id == uid)
+    )
+    blockers["contribution_events"] = _count(
+        g.db_session.query(ContributionEvent).filter(ContributionEvent.user_id == uid)
+    )
+
+    nonzero = {k: v for k, v in blockers.items() if v > 0}
+    if nonzero:
+        return jsonify({
+            "error": "User still owns data — deactivate instead, or reassign first.",
+            "blockers": nonzero,
+        }), 409
+
+    name = target.name
+    email = target.email
+    try:
+        # 1. Hard-delete personal side-tables.
+        g.db_session.query(TrustedDevice).filter(
+            TrustedDevice.linked_user_id == uid
+        ).delete(synchronize_session=False)
+        g.db_session.query(DedupDismissal).filter(
+            DedupDismissal.user_id == uid
+        ).delete(synchronize_session=False)
+        g.db_session.query(UserAIModelAccess).filter(
+            UserAIModelAccess.user_id == uid
+        ).delete(synchronize_session=False)
+
+        # 2. Null-out nullable audit FKs where data should survive the user.
+        g.db_session.query(DevicePairingSession).filter(
+            DevicePairingSession.approved_by_user_id == uid
+        ).update({DevicePairingSession.approved_by_user_id: None}, synchronize_session=False)
+        g.db_session.query(ShoppingSession).filter(
+            ShoppingSession.created_by_id == uid
+        ).update({ShoppingSession.created_by_id: None}, synchronize_session=False)
+        g.db_session.query(ShoppingListItem).filter(
+            ShoppingListItem.user_id == uid
+        ).update({ShoppingListItem.user_id: None}, synchronize_session=False)
+        g.db_session.query(BudgetChangeLog).filter(
+            BudgetChangeLog.user_id == uid
+        ).update({BudgetChangeLog.user_id: None}, synchronize_session=False)
+        # Attribution FKs on purchases and receipt items.
+        g.db_session.query(Purchase).filter(
+            Purchase.attribution_user_id == uid
+        ).update({Purchase.attribution_user_id: None}, synchronize_session=False)
+        g.db_session.query(ReceiptItem).filter(
+            ReceiptItem.attribution_user_id == uid
+        ).update({ReceiptItem.attribution_user_id: None}, synchronize_session=False)
+        # Plaid sidecars (only set_null; their owning PlaidItem was cleared
+        # above by the blockers check, so these should be empty already).
+        g.db_session.query(PlaidAccount).filter(
+            PlaidAccount.user_id == uid
+        ).delete(synchronize_session=False)
+        g.db_session.query(PlaidStagedTransaction).filter(
+            PlaidStagedTransaction.user_id == uid
+        ).delete(synchronize_session=False)
+
+        # 3. Finally, delete the user.
+        g.db_session.delete(target)
+        g.db_session.commit()
+    except Exception as exc:
+        g.db_session.rollback()
+        logger.exception("Failed to delete user id=%s", uid)
+        return jsonify({"error": f"Could not delete: {exc}"}), 409
+
+    logger.info(
+        "User id=%s (name=%s, email=%s) deleted by admin %s",
+        uid, name, email, actor.email or actor.id,
+    )
+    return jsonify({"deleted": True, "id": uid, "name": name}), 200
+
+
 @auth_bp.route("/users/<int:user_id>", methods=["PUT"])
 def update_user(user_id: int):
     """Update an existing household user. Admins can edit anyone; users can update their own basic profile."""
