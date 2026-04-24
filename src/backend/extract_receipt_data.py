@@ -522,7 +522,7 @@ def _validate_receipt_data(data: dict, receipt_type: str | None = None) -> bool:
     # to the user.
     _ITEMLESS_TYPES = {
         "utility_bill", "household_bill", "general_expense",
-        "retail_items", "event", "unknown",
+        "retail_items", "event", "entertainment", "unknown",
     }
     normalized_type = str(receipt_type or "").strip().lower()
     requires_items = normalized_type not in _ITEMLESS_TYPES
@@ -632,7 +632,7 @@ def classify_receipt_data(data: dict) -> str:
 
 def _normalize_receipt_type_hint(receipt_type_hint: str | None) -> str | None:
     hint = str(receipt_type_hint or "").strip().lower()
-    valid_hints = {"grocery", "restaurant", "general_expense", "retail_items", "utility_bill", "household_bill"}
+    valid_hints = {"grocery", "restaurant", "general_expense", "retail_items", "utility_bill", "household_bill", "event", "entertainment", "unknown"}
     return hint if hint in valid_hints else None
 
 

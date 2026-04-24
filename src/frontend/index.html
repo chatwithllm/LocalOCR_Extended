@@ -15271,6 +15271,8 @@
                   <option value="grocery">Grocery</option>
                   <option value="restaurant">Restaurant</option>
                   <option value="general_expense">General Expense</option>
+                  <option value="event">Event</option>
+                  <option value="entertainment">Entertainment</option>
                   <option value="">All Modules</option>
                 </select>
                 <label for="analytics-sort">Sort</label>
@@ -29255,16 +29257,27 @@
       const _CATEGORY_META = {
         grocery:         { icon: "🛒", label: "Grocery" },
         restaurant:      { icon: "🍽", label: "Restaurant" },
+        dining:          { icon: "🍽", label: "Dining" },
         event:           { icon: "🎉", label: "Event" },
+        events:          { icon: "🎉", label: "Events" },
+        entertainment:   { icon: "🎬", label: "Entertainment" },
         general_expense: { icon: "💳", label: "General" },
         utility:         { icon: "💡", label: "Utility" },
+        utilities:       { icon: "💡", label: "Utilities" },
         household:       { icon: "🏠", label: "Household" },
         household_bill:  { icon: "🏠", label: "Household Bill" },
         utility_bill:    { icon: "💡", label: "Utility Bill" },
         retail_items:    { icon: "🛍", label: "Retail" },
+        retail:          { icon: "🛍", label: "Retail" },
         personal_care:   { icon: "🧴", label: "Personal Care" },
         apparel:         { icon: "👕", label: "Apparel" },
         pharmacy:        { icon: "💊", label: "Pharmacy" },
+        health:          { icon: "💊", label: "Health" },
+        subscriptions:   { icon: "📺", label: "Subscriptions" },
+        insurance:       { icon: "🛡", label: "Insurance" },
+        housing:         { icon: "🏠", label: "Housing" },
+        childcare:       { icon: "🧒", label: "Childcare" },
+        other_recurring: { icon: "🔁", label: "Other Recurring" },
         other:           { icon: "📦", label: "Other" },
       };
 
@@ -36440,7 +36453,7 @@
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
-        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}" onchange="handleReceiptEditorTypeChange(${receipt.id})"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option><option value="event">Event</option><option value="unknown">Unknown</option></select></div>
+        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}" onchange="handleReceiptEditorTypeChange(${receipt.id})"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option><option value="event">Event</option><option value="entertainment">Entertainment</option><option value="unknown">Unknown</option></select></div>
         <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">
@@ -36478,7 +36491,7 @@
         <div class="receipt-editor-main-field field-total"><label>Total</label><input id="receipt-total-${receipt.id}" type="number" step="0.01" /></div>
         <div class="receipt-editor-main-field field-attribution" style="grid-column:1/-1">
           <label>Attributed to</label>
-          ${(receipt.status === "review" || !receipt.purchase_id) && receipt.status !== "processed"
+          ${!receipt.purchase_id
             ? `<div style="font-size:0.82rem;color:var(--muted);padding:8px 10px;background:var(--color-surface-2,rgba(127,127,127,0.08));border-radius:8px">
                  🔒 Save this receipt first (Store · Date · Total), then come back to tag who it's for.
                </div>`
@@ -36494,7 +36507,7 @@
                 </button>
               </div>
               <div style="margin-top:4px;font-size:0.78rem;color:var(--muted)">
-                Pick household, one person, or check multiple for shared items. Changes apply to the whole receipt and propagate to all line items (you can override individual items below).
+                Pick household, one person, or check multiple for shared items. Works on itemless receipts too (attribution applies to the whole purchase).
               </div>`}
         </div>
       </div>
