@@ -1536,6 +1536,85 @@ def approve_receipt(receipt_id):
     }), 200
 
 
+@receipts_bp.route("/bulk-update", methods=["PUT"])
+@require_write_access
+def bulk_update_receipts():
+    """Apply receipt_type and/or default_budget_category to many
+    receipts in one request.
+
+    Body:
+      {
+        "ids": [int, ...],                     # purchase_ids
+        "receipt_type": "grocery" | ... ,      # optional
+        "default_budget_category": "grocery" | ... ,  # optional
+      }
+
+    At least one field must be provided. Per-row failures are skipped;
+    the response reports how many rows succeeded.
+    """
+    from src.backend.initialize_database_schema import Purchase, TelegramReceipt
+    from src.backend.budgeting_domains import (
+        normalize_budget_category,
+        derive_receipt_budget_defaults,
+    )
+
+    payload = request.get_json(silent=True) or {}
+    raw_ids = payload.get("ids") or []
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"error": "ids must be a non-empty list"}), 400
+    try:
+        ids = sorted({int(x) for x in raw_ids})
+    except (TypeError, ValueError):
+        return jsonify({"error": "ids must be integers"}), 400
+
+    receipt_type = (payload.get("receipt_type") or "").strip().lower() or None
+    budget_cat_raw = (payload.get("default_budget_category") or "").strip().lower() or None
+    if not receipt_type and not budget_cat_raw:
+        return jsonify({"error": "Provide receipt_type or default_budget_category"}), 400
+
+    valid_types = {
+        "grocery", "restaurant", "general_expense", "retail_items",
+        "household_bill", "utility_bill", "event", "unknown",
+    }
+    if receipt_type and receipt_type not in valid_types:
+        return jsonify({"error": f"Invalid receipt_type: {receipt_type}"}), 400
+
+    budget_cat = None
+    if budget_cat_raw:
+        budget_cat = normalize_budget_category(budget_cat_raw, default=None)
+        if budget_cat is None:
+            return jsonify({"error": f"Invalid budget category: {budget_cat_raw}"}), 400
+
+    session = g.db_session
+    purchases = session.query(Purchase).filter(Purchase.id.in_(ids)).all()
+    by_id = {p.id: p for p in purchases}
+    updated = 0
+    skipped = []
+    for pid in ids:
+        purchase = by_id.get(pid)
+        if not purchase:
+            skipped.append({"id": pid, "reason": "not found"})
+            continue
+        if receipt_type:
+            domain, default_cat = derive_receipt_budget_defaults(receipt_type)
+            purchase.default_spending_domain = domain
+            if not budget_cat:
+                purchase.default_budget_category = default_cat
+            tr = (
+                session.query(TelegramReceipt)
+                .filter_by(purchase_id=purchase.id)
+                .order_by(TelegramReceipt.created_at.desc())
+                .first()
+            )
+            if tr:
+                tr.receipt_type = receipt_type
+        if budget_cat:
+            purchase.default_budget_category = budget_cat
+        updated += 1
+    session.commit()
+    return jsonify({"updated": updated, "skipped": skipped}), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/update", methods=["PUT"])
 @require_write_access
 def update_receipt(receipt_id):

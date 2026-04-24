@@ -12374,7 +12374,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260423e" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260423f" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -38057,7 +38057,9 @@
         const includeDelete = options.includeDelete !== false;
         const inlineDetail = options.inlineDetail === true;
         const targetId = options.targetId ? Number(options.targetId) : null;
-        return `<div class="receipt-card-list" style="display: grid; gap: var(--space-3)">
+        const selectedIds = _receiptBulkSelection();
+        const bulkBar = _renderReceiptsBulkBar(receipts);
+        const rowsHtml = `<div class="receipt-card-list" style="display: grid; gap: var(--space-3)">
           ${receipts
             .map((receipt) => {
               const rid = Number(
@@ -38080,12 +38082,20 @@
                   : "info";
               const confBadge = confidenceBadgeHtml(receipt.confidence);
               const isSelected = inlineDetail && rid === targetId;
+              const isChecked = selectedIds.has(rid);
               return `
                 <article
-                  class="result-card result-card--row${isSelected ? " card--selected" : ""}"
+                  class="result-card result-card--row${isSelected ? " card--selected" : ""}${isChecked ? " card--bulk-checked" : ""}"
                   ${isSelected ? 'data-selected="true"' : ""}
                   data-receipt-id="${rid}"
                 >
+                  <div class="result-card__select">
+                    <input type="checkbox" class="receipt-bulk-check"
+                      data-receipt-id="${rid}" ${isChecked ? "checked" : ""}
+                      onclick="event.stopPropagation()"
+                      onchange="onReceiptBulkToggle(${rid}, this.checked)"
+                      aria-label="Select receipt" />
+                  </div>
                   <div
                     class="result-card__media"
                     style="background: color-mix(in srgb, var(--color-${cat}) 16%, transparent); display: flex; align-items: center; justify-content: center; font-size: 1.6rem"
@@ -38121,6 +38131,131 @@
             })
             .join("")}
         </div>`;
+        return bulkBar + rowsHtml;
+      }
+
+      // ---- Receipts bulk-select ------------------------------------
+      function _receiptBulkSelection() {
+        if (!(window.__receiptBulkSelection instanceof Set)) {
+          window.__receiptBulkSelection = new Set();
+        }
+        return window.__receiptBulkSelection;
+      }
+
+      function onReceiptBulkToggle(id, checked) {
+        const sel = _receiptBulkSelection();
+        const n = Number(id);
+        if (checked) sel.add(n); else sel.delete(n);
+        const card = document.querySelector(`.result-card[data-receipt-id="${n}"]`);
+        if (card) card.classList.toggle("card--bulk-checked", checked);
+        _updateBulkBarCount();
+      }
+
+      function _updateBulkBarCount() {
+        const n = _receiptBulkSelection().size;
+        const bar = document.getElementById("receipt-bulk-bar");
+        if (!bar) return;
+        bar.style.display = n ? "" : "none";
+        const cEl = document.getElementById("receipt-bulk-count");
+        if (cEl) cEl.textContent = `${n} selected`;
+      }
+
+      function clearReceiptBulkSelection() {
+        _receiptBulkSelection().clear();
+        document
+          .querySelectorAll(".receipt-bulk-check")
+          .forEach((c) => (c.checked = false));
+        document
+          .querySelectorAll(".result-card.card--bulk-checked")
+          .forEach((c) => c.classList.remove("card--bulk-checked"));
+        _updateBulkBarCount();
+      }
+
+      function selectAllReceiptsOnPage() {
+        const sel = _receiptBulkSelection();
+        document.querySelectorAll(".receipt-bulk-check").forEach((c) => {
+          const id = Number(c.getAttribute("data-receipt-id"));
+          if (id) {
+            sel.add(id);
+            c.checked = true;
+            const card = c.closest(".result-card");
+            if (card) card.classList.add("card--bulk-checked");
+          }
+        });
+        _updateBulkBarCount();
+      }
+
+      async function applyReceiptBulkEdit() {
+        const sel = Array.from(_receiptBulkSelection());
+        if (!sel.length) {
+          toast("Select at least one receipt.", "info");
+          return;
+        }
+        const typeEl = document.getElementById("receipt-bulk-type");
+        const catEl = document.getElementById("receipt-bulk-category");
+        const rt = (typeEl?.value || "").trim();
+        const bc = (catEl?.value || "").trim();
+        if (!rt && !bc) {
+          toast("Pick a receipt type or budget category to apply.", "info");
+          return;
+        }
+        const body = { ids: sel };
+        if (rt) body.receipt_type = rt;
+        if (bc) body.default_budget_category = bc;
+        try {
+          const res = await api("/receipts/bulk-update", {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Bulk update failed", "error");
+            return;
+          }
+          toast(
+            `Updated ${data.updated ?? sel.length} receipt${(data.updated ?? sel.length) === 1 ? "" : "s"} ✅`,
+            "success",
+          );
+          clearReceiptBulkSelection();
+          if (typeEl) typeEl.value = "";
+          if (catEl) catEl.value = "";
+          await loadReceipts();
+        } catch (err) {
+          console.error("applyReceiptBulkEdit failed", err);
+          toast("Bulk update failed", "error");
+        }
+      }
+
+      function _renderReceiptsBulkBar() {
+        // Dropdowns mirror the single-receipt editor options. Blank
+        // option = "leave as-is" so the user can apply just one of the
+        // two fields.
+        const typeOpts = [
+          ["", "— keep as-is —"],
+          ["grocery", "Grocery"],
+          ["restaurant", "Restaurant"],
+          ["general_expense", "General Expense"],
+          ["household_bill", "🏠 Household Bill"],
+          ["event", "Event"],
+          ["unknown", "Unknown"],
+        ];
+        const catOpts = [["", "— keep as-is —"]].concat(
+          BUDGET_CATEGORY_OPTIONS.map((v) => [v, formatLabel(v, v)]),
+        );
+        const sel = _receiptBulkSelection();
+        return `
+          <div id="receipt-bulk-bar" class="receipt-bulk-bar" style="display:${sel.size ? "" : "none"};margin-bottom:10px">
+            <span id="receipt-bulk-count" class="receipt-bulk-bar__count">${sel.size} selected</span>
+            <select id="receipt-bulk-type" class="inline-select" aria-label="Bulk receipt type">
+              ${typeOpts.map(([v, l]) => `<option value="${escAttr(v)}">${escHtml(l)}</option>`).join("")}
+            </select>
+            <select id="receipt-bulk-category" class="inline-select" aria-label="Bulk budget category">
+              ${catOpts.map(([v, l]) => `<option value="${escAttr(v)}">${escHtml(l)}</option>`).join("")}
+            </select>
+            <button type="button" class="btn btn-primary btn-sm" onclick="applyReceiptBulkEdit()">Apply</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="selectAllReceiptsOnPage()">Select all on page</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="clearReceiptBulkSelection()">Clear</button>
+          </div>`;
       }
 
       function renderCompactReceiptRows(receipts = [], options = {}) {
