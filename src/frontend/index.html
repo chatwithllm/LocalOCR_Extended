@@ -12374,7 +12374,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424b" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424c" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -25821,6 +25821,7 @@
             <button class="btn btn-sm btn-ghost" onclick="renameTrustedDevice(${device.id}, decodeURIComponent('${encodeURIComponent(device.name || "Trusted Device")}'))">Rename</button>
             <button class="btn btn-sm btn-ghost" onclick="changeTrustedDeviceScope(${device.id}, '${escAttr(device.scope || "shared_household")}')">Scope</button>
             <button class="btn btn-sm btn-danger" onclick="revokeTrustedDevice(${device.id})">Revoke</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTrustedDevice(${device.id})" title="Permanently remove this trusted-device record">🗑️ Delete</button>
           </div>
         </div>
       </div>
@@ -28031,6 +28032,35 @@
         }
         toast("Trusted device scope updated ✅", "success");
         loadTrustedDevices();
+      }
+
+      async function deleteTrustedDevice(deviceId) {
+        const confirmed = await askConfirm(
+          "Delete trusted device",
+          "Permanently remove this device record. Any token it still holds stops working immediately and no audit row is kept. Prefer Revoke unless you want a clean slate.",
+          { okLabel: "Delete", danger: true },
+        );
+        if (!confirmed) return;
+        const animatedCards = animateTrustedDeviceRemoval(deviceId);
+        try {
+          const res = await api(`/auth/trusted-devices/${deviceId}`, {
+            method: "DELETE",
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            animatedCards.forEach((card) => card.classList.remove("is-revoking"));
+            toast(data.error || "Could not delete trusted device", "error");
+            loadTrustedDevices();
+            return;
+          }
+          toast("Trusted device deleted", "success");
+          window.setTimeout(() => loadTrustedDevices(), 260);
+        } catch (err) {
+          console.error("deleteTrustedDevice failed", err);
+          animatedCards.forEach((card) => card.classList.remove("is-revoking"));
+          toast("Could not delete trusted device", "error");
+          loadTrustedDevices();
+        }
       }
 
       async function revokeTrustedDevice(deviceId) {

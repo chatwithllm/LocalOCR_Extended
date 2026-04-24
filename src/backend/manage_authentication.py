@@ -1352,6 +1352,50 @@ def update_trusted_device(device_id: int):
     return jsonify({"trusted_device": serialize_trusted_device(device)}), 200
 
 
+@auth_bp.route("/trusted-devices/<int:device_id>", methods=["DELETE"])
+def delete_trusted_device(device_id: int):
+    """Permanently remove a trusted device row (admin only).
+
+    Differs from /revoke in that revoke leaves a 'revoked' row behind
+    for audit; delete wipes the row and any pairing sessions that
+    reference it. Any token the device still has is implicitly
+    invalidated because the lookup returns no match.
+
+    Also clears DevicePairingSessions that reference this device so
+    we don't leave dangling FKs.
+    """
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+
+    device = g.db_session.query(TrustedDevice).filter_by(id=device_id).first()
+    if not device:
+        return jsonify({"error": "Trusted device not found"}), 404
+
+    name = device.name
+    pairing_sessions = (
+        g.db_session.query(DevicePairingSession)
+        .filter(DevicePairingSession.trusted_device_id == device_id)
+        .all()
+    )
+    try:
+        for pairing in pairing_sessions:
+            g.db_session.delete(pairing)
+        g.db_session.delete(device)
+        g.db_session.commit()
+    except Exception as exc:
+        g.db_session.rollback()
+        logger.exception("Failed to delete trusted device id=%s", device_id)
+        return jsonify({"error": f"Could not delete: {exc}"}), 409
+    logger.info(
+        "Trusted device '%s' (id=%s) deleted by admin %s",
+        name, device_id, actor.email or actor.id,
+    )
+    return jsonify({"deleted": True, "id": device_id, "name": name}), 200
+
+
 @auth_bp.route("/trusted-devices/<int:device_id>/revoke", methods=["POST"])
 def revoke_trusted_device(device_id: int):
     actor = get_authenticated_user()
