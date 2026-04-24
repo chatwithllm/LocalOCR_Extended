@@ -8,7 +8,6 @@ SPENDING_DOMAINS = {
     "general_expense",
     "household_obligations",
     "event",
-    "entertainment",
     "utility",
     "other",
 }
@@ -147,8 +146,6 @@ def default_budget_category_for_spending_domain(
         return "dining"
     if domain == "event":
         return "events"
-    if domain == "entertainment":
-        return "entertainment"
     if domain == "general_expense":
         return "other"
     if domain in {"utility", "household_obligations"}:

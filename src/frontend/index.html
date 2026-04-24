@@ -15271,8 +15271,6 @@
                   <option value="grocery">Grocery</option>
                   <option value="restaurant">Restaurant</option>
                   <option value="general_expense">General Expense</option>
-                  <option value="event">Event</option>
-                  <option value="entertainment">Entertainment</option>
                   <option value="">All Modules</option>
                 </select>
                 <label for="analytics-sort">Sort</label>
@@ -18452,6 +18450,7 @@
         "household",
         "retail",
         "events",
+        "entertainment",
         "other_recurring",
         "other",
       ];
@@ -36453,7 +36452,7 @@
       </div>
       <p style="color:var(--muted);font-size:0.82rem;margin-bottom:12px">Fix store, date, totals, receipt type, and line items here. Use this for restaurant receipts when OCR gets the first pass wrong.</p>
       <div class="receipt-editor-grid">
-        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}" onchange="handleReceiptEditorTypeChange(${receipt.id})"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option><option value="event">Event</option><option value="entertainment">Entertainment</option><option value="unknown">Unknown</option></select></div>
+        <div class="receipt-editor-main-field field-type"><label>Receipt Type</label><select id="receipt-type-${receipt.id}" onchange="handleReceiptEditorTypeChange(${receipt.id})"><option value="grocery">Grocery</option><option value="restaurant">Restaurant</option><option value="general_expense">General Expense</option><option value="household_bill">🏠 Household Bill</option><option value="event">Event</option><option value="unknown">Unknown</option></select></div>
         <div class="receipt-editor-main-field field-store"><label>Store</label><input id="receipt-store-${receipt.id}" /></div>
         <div class="receipt-editor-main-field field-date-time">
           <div class="receipt-editor-inline-fields">

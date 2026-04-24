@@ -1502,7 +1502,7 @@ def approve_receipt(receipt_id):
     # saved without fake items.
     _ITEMLESS_TYPES = {
         "utility_bill", "household_bill", "general_expense",
-        "retail_items", "event", "entertainment", "unknown",
+        "retail_items", "event", "unknown",
     }
     requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
@@ -1569,7 +1569,7 @@ def update_receipt(receipt_id):
     # saved without fake items.
     _ITEMLESS_TYPES = {
         "utility_bill", "household_bill", "general_expense",
-        "retail_items", "event", "entertainment", "unknown",
+        "retail_items", "event", "unknown",
     }
     requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
