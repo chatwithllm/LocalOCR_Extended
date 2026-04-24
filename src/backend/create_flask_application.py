@@ -23,6 +23,7 @@ except ImportError:
     pass  # python-dotenv not installed — use system env vars
 
 from flask import Flask, jsonify, g, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from src.backend.initialize_database_schema import (
     create_db_engine, create_session_factory, initialize_database, User
@@ -320,6 +321,22 @@ def ensure_admin_user():
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
+
+    # Honour X-Forwarded-For / X-Forwarded-Proto from our trusted reverse proxy
+    # (Nginx Proxy Manager). Without this, request.remote_addr is always the
+    # proxy's IP, which breaks per-user IP allowlists for service-account
+    # bearer auth. Set PROXY_FIX_X_FOR=0 to disable if the app is ever exposed
+    # directly to untrusted clients.
+    _proxy_for = int(os.getenv("PROXY_FIX_X_FOR", "1"))
+    if _proxy_for > 0:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=_proxy_for,
+            x_proto=int(os.getenv("PROXY_FIX_X_PROTO", "1")),
+            x_host=int(os.getenv("PROXY_FIX_X_HOST", "0")),
+            x_port=int(os.getenv("PROXY_FIX_X_PORT", "0")),
+            x_prefix=int(os.getenv("PROXY_FIX_X_PREFIX", "0")),
+        )
 
     # Configuration
     app.config["FLASK_ENV"] = os.getenv("FLASK_ENV", "development")

@@ -7,6 +7,7 @@ while keeping bearer-token auth available for integrations and automation.
 
 import os
 import hashlib
+import ipaddress
 import logging
 import secrets
 from io import BytesIO
@@ -266,6 +267,15 @@ def get_authenticated_user():
         token_hash = hash_token(token)
         user = g.db_session.query(User).filter_by(api_token_hash=token_hash).first()
         if user and user.is_active:
+            allowed = _parse_allowed_ips(getattr(user, "allowed_ips", None))
+            if allowed:
+                client_ip = _client_ip()
+                if not _ip_in_allowlist(client_ip, allowed):
+                    logger.warning(
+                        "Bearer auth rejected for user_id=%s (name=%s) — client IP %s not in allowlist",
+                        user.id, user.name, client_ip,
+                    )
+                    return None
             _set_auth_context("api_token", user)
             return user
         return None
@@ -321,6 +331,102 @@ def _serialize_allowed_pages(value) -> str | None:
     return _json.dumps(cleaned)
 
 
+def _parse_allowed_ips(raw) -> list[str] | None:
+    """Decode the allowed_ips JSON column. None / [] = no restriction."""
+    import json as _json
+    if raw is None:
+        return None
+    try:
+        parsed = _json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(x) for x in parsed if str(x).strip()]
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _serialize_allowed_ips(value) -> str | None:
+    """Normalize an allowed_ips payload into the stored JSON string.
+
+    None / missing  → None (no restriction).
+    Empty list      → None (treat as no restriction; there is no reason
+                      to store an empty allowlist that would lock the
+                      account out entirely).
+    Populated       → JSON array of validated IP/CIDR strings.
+
+    Raises ValueError on malformed entries so the caller can 400.
+    """
+    import json as _json
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("allowed_ips must be a list")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        entry = str(item).strip()
+        if not entry:
+            continue
+        try:
+            if "/" in entry:
+                network = ipaddress.ip_network(entry, strict=False)
+                canonical = str(network)
+            else:
+                address = ipaddress.ip_address(entry)
+                canonical = str(address)
+        except ValueError as exc:
+            raise ValueError(f"Invalid IP or CIDR '{entry}': {exc}") from exc
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        cleaned.append(canonical)
+    if not cleaned:
+        return None
+    return _json.dumps(cleaned)
+
+
+def _client_ip() -> str | None:
+    """Return the best-effort client IP for the current request.
+
+    ProxyFix (configured in create_flask_application) rewrites
+    request.remote_addr from the first X-Forwarded-For hop when we run
+    behind a trusted reverse proxy. Falls back to the raw header or
+    remote_addr.
+    """
+    if not has_request_context():
+        return None
+    remote = (request.remote_addr or "").strip()
+    if remote:
+        return remote
+    raw = (request.headers.get("X-Forwarded-For") or "").strip()
+    if raw:
+        return raw.split(",")[0].strip() or None
+    return None
+
+
+def _ip_in_allowlist(client_ip: str | None, allowed: list[str] | None) -> bool:
+    """Return True if client_ip matches any entry in allowed (IPs or CIDRs)."""
+    if not allowed:
+        return True  # no restriction
+    if not client_ip:
+        return False
+    try:
+        ip = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    for entry in allowed:
+        try:
+            if "/" in entry:
+                if ip in ipaddress.ip_network(entry, strict=False):
+                    return True
+            else:
+                if ip == ipaddress.ip_address(entry):
+                    return True
+        except ValueError:
+            continue
+    return False
+
+
 def _user_has_plaid_visibility(user: User) -> bool:
     """Return True when the user can see at least one PlaidItem — either
     one they linked themselves, or one shared with them by an admin.
@@ -374,6 +480,7 @@ def serialize_user(user: User) -> dict:
         "allowed_pages": _parse_allowed_pages(getattr(user, "allowed_pages", None)),
         "has_plaid_visibility": _user_has_plaid_visibility(user),
         "allow_write": bool(getattr(user, "allow_write", False)),
+        "allowed_ips": _parse_allowed_ips(getattr(user, "allowed_ips", None)),
         "is_service": (user.role or "") == "service",
         "last_login_at": (
             (user.last_login_at.isoformat() + "Z")
@@ -1441,6 +1548,11 @@ def create_service_account():
         return jsonify({"error": "Name must be 100 characters or fewer"}), 400
     allow_write = bool(data.get("allow_write", False))
 
+    try:
+        allowed_ips_json = _serialize_allowed_ips(data.get("allowed_ips"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     # Reject duplicate service names (case-insensitive).
     existing = (
         g.db_session.query(User)
@@ -1460,6 +1572,7 @@ def create_service_account():
         password_hash=None,
         api_token_hash=hash_token(token),
         allow_write=allow_write,
+        allowed_ips=allowed_ips_json,
     )
     g.db_session.add(created)
     g.db_session.commit()
@@ -1495,6 +1608,48 @@ def rotate_service_account(user_id: int):
         "token": token,
         "note": "Save this token now — it cannot be retrieved again.",
     }), 200
+
+
+@auth_bp.route("/service-accounts/<int:user_id>", methods=["PATCH"])
+def update_service_account(user_id: int):
+    """Admin-only updates to a service account's policy fields.
+
+    Accepts any subset of:
+      - allow_write: bool
+      - allowed_ips: list[str]  (IPs / CIDRs; [] clears restriction)
+
+    Rotating session_version on allowed_ips change is unnecessary —
+    IP enforcement is evaluated per-request, so the next call with a
+    mismatched IP is rejected automatically.
+    """
+    actor = get_authenticated_user()
+    if not actor:
+        return jsonify({"error": "Authentication required"}), 401
+    if not is_admin(actor):
+        return jsonify({"error": "Admin access required"}), 403
+    target = g.db_session.query(User).filter_by(id=user_id, role="service").first()
+    if not target:
+        return jsonify({"error": "Service account not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    changed: list[str] = []
+    if "allow_write" in data:
+        target.allow_write = bool(data.get("allow_write"))
+        changed.append(f"allow_write={target.allow_write}")
+    if "allowed_ips" in data:
+        try:
+            target.allowed_ips = _serialize_allowed_ips(data.get("allowed_ips"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        changed.append(f"allowed_ips={_parse_allowed_ips(target.allowed_ips) or []}")
+    if not changed:
+        return jsonify({"user": serialize_user(target)}), 200
+    g.db_session.commit()
+    logger.info(
+        "Service account '%s' updated by admin %s — %s",
+        target.name, actor.email or actor.id, ", ".join(changed),
+    )
+    return jsonify({"user": serialize_user(target)}), 200
 
 
 @auth_bp.route("/users/<int:user_id>", methods=["PUT"])

@@ -12374,7 +12374,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260423f" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424a" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -28365,7 +28365,8 @@
           <div class="mobile-action-row">
             ${user.is_service
               ? `<button class="btn btn-sm btn-ghost" onclick="rotateServiceAccount(${user.id})">🔁 Rotate Token</button>
-                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>`
+                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>
+                 <button class="btn btn-sm btn-ghost" onclick="editServiceAccountIps(${user.id})">🌐 ${(user.allowed_ips && user.allowed_ips.length) ? `IPs (${user.allowed_ips.length})` : "IP Allowlist"}</button>`
               : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
                  <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
                  <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
@@ -28404,7 +28405,8 @@
           <td style="display:flex;gap:6px;flex-wrap:wrap">
             ${user.is_service
               ? `<button class="btn btn-sm btn-ghost" onclick="rotateServiceAccount(${user.id})">🔁 Rotate Token</button>
-                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>`
+                 <button class="btn btn-sm btn-ghost" onclick="toggleServiceAccountWrite(${user.id})">${user.allow_write ? "🔒 Make Read-Only" : "✏️ Grant Write"}</button>
+                 <button class="btn btn-sm btn-ghost" onclick="editServiceAccountIps(${user.id})">🌐 ${(user.allowed_ips && user.allowed_ips.length) ? `IPs (${user.allowed_ips.length})` : "IP Allowlist"}</button>`
               : `<button class="btn btn-sm btn-ghost" onclick="editUser(${user.id})">Edit</button>
                  <button class="btn btn-sm btn-ghost" onclick="editUserPages(${user.id})">Pages</button>
                  <button class="btn btn-sm btn-ghost" onclick="toggleUserRole(${user.id})">${user.role === "admin" ? "Demote to User" : "Promote to Admin"}</button>
@@ -29066,10 +29068,21 @@
           `Write access for ${trimmed}?`,
         );
         const allow_write = Boolean(writeChoice);
+        const ipsRaw = await askForTextInput(
+          "Comma-separated list of IPs or CIDRs that may use this token (e.g. \"192.168.1.42, 10.0.0.0/24\"). Leave blank for no IP restriction.",
+          `IP allowlist for ${trimmed}`,
+          "",
+          { placeholder: "192.168.1.42, 10.0.0.0/24" },
+        );
+        if (ipsRaw === null) return;
+        const allowed_ips = String(ipsRaw)
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
         try {
           const res = await api("/auth/service-accounts", {
             method: "POST",
-            body: JSON.stringify({ name: trimmed, allow_write }),
+            body: JSON.stringify({ name: trimmed, allow_write, allowed_ips }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
@@ -29105,6 +29118,39 @@
         } catch (err) {
           console.error("rotateServiceAccount failed", err);
           toast("Could not rotate token", "error");
+        }
+      }
+
+      async function editServiceAccountIps(userId) {
+        const user = getHouseholdUser(userId);
+        if (!user) return;
+        const current = Array.isArray(user.allowed_ips) ? user.allowed_ips : [];
+        const raw = await askForTextInput(
+          "Comma-separated IPs or CIDRs allowed to use this token. Leave blank to remove restriction.",
+          `IP allowlist for ${user.name}`,
+          current.join(", "),
+          { placeholder: "192.168.1.42, 10.0.0.0/24" },
+        );
+        if (raw === null) return;
+        const allowed_ips = String(raw)
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        try {
+          const res = await api(`/auth/service-accounts/${userId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ allowed_ips }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast(data.error || "Could not update IP allowlist", "error");
+            return;
+          }
+          toast(allowed_ips.length ? `Allowlist: ${allowed_ips.length} entr${allowed_ips.length === 1 ? "y" : "ies"} ✅` : "IP restriction removed ✅", "success");
+          await loadUsers();
+        } catch (err) {
+          console.error("editServiceAccountIps failed", err);
+          toast("Could not update IP allowlist", "error");
         }
       }
 
