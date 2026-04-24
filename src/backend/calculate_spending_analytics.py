@@ -1513,7 +1513,7 @@ def spending_by_category():
         limit = int(request.args.get("limit") or 6)
     except (TypeError, ValueError):
         limit = 6
-    limit = max(1, min(limit, 12))
+    limit = max(1, min(limit, 50))
 
     month_start = anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if month_start.month == 12:

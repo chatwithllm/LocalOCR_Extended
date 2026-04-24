@@ -13109,15 +13109,22 @@
             </div>
           </div>
 
-          <!-- Row 2: Spending by Category — top 6 categories desc,
-               horizontal bars, each with month-over-month delta. -->
+          <!-- Row 2: Spending by Category — all categories desc. Top 5
+               shown; Show-more button reveals the rest. Whole card is
+               click-to-collapse. -->
           <div class="card dashboard-spending-row" id="dashboard-spending-card">
             <div class="card-header">
-              <span class="card-title">💳 Spending by Category</span>
+              <span class="card-title" onclick="toggleDashboardSpendingCard()" style="cursor:pointer;user-select:none" title="Click to collapse / expand">💳 Spending by Category</span>
               <span class="card-header-inline-stat" id="dashboard-spending-total">—</span>
             </div>
-            <div class="spending-by-category" id="dashboard-spending-body">
-              <div class="empty-state" style="padding:12px 0"><p>Loading…</p></div>
+            <div id="dashboard-spending-wrap">
+              <div class="spending-by-category" id="dashboard-spending-body">
+                <div class="empty-state" style="padding:12px 0"><p>Loading…</p></div>
+              </div>
+              <div id="dashboard-spending-more-wrap" style="margin-top:10px;display:none">
+                <button type="button" class="btn btn-ghost btn-sm" id="dashboard-spending-more-btn"
+                  onclick="toggleDashboardSpendingMore()" style="width:100%"></button>
+              </div>
             </div>
           </div>
 
@@ -29399,10 +29406,101 @@
         }
       }
 
+      const _SPENDING_INITIAL_LIMIT = 5;
+      let _spendingAllRows = [];
+      let _spendingExpanded = false;
+
+      function toggleDashboardSpendingCard() {
+        const wrap = document.getElementById("dashboard-spending-wrap");
+        if (!wrap) return;
+        const collapsed = wrap.style.display === "none";
+        wrap.style.display = collapsed ? "" : "none";
+        try {
+          localStorage.setItem(
+            "dashboard_spending_card_collapsed",
+            collapsed ? "0" : "1",
+          );
+        } catch (_e) {}
+      }
+
+      function _applyDashboardSpendingCardCollapsedState() {
+        const wrap = document.getElementById("dashboard-spending-wrap");
+        if (!wrap) return;
+        let saved = "0";
+        try {
+          saved = localStorage.getItem("dashboard_spending_card_collapsed") || "0";
+        } catch (_e) {}
+        wrap.style.display = saved === "1" ? "none" : "";
+      }
+
+      function toggleDashboardSpendingMore() {
+        _spendingExpanded = !_spendingExpanded;
+        _renderSpendingCategoryRows();
+      }
+
+      function _renderSpendingCategoryRows() {
+        const body = document.getElementById("dashboard-spending-body");
+        const moreWrap = document.getElementById("dashboard-spending-more-wrap");
+        const moreBtn = document.getElementById("dashboard-spending-more-btn");
+        if (!body) return;
+        const all = _spendingAllRows;
+        if (!all.length) {
+          body.innerHTML = '<div class="empty-state"><p>No spend this month yet.</p></div>';
+          if (moreWrap) moreWrap.style.display = "none";
+          return;
+        }
+        const visible = _spendingExpanded ? all : all.slice(0, _SPENDING_INITIAL_LIMIT);
+        const maxAmt = Math.max(...all.map((r) => r.amount || 0), 1);
+        body.innerHTML = visible
+          .map((r, idx) => {
+            const widthPct = Math.round(((r.amount || 0) / maxAmt) * 100);
+            const sharePct = r.share_pct ?? 0;
+            let deltaHtml = "";
+            if (r.delta_pct !== null && r.delta_pct !== undefined) {
+              const arrow = r.delta_pct > 0 ? "↑" : r.delta_pct < 0 ? "↓" : "·";
+              const tone = r.delta_pct > 0 ? "bad" : r.delta_pct < 0 ? "good" : "";
+              const mag = Math.abs(r.delta_pct);
+              deltaHtml = `<span class="spending-row__amount-delta spending-row__amount-delta--${tone}">${arrow} ${mag}% vs last</span>`;
+            }
+            const colorClass = `spending-row--c${idx % 6}`;
+            const pctHtml = widthPct >= 18
+              ? `<span class="spending-row__pct">${sharePct}%</span>`
+              : "";
+            return `
+              <div class="spending-row ${colorClass}">
+                <div class="spending-row__label">
+                  <span class="spending-row__icon">${_formatCategoryIcon(r.category)}</span>
+                  <span class="spending-row__name" title="${escAttr(_formatCategoryLabel(r.category))}">${escHtml(_formatCategoryLabel(r.category))}</span>
+                </div>
+                <div class="spending-row__bar">
+                  <div class="spending-row__fill" style="width:${widthPct}%"></div>
+                  ${pctHtml}
+                </div>
+                <div class="spending-row__amount">
+                  <span class="spending-row__amount-value">${formatMoney(r.amount || 0)}</span>
+                  ${deltaHtml}
+                </div>
+              </div>`;
+          })
+          .join("");
+        if (moreWrap && moreBtn) {
+          const hidden = all.length - _SPENDING_INITIAL_LIMIT;
+          if (hidden > 0) {
+            moreWrap.style.display = "";
+            moreBtn.textContent = _spendingExpanded
+              ? "▲ Show less"
+              : `▼ Show ${hidden} more`;
+          } else {
+            moreWrap.style.display = "none";
+          }
+        }
+      }
+
       async function loadSpendingByCategory() {
         const body = document.getElementById("dashboard-spending-body");
         const totalEl = document.getElementById("dashboard-spending-total");
         if (!body) return;
+        _applyDashboardSpendingCardCollapsedState();
         if (!currentUser) {
           body.innerHTML = '<div class="empty-state"><p>Sign in to see spending.</p></div>';
           if (totalEl) totalEl.textContent = "";
@@ -29411,7 +29509,7 @@
         try {
           const now = new Date();
           const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          const res = await api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=6`);
+          const res = await api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=50`);
           if (!res.ok) {
             body.innerHTML = '<div class="empty-state"><p>Could not load spending.</p></div>';
             if (totalEl) totalEl.textContent = "";
@@ -29420,49 +29518,8 @@
           const data = await res.json();
           const rows = data.categories || [];
           if (totalEl) totalEl.textContent = formatMoney(data.total || 0);
-          if (!rows.length) {
-            body.innerHTML = '<div class="empty-state"><p>No spend this month yet.</p></div>';
-            return;
-          }
-          const maxAmt = Math.max(...rows.map((r) => r.amount || 0), 1);
-          body.innerHTML = rows
-            .map((r, idx) => {
-              // Bar width = this category's share of the biggest
-              // category (so the leader fills 100%, others scale
-              // proportionally). Percent label inside the fill is the
-              // share of TOTAL spend for the month.
-              const widthPct = Math.round(((r.amount || 0) / maxAmt) * 100);
-              const sharePct = r.share_pct ?? 0;
-              let deltaHtml = "";
-              if (r.delta_pct !== null && r.delta_pct !== undefined) {
-                const arrow = r.delta_pct > 0 ? "↑" : r.delta_pct < 0 ? "↓" : "·";
-                const tone = r.delta_pct > 0 ? "bad" : r.delta_pct < 0 ? "good" : "";
-                const mag = Math.abs(r.delta_pct);
-                deltaHtml = `<span class="spending-row__amount-delta spending-row__amount-delta--${tone}">${arrow} ${mag}% vs last</span>`;
-              }
-              const colorClass = `spending-row--c${idx % 6}`;
-              // Only show the % label when the bar is wide enough to
-              // visually contain it; narrow bars get a cleaner look.
-              const pctHtml = widthPct >= 18
-                ? `<span class="spending-row__pct">${sharePct}%</span>`
-                : "";
-              return `
-                <div class="spending-row ${colorClass}">
-                  <div class="spending-row__label">
-                    <span class="spending-row__icon">${_formatCategoryIcon(r.category)}</span>
-                    <span class="spending-row__name" title="${escAttr(_formatCategoryLabel(r.category))}">${escHtml(_formatCategoryLabel(r.category))}</span>
-                  </div>
-                  <div class="spending-row__bar">
-                    <div class="spending-row__fill" style="width:${widthPct}%"></div>
-                    ${pctHtml}
-                  </div>
-                  <div class="spending-row__amount">
-                    <span class="spending-row__amount-value">${formatMoney(r.amount || 0)}</span>
-                    ${deltaHtml}
-                  </div>
-                </div>`;
-            })
-            .join("");
+          _spendingAllRows = rows;
+          _renderSpendingCategoryRows();
         } catch (err) {
           console.error("loadSpendingByCategory failed", err);
           body.innerHTML = '<div class="empty-state"><p>Could not load spending.</p></div>';
