@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425d" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425e" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -24508,6 +24508,12 @@
             renderAdminAiModels();
             renderAdminAiUsage();
           }
+          // Apply collapse-by-default after the page is shown so card
+          // body heights settle before we hide them. requestAnimationFrame
+          // gives any synchronous render in the loaders above a tick.
+          requestAnimationFrame(() => {
+            try { applySettingsCollapsibles(); } catch (_e) {}
+          });
         }
       }
 
@@ -43237,6 +43243,87 @@
           ensureBanner();
         }
       })();
+
+      // ============================================================
+      // Settings — collapsible cards (default: collapsed)
+      // ============================================================
+      const SETTINGS_COLLAPSE_PREFIX = "settings_card_collapsed:";
+
+      function _settingsCardKey(card, index) {
+        const id = card.getAttribute("id");
+        if (id) return id;
+        const titleEl = card.querySelector(".card-header .card-title");
+        const title = (titleEl?.textContent || "").trim().toLowerCase();
+        if (title) return `auto:${title.replace(/[^a-z0-9]+/g, "-")}`;
+        return `auto:idx-${index}`;
+      }
+
+      function _settingsCardSavedState(key) {
+        try {
+          const raw = localStorage.getItem(SETTINGS_COLLAPSE_PREFIX + key);
+          if (raw === "0") return false;
+          if (raw === "1") return true;
+        } catch (_e) {}
+        return true; // default collapsed
+      }
+
+      function _setSettingsCardCollapsed(card, key, collapsed) {
+        card.classList.toggle("settings-card--collapsed", collapsed);
+        const chevron = card.querySelector(".card-header .settings-card__chevron");
+        if (chevron) chevron.textContent = collapsed ? "▸" : "▾";
+        const header = card.querySelector(".card-header");
+        if (header) header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        try {
+          localStorage.setItem(SETTINGS_COLLAPSE_PREFIX + key, collapsed ? "1" : "0");
+        } catch (_e) {}
+      }
+
+      function applySettingsCollapsibles() {
+        const root = document.getElementById("page-settings");
+        if (!root) return;
+        // Only direct-child .card elements; nested cards (e.g. AI
+        // model registry rows) shouldn't get a top-level toggle.
+        const cards = Array.from(root.children).filter(
+          (n) => n.classList && n.classList.contains("card"),
+        );
+        cards.forEach((card, idx) => {
+          if (card.hasAttribute("data-no-collapse")) return;
+          if (card.dataset.collapseBound === "1") return;
+          const header = card.querySelector(".card-header");
+          if (!header) return;
+          const key = _settingsCardKey(card, idx);
+          card.dataset.collapseKey = key;
+          card.dataset.collapseBound = "1";
+          card.classList.add("settings-card");
+          // Inject chevron once.
+          if (!header.querySelector(".settings-card__chevron")) {
+            const chevron = document.createElement("span");
+            chevron.className = "settings-card__chevron";
+            chevron.textContent = "▸";
+            chevron.setAttribute("aria-hidden", "true");
+            header.appendChild(chevron);
+          }
+          header.style.cursor = "pointer";
+          header.setAttribute("role", "button");
+          header.setAttribute("tabindex", "0");
+          header.addEventListener("click", (e) => {
+            // Don't toggle when interacting with controls inside the
+            // header (buttons, inputs, links, segmented controls).
+            if (e.target.closest("button, input, select, a, textarea, label")) return;
+            const next = !card.classList.contains("settings-card--collapsed");
+            _setSettingsCardCollapsed(card, key, next);
+          });
+          header.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            if (e.target !== header) return;
+            e.preventDefault();
+            const next = !card.classList.contains("settings-card--collapsed");
+            _setSettingsCardCollapsed(card, key, next);
+          });
+          // Apply initial state.
+          _setSettingsCardCollapsed(card, key, _settingsCardSavedState(key));
+        });
+      }
 
       // ============================================================
       // In-App Assistant

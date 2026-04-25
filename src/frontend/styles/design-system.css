@@ -2505,6 +2505,31 @@ body.trusted-device-kitchen-display *:focus-visible {
   .spending-row__pct    { font-size: 0.65rem; right: 6px; }
 }
 
+/* ---------- Settings — collapsible cards -------------------- */
+#page-settings .settings-card .card-header {
+  user-select: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+#page-settings .settings-card .card-header:hover {
+  background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+}
+#page-settings .settings-card__chevron {
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex: 0 0 auto;
+  transition: color 140ms ease;
+}
+#page-settings .settings-card.settings-card--collapsed > *:not(.card-header) {
+  display: none !important;
+}
+#page-settings .settings-card.settings-card--collapsed .card-header {
+  margin-bottom: 0;
+}
+
 /* ---------- In-App Assistant -------------------------------- */
 .chat-fab {
   position: fixed;
