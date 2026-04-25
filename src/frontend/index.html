@@ -38286,6 +38286,45 @@
         householdMembersCache = null;
       }
 
+      async function _surfaceAttributionFeedback(data) {
+        // Surface attribution_suggestion / attribution_auto_applied from a
+        // POST /receipts/<id>/approve response as a toast. Silent if neither
+        // is set. Resolves user_ids to display names via the household-members
+        // cache when possible.
+        if (!data) return;
+        const s = data.attribution_suggestion;
+        const auto = !!data.attribution_auto_applied;
+        if (!s) return;
+        let label = "(unknown)";
+        if (s.kind === "household") {
+          label = "🏠 Household";
+        } else if (Array.isArray(s.user_ids) && s.user_ids.length) {
+          let names = [];
+          try {
+            const members = await loadHouseholdMembers();
+            const byId = new Map(
+              (members || []).map((m) => [Number(m.id), m]),
+            );
+            names = s.user_ids.map(
+              (id) => (byId.get(Number(id)) || {}).name || `user #${id}`,
+            );
+          } catch (_e) {
+            names = s.user_ids.map((id) => `user #${id}`);
+          }
+          if (names.length === 1) label = `👤 ${names[0]}`;
+          else if (names.length === 2) label = `👤 ${names.join(" & ")}`;
+          else label = `👤 ${names[0]} +${names.length - 1}`;
+        }
+        const msg = auto
+          ? `Auto-tagged as ${label} based on past uploads — change in Receipts if wrong.`
+          : `Suggested attribution: ${label}. Open the receipt to apply.`;
+        if (typeof toast === "function") {
+          toast(msg);
+        } else {
+          console.info(msg);
+        }
+      }
+
       function attributionStateFor(obj) {
         // Normalize a purchase/item attribution into { kind, userIds[] }.
         if (!obj) return { kind: null, userIds: [] };
@@ -39590,6 +39629,7 @@
         }
 
         toast("Receipt saved as a purchase ✅", "success");
+        await _surfaceAttributionFeedback(payload);
         await loadReceipts();
         await viewReceipt(id);
       }
