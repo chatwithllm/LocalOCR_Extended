@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424g" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424h" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -29916,8 +29916,11 @@
               : "—";
             const store = it.store_name || "Unknown store";
             const isRefund = it.transaction_type === "refund";
+            const isoDay = it.date
+              ? new Date(it.date).toISOString().slice(0, 10)
+              : "";
             return `
-              <button type="button" class="spending-drill__row${isRefund ? " is-refund" : ""}" onclick="openReceiptDetail(${Number(it.id)})" title="Open receipt #${Number(it.id)}">
+              <button type="button" class="spending-drill__row${isRefund ? " is-refund" : ""}" onclick="openReceiptDetail(${Number(it.id)}, '${escAttr(isoDay)}')" title="Open receipt #${Number(it.id)}">
                 <span class="spending-drill__date">${escHtml(dateStr)}</span>
                 <span class="spending-drill__store">${escHtml(store)}</span>
                 <span class="spending-drill__amount">${formatMoney(it.total_amount || 0)}</span>
@@ -29936,19 +29939,49 @@
           ${truncatedNote}`;
       }
 
-      async function openReceiptDetail(purchaseId) {
+      async function openReceiptDetail(purchaseId, isoDay) {
         const id = Number(purchaseId);
         if (!id) return;
-        // Make sure receipt filters are clear so the target row actually
-        // shows up in the list. jumpToReceipt handles nav + filter reset
-        // + loadReceipts; viewReceipt then expands the inline detail.
+        // The /receipts list endpoint returns a recent slice, so a row
+        // from a months-old "Other" total may not be in the default
+        // visible window. Pin the date filter to the receipt's own day
+        // so loadReceipts() is guaranteed to surface it, then let the
+        // existing inline-detail flow expand it.
         try {
-          if (typeof jumpToReceipt === "function") {
-            await jumpToReceipt(id);
+          selectedReceiptId = id;
+          [
+            "receipt-filter-source",
+            "receipt-filter-type",
+            "receipt-filter-transaction",
+            "receipt-filter-status",
+            "receipt-filter-store",
+            "receipt-filter-upload-from",
+            "receipt-filter-upload-to",
+          ].forEach((filterId) => {
+            const el = document.getElementById(filterId);
+            if (el) el.value = "";
+          });
+          const day = String(isoDay || "").slice(0, 10);
+          if (day) {
+            const fromEl = document.getElementById("receipt-filter-purchase-from");
+            const toEl = document.getElementById("receipt-filter-purchase-to");
+            if (fromEl) fromEl.value = day;
+            if (toEl) toEl.value = day;
           }
-          if (typeof viewReceipt === "function") {
-            await viewReceipt(id, { scroll: true });
-          }
+          suppressNextDefaultReceiptFilters = true;
+          const receiptNav = [...document.querySelectorAll(".nav-item")].find(
+            (item) => item.textContent.includes("Receipts"),
+          );
+          nav("receipts", receiptNav);
+          await loadReceipts();
+          requestAnimationFrame(() => {
+            const target =
+              document.getElementById(`receipt-inline-detail-${id}`) ||
+              document.getElementById("receipt-detail-body");
+            if (target && typeof target.scrollIntoView === "function") {
+              target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+          });
         } catch (err) {
           console.error("openReceiptDetail failed", err);
           toast("Could not open receipt", "error");
