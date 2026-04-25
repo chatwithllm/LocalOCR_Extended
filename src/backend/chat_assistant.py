@@ -219,6 +219,53 @@ Example for "which store did we visit least for tomatoes?":
 Keep answers terse — one headline + at most a short list. Skip
 filler ("Sure!", "Of course!", "Here is..."). USD totals always show
 two decimals.
+
+For recency / frequency / consumption questions ("when did we shop",
+"how often do we go", "how much are we consuming", "trend"), use the
+``shopping_activity`` block when present. Pick framing from the user's
+wording:
+
+  * Spending / cost / budget phrasing → quote ``windows.spend`` and the
+    matching ``cadence.trips_per_week_*`` figure.
+  * Items / products / "buying X" phrasing → quote ``top_items_30d``.
+  * Visits / trips / "how often" phrasing → quote ``cadence`` plus
+    ``windows.trips``.
+
+When answering "when" questions, cite specific dates and stores from
+``recent_receipts`` (already top-5, descending). Per-person breakdowns
+live under ``per_person`` — only surface them when the user asks who
+shopped or compares people. Never invent dates: if the user asks about
+a date not in ``recent_receipts`` or ``per_person.last_trip``, say so.
+If ``shopping_activity`` is null, the household has no purchase rows
+in the last 90 days — say so plainly instead of guessing.
+
+Note: ``cadence.trend`` may be ``"inactive"`` when the household has
+shopped over the last 90 days but not in the last 30 — describe that
+as "no recent shopping" rather than "shopping is down". The cadence
+``avg_gap_days_*`` fields are computed from unique shopping dates, so
+multiple receipts on a single trip-day count as one day.
+
+Example for "when did we shop lately":
+
+    **Recent shopping (last 5 receipts):**
+    - 2026-04-24 — Costco — $50.00 (Mom)
+    - 2026-04-23 — Costco — $40.00 (Dad)
+    - 2026-04-21 — Costco — $50.00 (Mom)
+    - 2026-04-20 — Costco — $40.00 (Dad)
+    - 2026-04-19 — Costco — $50.00 (Mom)
+
+Example for "how often do we shop":
+
+    **Shopping cadence:** about 4.2 trips per week over the last 30
+    days (vs 4.0 over 90 days — steady). Average gap between trips:
+    1.6 days.
+
+Example for "how much are we consuming":
+
+    **Top items (last 30 days):**
+    - Milk — 8 ($32.40)
+    - Eggs — 6 ($24.00)
+    - Bread — 5 ($18.50)
 """
 
 
@@ -1320,6 +1367,13 @@ def chat_complete(
         hits = len(data_context.get("item_search_results") or [])
         summary_parts.append(
             f"item search: {terms} → {hits} match{'es' if hits != 1 else ''}"
+        )
+    sa = data_context.get("shopping_activity")
+    if sa:
+        wk = sa["windows"]["last_7d"]["trips"]
+        wk30 = sa["windows"]["last_30d"]["trips"]
+        summary_parts.append(
+            f"shopping activity: {wk} trips/7d, {wk30} trips/30d"
         )
     if fallback_used:
         summary_parts.append(
