@@ -152,3 +152,48 @@ def test_bulk_attribution_apply_to_items_propagates(session, household):
     refreshed = session.query(ReceiptItem).get(item.id)
     assert refreshed.attribution_user_id == household["dad"].id
     assert refreshed.attribution_kind == "personal"
+
+
+def test_attribution_stats_counts_correctly(session, household):
+    from src.backend.handle_receipt_upload import _compute_attribution_stats
+
+    # 3 untagged, 2 tagged (one personal, one household)
+    household["_purchase"](1, household["mom"], household["costco"])
+    household["_purchase"](2, household["mom"], household["costco"])
+    household["_purchase"](3, household["dad"], household["target"])
+    household["_purchase"](
+        4, household["mom"], household["costco"],
+        attr=household["mom"], kind="personal",
+    )
+    household["_purchase"](
+        5, household["dad"], household["target"], kind="household",
+    )
+    session.commit()
+
+    stats = _compute_attribution_stats(session)
+    assert stats["untagged_count"] == 3
+    assert stats["tagged_count"] == 2
+    assert len(stats["untagged_sample_ids"]) == 3
+    # Sample ids should all be in the untagged set (any order).
+    untagged_actual = {
+        row.id
+        for row in session.query(Purchase).filter(
+            Purchase.attribution_user_id.is_(None),
+            Purchase.attribution_kind.is_(None),
+        ).all()
+    }
+    assert set(stats["untagged_sample_ids"]).issubset(untagged_actual)
+
+
+def test_attribution_stats_zero_untagged(session, household):
+    from src.backend.handle_receipt_upload import _compute_attribution_stats
+
+    household["_purchase"](
+        1, household["mom"], household["costco"],
+        attr=household["mom"], kind="personal",
+    )
+    session.commit()
+    stats = _compute_attribution_stats(session)
+    assert stats["untagged_count"] == 0
+    assert stats["tagged_count"] == 1
+    assert stats["untagged_sample_ids"] == []

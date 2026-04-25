@@ -2473,6 +2473,47 @@ def bulk_update_receipt_attribution():
     return jsonify(bulk), 200
 
 
+def _compute_attribution_stats(session) -> dict:
+    """Counts of tagged vs untagged Purchase rows + a few sample
+    untagged ids for the dashboard banner. Pure-DB helper."""
+    from src.backend.initialize_database_schema import Purchase
+    from sqlalchemy import or_
+
+    untagged_filter = and_(
+        Purchase.attribution_user_id.is_(None),
+        Purchase.attribution_kind.is_(None),
+        or_(
+            Purchase.attribution_user_ids.is_(None),
+            Purchase.attribution_user_ids == "[]",
+        ),
+    )
+    untagged_count = (
+        session.query(Purchase).filter(untagged_filter).count()
+    )
+    total = session.query(Purchase).count()
+    tagged_count = total - untagged_count
+    sample_rows = (
+        session.query(Purchase.id)
+        .filter(untagged_filter)
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(5)
+        .all()
+    )
+    return {
+        "untagged_count": int(untagged_count),
+        "tagged_count": int(tagged_count),
+        "untagged_sample_ids": [int(r[0]) for r in sample_rows],
+    }
+
+
+@receipts_bp.route("/attribution-stats", methods=["GET"])
+@require_auth
+def attribution_stats():
+    """Return tagged/untagged purchase counts + sample untagged ids
+    for the dashboard nudge banner."""
+    return jsonify(_compute_attribution_stats(g.db_session)), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/items/<int:item_id>/attribution", methods=["PUT"])
 @require_write_access
 def update_receipt_item_attribution(receipt_id, item_id):
