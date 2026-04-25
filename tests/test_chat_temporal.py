@@ -63,3 +63,159 @@ def test_temporal_intent_negative(message):
 )
 def test_temporal_intent_accepted_false_positives(message):
     assert _extract_temporal_intent(message) is True
+
+
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from src.backend.initialize_database_schema import (
+    Base,
+    Purchase,
+    ReceiptItem,
+    Store,
+    User,
+)
+
+
+@pytest.fixture
+def session():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    s = Session()
+    yield s
+    s.close()
+
+
+@pytest.fixture
+def household(session):
+    """Two users + one store + a spread of receipts across 90 days.
+
+    Layout (relative to NOW = 2026-04-25 UTC):
+      - mom: 4 purchases inside 7d window, 12 in 30d total, 30 in 90d
+      - dad: 2 purchases inside 7d, 6 in 30d, 18 in 90d
+      - one refund row inside 7d (must be excluded from counts/spend)
+    """
+    mom = User(name="Mom", email="mom@example.com")
+    dad = User(name="Dad", email="dad@example.com")
+    session.add_all([mom, dad])
+    session.flush()
+
+    store = Store(name="Costco")
+    session.add(store)
+    session.flush()
+
+    NOW = datetime(2026, 4, 25, 12, 0, tzinfo=timezone.utc)
+
+    def _add_purchase(days_ago, attr_user, amount, items=1, refund=False):
+        p = Purchase(
+            store_id=store.id,
+            total_amount=amount,
+            date=NOW - timedelta(days=days_ago),
+            domain="grocery",
+            transaction_type="refund" if refund else "purchase",
+            attribution_user_id=attr_user.id,
+            attribution_kind="personal",
+            user_id=attr_user.id,
+        )
+        session.add(p)
+        session.flush()
+        for _ in range(items):
+            session.add(ReceiptItem(
+                purchase_id=p.id,
+                product_id=1,
+                quantity=1,
+                unit_price=amount / max(items, 1),
+                attribution_user_id=attr_user.id,
+                attribution_kind="personal",
+            ))
+        return p
+
+    # Mom: 4 in last 7d, 8 more in 8-30d (=12 in 30d), 18 more in 31-90d
+    for d in [1, 2, 4, 6]:
+        _add_purchase(d, mom, 50.0, items=3)
+    for d in [10, 12, 14, 18, 22, 25, 27, 29]:
+        _add_purchase(d, mom, 60.0, items=4)
+    for d in range(31, 91, 4)[:18]:
+        _add_purchase(d, mom, 70.0, items=2)
+
+    # Dad: 2 in 7d, 4 more in 30d, 12 more in 90d
+    for d in [3, 5]:
+        _add_purchase(d, dad, 40.0, items=2)
+    for d in [11, 16, 20, 24]:
+        _add_purchase(d, dad, 45.0, items=3)
+    for d in range(33, 91, 5)[:12]:
+        _add_purchase(d, dad, 55.0, items=2)
+
+    # Refund inside 7d — should NOT count
+    _add_purchase(2, mom, 25.0, items=1, refund=True)
+
+    session.commit()
+    return {"mom": mom, "dad": dad, "store": store, "now": NOW}
+
+
+def test_shopping_activity_windows_excludes_refunds(session, household):
+    from src.backend.chat_assistant import _compute_shopping_activity
+
+    result = _compute_shopping_activity(
+        session, household["mom"], household["now"]
+    )
+    assert result is not None
+    # 6 (mom in 7d) + 2 (dad in 7d) = 8; refund excluded
+    assert result["windows"]["last_7d"]["trips"] == 6
+    # mom 12 + dad 6 = 18 in 30d
+    assert result["windows"]["last_30d"]["trips"] == 18
+
+
+def test_shopping_activity_recent_receipts_top5(session, household):
+    from src.backend.chat_assistant import _compute_shopping_activity
+
+    result = _compute_shopping_activity(
+        session, household["mom"], household["now"]
+    )
+    rec = result["recent_receipts"]
+    assert len(rec) == 5
+    # Sorted desc by date — first is the most recent (1 day ago)
+    assert rec[0]["date"] == "2026-04-24"
+    assert rec[0]["store"] == "Costco"
+    assert rec[0]["attribution"] in ("Mom", "Dad")
+    # No refunds in recent_receipts
+    assert all("amount" in r and r["amount"] >= 0 for r in rec)
+
+
+def test_shopping_activity_per_person_split(session, household):
+    from src.backend.chat_assistant import _compute_shopping_activity
+
+    result = _compute_shopping_activity(
+        session, household["mom"], household["now"]
+    )
+    names = [p["name"] for p in result["per_person"]]
+    assert "Mom" in names
+    assert "Dad" in names
+    mom_block = next(p for p in result["per_person"] if p["name"] == "Mom")
+    # Mom had 4 purchases inside 7d (refund excluded)
+    assert mom_block["windows"]["last_7d"]["trips"] == 4
+    assert mom_block["last_trip"]["store"] == "Costco"
+
+
+def test_shopping_activity_cadence_trend_classification(session, household):
+    from src.backend.chat_assistant import _compute_shopping_activity
+
+    result = _compute_shopping_activity(
+        session, household["mom"], household["now"]
+    )
+    cad = result["cadence"]
+    assert "trips_per_week_30d" in cad
+    assert "trips_per_week_90d" in cad
+    assert cad["trend"] in ("up", "down", "steady")
+
+
+def test_shopping_activity_returns_none_on_empty_db(session):
+    from src.backend.chat_assistant import _compute_shopping_activity
+    user = User(name="Lonely", email="alone@example.com")
+    session.add(user)
+    session.commit()
+    NOW = datetime(2026, 4, 25, 12, 0, tzinfo=timezone.utc)
+    assert _compute_shopping_activity(session, user, NOW) is None
