@@ -137,6 +137,8 @@ def post_message():
             "model": result.get("model"),
             "provider": result.get("provider"),
             "context_summary": result.get("context_summary"),
+            "fallback_used": bool(result.get("fallback_used")),
+            "primary_error": result.get("primary_error"),
         }),
         created_at=datetime.now(timezone.utc),
     )

@@ -356,6 +356,89 @@ def _resolve_chat_model(session, user: User) -> AIModelConfig | None:
     return None
 
 
+def _openai_chat(
+    api_key: str,
+    model_string: str,
+    system_prompt: str,
+    history: list[dict[str, str]],
+    user_message: str,
+    base_url: str | None = None,
+) -> str:
+    """Backup chat path using the OpenAI Chat Completions API.
+
+    Used when the primary Gemini call hits a quota / rate-limit /
+    transient error. Re-uses the same system prompt + history so the
+    user sees a continuous conversation. Model name defaults to a
+    cheap GPT-4o variant via the ``OPENAI_CHAT_MODEL`` env var.
+    """
+    from openai import OpenAI  # local import — heavy module
+
+    client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    for turn in history:
+        role = "assistant" if turn.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": turn.get("text") or ""})
+    messages.append({"role": "user", "content": user_message})
+
+    response = client.chat.completions.create(
+        model=model_string,
+        messages=messages,
+        temperature=0.2,
+        max_tokens=600,
+    )
+    text = (response.choices[0].message.content or "").strip()
+    if not text:
+        raise RuntimeError("OpenAI returned an empty response")
+    return text
+
+
+def _resolve_openai_fallback(session) -> tuple[str | None, str, str | None]:
+    """Return (api_key, model_string, base_url) for the OpenAI fallback path.
+
+    Order of preference:
+      1. An enabled OpenAI ``AIModelConfig`` with a stored key —
+         lets admins curate the fallback model in Settings.
+      2. ``OPENAI_API_KEY`` env var with model from
+         ``OPENAI_CHAT_MODEL`` (default ``gpt-4o-mini``).
+
+    Returns ``(None, "", None)`` when no fallback is configured so
+    the caller can surface a clear error.
+    """
+    candidate = (
+        session.query(AIModelConfig)
+        .filter(AIModelConfig.is_enabled == True)  # noqa: E712
+        .filter(_lower_provider() == "openai")
+        .order_by(AIModelConfig.id.asc())
+        .first()
+    )
+    if candidate is not None:
+        try:
+            api_key = _resolve_api_key(candidate)
+        except Exception:  # noqa: BLE001
+            api_key = None
+        if api_key:
+            return (
+                api_key,
+                (candidate.model_string or os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")).strip(),
+                (candidate.base_url or "").strip() or None,
+            )
+
+    env_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if env_key:
+        return (
+            env_key,
+            (os.getenv("OPENAI_CHAT_MODEL") or "gpt-4o-mini").strip(),
+            None,
+        )
+    return None, "", None
+
+
+def _lower_provider():
+    """SQLAlchemy expression: lower(AIModelConfig.provider)."""
+    import sqlalchemy as _sa
+    return _sa.func.lower(AIModelConfig.provider)
+
+
 def _gemini_chat(
     api_key: str | None,
     model_string: str,
@@ -415,47 +498,94 @@ def chat_complete(
     totals for April 2026"). Raises on hard failures so the endpoint
     can decide how to surface them.
     """
-    model = _resolve_chat_model(session, user)
-    if model is None:
-        raise RuntimeError(
-            "No AI model is enabled for this account. "
-            "Pick one in Settings → AI Models before chatting."
-        )
-
-    provider = (model.provider or "").strip().lower()
-    if provider != "gemini":
-        return {
-            "reply": (
-                f"Chat is currently Gemini-only. Your active model is "
-                f"'{model.name}' ({provider}). Switch to a Gemini model "
-                f"in Settings → AI Models to use the assistant."
-            ),
-            "model": model.model_string,
-            "provider": provider,
-            "context_summary": "skipped — provider unsupported",
-        }
-
-    api_key = _resolve_api_key(model)
-    if not api_key:
-        raise RuntimeError(
-            "Gemini API key is missing. Add a stored key for this "
-            "model or set GEMINI_API_KEY in the environment."
-        )
-
     data_context = build_data_context(session, user, user_message=user_message)
     system_prompt = (
         f"{SYSTEM_PROMPT.strip()}\n\n"
         f"Today's date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\n\n"
         f"data_context = {json.dumps(data_context, default=str)}\n"
     )
+    formatted_history = _format_history(history)
 
-    reply = _gemini_chat(
-        api_key=api_key,
-        model_string=(model.model_string or "gemini-2.5-flash").strip(),
-        system_prompt=system_prompt,
-        history=_format_history(history),
-        user_message=user_message,
-    )
+    model = _resolve_chat_model(session, user)
+    primary_provider = (model.provider or "").strip().lower() if model else ""
+
+    reply: str | None = None
+    used_provider: str | None = None
+    used_model: str | None = None
+    fallback_used = False
+    primary_error: str | None = None
+
+    if model and primary_provider == "gemini":
+        try:
+            api_key = _resolve_api_key(model)
+            if not api_key:
+                raise RuntimeError(
+                    "Gemini API key is missing. Add a stored key for this "
+                    "model or set GEMINI_API_KEY in the environment."
+                )
+            reply = _gemini_chat(
+                api_key=api_key,
+                model_string=(model.model_string or "gemini-2.5-flash").strip(),
+                system_prompt=system_prompt,
+                history=formatted_history,
+                user_message=user_message,
+            )
+            used_provider = "gemini"
+            used_model = (model.model_string or "gemini-2.5-flash").strip()
+        except Exception as exc:  # noqa: BLE001 — broad on purpose; we fall back
+            primary_error = str(exc)
+            logger.warning(
+                "Gemini chat failed for user=%s, attempting OpenAI fallback: %s",
+                user.id, exc,
+            )
+
+    if reply is None:
+        # Primary unavailable (no model, wrong provider, or hard error).
+        # Try OpenAI as a backup so the user still gets an answer.
+        fb_key, fb_model, fb_base_url = _resolve_openai_fallback(session)
+        if not fb_key:
+            if model is None:
+                raise RuntimeError(
+                    "No AI model is enabled and no OPENAI_API_KEY is set. "
+                    "Pick a model in Settings → AI Models or configure an "
+                    "OpenAI fallback to use the assistant."
+                )
+            if primary_provider not in {"gemini", "openai"}:
+                return {
+                    "reply": (
+                        f"Chat supports Gemini (primary) and OpenAI (fallback). "
+                        f"Your active model is '{model.name}' ({primary_provider}). "
+                        f"Switch in Settings → AI Models to use the assistant."
+                    ),
+                    "model": model.model_string,
+                    "provider": primary_provider,
+                    "context_summary": "skipped — provider unsupported",
+                }
+            # Gemini failed and there's no fallback configured — re-raise.
+            raise RuntimeError(
+                primary_error or "Chat provider is unavailable and no fallback is configured."
+            )
+
+        try:
+            reply = _openai_chat(
+                api_key=fb_key,
+                model_string=fb_model,
+                system_prompt=system_prompt,
+                history=formatted_history,
+                user_message=user_message,
+                base_url=fb_base_url,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("OpenAI fallback failed for user=%s", user.id)
+            if primary_error:
+                raise RuntimeError(
+                    f"Both providers failed. Gemini: {primary_error}. OpenAI: {exc}"
+                ) from exc
+            raise
+
+        used_provider = "openai"
+        used_model = fb_model
+        fallback_used = bool(model and primary_provider == "gemini")
 
     summary_parts = [
         f"totals for {data_context['current_month']}",
@@ -467,10 +597,15 @@ def chat_complete(
         summary_parts.append(
             f"item search: {terms} → {hits} match{'es' if hits != 1 else ''}"
         )
+    if fallback_used:
+        summary_parts.append("⚠️ fell back to OpenAI (Gemini unavailable)")
     summary = "Used " + " · ".join(summary_parts) + "."
+
     return {
         "reply": reply,
-        "model": model.model_string,
-        "provider": provider,
+        "model": used_model,
+        "provider": used_provider,
         "context_summary": summary,
+        "fallback_used": fallback_used,
+        "primary_error": primary_error,
     }
