@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424h" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425a" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -24854,6 +24854,9 @@
             householdLeaderboard = data.leaderboard || householdLeaderboard;
             if (data.app_config) applyAppConfig(data.app_config);
             applyUserPageAccessRestrictions();
+            try {
+              window.dispatchEvent(new Event("auth:user-changed"));
+            } catch (_e) {}
             banner.classList.remove("show");
             authCheckComplete = true;
             updateDemoModeUi();
@@ -28161,6 +28164,9 @@
         householdLeaderboard = data.leaderboard || householdLeaderboard;
         if (data.app_config) applyAppConfig(data.app_config);
         applyUserPageAccessRestrictions();
+        try {
+          window.dispatchEvent(new Event("auth:user-changed"));
+        } catch (_e) {}
         storeBrowserLogin(email, password);
         if (currentUser?.role === "admin") {
           lastSuccessfulAdminAuth = { email, password };
@@ -43231,6 +43237,414 @@
           ensureBanner();
         }
       })();
+
+      // ============================================================
+      // In-App Assistant
+      // ============================================================
+      const CHAT_DEMO_EXAMPLES = [
+        {
+          q: "Where do property taxes belong?",
+          a: "Property taxes typically land in **Housing** alongside rent/mortgage/HOA. If you treat them as their own annual line, **other_recurring** also works. Auto-routing only fires for utility-bill provider types — taxes are manual.",
+        },
+        {
+          q: "How much did I spend on groceries this month?",
+          a: "Grocery $626.47 in Apr 2026 (↓37% vs Mar). Top stores: Trader Joe's $312, Whole Foods $214, Aldi $100.",
+        },
+        {
+          q: "Which receipts are sitting in 'Other'?",
+          a: "12 purchases in Other this month. Top 3: Walmart $89.40, Target $54.12, Amazon $38.50 — open Receipts → filter Budget category = Other to clean them up.",
+        },
+      ];
+      const CHAT_DEMO_CAPABILITIES = [
+        "Look up category totals and month-over-month deltas",
+        "Suggest the right budget category for a purchase or bill",
+        "List your top stores for a given month",
+        "Count and surface uncategorized purchases",
+        "Explain the household's category rules in plain English",
+      ];
+
+      let _chatPanelInitialized = false;
+      let _chatHistoryCache = [];
+      let _chatLoading = false;
+
+      function _chatIsAdmin() {
+        return Boolean(currentUser && currentUser.role === "admin");
+      }
+
+      function _updateChatFabVisibility() {
+        const fab = document.getElementById("chat-fab");
+        if (!fab) return;
+        fab.hidden = !currentUser;
+      }
+
+      function openChatPanel() {
+        if (!currentUser) {
+          toast("Sign in to use the assistant", "error");
+          return;
+        }
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        panel.hidden = false;
+        document.body.classList.add("chat-panel-open");
+        _renderChatPanel();
+        if (_chatIsAdmin()) {
+          loadChatHistory().catch((err) => {
+            console.error("loadChatHistory failed", err);
+          });
+          window.setTimeout(() => {
+            const input = document.getElementById("chat-input");
+            if (input) input.focus();
+          }, 80);
+        }
+      }
+
+      function closeChatPanel() {
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        panel.hidden = true;
+        document.body.classList.remove("chat-panel-open");
+      }
+
+      function _renderChatPanel() {
+        const body = document.getElementById("chat-panel-body");
+        const form = document.getElementById("chat-form");
+        const clearBtn = document.getElementById("chat-clear-btn");
+        const subtitle = document.getElementById("chat-panel-subtitle");
+        if (!body) return;
+        if (_chatIsAdmin()) {
+          if (form) form.hidden = false;
+          if (clearBtn) clearBtn.hidden = false;
+          if (subtitle) subtitle.textContent = "Answers about your data";
+          _renderChatThread();
+        } else {
+          if (form) form.hidden = true;
+          if (clearBtn) clearBtn.hidden = true;
+          if (subtitle) subtitle.textContent = "Preview — admin-only for now";
+          _renderChatDemo();
+        }
+      }
+
+      function _renderChatDemo() {
+        const body = document.getElementById("chat-panel-body");
+        if (!body) return;
+        const cards = CHAT_DEMO_EXAMPLES.map(
+          (ex) => `
+            <article class="chat-demo-card">
+              <div class="chat-demo-card__q">
+                <span class="chat-demo-card__role">You</span>
+                ${escHtml(ex.q)}
+              </div>
+              <div class="chat-demo-card__a">
+                <span class="chat-demo-card__role">Assistant</span>
+                ${_renderChatMarkdownLite(ex.a)}
+              </div>
+            </article>`,
+        ).join("");
+        const caps = CHAT_DEMO_CAPABILITIES.map(
+          (line) => `<li>${escHtml(line)}</li>`,
+        ).join("");
+        body.innerHTML = `
+          <div class="chat-demo">
+            <div class="chat-demo__lead">
+              The in-app assistant is admin-only right now. Here's what it can do
+              once an admin enables it for you.
+            </div>
+            <div class="chat-demo__section-title">What you can ask</div>
+            <ul class="chat-demo__caps">${caps}</ul>
+            <div class="chat-demo__section-title">Sample answers</div>
+            ${cards}
+            <div class="chat-demo__footer">
+              Want access? Ask an admin to add chat permission for your account.
+            </div>
+          </div>`;
+      }
+
+      function _renderChatMarkdownLite(text) {
+        // Tiny inline-only markdown — bold ** ** and line breaks.
+        const safe = escHtml(String(text || ""));
+        return safe
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br>");
+      }
+
+      function _renderChatThread() {
+        const body = document.getElementById("chat-panel-body");
+        if (!body) return;
+        const messages = _chatHistoryCache;
+        if (!messages.length && !_chatLoading) {
+          const cards = CHAT_DEMO_EXAMPLES.map(
+            (ex) => `
+              <button type="button" class="chat-suggestion" onclick="_chatPrefill(${JSON.stringify(
+                ex.q,
+              )
+                .replace(/</g, "&lt;")
+                .replace(/"/g, "&quot;")})">
+                ${escHtml(ex.q)}
+              </button>`,
+          ).join("");
+          body.innerHTML = `
+            <div class="chat-thread chat-thread--empty">
+              <div class="chat-thread__welcome">
+                Ask anything about your own receipts, categories, or budgets.
+                Suggestions:
+              </div>
+              <div class="chat-thread__suggestions">${cards}</div>
+            </div>`;
+          return;
+        }
+        const items = messages
+          .map((msg) => _renderChatMessage(msg))
+          .join("");
+        const loadingHtml = _chatLoading
+          ? `<div class="chat-msg chat-msg--assistant chat-msg--loading">
+               <div class="chat-msg__bubble"><span class="chat-msg__dots"><span></span><span></span><span></span></span></div>
+             </div>`
+          : "";
+        body.innerHTML = `
+          <div class="chat-thread">
+            ${items}
+            ${loadingHtml}
+          </div>`;
+        body.scrollTop = body.scrollHeight;
+      }
+
+      function _renderChatMessage(msg) {
+        const isUser = msg.role === "user";
+        const bubble = _renderChatMarkdownLite(msg.content || "");
+        const trace = msg.tool_trace;
+        const traceChip =
+          !isUser && trace && trace.context_summary
+            ? `<div class="chat-msg__trace">📂 ${escHtml(
+                trace.context_summary,
+              )}${trace.model ? ` · ${escHtml(trace.model)}` : ""}</div>`
+            : "";
+        return `
+          <div class="chat-msg ${isUser ? "chat-msg--user" : "chat-msg--assistant"}">
+            <div class="chat-msg__bubble">${bubble}</div>
+            ${traceChip}
+          </div>`;
+      }
+
+      function _chatPrefill(text) {
+        const input = document.getElementById("chat-input");
+        if (!input) return;
+        input.value = String(text || "");
+        input.focus();
+      }
+
+      async function loadChatHistory() {
+        if (!_chatIsAdmin()) return;
+        try {
+          const res = await api("/chat/messages");
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            console.warn("chat history failed", data);
+            return;
+          }
+          const data = await res.json();
+          _chatHistoryCache = Array.isArray(data.messages) ? data.messages : [];
+          _renderChatThread();
+        } catch (err) {
+          console.error("loadChatHistory failed", err);
+        }
+      }
+
+      async function sendChatMessage() {
+        if (!_chatIsAdmin()) return;
+        if (_chatLoading) return;
+        const input = document.getElementById("chat-input");
+        if (!input) return;
+        const value = (input.value || "").trim();
+        if (!value) return;
+        input.value = "";
+        _chatLoading = true;
+        // Optimistic append: show the user message immediately.
+        _chatHistoryCache = [
+          ..._chatHistoryCache,
+          {
+            id: `pending-${Date.now()}`,
+            role: "user",
+            content: value,
+            tool_trace: null,
+            created_at: new Date().toISOString(),
+          },
+        ];
+        _renderChatThread();
+        try {
+          const res = await api("/chat/messages", {
+            method: "POST",
+            body: JSON.stringify({ content: value }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok && res.status !== 502) {
+            // Roll back the optimistic user row on hard failures.
+            _chatHistoryCache = _chatHistoryCache.filter(
+              (m) => !String(m.id || "").startsWith("pending-"),
+            );
+            toast(data.error || "Could not send message", "error");
+            return;
+          }
+          // Replace optimistic user row with the persisted ones.
+          _chatHistoryCache = _chatHistoryCache.filter(
+            (m) => !String(m.id || "").startsWith("pending-"),
+          );
+          if (data.user_message) _chatHistoryCache.push(data.user_message);
+          if (data.assistant_message)
+            _chatHistoryCache.push(data.assistant_message);
+        } catch (err) {
+          console.error("sendChatMessage failed", err);
+          _chatHistoryCache = _chatHistoryCache.filter(
+            (m) => !String(m.id || "").startsWith("pending-"),
+          );
+          toast("Could not send message", "error");
+        } finally {
+          _chatLoading = false;
+          _renderChatThread();
+          const inputEl = document.getElementById("chat-input");
+          if (inputEl) inputEl.focus();
+        }
+      }
+
+      async function clearChatHistory() {
+        if (!_chatIsAdmin()) return;
+        const ok = await askForConfirmation(
+          "Clear the entire chat history? This cannot be undone.",
+          "Clear assistant chat?",
+        );
+        if (!ok) return;
+        try {
+          const res = await api("/chat/messages", { method: "DELETE" });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            toast(data.error || "Could not clear chat", "error");
+            return;
+          }
+          _chatHistoryCache = [];
+          _renderChatThread();
+          toast("Chat history cleared ✅", "success");
+        } catch (err) {
+          console.error("clearChatHistory failed", err);
+          toast("Could not clear chat", "error");
+        }
+      }
+
+      function _initChatPanel() {
+        if (_chatPanelInitialized) return;
+        _chatPanelInitialized = true;
+        const input = document.getElementById("chat-input");
+        if (input) {
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendChatMessage();
+            }
+          });
+        }
+        // Esc closes the panel.
+        document.addEventListener("keydown", (e) => {
+          if (e.key !== "Escape") return;
+          const panel = document.getElementById("chat-panel");
+          if (panel && !panel.hidden) closeChatPanel();
+        });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => {
+          _initChatPanel();
+          _updateChatFabVisibility();
+        });
+      } else {
+        _initChatPanel();
+        _updateChatFabVisibility();
+      }
+      // Re-evaluate fab visibility after the auth flow settles.
+      window.addEventListener("auth:user-changed", _updateChatFabVisibility);
     </script>
+
+    <!-- ===== In-App Assistant ============================================ -->
+    <button
+      type="button"
+      id="chat-fab"
+      class="chat-fab"
+      onclick="openChatPanel()"
+      aria-label="Open assistant"
+      title="Ask the assistant"
+      hidden
+    >
+      <span aria-hidden="true">💬</span>
+    </button>
+
+    <aside
+      id="chat-panel"
+      class="chat-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chat-panel-title"
+      hidden
+    >
+      <header class="chat-panel__head">
+        <div class="chat-panel__title-wrap">
+          <span class="chat-panel__avatar" aria-hidden="true">💬</span>
+          <div>
+            <div class="chat-panel__title" id="chat-panel-title">Assistant</div>
+            <div class="chat-panel__subtitle" id="chat-panel-subtitle">
+              Answers about your data
+            </div>
+          </div>
+        </div>
+        <div class="chat-panel__head-actions">
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            id="chat-clear-btn"
+            onclick="clearChatHistory()"
+            title="Clear conversation"
+            hidden
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            onclick="closeChatPanel()"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+      </header>
+
+      <div class="chat-panel__body" id="chat-panel-body">
+        <!-- filled by JS -->
+      </div>
+
+      <form
+        id="chat-form"
+        class="chat-panel__form"
+        onsubmit="event.preventDefault(); sendChatMessage();"
+        hidden
+      >
+        <textarea
+          id="chat-input"
+          class="chat-panel__input"
+          rows="2"
+          placeholder="Ask about your spending or where a category fits…"
+          aria-label="Message"
+          maxlength="2000"
+        ></textarea>
+        <div class="chat-panel__form-row">
+          <span class="chat-panel__hint" id="chat-input-hint">
+            Enter to send · Shift+Enter for newline
+          </span>
+          <button
+            type="submit"
+            class="btn btn-primary btn-sm"
+            id="chat-send-btn"
+          >
+            Send
+          </button>
+        </div>
+      </form>
+    </aside>
   </body>
 </html>

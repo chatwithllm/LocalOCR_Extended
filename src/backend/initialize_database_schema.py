@@ -838,6 +838,28 @@ class DedupDismissal(Base):
     )
 
 
+class ChatMessage(Base):
+    """A single line of conversation with the in-app assistant.
+
+    role     : "user" or "assistant"
+    content  : final user-visible text
+    tool_trace: optional JSON describing tool calls the assistant made
+                while answering (used for the inline chips in the UI)
+    """
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String(16), nullable=False)
+    content = Column(Text, nullable=False)
+    tool_trace = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_chat_messages_user_created", "user_id", "created_at"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Schema Initialization
 # ---------------------------------------------------------------------------
