@@ -740,7 +740,8 @@ _CHAT_STOPWORDS: set[str] = {
     # treated as a product name. Keeps "do you see anything
     # interesting in tomato pattern" from triggering false-positive
     # ILIKE searches for "see", "anything", "interesting", "pattern".
-    "store", "stores", "visited", "visit", "shop", "shopping",
+    "store", "stores", "visited", "visit", "shop", "shops", "shopped",
+    "shopping", "shopper", "shoppers",
     "most", "least", "best", "worst", "common", "rare", "rarely",
     "often", "usual", "usually",
     "trend", "trends", "pattern", "patterns", "insight", "insights",
@@ -770,10 +771,14 @@ _CHAT_STOPWORDS: set[str] = {
 # context; false negatives block the new feature, so when in doubt
 # we let the regex match.
 _TEMPORAL_INTENT_RE = re.compile(
-    r"\b(when|lately|recent(ly)?|last\s+(time|visit|trip|shop)|"
-    r"frequent(ly)?|often|trend|rate|consumption|consum(e|ing))\b"
+    r"\b(when|lately|recent(ly)?|frequent(ly)?|often|trend|rate|"
+    r"consumption|consum(e|ing))\b"
+    r"|\blast\s+(time|visit|trip|shop\w*)\b"
+    r"|\bshopp?(ed|ing|s)\b"
     r"|how\s+(much|many|fast)\s+(do\s+)?(we|i)\s+(shop|consum|buy)"
-    r"|how\s+often",
+    r"|how\s+often"
+    r"|\bwho\s+(?:has\s+|have\s+)?(?:spent|spends|spend|bought|"
+    r"buys|buy|shops|shop|shopp?(ed|ing)|paid|pays|pay)",
     re.IGNORECASE,
 )
 

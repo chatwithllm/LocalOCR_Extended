@@ -25,6 +25,13 @@ from src.backend.chat_assistant import _extract_temporal_intent
         "we go pretty frequently right?",
         "how much are we consuming",
         "trend in our buying",
+        # Verb-conjugation variants — these used to slip past the
+        # original \bshop\b boundary.
+        "who last shopped?",
+        "who shops the most",
+        "who has bought groceries this week",
+        "we shopped a lot lately",
+        "who paid for the last receipt",
     ],
 )
 def test_temporal_intent_positive(message):
