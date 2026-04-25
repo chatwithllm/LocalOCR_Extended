@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425f" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425g" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -16269,6 +16269,20 @@
                 <div id="admin-ai-usage-body"></div>
               </div>
             </div>
+          </div>
+          <div class="card" id="settings-chat-audit-card">
+            <div class="card-header">
+              <span class="card-title">🛡️ Chat Audit</span>
+              <div class="table-toolbar">
+                <select id="chat-audit-limit" onchange="loadChatAudit()">
+                  <option value="20" selected>Last 20</option>
+                  <option value="50">Last 50</option>
+                  <option value="100">Last 100</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="loadChatAudit()" aria-label="Refresh chat audit">🔄</button>
+              </div>
+            </div>
+            <div id="chat-audit-body"></div>
           </div>
           <div class="card">
             <div class="card-header">
@@ -24502,6 +24516,7 @@
             loadSnapshotReviewQueue();
             loadAdminAiModels();
             loadAdminAiUsage();
+            loadChatAudit();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -43243,6 +43258,81 @@
           ensureBanner();
         }
       })();
+
+      // ============================================================
+      // Settings — Chat Audit (admin-only flagged-message log)
+      // ============================================================
+      async function loadChatAudit() {
+        const card = document.getElementById("settings-chat-audit-card");
+        const body = document.getElementById("chat-audit-body");
+        if (!card || !body) return;
+        // Hide entire card for non-admins so the section just disappears.
+        if (!currentUser || currentUser.role !== "admin") {
+          card.style.display = "none";
+          return;
+        }
+        card.style.display = "";
+        const limit = Number(
+          document.getElementById("chat-audit-limit")?.value || 20,
+        );
+        body.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+        try {
+          const res = await api(`/chat/audit?limit=${limit}`);
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            body.innerHTML = `<div class="empty-state"><p>${escHtml(
+              data.error || "Could not load chat audit",
+            )}</p></div>`;
+            return;
+          }
+          const items = Array.isArray(data.items) ? data.items : [];
+          if (!items.length) {
+            body.innerHTML =
+              '<div class="empty-state"><div class="icon">✅</div><p>No flagged chat messages — clean audit trail.</p></div>';
+            return;
+          }
+          const rows = items
+            .map((it) => {
+              const when = it.created_at
+                ? new Date(it.created_at).toLocaleString()
+                : "—";
+              const reason = it.flag_reason || "—";
+              const tone = it.role === "user" ? "low" : "ok";
+              const roleLabel = it.role === "user" ? "input" : "output";
+              const preview = String(it.content || "").slice(0, 200);
+              return `
+                <tr>
+                  <td style="white-space:nowrap;color:var(--muted);font-size:0.78rem">${escHtml(when)}</td>
+                  <td>${escHtml(it.user_name || `user#${it.user_id}`)}</td>
+                  <td><span class="badge badge-${tone}">${escHtml(roleLabel)}</span></td>
+                  <td><code style="font-size:0.78rem">${escHtml(reason)}</code></td>
+                  <td style="font-size:0.82rem">${escHtml(preview)}${preview.length === 200 ? "…" : ""}</td>
+                </tr>`;
+            })
+            .join("");
+          body.innerHTML = `
+            <div class="table-wrap">
+              <table>
+                <thead><tr>
+                  <th>When</th>
+                  <th>User</th>
+                  <th>Direction</th>
+                  <th>Reason</th>
+                  <th>Preview</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+            <div style="margin-top:8px;color:var(--muted);font-size:0.78rem">
+              ${items.length} flagged ${items.length === 1 ? "row" : "rows"} (max ${limit}).
+              Inputs are blocked attempts; outputs are scrubbed replies.
+            </div>`;
+        } catch (err) {
+          console.error("loadChatAudit failed", err);
+          body.innerHTML =
+            '<div class="empty-state"><p>Could not load chat audit.</p></div>';
+        }
+      }
 
       // ============================================================
       // Settings — collapsible cards (default: collapsed)

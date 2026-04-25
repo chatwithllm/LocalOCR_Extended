@@ -201,6 +201,52 @@ def post_message():
     }), 201
 
 
+@chat_bp.route("/audit", methods=["GET"])
+def list_audit():
+    """Return the most recent flagged chat rows household-wide.
+
+    Admin-only. Each row shows the user_id + display name so the admin
+    can see who tripped the guardrail. Includes both blocked input
+    (role=user, flagged=1) and scrubbed output (role=assistant,
+    flagged=1) so the trail covers attempts and refusals.
+    """
+    user, deny = _require_admin()
+    if deny:
+        return deny
+    from src.backend.initialize_database_schema import User
+
+    try:
+        limit = int(request.args.get("limit") or 50)
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    rows = (
+        g.db_session.query(ChatMessage, User.name)
+        .outerjoin(User, User.id == ChatMessage.user_id)
+        .filter(ChatMessage.flagged == True)  # noqa: E712
+        .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+        .limit(limit)
+        .all()
+    )
+    items = []
+    for msg, user_name in rows:
+        items.append({
+            "id": msg.id,
+            "user_id": msg.user_id,
+            "user_name": user_name or f"user#{msg.user_id}",
+            "role": msg.role,
+            "flag_reason": msg.flag_reason,
+            "content": msg.content,
+            "created_at": (
+                msg.created_at.isoformat() + "Z"
+                if msg.created_at and not msg.created_at.isoformat().endswith("Z")
+                else (msg.created_at.isoformat() if msg.created_at else None)
+            ),
+        })
+    return jsonify({"items": items, "count": len(items), "limit": limit}), 200
+
+
 @chat_bp.route("/messages", methods=["DELETE"])
 def clear_messages():
     """Wipe the current admin's chat history."""
