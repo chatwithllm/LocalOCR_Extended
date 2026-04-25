@@ -356,6 +356,90 @@ def _resolve_chat_model(session, user: User) -> AIModelConfig | None:
     return None
 
 
+def _ollama_chat(
+    base_url: str,
+    model_string: str,
+    system_prompt: str,
+    history: list[dict[str, str]],
+    user_message: str,
+) -> str:
+    """Local Ollama text chat — last-resort fallback (no quota).
+
+    Uses ``/api/chat`` instead of ``/api/generate`` so the system
+    prompt + history can be passed as discrete messages, matching the
+    OpenAI-style structure we send to the cloud providers.
+    """
+    import requests
+
+    url = f"{base_url.rstrip('/')}/api/chat"
+    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    for turn in history:
+        role = "assistant" if turn.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": turn.get("text") or ""})
+    messages.append({"role": "user", "content": user_message})
+
+    response = requests.post(
+        url,
+        json={
+            "model": model_string,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.2, "num_predict": 600},
+        },
+        timeout=int(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120")),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    text = ((payload.get("message") or {}).get("content") or "").strip()
+    if not text:
+        raise RuntimeError("Ollama returned an empty response")
+    return text
+
+
+def _anthropic_chat(
+    api_key: str,
+    model_string: str,
+    system_prompt: str,
+    history: list[dict[str, str]],
+    user_message: str,
+) -> str:
+    """Anthropic Claude text chat fallback."""
+    import requests
+
+    messages: list[dict[str, str]] = []
+    for turn in history:
+        role = "assistant" if turn.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": turn.get("text") or ""})
+    messages.append({"role": "user", "content": user_message})
+
+    response = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
+            "model": model_string,
+            "max_tokens": 600,
+            "temperature": 0.2,
+            "system": system_prompt,
+            "messages": messages,
+        },
+        timeout=60,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    blocks = payload.get("content") or []
+    text_parts = [
+        b.get("text", "") for b in blocks if isinstance(b, dict) and b.get("type") == "text"
+    ]
+    text = "".join(text_parts).strip()
+    if not text:
+        raise RuntimeError("Anthropic returned an empty response")
+    return text
+
+
 def _openai_chat(
     api_key: str,
     model_string: str,
@@ -390,53 +474,6 @@ def _openai_chat(
     if not text:
         raise RuntimeError("OpenAI returned an empty response")
     return text
-
-
-def _resolve_openai_fallback(session) -> tuple[str | None, str, str | None]:
-    """Return (api_key, model_string, base_url) for the OpenAI fallback path.
-
-    Order of preference:
-      1. An enabled OpenAI ``AIModelConfig`` with a stored key —
-         lets admins curate the fallback model in Settings.
-      2. ``OPENAI_API_KEY`` env var with model from
-         ``OPENAI_CHAT_MODEL`` (default ``gpt-4o-mini``).
-
-    Returns ``(None, "", None)`` when no fallback is configured so
-    the caller can surface a clear error.
-    """
-    candidate = (
-        session.query(AIModelConfig)
-        .filter(AIModelConfig.is_enabled == True)  # noqa: E712
-        .filter(_lower_provider() == "openai")
-        .order_by(AIModelConfig.id.asc())
-        .first()
-    )
-    if candidate is not None:
-        try:
-            api_key = _resolve_api_key(candidate)
-        except Exception:  # noqa: BLE001
-            api_key = None
-        if api_key:
-            return (
-                api_key,
-                (candidate.model_string or os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")).strip(),
-                (candidate.base_url or "").strip() or None,
-            )
-
-    env_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    if env_key:
-        return (
-            env_key,
-            (os.getenv("OPENAI_CHAT_MODEL") or "gpt-4o-mini").strip(),
-            None,
-        )
-    return None, "", None
-
-
-def _lower_provider():
-    """SQLAlchemy expression: lower(AIModelConfig.provider)."""
-    import sqlalchemy as _sa
-    return _sa.func.lower(AIModelConfig.provider)
 
 
 def _gemini_chat(
@@ -506,86 +543,45 @@ def chat_complete(
     )
     formatted_history = _format_history(history)
 
-    model = _resolve_chat_model(session, user)
-    primary_provider = (model.provider or "").strip().lower() if model else ""
+    chain = _build_provider_chain(session, user)
+    if not chain:
+        raise RuntimeError(
+            "No chat providers are configured. Add a Gemini, OpenAI, "
+            "OpenRouter, Anthropic, or Ollama model in Settings → AI Models, "
+            "or set the matching API key in the environment."
+        )
 
+    errors: list[tuple[str, str]] = []
     reply: str | None = None
     used_provider: str | None = None
     used_model: str | None = None
-    fallback_used = False
-    primary_error: str | None = None
+    primary_label = chain[0]["label"]
 
-    if model and primary_provider == "gemini":
+    for attempt in chain:
+        label = attempt["label"]
         try:
-            api_key = _resolve_api_key(model)
-            if not api_key:
-                raise RuntimeError(
-                    "Gemini API key is missing. Add a stored key for this "
-                    "model or set GEMINI_API_KEY in the environment."
-                )
-            reply = _gemini_chat(
-                api_key=api_key,
-                model_string=(model.model_string or "gemini-2.5-flash").strip(),
+            reply = attempt["call"](
                 system_prompt=system_prompt,
                 history=formatted_history,
                 user_message=user_message,
             )
-            used_provider = "gemini"
-            used_model = (model.model_string or "gemini-2.5-flash").strip()
+            used_provider = attempt["provider"]
+            used_model = attempt["model_string"]
+            break
         except Exception as exc:  # noqa: BLE001 — broad on purpose; we fall back
-            primary_error = str(exc)
+            short = str(exc)
+            if len(short) > 240:
+                short = short[:240] + "…"
+            errors.append((label, short))
             logger.warning(
-                "Gemini chat failed for user=%s, attempting OpenAI fallback: %s",
-                user.id, exc,
+                "Chat provider %s failed for user=%s: %s", label, user.id, exc,
             )
 
     if reply is None:
-        # Primary unavailable (no model, wrong provider, or hard error).
-        # Try OpenAI as a backup so the user still gets an answer.
-        fb_key, fb_model, fb_base_url = _resolve_openai_fallback(session)
-        if not fb_key:
-            if model is None:
-                raise RuntimeError(
-                    "No AI model is enabled and no OPENAI_API_KEY is set. "
-                    "Pick a model in Settings → AI Models or configure an "
-                    "OpenAI fallback to use the assistant."
-                )
-            if primary_provider not in {"gemini", "openai"}:
-                return {
-                    "reply": (
-                        f"Chat supports Gemini (primary) and OpenAI (fallback). "
-                        f"Your active model is '{model.name}' ({primary_provider}). "
-                        f"Switch in Settings → AI Models to use the assistant."
-                    ),
-                    "model": model.model_string,
-                    "provider": primary_provider,
-                    "context_summary": "skipped — provider unsupported",
-                }
-            # Gemini failed and there's no fallback configured — re-raise.
-            raise RuntimeError(
-                primary_error or "Chat provider is unavailable and no fallback is configured."
-            )
+        joined = "; ".join(f"{label}: {err}" for label, err in errors)
+        raise RuntimeError(f"All chat providers failed. {joined}")
 
-        try:
-            reply = _openai_chat(
-                api_key=fb_key,
-                model_string=fb_model,
-                system_prompt=system_prompt,
-                history=formatted_history,
-                user_message=user_message,
-                base_url=fb_base_url,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("OpenAI fallback failed for user=%s", user.id)
-            if primary_error:
-                raise RuntimeError(
-                    f"Both providers failed. Gemini: {primary_error}. OpenAI: {exc}"
-                ) from exc
-            raise
-
-        used_provider = "openai"
-        used_model = fb_model
-        fallback_used = bool(model and primary_provider == "gemini")
+    fallback_used = used_provider != chain[0]["provider"]
 
     summary_parts = [
         f"totals for {data_context['current_month']}",
@@ -598,7 +594,9 @@ def chat_complete(
             f"item search: {terms} → {hits} match{'es' if hits != 1 else ''}"
         )
     if fallback_used:
-        summary_parts.append("⚠️ fell back to OpenAI (Gemini unavailable)")
+        summary_parts.append(
+            f"⚠️ fell back to {used_provider} ({primary_label} unavailable)"
+        )
     summary = "Used " + " · ".join(summary_parts) + "."
 
     return {
@@ -607,5 +605,195 @@ def chat_complete(
         "provider": used_provider,
         "context_summary": summary,
         "fallback_used": fallback_used,
-        "primary_error": primary_error,
+        "provider_errors": errors,
     }
+
+
+def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
+    """Return the ordered list of provider attempts for one chat turn.
+
+    Each entry: {label, provider, model_string, call(callable)}. The
+    chain is built once per turn so we don't re-resolve env vars or
+    DB rows mid-fallback. Order:
+
+      1. The user's active AIModelConfig (if its provider is supported).
+      2. Any other supported AIModelConfig that has a working key.
+      3. Env-var fallbacks for OpenAI / Anthropic / OpenRouter.
+      4. Ollama as a last-resort local model (no key, no quota).
+
+    Duplicates by provider are de-duped so the chain doesn't try the
+    same key twice when an active model also matches an env var.
+    """
+    chain: list[dict[str, Any]] = []
+    seen_providers: set[str] = set()
+    supported = {"gemini", "openai", "anthropic", "openrouter", "ollama"}
+
+    def _push(provider: str, label: str, model_string: str, call) -> None:
+        key = f"{provider}:{model_string}"
+        if key in seen_providers:
+            return
+        seen_providers.add(key)
+        chain.append({
+            "provider": provider,
+            "label": label,
+            "model_string": model_string,
+            "call": call,
+        })
+
+    # 1. Active model first.
+    active = _resolve_chat_model(session, user)
+    if active is not None and (active.provider or "").strip().lower() in supported:
+        _push_model_attempt(active, _push)
+
+    # 2. Other enabled, supported AIModelConfigs.
+    others = (
+        session.query(AIModelConfig)
+        .filter(AIModelConfig.is_enabled == True)  # noqa: E712
+        .order_by(AIModelConfig.id.asc())
+        .all()
+    )
+    for cfg in others:
+        if active is not None and cfg.id == active.id:
+            continue
+        provider = (cfg.provider or "").strip().lower()
+        if provider not in supported:
+            continue
+        _push_model_attempt(cfg, _push)
+
+    # 3. Env-var fallbacks.
+    openai_env = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if openai_env:
+        model_string = (os.getenv("OPENAI_CHAT_MODEL") or "gpt-4o-mini").strip()
+        _push(
+            "openai",
+            f"openai-env ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _openai_chat(
+                openai_env, model_string, system_prompt, history, user_message,
+            ),
+        )
+    openrouter_env = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+    if openrouter_env:
+        or_model = (os.getenv("OPENROUTER_CHAT_MODEL") or "openai/gpt-4o-mini").strip()
+        _push(
+            "openrouter",
+            f"openrouter-env ({or_model})",
+            or_model,
+            lambda *, system_prompt, history, user_message: _openai_chat(
+                openrouter_env,
+                or_model,
+                system_prompt,
+                history,
+                user_message,
+                base_url="https://openrouter.ai/api/v1",
+            ),
+        )
+    anthropic_env = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    if anthropic_env:
+        a_model = (os.getenv("ANTHROPIC_CHAT_MODEL") or "claude-3-5-haiku-latest").strip()
+        _push(
+            "anthropic",
+            f"anthropic-env ({a_model})",
+            a_model,
+            lambda *, system_prompt, history, user_message: _anthropic_chat(
+                anthropic_env, a_model, system_prompt, history, user_message,
+            ),
+        )
+
+    # 4. Local Ollama — last resort, no quota or key needed.
+    ollama_endpoint = (os.getenv("OLLAMA_ENDPOINT") or "").strip()
+    ollama_model = (os.getenv("OLLAMA_CHAT_MODEL") or os.getenv("OLLAMA_MODEL") or "").strip()
+    if ollama_endpoint and ollama_model:
+        _push(
+            "ollama",
+            f"ollama-local ({ollama_model})",
+            ollama_model,
+            lambda *, system_prompt, history, user_message: _ollama_chat(
+                ollama_endpoint, ollama_model, system_prompt, history, user_message,
+            ),
+        )
+
+    return chain
+
+
+def _push_model_attempt(cfg: AIModelConfig, push) -> None:
+    """Helper: build a chain entry from an AIModelConfig row."""
+    provider = (cfg.provider or "").strip().lower()
+    model_string = (cfg.model_string or "").strip()
+    if not model_string:
+        return
+
+    if provider == "gemini":
+        try:
+            api_key = _resolve_api_key(cfg)
+        except Exception:  # noqa: BLE001
+            return
+        if not api_key:
+            return
+        push(
+            "gemini",
+            f"gemini ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _gemini_chat(
+                api_key, model_string, system_prompt, history, user_message,
+            ),
+        )
+    elif provider == "openai":
+        try:
+            api_key = _resolve_api_key(cfg)
+        except Exception:  # noqa: BLE001
+            return
+        if not api_key:
+            return
+        base_url = (cfg.base_url or "").strip() or None
+        push(
+            "openai",
+            f"openai ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _openai_chat(
+                api_key, model_string, system_prompt, history, user_message,
+                base_url=base_url,
+            ),
+        )
+    elif provider == "openrouter":
+        try:
+            api_key = _resolve_api_key(cfg)
+        except Exception:  # noqa: BLE001
+            return
+        if not api_key:
+            return
+        base_url = (cfg.base_url or "https://openrouter.ai/api/v1").strip()
+        push(
+            "openrouter",
+            f"openrouter ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _openai_chat(
+                api_key, model_string, system_prompt, history, user_message,
+                base_url=base_url,
+            ),
+        )
+    elif provider == "anthropic":
+        try:
+            api_key = _resolve_api_key(cfg)
+        except Exception:  # noqa: BLE001
+            return
+        if not api_key:
+            return
+        push(
+            "anthropic",
+            f"anthropic ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _anthropic_chat(
+                api_key, model_string, system_prompt, history, user_message,
+            ),
+        )
+    elif provider == "ollama":
+        base_url = (cfg.base_url or os.getenv("OLLAMA_ENDPOINT") or "http://ollama:11434").strip()
+        push(
+            "ollama",
+            f"ollama ({model_string})",
+            model_string,
+            lambda *, system_prompt, history, user_message: _ollama_chat(
+                base_url, model_string, system_prompt, history, user_message,
+            ),
+        )
