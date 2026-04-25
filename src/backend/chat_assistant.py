@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -218,6 +219,53 @@ Example for "which store did we visit least for tomatoes?":
 Keep answers terse — one headline + at most a short list. Skip
 filler ("Sure!", "Of course!", "Here is..."). USD totals always show
 two decimals.
+
+For recency / frequency / consumption questions ("when did we shop",
+"how often do we go", "how much are we consuming", "trend"), use the
+``shopping_activity`` block when present. Pick framing from the user's
+wording:
+
+  * Spending / cost / budget phrasing → quote ``windows.spend`` and the
+    matching ``cadence.trips_per_week_*`` figure.
+  * Items / products / "buying X" phrasing → quote ``top_items_30d``.
+  * Visits / trips / "how often" phrasing → quote ``cadence`` plus
+    ``windows.trips``.
+
+When answering "when" questions, cite specific dates and stores from
+``recent_receipts`` (already top-5, descending). Per-person breakdowns
+live under ``per_person`` — only surface them when the user asks who
+shopped or compares people. Never invent dates: if the user asks about
+a date not in ``recent_receipts`` or ``per_person.last_trip``, say so.
+If ``shopping_activity`` is null, the household has no purchase rows
+in the last 90 days — say so plainly instead of guessing.
+
+Note: ``cadence.trend`` may be ``"inactive"`` when the household has
+shopped over the last 90 days but not in the last 30 — describe that
+as "no recent shopping" rather than "shopping is down". The cadence
+``avg_gap_days_*`` fields are computed from unique shopping dates, so
+multiple receipts on a single trip-day count as one day.
+
+Example for "when did we shop lately":
+
+    **Recent shopping (last 5 receipts):**
+    - 2026-04-24 — Costco — $50.00 (Mom)
+    - 2026-04-23 — Costco — $40.00 (Dad)
+    - 2026-04-21 — Costco — $50.00 (Mom)
+    - 2026-04-20 — Costco — $40.00 (Dad)
+    - 2026-04-19 — Costco — $50.00 (Mom)
+
+Example for "how often do we shop":
+
+    **Shopping cadence:** about 4.2 trips per week over the last 30
+    days (vs 4.0 over 90 days — steady). Average gap between trips:
+    1.6 days.
+
+Example for "how much are we consuming":
+
+    **Top items (last 30 days):**
+    - Milk — 8 ($32.40)
+    - Eggs — 6 ($24.00)
+    - Bread — 5 ($18.50)
 """
 
 
@@ -399,6 +447,242 @@ def _uncategorized_count(session, start: datetime, end: datetime) -> int:
     )
 
 
+def _compute_shopping_activity(
+    session,
+    user: User,
+    now: datetime,
+) -> dict[str, Any] | None:
+    """Recency / cadence / consumption rollup used to answer
+    "when did we shop", "how often", and "how much are we consuming".
+
+    Returns ``None`` when the household has zero purchase rows in the
+    last 90 days. Refunds (``transaction_type == "refund"``) are
+    excluded from every count and total. Per-person figures use the
+    same attribution semantics as :func:`_spend_by_person` — split
+    rows count toward each named person but the household roll-up
+    counts each receipt only once.
+    """
+    import json as _json
+    import sqlalchemy as _sa
+
+    # ``Purchase.date`` is a naive DateTime column — when SQLAlchemy
+    # reads it back the values are naive even if we store tz-aware. Strip
+    # tz from ``now`` up front so the in-Python window filters below
+    # don't blow up with "can't compare naive and aware datetimes".
+    if now.tzinfo is not None:
+        now = now.astimezone(timezone.utc).replace(tzinfo=None)
+
+    WINDOWS = {"last_7d": 7, "last_30d": 30, "last_90d": 90}
+    cutoff_90 = now - timedelta(days=90)
+
+    not_refund = _sa.or_(
+        Purchase.transaction_type.is_(None),
+        Purchase.transaction_type != "refund",
+    )
+
+    purchases_90 = (
+        session.query(Purchase, Store.name)
+        .outerjoin(Store, Store.id == Purchase.store_id)
+        .filter(Purchase.date >= cutoff_90)
+        .filter(not_refund)
+        .order_by(Purchase.date.desc())
+        .all()
+    )
+    if not purchases_90:
+        return None
+
+    store_name_by_pid: dict[int, str] = {
+        p.id: (name or "Unknown") for p, name in purchases_90
+    }
+
+    purchase_ids = [p.id for p, _ in purchases_90]
+    items_rows = (
+        session.query(ReceiptItem.purchase_id)
+        .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+        .all()
+        if purchase_ids
+        else []
+    )
+    items_by_purchase: dict[int, int] = {}
+    for (pid,) in items_rows:
+        items_by_purchase[pid] = items_by_purchase.get(pid, 0) + 1
+
+    def _ids_from(obj) -> list[int]:
+        raw = getattr(obj, "attribution_user_ids", None)
+        if raw:
+            try:
+                parsed = _json.loads(raw)
+                if isinstance(parsed, list):
+                    return [int(x) for x in parsed if x is not None]
+            except (TypeError, ValueError):
+                pass
+        legacy = getattr(obj, "attribution_user_id", None)
+        return [int(legacy)] if legacy else []
+
+    user_ids: set[int] = set()
+    for p, _ in purchases_90:
+        user_ids.update(_ids_from(p))
+    user_names: dict[int, str] = {}
+    if user_ids:
+        for u in session.query(User).filter(User.id.in_(list(user_ids))).all():
+            # Strict no-email invariant for the LLM context: name only,
+            # falling back to a synthetic label if name is missing /
+            # empty. Mirrors the rest of build_data_context which never
+            # surfaces email addresses to the model.
+            display = (u.name or "").strip() or f"User {u.id}"
+            user_names[u.id] = display
+
+    def _attr_label(p: Purchase) -> str | None:
+        ids = _ids_from(p)
+        if not ids:
+            return None
+        names = [user_names.get(uid) for uid in ids]
+        names = [n for n in names if n]
+        if not names:
+            return None
+        return " & ".join(names)
+
+    # ---- Household windows ---------------------------------------
+    def _agg(rows: list[Purchase]) -> dict[str, Any]:
+        trips = len(rows)
+        spend = round(sum(float(r.total_amount or 0.0) for r in rows), 2)
+        items_count = sum(items_by_purchase.get(r.id, 0) for r in rows)
+        return {"trips": trips, "spend": spend, "items_count": items_count}
+
+    windows: dict[str, Any] = {}
+    for label, days in WINDOWS.items():
+        cutoff = now - timedelta(days=days)
+        rows_in_window = [p for p, _ in purchases_90 if p.date >= cutoff]
+        windows[label] = _agg(rows_in_window)
+
+    # ---- Cadence + trend -----------------------------------------
+    def _avg_gap(rows: list[Purchase]) -> float | None:
+        if len(rows) < 2:
+            return None
+        # Collapse to unique dates so a 3-receipt single-trip day doesn't
+        # contribute zero-gaps that drag the average to 0.
+        unique_dates = sorted({r.date.date() for r in rows if r.date})
+        if len(unique_dates) < 2:
+            return None
+        gaps = [
+            (unique_dates[i + 1] - unique_dates[i]).days
+            for i in range(len(unique_dates) - 1)
+        ]
+        return round(sum(gaps) / len(gaps), 2)
+
+    rows_30 = [p for p, _ in purchases_90 if p.date >= now - timedelta(days=30)]
+    rows_90 = [p for p, _ in purchases_90]
+    tpw_30 = round(len(rows_30) / (30 / 7), 2) if rows_30 else 0.0
+    tpw_90 = round(len(rows_90) / (90 / 7), 2) if rows_90 else 0.0
+    if tpw_90 == 0:
+        trend = "steady"
+    elif tpw_30 == 0:
+        trend = "inactive"
+    elif tpw_30 > tpw_90 * 1.15:
+        trend = "up"
+    elif tpw_30 < tpw_90 * 0.85:
+        trend = "down"
+    else:
+        trend = "steady"
+    cadence = {
+        "avg_gap_days_30d": _avg_gap(rows_30),
+        "avg_gap_days_90d": _avg_gap(rows_90),
+        "trips_per_week_30d": tpw_30,
+        "trips_per_week_90d": tpw_90,
+        "trend": trend,
+    }
+
+    # ---- Recent receipts (top 5 desc) ----------------------------
+    recent_receipts = []
+    for p, store_name in purchases_90[:5]:
+        recent_receipts.append({
+            "date": p.date.strftime("%Y-%m-%d") if p.date else None,
+            "store": store_name or "Unknown",
+            "amount": round(float(p.total_amount or 0.0), 2),
+            "attribution": _attr_label(p),
+        })
+
+    # ---- Per-person blocks ---------------------------------------
+    per_user_rows: dict[int, list[Purchase]] = {}
+    for p, _ in purchases_90:
+        for uid in _ids_from(p):
+            per_user_rows.setdefault(uid, []).append(p)
+
+    per_person = []
+    for uid, rows in per_user_rows.items():
+        name = user_names.get(uid, f"User {uid}")
+        u_windows = {}
+        for label, days in WINDOWS.items():
+            cutoff = now - timedelta(days=days)
+            sub = [r for r in rows if r.date >= cutoff]
+            u_windows[label] = _agg(sub)
+        u_rows_30 = [r for r in rows if r.date >= now - timedelta(days=30)]
+        u_rows_90 = rows
+        u_cadence = {
+            "avg_gap_days_30d": _avg_gap(u_rows_30),
+            "avg_gap_days_90d": _avg_gap(u_rows_90),
+            "trips_per_week_30d": (
+                round(len(u_rows_30) / (30 / 7), 2) if u_rows_30 else 0.0
+            ),
+            "trips_per_week_90d": (
+                round(len(u_rows_90) / (90 / 7), 2) if u_rows_90 else 0.0
+            ),
+        }
+        most_recent = sorted(rows, key=lambda r: r.date, reverse=True)[0]
+        last_trip_store = store_name_by_pid.get(most_recent.id) or "Unknown"
+        last_trip = {
+            "date": most_recent.date.strftime("%Y-%m-%d"),
+            "store": last_trip_store or "Unknown",
+            "amount": round(float(most_recent.total_amount or 0.0), 2),
+        }
+        per_person.append({
+            "name": name,
+            "windows": u_windows,
+            "cadence": u_cadence,
+            "last_trip": last_trip,
+        })
+    per_person.sort(key=lambda p: p["windows"]["last_30d"]["trips"], reverse=True)
+
+    # ---- Top items (last 30d) ------------------------------------
+    cutoff_30 = now - timedelta(days=30)
+    top_items_rows = (
+        session.query(
+            ReceiptItem.product_id,
+            _sa.func.count(ReceiptItem.id),
+            _sa.func.sum(ReceiptItem.quantity * ReceiptItem.unit_price),
+        )
+        .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
+        .filter(Purchase.date >= cutoff_30)
+        .filter(not_refund)
+        .group_by(ReceiptItem.product_id)
+        .order_by(_sa.func.count(ReceiptItem.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_items = []
+    if top_items_rows:
+        product_names = {
+            row.id: row.name
+            for row in session.query(Product.id, Product.name)
+            .filter(Product.id.in_([pid for pid, _, _ in top_items_rows]))
+            .all()
+        }
+        for pid, qty, spend in top_items_rows:
+            top_items.append({
+                "name": product_names.get(pid) or f"product#{pid}",
+                "qty": int(qty or 0),
+                "spend": round(float(spend or 0.0), 2),
+            })
+
+    return {
+        "recent_receipts": recent_receipts,
+        "windows": windows,
+        "cadence": cadence,
+        "per_person": per_person,
+        "top_items_30d": top_items,
+    }
+
+
 # Cheap-and-dirty stop-word list used to extract candidate item terms
 # from a free-text question. We keep this list short on purpose —
 # false positives just mean the LIKE search returns nothing, which is
@@ -450,6 +734,30 @@ _CHAT_STOPWORDS: set[str] = {
     "sum", "summary", "report", "reports", "stat", "stats",
     "statistic", "statistics",
 }
+
+
+# Temporal-intent extractor — gates the lazy `shopping_activity`
+# block. Conservative: false positives just add ~1 KB to the data
+# context; false negatives block the new feature, so when in doubt
+# we let the regex match.
+_TEMPORAL_INTENT_RE = re.compile(
+    r"\b(when|lately|recent(ly)?|last\s+(time|visit|trip|shop)|"
+    r"frequent(ly)?|often|trend|rate|consumption|consum(e|ing))\b"
+    r"|how\s+(much|many|fast)\s+(do\s+)?(we|i)\s+(shop|consum|buy)"
+    r"|how\s+often",
+    re.IGNORECASE,
+)
+
+
+def _extract_temporal_intent(message: str | None) -> bool:
+    """Return True if ``message`` looks like a recency / frequency /
+    consumption question — recent visits, cadence, or rate-of-buying.
+    Used by ``build_data_context`` to decide whether to compute the
+    (relatively expensive) ``shopping_activity`` block.
+    """
+    if not message:
+        return False
+    return bool(_TEMPORAL_INTENT_RE.search(message))
 
 
 def _extract_item_query_terms(message: str, max_terms: int = 2) -> list[str]:
@@ -780,6 +1088,10 @@ def build_data_context(
                 break
     item_results = _search_items(session, item_terms) if item_terms else []
 
+    shopping_activity = None
+    if _extract_temporal_intent(user_message or ""):
+        shopping_activity = _compute_shopping_activity(session, user, now)
+
     return {
         # Intentionally minimal user identity — no email, no FK ids
         # the model could try to leak. Just the display name so it can
@@ -797,6 +1109,7 @@ def build_data_context(
         "item_search_terms": item_terms,
         "item_search_results": item_results,
         "item_search_topic_carried_from_history": carried_from_history,
+        "shopping_activity": shopping_activity,
         "categories_supported": sorted(BUDGET_CATEGORIES),
     }
 
@@ -1059,6 +1372,13 @@ def chat_complete(
         hits = len(data_context.get("item_search_results") or [])
         summary_parts.append(
             f"item search: {terms} → {hits} match{'es' if hits != 1 else ''}"
+        )
+    sa = data_context.get("shopping_activity")
+    if sa:
+        wk = sa["windows"]["last_7d"]["trips"]
+        wk30 = sa["windows"]["last_30d"]["trips"]
+        summary_parts.append(
+            f"shopping activity: {wk} trips/7d, {wk30} trips/30d"
         )
     if fallback_used:
         summary_parts.append(
