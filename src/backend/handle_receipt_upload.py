@@ -1478,7 +1478,7 @@ def get_receipt_image(receipt_id):
 @require_write_access
 def approve_receipt(receipt_id):
     """Approve a review receipt using edited or stored OCR payload."""
-    from src.backend.initialize_database_schema import TelegramReceipt
+    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
     from src.backend.extract_receipt_data import _save_to_database, classify_receipt_data
 
     session = g.db_session
@@ -1528,11 +1528,52 @@ def approve_receipt(receipt_id):
     record.raw_ocr_json = json.dumps(ocr_data)
     session.commit()
 
+    # Auto-suggest attribution from uploader+store history. High
+    # confidence is silently applied right here; medium is returned
+    # so the upload-review modal can pre-select it without
+    # committing.
+    attribution_suggestion: dict | None = None
+    auto_applied = False
+    saved_purchase = (
+        session.query(Purchase).filter_by(id=purchase_id).first()
+    )
+    has_user_ids_set = (
+        saved_purchase
+        and saved_purchase.attribution_user_ids
+        and saved_purchase.attribution_user_ids != "[]"
+    )
+    if (
+        saved_purchase
+        and not saved_purchase.attribution_user_id
+        and not saved_purchase.attribution_kind
+        and not has_user_ids_set
+    ):
+        suggestion = _suggest_attribution_for_upload(
+            session,
+            uploader_id=user_id,
+            store_id=saved_purchase.store_id,
+        )
+        if suggestion and suggestion["confidence"] == "high":
+            _bulk_apply_attribution(
+                session,
+                purchase_ids=[purchase_id],
+                user_ids=suggestion["user_ids"],
+                kind=suggestion["kind"],
+                apply_to_items=True,
+            )
+            session.commit()
+            auto_applied = True
+            attribution_suggestion = suggestion
+        elif suggestion:
+            attribution_suggestion = suggestion
+
     return jsonify({
         "status": "processed",
         "purchase_id": purchase_id,
         "receipt_id": record.id,
         "receipt_type": receipt_type,
+        "attribution_suggestion": attribution_suggestion,
+        "attribution_auto_applied": auto_applied,
     }), 200
 
 
@@ -2377,6 +2418,237 @@ def update_receipt_attribution(receipt_id):
         "attribution_kind": purchase.attribution_kind,
         "applied_to_items": apply_to_items,
     }), 200
+
+
+def _bulk_apply_attribution(
+    session,
+    *,
+    purchase_ids: list[int],
+    user_ids: list[int],
+    kind: str | None,
+    apply_to_items: bool,
+) -> dict:
+    """Apply the same attribution to many Purchase rows.
+
+    Pure-DB helper, no Flask. Returns
+    ``{"updated": N, "skipped": [{"purchase_id": int, "reason": str}]}``.
+    The caller is responsible for committing the session.
+    """
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem
+
+    legacy_single = user_ids[0] if len(user_ids) == 1 else None
+    ids_json = _serialize_user_ids(user_ids)
+
+    skipped: list[dict] = []
+    updated = 0
+    rows = (
+        session.query(Purchase)
+        .filter(Purchase.id.in_(purchase_ids))
+        .all()
+    )
+    found_ids = {r.id for r in rows}
+    for missing in purchase_ids:
+        if missing not in found_ids:
+            skipped.append({"purchase_id": missing, "reason": "not_found"})
+
+    for row in rows:
+        row.attribution_user_id = legacy_single
+        row.attribution_user_ids = ids_json
+        row.attribution_kind = kind
+        updated += 1
+
+    if apply_to_items and rows:
+        ids = [r.id for r in rows]
+        session.query(ReceiptItem).filter(
+            ReceiptItem.purchase_id.in_(ids)
+        ).update(
+            {
+                "attribution_user_id": legacy_single,
+                "attribution_user_ids": ids_json,
+                "attribution_kind": kind,
+            },
+            synchronize_session=False,
+        )
+
+    return {"updated": updated, "skipped": skipped}
+
+
+@receipts_bp.route("/bulk-attribution", methods=["POST"])
+@require_write_access
+def bulk_update_receipt_attribution():
+    """Apply the same attribution to many Purchase rows in one call.
+
+    Body:
+      { "purchase_ids": [int],
+        "user_ids": [int],
+        "kind": "household"|"personal"|"shared"|null,
+        "apply_to_items": bool }
+    """
+    from src.backend.initialize_database_schema import User
+
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get("purchase_ids") or []
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"error": "purchase_ids must be a non-empty list"}), 400
+    if len(raw_ids) > 200:
+        return jsonify({"error": "Too many ids; max 200 per request"}), 400
+    try:
+        purchase_ids = [int(x) for x in raw_ids if x is not None]
+    except (TypeError, ValueError):
+        return jsonify({"error": "purchase_ids must be integers"}), 400
+    purchase_ids = [pid for pid in purchase_ids if pid > 0]
+    if not purchase_ids:
+        return jsonify({"error": "purchase_ids must contain positive integers"}), 400
+
+    ok, result = _normalize_attribution_payload(data, session, User)
+    if not ok:
+        payload, status = result
+        return jsonify(payload), status
+
+    bulk = _bulk_apply_attribution(
+        session,
+        purchase_ids=purchase_ids,
+        user_ids=result["user_ids"],
+        kind=result["kind"],
+        apply_to_items=bool(data.get("apply_to_items", True)),
+    )
+    session.commit()
+    return jsonify(bulk), 200
+
+
+def _compute_attribution_stats(session) -> dict:
+    """Counts of tagged vs untagged Purchase rows + a few sample
+    untagged ids for the dashboard banner. Pure-DB helper.
+
+    Definition of "untagged" matches the receipts-list ``unset``
+    filter token (line ~1170): the Purchase has no attribution AND
+    none of its ReceiptItems carry an attribution either.
+    """
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem
+    from sqlalchemy import or_, and_
+
+    any_tagged_item_ids = session.query(ReceiptItem.purchase_id).filter(
+        or_(
+            ReceiptItem.attribution_kind.isnot(None),
+            ReceiptItem.attribution_user_id.isnot(None),
+            and_(
+                ReceiptItem.attribution_user_ids.isnot(None),
+                ReceiptItem.attribution_user_ids != "[]",
+            ),
+        )
+    )
+    untagged_filter = and_(
+        Purchase.attribution_kind.is_(None),
+        Purchase.attribution_user_id.is_(None),
+        or_(
+            Purchase.attribution_user_ids.is_(None),
+            Purchase.attribution_user_ids == "[]",
+        ),
+        ~Purchase.id.in_(any_tagged_item_ids),
+    )
+    untagged_count = (
+        session.query(Purchase).filter(untagged_filter).count()
+    )
+    total = session.query(Purchase).count()
+    tagged_count = total - untagged_count
+    sample_rows = (
+        session.query(Purchase.id)
+        .filter(untagged_filter)
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(5)
+        .all()
+    )
+    return {
+        "untagged_count": int(untagged_count),
+        "tagged_count": int(tagged_count),
+        "untagged_sample_ids": [int(r[0]) for r in sample_rows],
+    }
+
+
+def _suggest_attribution_for_upload(
+    session,
+    *,
+    uploader_id: int | None,
+    store_id: int | None,
+) -> dict | None:
+    """Suggest attribution for a new Purchase row based on the
+    uploader's history at the same store.
+
+    Returns ``{"user_ids": [...], "kind": "...", "confidence":
+    "high" | "medium"}`` or ``None``. Confidence:
+      * 3+ of last 5 attributed receipts share the same
+        (user_ids, kind) → high
+      * 2 of 5 → medium
+      * less → None
+    """
+    from src.backend.initialize_database_schema import Purchase
+    from sqlalchemy import or_
+
+    if not uploader_id or not store_id:
+        return None
+
+    rows = (
+        session.query(Purchase)
+        .filter(Purchase.user_id == uploader_id)
+        .filter(Purchase.store_id == store_id)
+        .filter(
+            or_(
+                Purchase.attribution_user_id.isnot(None),
+                Purchase.attribution_kind.isnot(None),
+            )
+        )
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(10)
+        .all()
+    )
+    if len(rows) < 2:
+        return None
+
+    last_5 = rows[:5]
+    counts: dict[tuple, int] = {}
+    representative: dict[tuple, dict] = {}
+    for r in last_5:
+        ids_raw = r.attribution_user_ids
+        try:
+            parsed = json.loads(ids_raw) if ids_raw else []
+            if not isinstance(parsed, list):
+                parsed = []
+        except (TypeError, ValueError):
+            parsed = []
+        if not parsed and r.attribution_user_id:
+            parsed = [int(r.attribution_user_id)]
+        ids_tuple = tuple(sorted(int(x) for x in parsed))
+        kind = r.attribution_kind
+        key = (ids_tuple, kind)
+        counts[key] = counts.get(key, 0) + 1
+        representative.setdefault(key, {
+            "user_ids": list(ids_tuple),
+            "kind": kind,
+        })
+
+    if not counts:
+        return None
+    top_key = max(counts, key=counts.get)
+    top_count = counts[top_key]
+    if top_count >= 3:
+        confidence = "high"
+    elif top_count == 2:
+        confidence = "medium"
+    else:
+        return None
+
+    payload = dict(representative[top_key])
+    payload["confidence"] = confidence
+    return payload
+
+
+@receipts_bp.route("/attribution-stats", methods=["GET"])
+@require_auth
+def attribution_stats():
+    """Return tagged/untagged purchase counts + sample untagged ids
+    for the dashboard nudge banner."""
+    return jsonify(_compute_attribution_stats(g.db_session)), 200
 
 
 @receipts_bp.route("/<int:receipt_id>/items/<int:item_id>/attribution", methods=["PUT"])
