@@ -1571,6 +1571,96 @@ def spending_by_category():
     }), 200
 
 
+@analytics_bp.route("/spending-by-category/items", methods=["GET"])
+@require_auth
+def spending_by_category_items():
+    """Return individual purchases that contributed to a category total.
+
+    Drill-down for the dashboard "Spending by Category" card. The
+    aggregate endpoint returns one row per category; this returns the
+    receipts behind that single row so the user can see exactly which
+    purchases added up to e.g. "Other $10,423.14".
+
+    Query params:
+      month     — YYYY-MM (default: current month)
+      category  — required, matches Purchase.default_budget_category
+      limit     — max rows (default 200, capped at 500)
+
+    Refunds are excluded for parity with the aggregate query.
+    """
+    import sqlalchemy as _sa
+    from src.backend.initialize_database_schema import Store
+
+    session = g.db_session
+    month_raw = (request.args.get("month") or "").strip()
+    try:
+        anchor = datetime.strptime(month_raw, "%Y-%m") if month_raw else datetime.now(timezone.utc)
+    except ValueError:
+        return jsonify({"error": "month must be YYYY-MM"}), 400
+    category = (request.args.get("category") or "").strip().lower()
+    if not category:
+        return jsonify({"error": "category is required"}), 400
+    try:
+        limit = int(request.args.get("limit") or 200)
+    except (TypeError, ValueError):
+        limit = 200
+    limit = max(1, min(limit, 500))
+
+    month_start = anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_start = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_start = month_start.replace(month=month_start.month + 1)
+
+    # "other" is the bucket label the aggregate endpoint uses for
+    # purchases whose default_budget_category is NULL or empty, so
+    # treat NULL/'' as part of that bucket here too.
+    cat_filter = (
+        _sa.or_(
+            Purchase.default_budget_category.is_(None),
+            Purchase.default_budget_category == "",
+            _sa.func.lower(Purchase.default_budget_category) == "other",
+        )
+        if category == "other"
+        else _sa.func.lower(Purchase.default_budget_category) == category
+    )
+
+    rows = (
+        session.query(Purchase, Store.name)
+        .outerjoin(Store, Store.id == Purchase.store_id)
+        .filter(Purchase.date >= month_start, Purchase.date < next_start)
+        .filter(cat_filter)
+        .filter(
+            _sa.or_(
+                Purchase.transaction_type.is_(None),
+                Purchase.transaction_type != "refund",
+            )
+        )
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for purchase, store_name in rows:
+        items.append({
+            "id": purchase.id,
+            "date": purchase.date.isoformat() if purchase.date else None,
+            "store_name": store_name or None,
+            "total_amount": float(purchase.total_amount or 0.0),
+            "transaction_type": purchase.transaction_type or "purchase",
+            "domain": purchase.domain,
+        })
+
+    return jsonify({
+        "month": month_start.strftime("%Y-%m"),
+        "category": category,
+        "count": len(items),
+        "limit": limit,
+        "items": items,
+    }), 200
+
+
 @analytics_bp.route("/receipts-activity", methods=["GET"])
 @require_auth
 def receipts_activity():

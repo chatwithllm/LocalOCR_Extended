@@ -2505,6 +2505,118 @@ body.trusted-device-kitchen-display *:focus-visible {
   .spending-row__pct    { font-size: 0.65rem; right: 6px; }
 }
 
+/* ---------- Spending row drill-down ------------------------- */
+.spending-row-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+button.spending-row {
+  appearance: none;
+  border: none;
+  padding: 8px 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+  font: inherit;
+}
+button.spending-row:hover {
+  background: color-mix(in srgb, var(--color-brand) 6%, transparent);
+}
+.spending-row-wrap.is-open > button.spending-row {
+  background: color-mix(in srgb, var(--color-brand) 9%, transparent);
+}
+.spending-row__chevron {
+  display: inline-block;
+  width: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  transition: transform 140ms ease;
+  flex: 0 0 auto;
+}
+.spending-row-wrap.is-open .spending-row__chevron {
+  color: var(--text);
+}
+.spending-row__drill {
+  margin: 0 6px 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+}
+.spending-row__drill[hidden] { display: none; }
+.spending-drill__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.spending-drill__header span:last-child {
+  font-weight: 800;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+.spending-drill__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.spending-drill__row {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.spending-drill__row:hover {
+  background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+}
+.spending-drill__date {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.spending-drill__store {
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spending-drill__amount {
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.spending-drill__row.is-refund .spending-drill__amount {
+  color: #2fa36b;
+}
+.spending-drill__loading,
+.spending-drill__empty,
+.spending-drill__error,
+.spending-drill__truncated {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 6px 4px;
+}
+.spending-drill__error { color: #e0803a; }
+
 /* ---------- Spending Flow (Sankey-style) -------------------- */
 .spending-flow {
   width: 100%;

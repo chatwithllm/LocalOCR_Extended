@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424e" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424f" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -29762,6 +29762,8 @@
       const _SPENDING_INITIAL_LIMIT = 5;
       let _spendingAllRows = [];
       let _spendingExpanded = false;
+      const _spendingDrillCache = new Map();
+      const _spendingDrillOpen = new Set();
 
       function toggleDashboardSpendingCard() {
         const wrap = document.getElementById("dashboard-spending-wrap");
@@ -29819,23 +29821,31 @@
             const pctHtml = widthPct >= 18
               ? `<span class="spending-row__pct">${sharePct}%</span>`
               : "";
+            const cat = String(r.category || "other").toLowerCase();
+            const isOpen = _spendingDrillOpen.has(cat);
             return `
-              <div class="spending-row ${colorClass}">
-                <div class="spending-row__label">
-                  <span class="spending-row__icon">${_formatCategoryIcon(r.category)}</span>
-                  <span class="spending-row__name" title="${escAttr(_formatCategoryLabel(r.category))}">${escHtml(_formatCategoryLabel(r.category))}</span>
-                </div>
-                <div class="spending-row__bar">
-                  <div class="spending-row__fill" style="width:${widthPct}%"></div>
-                  ${pctHtml}
-                </div>
-                <div class="spending-row__amount">
-                  <span class="spending-row__amount-value">${formatMoney(r.amount || 0)}</span>
-                  ${deltaHtml}
-                </div>
+              <div class="spending-row-wrap ${isOpen ? "is-open" : ""}" data-spending-cat="${escAttr(cat)}">
+                <button type="button" class="spending-row ${colorClass}" onclick="toggleSpendingCategoryDrill('${escAttr(cat)}')" aria-expanded="${isOpen ? "true" : "false"}" title="Click to see receipts in this category">
+                  <div class="spending-row__label">
+                    <span class="spending-row__chevron">${isOpen ? "▾" : "▸"}</span>
+                    <span class="spending-row__icon">${_formatCategoryIcon(r.category)}</span>
+                    <span class="spending-row__name" title="${escAttr(_formatCategoryLabel(r.category))}">${escHtml(_formatCategoryLabel(r.category))}</span>
+                  </div>
+                  <div class="spending-row__bar">
+                    <div class="spending-row__fill" style="width:${widthPct}%"></div>
+                    ${pctHtml}
+                  </div>
+                  <div class="spending-row__amount">
+                    <span class="spending-row__amount-value">${formatMoney(r.amount || 0)}</span>
+                    ${deltaHtml}
+                  </div>
+                </button>
+                <div class="spending-row__drill" id="spending-row-drill-${escAttr(cat)}" ${isOpen ? "" : "hidden"}></div>
               </div>`;
           })
           .join("");
+        // Repopulate any drill panels that were open before the rerender.
+        _spendingDrillOpen.forEach((cat) => _renderSpendingDrillPanel(cat));
         if (moreWrap && moreBtn) {
           const hidden = all.length - _SPENDING_INITIAL_LIMIT;
           if (hidden > 0) {
@@ -29846,6 +29856,89 @@
           } else {
             moreWrap.style.display = "none";
           }
+        }
+      }
+
+      async function toggleSpendingCategoryDrill(category) {
+        const cat = String(category || "").toLowerCase();
+        if (!cat) return;
+        const wasOpen = _spendingDrillOpen.has(cat);
+        if (wasOpen) {
+          _spendingDrillOpen.delete(cat);
+        } else {
+          _spendingDrillOpen.add(cat);
+        }
+        _renderSpendingCategoryRows();
+        if (!wasOpen) {
+          await _renderSpendingDrillPanel(cat);
+        }
+      }
+
+      async function _renderSpendingDrillPanel(category) {
+        const cat = String(category || "").toLowerCase();
+        const panel = document.getElementById(`spending-row-drill-${cat}`);
+        if (!panel) return;
+        const now = new Date();
+        const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const cacheKey = `${ym}::${cat}`;
+        let payload = _spendingDrillCache.get(cacheKey);
+        if (!payload) {
+          panel.innerHTML = `<div class="spending-drill__loading">Loading…</div>`;
+          try {
+            const res = await api(
+              `/analytics/spending-by-category/items?month=${encodeURIComponent(ym)}&category=${encodeURIComponent(cat)}&limit=200`,
+            );
+            if (!res.ok) {
+              panel.innerHTML = `<div class="spending-drill__error">Could not load receipts.</div>`;
+              return;
+            }
+            payload = await res.json();
+            _spendingDrillCache.set(cacheKey, payload);
+          } catch (err) {
+            console.error("spending drill failed", err);
+            panel.innerHTML = `<div class="spending-drill__error">Could not load receipts.</div>`;
+            return;
+          }
+        }
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        if (!items.length) {
+          panel.innerHTML = `<div class="spending-drill__empty">No receipts in this category for the month.</div>`;
+          return;
+        }
+        const total = items.reduce((s, it) => s + Number(it.total_amount || 0), 0);
+        const rows = items
+          .map((it) => {
+            const dateStr = it.date
+              ? new Date(it.date).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })
+              : "—";
+            const store = it.store_name || "Unknown store";
+            const isRefund = it.transaction_type === "refund";
+            return `
+              <button type="button" class="spending-drill__row${isRefund ? " is-refund" : ""}" onclick="openReceiptDetail(${Number(it.id)})" title="Open receipt #${Number(it.id)}">
+                <span class="spending-drill__date">${escHtml(dateStr)}</span>
+                <span class="spending-drill__store">${escHtml(store)}</span>
+                <span class="spending-drill__amount">${formatMoney(it.total_amount || 0)}</span>
+              </button>`;
+          })
+          .join("");
+        const truncatedNote = items.length >= (payload.limit || 200)
+          ? `<div class="spending-drill__truncated">Showing first ${items.length} — narrow to a smaller window in Receipts to see more.</div>`
+          : "";
+        panel.innerHTML = `
+          <div class="spending-drill__header">
+            <span>${items.length} receipt${items.length === 1 ? "" : "s"}</span>
+            <span>${formatMoney(total)}</span>
+          </div>
+          <div class="spending-drill__list">${rows}</div>
+          ${truncatedNote}`;
+      }
+
+      function openReceiptDetail(purchaseId) {
+        if (typeof jumpToReceipt === "function") {
+          try { jumpToReceipt(purchaseId); } catch (_e) {}
         }
       }
 
@@ -29872,6 +29965,7 @@
           const rows = data.categories || [];
           if (totalEl) totalEl.textContent = formatMoney(data.total || 0);
           _spendingAllRows = rows;
+          _spendingDrillCache.clear();
           _renderSpendingCategoryRows();
         } catch (err) {
           console.error("loadSpendingByCategory failed", err);
