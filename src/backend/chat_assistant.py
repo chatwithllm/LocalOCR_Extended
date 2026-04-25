@@ -660,8 +660,19 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
             continue
         _push_model_attempt(cfg, _push)
 
-    # 3. Env-var fallbacks.
-    openai_env = (os.getenv("OPENAI_API_KEY") or "").strip()
+    # 3. Env-var fallbacks. Chat-specific keys take priority over the
+    #    OCR keys so the operator can attribute spend separately on the
+    #    provider's billing console (e.g. one OpenRouter key for receipt
+    #    OCR, a different one for the assistant). Placeholder values
+    #    starting with "your_" are treated as unset.
+    def _chat_key(*names: str) -> str:
+        for name in names:
+            value = (os.getenv(name) or "").strip()
+            if value and not value.startswith("your_"):
+                return value
+        return ""
+
+    openai_env = _chat_key("OPENAI_CHAT_API_KEY", "OPENAI_API_KEY")
     if openai_env:
         model_string = (os.getenv("OPENAI_CHAT_MODEL") or "gpt-4o-mini").strip()
         _push(
@@ -672,7 +683,7 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
                 openai_env, model_string, system_prompt, history, user_message,
             ),
         )
-    openrouter_env = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+    openrouter_env = _chat_key("OPENROUTER_CHAT_API_KEY", "OPENROUTER_API_KEY")
     if openrouter_env:
         or_model = (os.getenv("OPENROUTER_CHAT_MODEL") or "openai/gpt-4o-mini").strip()
         _push(
@@ -688,7 +699,7 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
                 base_url="https://openrouter.ai/api/v1",
             ),
         )
-    anthropic_env = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    anthropic_env = _chat_key("ANTHROPIC_CHAT_API_KEY", "ANTHROPIC_API_KEY")
     if anthropic_env:
         a_model = (os.getenv("ANTHROPIC_CHAT_MODEL") or "claude-3-5-haiku-latest").strip()
         _push(
