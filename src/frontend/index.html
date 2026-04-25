@@ -13099,6 +13099,11 @@
               ></div>
             </div>
           </div>
+          <div id="dashboard-attr-nudge" class="dash-attr-nudge" style="display:none">
+            <span class="dash-attr-nudge__icon">💡</span>
+            <span id="dashboard-attr-nudge-text" class="dash-attr-nudge__text"></span>
+            <a class="dash-attr-nudge__cta" onclick="navToReceiptsUntagged()" style="cursor:pointer">Tag now →</a>
+          </div>
           <!-- Row 1: Inventory health — full width. -->
           <div class="stats-grid dashboard-stats-grid dashboard-inventory-row" id="dashboard-stats-row">
             <div class="stat-card dashboard-combo-stat">
@@ -30656,6 +30661,7 @@
           // Spend-by-Person moved to the Accounts page — don't load here.
           loadReceiptsActivity();
           loadSpendingByCategory();
+          refreshAttributionStats();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
           const userAvatar = document.getElementById("dashboard-user-avatar");
@@ -31018,6 +31024,45 @@
         } catch (e) {
           console.error(e);
         }
+      }
+
+      async function refreshAttributionStats() {
+        try {
+          const res = await api("/receipts/attribution-stats");
+          if (!res.ok) return;
+          const data = await res.json();
+          const banner = document.getElementById("dashboard-attr-nudge");
+          const text = document.getElementById("dashboard-attr-nudge-text");
+          if (!banner || !text) return;
+          if (data.untagged_count > 0) {
+            const word = data.untagged_count === 1 ? "receipt" : "receipts";
+            text.textContent = `${data.untagged_count} ${word} untagged`;
+            banner.style.display = "";
+          } else {
+            banner.style.display = "none";
+          }
+        } catch (_e) {
+          // Banner stays hidden on error — non-critical
+        }
+      }
+
+      function navToReceiptsUntagged() {
+        if (typeof nav === "function") {
+          nav("receipts");
+        } else if (typeof navigateTo === "function") {
+          navigateTo("receipts");
+        }
+        // Activate the Untagged-only filter after navigation. _receiptsUntaggedOnly
+        // is the variable Attr-5 added; toggleReceiptsUntaggedFilter() flips it +
+        // refreshes the list.
+        setTimeout(() => {
+          if (
+            typeof _receiptsUntaggedOnly !== "undefined" &&
+            !_receiptsUntaggedOnly
+          ) {
+            toggleReceiptsUntaggedFilter();
+          }
+        }, 150);
       }
 
       // ============================================================
