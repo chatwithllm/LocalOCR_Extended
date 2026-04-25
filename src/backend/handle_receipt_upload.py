@@ -2506,6 +2506,83 @@ def _compute_attribution_stats(session) -> dict:
     }
 
 
+def _suggest_attribution_for_upload(
+    session,
+    *,
+    uploader_id: int | None,
+    store_id: int | None,
+) -> dict | None:
+    """Suggest attribution for a new Purchase row based on the
+    uploader's history at the same store.
+
+    Returns ``{"user_ids": [...], "kind": "...", "confidence":
+    "high" | "medium"}`` or ``None``. Confidence:
+      * 3+ of last 5 attributed receipts share the same
+        (user_ids, kind) → high
+      * 2 of 5 → medium
+      * less → None
+    """
+    from src.backend.initialize_database_schema import Purchase
+    from sqlalchemy import or_
+
+    if not uploader_id or not store_id:
+        return None
+
+    rows = (
+        session.query(Purchase)
+        .filter(Purchase.user_id == uploader_id)
+        .filter(Purchase.store_id == store_id)
+        .filter(
+            or_(
+                Purchase.attribution_user_id.isnot(None),
+                Purchase.attribution_kind.isnot(None),
+            )
+        )
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .limit(10)
+        .all()
+    )
+    if len(rows) < 2:
+        return None
+
+    last_5 = rows[:5]
+    counts: dict[tuple, int] = {}
+    representative: dict[tuple, dict] = {}
+    for r in last_5:
+        ids_raw = r.attribution_user_ids
+        try:
+            parsed = json.loads(ids_raw) if ids_raw else []
+            if not isinstance(parsed, list):
+                parsed = []
+        except (TypeError, ValueError):
+            parsed = []
+        if not parsed and r.attribution_user_id:
+            parsed = [int(r.attribution_user_id)]
+        ids_tuple = tuple(sorted(int(x) for x in parsed))
+        kind = r.attribution_kind
+        key = (ids_tuple, kind)
+        counts[key] = counts.get(key, 0) + 1
+        representative.setdefault(key, {
+            "user_ids": list(ids_tuple),
+            "kind": kind,
+        })
+
+    if not counts:
+        return None
+    top_key = max(counts, key=counts.get)
+    top_count = counts[top_key]
+    if top_count >= 3:
+        confidence = "high"
+    elif top_count == 2:
+        confidence = "medium"
+    else:
+        return None
+
+    payload = dict(representative[top_key])
+    payload["confidence"] = confidence
+    return payload
+
+
 @receipts_bp.route("/attribution-stats", methods=["GET"])
 @require_auth
 def attribution_stats():

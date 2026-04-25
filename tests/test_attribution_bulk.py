@@ -197,3 +197,127 @@ def test_attribution_stats_zero_untagged(session, household):
     assert stats["untagged_count"] == 0
     assert stats["tagged_count"] == 1
     assert stats["untagged_sample_ids"] == []
+
+
+def test_suggest_high_confidence(session, household):
+    """4 of last 5 Costco uploads by Mom were personal/Mom → high."""
+    from src.backend.handle_receipt_upload import _suggest_attribution_for_upload
+
+    for d in [10, 8, 6, 4, 2]:
+        household["_purchase"](
+            d, household["mom"], household["costco"],
+            attr=household["mom"], kind="personal",
+        )
+    # Add one outlier: shared with Dad
+    household["_purchase"](
+        12, household["mom"], household["costco"],
+        attr_ids=[household["mom"], household["dad"]], kind="shared",
+    )
+    session.commit()
+
+    s = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert s is not None
+    assert s["confidence"] == "high"
+    assert s["kind"] == "personal"
+    assert s["user_ids"] == [household["mom"].id]
+
+
+def test_suggest_medium_confidence(session, household):
+    """2 of last 5 split — medium confidence."""
+    from src.backend.handle_receipt_upload import _suggest_attribution_for_upload
+
+    # 2 personal/Mom, 1 personal/Dad, 1 household, 1 shared
+    household["_purchase"](
+        10, household["mom"], household["costco"],
+        attr=household["mom"], kind="personal",
+    )
+    household["_purchase"](
+        8, household["mom"], household["costco"],
+        attr=household["mom"], kind="personal",
+    )
+    household["_purchase"](
+        6, household["mom"], household["costco"],
+        attr=household["dad"], kind="personal",
+    )
+    household["_purchase"](
+        4, household["mom"], household["costco"], kind="household",
+    )
+    household["_purchase"](
+        2, household["mom"], household["costco"],
+        attr_ids=[household["mom"], household["dad"]], kind="shared",
+    )
+    session.commit()
+
+    s = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert s is not None
+    assert s["confidence"] == "medium"
+
+
+def test_suggest_none_when_no_history(session, household):
+    from src.backend.handle_receipt_upload import _suggest_attribution_for_upload
+
+    s = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert s is None
+
+
+def test_suggest_none_when_low_diversity(session, household):
+    """5 different attributions in last 5 → no modal majority → None."""
+    from src.backend.handle_receipt_upload import _suggest_attribution_for_upload
+
+    # Each row has a different (user, kind) combination
+    household["_purchase"](
+        10, household["mom"], household["costco"],
+        attr=household["mom"], kind="personal",
+    )
+    household["_purchase"](
+        8, household["mom"], household["costco"],
+        attr=household["dad"], kind="personal",
+    )
+    household["_purchase"](
+        6, household["mom"], household["costco"], kind="household",
+    )
+    household["_purchase"](
+        4, household["mom"], household["costco"],
+        attr_ids=[household["mom"], household["dad"]], kind="shared",
+    )
+    session.commit()
+
+    s = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert s is None  # No group reaches the 2-of-5 threshold
+
+
+def test_suggest_scoped_per_uploader(session, household):
+    """History from a different uploader doesn't influence this one."""
+    from src.backend.handle_receipt_upload import _suggest_attribution_for_upload
+
+    # Dad's strong history at Costco
+    for d in [10, 8, 6, 4, 2]:
+        household["_purchase"](
+            d, household["dad"], household["costco"],
+            attr=household["dad"], kind="personal",
+        )
+    session.commit()
+
+    # Mom asks → no history of her own at Costco → None
+    s = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert s is None
