@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -450,6 +451,30 @@ _CHAT_STOPWORDS: set[str] = {
     "sum", "summary", "report", "reports", "stat", "stats",
     "statistic", "statistics",
 }
+
+
+# Temporal-intent extractor — gates the lazy `shopping_activity`
+# block. Conservative: false positives just add ~1 KB to the data
+# context; false negatives block the new feature, so when in doubt
+# we let the regex match.
+_TEMPORAL_INTENT_RE = re.compile(
+    r"\b(when|lately|recent(ly)?|last\s+(time|visit|trip|shop)|"
+    r"frequent(ly)?|often|trend|rate|consumption|consum(e|ing))\b"
+    r"|how\s+(much|many|fast)\s+(do\s+)?(we|i)\s+(shop|consum|buy)"
+    r"|how\s+often",
+    re.IGNORECASE,
+)
+
+
+def _extract_temporal_intent(message: str | None) -> bool:
+    """Return True if ``message`` looks like a recency / frequency /
+    consumption question — recent visits, cadence, or rate-of-buying.
+    Used by ``build_data_context`` to decide whether to compute the
+    (relatively expensive) ``shopping_activity`` block.
+    """
+    if not message:
+        return False
+    return bool(_TEMPORAL_INTENT_RE.search(message))
 
 
 def _extract_item_query_terms(message: str, max_terms: int = 2) -> list[str]:
