@@ -99,9 +99,28 @@ question: dates only → "- 2026-04-09"; with prices → "- 2026-04-09
 @ Costco — $6.89"; with totals → append " (×qty = $X.XX)" only when
 the user asked for totals.
 
+For analytical questions ("anything interesting", "any patterns",
+"trends", "buying habits", "where do we buy X most/least", "how
+often", "are we paying more"), DO NOT refuse — read the
+``insights`` block on each item_search_results row instead. It
+already contains ``store_breakdown`` (count + spend per store, sorted
+by count desc), ``top_store_share_pct``, ``avg_days_between_purchases``,
+``cadence_change_pct_recent_vs_older`` (negative = buying more often
+recently), ``unit_price_min/max/avg/last``, and
+``unit_price_volatility_pct``. Translate those numbers into plain
+English observations. Pick the 2–3 most interesting ones; don't
+recite every field.
+
+If ``item_search_topic_carried_from_history`` is true, the user's
+current message had no explicit product name and we reused the term
+from a previous turn — acknowledge briefly ("for tomatoes...") so
+they know which item the answer covers.
+
 If ``item_search_results`` is empty but the question clearly named
 an item, say so rather than inventing a number; suggest checking the
-Inventory or Receipts page.
+Inventory or Receipts page. NEVER invent a store name that isn't in
+``store_breakdown`` — if the user asks about a store you don't see
+there, say so.
 
 FORMATTING (the UI renders a small subset of markdown — use it):
 
@@ -152,6 +171,24 @@ Example for "what dates and prices for tomatoes":
 Example for "how much did we spend on groceries this month":
 
     **Grocery (2026-04):** $626.47 (↓37% vs last month).
+
+Example for "do you see anything interesting in tomato buying pattern?":
+
+    **Tomato buying pattern (12 receipts):**
+    - All purchases at Costco Wholesale (100% concentration).
+    - Buying on average every 22 days — fairly consistent cadence.
+    - Unit price ranged $6.39 – $17.97 (≈180% volatility); the
+      $17.97 one is an outlier worth a glance.
+    - Most-recent price ($6.89) is about half the average — likely a
+      promo run.
+
+Example for "which store did we visit least for tomatoes?":
+
+    **Tomatoes by store:**
+    - Costco Wholesale — 12 purchases ($122.52)
+
+    Only one store in the data, so there is no "least visited" to
+    compare. Try a different item or expand the date range.
 
 Keep answers terse — one headline + at most a short list. Skip
 filler ("Sure!", "Of course!", "Here is..."). USD totals always show
@@ -279,20 +316,40 @@ _CHAT_STOPWORDS: set[str] = {
     "yet", "mean", "means", "meant", "really", "actually", "maybe",
     "though", "either", "neither", "rather", "quite", "kind", "sort",
     "way", "thing", "stuff",
+    # Analytical / pattern-question vocabulary that should never be
+    # treated as a product name. Keeps "do you see anything
+    # interesting in tomato pattern" from triggering false-positive
+    # ILIKE searches for "see", "anything", "interesting", "pattern".
+    "store", "stores", "visited", "visit", "shop", "shopping",
+    "most", "least", "best", "worst", "common", "rare", "rarely",
+    "often", "usual", "usually",
+    "trend", "trends", "pattern", "patterns", "insight", "insights",
+    "interesting", "notable", "notice", "noticed", "anything",
+    "something", "nothing", "see", "anymore", "ever", "never",
+    "seem", "seems", "looks", "look", "looking",
+    "compare", "comparing", "comparison", "vs", "versus", "between",
+    # Money/measurement words that aren't products themselves.
+    "price", "prices", "cost", "costs", "amount", "amounts", "value",
+    "values", "quantity", "qty", "unit", "units", "size", "weight",
+    "average", "median", "mean", "min", "minimum", "max", "maximum",
+    "sum", "summary", "report", "reports", "stat", "stats",
+    "statistic", "statistics",
 }
 
 
-def _extract_item_query_terms(message: str, max_terms: int = 4) -> list[str]:
+def _extract_item_query_terms(message: str, max_terms: int = 2) -> list[str]:
     """Pull plausible product nouns out of a free-text question.
 
-    Returns up to ``max_terms`` lowercase tokens of length >= 3 that
-    aren't in the stop-word list. Order is preserved (first mention
-    wins) so a user typing "tomatoes and onions" gets [tomatoes,
-    onions] rather than alphabetical.
+    Heuristic — keeps lowercase non-stopword tokens of length >= 3,
+    then ranks them so the longest (most specific) tokens survive the
+    ``max_terms`` cap. "tomatoes and onions" still produces both,
+    but a noisy "do you see anything interesting in tomato pattern"
+    yields just ["tomato"] instead of dragging "see"/"anything"/etc.
+    along into ILIKE searches.
     """
     import re
 
-    tokens: list[str] = []
+    candidates: list[str] = []
     seen: set[str] = set()
     for raw in re.findall(r"[A-Za-z][A-Za-z'\-]+", str(message or "")):
         token = raw.lower().strip("-'")
@@ -303,10 +360,98 @@ def _extract_item_query_terms(message: str, max_terms: int = 4) -> list[str]:
         if token in seen:
             continue
         seen.add(token)
-        tokens.append(token)
-        if len(tokens) >= max_terms:
-            break
-    return tokens
+        candidates.append(token)
+
+    # Rank by length descending — long words tend to be specific
+    # product nouns, short ones tend to be filler that slipped past
+    # the stoplist. Tie-break by original order so "tomato" beats
+    # "onion" when both are equally specific.
+    indexed = list(enumerate(candidates))
+    indexed.sort(key=lambda pair: (-len(pair[1]), pair[0]))
+    return [tok for _, tok in indexed[:max_terms]]
+
+
+def _compute_item_insights(history: list[dict[str, Any]]) -> dict[str, Any]:
+    """Pre-compute the analysis the bot used to make up.
+
+    Given the per-product purchase history (date / store / unit_price
+    / line_total), return a small JSON-friendly insights blob the
+    model can read off directly when the user asks about patterns,
+    cadence, store concentration, or price changes. Without this the
+    model would either hallucinate or refuse to analyse.
+    """
+    if not history:
+        return {}
+
+    # Store breakdown — count + spend per store, sorted by count desc.
+    store_stats: dict[str, dict[str, float]] = {}
+    for h in history:
+        store = h.get("store") or "Unknown"
+        st = store_stats.setdefault(store, {"count": 0, "total_spent": 0.0})
+        st["count"] += 1
+        st["total_spent"] += float(h.get("line_total") or 0.0)
+    store_breakdown = [
+        {"store": s, "count": int(v["count"]), "total_spent": round(v["total_spent"], 2)}
+        for s, v in store_stats.items()
+    ]
+    store_breakdown.sort(key=lambda x: (-x["count"], -x["total_spent"]))
+    top_store_pct = (
+        int(round(store_breakdown[0]["count"] / len(history) * 100))
+        if store_breakdown else 0
+    )
+
+    # Cadence — average days between consecutive purchases. History is
+    # already sorted desc; flip to chronological for the diff.
+    from datetime import datetime as _dt
+    dates: list[_dt] = []
+    for h in history:
+        ds = h.get("date")
+        if ds:
+            try:
+                dates.append(_dt.strptime(ds, "%Y-%m-%d"))
+            except ValueError:
+                continue
+    dates.sort()
+    avg_days_between: float | None = None
+    if len(dates) >= 2:
+        gaps = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+        avg_days_between = round(sum(gaps) / len(gaps), 1)
+
+    # Cadence trend — recent half vs older half. Negative pct = buying
+    # more often, positive = buying less often.
+    cadence_change_pct: int | None = None
+    if len(dates) >= 6:
+        mid = len(dates) // 2
+        old_gaps = [(dates[i] - dates[i - 1]).days for i in range(1, mid)]
+        new_gaps = [(dates[i] - dates[i - 1]).days for i in range(mid + 1, len(dates))]
+        if old_gaps and new_gaps:
+            old_avg = sum(old_gaps) / len(old_gaps)
+            new_avg = sum(new_gaps) / len(new_gaps)
+            if old_avg > 0:
+                cadence_change_pct = int(round(((new_avg - old_avg) / old_avg) * 100))
+
+    # Price stats.
+    prices = [float(h.get("unit_price") or 0.0) for h in history if (h.get("unit_price") or 0.0) > 0]
+    price_min = round(min(prices), 2) if prices else None
+    price_max = round(max(prices), 2) if prices else None
+    price_avg = round(sum(prices) / len(prices), 2) if prices else None
+    price_last = round(float(history[0].get("unit_price") or 0.0), 2) if history else None
+    price_change_pct: int | None = None
+    if price_min is not None and price_max is not None and price_min > 0:
+        # Volatility as a simple max/min ratio in percent.
+        price_change_pct = int(round((price_max - price_min) / price_min * 100))
+
+    return {
+        "store_breakdown": store_breakdown,
+        "top_store_share_pct": top_store_pct,
+        "avg_days_between_purchases": avg_days_between,
+        "cadence_change_pct_recent_vs_older": cadence_change_pct,
+        "unit_price_min": price_min,
+        "unit_price_max": price_max,
+        "unit_price_avg": price_avg,
+        "unit_price_last": price_last,
+        "unit_price_volatility_pct": price_change_pct,
+    }
 
 
 def _expand_term_variants(term: str) -> list[str]:
@@ -439,6 +584,7 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
             "first_bought": first_dt.strftime("%Y-%m-%d") if first_dt else None,
             "last_bought": last_dt.strftime("%Y-%m-%d") if last_dt else None,
             "purchase_history": history,
+            "insights": _compute_item_insights(history),
         })
     return out
 
@@ -479,6 +625,44 @@ def build_data_context(
         })
 
     item_terms = _extract_item_query_terms(user_message or "")
+    carried_from_history = False
+    # Topic carry-over — if the user's current message has no item
+    # term but they're clearly continuing a thread ("anything
+    # interesting?", "and prices too", "from which store"), reuse the
+    # most recent terms we successfully extracted from a prior user
+    # turn. Walk back at most 5 turns so a long unrelated history
+    # doesn't drag stale topics back in.
+    if not item_terms:
+        history_walked = 0
+        # ``user_message`` is THIS turn — walk only the previously
+        # persisted user messages stored in g.db_session before the
+        # caller. Since ``build_data_context`` doesn't have direct
+        # access to the chat-message history, we rely on the
+        # session-attached query.
+        try:
+            recent_user_msgs = (
+                session.query(ChatMessage)
+                .filter(ChatMessage.user_id == user.id)
+                .filter(ChatMessage.role == "user")
+                .filter(ChatMessage.flagged == False)  # noqa: E712
+                .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+                .limit(6)
+                .all()
+            )
+        except Exception:  # noqa: BLE001
+            recent_user_msgs = []
+        for past in recent_user_msgs:
+            if past.content == user_message:
+                # Skip the row we just persisted for this turn.
+                continue
+            past_terms = _extract_item_query_terms(past.content)
+            if past_terms:
+                item_terms = past_terms
+                carried_from_history = True
+                break
+            history_walked += 1
+            if history_walked >= 5:
+                break
     item_results = _search_items(session, item_terms) if item_terms else []
 
     return {
@@ -495,6 +679,7 @@ def build_data_context(
         "uncategorized_count_current_month": _uncategorized_count(session, cur_start, cur_end),
         "item_search_terms": item_terms,
         "item_search_results": item_results,
+        "item_search_topic_carried_from_history": carried_from_history,
         "categories_supported": sorted(BUDGET_CATEGORIES),
     }
 
