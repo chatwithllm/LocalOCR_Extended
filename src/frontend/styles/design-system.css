@@ -2506,6 +2506,10 @@ body.trusted-device-kitchen-display *:focus-visible {
 }
 
 /* ---------- Settings — collapsible cards -------------------- */
+#page-settings .settings-card {
+  margin-bottom: 8px;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
 #page-settings .settings-card .card-header {
   user-select: none;
   cursor: pointer;
@@ -2513,21 +2517,58 @@ body.trusted-device-kitchen-display *:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  padding: 10px 14px;
+  margin: -16px;          /* pull edges to card boundary so the whole bar is hot */
+  margin-bottom: 14px;
+  border-radius: 14px 14px 0 0;
+  transition: background-color 140ms ease;
 }
 #page-settings .settings-card .card-header:hover {
-  background: color-mix(in srgb, var(--color-brand) 4%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 5%, transparent);
+}
+#page-settings .settings-card .card-header .card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 #page-settings .settings-card__chevron {
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--muted);
   flex: 0 0 auto;
-  transition: color 140ms ease;
+  margin-left: auto;
+  width: 18px;
+  text-align: center;
+  transition: transform 180ms ease, color 140ms ease;
+}
+#page-settings .settings-card:not(.settings-card--collapsed) .settings-card__chevron {
+  color: var(--text);
+}
+/* When collapsed, hide every header child EXCEPT the title and the
+   chevron — keeps inline action buttons (Add User, Pair Device, etc.)
+   from cluttering the collapsed bar. */
+#page-settings .settings-card.settings-card--collapsed .card-header > *:not(.card-title):not(.settings-card__chevron) {
+  display: none !important;
 }
 #page-settings .settings-card.settings-card--collapsed > *:not(.card-header) {
   display: none !important;
 }
+#page-settings .settings-card.settings-card--collapsed {
+  padding: 0;
+  background: transparent;
+}
 #page-settings .settings-card.settings-card--collapsed .card-header {
-  margin-bottom: 0;
+  margin: 0;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--color-surface-1, rgba(255, 255, 255, 0.02));
+}
+#page-settings .settings-card.settings-card--collapsed .card-header:hover {
+  background: color-mix(in srgb, var(--color-brand) 5%, transparent);
 }
 
 /* ---------- In-App Assistant -------------------------------- */
