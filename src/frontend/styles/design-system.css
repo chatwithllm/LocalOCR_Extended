@@ -2771,8 +2771,39 @@ body.trusted-device-kitchen-display *:focus-visible {
   padding: 8px 12px;
   border-radius: 12px;
   font-size: 0.88rem;
-  line-height: 1.4;
+  line-height: 1.45;
   word-wrap: break-word;
+}
+.chat-msg__bubble .chat-p {
+  margin: 0 0 6px;
+}
+.chat-msg__bubble .chat-p:last-child {
+  margin-bottom: 0;
+}
+.chat-msg__bubble .chat-h {
+  margin: 4px 0 4px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.chat-msg__bubble .chat-list {
+  margin: 4px 0 6px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.chat-msg__bubble .chat-list:last-child {
+  margin-bottom: 0;
+}
+.chat-msg__bubble .chat-list li::marker {
+  color: var(--muted);
+}
+.chat-msg__bubble code {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 0.82rem;
 }
 .chat-msg--user .chat-msg__bubble {
   background: color-mix(in srgb, var(--color-brand) 26%, transparent);

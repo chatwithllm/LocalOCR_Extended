@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425g" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425h" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -43680,11 +43680,70 @@
       }
 
       function _renderChatMarkdownLite(text) {
-        // Tiny inline-only markdown — bold ** ** and line breaks.
+        // Block-aware tiny markdown — supports `**bold**`, `*italic*`,
+        // `### heading`, `- bullet` / `* bullet` / numbered lists, and
+        // paragraph breaks. Escapes HTML first so untrusted text from
+        // either user or LLM can't inject markup.
         const safe = escHtml(String(text || ""));
-        return safe
-          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-          .replace(/\n/g, "<br>");
+        if (!safe.trim()) return "";
+        const inline = (s) =>
+          s
+            .replace(/`([^`]+)`/g, "<code>$1</code>")
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+        const lines = safe.replace(/\r\n?/g, "\n").split("\n");
+        const out = [];
+        let listType = null;        // "ul" | "ol" | null
+        let listItems = [];
+        let paragraph = [];
+        const flushList = () => {
+          if (!listType) return;
+          out.push(
+            `<${listType} class="chat-list">` +
+              listItems.map((li) => `<li>${inline(li)}</li>`).join("") +
+              `</${listType}>`,
+          );
+          listType = null;
+          listItems = [];
+        };
+        const flushParagraph = () => {
+          if (!paragraph.length) return;
+          out.push(`<p class="chat-p">${paragraph.map(inline).join("<br>")}</p>`);
+          paragraph = [];
+        };
+        for (const raw of lines) {
+          const line = raw.trim();
+          if (!line) {
+            flushList();
+            flushParagraph();
+            continue;
+          }
+          const heading = line.match(/^(#{1,4})\s+(.*)$/);
+          const ulItem = line.match(/^[-*•]\s+(.*)$/);
+          const olItem = line.match(/^\d+\.\s+(.*)$/);
+          if (heading) {
+            flushList();
+            flushParagraph();
+            const level = Math.min(4, Math.max(2, heading[1].length + 1));
+            out.push(`<h${level} class="chat-h">${inline(heading[2])}</h${level}>`);
+          } else if (ulItem) {
+            flushParagraph();
+            if (listType !== "ul") flushList();
+            listType = "ul";
+            listItems.push(ulItem[1]);
+          } else if (olItem) {
+            flushParagraph();
+            if (listType !== "ol") flushList();
+            listType = "ol";
+            listItems.push(olItem[1]);
+          } else {
+            flushList();
+            paragraph.push(line);
+          }
+        }
+        flushList();
+        flushParagraph();
+        return out.join("");
       }
 
       function _renderChatThread() {
