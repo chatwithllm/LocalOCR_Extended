@@ -94,6 +94,53 @@ def test_bulk_attribution_updates_multiple_rows(session, household):
         assert row.attribution_kind == "personal"
 
 
+def test_bulk_attribution_rejects_zero_and_negative_ids(session, household):
+    """Empty / zero / negative ids must NOT be silently accepted."""
+    from src.backend.handle_receipt_upload import _bulk_apply_attribution
+    p1 = household["_purchase"](1, household["mom"], household["costco"])
+    session.commit()
+
+    # Zero and negative shouldn't match any rows
+    result = _bulk_apply_attribution(
+        session,
+        purchase_ids=[0, -5, p1.id],
+        user_ids=[household["mom"].id],
+        kind="personal",
+        apply_to_items=False,
+    )
+    assert result["updated"] == 1
+    skipped_ids = {row["purchase_id"] for row in result["skipped"]}
+    assert {0, -5}.issubset(skipped_ids)
+
+
+def test_attribution_stats_excludes_purchases_with_tagged_items(session, household):
+    """A Purchase with no attribution but a tagged ReceiptItem should
+    NOT count as untagged — matches the receipts-list `unset` filter."""
+    from src.backend.handle_receipt_upload import _compute_attribution_stats
+    from src.backend.initialize_database_schema import ReceiptItem
+
+    p1 = household["_purchase"](1, household["mom"], household["costco"])
+    p2 = household["_purchase"](2, household["mom"], household["costco"])
+    session.flush()
+    # Purchase p1 stays untagged. p2 has an item tagged to Mom.
+    item = ReceiptItem(
+        purchase_id=p2.id,
+        product_id=1,
+        quantity=1,
+        unit_price=10.0,
+        attribution_user_id=household["mom"].id,
+        attribution_kind="personal",
+    )
+    session.add(item)
+    session.commit()
+
+    stats = _compute_attribution_stats(session)
+    assert stats["untagged_count"] == 1  # only p1
+    # tagged_count is total - untagged: p1 has attribution_kind=None
+    # but the filter says it's untagged, p2 is "tagged" via its item
+    assert stats["tagged_count"] == 1
+
+
 def test_bulk_attribution_skips_missing_ids(session, household):
     from src.backend.handle_receipt_upload import _bulk_apply_attribution
 

@@ -1537,8 +1537,17 @@ def approve_receipt(receipt_id):
     saved_purchase = (
         session.query(Purchase).filter_by(id=purchase_id).first()
     )
-    if saved_purchase and not saved_purchase.attribution_user_id \
-       and not saved_purchase.attribution_kind:
+    has_user_ids_set = (
+        saved_purchase
+        and saved_purchase.attribution_user_ids
+        and saved_purchase.attribution_user_ids != "[]"
+    )
+    if (
+        saved_purchase
+        and not saved_purchase.attribution_user_id
+        and not saved_purchase.attribution_kind
+        and not has_user_ids_set
+    ):
         suggestion = _suggest_attribution_for_upload(
             session,
             uploader_id=user_id,
@@ -2485,9 +2494,12 @@ def bulk_update_receipt_attribution():
     if len(raw_ids) > 200:
         return jsonify({"error": "Too many ids; max 200 per request"}), 400
     try:
-        purchase_ids = [int(x) for x in raw_ids]
+        purchase_ids = [int(x) for x in raw_ids if x is not None]
     except (TypeError, ValueError):
         return jsonify({"error": "purchase_ids must be integers"}), 400
+    purchase_ids = [pid for pid in purchase_ids if pid > 0]
+    if not purchase_ids:
+        return jsonify({"error": "purchase_ids must contain positive integers"}), 400
 
     ok, result = _normalize_attribution_payload(data, session, User)
     if not ok:
@@ -2507,17 +2519,33 @@ def bulk_update_receipt_attribution():
 
 def _compute_attribution_stats(session) -> dict:
     """Counts of tagged vs untagged Purchase rows + a few sample
-    untagged ids for the dashboard banner. Pure-DB helper."""
-    from src.backend.initialize_database_schema import Purchase
-    from sqlalchemy import or_
+    untagged ids for the dashboard banner. Pure-DB helper.
 
+    Definition of "untagged" matches the receipts-list ``unset``
+    filter token (line ~1170): the Purchase has no attribution AND
+    none of its ReceiptItems carry an attribution either.
+    """
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem
+    from sqlalchemy import or_, and_
+
+    any_tagged_item_ids = session.query(ReceiptItem.purchase_id).filter(
+        or_(
+            ReceiptItem.attribution_kind.isnot(None),
+            ReceiptItem.attribution_user_id.isnot(None),
+            and_(
+                ReceiptItem.attribution_user_ids.isnot(None),
+                ReceiptItem.attribution_user_ids != "[]",
+            ),
+        )
+    )
     untagged_filter = and_(
-        Purchase.attribution_user_id.is_(None),
         Purchase.attribution_kind.is_(None),
+        Purchase.attribution_user_id.is_(None),
         or_(
             Purchase.attribution_user_ids.is_(None),
             Purchase.attribution_user_ids == "[]",
         ),
+        ~Purchase.id.in_(any_tagged_item_ids),
     )
     untagged_count = (
         session.query(Purchase).filter(untagged_filter).count()

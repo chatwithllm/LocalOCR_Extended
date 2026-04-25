@@ -38948,11 +38948,12 @@
                   data-receipt-id="${rid}"
                 >
                   <div class="result-card__select">
-                    <input type="checkbox" class="receipt-bulk-check"
+                    ${(_receiptsUntaggedOnly && !receipt.purchase_id) ? "" : `<input type="checkbox" class="receipt-bulk-check"
                       data-receipt-id="${rid}" ${isChecked ? "checked" : ""}
+                      ${!receipt.purchase_id ? 'disabled title="Approve this receipt first to tag it."' : ""}
                       onclick="event.stopPropagation()"
                       onchange="onReceiptBulkToggle(${rid}, this.checked)"
-                      aria-label="Select receipt" />
+                      aria-label="Select receipt" />`}
                   </div>
                   <div
                     class="result-card__media"
