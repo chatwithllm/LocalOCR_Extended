@@ -2379,6 +2379,100 @@ def update_receipt_attribution(receipt_id):
     }), 200
 
 
+def _bulk_apply_attribution(
+    session,
+    *,
+    purchase_ids: list[int],
+    user_ids: list[int],
+    kind: str | None,
+    apply_to_items: bool,
+) -> dict:
+    """Apply the same attribution to many Purchase rows.
+
+    Pure-DB helper, no Flask. Returns
+    ``{"updated": N, "skipped": [{"purchase_id": int, "reason": str}]}``.
+    The caller is responsible for committing the session.
+    """
+    from src.backend.initialize_database_schema import Purchase, ReceiptItem
+
+    legacy_single = user_ids[0] if len(user_ids) == 1 else None
+    ids_json = _serialize_user_ids(user_ids)
+
+    skipped: list[dict] = []
+    updated = 0
+    rows = (
+        session.query(Purchase)
+        .filter(Purchase.id.in_(purchase_ids))
+        .all()
+    )
+    found_ids = {r.id for r in rows}
+    for missing in purchase_ids:
+        if missing not in found_ids:
+            skipped.append({"purchase_id": missing, "reason": "not_found"})
+
+    for row in rows:
+        row.attribution_user_id = legacy_single
+        row.attribution_user_ids = ids_json
+        row.attribution_kind = kind
+        updated += 1
+
+    if apply_to_items and rows:
+        ids = [r.id for r in rows]
+        session.query(ReceiptItem).filter(
+            ReceiptItem.purchase_id.in_(ids)
+        ).update(
+            {
+                "attribution_user_id": legacy_single,
+                "attribution_user_ids": ids_json,
+                "attribution_kind": kind,
+            },
+            synchronize_session=False,
+        )
+
+    return {"updated": updated, "skipped": skipped}
+
+
+@receipts_bp.route("/bulk-attribution", methods=["POST"])
+@require_write_access
+def bulk_update_receipt_attribution():
+    """Apply the same attribution to many Purchase rows in one call.
+
+    Body:
+      { "purchase_ids": [int],
+        "user_ids": [int],
+        "kind": "household"|"personal"|"shared"|null,
+        "apply_to_items": bool }
+    """
+    from src.backend.initialize_database_schema import User
+
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get("purchase_ids") or []
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"error": "purchase_ids must be a non-empty list"}), 400
+    if len(raw_ids) > 200:
+        return jsonify({"error": "Too many ids; max 200 per request"}), 400
+    try:
+        purchase_ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "purchase_ids must be integers"}), 400
+
+    ok, result = _normalize_attribution_payload(data, session, User)
+    if not ok:
+        payload, status = result
+        return jsonify(payload), status
+
+    bulk = _bulk_apply_attribution(
+        session,
+        purchase_ids=purchase_ids,
+        user_ids=result["user_ids"],
+        kind=result["kind"],
+        apply_to_items=bool(data.get("apply_to_items", True)),
+    )
+    session.commit()
+    return jsonify(bulk), 200
+
+
 @receipts_bp.route("/<int:receipt_id>/items/<int:item_id>/attribution", methods=["PUT"])
 @require_write_access
 def update_receipt_item_attribution(receipt_id, item_id):
