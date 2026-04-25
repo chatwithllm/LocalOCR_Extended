@@ -27,7 +27,9 @@ from src.backend.budgeting_domains import BUDGET_CATEGORIES
 from src.backend.initialize_database_schema import (
     AIModelConfig,
     ChatMessage,
+    Product,
     Purchase,
+    ReceiptItem,
     Store,
     User,
 )
@@ -75,6 +77,17 @@ someone else, answer only about the current user.
 
 If the user asks about uncategorized items, point them at the
 Receipts page filter ``Budget category = Other`` for a manual review.
+
+When the user asks about a specific item (e.g. "how many times did
+we buy tomatoes", "how much do we spend on milk"), check the
+``item_search_results`` array. Each row carries
+``purchase_count``, ``total_quantity``, ``total_spent``,
+``first_bought``, ``last_bought``. Multiple rows may match because
+products are stored at variant granularity ("Roma Tomatoes",
+"Tomato Paste") — sum across the relevant rows when the user means
+the whole category. If ``item_search_results`` is empty but the
+question clearly named an item, say so rather than inventing a
+number; suggest checking the Inventory or Receipts page.
 """
 
 
@@ -87,11 +100,14 @@ def _month_range(anchor: datetime) -> tuple[datetime, datetime]:
     return start, end
 
 
-def _category_totals(session, user_id: int, start: datetime, end: datetime) -> dict[str, float]:
-    """Sum per-category spend for the given user/month, excluding refunds.
+def _category_totals(session, start: datetime, end: datetime) -> dict[str, float]:
+    """Sum per-category spend for a month, excluding refunds.
 
-    Filters by ``Purchase.user_id`` so cross-user data can't leak. NULL
-    or empty category falls into ``other`` to match the dashboard.
+    Household-wide aggregate (matches the dashboard's
+    ``/analytics/spending-by-category``). The chat endpoint is
+    admin-only in v1, so leaking household totals to the admin is
+    intentional — it keeps the assistant's numbers in sync with what
+    the admin sees on the Dashboard card.
     """
     import sqlalchemy as _sa
 
@@ -100,7 +116,6 @@ def _category_totals(session, user_id: int, start: datetime, end: datetime) -> d
             Purchase.default_budget_category,
             _sa.func.sum(Purchase.total_amount),
         )
-        .filter(Purchase.user_id == user_id)
         .filter(Purchase.date >= start, Purchase.date < end)
         .filter(
             _sa.or_(
@@ -118,7 +133,7 @@ def _category_totals(session, user_id: int, start: datetime, end: datetime) -> d
     return out
 
 
-def _top_stores(session, user_id: int, start: datetime, end: datetime, limit: int = 5) -> list[dict[str, Any]]:
+def _top_stores(session, start: datetime, end: datetime, limit: int = 5) -> list[dict[str, Any]]:
     import sqlalchemy as _sa
 
     rows = (
@@ -128,7 +143,6 @@ def _top_stores(session, user_id: int, start: datetime, end: datetime, limit: in
             _sa.func.sum(Purchase.total_amount),
         )
         .join(Store, Store.id == Purchase.store_id)
-        .filter(Purchase.user_id == user_id)
         .filter(Purchase.date >= start, Purchase.date < end)
         .filter(
             _sa.or_(
@@ -147,12 +161,11 @@ def _top_stores(session, user_id: int, start: datetime, end: datetime, limit: in
     ]
 
 
-def _uncategorized_count(session, user_id: int, start: datetime, end: datetime) -> int:
+def _uncategorized_count(session, start: datetime, end: datetime) -> int:
     import sqlalchemy as _sa
 
     return int(
         session.query(_sa.func.count(Purchase.id))
-        .filter(Purchase.user_id == user_id)
         .filter(Purchase.date >= start, Purchase.date < end)
         .filter(
             _sa.or_(
@@ -166,18 +179,127 @@ def _uncategorized_count(session, user_id: int, start: datetime, end: datetime) 
     )
 
 
-def build_data_context(session, user: User) -> dict[str, Any]:
-    """Pre-aggregated, user-scoped context that the assistant reasons over.
+# Cheap-and-dirty stop-word list used to extract candidate item terms
+# from a free-text question. We keep this list short on purpose —
+# false positives just mean the LIKE search returns nothing, which is
+# fine. The aim is to cover the common shape "how many times did we
+# buy <thing>" / "how much did we spend on <thing>".
+_CHAT_STOPWORDS: set[str] = {
+    "the", "and", "for", "with", "from", "this", "that", "those", "these",
+    "how", "much", "many", "times", "did", "have", "has", "had", "was",
+    "were", "are", "buy", "bought", "buying", "purchase", "purchased",
+    "spend", "spent", "spending", "money", "total", "totals", "all",
+    "ever", "year", "month", "week", "day", "today", "yesterday", "last",
+    "ago", "since", "what", "where", "when", "why", "who", "which",
+    "our", "out", "any", "some", "more", "less", "than", "very", "just",
+    "show", "give", "tell", "list", "find", "count", "us", "we", "you",
+    "i", "me", "my", "mine", "ours", "his", "her", "their", "them",
+    "of", "on", "in", "at", "to", "by", "as", "is", "be", "or", "an",
+    "a", "do", "does", "got", "get", "into", "about", "over", "under",
+    "much",
+}
 
-    Light by design — three small queries — so the chat call cost stays
-    in the cents-per-month range even with daily use.
+
+def _extract_item_query_terms(message: str, max_terms: int = 4) -> list[str]:
+    """Pull plausible product nouns out of a free-text question.
+
+    Returns up to ``max_terms`` lowercase tokens of length >= 3 that
+    aren't in the stop-word list. Order is preserved (first mention
+    wins) so a user typing "tomatoes and onions" gets [tomatoes,
+    onions] rather than alphabetical.
+    """
+    import re
+
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for raw in re.findall(r"[A-Za-z][A-Za-z'\-]+", str(message or "")):
+        token = raw.lower().strip("-'")
+        if len(token) < 3:
+            continue
+        if token in _CHAT_STOPWORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+        if len(tokens) >= max_terms:
+            break
+    return tokens
+
+
+def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, Any]]:
+    """Return per-product purchase stats for products whose name
+    matches any of the supplied terms (case-insensitive substring).
+
+    Joined to Purchase so we can return last-bought date and exclude
+    refund rows; household-wide for parity with the rest of the
+    context. Each row carries enough data for the model to answer
+    "how many times did we buy X" plus a price summary.
+    """
+    if not terms:
+        return []
+    import sqlalchemy as _sa
+
+    likes = [_sa.func.lower(Product.name).like(f"%{t}%") for t in terms]
+    rows = (
+        session.query(
+            Product.id,
+            Product.name,
+            _sa.func.count(ReceiptItem.id),
+            _sa.func.sum(ReceiptItem.quantity),
+            _sa.func.sum(ReceiptItem.unit_price * ReceiptItem.quantity),
+            _sa.func.min(Purchase.date),
+            _sa.func.max(Purchase.date),
+        )
+        .join(ReceiptItem, ReceiptItem.product_id == Product.id)
+        .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
+        .filter(_sa.or_(*likes))
+        .filter(
+            _sa.or_(
+                Purchase.transaction_type.is_(None),
+                Purchase.transaction_type != "refund",
+            )
+        )
+        .group_by(Product.id, Product.name)
+        .order_by(_sa.func.count(ReceiptItem.id).desc())
+        .limit(limit)
+        .all()
+    )
+
+    out: list[dict[str, Any]] = []
+    for product_id, name, count, qty, total, first_dt, last_dt in rows:
+        out.append({
+            "product_id": int(product_id),
+            "product_name": name,
+            "purchase_count": int(count or 0),
+            "total_quantity": round(float(qty or 0.0), 2),
+            "total_spent": round(float(total or 0.0), 2),
+            "first_bought": first_dt.strftime("%Y-%m-%d") if first_dt else None,
+            "last_bought": last_dt.strftime("%Y-%m-%d") if last_dt else None,
+        })
+    return out
+
+
+def build_data_context(
+    session,
+    user: User,
+    user_message: str | None = None,
+) -> dict[str, Any]:
+    """Pre-aggregated context that the assistant reasons over.
+
+    Household-wide aggregates + an opportunistic item-search keyed off
+    nouns extracted from ``user_message``. The item-search lets the
+    assistant answer "how many times did we buy tomatoes" without
+    needing real tool-calling — when the user's question mentions
+    plausible product names the resulting per-product stats land in
+    ``item_search_results`` and the model is told to use them.
     """
     now = datetime.now(timezone.utc)
     cur_start, cur_end = _month_range(now)
     prev_start, _ = _month_range(cur_start - timedelta(days=1))
 
-    cur = _category_totals(session, user.id, cur_start, cur_end)
-    prev = _category_totals(session, user.id, prev_start, cur_start)
+    cur = _category_totals(session, cur_start, cur_end)
+    prev = _category_totals(session, prev_start, cur_start)
 
     by_category = []
     for cat in sorted(BUDGET_CATEGORIES):
@@ -193,6 +315,9 @@ def build_data_context(session, user: User) -> dict[str, Any]:
             "delta_pct_vs_prev": delta_pct,
         })
 
+    item_terms = _extract_item_query_terms(user_message or "")
+    item_results = _search_items(session, item_terms) if item_terms else []
+
     return {
         "user": {
             "id": user.id,
@@ -204,8 +329,10 @@ def build_data_context(session, user: User) -> dict[str, Any]:
         "month_total_current": round(sum(cur.values()), 2),
         "month_total_previous": round(sum(prev.values()), 2),
         "by_category": by_category,
-        "top_stores_current_month": _top_stores(session, user.id, cur_start, cur_end),
-        "uncategorized_count_current_month": _uncategorized_count(session, user.id, cur_start, cur_end),
+        "top_stores_current_month": _top_stores(session, cur_start, cur_end),
+        "uncategorized_count_current_month": _uncategorized_count(session, cur_start, cur_end),
+        "item_search_terms": item_terms,
+        "item_search_results": item_results,
         "category_rules": CATEGORY_RULES,
     }
 
@@ -315,7 +442,7 @@ def chat_complete(
             "model or set GEMINI_API_KEY in the environment."
         )
 
-    data_context = build_data_context(session, user)
+    data_context = build_data_context(session, user, user_message=user_message)
     system_prompt = (
         f"{SYSTEM_PROMPT.strip()}\n\n"
         f"Today's date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\n\n"
@@ -330,11 +457,17 @@ def chat_complete(
         user_message=user_message,
     )
 
-    summary = (
-        f"Used totals for {data_context['current_month']} "
-        f"({len(data_context['by_category'])} categories, "
-        f"{data_context['uncategorized_count_current_month']} uncategorized)."
-    )
+    summary_parts = [
+        f"totals for {data_context['current_month']}",
+        f"{data_context['uncategorized_count_current_month']} uncategorized",
+    ]
+    if data_context.get("item_search_terms"):
+        terms = ", ".join(data_context["item_search_terms"])
+        hits = len(data_context.get("item_search_results") or [])
+        summary_parts.append(
+            f"item search: {terms} → {hits} match{'es' if hits != 1 else ''}"
+        )
+    summary = "Used " + " · ".join(summary_parts) + "."
     return {
         "reply": reply,
         "model": model.model_string,
