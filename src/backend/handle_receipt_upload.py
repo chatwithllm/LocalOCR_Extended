@@ -1478,7 +1478,7 @@ def get_receipt_image(receipt_id):
 @require_write_access
 def approve_receipt(receipt_id):
     """Approve a review receipt using edited or stored OCR payload."""
-    from src.backend.initialize_database_schema import TelegramReceipt
+    from src.backend.initialize_database_schema import TelegramReceipt, Purchase
     from src.backend.extract_receipt_data import _save_to_database, classify_receipt_data
 
     session = g.db_session
@@ -1528,11 +1528,43 @@ def approve_receipt(receipt_id):
     record.raw_ocr_json = json.dumps(ocr_data)
     session.commit()
 
+    # Auto-suggest attribution from uploader+store history. High
+    # confidence is silently applied right here; medium is returned
+    # so the upload-review modal can pre-select it without
+    # committing.
+    attribution_suggestion: dict | None = None
+    auto_applied = False
+    saved_purchase = (
+        session.query(Purchase).filter_by(id=purchase_id).first()
+    )
+    if saved_purchase and not saved_purchase.attribution_user_id \
+       and not saved_purchase.attribution_kind:
+        suggestion = _suggest_attribution_for_upload(
+            session,
+            uploader_id=user_id,
+            store_id=saved_purchase.store_id,
+        )
+        if suggestion and suggestion["confidence"] == "high":
+            _bulk_apply_attribution(
+                session,
+                purchase_ids=[purchase_id],
+                user_ids=suggestion["user_ids"],
+                kind=suggestion["kind"],
+                apply_to_items=True,
+            )
+            session.commit()
+            auto_applied = True
+            attribution_suggestion = suggestion
+        elif suggestion:
+            attribution_suggestion = suggestion
+
     return jsonify({
         "status": "processed",
         "purchase_id": purchase_id,
         "receipt_id": record.id,
         "receipt_type": receipt_type,
+        "attribution_suggestion": attribution_suggestion,
+        "attribution_auto_applied": auto_applied,
     }), 200
 
 

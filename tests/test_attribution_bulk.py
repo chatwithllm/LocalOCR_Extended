@@ -321,3 +321,44 @@ def test_suggest_scoped_per_uploader(session, household):
         store_id=household["costco"].id,
     )
     assert s is None
+
+
+def test_approve_receipt_auto_applies_high_confidence(session, household):
+    """End-to-end-ish: seed strong history, then call the helper
+    chain that approve_receipt uses, confirm the new row is tagged."""
+    from src.backend.handle_receipt_upload import (
+        _bulk_apply_attribution, _suggest_attribution_for_upload,
+    )
+    from src.backend.initialize_database_schema import Purchase
+
+    # Strong Mom history at Costco
+    for d in [10, 8, 6, 4, 2]:
+        household["_purchase"](
+            d, household["mom"], household["costco"],
+            attr=household["mom"], kind="personal",
+        )
+    # New, unattributed purchase
+    new_p = household["_purchase"](
+        0, household["mom"], household["costco"],
+    )
+    session.commit()
+
+    suggestion = _suggest_attribution_for_upload(
+        session,
+        uploader_id=household["mom"].id,
+        store_id=household["costco"].id,
+    )
+    assert suggestion["confidence"] == "high"
+
+    _bulk_apply_attribution(
+        session,
+        purchase_ids=[new_p.id],
+        user_ids=suggestion["user_ids"],
+        kind=suggestion["kind"],
+        apply_to_items=True,
+    )
+    session.commit()
+
+    refreshed = session.query(Purchase).get(new_p.id)
+    assert refreshed.attribution_user_id == household["mom"].id
+    assert refreshed.attribution_kind == "personal"
