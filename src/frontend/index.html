@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425c" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425d" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -43555,14 +43555,17 @@
         const isUser = msg.role === "user";
         const bubble = _renderChatMarkdownLite(msg.content || "");
         const trace = msg.tool_trace;
+        const flagged = Boolean(msg.flagged);
+        const flagReason = msg.flag_reason || (trace && (trace.block_reason || trace.scrubbed)) || null;
         const traceChip =
-          !isUser && trace && trace.context_summary
-            ? `<div class="chat-msg__trace">📂 ${escHtml(
-                trace.context_summary,
-              )}${trace.model ? ` · ${escHtml(trace.model)}` : ""}</div>`
+          !isUser && (trace?.context_summary || flagReason)
+            ? `<div class="chat-msg__trace">${flagged
+                ? `🛡️ Blocked${flagReason ? ` (${escHtml(flagReason)})` : ""}`
+                : `📂 ${escHtml(trace.context_summary)}${trace.model ? ` · ${escHtml(trace.model)}` : ""}`
+              }</div>`
             : "";
         return `
-          <div class="chat-msg ${isUser ? "chat-msg--user" : "chat-msg--assistant"}">
+          <div class="chat-msg ${isUser ? "chat-msg--user" : "chat-msg--assistant"}${flagged ? " chat-msg--flagged" : ""}">
             <div class="chat-msg__bubble">${bubble}</div>
             ${traceChip}
           </div>`;
@@ -43620,11 +43623,13 @@
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok && res.status !== 502) {
-            // Roll back the optimistic user row on hard failures.
+            // Roll back the optimistic user row on hard failures /
+            // rate-limit denials so the user can retry their message.
             _chatHistoryCache = _chatHistoryCache.filter(
               (m) => !String(m.id || "").startsWith("pending-"),
             );
-            toast(data.error || "Could not send message", "error");
+            const tone = res.status === 429 ? "warning" : "error";
+            toast(data.error || "Could not send message", tone);
             return;
           }
           // Replace optimistic user row with the persisted ones.

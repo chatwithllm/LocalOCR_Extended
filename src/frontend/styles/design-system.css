@@ -2716,9 +2716,17 @@ body.trusted-device-kitchen-display *:focus-visible {
   background: var(--color-surface-1, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border);
 }
+.chat-msg--flagged .chat-msg__bubble {
+  border-color: color-mix(in srgb, #e0803a 50%, var(--border));
+  background: color-mix(in srgb, #e0803a 8%, transparent);
+}
 .chat-msg__trace {
   font-size: 0.72rem;
   color: var(--muted);
+}
+.chat-msg--flagged .chat-msg__trace {
+  color: #e0803a;
+  font-weight: 700;
 }
 .chat-msg__dots {
   display: inline-flex;

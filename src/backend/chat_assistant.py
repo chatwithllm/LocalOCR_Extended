@@ -24,6 +24,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from src.backend.budgeting_domains import BUDGET_CATEGORIES
+from src.backend.chat_guardrails import GUARDRAIL_PROMPT
 from src.backend.initialize_database_schema import (
     AIModelConfig,
     ChatMessage,
@@ -319,11 +320,10 @@ def build_data_context(
     item_results = _search_items(session, item_terms) if item_terms else []
 
     return {
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "role": user.role,
-        },
+        # Intentionally minimal user identity — no email, no FK ids
+        # the model could try to leak. Just the display name so it can
+        # address the admin politely.
+        "user": {"name": user.name},
         "current_month": cur_start.strftime("%Y-%m"),
         "previous_month": prev_start.strftime("%Y-%m"),
         "month_total_current": round(sum(cur.values()), 2),
@@ -333,7 +333,7 @@ def build_data_context(
         "uncategorized_count_current_month": _uncategorized_count(session, cur_start, cur_end),
         "item_search_terms": item_terms,
         "item_search_results": item_results,
-        "category_rules": CATEGORY_RULES,
+        "categories_supported": sorted(BUDGET_CATEGORIES),
     }
 
 
@@ -536,9 +536,12 @@ def chat_complete(
     can decide how to surface them.
     """
     data_context = build_data_context(session, user, user_message=user_message)
+    rules_compact = "; ".join(f"{k}: {v}" for k, v in CATEGORY_RULES.items())
     system_prompt = (
+        f"{GUARDRAIL_PROMPT.strip()}\n\n"
         f"{SYSTEM_PROMPT.strip()}\n\n"
         f"Today's date: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\n\n"
+        f"category_rules: {rules_compact}\n\n"
         f"data_context = {json.dumps(data_context, default=str)}\n"
     )
     formatted_history = _format_history(history)
@@ -626,7 +629,8 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
     """
     chain: list[dict[str, Any]] = []
     seen_providers: set[str] = set()
-    supported = {"gemini", "openai", "anthropic", "openrouter", "ollama"}
+    cloud = {"gemini", "openai", "anthropic", "openrouter"}
+    supported = cloud | {"ollama"}
 
     def _push(provider: str, label: str, model_string: str, call) -> None:
         key = f"{provider}:{model_string}"
@@ -640,12 +644,16 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
             "call": call,
         })
 
-    # 1. Active model first.
+    # 1. Active model first — but only if it's a cloud provider.
+    #    The user's "active model" for OCR is sometimes Ollama, and we
+    #    don't want a slow local model to take precedence over the cloud
+    #    fallbacks for the chat path. Ollama is reserved for the final
+    #    safety-net slot below.
     active = _resolve_chat_model(session, user)
-    if active is not None and (active.provider or "").strip().lower() in supported:
+    if active is not None and (active.provider or "").strip().lower() in cloud:
         _push_model_attempt(active, _push)
 
-    # 2. Other enabled, supported AIModelConfigs.
+    # 2. Other enabled cloud AIModelConfigs (skip ollama here).
     others = (
         session.query(AIModelConfig)
         .filter(AIModelConfig.is_enabled == True)  # noqa: E712
@@ -656,7 +664,7 @@ def _build_provider_chain(session, user: User) -> list[dict[str, Any]]:
         if active is not None and cfg.id == active.id:
             continue
         provider = (cfg.provider or "").strip().lower()
-        if provider not in supported:
+        if provider not in cloud:
             continue
         _push_model_attempt(cfg, _push)
 

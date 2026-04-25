@@ -853,6 +853,8 @@ class ChatMessage(Base):
     role = Column(String(16), nullable=False)
     content = Column(Text, nullable=False)
     tool_trace = Column(Text, nullable=True)
+    flagged = Column(Boolean, nullable=False, default=False)
+    flag_reason = Column(String(120), nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     __table_args__ = (

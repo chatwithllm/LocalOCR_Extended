@@ -12,6 +12,12 @@ from datetime import datetime, timezone
 from flask import Blueprint, g, jsonify, request
 
 from src.backend.chat_assistant import chat_complete
+from src.backend.chat_guardrails import (
+    REFUSAL_TEMPLATE,
+    check_rate_limit,
+    screen_input,
+    scrub_output,
+)
 from src.backend.initialize_database_schema import ChatMessage
 from src.backend.manage_authentication import get_authenticated_user, is_admin
 
@@ -36,6 +42,8 @@ def _serialize_message(msg: ChatMessage) -> dict:
         "role": msg.role,
         "content": msg.content,
         "tool_trace": trace,
+        "flagged": bool(getattr(msg, "flagged", False)),
+        "flag_reason": getattr(msg, "flag_reason", None),
         "created_at": (
             msg.created_at.isoformat() + "Z"
             if msg.created_at and not msg.created_at.isoformat().endswith("Z")
@@ -91,22 +99,59 @@ def post_message():
             "error": f"Message is too long (max {_MAX_USER_MESSAGE_CHARS} chars)",
         }), 400
 
-    history = (
-        g.db_session.query(ChatMessage)
-        .filter(ChatMessage.user_id == user.id)
-        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
-        .all()
-    )
+    # Per-user rate limit. Denied requests are NOT recorded as a user
+    # message so an attacker can't fill someone else's history.
+    rate_ok, rate_msg = check_rate_limit(user.id)
+    if not rate_ok:
+        return jsonify({"error": rate_msg or "Rate limit exceeded"}), 429
 
+    # Input guardrail. Blocked messages are still persisted (with the
+    # ``flagged`` column set) so admins can audit attempts later, but
+    # we never call the LLM and never build a data context for them.
+    allowed, block_reason = screen_input(raw)
     user_msg = ChatMessage(
         user_id=user.id,
         role="user",
         content=raw,
         tool_trace=None,
+        flagged=not allowed,
+        flag_reason=block_reason if not allowed else None,
         created_at=datetime.now(timezone.utc),
     )
     g.db_session.add(user_msg)
     g.db_session.commit()
+
+    if not allowed:
+        refusal = ChatMessage(
+            user_id=user.id,
+            role="assistant",
+            content=REFUSAL_TEMPLATE,
+            tool_trace=json.dumps({
+                "blocked": True,
+                "block_reason": block_reason,
+                "context_summary": f"refused — {block_reason}",
+            }),
+            flagged=True,
+            flag_reason=block_reason,
+            created_at=datetime.now(timezone.utc),
+        )
+        g.db_session.add(refusal)
+        g.db_session.commit()
+        return jsonify({
+            "user_message": _serialize_message(user_msg),
+            "assistant_message": _serialize_message(refusal),
+            "blocked": True,
+            "block_reason": block_reason,
+        }), 200
+
+    history = (
+        g.db_session.query(ChatMessage)
+        .filter(ChatMessage.user_id == user.id)
+        .filter(ChatMessage.id != user_msg.id)
+        .filter(ChatMessage.flagged == False)  # noqa: E712 — drop blocked rows from history
+        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
+        .all()
+    )
 
     try:
         result = chat_complete(g.db_session, user, raw, history)
@@ -129,17 +174,22 @@ def post_message():
             "error": str(exc),
         }), 502
 
+    raw_reply = result.get("reply") or ""
+    safe_reply, leak_reason = scrub_output(raw_reply)
     assistant_msg = ChatMessage(
         user_id=user.id,
         role="assistant",
-        content=result.get("reply") or "",
+        content=safe_reply,
         tool_trace=json.dumps({
             "model": result.get("model"),
             "provider": result.get("provider"),
             "context_summary": result.get("context_summary"),
             "fallback_used": bool(result.get("fallback_used")),
             "primary_error": result.get("primary_error"),
+            "scrubbed": leak_reason,
         }),
+        flagged=bool(leak_reason),
+        flag_reason=leak_reason,
         created_at=datetime.now(timezone.utc),
     )
     g.db_session.add(assistant_msg)
