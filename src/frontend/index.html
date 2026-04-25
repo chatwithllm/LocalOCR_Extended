@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260424f" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260424g" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -29936,9 +29936,22 @@
           ${truncatedNote}`;
       }
 
-      function openReceiptDetail(purchaseId) {
-        if (typeof jumpToReceipt === "function") {
-          try { jumpToReceipt(purchaseId); } catch (_e) {}
+      async function openReceiptDetail(purchaseId) {
+        const id = Number(purchaseId);
+        if (!id) return;
+        // Make sure receipt filters are clear so the target row actually
+        // shows up in the list. jumpToReceipt handles nav + filter reset
+        // + loadReceipts; viewReceipt then expands the inline detail.
+        try {
+          if (typeof jumpToReceipt === "function") {
+            await jumpToReceipt(id);
+          }
+          if (typeof viewReceipt === "function") {
+            await viewReceipt(id, { scroll: true });
+          }
+        } catch (err) {
+          console.error("openReceiptDetail failed", err);
+          toast("Could not open receipt", "error");
         }
       }
 
