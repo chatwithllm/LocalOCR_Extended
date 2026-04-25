@@ -525,7 +525,12 @@ def _compute_shopping_activity(
     user_names: dict[int, str] = {}
     if user_ids:
         for u in session.query(User).filter(User.id.in_(list(user_ids))).all():
-            user_names[u.id] = u.name or u.email or f"User {u.id}"
+            # Strict no-email invariant for the LLM context: name only,
+            # falling back to a synthetic label if name is missing /
+            # empty. Mirrors the rest of build_data_context which never
+            # surfaces email addresses to the model.
+            display = (u.name or "").strip() or f"User {u.id}"
+            user_names[u.id] = display
 
     def _attr_label(p: Purchase) -> str | None:
         ids = _ids_from(p)
