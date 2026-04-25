@@ -245,6 +245,27 @@ as "no recent shopping" rather than "shopping is down". The cadence
 ``avg_gap_days_*`` fields are computed from unique shopping dates, so
 multiple receipts on a single trip-day count as one day.
 
+When the user names a household member ("when did Mom last shop",
+"how much does Chamu spend"), follow this lookup order — DO NOT
+guess and DO NOT treat the name as a product:
+
+  1. Match the name (case-insensitive) against
+     ``shopping_activity.per_person[].name``. If found, quote
+     ``last_trip`` and that user's ``windows`` / ``cadence``.
+  2. If not in ``per_person`` but the name (or a clearly
+     equivalent nickname like "mom" → no exact match) matches
+     a name in ``household_members``, say plainly: "No purchases
+     are tagged to <Name> in the last 90 days. Tag receipts on
+     the Receipts page so I can break this down."
+  3. If the name does not appear in ``household_members`` at
+     all (e.g. user typed "Mom" but the household roster has
+     "Sam, Alex, Jordan"), reply that the name isn't a known
+     household member and list ``household_members`` so the
+     user can pick one.
+
+Never invent a person; never assume "Mom" / "Dad" maps to
+anyone in particular unless that exact name is in the roster.
+
 Example for "when did we shop lately":
 
     **Recent shopping (last 5 receipts):**
@@ -733,6 +754,14 @@ _CHAT_STOPWORDS: set[str] = {
     "average", "median", "mean", "min", "minimum", "max", "maximum",
     "sum", "summary", "report", "reports", "stat", "stats",
     "statistic", "statistics",
+    # Household-relation words — questions like "when did mom last shop"
+    # should resolve via shopping_activity.per_person, not trigger an
+    # item-search for a product called "mom".
+    "mom", "mommy", "mother", "dad", "daddy", "father", "parent",
+    "parents", "wife", "husband", "spouse", "partner", "kid", "kids",
+    "child", "children", "son", "daughter", "brother", "sister",
+    "sibling", "siblings", "family", "household", "everyone", "anyone",
+    "person", "people", "member", "members",
 }
 
 
@@ -1092,6 +1121,28 @@ def build_data_context(
     if _extract_temporal_intent(user_message or ""):
         shopping_activity = _compute_shopping_activity(session, user, now)
 
+    # Household member roster — names only. Lets the assistant answer
+    # "when did Mom last shop" questions by mapping a name onto the
+    # ``shopping_activity.per_person`` block (or saying clearly that
+    # the named member has no purchases tagged in the last 90 days,
+    # rather than treating the name as a product search term).
+    # Service accounts are excluded so we don't surface bot users.
+    household_members: list[str] = []
+    try:
+        member_rows = (
+            session.query(User.name, User.role)
+            .order_by(User.id.asc())
+            .all()
+        )
+        for name, role in member_rows:
+            if not name:
+                continue
+            if (role or "").lower() == "service":
+                continue
+            household_members.append(name)
+    except Exception:  # noqa: BLE001
+        household_members = []
+
     return {
         # Intentionally minimal user identity — no email, no FK ids
         # the model could try to leak. Just the display name so it can
@@ -1110,6 +1161,7 @@ def build_data_context(
         "item_search_results": item_results,
         "item_search_topic_carried_from_history": carried_from_history,
         "shopping_activity": shopping_activity,
+        "household_members": household_members,
         "categories_supported": sorted(BUDGET_CATEGORIES),
     }
 
