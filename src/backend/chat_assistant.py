@@ -1036,6 +1036,10 @@ def build_data_context(
                 break
     item_results = _search_items(session, item_terms) if item_terms else []
 
+    shopping_activity = None
+    if _extract_temporal_intent(user_message or ""):
+        shopping_activity = _compute_shopping_activity(session, user, now)
+
     return {
         # Intentionally minimal user identity — no email, no FK ids
         # the model could try to leak. Just the display name so it can
@@ -1053,6 +1057,7 @@ def build_data_context(
         "item_search_terms": item_terms,
         "item_search_results": item_results,
         "item_search_topic_carried_from_history": carried_from_history,
+        "shopping_activity": shopping_activity,
         "categories_supported": sorted(BUDGET_CATEGORIES),
     }
 

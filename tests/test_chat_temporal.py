@@ -237,3 +237,31 @@ def test_shopping_activity_returns_none_on_empty_db(session):
     session.commit()
     NOW = datetime(2026, 4, 25, 12, 0, tzinfo=timezone.utc)
     assert _compute_shopping_activity(session, user, NOW) is None
+
+
+def test_build_data_context_includes_shopping_activity_when_intent_hits(
+    session, household,
+):
+    from src.backend import chat_assistant
+    NOW = household["now"]
+    real_datetime = chat_assistant.datetime
+
+    class _FrozenDT(real_datetime):  # type: ignore[misc]
+        @classmethod
+        def now(cls, tz=None):
+            return NOW if tz is None else NOW.astimezone(tz)
+
+    chat_assistant.datetime = _FrozenDT
+    try:
+        ctx = chat_assistant.build_data_context(
+            session, household["mom"], user_message="when did we shop lately"
+        )
+        assert ctx["shopping_activity"] is not None
+        assert ctx["shopping_activity"]["windows"]["last_7d"]["trips"] >= 1
+
+        ctx2 = chat_assistant.build_data_context(
+            session, household["mom"], user_message="how much did we spend on milk"
+        )
+        assert ctx2["shopping_activity"] is None
+    finally:
+        chat_assistant.datetime = real_datetime
