@@ -34,6 +34,7 @@ from src.backend.initialize_database_schema import (
     Store,
     User,
 )
+# noqa: F401 — Store imported for the join in _search_items below.
 from src.backend.route_ai_inference import _resolve_api_key
 
 logger = logging.getLogger(__name__)
@@ -86,11 +87,17 @@ we buy tomatoes", "how much do we spend on milk"), check the
 user's question is about the general item, you MUST sum
 ``purchase_count`` across every variant row before answering.
 
-When the user asks WHEN a product was bought (questions containing
-"when", "what dates", "history"), use the ``purchase_dates`` array
-on each row. It holds the up-to-25 most-recent purchase dates in
-ISO YYYY-MM-DD form. Render those dates as a bullet list grouped by
-product, never as a long inline comma-separated string.
+When the user asks about purchase HISTORY for an item — "when did
+we buy", "what dates", "prices", "where did we buy", "from which
+store", "how much per unit" — use the ``purchase_history`` array on
+each item_search_results row. Each entry is one purchase line and
+carries ``date`` (YYYY-MM-DD), ``store``, ``unit_price``, and
+``line_total``. Up to 25 most-recent rows per product. Render the
+history as a bullet list grouped by product, never as a long inline
+comma-separated string. Pick which fields to include based on the
+question: dates only → "- 2026-04-09"; with prices → "- 2026-04-09
+@ Costco — $6.89"; with totals → append " (×qty = $X.XX)" only when
+the user asked for totals.
 
 If ``item_search_results`` is empty but the question clearly named
 an item, say so rather than inventing a number; suggest checking the
@@ -129,6 +136,18 @@ Example for "what dates did we buy tomatoes":
 
     *Roma Tomato (1):*
     - 2026-02-03
+
+Example for "what dates and prices for tomatoes":
+
+    **Tomato purchase history with prices:**
+
+    *Vine Tomato:*
+    - 2026-04-09 @ Costco Wholesale — $6.89
+    - 2026-03-30 @ Costco Wholesale — $13.78
+    - 2026-03-06 @ Costco Wholesale — $13.98
+
+    *Roma Tomato:*
+    - 2026-02-03 @ Costco Wholesale — $17.97
 
 Example for "how much did we spend on groceries this month":
 
@@ -367,16 +386,24 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
         .all()
     )
 
-    # Pull the per-product purchase-date list (capped at 25 most-recent
-    # per product) so the bot can answer "what dates did we buy X"
-    # without inventing them. Single follow-up query keyed on the
-    # ids we already fetched — household-wide, refunds excluded.
+    # Pull the per-product purchase history (date + store + price)
+    # so the bot can answer "what dates did we buy X", "and prices
+    # too", or "from which store" without inventing data. Capped at 25
+    # most-recent rows per product. Single follow-up query keyed on
+    # the ids we already fetched — household-wide, refunds excluded.
     product_ids = [int(r[0]) for r in rows]
-    dates_by_product: dict[int, list[str]] = {pid: [] for pid in product_ids}
+    history_by_product: dict[int, list[dict[str, Any]]] = {pid: [] for pid in product_ids}
     if product_ids:
-        date_rows = (
-            session.query(ReceiptItem.product_id, Purchase.date)
+        history_rows = (
+            session.query(
+                ReceiptItem.product_id,
+                Purchase.date,
+                Store.name,
+                ReceiptItem.unit_price,
+                ReceiptItem.quantity,
+            )
             .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
+            .outerjoin(Store, Store.id == Purchase.store_id)
             .filter(ReceiptItem.product_id.in_(product_ids))
             .filter(
                 _sa.or_(
@@ -384,18 +411,25 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
                     Purchase.transaction_type != "refund",
                 )
             )
-            .order_by(Purchase.date.desc())
+            .order_by(Purchase.date.desc(), ReceiptItem.id.desc())
             .all()
         )
-        for pid, dt in date_rows:
-            bucket = dates_by_product.get(int(pid))
+        for pid, dt, store_name, unit_price, qty in history_rows:
+            bucket = history_by_product.get(int(pid))
             if bucket is None or len(bucket) >= 25:
                 continue
-            if dt:
-                bucket.append(dt.strftime("%Y-%m-%d"))
+            unit_p = float(unit_price or 0.0)
+            line_q = float(qty or 0.0)
+            bucket.append({
+                "date": dt.strftime("%Y-%m-%d") if dt else None,
+                "store": store_name or "Unknown",
+                "unit_price": round(unit_p, 2),
+                "line_total": round(unit_p * line_q, 2),
+            })
 
     out: list[dict[str, Any]] = []
     for product_id, name, count, qty, total, first_dt, last_dt in rows:
+        history = history_by_product.get(int(product_id), [])
         out.append({
             "product_id": int(product_id),
             "product_name": name,
@@ -404,7 +438,7 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
             "total_spent": round(float(total or 0.0), 2),
             "first_bought": first_dt.strftime("%Y-%m-%d") if first_dt else None,
             "last_bought": last_dt.strftime("%Y-%m-%d") if last_dt else None,
-            "purchase_dates": dates_by_product.get(int(product_id), []),
+            "purchase_history": history,
         })
     return out
 
