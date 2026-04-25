@@ -44,3 +44,22 @@ def test_temporal_intent_positive(message):
 )
 def test_temporal_intent_negative(message):
     assert _extract_temporal_intent(message) is False
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # These look temporal but are NOT shopping-related. The regex
+        # intentionally lets them through — the cost is ~1 KB of extra
+        # context on the rare occasion they hit. We accept the FP and
+        # rely on the LLM to ignore irrelevant data when answering.
+        # Locked in here so a regex tightening is a deliberate change,
+        # not an accidental one. See chat_assistant.py:457.
+        "what is the interest rate on this card",
+        "show me the exchange rate",
+        "consumption tax",
+        "when in doubt show all",
+    ],
+)
+def test_temporal_intent_accepted_false_positives(message):
+    assert _extract_temporal_intent(message) is True
