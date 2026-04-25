@@ -39018,7 +39018,13 @@
         const n = _receiptBulkSelection().size;
         const bar = document.getElementById("receipt-bulk-bar");
         if (!bar) return;
-        bar.style.display = n ? "" : "none";
+        // When the Untagged-only filter is on, the new sticky
+        // bulk-tag toolbar (#receipts-bulk-tag-toolbar) is the
+        // primary action surface — suppress the legacy type/category
+        // bar so the user sees ONE toolbar, not two stacked ones.
+        const inUntaggedMode =
+          typeof _receiptsUntaggedOnly !== "undefined" && _receiptsUntaggedOnly;
+        bar.style.display = !n || inUntaggedMode ? "none" : "";
         const cEl = document.getElementById("receipt-bulk-count");
         if (cEl) cEl.textContent = `${n} selected`;
       }
