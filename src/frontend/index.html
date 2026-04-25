@@ -29793,10 +29793,12 @@
       const _spendingDrillOpen = new Set();
 
       function toggleDashboardSpendingCard() {
+        const card = document.getElementById("dashboard-spending-card");
         const wrap = document.getElementById("dashboard-spending-wrap");
         if (!wrap) return;
         const collapsed = wrap.style.display === "none";
         wrap.style.display = collapsed ? "" : "none";
+        if (card) card.classList.toggle("is-collapsed", !collapsed);
         try {
           localStorage.setItem(
             "dashboard_spending_card_collapsed",
@@ -29806,13 +29808,16 @@
       }
 
       function _applyDashboardSpendingCardCollapsedState() {
+        const card = document.getElementById("dashboard-spending-card");
         const wrap = document.getElementById("dashboard-spending-wrap");
         if (!wrap) return;
         let saved = "0";
         try {
           saved = localStorage.getItem("dashboard_spending_card_collapsed") || "0";
         } catch (_e) {}
-        wrap.style.display = saved === "1" ? "none" : "";
+        const isCollapsed = saved === "1";
+        wrap.style.display = isCollapsed ? "none" : "";
+        if (card) card.classList.toggle("is-collapsed", isCollapsed);
       }
 
       function toggleDashboardSpendingMore() {

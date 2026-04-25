@@ -2490,6 +2490,22 @@ body.trusted-device-kitchen-display *:focus-visible {
 .spending-row--c4 .spending-row__fill { background: linear-gradient(90deg, #f28a8a 0%, #c94d4d 100%); }
 .spending-row--c5 .spending-row__fill { background: linear-gradient(90deg, #b590e8 0%, #7d52c9 100%); }
 
+/* Collapsed state — single compact row with title left, amount right.
+   No body padding, no header bottom margin so the card reads as a tight
+   one-line summary instead of an empty box. */
+.dashboard-spending-row.is-collapsed {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+.dashboard-spending-row.is-collapsed .card-header {
+  margin-bottom: 0;
+}
+.dashboard-spending-row.is-collapsed .card-header-inline-stat {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
 @media (max-width: 640px) {
   .spending-row {
     grid-template-columns: minmax(0, 1fr) auto;
