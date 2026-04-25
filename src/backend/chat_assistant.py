@@ -122,6 +122,19 @@ Inventory or Receipts page. NEVER invent a store name that isn't in
 ``store_breakdown`` — if the user asks about a store you don't see
 there, say so.
 
+For "by member" / "by person" / "who spent the most" questions,
+read ``spend_by_person_current_month`` (and ``..._previous_month``
+when the user wants a comparison). Each carries:
+  - per_person: [{name, total}], desc by total — these are the
+    individual-attribution and shared-line splits.
+  - household_total — purchases tagged "household" (everyone shares).
+  - unset_total — purchases nobody has tagged yet; nudge the user to
+    tag them on the Receipts page if this is large.
+  - grand_total — sum across all buckets.
+Always render per-person figures as a bullet list. Never identify
+specific users beyond the ``name`` field; never speculate about
+their habits or relationships.
+
 FORMATTING (the UI renders a small subset of markdown — use it):
 
   * Lead with a one-line headline using **bold** for the headline
@@ -181,6 +194,18 @@ Example for "do you see anything interesting in tomato buying pattern?":
       $17.97 one is an outlier worth a glance.
     - Most-recent price ($6.89) is about half the average — likely a
       promo run.
+
+Example for "list expenses by members":
+
+    **Spend by person (2026-04):**
+    - Sam — $342.18
+    - Alex — $187.55
+    - Jordan — $94.10
+    - Household (shared) — $128.00
+    - Unset — $42.00
+
+    Total: $793.83. Tag the unset purchases on the Receipts page if
+    you want them assigned.
 
 Example for "which store did we visit least for tomatoes?":
 
@@ -264,6 +289,96 @@ def _top_stores(session, start: datetime, end: datetime, limit: int = 5) -> list
         {"store": name or "Unknown", "count": int(count or 0), "total": round(float(total or 0.0), 2)}
         for name, count, total in rows
     ]
+
+
+def _spend_by_person(session, start: datetime, end: datetime) -> dict[str, Any]:
+    """Per-member spend for the month, attribution-aware.
+
+    Mirrors ``calculate_spending_analytics.get_spend_by_person`` so the
+    chat answer matches what the user sees on the Accounts page.
+    Splits shared-line totals evenly across participants and rolls
+    untagged lines into the ``unset_total`` bucket. Refund line totals
+    are negated.
+    """
+    import json as _json
+
+    def _ids(obj) -> list[int]:
+        raw = getattr(obj, "attribution_user_ids", None)
+        if raw:
+            try:
+                parsed = _json.loads(raw)
+                if isinstance(parsed, list):
+                    return [int(x) for x in parsed if x is not None]
+            except (TypeError, ValueError):
+                pass
+        legacy = getattr(obj, "attribution_user_id", None)
+        return [int(legacy)] if legacy else []
+
+    rows = (
+        session.query(ReceiptItem, Purchase)
+        .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
+        .filter(Purchase.date >= start, Purchase.date < end)
+        .all()
+    )
+
+    household_total = 0.0
+    unset_total = 0.0
+    per_user_totals: dict[int, float] = {}
+
+    for item, purchase in rows:
+        line_total = float(item.quantity or 0) * float(item.unit_price or 0)
+        if (getattr(purchase, "transaction_type", None) or "").lower() == "refund":
+            line_total = -line_total
+
+        item_ids = _ids(item)
+        item_kind = item.attribution_kind
+        purchase_ids = _ids(purchase)
+        purchase_kind = purchase.attribution_kind
+
+        if item_kind or item_ids:
+            kind = item_kind or ("shared" if len(item_ids) >= 2 else "personal" if item_ids else None)
+            ids = item_ids
+        else:
+            kind = purchase_kind or ("shared" if len(purchase_ids) >= 2 else "personal" if purchase_ids else None)
+            ids = purchase_ids
+
+        if kind == "household":
+            household_total += line_total
+        elif kind in ("personal", "shared") and ids:
+            share = line_total / len(ids)
+            for uid in ids:
+                per_user_totals[uid] = per_user_totals.get(uid, 0.0) + share
+        else:
+            unset_total += line_total
+
+    user_names: dict[int, str] = {}
+    if per_user_totals:
+        for u in (
+            session.query(User)
+            .filter(User.id.in_(list(per_user_totals.keys())))
+            .all()
+        ):
+            user_names[u.id] = u.name or u.email or f"User {u.id}"
+
+    per_person = sorted(
+        [
+            {
+                "name": user_names.get(uid, f"User {uid}"),
+                "total": round(total, 2),
+            }
+            for uid, total in per_user_totals.items()
+        ],
+        key=lambda row: row["total"],
+        reverse=True,
+    )
+
+    grand_total = household_total + unset_total + sum(p["total"] for p in per_person)
+    return {
+        "household_total": round(household_total, 2),
+        "unset_total": round(unset_total, 2),
+        "per_person": per_person,
+        "grand_total": round(grand_total, 2),
+    }
 
 
 def _uncategorized_count(session, start: datetime, end: datetime) -> int:
@@ -677,6 +792,8 @@ def build_data_context(
         "by_category": by_category,
         "top_stores_current_month": _top_stores(session, cur_start, cur_end),
         "uncategorized_count_current_month": _uncategorized_count(session, cur_start, cur_end),
+        "spend_by_person_current_month": _spend_by_person(session, cur_start, cur_end),
+        "spend_by_person_previous_month": _spend_by_person(session, prev_start, cur_start),
         "item_search_terms": item_terms,
         "item_search_results": item_results,
         "item_search_topic_carried_from_history": carried_from_history,
