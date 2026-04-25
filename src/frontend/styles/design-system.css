@@ -2546,8 +2546,24 @@ body.trusted-device-kitchen-display *:focus-visible {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: height 180ms ease, box-shadow 140ms ease;
 }
 .chat-panel[hidden] { display: none; }
+
+.chat-panel.is-dragging {
+  user-select: none;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.55);
+  transition: none;
+}
+
+.chat-panel.is-minimized {
+  height: 56px !important;
+  resize: none;
+}
+.chat-panel.is-minimized .chat-panel__body,
+.chat-panel.is-minimized .chat-panel__form {
+  display: none !important;
+}
 
 .chat-panel__head {
   display: flex;
@@ -2557,6 +2573,12 @@ body.trusted-device-kitchen-display *:focus-visible {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--color-brand) 6%, transparent);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+.chat-panel.is-minimized .chat-panel__head {
+  border-bottom: none;
 }
 .chat-panel__title-wrap {
   display: flex;

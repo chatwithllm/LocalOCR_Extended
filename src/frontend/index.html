@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425a" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425b" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -43266,6 +43266,8 @@
       let _chatPanelInitialized = false;
       let _chatHistoryCache = [];
       let _chatLoading = false;
+      const CHAT_PANEL_POS_KEY = "chat_panel_pos";
+      const CHAT_PANEL_MIN_KEY = "chat_panel_minimized";
 
       function _chatIsAdmin() {
         return Boolean(currentUser && currentUser.role === "admin");
@@ -43286,6 +43288,8 @@
         if (!panel) return;
         panel.hidden = false;
         document.body.classList.add("chat-panel-open");
+        _restoreChatPanelPosition();
+        _restoreChatPanelMinimized();
         _renderChatPanel();
         if (_chatIsAdmin()) {
           loadChatHistory().catch((err) => {
@@ -43293,7 +43297,7 @@
           });
           window.setTimeout(() => {
             const input = document.getElementById("chat-input");
-            if (input) input.focus();
+            if (input && !panel.classList.contains("is-minimized")) input.focus();
           }, 80);
         }
       }
@@ -43303,6 +43307,145 @@
         if (!panel) return;
         panel.hidden = true;
         document.body.classList.remove("chat-panel-open");
+      }
+
+      function toggleChatPanelMinimize() {
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        const next = !panel.classList.contains("is-minimized");
+        panel.classList.toggle("is-minimized", next);
+        const icon = document.getElementById("chat-minimize-icon");
+        if (icon) icon.textContent = next ? "▢" : "–";
+        const btn = document.getElementById("chat-minimize-btn");
+        if (btn) btn.title = next ? "Restore" : "Minimize";
+        try {
+          localStorage.setItem(CHAT_PANEL_MIN_KEY, next ? "1" : "0");
+        } catch (_e) {}
+      }
+
+      function _restoreChatPanelMinimized() {
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        let saved = "0";
+        try {
+          saved = localStorage.getItem(CHAT_PANEL_MIN_KEY) || "0";
+        } catch (_e) {}
+        const minimized = saved === "1";
+        panel.classList.toggle("is-minimized", minimized);
+        const icon = document.getElementById("chat-minimize-icon");
+        if (icon) icon.textContent = minimized ? "▢" : "–";
+        const btn = document.getElementById("chat-minimize-btn");
+        if (btn) btn.title = minimized ? "Restore" : "Minimize";
+      }
+
+      function _restoreChatPanelPosition() {
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        let saved = null;
+        try {
+          const raw = localStorage.getItem(CHAT_PANEL_POS_KEY);
+          if (raw) saved = JSON.parse(raw);
+        } catch (_e) {
+          saved = null;
+        }
+        if (!saved || typeof saved.left !== "number" || typeof saved.top !== "number") {
+          // Default: bottom-right anchor.
+          panel.style.left = "";
+          panel.style.top = "";
+          panel.style.right = "16px";
+          panel.style.bottom = "16px";
+          return;
+        }
+        // Clamp to viewport so a saved off-screen position still
+        // surfaces a usable chat. Ignore the panel's own height for
+        // the bottom edge — the minimized state has a tiny height.
+        const w = panel.offsetWidth || 420;
+        const maxLeft = Math.max(0, window.innerWidth - w);
+        const maxTop = Math.max(0, window.innerHeight - 60);
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+        panel.style.left = `${Math.min(Math.max(0, saved.left), maxLeft)}px`;
+        panel.style.top = `${Math.min(Math.max(0, saved.top), maxTop)}px`;
+      }
+
+      function _persistChatPanelPosition() {
+        const panel = document.getElementById("chat-panel");
+        if (!panel) return;
+        const rect = panel.getBoundingClientRect();
+        try {
+          localStorage.setItem(
+            CHAT_PANEL_POS_KEY,
+            JSON.stringify({
+              left: Math.round(rect.left),
+              top: Math.round(rect.top),
+            }),
+          );
+        } catch (_e) {}
+      }
+
+      function _bindChatPanelDrag() {
+        const head = document.getElementById("chat-panel-head");
+        const panel = document.getElementById("chat-panel");
+        if (!head || !panel) return;
+        let dragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let panelStartLeft = 0;
+        let panelStartTop = 0;
+
+        const onPointerDown = (e) => {
+          // Don't start drag from button clicks inside the header.
+          if (e.target.closest("button")) return;
+          if (e.button !== undefined && e.button !== 0) return;
+          dragging = true;
+          const rect = panel.getBoundingClientRect();
+          panelStartLeft = rect.left;
+          panelStartTop = rect.top;
+          // Switch from right/bottom anchoring to left/top so we can
+          // drive both axes from a single pair of values.
+          panel.style.right = "auto";
+          panel.style.bottom = "auto";
+          panel.style.left = `${panelStartLeft}px`;
+          panel.style.top = `${panelStartTop}px`;
+          panel.classList.add("is-dragging");
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          if (e.pointerId !== undefined && head.setPointerCapture) {
+            try { head.setPointerCapture(e.pointerId); } catch (_e) {}
+          }
+          e.preventDefault();
+        };
+        const onPointerMove = (e) => {
+          if (!dragging) return;
+          const w = panel.offsetWidth || 420;
+          const h = Math.max(60, panel.offsetHeight || 200);
+          const dx = e.clientX - dragStartX;
+          const dy = e.clientY - dragStartY;
+          const nextLeft = Math.min(
+            Math.max(0, panelStartLeft + dx),
+            Math.max(0, window.innerWidth - w),
+          );
+          const nextTop = Math.min(
+            Math.max(0, panelStartTop + dy),
+            Math.max(0, window.innerHeight - 40),
+          );
+          panel.style.left = `${nextLeft}px`;
+          panel.style.top = `${nextTop}px`;
+        };
+        const onPointerUp = (e) => {
+          if (!dragging) return;
+          dragging = false;
+          panel.classList.remove("is-dragging");
+          if (e.pointerId !== undefined && head.releasePointerCapture) {
+            try { head.releasePointerCapture(e.pointerId); } catch (_e) {}
+          }
+          _persistChatPanelPosition();
+        };
+
+        head.addEventListener("pointerdown", onPointerDown);
+        head.addEventListener("pointermove", onPointerMove);
+        head.addEventListener("pointerup", onPointerUp);
+        head.addEventListener("pointercancel", onPointerUp);
       }
 
       function _renderChatPanel() {
@@ -43540,6 +43683,15 @@
             }
           });
         }
+        _bindChatPanelDrag();
+        // Re-clamp the panel to the viewport on window resize so a
+        // saved position from a wider screen doesn't end up off the
+        // edge after rotation / window-shrink.
+        window.addEventListener("resize", () => {
+          const panel = document.getElementById("chat-panel");
+          if (!panel || panel.hidden) return;
+          _restoreChatPanelPosition();
+        });
         // Esc closes the panel.
         document.addEventListener("keydown", (e) => {
           if (e.key !== "Escape") return;
@@ -43582,7 +43734,7 @@
       aria-labelledby="chat-panel-title"
       hidden
     >
-      <header class="chat-panel__head">
+      <header class="chat-panel__head" id="chat-panel-head">
         <div class="chat-panel__title-wrap">
           <span class="chat-panel__avatar" aria-hidden="true">💬</span>
           <div>
@@ -43602,6 +43754,16 @@
             hidden
           >
             Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            id="chat-minimize-btn"
+            onclick="toggleChatPanelMinimize()"
+            aria-label="Minimize"
+            title="Minimize"
+          >
+            <span id="chat-minimize-icon">–</span>
           </button>
           <button
             type="button"
