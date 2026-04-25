@@ -245,6 +245,30 @@ as "no recent shopping" rather than "shopping is down". The cadence
 ``avg_gap_days_*`` fields are computed from unique shopping dates, so
 multiple receipts on a single trip-day count as one day.
 
+For non-specific person questions ("who last shopped", "who shops
+the most", "who paid for X"), look at ``shopping_activity.recent_receipts``
+and ``shopping_activity.per_person``:
+
+  * If ``per_person`` has entries with non-empty trip counts, name
+    the most recent shopper from there.
+  * If ``recent_receipts`` rows have non-null ``attribution``, you
+    can quote the most recent attributed row by name.
+  * If every recent receipt has ``attribution: null``, say plainly
+    that the receipts aren't tagged to a person and quote a couple
+    of recent rows so the user has context — for example:
+
+        **Who last shopped:** Receipts aren't tagged to a household
+        member yet, so I can't say who. Most recent receipts:
+        - 2026-04-25 — Costco — $50.00 (untagged)
+        - 2026-04-24 — Costco — $40.00 (untagged)
+
+        Tag the receipts on the Receipts page so I can break this
+        down by person.
+
+NEVER refuse generically ("I don't have records for individual
+shoppers") when ``shopping_activity`` is present — the data is
+there, you just need to acknowledge the missing-attribution case.
+
 When the user names a household member ("when did Mom last shop",
 "how much does Chamu spend"), follow this lookup order — DO NOT
 guess and DO NOT treat the name as a product:
@@ -1089,7 +1113,14 @@ def build_data_context(
     # most recent terms we successfully extracted from a prior user
     # turn. Walk back at most 5 turns so a long unrelated history
     # doesn't drag stale topics back in.
-    if not item_terms:
+    #
+    # SKIP carry-over when the current message has temporal intent —
+    # "who last shopped" / "when did mom shop" / etc. are clearly a
+    # different topic from any prior product question, and dragging
+    # the old item term in just produces a confusing
+    # ``item search: <stale-term> → 0 matches`` chip.
+    has_temporal_intent_now = _extract_temporal_intent(user_message or "")
+    if not item_terms and not has_temporal_intent_now:
         history_walked = 0
         # ``user_message`` is THIS turn — walk only the previously
         # persisted user messages stored in g.db_session before the
