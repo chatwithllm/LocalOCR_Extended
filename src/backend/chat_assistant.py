@@ -86,6 +86,12 @@ we buy tomatoes", "how much do we spend on milk"), check the
 user's question is about the general item, you MUST sum
 ``purchase_count`` across every variant row before answering.
 
+When the user asks WHEN a product was bought (questions containing
+"when", "what dates", "history"), use the ``purchase_dates`` array
+on each row. It holds the up-to-25 most-recent purchase dates in
+ISO YYYY-MM-DD form. Render those dates as a bullet list grouped by
+product, never as a long inline comma-separated string.
+
 If ``item_search_results`` is empty but the question clearly named
 an item, say so rather than inventing a number; suggest checking the
 Inventory or Receipts page.
@@ -110,6 +116,19 @@ Example for "how many times did we buy tomatoes":
     - Vine Tomato — 10
     - Roma Tomato — 1
     - Cocktail Tomatoes — 1
+
+Example for "what dates did we buy tomatoes":
+
+    **Tomato purchase history (12 receipts):**
+
+    *Vine Tomato (10):*
+    - 2026-04-09
+    - 2026-03-30
+    - 2026-03-06
+    - …
+
+    *Roma Tomato (1):*
+    - 2026-02-03
 
 Example for "how much did we spend on groceries this month":
 
@@ -227,6 +246,20 @@ _CHAT_STOPWORDS: set[str] = {
     "of", "on", "in", "at", "to", "by", "as", "is", "be", "or", "an",
     "a", "do", "does", "got", "get", "into", "about", "over", "under",
     "much",
+    # Calendar / history words — without these the message "what dates
+    # did we buy tomatoes" matches the product "Organic Dates" and the
+    # bot answers about the wrong thing. Users searching for the fruit
+    # can use a more specific term (e.g. "medjool dates").
+    "date", "dates", "history", "tracking", "track", "log", "logs",
+    "schedule", "schedules", "calendar",
+    "before", "after", "between", "during", "around", "near",
+    "first", "earliest", "recent", "latest", "previous", "next",
+    # Conversational filler that slips through the noun extractor.
+    "can", "could", "would", "should", "may", "might", "will", "won't",
+    "please", "also", "too", "now", "then", "here", "there", "still",
+    "yet", "mean", "means", "meant", "really", "actually", "maybe",
+    "though", "either", "neither", "rather", "quite", "kind", "sort",
+    "way", "thing", "stuff",
 }
 
 
@@ -334,6 +367,33 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
         .all()
     )
 
+    # Pull the per-product purchase-date list (capped at 25 most-recent
+    # per product) so the bot can answer "what dates did we buy X"
+    # without inventing them. Single follow-up query keyed on the
+    # ids we already fetched — household-wide, refunds excluded.
+    product_ids = [int(r[0]) for r in rows]
+    dates_by_product: dict[int, list[str]] = {pid: [] for pid in product_ids}
+    if product_ids:
+        date_rows = (
+            session.query(ReceiptItem.product_id, Purchase.date)
+            .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
+            .filter(ReceiptItem.product_id.in_(product_ids))
+            .filter(
+                _sa.or_(
+                    Purchase.transaction_type.is_(None),
+                    Purchase.transaction_type != "refund",
+                )
+            )
+            .order_by(Purchase.date.desc())
+            .all()
+        )
+        for pid, dt in date_rows:
+            bucket = dates_by_product.get(int(pid))
+            if bucket is None or len(bucket) >= 25:
+                continue
+            if dt:
+                bucket.append(dt.strftime("%Y-%m-%d"))
+
     out: list[dict[str, Any]] = []
     for product_id, name, count, qty, total, first_dt, last_dt in rows:
         out.append({
@@ -344,6 +404,7 @@ def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, 
             "total_spent": round(float(total or 0.0), 2),
             "first_bought": first_dt.strftime("%Y-%m-%d") if first_dt else None,
             "last_bought": last_dt.strftime("%Y-%m-%d") if last_dt else None,
+            "purchase_dates": dates_by_product.get(int(product_id), []),
         })
     return out
 
