@@ -81,14 +81,19 @@ Receipts page filter ``Budget category = Other`` for a manual review.
 
 When the user asks about a specific item (e.g. "how many times did
 we buy tomatoes", "how much do we spend on milk"), check the
-``item_search_results`` array. Each row carries
-``purchase_count``, ``total_quantity``, ``total_spent``,
-``first_bought``, ``last_bought``. Multiple rows may match because
-products are stored at variant granularity ("Roma Tomatoes",
-"Tomato Paste") — sum across the relevant rows when the user means
-the whole category. If ``item_search_results`` is empty but the
-question clearly named an item, say so rather than inventing a
-number; suggest checking the Inventory or Receipts page.
+``item_search_results`` array. Each row is ONE product variant
+(e.g. "Roma Tomato", "Vine Tomato", "Cocktail Tomatoes"). If the
+user's question is about the general item, you MUST sum
+``purchase_count`` across every variant row before answering, and
+list the variants briefly so the user understands what was counted.
+
+Always lead with the totals across all matching variants:
+
+    "12 times — Vine Tomato (10), Cocktail Tomatoes (1), Roma Tomato (1)."
+
+If ``item_search_results`` is empty but the question clearly named
+an item, say so rather than inventing a number; suggest checking the
+Inventory or Receipts page.
 """
 
 
@@ -228,20 +233,58 @@ def _extract_item_query_terms(message: str, max_terms: int = 4) -> list[str]:
     return tokens
 
 
+def _expand_term_variants(term: str) -> list[str]:
+    """Produce singular/plural variants of a search term so a query for
+    "tomatoes" still matches products named "Tomato" / "Vine Tomato".
+
+    Cheap heuristic — generates a small superset of variants and lets
+    the ILIKE substring match do the rest. Order doesn't matter; the
+    caller dedupes.
+    """
+    base = term.lower().strip()
+    if not base:
+        return []
+    variants = {base}
+    # Trailing-plural strip.
+    if base.endswith("ies") and len(base) > 4:
+        variants.add(base[:-3] + "y")          # companies -> company
+    if base.endswith("es") and len(base) > 3:
+        variants.add(base[:-2])                # tomatoes -> tomato, dishes -> dish
+    if base.endswith("s") and len(base) > 3 and not base.endswith("ss"):
+        variants.add(base[:-1])                # carrots -> carrot
+    # Pluralisation in case the user typed singular but products are plural.
+    if not base.endswith("s"):
+        variants.add(base + "s")               # tomato -> tomatos? loose match
+    if base.endswith("y") and len(base) > 3:
+        variants.add(base[:-1] + "ies")        # company -> companies
+    return [v for v in variants if len(v) >= 3]
+
+
 def _search_items(session, terms: list[str], limit: int = 15) -> list[dict[str, Any]]:
     """Return per-product purchase stats for products whose name
     matches any of the supplied terms (case-insensitive substring).
 
-    Joined to Purchase so we can return last-bought date and exclude
-    refund rows; household-wide for parity with the rest of the
-    context. Each row carries enough data for the model to answer
-    "how many times did we buy X" plus a price summary.
+    Each input term is expanded into singular/plural variants so a
+    user query for "tomatoes" still hits products named "Tomato",
+    "Roma Tomato", and "Vine Tomato". Joined to Purchase so we can
+    return last-bought date and exclude refund rows; household-wide
+    for parity with the rest of the context.
     """
     if not terms:
         return []
     import sqlalchemy as _sa
 
-    likes = [_sa.func.lower(Product.name).like(f"%{t}%") for t in terms]
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for t in terms:
+        for v in _expand_term_variants(t):
+            if v not in seen:
+                seen.add(v)
+                expanded.append(v)
+    if not expanded:
+        return []
+
+    likes = [_sa.func.lower(Product.name).like(f"%{t}%") for t in expanded]
     rows = (
         session.query(
             Product.id,
