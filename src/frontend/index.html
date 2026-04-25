@@ -14573,6 +14573,16 @@
                   id="receipt-attribution-chips"
                   class="receipt-attribution-chips"
                 ></div>
+                <div class="filter-chip-row" style="margin-top:8px">
+                  <button type="button"
+                          id="receipts-filter-untagged-btn"
+                          class="filter-chip"
+                          onclick="toggleReceiptsUntaggedFilter()"
+                          aria-pressed="false"
+                          title="Show only receipts that haven't been tagged to a household member">
+                    🏷 Untagged only
+                  </button>
+                </div>
               </div>
               <div class="form-grid">
                 <div class="form-group receipt-filter-store-group">
@@ -23100,7 +23110,211 @@
         if (Array.isArray(tokens) && tokens.length) {
           params.set("attribution", tokens.join(","));
         }
+        // Quick-access "Untagged only" chip — OR-merged with any existing
+        // attribution tokens so users can stack it on top of a member chip
+        // if they want both untagged + a specific person's tagged receipts.
+        _appendUntaggedFilterToQuery(params);
         return params.toString();
+      }
+
+      // ---- Receipts "Untagged only" quick-filter + bulk-tag toolbar ----
+      // Quick-access chip alongside the multi-select attribution chips.
+      // When active, the existing per-card checkboxes feed into a sticky
+      // bulk-tag toolbar that POSTs to /receipts/bulk-attribution.
+      let _receiptsUntaggedOnly = false;
+
+      function toggleReceiptsUntaggedFilter() {
+        _receiptsUntaggedOnly = !_receiptsUntaggedOnly;
+        const btn = document.getElementById("receipts-filter-untagged-btn");
+        if (btn) {
+          btn.setAttribute("aria-pressed", String(_receiptsUntaggedOnly));
+          btn.classList.toggle("is-active", _receiptsUntaggedOnly);
+          btn.classList.toggle("active", _receiptsUntaggedOnly);
+        }
+        // Clear any in-flight bulk selection so the toolbar starts fresh
+        // when the filter view changes.
+        if (typeof clearReceiptBulkSelection === "function") {
+          clearReceiptBulkSelection();
+        }
+        _renderReceiptsBulkTagToolbar();
+        loadReceipts();
+      }
+
+      function _appendUntaggedFilterToQuery(params) {
+        if (_receiptsUntaggedOnly) {
+          const existing = params.get("attribution");
+          // Backend accepts comma-separated tokens (OR semantics) — append
+          // unset to whatever the chips already selected.
+          if (existing) {
+            const tokens = existing.split(",").map((t) => t.trim()).filter(Boolean);
+            if (!tokens.includes("unset")) tokens.push("unset");
+            params.set("attribution", tokens.join(","));
+          } else {
+            params.set("attribution", "unset");
+          }
+        }
+        return params;
+      }
+
+      function _renderReceiptsBulkTagToolbar() {
+        let bar = document.getElementById("receipts-bulk-tag-toolbar");
+        if (!bar) {
+          bar = document.createElement("div");
+          bar.id = "receipts-bulk-tag-toolbar";
+          bar.className = "attr-bulk-toolbar";
+          const host = document.getElementById("page-receipts");
+          if (host) host.prepend(bar);
+        }
+        const sel =
+          typeof _receiptBulkSelection === "function"
+            ? _receiptBulkSelection()
+            : new Set();
+        const n = sel.size;
+        // Toolbar only appears in the Untagged-only filter view, and only
+        // when the user has actually selected at least one card.
+        if (!_receiptsUntaggedOnly || !n) {
+          bar.style.display = "none";
+          bar.innerHTML = "";
+          return;
+        }
+        bar.style.display = "";
+        bar.innerHTML = `
+          <span class="attr-bulk-toolbar__label">${n} selected</span>
+          <button type="button" class="btn btn-primary btn-sm"
+                  onclick="openBulkAttributionPicker()">
+            🏷 Tag ${n} as…
+          </button>
+          <button type="button" class="btn btn-ghost btn-sm"
+                  onclick="_clearReceiptsBulkTagSelection()">Clear</button>
+        `;
+      }
+
+      function _clearReceiptsBulkTagSelection() {
+        if (typeof clearReceiptBulkSelection === "function") {
+          clearReceiptBulkSelection();
+        }
+        _renderReceiptsBulkTagToolbar();
+      }
+
+      async function openBulkAttributionPicker() {
+        const sel =
+          typeof _receiptBulkSelection === "function"
+            ? _receiptBulkSelection()
+            : new Set();
+        const ids = Array.from(sel).map(Number).filter(Boolean);
+        if (!ids.length) return;
+        const picked = await openAttributionPickerModal({
+          title: `Tag ${ids.length} receipt${ids.length > 1 ? "s" : ""}`,
+          initialState: { kind: null, userIds: [] },
+        });
+        if (!picked) return;
+        const res = await api(`/receipts/bulk-attribution`, {
+          method: "POST",
+          body: JSON.stringify({
+            purchase_ids: ids,
+            user_ids: picked.userIds || [],
+            kind: picked.kind,
+            apply_to_items: true,
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          if (typeof toast === "function") {
+            toast(errBody.error || `Bulk-tag failed (${res.status})`, "error");
+          } else {
+            console.info(`Bulk-tag failed (${res.status})`);
+          }
+          return;
+        }
+        const data = await res.json();
+        const updated = Number(data.updated || 0);
+        if (typeof toast === "function") {
+          toast(
+            `Tagged ${updated} receipt${updated === 1 ? "" : "s"} ✅`,
+            "success",
+          );
+        } else {
+          console.info(`Tagged ${updated} receipts`);
+        }
+        _clearReceiptsBulkTagSelection();
+        loadReceipts();
+        // refreshAttributionStats is wired up by Attr-6 (dashboard banner);
+        // call it lazily so this works before that task lands.
+        if (typeof refreshAttributionStats === "function") {
+          refreshAttributionStats();
+        }
+      }
+
+      function openAttributionPickerModal({ title, initialState }) {
+        return new Promise(async (resolve) => {
+          // Reuse the existing household-members loader instead of /users
+          // — it returns the same shape and is already cached.
+          let members = [];
+          try {
+            members = (await loadHouseholdMembers()) || [];
+          } catch (_e) {
+            members = [];
+          }
+          const dlg = document.createElement("dialog");
+          dlg.className = "attr-bulk-modal";
+          const initialIds = new Set(
+            (initialState?.userIds || []).map(Number),
+          );
+          const memberOptions = members
+            .map(
+              (m) => `<label class="attr-bulk-modal__member">
+                  <input type="checkbox" value="${m.id}" ${initialIds.has(Number(m.id)) ? "checked" : ""} /> ${escHtml(m.name || ("user#" + m.id))}
+                </label>`,
+            )
+            .join("");
+          const initialKind = initialState?.kind || "personal";
+          dlg.innerHTML = `
+            <h3 style="margin-top:0">${escHtml(title)}</h3>
+            <p style="margin-top:0;color:var(--muted);font-size:0.9rem">Pick household member(s) and kind, then confirm.</p>
+            <fieldset>
+              <legend>Kind</legend>
+              <label><input type="radio" name="attr-bulk-kind" value="personal" ${initialKind === "personal" ? "checked" : ""} /> Personal</label>
+              <label><input type="radio" name="attr-bulk-kind" value="shared" ${initialKind === "shared" ? "checked" : ""} /> Shared (2+ people)</label>
+              <label><input type="radio" name="attr-bulk-kind" value="household" ${initialKind === "household" ? "checked" : ""} /> Household (everyone)</label>
+            </fieldset>
+            <fieldset id="attr-bulk-members">
+              <legend>Members</legend>
+              ${memberOptions || '<em>No household members loaded.</em>'}
+            </fieldset>
+            <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+              <button id="attr-bulk-cancel" class="btn btn-ghost btn-sm">Cancel</button>
+              <button id="attr-bulk-ok" class="btn btn-primary btn-sm">Apply</button>
+            </div>
+          `;
+          document.body.appendChild(dlg);
+          dlg.showModal();
+          dlg.querySelector("#attr-bulk-cancel").onclick = () => {
+            dlg.close();
+            dlg.remove();
+            resolve(null);
+          };
+          dlg.querySelector("#attr-bulk-ok").onclick = () => {
+            const kind =
+              dlg.querySelector('input[name="attr-bulk-kind"]:checked')?.value ||
+              "personal";
+            const userIds = Array.from(
+              dlg.querySelectorAll(
+                '#attr-bulk-members input[type="checkbox"]:checked',
+              ),
+            )
+              .map((el) => parseInt(el.value, 10))
+              .filter((n) => !isNaN(n));
+            dlg.close();
+            dlg.remove();
+            resolve({ kind, userIds });
+          };
+          // ESC closes the dialog — tie into the same cancel path so the
+          // promise resolves with null.
+          dlg.addEventListener("close", () => {
+            try { dlg.remove(); } catch (_) {}
+            resolve(null);
+          });
+        });
       }
 
       function _getAttrTokenSet() {
@@ -36620,6 +36834,12 @@
         ensureDefaultReceiptFilters();
         _applyReceiptsSummaryCollapsedState();
         renderReceiptAttributionFilterChips().catch(() => {});
+        // Re-sync the Untagged-only sticky toolbar to the current
+        // selection set (cards are about to be re-rendered, but the
+        // selection set persists across renders).
+        if (typeof _renderReceiptsBulkTagToolbar === "function") {
+          _renderReceiptsBulkTagToolbar();
+        }
         const query = getReceiptFilterParams();
         const res = await api(`/receipts${query ? `?${query}` : ""}`);
         const body = document.getElementById("receipts-table-body");
@@ -36806,6 +37026,21 @@
         selectedReceiptMonth = null;
         // Clear attribution chip selection too so Reset means "reset everything".
         window.__receiptAttributionTokens = [];
+        // Reset the "Untagged only" quick-chip + clear any in-flight
+        // bulk-tag selection so Reset really wipes the filter view.
+        if (_receiptsUntaggedOnly) {
+          _receiptsUntaggedOnly = false;
+          const untaggedBtn = document.getElementById(
+            "receipts-filter-untagged-btn",
+          );
+          if (untaggedBtn) {
+            untaggedBtn.setAttribute("aria-pressed", "false");
+            untaggedBtn.classList.remove("is-active", "active");
+          }
+        }
+        if (typeof clearReceiptBulkSelection === "function") {
+          clearReceiptBulkSelection();
+        }
         const searchEl = document.getElementById("receipt-search-input");
         if (searchEl) searchEl.value = "";
         renderReceiptAttributionFilterChips().catch(() => {});
@@ -38688,6 +38923,10 @@
         const card = document.querySelector(`.result-card[data-receipt-id="${n}"]`);
         if (card) card.classList.toggle("card--bulk-checked", checked);
         _updateBulkBarCount();
+        // Refresh the Untagged-only sticky bulk-tag toolbar count too.
+        if (typeof _renderReceiptsBulkTagToolbar === "function") {
+          _renderReceiptsBulkTagToolbar();
+        }
       }
 
       function _updateBulkBarCount() {
@@ -38708,6 +38947,9 @@
           .querySelectorAll(".result-card.card--bulk-checked")
           .forEach((c) => c.classList.remove("card--bulk-checked"));
         _updateBulkBarCount();
+        if (typeof _renderReceiptsBulkTagToolbar === "function") {
+          _renderReceiptsBulkTagToolbar();
+        }
       }
 
       function selectAllReceiptsOnPage() {
@@ -38722,6 +38964,9 @@
           }
         });
         _updateBulkBarCount();
+        if (typeof _renderReceiptsBulkTagToolbar === "function") {
+          _renderReceiptsBulkTagToolbar();
+        }
       }
 
       async function applyReceiptBulkEdit() {
