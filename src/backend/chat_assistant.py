@@ -444,6 +444,10 @@ def _compute_shopping_activity(
     if not purchases_90:
         return None
 
+    store_name_by_pid: dict[int, str] = {
+        p.id: (name or "Unknown") for p, name in purchases_90
+    }
+
     purchase_ids = [p.id for p, _ in purchases_90]
     items_rows = (
         session.query(ReceiptItem.purchase_id)
@@ -503,11 +507,14 @@ def _compute_shopping_activity(
     def _avg_gap(rows: list[Purchase]) -> float | None:
         if len(rows) < 2:
             return None
-        sorted_rows = sorted(rows, key=lambda r: r.date)
+        # Collapse to unique dates so a 3-receipt single-trip day doesn't
+        # contribute zero-gaps that drag the average to 0.
+        unique_dates = sorted({r.date.date() for r in rows if r.date})
+        if len(unique_dates) < 2:
+            return None
         gaps = [
-            (sorted_rows[i + 1].date - sorted_rows[i].date).total_seconds()
-            / 86400.0
-            for i in range(len(sorted_rows) - 1)
+            (unique_dates[i + 1] - unique_dates[i]).days
+            for i in range(len(unique_dates) - 1)
         ]
         return round(sum(gaps) / len(gaps), 2)
 
@@ -517,6 +524,8 @@ def _compute_shopping_activity(
     tpw_90 = round(len(rows_90) / (90 / 7), 2) if rows_90 else 0.0
     if tpw_90 == 0:
         trend = "steady"
+    elif tpw_30 == 0:
+        trend = "inactive"
     elif tpw_30 > tpw_90 * 1.15:
         trend = "up"
     elif tpw_30 < tpw_90 * 0.85:
@@ -568,11 +577,7 @@ def _compute_shopping_activity(
             ),
         }
         most_recent = sorted(rows, key=lambda r: r.date, reverse=True)[0]
-        last_trip_store = (
-            session.query(Store.name)
-            .filter(Store.id == most_recent.store_id)
-            .scalar()
-        )
+        last_trip_store = store_name_by_pid.get(most_recent.id) or "Unknown"
         last_trip = {
             "date": most_recent.date.strftime("%Y-%m-%d"),
             "store": last_trip_store or "Unknown",
@@ -604,7 +609,6 @@ def _compute_shopping_activity(
     )
     top_items = []
     if top_items_rows:
-        from src.backend.initialize_database_schema import Product
         product_names = {
             row.id: row.name
             for row in session.query(Product.id, Product.name)

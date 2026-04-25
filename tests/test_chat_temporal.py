@@ -163,7 +163,7 @@ def test_shopping_activity_windows_excludes_refunds(session, household):
         session, household["mom"], household["now"]
     )
     assert result is not None
-    # 6 (mom in 7d) + 2 (dad in 7d) = 8; refund excluded
+    # 4 (mom) + 2 (dad) = 6 in 7d; refund excluded
     assert result["windows"]["last_7d"]["trips"] == 6
     # mom 12 + dad 6 = 18 in 30d
     assert result["windows"]["last_30d"]["trips"] == 18
@@ -181,8 +181,8 @@ def test_shopping_activity_recent_receipts_top5(session, household):
     assert rec[0]["date"] == "2026-04-24"
     assert rec[0]["store"] == "Costco"
     assert rec[0]["attribution"] in ("Mom", "Dad")
-    # No refunds in recent_receipts
-    assert all("amount" in r and r["amount"] >= 0 for r in rec)
+    # The refund row had amount=25.0 — confirm it isn't in recent_receipts.
+    assert 25.0 not in {r["amount"] for r in rec}
 
 
 def test_shopping_activity_per_person_split(session, household):
@@ -210,6 +210,24 @@ def test_shopping_activity_cadence_trend_classification(session, household):
     assert "trips_per_week_30d" in cad
     assert "trips_per_week_90d" in cad
     assert cad["trend"] in ("up", "down", "steady")
+
+
+def test_shopping_activity_trend_inactive_when_no_recent_trips(session, household):
+    """rows_30 empty but rows_90 present → trend should be 'inactive',
+    not 'down'. Avoids LLM misreading inactivity as a decline."""
+    from src.backend.chat_assistant import _compute_shopping_activity
+    from src.backend.initialize_database_schema import Purchase
+
+    # Wipe rows in the last 30 days but keep older ones.
+    NOW = household["now"]
+    cutoff_30 = NOW - timedelta(days=30)
+    session.query(Purchase).filter(Purchase.date >= cutoff_30).delete()
+    session.commit()
+
+    result = _compute_shopping_activity(session, household["mom"], NOW)
+    assert result is not None
+    assert result["cadence"]["trend"] == "inactive"
+    assert result["cadence"]["trips_per_week_30d"] == 0.0
 
 
 def test_shopping_activity_returns_none_on_empty_db(session):
