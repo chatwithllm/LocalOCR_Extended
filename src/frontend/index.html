@@ -12408,7 +12408,7 @@
     </style>
     <!-- Apple-cinematic last-mile polish. Layered AFTER the inlined
          <style> block so its declarations win the cascade. -->
-    <link rel="stylesheet" href="/styles/design-system.css?v=20260425b" />
+    <link rel="stylesheet" href="/styles/design-system.css?v=20260425c" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
   </head>
@@ -28792,7 +28792,7 @@
             <button type="button" class="btn btn-sm btn-primary" onclick="saveReviewedProduct(${item.id})">Save</button>
             <button type="button" class="btn btn-sm btn-ghost" onclick="runGeminiForProduct(${item.id})">✨ Gemini</button>
             <button type="button" class="btn btn-sm btn-ghost" onclick="setReviewState(${item.id}, 'dismissed')">Dismiss</button>
-            ${item.recent_receipts?.length ? `<button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${item.recent_receipts[0].receipt_id})">Receipt</button>` : ""}
+            ${item.recent_receipts?.length ? `<button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptDetail(${item.recent_receipts[0].receipt_id}, '${escAttr(String(item.recent_receipts[0].date || '').slice(0, 10))}')">Receipt</button>` : ""}
           </div>
         </div>`;
           const head = reviewQueueItems.slice(0, headCount).map(renderMobileCard).join("");
@@ -28845,7 +28845,7 @@
             ${
               item.recent_receipts?.length
                 ? `
-              <button type="button" class="btn btn-sm btn-ghost" onclick="jumpToReceipt(${item.recent_receipts[0].receipt_id})">Receipt</button>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="openReceiptDetail(${item.recent_receipts[0].receipt_id}, '${escAttr(String(item.recent_receipts[0].date || '').slice(0, 10))}')">Receipt</button>
             `
                 : ""
             }
@@ -31044,7 +31044,7 @@
                     <button
                       type="button"
                       class="mini-link"
-                      onclick="event.stopPropagation();jumpToReceipt(${link.receipt_id})"
+                      onclick="event.stopPropagation();openReceiptDetail(${link.receipt_id}, '${escAttr(String(link.date || '').slice(0, 10))}')"
                       title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}"
                     >
                       ${escHtml(link.store || "Receipt")} · ${escHtml(link.date || "—")}
@@ -31257,7 +31257,7 @@
                             <button
                               type="button"
                               class="mini-link"
-                              onclick="jumpToReceipt(${link.receipt_id})"
+                              onclick="openReceiptDetail(${link.receipt_id}, '${escAttr(String(link.date || '').slice(0, 10))}')"
                               title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}"
                             >
                               ${escHtml(link.store || "Receipt")} · ${escHtml(link.date || "—")}
@@ -32123,7 +32123,7 @@
                           ${item.recent_receipts
                             .map(
                               (link) => `
-                            <button type="button" class="mini-link" onclick="jumpToReceipt(${link.receipt_id})" title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}">
+                            <button type="button" class="mini-link" onclick="openReceiptDetail(${link.receipt_id}, '${escAttr(String(link.date || '').slice(0, 10))}')" title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}">
                               ${escHtml(link.store || "Receipt")} · ${escHtml(link.date || "—")}
                             </button>
                           `,
@@ -32331,7 +32331,7 @@
                             <button
                               type="button"
                               class="mini-link"
-                              onclick="jumpToReceipt(${link.receipt_id})"
+                              onclick="openReceiptDetail(${link.receipt_id}, '${escAttr(String(link.date || '').slice(0, 10))}')"
                               title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}"
                             >
                               ${escHtml(link.store || "Receipt")} · ${escHtml(link.date || "—")}
