@@ -1468,6 +1468,10 @@ def list_household_members():
     members = (
         g.db_session.query(User)
         .filter(User.is_active.is_(True))
+        .filter(
+            (User.role.is_(None))
+            | (User.role != "service")
+        )
         .order_by(User.name.asc(), User.email.asc())
         .all()
     )
@@ -1476,6 +1480,7 @@ def list_household_members():
             {
                 "id": m.id,
                 "name": m.name or m.email or f"User {m.id}",
+                "role": m.role,
                 "is_self": m.id == user.id,
             }
             for m in members

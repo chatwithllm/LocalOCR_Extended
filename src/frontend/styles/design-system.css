@@ -3643,20 +3643,19 @@ button.spending-row:hover {
 }
 /* === Bulk attribution modal — theme-aware, polished === */
 .attr-bulk-modal {
-  background: var(--color-surface-1, #fff);
-  color: var(--color-text-primary, #1f2937);
-  border: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.18));
+  background: var(--color-surface, #fff);
+  color: var(--color-text-primary, #1d1d1f);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
   border-radius: 16px;
   padding: 0;
   width: min(440px, 92vw);
   max-height: min(86vh, 720px);
-  box-shadow:
-    var(--shadow-3, 0 18px 48px rgba(0, 0, 0, 0.28));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
   overflow: hidden;
   font-family: inherit;
 }
 .attr-bulk-modal::backdrop {
-  background: rgba(15, 18, 24, 0.55);
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(2px);
 }
 .attr-modal__form {
@@ -3665,27 +3664,30 @@ button.spending-row:hover {
   max-height: inherit;
   margin: 0;
   padding: 0;
+  background: inherit;
 }
 .attr-modal__header {
   padding: 18px 22px 12px;
-  border-bottom: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.14));
+  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  background: var(--color-surface, transparent);
 }
 .attr-modal__title {
   margin: 0;
   font-size: 1.08rem;
   font-weight: 700;
-  color: var(--color-text-primary, inherit);
+  color: var(--color-text-primary, #1d1d1f);
   letter-spacing: -0.01em;
 }
 .attr-modal__sub {
   margin: 6px 0 0;
   font-size: 0.85rem;
   line-height: 1.4;
-  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.8)));
+  color: var(--color-text-secondary, rgba(0, 0, 0, 0.7));
 }
 .attr-modal__section {
   padding: 14px 22px;
-  border-bottom: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.10));
+  border-bottom: 1px solid var(--color-border, rgba(0, 0, 0, 0.08));
+  background: var(--color-surface, transparent);
 }
 .attr-modal__section:last-of-type { border-bottom: 0; }
 .attr-modal__members-section {
@@ -3699,7 +3701,7 @@ button.spending-row:hover {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+  color: var(--color-text-muted, rgba(0, 0, 0, 0.55));
 }
 /* Kind selector — segmented row of cards. */
 .attr-modal__kinds {
@@ -3714,12 +3716,12 @@ button.spending-row:hover {
   gap: 2px;
   padding: 10px 10px;
   background: var(--color-surface-2, rgba(127, 127, 127, 0.06));
-  border: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.16));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.12));
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
-  transition: background 140ms ease, border-color 140ms ease,
-    transform 120ms ease;
+  transition: background 140ms ease, border-color 140ms ease;
+  color: var(--color-text-primary, inherit);
 }
 .attr-modal__kind input[type="radio"] {
   position: absolute;
@@ -3732,9 +3734,9 @@ button.spending-row:hover {
   background: var(--color-surface-3, rgba(127, 127, 127, 0.12));
 }
 .attr-modal__kind.is-active {
-  background: color-mix(in srgb, var(--color-accent, #4aa3ff) 14%, transparent);
-  border-color: var(--color-accent, #4aa3ff);
-  box-shadow: 0 0 0 1px var(--color-accent, #4aa3ff) inset;
+  background: color-mix(in srgb, var(--color-border-brand, #0071e3) 18%, var(--color-surface, transparent));
+  border-color: var(--color-border-brand, #0071e3);
+  box-shadow: 0 0 0 1px var(--color-border-brand, #0071e3) inset;
 }
 .attr-modal__kind-label {
   font-weight: 700;
@@ -3743,7 +3745,7 @@ button.spending-row:hover {
 }
 .attr-modal__kind-hint {
   font-size: 0.72rem;
-  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+  color: var(--color-text-secondary, rgba(0, 0, 0, 0.65));
 }
 /* Member rows — chip-card style with avatar. */
 .attr-modal__members {
@@ -3761,15 +3763,16 @@ button.spending-row:hover {
   border: 1px solid transparent;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease;
+  color: var(--color-text-primary, inherit);
 }
 .attr-modal__member:hover {
-  background: var(--color-surface-2, rgba(127, 127, 127, 0.06));
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.10));
 }
 .attr-modal__member input[type="checkbox"] {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--color-accent, #4aa3ff);
+  accent-color: var(--color-border-brand, #0071e3);
   cursor: pointer;
 }
 .attr-modal__avatar {
@@ -3780,8 +3783,8 @@ button.spending-row:hover {
   height: 30px;
   border-radius: 50%;
   background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-accent, #4aa3ff) 60%, #ffffff 40%),
-    var(--color-accent, #4aa3ff));
+    color-mix(in srgb, var(--color-border-brand, #0071e3) 60%, #ffffff 40%),
+    var(--color-border-brand, #0071e3));
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
@@ -3800,13 +3803,13 @@ button.spending-row:hover {
 .attr-modal__check {
   font-weight: 800;
   font-size: 0.85rem;
-  color: var(--color-accent, #4aa3ff);
+  color: var(--color-border-brand, #0071e3);
   opacity: 0;
   transition: opacity 120ms ease;
 }
 .attr-modal__member.is-checked {
-  background: color-mix(in srgb, var(--color-accent, #4aa3ff) 8%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent, #4aa3ff) 24%, transparent);
+  background: color-mix(in srgb, var(--color-border-brand, #0071e3) 12%, var(--color-surface, transparent));
+  border-color: color-mix(in srgb, var(--color-border-brand, #0071e3) 30%, transparent);
 }
 .attr-modal__member.is-checked .attr-modal__check {
   opacity: 1;
@@ -3814,7 +3817,7 @@ button.spending-row:hover {
 .attr-modal__empty {
   padding: 12px;
   font-size: 0.85rem;
-  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+  color: var(--color-text-secondary, rgba(0, 0, 0, 0.65));
   text-align: center;
 }
 .attr-modal__footer {
@@ -3822,8 +3825,8 @@ button.spending-row:hover {
   gap: 8px;
   justify-content: flex-end;
   padding: 14px 22px;
-  border-top: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.14));
-  background: var(--color-surface-2, rgba(127, 127, 127, 0.04));
+  border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.10));
+  background: var(--color-surface-2, transparent);
 }
 
 /* === Dashboard attribution-nudge banner === */

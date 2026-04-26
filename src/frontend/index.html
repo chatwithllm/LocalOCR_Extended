@@ -23258,14 +23258,17 @@
             resolved = true;
             resolve(val);
           };
-          // Reuse the existing household-members loader. Filter out
-          // service accounts so the picker only shows real people.
+          // Reuse the existing household-members loader. Backend now
+          // already filters service accounts, but keep a defensive
+          // client-side filter in case the cache was populated before
+          // that fix shipped.
           let members = [];
           try {
             const all = (await loadHouseholdMembers()) || [];
-            members = all.filter(
-              (m) => (m.role || "").toLowerCase() !== "service",
-            );
+            members = all.filter((m) => {
+              const role = (m.role || "").toLowerCase();
+              return role !== "service";
+            });
           } catch (_e) {
             members = [];
           }
