@@ -23252,11 +23252,20 @@
 
       function openAttributionPickerModal({ title, initialState }) {
         return new Promise(async (resolve) => {
-          // Reuse the existing household-members loader instead of /users
-          // — it returns the same shape and is already cached.
+          let resolved = false;
+          const settle = (val) => {
+            if (resolved) return;
+            resolved = true;
+            resolve(val);
+          };
+          // Reuse the existing household-members loader. Filter out
+          // service accounts so the picker only shows real people.
           let members = [];
           try {
-            members = (await loadHouseholdMembers()) || [];
+            const all = (await loadHouseholdMembers()) || [];
+            members = all.filter(
+              (m) => (m.role || "").toLowerCase() !== "service",
+            );
           } catch (_e) {
             members = [];
           }
@@ -23265,38 +23274,87 @@
           const initialIds = new Set(
             (initialState?.userIds || []).map(Number),
           );
-          const memberOptions = members
-            .map(
-              (m) => `<label class="attr-bulk-modal__member">
-                  <input type="checkbox" value="${m.id}" ${initialIds.has(Number(m.id)) ? "checked" : ""} /> ${escHtml(m.name || ("user#" + m.id))}
-                </label>`,
-            )
-            .join("");
           const initialKind = initialState?.kind || "personal";
+
+          const initial = (name, fallback) =>
+            (name || fallback || "?").trim().charAt(0).toUpperCase();
+
+          const memberCards = members
+            .map((m) => {
+              const checked = initialIds.has(Number(m.id));
+              return `
+                <label class="attr-modal__member ${checked ? "is-checked" : ""}"
+                       data-uid="${m.id}">
+                  <input type="checkbox" value="${m.id}" ${checked ? "checked" : ""} />
+                  <span class="attr-modal__avatar">${initial(m.name, "U")}</span>
+                  <span class="attr-modal__name">${escHtml(m.name || ("user#" + m.id))}</span>
+                  <span class="attr-modal__check">✓</span>
+                </label>`;
+            })
+            .join("");
+
+          const kindRow = (val, label, hint) => {
+            const c = initialKind === val ? "checked" : "";
+            return `
+              <label class="attr-modal__kind ${c ? "is-active" : ""}"
+                     data-kind="${val}">
+                <input type="radio" name="attr-bulk-kind" value="${val}" ${c} />
+                <span class="attr-modal__kind-label">${label}</span>
+                <span class="attr-modal__kind-hint">${hint}</span>
+              </label>`;
+          };
+
           dlg.innerHTML = `
-            <h3 style="margin-top:0">${escHtml(title)}</h3>
-            <p style="margin-top:0;color:var(--muted);font-size:0.9rem">Pick household member(s) and kind, then confirm.</p>
-            <fieldset>
-              <legend>Kind</legend>
-              <label><input type="radio" name="attr-bulk-kind" value="personal" ${initialKind === "personal" ? "checked" : ""} /> Personal</label>
-              <label><input type="radio" name="attr-bulk-kind" value="shared" ${initialKind === "shared" ? "checked" : ""} /> Shared (2+ people)</label>
-              <label><input type="radio" name="attr-bulk-kind" value="household" ${initialKind === "household" ? "checked" : ""} /> Household (everyone)</label>
-            </fieldset>
-            <fieldset id="attr-bulk-members">
-              <legend>Members</legend>
-              ${memberOptions || '<em>No household members loaded.</em>'}
-            </fieldset>
-            <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
-              <button id="attr-bulk-cancel" class="btn btn-ghost btn-sm">Cancel</button>
-              <button id="attr-bulk-ok" class="btn btn-primary btn-sm">Apply</button>
-            </div>
+            <form method="dialog" class="attr-modal__form">
+              <header class="attr-modal__header">
+                <h3 class="attr-modal__title">${escHtml(title)}</h3>
+                <p class="attr-modal__sub">Tag who paid or shopped — the assistant uses this for per-person breakdowns.</p>
+              </header>
+              <section class="attr-modal__section">
+                <h4 class="attr-modal__heading">Kind</h4>
+                <div class="attr-modal__kinds">
+                  ${kindRow("personal", "Personal", "One person")}
+                  ${kindRow("shared", "Shared", "2+ people split")}
+                  ${kindRow("household", "Household", "Everyone")}
+                </div>
+              </section>
+              <section class="attr-modal__section attr-modal__members-section">
+                <h4 class="attr-modal__heading">Members</h4>
+                <div class="attr-modal__members" id="attr-bulk-members">
+                  ${memberCards || '<div class="attr-modal__empty">No household members loaded.</div>'}
+                </div>
+              </section>
+              <footer class="attr-modal__footer">
+                <button type="button" id="attr-bulk-cancel" class="btn btn-ghost">Cancel</button>
+                <button type="button" id="attr-bulk-ok" class="btn btn-primary">Apply</button>
+              </footer>
+            </form>
           `;
           document.body.appendChild(dlg);
           dlg.showModal();
+
+          // Visual sync — reflect kind selection & check states without
+          // forcing a full re-render.
+          const refreshKindStates = () => {
+            dlg.querySelectorAll(".attr-modal__kind").forEach((el) => {
+              const r = el.querySelector('input[type="radio"]');
+              el.classList.toggle("is-active", !!(r && r.checked));
+            });
+          };
+          dlg.querySelectorAll(".attr-modal__kind").forEach((el) => {
+            el.addEventListener("click", refreshKindStates);
+          });
+          dlg.querySelectorAll(".attr-modal__member").forEach((el) => {
+            el.addEventListener("change", () => {
+              const cb = el.querySelector('input[type="checkbox"]');
+              el.classList.toggle("is-checked", !!(cb && cb.checked));
+            });
+          });
+
           dlg.querySelector("#attr-bulk-cancel").onclick = () => {
             dlg.close();
             dlg.remove();
-            resolve(null);
+            settle(null);
           };
           dlg.querySelector("#attr-bulk-ok").onclick = () => {
             const kind =
@@ -23311,13 +23369,20 @@
               .filter((n) => !isNaN(n));
             dlg.close();
             dlg.remove();
-            resolve({ kind, userIds });
+            settle({ kind, userIds });
           };
-          // ESC closes the dialog — tie into the same cancel path so the
-          // promise resolves with null.
+          // ESC + backdrop click both fire the dialog "close" event.
           dlg.addEventListener("close", () => {
             try { dlg.remove(); } catch (_) {}
-            resolve(null);
+            settle(null);
+          });
+          // Close on backdrop click (browser doesn't do this by default).
+          dlg.addEventListener("click", (e) => {
+            if (e.target === dlg) {
+              dlg.close();
+              dlg.remove();
+              settle(null);
+            }
           });
         });
       }

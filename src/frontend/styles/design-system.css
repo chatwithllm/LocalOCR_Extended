@@ -3641,21 +3641,189 @@ button.spending-row:hover {
   width: 28px;
   text-align: center;
 }
+/* === Bulk attribution modal — theme-aware, polished === */
 .attr-bulk-modal {
+  background: var(--color-surface-1, #fff);
+  color: var(--color-text-primary, #1f2937);
   border: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.18));
+  border-radius: 16px;
+  padding: 0;
+  width: min(440px, 92vw);
+  max-height: min(86vh, 720px);
+  box-shadow:
+    var(--shadow-3, 0 18px 48px rgba(0, 0, 0, 0.28));
+  overflow: hidden;
+  font-family: inherit;
+}
+.attr-bulk-modal::backdrop {
+  background: rgba(15, 18, 24, 0.55);
+  backdrop-filter: blur(2px);
+}
+.attr-modal__form {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  margin: 0;
+  padding: 0;
+}
+.attr-modal__header {
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.14));
+}
+.attr-modal__title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--color-text-primary, inherit);
+  letter-spacing: -0.01em;
+}
+.attr-modal__sub {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.8)));
+}
+.attr-modal__section {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.10));
+}
+.attr-modal__section:last-of-type { border-bottom: 0; }
+.attr-modal__members-section {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+.attr-modal__heading {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+}
+/* Kind selector — segmented row of cards. */
+.attr-modal__kinds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.attr-modal__kind {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px;
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.06));
+  border: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.16));
   border-radius: 12px;
-  padding: 18px;
-  min-width: 320px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 140ms ease, border-color 140ms ease,
+    transform 120ms ease;
 }
-.attr-bulk-modal fieldset {
-  border: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.18));
-  border-radius: 8px;
+.attr-modal__kind input[type="radio"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+.attr-modal__kind:hover {
+  background: var(--color-surface-3, rgba(127, 127, 127, 0.12));
+}
+.attr-modal__kind.is-active {
+  background: color-mix(in srgb, var(--color-accent, #4aa3ff) 14%, transparent);
+  border-color: var(--color-accent, #4aa3ff);
+  box-shadow: 0 0 0 1px var(--color-accent, #4aa3ff) inset;
+}
+.attr-modal__kind-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--color-text-primary, inherit);
+}
+.attr-modal__kind-hint {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+}
+/* Member rows — chip-card style with avatar. */
+.attr-modal__members {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.attr-modal__member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 8px 12px;
-  margin: 8px 0;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
-.attr-bulk-modal__member {
-  display: block;
-  padding: 4px 0;
+.attr-modal__member:hover {
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.06));
+}
+.attr-modal__member input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-accent, #4aa3ff);
+  cursor: pointer;
+}
+.attr-modal__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-accent, #4aa3ff) 60%, #ffffff 40%),
+    var(--color-accent, #4aa3ff));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.attr-modal__name {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attr-modal__check {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--color-accent, #4aa3ff);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.attr-modal__member.is-checked {
+  background: color-mix(in srgb, var(--color-accent, #4aa3ff) 8%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent, #4aa3ff) 24%, transparent);
+}
+.attr-modal__member.is-checked .attr-modal__check {
+  opacity: 1;
+}
+.attr-modal__empty {
+  padding: 12px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, var(--muted, rgba(127, 127, 127, 0.7)));
+  text-align: center;
+}
+.attr-modal__footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 14px 22px;
+  border-top: 1px solid var(--color-border-soft, rgba(127, 127, 127, 0.14));
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.04));
 }
 
 /* === Dashboard attribution-nudge banner === */
