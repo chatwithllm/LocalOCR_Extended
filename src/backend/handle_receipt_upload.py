@@ -371,7 +371,11 @@ def _delete_purchase_data(session, purchase):
 
 def _clear_purchase_detail_data(session, purchase):
     """Remove item/price rows while preserving the purchase record itself."""
-    from src.backend.initialize_database_schema import ReceiptItem, PriceHistory
+    from src.backend.initialize_database_schema import (
+        ReceiptItem,
+        PriceHistory,
+        ProductSnapshot,
+    )
 
     receipt_items = session.query(ReceiptItem).filter_by(purchase_id=purchase.id).all()
     product_ids = {item.product_id for item in receipt_items if item.product_id}
@@ -381,6 +385,21 @@ def _clear_purchase_detail_data(session, purchase):
             PriceHistory.store_id == purchase.store_id,
             PriceHistory.date == purchase.date,
         ).delete(synchronize_session=False)
+
+    # ProductSnapshot.receipt_item_id is a non-cascading FK. Without this
+    # null-out the DELETE below blows up with "FOREIGN KEY constraint
+    # failed" when any snapshot was captured for these items (e.g. an
+    # "after_purchase" review snapshot). Detach snapshots first so the
+    # delete can proceed; the snapshot rows themselves stay valid (only
+    # the receipt_item_id pointer is cleared).
+    item_ids = [it.id for it in receipt_items]
+    if item_ids:
+        session.query(ProductSnapshot).filter(
+            ProductSnapshot.receipt_item_id.in_(item_ids)
+        ).update(
+            {"receipt_item_id": None},
+            synchronize_session=False,
+        )
 
     session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
 
