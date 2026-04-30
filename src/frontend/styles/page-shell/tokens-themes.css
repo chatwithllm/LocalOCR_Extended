@@ -1,0 +1,745 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* =============================================================
+ * Apple-inspired design tokens — generated from design/
+ * design-tokens.json by scripts/build_tokens.py. Do NOT
+ * hand-edit; regenerate and paste the output of
+ * src/frontend/styles/tokens.generated.css.
+ * ============================================================= */
+
+:root,
+:root[data-theme="light"] {
+  --color-brand: #0071e3;
+  --color-brand-hover: #0077ed;
+  --color-brand-pressed: #006edb;
+  --color-brand-soft: rgba(0, 113, 227, 0.1);
+  --color-brand-contrast: #ffffff;
+  --color-link: #0066cc;
+
+  --color-bg: #f5f5f7;
+  --color-bg-inverse: #000000;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafafc;
+  --color-surface-3: #ededf2;
+  --color-surface-4: #f5f5f7;
+  --color-surface-inverse: #1d1d1f;
+
+  --color-overlay: rgba(0, 0, 0, 0.48);
+  --color-overlay-soft: rgba(210, 210, 215, 0.64);
+  --color-glass-nav: rgba(0, 0, 0, 0.8);
+
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: rgba(0, 0, 0, 0.8);
+  --color-text-muted: rgba(0, 0, 0, 0.56);
+  --color-text-disabled: rgba(0, 0, 0, 0.48);
+  --color-text-inverse: #ffffff;
+
+  --color-border: rgba(0, 0, 0, 0.12);
+  --color-border-strong: rgba(0, 0, 0, 0.22);
+  --color-border-brand: #0071e3;
+  --color-focus: #0071e3;
+
+  --color-success: #00b74a;
+  --color-success-soft: rgba(0, 183, 74, 0.12);
+  --color-warning: #ff9500;
+  --color-warning-soft: rgba(255, 149, 0, 0.14);
+  --color-error: #ff3b30;
+  --color-error-soft: rgba(255, 59, 48, 0.12);
+  --color-error-hover: #d70015;
+  --color-info: #007aff;
+  --color-info-soft: rgba(0, 122, 255, 0.1);
+
+  --color-confidence-high: #00b74a;
+  --color-confidence-medium: #ff9500;
+  --color-confidence-low: #ff3b30;
+  --color-confidence-high-soft: rgba(0, 183, 74, 0.12);
+  --color-confidence-medium-soft: rgba(255, 149, 0, 0.14);
+  --color-confidence-low-soft: rgba(255, 59, 48, 0.12);
+
+  --color-cat-grocery: #34a36b;
+  --color-cat-restaurant: #d37c2b;
+  --color-cat-utility: #3a7cbd;
+  --color-cat-personal-service: #8450b8;
+  --color-cat-subscription: #2a8a95;
+  --color-cat-other: rgba(0, 0, 0, 0.56);
+}
+
+:root[data-theme="dark"] {
+  --color-brand: #0a84ff;
+  --color-brand-hover: #1f8fff;
+  --color-brand-pressed: #0071e3;
+  --color-brand-soft: rgba(10, 132, 255, 0.16);
+  --color-brand-contrast: #ffffff;
+  --color-link: #2997ff;
+
+  --color-bg: #000000;
+  --color-bg-inverse: #f5f5f7;
+  --color-surface: #1d1d1f;
+  --color-surface-2: #272729;
+  --color-surface-3: #28282a;
+  --color-surface-4: #2a2a2d;
+  --color-surface-inverse: #f5f5f7;
+
+  --color-overlay: rgba(0, 0, 0, 0.72);
+  --color-overlay-soft: rgba(58, 58, 60, 0.72);
+  --color-glass-nav: rgba(0, 0, 0, 0.8);
+
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: rgba(245, 245, 247, 0.86);
+  --color-text-muted: rgba(245, 245, 247, 0.56);
+  --color-text-disabled: rgba(245, 245, 247, 0.4);
+  --color-text-inverse: #1d1d1f;
+
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
+  --color-border-brand: #0a84ff;
+  --color-focus: #0a84ff;
+
+  --color-success: #30d158;
+  --color-success-soft: rgba(48, 209, 88, 0.22);
+  --color-warning: #ff9f0a;
+  --color-warning-soft: rgba(255, 159, 10, 0.22);
+  --color-error: #ff453a;
+  --color-error-soft: rgba(255, 69, 58, 0.2);
+  --color-error-hover: #ff6961;
+  --color-info: #2997ff;
+  --color-info-soft: rgba(41, 151, 255, 0.18);
+
+  --color-confidence-high: #30d158;
+  --color-confidence-medium: #ff9f0a;
+  --color-confidence-low: #ff453a;
+  --color-confidence-high-soft: rgba(48, 209, 88, 0.22);
+  --color-confidence-medium-soft: rgba(255, 159, 10, 0.22);
+  --color-confidence-low-soft: rgba(255, 69, 58, 0.2);
+
+  --color-cat-grocery: #4cc488;
+  --color-cat-restaurant: #e09255;
+  --color-cat-utility: #5b9ddc;
+  --color-cat-personal-service: #a27ad0;
+  --color-cat-subscription: #4fb3bd;
+  --color-cat-other: rgba(245, 245, 247, 0.56);
+}
+
+:root {
+  --font-display: "SF Pro Display", "SF Pro Icons", -apple-system,
+    BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  --font-text: "SF Pro Text", "SF Pro Icons", -apple-system,
+    BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  --font-mono: "SF Mono", "Menlo", "Consolas", monospace;
+
+  --font-hero: 3.5rem;
+  --font-hero-weight: 600;
+  --font-hero-lh: 1.07;
+  --font-hero-tracking: -0.28px;
+  --font-4xl: 2.5rem;
+  --font-4xl-weight: 600;
+  --font-4xl-lh: 1.1;
+  --font-4xl-tracking: -0.4px;
+  --font-3xl: 2.13rem;
+  --font-3xl-weight: 600;
+  --font-3xl-lh: 1.18;
+  --font-3xl-tracking: -0.374px;
+  --font-2xl: 1.75rem;
+  --font-2xl-weight: 400;
+  --font-2xl-lh: 1.14;
+  --font-2xl-tracking: 0.196px;
+  --font-xl: 1.5rem;
+  --font-xl-weight: 300;
+  --font-xl-lh: 1.5;
+  --font-xl-tracking: 0;
+  --font-lg: 1.31rem;
+  --font-lg-weight: 700;
+  --font-lg-lh: 1.19;
+  --font-lg-tracking: 0.231px;
+  --font-lg-reg: 1.31rem;
+  --font-lg-reg-weight: 400;
+  --font-md: 1.13rem;
+  --font-md-weight: 300;
+  --font-md-lh: 1;
+  --font-md-tracking: 0;
+  --font-body: 1.06rem;
+  --font-body-weight: 400;
+  --font-body-lh: 1.47;
+  --font-body-tracking: -0.374px;
+  --font-body-em: 1.06rem;
+  --font-body-em-weight: 600;
+  --font-body-em-lh: 1.24;
+  --font-sm: 0.88rem;
+  --font-sm-weight: 400;
+  --font-sm-lh: 1.43;
+  --font-sm-tracking: -0.224px;
+  --font-sm-em: 0.88rem;
+  --font-sm-em-weight: 600;
+  --font-sm-em-lh: 1.29;
+  --font-xs: 0.75rem;
+  --font-xs-weight: 400;
+  --font-xs-lh: 1.33;
+  --font-xs-tracking: -0.12px;
+  --font-xs-em: 0.75rem;
+  --font-xs-em-weight: 600;
+  --font-nano: 0.63rem;
+  --font-nano-weight: 400;
+  --font-nano-lh: 1.47;
+  --font-nano-tracking: -0.08px;
+}
+
+:root {
+  --space-0: 0;
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+  --space-40: 10rem;
+  --space-48: 12rem;
+
+  --radius-0: 0;
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 11px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 980px;
+  --radius-full: 50%;
+
+  --stroke-0: 0;
+  --stroke-1: 1px;
+  --stroke-2: 2px;
+  --stroke-3: 3px;
+
+  --icon-xs: 12px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+  --icon-2xl: 48px;
+  --icon-3xl: 64px;
+
+  --shadow-0: none;
+  --shadow-1: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+  --shadow-2:
+    rgba(0, 0, 0, 0.14) 0px 6px 20px 0px,
+    rgba(0, 0, 0, 0.06) 0px 2px 4px 0px;
+  --shadow-3:
+    rgba(0, 0, 0, 0.18) 0px 12px 32px 0px,
+    rgba(0, 0, 0, 0.08) 0px 4px 8px 0px;
+  --shadow-4:
+    rgba(0, 0, 0, 0.24) 0px 24px 48px 0px,
+    rgba(0, 0, 0, 0.1) 0px 8px 16px 0px;
+  --shadow-5:
+    rgba(0, 0, 0, 0.32) 0px 40px 80px 0px,
+    rgba(0, 0, 0, 0.14) 0px 12px 24px 0px;
+
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
+  --duration-elaborate: 480ms;
+  --duration-scan-loop: 1600ms;
+
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* Legacy aliases — existing components resolve through the new
+ * token system until they're rewritten in later phases. */
+:root {
+  --bg: var(--color-bg);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface-2);
+  --surface-3: var(--color-surface-3);
+  --border: var(--color-border);
+  --border-strong: var(--color-border-strong);
+  --text: var(--color-text-primary);
+  --text-subtle: var(--color-text-secondary);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-brand);
+  --accent-hover: var(--color-brand-hover);
+  --accent-pressed: var(--color-brand-pressed);
+  --accent-soft: var(--color-brand-soft);
+  --accent2: var(--color-success);
+  --accent3: var(--color-error);
+  --success: var(--color-success);
+  --success-soft: var(--color-success-soft);
+  --warning: var(--color-warning);
+  --warning-soft: var(--color-warning-soft);
+  --danger: var(--color-error);
+  --danger-soft: var(--color-error-soft);
+  --ring: var(--color-focus);
+  --overlay: var(--color-overlay);
+  --font-body: var(--font-text);
+  --fs-xs: var(--font-xs);
+  --fs-sm: var(--font-sm);
+  --fs-base: var(--font-sm);
+  --fs-md: var(--font-body);
+  --fs-lg: var(--font-md);
+  --fs-xl: var(--font-xl);
+  --fs-2xl: var(--font-2xl);
+  --fs-3xl: var(--font-3xl);
+  --lh-tight: 1.14;
+  --lh-snug: 1.24;
+  --lh-base: 1.47;
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+}
+
+/* =============================================================
+ * Clay theme (opt-in via data-theme="clay" / "clay-dark").
+ * Generated from design/design-tokens.json → themes.clay.
+ * Mirror of src/frontend/styles/tokens.generated.css.
+ * ============================================================= */
+:root[data-theme="clay"] {
+  --color-brand: #8fbf9f;
+  --color-brand-hover: #7fb091;
+  --color-brand-pressed: #6fa181;
+  --color-brand-soft: rgba(143, 191, 159, 0.16);
+  --color-brand-contrast: #1a1a1a;
+  --color-link: #4a7a6b;
+  --color-bg: #faf9f7;
+  --color-bg-inverse: #1a1a1a;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2efe8;
+  --color-surface-3: #e8e4db;
+  --color-surface-4: #ddd7cc;
+  --color-surface-inverse: #1a1a1a;
+  --color-overlay: rgba(26, 26, 26, 0.48);
+  --color-overlay-soft: rgba(242, 239, 232, 0.64);
+  --color-glass-nav: rgba(26, 26, 26, 0.80);
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: rgba(26, 26, 26, 0.70);
+  --color-text-muted: rgba(26, 26, 26, 0.50);
+  --color-text-disabled: rgba(26, 26, 26, 0.36);
+  --color-text-inverse: #faf9f7;
+  --color-border: rgba(26, 26, 26, 0.12);
+  --color-border-strong: #1a1a1a;
+  --color-border-brand: #8fbf9f;
+  --color-focus: #8fbf9f;
+  --color-success: #8fbf9f;
+  --color-success-soft: rgba(143, 191, 159, 0.16);
+  --color-warning: #f5d86e;
+  --color-warning-soft: rgba(245, 216, 110, 0.18);
+  --color-error: #e85d6a;
+  --color-error-soft: rgba(232, 93, 106, 0.14);
+  --color-error-hover: #d34a57;
+  --color-info: #5b7fc9;
+  --color-info-soft: rgba(91, 127, 201, 0.16);
+  --color-confidence-high: #8fbf9f;
+  --color-confidence-medium: #f5d86e;
+  --color-confidence-low: #e85d6a;
+  --color-confidence-high-soft: rgba(143, 191, 159, 0.16);
+  --color-confidence-medium-soft: rgba(245, 216, 110, 0.18);
+  --color-confidence-low-soft: rgba(232, 93, 106, 0.14);
+  --color-cat-grocery: #8fbf9f;
+  --color-cat-restaurant: #ec7bb0;
+  --color-cat-utility: #5b7fc9;
+  --color-cat-personal-service: #b19cd9;
+  --color-cat-subscription: #8470b0;
+  --color-cat-other: rgba(26, 26, 26, 0.50);
+  --color-swatch-matcha: #8fbf9f;
+  --color-swatch-slushie: #a7c8e8;
+  --color-swatch-lemon: #f5d86e;
+  --color-swatch-ube: #b19cd9;
+  --color-swatch-pomegranate: #e85d6a;
+  --color-swatch-blueberry: #5b7fc9;
+  --color-swatch-dragonfruit: #ec7bb0;
+  --color-swatch-matcha-soft: rgba(143, 191, 159, 0.14);
+  --color-swatch-slushie-soft: rgba(167, 200, 232, 0.14);
+  --color-swatch-lemon-soft: rgba(245, 216, 110, 0.18);
+  --color-swatch-ube-soft: rgba(177, 156, 217, 0.16);
+  --color-swatch-pomegranate-soft: rgba(232, 93, 106, 0.14);
+  --color-swatch-blueberry-soft: rgba(91, 127, 201, 0.16);
+  --color-swatch-dragonfruit-soft: rgba(236, 123, 176, 0.16);
+  --color-ink: #1a1a1a;
+  --color-ink-soft: rgba(26, 26, 26, 0.70);
+  --color-cream: #faf9f7;
+  --color-cream-deep: #f2efe8;
+  --radius-0: 0;
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 40px;
+  --radius-pill: 999px;
+  --radius-full: 50%;
+  --shadow-0: none;
+  --shadow-1: -3px 3px 0 0 #1a1a1a;
+  --shadow-2: -4px 4px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --shadow-3: -6px 6px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-4: -8px 8px 0 0 #1a1a1a, inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-5: -12px 12px 0 0 #1a1a1a, inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  --duration-instant: 100ms;
+  --duration-fast: 180ms;
+  --duration-base: 280ms;
+  --duration-slow: 400ms;
+  --duration-elaborate: 600ms;
+  --duration-scan-loop: 1600ms;
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-standard: cubic-bezier(0.33, 1, 0.68, 1);
+  --font-hero-tracking: -0.12px;
+  --font-4xl-tracking: -0.08px;
+  --font-3xl-tracking: 0;
+  --font-2xl-tracking: 0;
+  --font-xl-tracking: 0;
+  --font-lg-tracking: 0;
+  --font-lg-reg-tracking: 0;
+  --font-md-tracking: 0;
+  --font-body-tracking: 0;
+  --font-body-em-tracking: 0;
+  --font-sm-tracking: 0;
+  --font-sm-em-tracking: 0;
+  --font-xs-tracking: 0;
+  --font-xs-em-tracking: 0;
+  --font-nano-tracking: 0.4px;
+}
+
+:root[data-theme="clay-dark"] {
+  --color-brand: #a5d1b2;
+  --color-brand-hover: #b5d9c0;
+  --color-brand-pressed: #95c1a2;
+  --color-brand-soft: rgba(165, 209, 178, 0.20);
+  --color-brand-contrast: #161513;
+  --color-link: #a5d1b2;
+  --color-bg: #161513;
+  --color-bg-inverse: #faf9f7;
+  --color-surface: #211f1c;
+  --color-surface-2: #2a2724;
+  --color-surface-3: #332f2b;
+  --color-surface-4: #3d3934;
+  --color-surface-inverse: #faf9f7;
+  --color-overlay: rgba(0, 0, 0, 0.72);
+  --color-overlay-soft: rgba(242, 239, 232, 0.18);
+  --color-glass-nav: rgba(22, 21, 19, 0.82);
+  --color-text-primary: #f2efe8;
+  --color-text-secondary: rgba(242, 239, 232, 0.80);
+  --color-text-muted: rgba(242, 239, 232, 0.56);
+  --color-text-disabled: rgba(242, 239, 232, 0.36);
+  --color-text-inverse: #161513;
+  --color-border: rgba(242, 239, 232, 0.14);
+  --color-border-strong: #f2efe8;
+  --color-border-brand: #a5d1b2;
+  --color-focus: #a5d1b2;
+  --color-success: #a5d1b2;
+  --color-success-soft: rgba(165, 209, 178, 0.20);
+  --color-warning: #f2d882;
+  --color-warning-soft: rgba(242, 216, 130, 0.20);
+  --color-error: #f07b85;
+  --color-error-soft: rgba(240, 123, 133, 0.20);
+  --color-error-hover: #f59aa2;
+  --color-info: #8fa6d9;
+  --color-info-soft: rgba(143, 166, 217, 0.20);
+  --color-confidence-high: #a5d1b2;
+  --color-confidence-medium: #f2d882;
+  --color-confidence-low: #f07b85;
+  --color-confidence-high-soft: rgba(165, 209, 178, 0.20);
+  --color-confidence-medium-soft: rgba(242, 216, 130, 0.20);
+  --color-confidence-low-soft: rgba(240, 123, 133, 0.20);
+  --color-cat-grocery: #a5d1b2;
+  --color-cat-restaurant: #f09bc7;
+  --color-cat-utility: #8fa6d9;
+  --color-cat-personal-service: #c4b3e0;
+  --color-cat-subscription: #a08ec7;
+  --color-cat-other: rgba(242, 239, 232, 0.56);
+  --color-swatch-matcha: #a5d1b2;
+  --color-swatch-slushie: #bed6ef;
+  --color-swatch-lemon: #f2d882;
+  --color-swatch-ube: #c4b3e0;
+  --color-swatch-pomegranate: #f07b85;
+  --color-swatch-blueberry: #8fa6d9;
+  --color-swatch-dragonfruit: #f09bc7;
+  --color-swatch-matcha-soft: rgba(165, 209, 178, 0.18);
+  --color-swatch-slushie-soft: rgba(190, 214, 239, 0.18);
+  --color-swatch-lemon-soft: rgba(242, 216, 130, 0.20);
+  --color-swatch-ube-soft: rgba(196, 179, 224, 0.18);
+  --color-swatch-pomegranate-soft: rgba(240, 123, 133, 0.18);
+  --color-swatch-blueberry-soft: rgba(143, 166, 217, 0.18);
+  --color-swatch-dragonfruit-soft: rgba(240, 155, 199, 0.18);
+  --color-ink: #f2efe8;
+  --color-ink-soft: rgba(242, 239, 232, 0.80);
+  --color-cream: #161513;
+  --color-cream-deep: #1f1d1a;
+  --radius-0: 0;
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 40px;
+  --radius-pill: 999px;
+  --radius-full: 50%;
+  --shadow-0: none;
+  --shadow-1: -3px 3px 0 0 #f2efe8;
+  --shadow-2: -4px 4px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-3: -6px 6px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --shadow-4: -8px 8px 0 0 #f2efe8, inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --shadow-5: -12px 12px 0 0 #f2efe8, inset 0 2px 0 rgba(255, 255, 255, 0.10);
+  --duration-instant: 100ms;
+  --duration-fast: 180ms;
+  --duration-base: 280ms;
+  --duration-slow: 400ms;
+  --duration-elaborate: 600ms;
+  --duration-scan-loop: 1600ms;
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-standard: cubic-bezier(0.33, 1, 0.68, 1);
+  --font-hero-tracking: -0.12px;
+  --font-4xl-tracking: -0.08px;
+  --font-3xl-tracking: 0;
+  --font-2xl-tracking: 0;
+  --font-xl-tracking: 0;
+  --font-lg-tracking: 0;
+  --font-lg-reg-tracking: 0;
+  --font-md-tracking: 0;
+  --font-body-tracking: 0;
+  --font-body-em-tracking: 0;
+  --font-sm-tracking: 0;
+  --font-sm-em-tracking: 0;
+  --font-xs-tracking: 0;
+  --font-xs-em-tracking: 0;
+  --font-nano-tracking: 0.4px;
+}
+
+/* =============================================================
+ * Notion theme (opt-in via data-theme="notion" / "notion-dark").
+ * Generated from design/design-tokens.json → themes.notion.
+ * Mirror of src/frontend/styles/tokens.generated.css.
+ * ============================================================= */
+:root[data-theme="notion"] {
+  --color-brand: #0075de;
+  --color-brand-hover: #005bab;
+  --color-brand-pressed: #005bab;
+  --color-brand-soft: rgba(0, 117, 222, 0.08);
+  --color-brand-contrast: #ffffff;
+  --color-link: #0075de;
+  --color-bg: #ffffff;
+  --color-bg-inverse: #31302e;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f5f4;
+  --color-surface-3: #fafaf9;
+  --color-surface-4: #ededeb;
+  --color-surface-inverse: #31302e;
+  --color-overlay: rgba(0, 0, 0, 0.40);
+  --color-overlay-soft: rgba(246, 245, 244, 0.72);
+  --color-glass-nav: rgba(255, 255, 255, 0.92);
+  --color-text-primary: rgba(0, 0, 0, 0.95);
+  --color-text-secondary: #615d59;
+  --color-text-muted: #a39e98;
+  --color-text-disabled: #a39e98;
+  --color-text-inverse: #f5f5f4;
+  --color-border: rgba(0, 0, 0, 0.10);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
+  --color-border-brand: #0075de;
+  --color-focus: #097fe8;
+  --color-success: #1aae39;
+  --color-success-soft: rgba(26, 174, 57, 0.12);
+  --color-warning: #dd5b00;
+  --color-warning-soft: rgba(221, 91, 0, 0.10);
+  --color-error: #c4002b;
+  --color-error-soft: #fdf2f4;
+  --color-error-hover: #9c0023;
+  --color-info: #097fe8;
+  --color-info-soft: #f2f9ff;
+  --color-confidence-high: #1aae39;
+  --color-confidence-medium: #dd5b00;
+  --color-confidence-low: #c4002b;
+  --color-confidence-high-soft: rgba(26, 174, 57, 0.12);
+  --color-confidence-medium-soft: rgba(221, 91, 0, 0.12);
+  --color-confidence-low-soft: rgba(196, 0, 43, 0.10);
+  --color-cat-grocery: #8a5a00;
+  --color-cat-restaurant: #a0216e;
+  --color-cat-utility: #2a4a99;
+  --color-cat-personal-service: #391c57;
+  --color-cat-subscription: #2a9d99;
+  --color-cat-other: #615d59;
+  --color-domain-grocery-bg: #fef5e7;
+  --color-domain-grocery-text: #8a5a00;
+  --color-domain-restaurant-bg: #fde8f0;
+  --color-domain-restaurant-text: #a0216e;
+  --color-domain-expense-bg: #edf2fb;
+  --color-domain-expense-text: #2a4a99;
+  --color-badge-info-bg: #f2f9ff;
+  --color-badge-info-text: #097fe8;
+  --color-badge-streak-bg: #fde8f0;
+  --color-badge-streak-text: #a0216e;
+  --color-badge-scope-bg: rgba(0, 0, 0, 0.05);
+  --color-badge-scope-text: #615d59;
+  --color-navy: #213183;
+  --color-warm-paper: #f6f5f4;
+  --color-warm-paper-row: #fafaf9;
+  --radius-0: 0;
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+  --radius-full: 50%;
+  --shadow-0: none;
+  --shadow-1: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-2: rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px;
+  --shadow-3: rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.02) 0px 7px 15px, rgba(0,0,0,0.04) 0px 14px 28px, rgba(0,0,0,0.05) 0px 23px 52px;
+  --shadow-4: rgba(0,0,0,0.02) 0px 2px 6px, rgba(0,0,0,0.03) 0px 8px 18px, rgba(0,0,0,0.04) 0px 18px 36px, rgba(0,0,0,0.05) 0px 30px 60px;
+  --shadow-5: rgba(0,0,0,0.03) 0px 4px 10px, rgba(0,0,0,0.04) 0px 12px 28px, rgba(0,0,0,0.05) 0px 24px 56px, rgba(0,0,0,0.06) 0px 48px 96px;
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 240ms;
+  --duration-elaborate: 320ms;
+  --duration-scan-loop: 1600ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --font-hero-tracking: -2.125px;
+  --font-4xl-tracking: -1.875px;
+  --font-3xl-tracking: -1.5px;
+  --font-2xl-tracking: -0.625px;
+  --font-xl-tracking: -0.25px;
+  --font-lg-tracking: -0.125px;
+  --font-lg-reg-tracking: -0.125px;
+  --font-md-tracking: 0;
+  --font-body-tracking: 0;
+  --font-body-em-tracking: 0;
+  --font-sm-tracking: 0;
+  --font-sm-em-tracking: 0;
+  --font-xs-tracking: 0;
+  --font-xs-em-tracking: 0;
+  --font-nano-tracking: 0.125px;
+}
+
+:root[data-theme="notion-dark"] {
+  --color-brand: #62aef0;
+  --color-brand-hover: #7cbcf3;
+  --color-brand-pressed: #4f9fe5;
+  --color-brand-soft: rgba(98, 174, 240, 0.16);
+  --color-brand-contrast: #1a1a1a;
+  --color-link: #62aef0;
+  --color-bg: #31302e;
+  --color-bg-inverse: #ffffff;
+  --color-surface: #3a3937;
+  --color-surface-2: #41403d;
+  --color-surface-3: #484643;
+  --color-surface-4: #535149;
+  --color-surface-inverse: #ffffff;
+  --color-overlay: rgba(0, 0, 0, 0.64);
+  --color-overlay-soft: rgba(58, 57, 55, 0.72);
+  --color-glass-nav: rgba(49, 48, 46, 0.92);
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: rgba(245, 245, 244, 0.78);
+  --color-text-muted: rgba(245, 245, 244, 0.54);
+  --color-text-disabled: rgba(245, 245, 244, 0.36);
+  --color-text-inverse: #1a1a1a;
+  --color-border: rgba(245, 245, 244, 0.14);
+  --color-border-strong: rgba(245, 245, 244, 0.24);
+  --color-border-brand: #62aef0;
+  --color-focus: #62aef0;
+  --color-success: #3ec45a;
+  --color-success-soft: rgba(62, 196, 90, 0.18);
+  --color-warning: #f08a40;
+  --color-warning-soft: rgba(240, 138, 64, 0.18);
+  --color-error: #f0586e;
+  --color-error-soft: rgba(240, 88, 110, 0.16);
+  --color-error-hover: #f37388;
+  --color-info: #62aef0;
+  --color-info-soft: rgba(98, 174, 240, 0.18);
+  --color-confidence-high: #3ec45a;
+  --color-confidence-medium: #f08a40;
+  --color-confidence-low: #f0586e;
+  --color-confidence-high-soft: rgba(62, 196, 90, 0.18);
+  --color-confidence-medium-soft: rgba(240, 138, 64, 0.18);
+  --color-confidence-low-soft: rgba(240, 88, 110, 0.16);
+  --color-cat-grocery: #e0a955;
+  --color-cat-restaurant: #e98ec0;
+  --color-cat-utility: #7da4e8;
+  --color-cat-personal-service: #a994d3;
+  --color-cat-subscription: #5dbcb6;
+  --color-cat-other: rgba(245, 245, 244, 0.62);
+  --color-domain-grocery-bg: rgba(224, 169, 85, 0.18);
+  --color-domain-grocery-text: #e8b86e;
+  --color-domain-restaurant-bg: rgba(233, 142, 192, 0.18);
+  --color-domain-restaurant-text: #f3a8d0;
+  --color-domain-expense-bg: rgba(125, 164, 232, 0.18);
+  --color-domain-expense-text: #9bbcef;
+  --color-badge-info-bg: rgba(98, 174, 240, 0.18);
+  --color-badge-info-text: #9ec8f0;
+  --color-badge-streak-bg: rgba(233, 142, 192, 0.18);
+  --color-badge-streak-text: #f3a8d0;
+  --color-badge-scope-bg: rgba(245, 245, 244, 0.10);
+  --color-badge-scope-text: rgba(245, 245, 244, 0.78);
+  --color-navy: #7689c8;
+  --color-warm-paper: #3a3937;
+  --color-warm-paper-row: #41403d;
+  --radius-0: 0;
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+  --radius-full: 50%;
+  --shadow-0: none;
+  --shadow-1: 0 0 0 1px rgba(245, 245, 244, 0.08);
+  --shadow-2: rgba(0,0,0,0.30) 0px 4px 18px, rgba(0,0,0,0.24) 0px 2.025px 7.84688px, rgba(0,0,0,0.18) 0px 0.8px 2.925px;
+  --shadow-3: rgba(0,0,0,0.16) 0px 1px 3px, rgba(0,0,0,0.20) 0px 3px 7px, rgba(0,0,0,0.24) 0px 7px 15px, rgba(0,0,0,0.30) 0px 14px 28px;
+  --shadow-4: rgba(0,0,0,0.20) 0px 2px 6px, rgba(0,0,0,0.26) 0px 8px 18px, rgba(0,0,0,0.32) 0px 18px 36px;
+  --shadow-5: rgba(0,0,0,0.24) 0px 4px 10px, rgba(0,0,0,0.30) 0px 12px 28px, rgba(0,0,0,0.36) 0px 24px 56px;
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 240ms;
+  --duration-elaborate: 320ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --font-hero-tracking: -2.125px;
+  --font-4xl-tracking: -1.875px;
+  --font-3xl-tracking: -1.5px;
+  --font-2xl-tracking: -0.625px;
+  --font-xl-tracking: -0.25px;
+  --font-lg-tracking: -0.125px;
+  --font-lg-reg-tracking: -0.125px;
+  --font-md-tracking: 0;
+  --font-body-tracking: 0;
+  --font-body-em-tracking: 0;
+  --font-sm-tracking: 0;
+  --font-sm-em-tracking: 0;
+  --font-xs-tracking: 0;
+  --font-xs-em-tracking: 0;
+  --font-nano-tracking: 0.125px;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+

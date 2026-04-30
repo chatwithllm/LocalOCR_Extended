@@ -1,0 +1,236 @@
+/* ---- Sidebar ---- */
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 230px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  position: fixed;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.logo span {
+  color: var(--accent);
+}
+
+.sidebar-collapse-btn {
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.sidebar-collapse-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Hide the floating mobile hamburger while the sidebar drawer is open */
+body:has(.sidebar.mobile-open) .mobile-menu-btn {
+  visibility: hidden;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+  user-select: none;
+}
+
+.nav-item:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.nav-icon {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+/* ---- Main ---- */
+.main {
+  margin-left: 230px;
+  flex: 1;
+  padding: 32px;
+  max-width: 100%;
+  overflow-x: hidden;
+  transition: margin-left 0.22s ease;
+}
+
+body.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.sidebar-collapsed .main {
+  margin-left: 0;
+}
+
+body.sidebar-collapsed .page-header {
+  padding-left: 52px;
+}
+
+.desktop-sidebar-toggle {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 55;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.desktop-sidebar-toggle:hover {
+  background: var(--border);
+  border-color: color-mix(in srgb, var(--color-brand) 35%, transparent);
+}
+
+body.sidebar-collapsed .desktop-sidebar-toggle {
+  display: inline-flex;
+}
+
+.mobile-header {
+  display: none;
+}
+
+.mobile-menu-btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 14, 0.7);
+  z-index: 30;
+  backdrop-filter: blur(2px);
+}
+
+.mobile-overlay.show {
+  display: block;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+/* ---- Header ---- */
+.page-header {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* "EXTENDED" brand caption removed — it was redundant app branding
+   repeated on every page and ate vertical space. */
+.page-header::before { display: none; }
+
+/* Only target the title wrapper (first direct div), not sibling
+   toolbars like .inventory-page-controls which manage their own
+   grid/flex layout (and were being clobbered by this rule). */
+.page-header > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.page-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.page-header p {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.inventory-page-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+#inventory-page-tools-toggle {
+  display: none;
+}
+

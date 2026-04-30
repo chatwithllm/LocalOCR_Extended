@@ -34,12 +34,20 @@
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <!-- Page shell — base resets, layout, components, page-specific styles.
-         Was inlined in <head> until 2026-04-30; extracted so the file stays
-         readable and the graph indexer can reach it. -->
-    <link rel="stylesheet" href="/styles/page-shell.css?v=20260430a" />
-    <!-- Apple-cinematic last-mile polish. Layered AFTER page-shell.css so
-         its declarations win the cascade — same order as before extraction. -->
+    <!-- Page shell — split into component files on 2026-04-30 so each
+         concern is reviewable on its own. Cascade order matches the original
+         monolith: tokens → layout → cards → controls → page-states →
+         apple-phases. apple-phases.css MUST stay last among page-shell files
+         because the original Phase 1-5 polish was explicitly appended last
+         to win the cascade. -->
+    <link rel="stylesheet" href="/styles/page-shell/tokens-themes.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/layout.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/cards.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/controls.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/page-states.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/apple-phases.css?v=20260430b" />
+    <!-- Apple-cinematic last-mile polish. Layered AFTER page-shell so its
+         declarations win the cascade — same order as before extraction. -->
     <link rel="stylesheet" href="/styles/design-system.css?v=20260425i" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
