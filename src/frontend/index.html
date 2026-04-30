@@ -15577,6 +15577,31 @@
               </div>
             </div>
           </div>
+          <div class="card" id="settings-navigation-card">
+            <div class="card-header">
+              <span class="card-title">🧭 Navigation</span>
+            </div>
+            <div class="form-group">
+              <label
+                for="settings-overscroll-nav"
+                style="display:flex;align-items:center;gap:10px;cursor:pointer"
+              >
+                <input
+                  type="checkbox"
+                  id="settings-overscroll-nav"
+                  onchange="setOverscrollNavEnabled(this.checked)"
+                />
+                <span>Edge-pull page navigation</span>
+              </label>
+              <div style="margin-top:6px;font-size:0.82rem;color:var(--muted)">
+                Pull past the top or bottom of any page to jump to the
+                previous or next sidebar page. Off by default — turn on
+                only if you miss the gesture. Use
+                <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd>
+                for keyboard navigation regardless of this setting.
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-header">
               <span class="card-title">🏠 Household Users</span>
@@ -24795,6 +24820,7 @@
             : "";
           document.getElementById("settings-avatar-preview").textContent =
             currentUser ? getUserAvatar(currentUser) : "🦊";
+          initOverscrollNavToggle();
           if (currentUser) {
             loadUsers();
             loadTrustedDevices();
@@ -43229,6 +43255,18 @@
           );
         }
 
+        // Edge-pull navigation is opt-in. Default off — readers were
+        // hitting it accidentally on long pages and the recovery path
+        // (open sidebar, click previous) felt punitive. Power users can
+        // re-enable in Settings → Navigation.
+        function overscrollNavEnabled() {
+          try {
+            return localStorage.getItem("overscroll_nav_enabled") === "1";
+          } catch (_e) {
+            return false;
+          }
+        }
+
         function shouldSuppressOverscroll(eventTarget) {
           // Long-press menu open
           if (document.querySelector(".inv-context-menu")) return true;
@@ -43547,6 +43585,7 @@
         document.addEventListener(
           "touchstart",
           (e) => {
+            if (!overscrollNavEnabled()) return;
             if (Date.now() < cooldownUntil) return;
             if (shouldSuppressOverscroll(e.target)) return;
             if (e.touches.length !== 1) return;
@@ -43604,10 +43643,31 @@
         document.addEventListener("touchend", endTouch, { capture: true });
         document.addEventListener("touchcancel", endTouch, { capture: true });
 
+        // ----- Keyboard: Alt+Left / Alt+Right -----
+        // Always available regardless of overscrollNavEnabled — it is
+        // the keyboard alternative to the gesture and the only sidebar
+        // prev/next shortcut that is sequential rather than chord-based.
+        // Existing global chord handler early-returns on altKey, so no
+        // collision with `g d` / `g r` shortcuts.
+        document.addEventListener("keydown", (e) => {
+          if (!e.altKey) return;
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          if (Date.now() < cooldownUntil) return;
+          if (shouldSuppressOverscroll(e.target)) return;
+          const dir = e.key === "ArrowLeft" ? -1 : 1;
+          const pageId = getAdjacentPage(dir);
+          if (!pageId) return;
+          e.preventDefault();
+          direction = dir;
+          commitNavigation(pageId);
+        });
+
         // ----- Wheel / trackpad -----
         window.addEventListener(
           "wheel",
           (e) => {
+            if (!overscrollNavEnabled()) return;
             if (Date.now() < cooldownUntil) return;
             if (shouldSuppressOverscroll(e.target)) return;
             const now = Date.now();
@@ -43668,6 +43728,27 @@
           ensureBanner();
         }
       })();
+
+      // ============================================================
+      // Settings — Navigation toggle (edge-pull on/off)
+      // ============================================================
+      function setOverscrollNavEnabled(enabled) {
+        try {
+          localStorage.setItem(
+            "overscroll_nav_enabled",
+            enabled ? "1" : "0",
+          );
+        } catch (_e) {}
+      }
+      function initOverscrollNavToggle() {
+        const cb = document.getElementById("settings-overscroll-nav");
+        if (!cb) return;
+        let stored = "0";
+        try {
+          stored = localStorage.getItem("overscroll_nav_enabled") || "0";
+        } catch (_e) {}
+        cb.checked = stored === "1";
+      }
 
       // ============================================================
       // Settings — Chat Audit (admin-only flagged-message log)
