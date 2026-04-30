@@ -373,10 +373,20 @@
   // pages still get a transition rather than a blank veil.
   function startMotif(pageId, canvas) {
     switch (pageId) {
-      case "dashboard": return motifDashboard(canvas);
-      case "inventory": return motifInventory(canvas);
-      case "receipts":  return motifReceipts(canvas);
-      default:          return motifMatrix(canvas);
+      case "dashboard":     return motifDashboard(canvas);
+      case "inventory":     return motifInventory(canvas);
+      case "receipts":      return motifReceipts(canvas);
+      case "shopping":      return motifShopping(canvas);
+      case "expenses":      return motifExpenses(canvas);
+      case "budget":        return motifBudget(canvas);
+      case "bills":         return motifBills(canvas);
+      case "accounts":      return motifAccounts(canvas);
+      case "analytics":     return motifAnalytics(canvas);
+      case "contributions": return motifContributions(canvas);
+      case "settings":      return motifSettings(canvas);
+      case "restaurant":    return motifRestaurant(canvas);
+      case "upload":        return motifUpload(canvas);
+      default:              return motifMatrix(canvas);
     }
   }
 
@@ -609,6 +619,509 @@
         grad.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = grad;
         ctx.fillRect(paperX, scanY - 14, paperW, 28);
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifShopping: checklist items being checked off -----
+  function motifShopping(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const ROWS = 9;
+    const items = [];
+    for (let i = 0; i < ROWS; i++) {
+      items.push({ delay: 0.08 + i * 0.12, width: 0.5 + Math.random() * 0.35 });
+    }
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const listW = Math.min(440, w * 0.42);
+      const listX = (w - listW) / 2;
+      const rowH = 38;
+      const startY = h * 0.16;
+      for (let i = 0; i < ROWS; i++) {
+        const r = items[i];
+        if (t < r.delay) continue;
+        const rowY = startY + i * (rowH + 8);
+        const checkProg = Math.min(1, (t - r.delay) * 4);
+        const opacity = Math.min(1, (t - r.delay) * 5);
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = tk.brand;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(listX, rowY, 22, 22);
+        if (checkProg > 0.5) {
+          const ck = (checkProg - 0.5) * 2;
+          ctx.fillStyle = tk.brand;
+          ctx.fillRect(listX + 2, rowY + 2, 18, 18);
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(listX + 5, rowY + 12);
+          ctx.lineTo(listX + 9, rowY + 16);
+          ctx.lineTo(listX + 9 + 8 * ck, rowY + 16 - 8 * ck);
+          ctx.stroke();
+        }
+        ctx.fillStyle = checkProg > 0.5 ? tk.muted : tk.text;
+        ctx.fillRect(listX + 32, rowY + 8, (listW - 32) * r.width, 4);
+        ctx.fillRect(listX + 32, rowY + 16, (listW - 32) * r.width * 0.6, 3);
+        ctx.globalAlpha = 1;
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifExpenses: rising bar chart -----
+  function motifExpenses(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const N = 10;
+    const targets = [];
+    for (let i = 0; i < N; i++) targets.push(0.3 + Math.random() * 0.6);
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      ctx.fillRect(0, 0, w, h);
+      const chartW = Math.min(640, w * 0.7);
+      const chartX = (w - chartW) / 2;
+      const chartH = h * 0.55;
+      const baselineY = h * 0.78;
+      const barGap = chartW * 0.02;
+      const barW = (chartW - barGap * (N - 1)) / N;
+      ctx.strokeStyle = tk.border;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(chartX, baselineY);
+      ctx.lineTo(chartX + chartW, baselineY);
+      ctx.stroke();
+      for (let i = 0; i < N; i++) {
+        const localT = Math.max(0, t - i * 0.06) * 1.3;
+        const eased = 1 - Math.pow(1 - Math.min(1, localT), 3);
+        const bh = targets[i] * chartH * eased;
+        const bx = chartX + i * (barW + barGap);
+        const by = baselineY - bh;
+        ctx.fillStyle = i % 3 === 0 ? tk.brand : tk.brandSoft;
+        ctx.fillRect(bx, by, barW, bh);
+        ctx.fillStyle = tk.brand;
+        ctx.fillRect(bx, by, barW, 3);
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifBudget: progress ring filling with % counter -----
+  function motifBudget(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+      const radius = Math.min(w, h) * 0.20;
+      const ringW = 18;
+      ctx.strokeStyle = tk.surface2;
+      ctx.lineWidth = ringW;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      const progress = Math.min(1, t / 1.1);
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = ringW;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = tk.text;
+      ctx.font = "700 56px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(Math.floor(progress * 100) + "%", cx, cy);
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifBills: calendar tiles flipping in -----
+  function motifBills(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const COLS = 7, ROWS = 5;
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const gridW = Math.min(560, w * 0.5);
+      const gridH = gridW * 0.7;
+      const tileGap = 4;
+      const tileW = (gridW - tileGap * (COLS - 1)) / COLS;
+      const tileH = (gridH - tileGap * (ROWS - 1)) / ROWS;
+      const startX = (w - gridW) / 2;
+      const startY = (h - gridH) / 2;
+      ctx.font = "600 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      let day = 1;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const idx = r * COLS + c;
+          const delay = idx * 0.025;
+          const localT = Math.max(0, t - delay) * 3;
+          const sy = Math.max(0.05, Math.abs(Math.cos(Math.min(1, localT) * Math.PI)));
+          const showFront = localT >= 0.5;
+          const x = startX + c * (tileW + tileGap);
+          const y = startY + r * (tileH + tileGap);
+          const dh = tileH * sy;
+          const dy = y + (tileH - dh) / 2;
+          const isDue = day % 7 === 0;
+          ctx.fillStyle = showFront && isDue ? tk.brand : tk.surface2;
+          ctx.fillRect(x, dy, tileW, dh);
+          ctx.strokeStyle = tk.border;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + 0.5, dy + 0.5, tileW - 1, dh - 1);
+          if (showFront && dh > tileH * 0.5) {
+            ctx.fillStyle = isDue ? "#fff" : tk.text;
+            ctx.fillText(String(day), x + tileW / 2, y + tileH / 2);
+          }
+          day++;
+        }
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifAccounts: bank cards fanning out -----
+  function motifAccounts(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const CARDS = 5;
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const cardW = Math.min(240, w * 0.22);
+      const cardH = cardW * 0.62;
+      const cx = w / 2, cy = h * 0.55;
+      for (let i = 0; i < CARDS; i++) {
+        const delay = i * 0.08;
+        const localT = Math.max(0, t - delay);
+        const fanProg = 1 - Math.pow(1 - Math.min(1, localT * 1.6), 3);
+        const angle = ((i - (CARDS - 1) / 2) * 0.18) * fanProg;
+        const offsetY = (1 - fanProg) * 60;
+        ctx.save();
+        ctx.translate(cx, cy + offsetY);
+        ctx.rotate(angle);
+        ctx.fillStyle = "rgba(0,0,0,0.30)";
+        ctx.fillRect(-cardW / 2 + 4, -cardH / 2 + 6, cardW, cardH);
+        const grad = ctx.createLinearGradient(-cardW / 2, -cardH / 2, cardW / 2, cardH / 2);
+        grad.addColorStop(0, tk.brand);
+        grad.addColorStop(1, tk.brandSoft);
+        ctx.fillStyle = grad;
+        roundRectPath(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 12);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fillRect(-cardW / 2 + 16, -cardH / 2 + 16, 28, 22);
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        for (let s = 0; s < 4; s++) {
+          ctx.fillRect(-cardW / 2 + 16 + s * 38, cardH / 2 - 22, 28, 4);
+        }
+        ctx.restore();
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifAnalytics: donut chart segments filling -----
+  function motifAnalytics(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const segments = [0.32, 0.24, 0.18, 0.14, 0.12];
+    const colors = [tk.brand, tk.brandSoft, tk.muted, tk.border, tk.surface2];
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+      const rad = Math.min(w, h) * 0.24;
+      const innerR = rad * 0.55;
+      const totalProgress = Math.min(1, t / 1.1);
+      let cumulative = 0;
+      const startAngle = -Math.PI / 2;
+      for (let i = 0; i < segments.length; i++) {
+        const segStart = cumulative;
+        const segEnd = cumulative + segments[i];
+        const visEnd = Math.min(totalProgress, segEnd);
+        const visSize = Math.max(0, visEnd - segStart);
+        if (visSize > 0) {
+          const a0 = startAngle + segStart * Math.PI * 2;
+          const a1 = startAngle + (segStart + visSize) * Math.PI * 2;
+          ctx.fillStyle = colors[i % colors.length] || tk.brand;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, rad, a0, a1);
+          ctx.closePath();
+          ctx.fill();
+        }
+        cumulative = segEnd;
+      }
+      ctx.fillStyle = tk.surface;
+      ctx.beginPath();
+      ctx.arc(cx, cy, innerR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = tk.text;
+      ctx.font = "700 36px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(Math.floor(totalProgress * 100) + "%", cx, cy);
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifContributions: coins falling into a pot -----
+  function motifContributions(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const COINS = 14;
+    const coins = [];
+    for (let i = 0; i < COINS; i++) {
+      coins.push({
+        delay: Math.random() * 1.0,
+        x: 0.32 + Math.random() * 0.36,
+        finalY: 0.82 - i * 0.005,
+        r: 12 + Math.random() * 6,
+      });
+    }
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const potW = Math.min(300, w * 0.28);
+      const potH = potW * 0.55;
+      const potX = (w - potW) / 2;
+      const potY = h * 0.78;
+      ctx.fillStyle = tk.surface2;
+      roundRectPath(ctx, potX, potY, potW, potH, 14);
+      ctx.fill();
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = tk.brandSoft;
+      ctx.fillRect(potX + 6, potY + 6, potW - 12, 8);
+      for (let i = 0; i < coins.length; i++) {
+        const c = coins[i];
+        if (t < c.delay) continue;
+        const localT = Math.min(1, (t - c.delay) * 1.4);
+        const eased = 1 - Math.pow(1 - localT, 2);
+        const x = c.x * w;
+        const y = (-0.05 + (c.finalY - -0.05) * eased) * h;
+        ctx.fillStyle = tk.brand;
+        ctx.beginPath();
+        ctx.arc(x, y, c.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = tk.brandSoft;
+        ctx.beginPath();
+        ctx.arc(x - c.r * 0.25, y - c.r * 0.25, c.r * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifSettings: concentric gears rotating -----
+  function motifSettings(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    function drawGear(cx, cy, r, teeth, thickness, rotation, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (let i = 0; i < teeth * 2; i++) {
+        const angle = (i / (teeth * 2)) * Math.PI * 2 + rotation;
+        const radius = i % 2 === 0 ? r : r - thickness;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+      const u = Math.min(w, h);
+      drawGear(cx,           cy,            u * 0.22, 12,  18,  t * 0.8, tk.brand);
+      drawGear(cx + u * 0.16, cy + u * 0.14, u * 0.13, 10,  12, -t * 1.3, tk.brandSoft);
+      drawGear(cx - u * 0.18, cy - u * 0.10, u * 0.10,  8,  10,  t * 1.6, tk.muted);
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifRestaurant: plate, utensils, steam -----
+  function motifRestaurant(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2, cy = h * 0.6;
+      const plateR = Math.min(w, h) * 0.20;
+      const plateProgress = Math.min(1, t / 0.45);
+      ctx.strokeStyle = tk.text;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx, cy, plateR, -Math.PI / 2, -Math.PI / 2 + plateProgress * Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = tk.surface2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, plateR * 0.85, 0, Math.PI * 2);
+      ctx.fill();
+      // Steam
+      for (let i = 0; i < 5; i++) {
+        const phase = (t * 1.4 + i * 0.4) % 2;
+        if (phase > 1.5) continue;
+        const opacity = Math.max(0, 1 - phase);
+        const offX = (i - 2) * 18 + Math.sin(phase * 4 + i) * 8;
+        const sy = cy - plateR - phase * 80;
+        ctx.fillStyle = tk.brandSoft;
+        ctx.globalAlpha = opacity * 0.6;
+        ctx.beginPath();
+        ctx.arc(cx + offX, sy, 6 + phase * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // Utensils slide in from sides
+      const utenT = Math.min(1, Math.max(0, (t - 0.45)) / 0.45);
+      const utenSlide = (1 - utenT) * 100;
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      // Fork (left)
+      const fx = cx - plateR * 1.6 - utenSlide;
+      ctx.beginPath();
+      ctx.moveTo(fx, cy - plateR);
+      ctx.lineTo(fx, cy + plateR);
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(fx + i * 5, cy - plateR);
+        ctx.lineTo(fx + i * 5, cy - plateR * 0.55);
+        ctx.stroke();
+      }
+      // Knife (right)
+      ctx.lineWidth = 6;
+      const kx = cx + plateR * 1.6 + utenSlide;
+      ctx.beginPath();
+      ctx.moveTo(kx, cy - plateR);
+      ctx.lineTo(kx, cy + plateR);
+      ctx.stroke();
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifUpload: focus reticle + scan sweep -----
+  function motifUpload(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.20)";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+      const boxSize = Math.min(w, h) * 0.5;
+      const x = cx - boxSize / 2;
+      const y = cy - boxSize / 2;
+      const cornerLen = 36;
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      const reticleProg = Math.min(1, t / 0.4);
+      const r = reticleProg * cornerLen;
+      const corners = [
+        [x, y, 1, 1],
+        [x + boxSize, y, -1, 1],
+        [x, y + boxSize, 1, -1],
+        [x + boxSize, y + boxSize, -1, -1],
+      ];
+      for (const [px, py, dx, dy] of corners) {
+        ctx.beginPath();
+        ctx.moveTo(px, py + r * dy);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px + r * dx, py);
+        ctx.stroke();
+      }
+      if (reticleProg >= 1) {
+        const scanT = ((t - 0.4) % 1.0) / 1.0;
+        const scanY = y + scanT * boxSize;
+        const grad = ctx.createLinearGradient(x, scanY - 16, x, scanY + 16);
+        grad.addColorStop(0, "rgba(0,0,0,0)");
+        grad.addColorStop(0.5, tk.brand);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, scanY - 16, boxSize, 32);
+        ctx.strokeStyle = tk.brand;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, scanY);
+        ctx.lineTo(x + boxSize, scanY);
+        ctx.stroke();
       }
       rafId = requestAnimationFrame(draw);
     }
