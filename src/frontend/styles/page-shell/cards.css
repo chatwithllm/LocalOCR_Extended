@@ -1513,6 +1513,18 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+.manage-stores-filters .pill {
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.manage-stores-filters .pill:hover {
+  background: var(--color-surface-2);
+}
+.manage-stores-filters .pill.active {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
 .manage-stores-grid {
   width: 100%;
   border-collapse: collapse;
@@ -1538,7 +1550,7 @@
   color: var(--color-text-muted);
 }
 .bucket-badge.bucket-hidden {
-  background: var(--color-warn-soft, #fde2e2);
-  color: var(--color-warn, #b00);
+  background: var(--color-warning-soft, #fde2e2);
+  color: var(--color-warning, #b00);
 }
 

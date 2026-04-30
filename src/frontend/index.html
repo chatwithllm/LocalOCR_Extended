@@ -12429,8 +12429,8 @@
           document.getElementById("settings-avatar-preview").textContent =
             currentUser ? getUserAvatar(currentUser) : "🦊";
           initOverscrollNavToggle();
-          loadManageStores();
           if (currentUser) {
+            loadManageStores();
             loadUsers();
             loadTrustedDevices();
             loadEnvironmentBackups();
