@@ -12132,69 +12132,6 @@
         overlay.classList.remove("show");
         overlay.setAttribute("aria-hidden", "true");
       }
-      const GLOBAL_NAV_SHORTCUTS = {
-        d: "dashboard",
-        r: "receipts",
-        i: "inventory",
-        u: "upload",
-        p: "shopping",
-        b: "bills",
-        x: "expenses",
-        a: "analytics",
-        s: "settings",
-      };
-      (function initGlobalShortcuts() {
-        if (window.__globalShortcutsInit) return;
-        window.__globalShortcutsInit = true;
-        let lastG = 0;
-        document.addEventListener("keydown", (e) => {
-          const t = e.target;
-          const tag = (t && t.tagName) || "";
-          if (
-            tag === "INPUT" ||
-            tag === "TEXTAREA" ||
-            tag === "SELECT" ||
-            (t && t.isContentEditable) ||
-            e.metaKey ||
-            e.ctrlKey ||
-            e.altKey
-          )
-            return;
-          if (e.key === "Escape") {
-            const openSheet = document.getElementById(
-              "shortcut-cheatsheet-overlay",
-            );
-            if (openSheet && openSheet.classList.contains("show")) {
-              closeShortcutCheatsheet();
-              e.preventDefault();
-              return;
-            }
-          }
-          if (e.key === "?" || (e.key === "/" && e.shiftKey)) {
-            openShortcutCheatsheet();
-            e.preventDefault();
-            return;
-          }
-          if (e.key === "g") {
-            lastG = Date.now();
-            return;
-          }
-          if (Date.now() - lastG < 800) {
-            lastG = 0;
-            if (e.key === "g") {
-              openAppleGallery();
-              e.preventDefault();
-              return;
-            }
-            const target = GLOBAL_NAV_SHORTCUTS[e.key];
-            if (target && typeof nav === "function") {
-              const navEl = document.getElementById("nav-" + target);
-              nav(target, navEl);
-              e.preventDefault();
-            }
-          }
-        });
-      })();
 
       // ---- Apple design gallery (dev-only access via #gallery or g g) ----
       const APPLE_GALLERY_COLOR_KEYS = [
@@ -31591,6 +31528,11 @@
          buttons after a scan finishes, so the user doesn't have to
          round-trip through the Receipts page for common follow-ups. -->
     <script src="/assets/js/upload-result.js" defer></script>
+    <!-- Global chord keyboard shortcuts (g d / g r / ? / Esc). Depends on
+         window.nav + openShortcutCheatsheet + openAppleGallery (top-level
+         function decls in the inline script). defer is safe — defer scripts
+         run after the inline script's globals are already registered. -->
+    <script src="/assets/js/global-shortcuts.js" defer></script>
 
     <!-- ===== In-App Assistant ============================================ -->
     <button
