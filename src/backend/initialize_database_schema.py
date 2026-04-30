@@ -143,6 +143,7 @@ class Store(Base):
     name = Column(String(255), nullable=False)
     location = Column(String(500), nullable=True)
     is_payment_artifact = Column(Boolean, nullable=False, default=False)
+    visibility_override = Column(String(16), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
