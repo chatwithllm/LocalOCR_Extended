@@ -419,13 +419,15 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
     suggested_stores = sorted(store_totals.values(), key=lambda row: (-row["item_count"], row["store"]))
     for store in suggested_stores:
         store["estimated_total"] = round(store["estimated_total"], 2)
-    available_stores = sorted({
-        canonicalize_store_name(store.name)
-        for store in session.query(Store).filter(
-            (Store.is_payment_artifact.is_(False)) | (Store.is_payment_artifact.is_(None))
-        ).all()
-        if store.name
-    })
+    from src.backend.manage_stores import get_store_buckets
+
+    buckets = get_store_buckets(session)
+    available_store_buckets = {
+        "frequent": sorted({canonicalize_store_name(r["name"]) for r in buckets["frequent"] if r["name"]}),
+        "low_freq": sorted({canonicalize_store_name(r["name"]) for r in buckets["low_freq"] if r["name"]}),
+    }
+    # Backward-compatible flat list = frequent + low_freq, sorted.
+    available_stores = sorted(set(available_store_buckets["frequent"] + available_store_buckets["low_freq"]))
 
     open_count_in_session = session.query(ShoppingListItem).filter(
         ShoppingListItem.shopping_session_id == current_session.id,
@@ -448,6 +450,7 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
         "actuals_entered_count": actuals_entered,
         "suggested_stores": suggested_stores,
         "available_stores": available_stores,
+        "available_store_buckets": available_store_buckets,
         "helper_mode": helper_mode,
         "session": _serialize_session(current_session),
     }
