@@ -5982,6 +5982,36 @@
       let shoppingQuickFocused = false;
       let shoppingManualVisible = false;
       let shoppingStoreOptions = [];
+      let shoppingStoreBuckets = { frequent: [], low_freq: [] };
+
+      function buildStoreOptionTags(selectedValue, bucketsOverride) {
+        const buckets = bucketsOverride || shoppingStoreBuckets;
+        const selected = selectedValue || "";
+        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
+        const frequent = [...new Set([...defaults, ...(buckets.frequent || [])])].sort(
+          (a, b) => a.localeCompare(b),
+        );
+        const lowFreq = (buckets.low_freq || [])
+          .filter((s) => !frequent.includes(s))
+          .slice()
+          .sort((a, b) => a.localeCompare(b));
+        const opt = (s) =>
+          `<option value="${escHtml(s)}"${s === selected ? " selected" : ""}>${escHtml(s)}</option>`;
+        const head = `<option value="">Any store</option>`;
+        if (!lowFreq.length) {
+          return [head, ...frequent.map(opt)].join("");
+        }
+        return (
+          head +
+          `<optgroup label="Stores">` +
+          frequent.map(opt).join("") +
+          `</optgroup>` +
+          `<optgroup label="Rarely Used">` +
+          lowFreq.map(opt).join("") +
+          `</optgroup>`
+        );
+      }
+
       const PAGE_TITLES = {
         dashboard: "Dashboard",
         inventory: "Inventory",
@@ -8900,31 +8930,17 @@
         maybeAutofillInventoryAddForm(query, { preserveName: true });
       }
 
-      function getInventoryStoreChoices() {
-        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
-        return [...new Set([...defaults, ...shoppingStoreOptions])].sort(
-          (a, b) => a.localeCompare(b),
-        );
-      }
-
       function renderInventoryStoreOptionTags(selectedValue = "") {
-        const selected = selectedValue || "";
-        return [
-          '<option value="">Any store</option>',
-          ...getInventoryStoreChoices().map(
-            (store) =>
-              `<option value="${escHtml(store)}"${store === selected ? " selected" : ""}>${escHtml(store)}</option>`,
-          ),
-        ].join("");
+        return buildStoreOptionTags(selectedValue);
       }
 
       function populateInventoryStoreSelect() {
         const select = document.getElementById("inv-preferred-store");
         if (!select) return;
         const currentValue = select.value || "";
-        const options = getInventoryStoreChoices();
+        const allStores = [...new Set([...["Costco", "Kroger", "Target", "India Bazar"], ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
         select.innerHTML = renderInventoryStoreOptionTags(currentValue);
-        select.value = options.includes(currentValue) ? currentValue : "";
+        select.value = allStores.includes(currentValue) ? currentValue : "";
       }
 
       function populateInventoryManualCategorySelect() {
@@ -21033,26 +21049,12 @@
         }
       }
 
-      function getShoppingStoreChoices() {
-        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
-        return [...new Set([...defaults, ...shoppingStoreOptions])].sort(
-          (a, b) => a.localeCompare(b),
-        );
-      }
-
       function renderShoppingStoreOptionTags(selectedValue = "") {
-        const selected = selectedValue || "";
-        return [
-          '<option value="">Any store</option>',
-          ...getShoppingStoreChoices().map(
-            (store) =>
-              `<option value="${escHtml(store)}"${store === selected ? " selected" : ""}>${escHtml(store)}</option>`,
-          ),
-        ].join("");
+        return buildStoreOptionTags(selectedValue);
       }
 
       function populateShoppingStoreSelects() {
-        const options = getShoppingStoreChoices();
+        const allStores = [...new Set([...["Costco", "Kroger", "Target", "India Bazar"], ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
         const quick = document.getElementById("shop-preferred-store");
         const manual = document.getElementById("shop-manual-store");
         const quickValue = quick?.value || "";
@@ -21060,9 +21062,9 @@
         if (quick) quick.innerHTML = renderShoppingStoreOptionTags(quickValue);
         if (manual)
           manual.innerHTML = renderShoppingStoreOptionTags(manualValue);
-        if (quick) quick.value = options.includes(quickValue) ? quickValue : "";
+        if (quick) quick.value = allStores.includes(quickValue) ? quickValue : "";
         if (manual)
-          manual.value = options.includes(manualValue) ? manualValue : "";
+          manual.value = allStores.includes(manualValue) ? manualValue : "";
       }
 
       function toggleManualShoppingForm(forceVisible = null) {
@@ -22378,6 +22380,7 @@
         const data = await res.json();
         shoppingListCache = data.items || [];
         shoppingStoreOptions = data.available_stores || [];
+        shoppingStoreBuckets = data.available_store_buckets || { frequent: shoppingStoreOptions, low_freq: [] };
         shoppingSessionState = data.session || null;
         populateShoppingStoreSelects();
         updateShoppingSortControls();
