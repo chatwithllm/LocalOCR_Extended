@@ -5983,11 +5983,12 @@
       let shoppingManualVisible = false;
       let shoppingStoreOptions = [];
       let shoppingStoreBuckets = { frequent: [], low_freq: [] };
+      const STORE_DEFAULTS = ["Costco", "Kroger", "Target", "India Bazar"];
 
       function buildStoreOptionTags(selectedValue, bucketsOverride) {
         const buckets = bucketsOverride || shoppingStoreBuckets;
         const selected = selectedValue || "";
-        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
+        const defaults = STORE_DEFAULTS;
         const frequent = [...new Set([...defaults, ...(buckets.frequent || [])])].sort(
           (a, b) => a.localeCompare(b),
         );
@@ -8938,7 +8939,7 @@
         const select = document.getElementById("inv-preferred-store");
         if (!select) return;
         const currentValue = select.value || "";
-        const allStores = [...new Set([...["Costco", "Kroger", "Target", "India Bazar"], ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
+        const allStores = [...new Set([...STORE_DEFAULTS, ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
         select.innerHTML = renderInventoryStoreOptionTags(currentValue);
         select.value = allStores.includes(currentValue) ? currentValue : "";
       }
@@ -21054,7 +21055,7 @@
       }
 
       function populateShoppingStoreSelects() {
-        const allStores = [...new Set([...["Costco", "Kroger", "Target", "India Bazar"], ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
+        const allStores = [...new Set([...STORE_DEFAULTS, ...(shoppingStoreBuckets.frequent || []), ...(shoppingStoreBuckets.low_freq || [])])];
         const quick = document.getElementById("shop-preferred-store");
         const manual = document.getElementById("shop-manual-store");
         const quickValue = quick?.value || "";
