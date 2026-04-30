@@ -3966,3 +3966,80 @@ button.spending-row:hover {
     gap: 8px;
   }
 }
+
+/* === Upload result extras (inline attribution + per-item photo) === */
+.upload-result-attr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  padding: 12px 14px;
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 12px);
+}
+.upload-result-attr-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.8;
+}
+.upload-result-attr-hint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.75;
+  flex: 1 1 240px;
+}
+.upload-result-table-wrap {
+  margin-top: 6px;
+  overflow-x: auto;
+}
+.upload-result-items {
+  width: 100%;
+  border-collapse: collapse;
+}
+.upload-result-items th,
+.upload-result-items td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.upload-result-items th {
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.85;
+}
+.upload-result-items tbody tr:last-child td {
+  border-bottom: 0;
+}
+.upload-result-photo-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+.upload-result-photo-btn {
+  white-space: nowrap;
+}
+.upload-result-photo-na {
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.55;
+  font-size: 0.78rem;
+}
+.upload-result-summary {
+  margin-top: 12px;
+  color: var(--color-text-muted, var(--color-text-primary));
+  font-size: 0.82rem;
+}
+.upload-result-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

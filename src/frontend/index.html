@@ -36774,20 +36774,25 @@
           });
         }
 
-        // Render the legacy single-file result block when exactly one file ran ok.
+        // Render the post-scan result block when exactly one file ran ok.
+        // The enriched renderer (upload-result.js) re-fetches the persisted
+        // receipt and adds inline attribution + per-item photo affordances
+        // so the user doesn't have to round-trip through the Receipts page
+        // for the two most common follow-up actions.
         if (queued.length === 1 && okCount === 1 && lastResultData) {
-          const items = getReceiptItems(lastResultData);
-          const summary = lastResultData?.data;
           const card = document.getElementById("ocr-result-card");
-          if (card) {
+          const target = document.getElementById("ocr-result");
+          if (card && target) {
             card.style.display = "block";
-            document.getElementById("ocr-result").innerHTML = items.length
-              ? `<table>
-                  <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th></tr></thead>
-                  <tbody>${items.map((i) => `<tr><td>${escHtml(i.name)}</td><td>${i.quantity ?? 1}</td><td>${formatMoney(i.unit_price)}</td></tr>`).join("")}</tbody>
-                </table>
-                <p style="margin-top:12px;color:var(--muted);font-size:0.8rem">Store: ${escHtml(summary?.store || "Unknown")} · Total: ${formatMoney(summary?.total)} · Extracted by: ${lastResultData.ocr_engine ?? lastResultData.engine ?? "AI"} · Confidence: ${((lastResultData.confidence ?? 0) * 100).toFixed(0)}%</p>`
-              : `<pre style="color:var(--muted);font-size:0.82rem">${JSON.stringify(lastResultData, null, 2)}</pre>`;
+            const _receiptIdForExtras =
+              lastResultData?.purchase_id || lastResultData?.receipt_id || null;
+            if (typeof window.renderUploadResultExtras === "function") {
+              window.renderUploadResultExtras(
+                target,
+                _receiptIdForExtras,
+                lastResultData,
+              );
+            }
           }
         }
 
@@ -43942,6 +43947,10 @@
     <!-- Page pager — bottom-of-page Prev / Next buttons. Loads after
          overscroll-nav so window.commitPageNav exists when click fires. -->
     <script src="/assets/js/page-pager.js" defer></script>
+    <!-- Upload result enrichment — inline attribution + per-item photo
+         buttons after a scan finishes, so the user doesn't have to
+         round-trip through the Receipts page for common follow-ups. -->
+    <script src="/assets/js/upload-result.js" defer></script>
 
     <!-- ===== In-App Assistant ============================================ -->
     <button
