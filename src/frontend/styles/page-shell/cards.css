@@ -1506,3 +1506,39 @@
   font-weight: 600;
 }
 
+/* ---- Manage Stores panel ---- */
+.manage-stores-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.manage-stores-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+.manage-stores-grid th,
+.manage-stores-grid td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+}
+.bucket-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+.bucket-badge.bucket-frequent {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+.bucket-badge.bucket-low_freq {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+.bucket-badge.bucket-hidden {
+  background: var(--color-warn-soft, #fde2e2);
+  color: var(--color-warn, #b00);
+}
+

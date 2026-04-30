@@ -3242,6 +3242,25 @@
               </div>
             </div>
           </div>
+          <div class="card" id="settings-manage-stores">
+            <div class="card-header">
+              <span class="card-title">🏪 Manage Stores</span>
+              <p class="muted" style="margin:6px 0 0 0;font-size:0.85rem">
+                Pin merchants to Frequent / Rarely Used / Hidden, or let recency decide automatically.
+              </p>
+            </div>
+            <div class="card-body" style="padding-top:12px">
+              <div class="manage-stores-filters" role="tablist">
+                <button type="button" class="pill active" data-filter="all" onclick="setManageStoresFilter('all')">All</button>
+                <button type="button" class="pill" data-filter="frequent" onclick="setManageStoresFilter('frequent')">Frequent</button>
+                <button type="button" class="pill" data-filter="low_freq" onclick="setManageStoresFilter('low_freq')">Rarely Used</button>
+                <button type="button" class="pill" data-filter="hidden" onclick="setManageStoresFilter('hidden')">Hidden</button>
+              </div>
+              <div id="manage-stores-table" class="manage-stores-table">
+                <div class="empty-state"><p>Loading…</p></div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-header">
               <span class="card-title">🏠 Household Users</span>
@@ -12410,6 +12429,7 @@
           document.getElementById("settings-avatar-preview").textContent =
             currentUser ? getUserAvatar(currentUser) : "🦊";
           initOverscrollNavToggle();
+          loadManageStores();
           if (currentUser) {
             loadUsers();
             loadTrustedDevices();
@@ -29561,6 +29581,14 @@
           .replace(/>/g, "&gt;");
       }
 
+      function setHtml(el, html) {
+        if (!el) return;
+        while (el.firstChild) el.removeChild(el.firstChild);
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        el.appendChild(range.createContextualFragment(html));
+      }
+
       function escAttr(s) {
         return escHtml(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       }
@@ -31507,6 +31535,95 @@
       }
       // Re-evaluate fab visibility after the auth flow settles.
       window.addEventListener("auth:user-changed", _updateChatFabVisibility);
+
+      // ============================================================
+      // Settings → Manage Stores panel
+      // ============================================================
+      let manageStoresCache = null;
+      let manageStoresFilter = "all";
+
+      async function loadManageStores() {
+        const target = document.getElementById("manage-stores-table");
+        if (!target) return;
+        setHtml(target, '<div class="empty-state"><p>Loading…</p></div>');
+        const res = await api("/api/stores");
+        if (!res.ok) {
+          setHtml(target, '<div class="empty-state"><p>Could not load stores.</p></div>');
+          return;
+        }
+        manageStoresCache = await res.json();
+        renderManageStoresTable();
+      }
+
+      function setManageStoresFilter(value) {
+        manageStoresFilter = value;
+        document.querySelectorAll("#settings-manage-stores .pill").forEach((p) => {
+          p.classList.toggle("active", p.dataset.filter === value);
+        });
+        renderManageStoresTable();
+      }
+
+      function renderManageStoresTable() {
+        const target = document.getElementById("manage-stores-table");
+        if (!target || !manageStoresCache) return;
+        const rows = [];
+        const buckets = ["frequent", "low_freq", "hidden"];
+        for (const b of buckets) {
+          if (manageStoresFilter !== "all" && manageStoresFilter !== b) continue;
+          for (const row of manageStoresCache[b] || []) {
+            rows.push({ ...row, bucket: b });
+          }
+        }
+        if (!rows.length) {
+          setHtml(target, '<div class="empty-state"><p>No stores in this view.</p></div>');
+          return;
+        }
+        const bucketLabel = (b) =>
+          b === "frequent" ? "Frequent" : b === "low_freq" ? "Rarely Used" : "Hidden";
+        const dateLabel = (iso) => (iso ? new Date(iso).toLocaleDateString() : "—");
+        const sel = (row) => `
+          <select onchange="setStoreVisibility(${row.id}, this.value)">
+            <option value="auto" ${row.override === null ? "selected" : ""}>Auto</option>
+            <option value="frequent" ${row.override === "frequent" ? "selected" : ""}>Pin Frequent</option>
+            <option value="low_freq" ${row.override === "low_freq" ? "selected" : ""}>Pin Rarely Used</option>
+            <option value="hidden" ${row.override === "hidden" ? "selected" : ""}>Pin Hidden</option>
+          </select>`;
+        const tableHtml = `
+          <table class="manage-stores-grid">
+            <thead><tr>
+              <th>Name</th><th>Last purchase</th><th>Count</th><th>Bucket</th><th>Action</th>
+            </tr></thead>
+            <tbody>
+              ${rows
+                .map(
+                  (r) => `<tr>
+                    <td>${escHtml(r.name)}</td>
+                    <td>${escHtml(dateLabel(r.last_purchase_at))}</td>
+                    <td>${escHtml(r.purchase_count)}</td>
+                    <td><span class="bucket-badge bucket-${r.bucket}">${bucketLabel(r.bucket)}</span></td>
+                    <td>${sel(r)}</td>
+                  </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>`;
+        setHtml(target, tableHtml);
+      }
+
+      async function setStoreVisibility(storeId, value) {
+        const override = value === "auto" ? null : value;
+        const res = await api(`/api/stores/${storeId}/visibility`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ override }),
+        });
+        if (!res.ok) {
+          toast("Could not update store visibility", "error");
+          return;
+        }
+        toast("Store updated", "success");
+        await loadManageStores();
+      }
     </script>
 
     <!-- Edge-pull navigation + iris transition + matrix rain.
