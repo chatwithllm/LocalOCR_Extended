@@ -43939,6 +43939,9 @@
          Defer so it executes after the giant inline script defines
          window.nav, which the IIFE invokes on commit. -->
     <script src="/assets/js/overscroll-nav.js" defer></script>
+    <!-- Page pager — bottom-of-page Prev / Next buttons. Loads after
+         overscroll-nav so window.commitPageNav exists when click fires. -->
+    <script src="/assets/js/page-pager.js" defer></script>
 
     <!-- ===== In-App Assistant ============================================ -->
     <button

@@ -255,7 +255,7 @@
     targetPage = null;
   }
 
-  function commitNavigation(pageId) {
+  function commitNavigation(pageId, opts) {
     const navEl = getNavItemEl(pageId);
     const dirAtCommit = direction; // captured before reset
     const label = getPageNavLabel(pageId);
@@ -267,20 +267,26 @@
     cooldownUntil = Date.now() + COMMIT_COOLDOWN_MS;
     // Iris transition: open the veil over the current page first,
     // swap pages while covered, then close the veil to reveal the
-    // new page. Porthole-style cue that something happened.
-    playIrisTransition(dirAtCommit, icon, label, () => {
+    // new page. Per-page motif paints inside the veil so the user
+    // sees a hint of where they're going (boxes for inventory,
+    // sparkline for dashboard, scan sweep for receipts).
+    playIrisTransition(dirAtCommit, icon, label, pageId, opts || {}, () => {
       window.nav && window.nav(pageId, navEl);
     });
   }
 
-  function playIrisTransition(dir, icon, label, swapFn) {
+  function playIrisTransition(dir, icon, label, targetPageId, opts, swapFn) {
     const x = "50%";
     const y = dir > 0 ? "100%" : dir < 0 ? "0%" : "50%";
     const clip0 = "circle(0% at " + x + " " + y + ")";
     const clipFull = "circle(160% at " + x + " " + y + ")";
-    const OPEN_MS = 320;
-    const HOLD_MS = 650; // long enough to read the matrix rain
-    const CLOSE_MS = 360;
+    // Tempo: button-triggered nav uses "fast" so a click feels
+    // closer to instant; gesture nav keeps the longer "default"
+    // cinematic timing so the motif has room to read.
+    const tempo = (opts && opts.tempo) || "default";
+    const OPEN_MS = tempo === "fast" ? 240 : 320;
+    const HOLD_MS = tempo === "fast" ? 350 : 650;
+    const CLOSE_MS = tempo === "fast" ? 280 : 360;
     const reduced =
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -292,7 +298,7 @@
     veil.style.clipPath = clip0;
     veil.style.webkitClipPath = clip0;
 
-    // Matrix rain canvas behind the badge.
+    // Per-page motif canvas behind the badge.
     const canvas = document.createElement("canvas");
     canvas.className = "iris-matrix-canvas";
     veil.appendChild(canvas);
@@ -305,8 +311,8 @@
     veil.appendChild(badge);
     document.body.appendChild(veil);
 
-    // Start matrix rain as soon as the veil mounts.
-    const stopMatrix = startMatrixRain(canvas);
+    // Start the page-themed motif as soon as the veil mounts.
+    const stopMatrix = startMotif(targetPageId, canvas);
 
     // Force layout so the first transition starts from clip0.
     void veil.offsetHeight;
@@ -360,7 +366,258 @@
     }, OPEN_MS + HOLD_MS + CLOSE_MS + 50);
   }
 
-  function startMatrixRain(canvas) {
+  // ----- Motif dispatcher -----
+  // Each motif paints a page-themed teaser inside the iris veil.
+  // Signature: (canvas) -> stopFn. Stop is called on veil cleanup.
+  // Unknown pageIds fall back to the matrix rain so unmotifed
+  // pages still get a transition rather than a blank veil.
+  function startMotif(pageId, canvas) {
+    switch (pageId) {
+      case "dashboard": return motifDashboard(canvas);
+      case "inventory": return motifInventory(canvas);
+      case "receipts":  return motifReceipts(canvas);
+      default:          return motifMatrix(canvas);
+    }
+  }
+
+  function readThemeTokens() {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (name, fallback) =>
+      (cs.getPropertyValue(name).trim() || fallback);
+    return {
+      surface:   get("--color-surface", "#0a0a0a"),
+      surface2:  get("--color-surface-2", "#1a1a1a"),
+      text:      get("--color-text-primary", "#f5f5f7"),
+      muted:     get("--color-text-muted", "#888"),
+      brand:     get("--color-brand", "#0a84ff"),
+      brandSoft: get("--color-brand-soft", "rgba(10,132,255,0.18)"),
+      border:    get("--color-border", "#333"),
+    };
+  }
+
+  function setupMotifCanvas(canvas) {
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ----- motifDashboard: animated KPI pills + sparkline -----
+  function motifDashboard(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const N = 60;
+    const points = [];
+    for (let i = 0; i < N; i++) {
+      points.push(0.4 + 0.45 * Math.sin(i * 0.32) + (Math.random() - 0.5) * 0.12);
+    }
+    const targets = [4029, 138, 472];
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, 0, w, h);
+      // KPI pills
+      const pillW = Math.min(220, w * 0.22);
+      const pillH = 64;
+      const gap = Math.min(40, w * 0.04);
+      const totalW = pillW * 3 + gap * 2;
+      const startX = (w - totalW) / 2;
+      const baselineY = h * 0.62;
+      const py = baselineY - h * 0.30;
+      ctx.font = "600 28px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < 3; i++) {
+        const px = startX + i * (pillW + gap);
+        ctx.fillStyle = tk.surface2;
+        roundRectPath(ctx, px, py, pillW, pillH, 14);
+        ctx.fill();
+        ctx.strokeStyle = tk.brandSoft;
+        ctx.lineWidth = 1;
+        roundRectPath(ctx, px, py, pillW, pillH, 14);
+        ctx.stroke();
+        const counter = Math.min(
+          targets[i],
+          Math.floor((Math.max(0, t - i * 0.12) * 1.6) * targets[i]),
+        );
+        ctx.fillStyle = tk.text;
+        ctx.fillText(counter.toLocaleString(), px + pillW / 2, py + pillH / 2);
+      }
+      // Sparkline
+      const progress = Math.min(1, t / 0.9);
+      const visible = Math.floor(N * progress);
+      const ampY = h * 0.16;
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      for (let i = 0; i <= visible && i < N; i++) {
+        const x = (i / (N - 1)) * w;
+        const y = baselineY - points[i] * ampY;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      if (visible < N) {
+        const x = (visible / (N - 1)) * w;
+        const y = baselineY - points[visible] * ampY;
+        ctx.fillStyle = tk.brand;
+        ctx.beginPath();
+        ctx.arc(x, y, 5 + 2 * Math.sin(t * 12), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifInventory: stacking boxes -----
+  function motifInventory(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const COLS = Math.max(5, Math.min(10, Math.floor(w / 110)));
+    const stacks = [];
+    for (let i = 0; i < COLS; i++) {
+      stacks.push({
+        delay: Math.random() * 0.35,
+        maxBoxes: 4 + Math.floor(Math.random() * 4),
+        speed: 0.55 + Math.random() * 0.4,
+      });
+    }
+    function drawBox(x, y, bw, bh) {
+      ctx.fillStyle = tk.surface2;
+      ctx.fillRect(x, y, bw, bh);
+      ctx.strokeStyle = tk.brand;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 1, y + 1, bw - 2, bh - 2);
+      ctx.fillStyle = tk.brandSoft;
+      ctx.fillRect(x + bw * 0.2, y - 3, bw * 0.6, 6);
+      ctx.beginPath();
+      ctx.moveTo(x, y + bh * 0.5);
+      ctx.lineTo(x + bw, y + bh * 0.5);
+      ctx.strokeStyle = tk.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      ctx.fillRect(0, 0, w, h);
+      const colW = w / COLS;
+      const boxW = colW * 0.74;
+      const boxH = boxW * 0.62;
+      const padX = (colW - boxW) / 2;
+      const baselineY = h * 0.88;
+      for (let c = 0; c < COLS; c++) {
+        const s = stacks[c];
+        const localT = Math.max(0, t - s.delay) * s.speed;
+        const stacked = Math.min(s.maxBoxes, Math.floor(localT));
+        const partial = Math.min(1, localT - stacked);
+        for (let i = 0; i < stacked; i++) {
+          drawBox(c * colW + padX, baselineY - (i + 1) * boxH, boxW, boxH);
+        }
+        if (stacked < s.maxBoxes) {
+          const startY = -boxH;
+          const targetY = baselineY - (stacked + 1) * boxH;
+          const eased = 1 - Math.pow(1 - partial, 3);
+          drawBox(c * colW + padX, startY + (targetY - startY) * eased, boxW, boxH);
+        }
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifReceipts: paper unroll + scan sweep -----
+  function motifReceipts(canvas) {
+    const { ctx, w, h } = setupMotifCanvas(canvas);
+    const tk = readThemeTokens();
+    const t0 = performance.now();
+    let rafId = null, stopped = false;
+    const ROWS = 14;
+    const rows = [];
+    for (let i = 0; i < ROWS; i++) {
+      rows.push({
+        kind: i === 0 || (Math.random() < 0.22) ? "header" : "item",
+        width: 0.55 + Math.random() * 0.35,
+        delay: 0.05 + i * 0.06,
+      });
+    }
+    function draw(now) {
+      if (stopped) return;
+      const t = (now - t0) / 1000;
+      ctx.fillStyle = "rgba(0,0,0,0.20)";
+      ctx.fillRect(0, 0, w, h);
+      const paperW = Math.min(440, w * 0.42);
+      const paperX = (w - paperW) / 2;
+      const paperHFinal = h * 0.86;
+      const unrollT = Math.min(1, t / 0.55);
+      const paperH = paperHFinal * unrollT;
+      const paperY = h * 0.05;
+      ctx.fillStyle = tk.surface2;
+      ctx.fillRect(paperX, paperY, paperW, paperH);
+      ctx.fillStyle = tk.brandSoft;
+      ctx.fillRect(paperX, paperY, 4, paperH);
+      const rowH = 18;
+      for (let i = 0; i < ROWS; i++) {
+        const r = rows[i];
+        if (t < r.delay) continue;
+        const rowY = paperY + 30 + i * (rowH + 6);
+        if (rowY > paperY + paperH - 20) continue;
+        const opacity = Math.min(1, (t - r.delay) * 4);
+        ctx.globalAlpha = opacity;
+        if (r.kind === "header") {
+          ctx.fillStyle = tk.brand;
+          ctx.fillRect(paperX + 16, rowY, paperW * r.width - 32, 4);
+        } else {
+          ctx.fillStyle = tk.text;
+          ctx.fillRect(paperX + 16, rowY, paperW * r.width - 32, 3);
+        }
+        ctx.globalAlpha = 1;
+      }
+      if (unrollT >= 1) {
+        const scanT = ((t - 0.55) % 0.9) / 0.9;
+        const scanY = paperY + scanT * paperH;
+        const grad = ctx.createLinearGradient(0, scanY - 14, 0, scanY + 14);
+        grad.addColorStop(0, "rgba(0,0,0,0)");
+        grad.addColorStop(0.5, tk.brand);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(paperX, scanY - 14, paperW, 28);
+      }
+      rafId = requestAnimationFrame(draw);
+    }
+    rafId = requestAnimationFrame(draw);
+    return () => { stopped = true; if (rafId) cancelAnimationFrame(rafId); };
+  }
+
+  // ----- motifMatrix: default fallback (Katakana rain) -----
+  function motifMatrix(canvas) {
     const ctx = canvas.getContext("2d");
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let rafId = null;
@@ -380,8 +637,6 @@
       canvas.style.height = h + "px";
       ctx.scale(dpr, dpr);
       cols = Math.max(1, Math.floor(w / fontSize));
-      // Seed each column at a random vertical offset so rain
-      // doesn't appear as a perfect row on frame 1.
       drops = new Array(cols)
         .fill(0)
         .map(() => Math.floor(Math.random() * (h / fontSize)));
@@ -394,7 +649,6 @@
       if (stopped) return;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      // Fade previous frame to create trail effect.
       ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = "#0fdc6a";
@@ -404,7 +658,6 @@
           Math.floor(Math.random() * chars.length),
         );
         const yPos = drops[i] * fontSize;
-        // Bright leading glyph, dimmer trail behind.
         ctx.fillStyle = "#b6ffd0";
         ctx.fillText(ch, i * fontSize, yPos);
         ctx.fillStyle = "#0fdc6a";
@@ -441,6 +694,22 @@
     }
   }
   window.resetOverscrollNav = resetOverscrollNav;
+
+  // Public entry point for button-triggered page navigation. The
+  // bottom-of-page pager calls this; it shares the same iris +
+  // motif transition as the gesture and keyboard paths so all
+  // three feel like the same nav primitive.
+  window.commitPageNav = function (pageId, opts) {
+    if (!pageId) return;
+    if (Date.now() < cooldownUntil) return;
+    const list = getVisibleSidebarPages();
+    const cur = getCurrentPageId();
+    const i = list.indexOf(cur);
+    const j = list.indexOf(pageId);
+    if (j < 0) return; // page not in visible sidebar — refuse
+    if (i >= 0) direction = j > i ? 1 : -1;
+    commitNavigation(pageId, opts || { tempo: "fast" });
+  };
 
   // ----- Touch -----
   document.addEventListener(

@@ -3859,3 +3859,110 @@ button.spending-row:hover {
 .dash-attr-nudge__cta:hover {
   text-decoration: underline;
 }
+
+/* === Page pager (bottom-of-page Prev / Next) === */
+.page-pager {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 28px 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--color-surface-2);
+  overflow: hidden;
+  font-family: inherit;
+}
+.page-pager__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+.page-pager__next {
+  flex-direction: row;
+  text-align: right;
+  justify-content: flex-end;
+}
+.page-pager__btn:hover:not(:disabled) {
+  background: var(--color-brand-soft);
+}
+.page-pager__btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.page-pager__btn:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -2px;
+}
+.page-pager__btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.page-pager__divider {
+  width: 1px;
+  background: var(--color-border);
+  flex: 0 0 auto;
+}
+.page-pager__arrow {
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-brand);
+  flex: 0 0 auto;
+}
+.page-pager__arrow--mute {
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.55;
+}
+.page-pager__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.page-pager__stack--right {
+  align-items: flex-end;
+  text-align: right;
+}
+.page-pager__hint {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, var(--color-text-primary));
+  opacity: 0.7;
+}
+.page-pager__name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.page-pager__name--mute {
+  font-weight: 500;
+  opacity: 0.65;
+}
+@media (max-width: 560px) {
+  .page-pager__hint {
+    font-size: 0.66rem;
+  }
+  .page-pager__name {
+    font-size: 0.88rem;
+  }
+  .page-pager__btn {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+}
