@@ -8901,12 +8901,7 @@
       }
 
       function getInventoryStoreChoices() {
-        const defaults = [
-          "Costco Wholesale",
-          "Kroger",
-          "Target",
-          "India Bazaar",
-        ];
+        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
         return [...new Set([...defaults, ...shoppingStoreOptions])].sort(
           (a, b) => a.localeCompare(b),
         );
@@ -21039,12 +21034,7 @@
       }
 
       function getShoppingStoreChoices() {
-        const defaults = [
-          "Costco Wholesale",
-          "Kroger",
-          "Target",
-          "India Bazaar",
-        ];
+        const defaults = ["Costco", "Kroger", "Target", "India Bazar"];
         return [...new Set([...defaults, ...shoppingStoreOptions])].sort(
           (a, b) => a.localeCompare(b),
         );

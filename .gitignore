@@ -50,3 +50,8 @@ htmlcov/
 # --- Alembic ---
 # Keep migrations tracked, ignore auto-generated files
 alembic/__pycache__/
+.kanban/local.json
+.kanban/buffer.jsonl
+.kanban/buffer.errors.log
+.kanban/flush.log
+.kanban/pending-milestones.jsonl

@@ -421,7 +421,9 @@ def _build_shopping_list_payload(session, *, status: str = "", helper_mode: bool
         store["estimated_total"] = round(store["estimated_total"], 2)
     available_stores = sorted({
         canonicalize_store_name(store.name)
-        for store in session.query(Store).all()
+        for store in session.query(Store).filter(
+            (Store.is_payment_artifact.is_(False)) | (Store.is_payment_artifact.is_(None))
+        ).all()
         if store.name
     })
 

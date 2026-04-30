@@ -449,15 +449,28 @@ def _create_manual_receipt_entry(
         TelegramReceipt,
     )
     from src.backend.normalize_product_names import canonicalize_product_identity, find_matching_product
-    from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
+    from src.backend.normalize_store_names import (
+        canonicalize_store_name,
+        find_matching_store,
+        is_payment_artifact,
+    )
     from src.backend.manage_product_catalog import _merge_products
 
     sanitized = _sanitize_receipt_payload(payload)
-    store_name = canonicalize_store_name(sanitized.get("store") or "Manual Entry")
+    raw_store_name = sanitized.get("store") or "Manual Entry"
+    store_name = canonicalize_store_name(raw_store_name)
     store = find_matching_store(session, store_name)
+    artifact_flag = is_payment_artifact(raw_store_name) or is_payment_artifact(store_name)
     if not store:
-        store = Store(name=store_name, location=sanitized.get("store_location"))
+        store = Store(
+            name=store_name,
+            location=sanitized.get("store_location"),
+            is_payment_artifact=artifact_flag,
+        )
         session.add(store)
+        session.flush()
+    elif artifact_flag and not getattr(store, "is_payment_artifact", False):
+        store.is_payment_artifact = True
         session.flush()
 
     purchase_date = datetime.strptime(sanitized["date"], "%Y-%m-%d")
