@@ -165,6 +165,15 @@ def register_error_handlers(app):
         )
         return send_from_directory(styles_dir, filename)
 
+    @app.route("/assets/<path:filename>")
+    def serve_frontend_assets(filename):
+        """Serve extracted JS/CSS modules from src/frontend/assets/."""
+        import os
+        assets_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "frontend", "assets"
+        )
+        return send_from_directory(assets_dir, filename)
+
     @app.route("/design/")
     @app.route("/design/<path:filename>")
     def serve_design_system(filename="preview/ui-kit-localocr.html"):
