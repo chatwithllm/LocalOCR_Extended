@@ -76,6 +76,49 @@
   flex: 0 1 auto;
 }
 
+.kitchen-store-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px;
+  font-size: 11px;
+}
+
+.kitchen-store-filter:empty {
+  display: none;
+}
+
+.kitchen-store-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.kitchen-store-filter-chip {
+  appearance: none;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.kitchen-store-filter-chip:hover { filter: brightness(1.1); }
+
+.kitchen-store-filter-chip.active {
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand);
+  font-weight: 700;
+}
+
 .kitchen-empty {
   padding: 40px 20px;
   text-align: center;

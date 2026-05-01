@@ -128,6 +128,30 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
         .all()
     )
 
+    # Build product_id -> set of distinct store names within the
+    # frequency window. One round-trip; small payload.
+    from src.backend.initialize_database_schema import Store
+    store_rows = (
+        session.query(
+            ReceiptItem.product_id,
+            Store.name,
+        )
+        .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
+        .outerjoin(Store, Store.id == Purchase.store_id)
+        .filter(Purchase.date >= cutoff)
+        .filter(ReceiptItem.product_id.isnot(None))
+        .filter(Store.name.isnot(None))
+        .distinct()
+        .all()
+    )
+    stores_by_product: dict[int, list[str]] = {}
+    for pid, store_name in store_rows:
+        if not store_name:
+            continue
+        stores_by_product.setdefault(pid, [])
+        if store_name not in stores_by_product[pid]:
+            stores_by_product[pid].append(store_name)
+
     categories = {cat: [] for cat in DEFAULT_CATEGORIES}
     all_tiles = []
     for product, snapshot_id, count, latest_price in rows:
@@ -144,6 +168,7 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
             "fallback_emoji": emoji,
             "purchase_count": int(count or 0),
             "latest_unit_price": float(latest_price) if latest_price is not None else None,
+            "stores": sorted(stores_by_product.get(product.id, [])),
         }
         categories[bucket].append(tile)
         all_tiles.append(tile)

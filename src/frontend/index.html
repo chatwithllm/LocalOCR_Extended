@@ -1968,6 +1968,7 @@
 
           <div class="kitchen-catalog" id="kitchen-catalog">
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
+              <div class="kitchen-store-filter" id="kitchen-store-filter"></div>
               <div class="kitchen-chip-row">
                 <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
                 <label class="kitchen-search-wrap" title="Search products">
@@ -6100,6 +6101,7 @@
       let kitchenList = [];
       let kitchenActiveCategory = "frequent";
       let kitchenSearchQuery = "";
+      let kitchenStoreFilter = new Set();
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
       let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
@@ -23030,6 +23032,7 @@
           if (list.available_store_buckets) {
             shoppingStoreBuckets = list.available_store_buckets;
           }
+          renderKitchenStoreFilter();
           renderKitchenCatalog();
           renderKitchenList();
           applyKitchenCatalogCollapsed();
@@ -23203,18 +23206,80 @@
         return out;
       }
 
+      function _kitchenApplyStoreFilter(tiles) {
+        if (!kitchenStoreFilter || kitchenStoreFilter.size === 0) return tiles;
+        return tiles.filter((t) => {
+          const stores = Array.isArray(t.stores) ? t.stores : [];
+          return stores.some((s) => kitchenStoreFilter.has(s));
+        });
+      }
+
       function _kitchenTilesForActiveChip() {
         const q = (kitchenSearchQuery || "").trim().toLowerCase();
+        let raw;
         if (q) {
-          const all = _kitchenAllTiles().filter((t) =>
+          raw = _kitchenAllTiles().filter((t) =>
             String(t.name || "").toLowerCase().includes(q),
           );
-          return _kitchenGroupTiles(all);
+        } else {
+          raw = kitchenActiveCategory === "frequent"
+            ? (kitchenCatalog.frequent || [])
+            : ((kitchenCatalog.categories || {})[kitchenActiveCategory] || []);
         }
-        const raw = kitchenActiveCategory === "frequent"
-          ? (kitchenCatalog.frequent || [])
-          : ((kitchenCatalog.categories || {})[kitchenActiveCategory] || []);
+        raw = _kitchenApplyStoreFilter(raw);
         return _kitchenGroupTiles(raw);
+      }
+
+      function _kitchenAvailableStoresForFilter() {
+        const seen = new Map();
+        for (const t of _kitchenAllTiles()) {
+          for (const s of t.stores || []) {
+            seen.set(s, (seen.get(s) || 0) + (t.purchase_count || 0));
+          }
+        }
+        return [...seen.entries()]
+          .sort(([, a], [, b]) => b - a)
+          .map(([name]) => name);
+      }
+
+      function renderKitchenStoreFilter() {
+        const target = document.getElementById("kitchen-store-filter");
+        if (!target) return;
+        const stores = _kitchenAvailableStoresForFilter();
+        if (!stores.length) {
+          setHtml(target, "");
+          return;
+        }
+        const labelHtml = `<span class="kitchen-store-filter-label">🏪 Stores:</span>`;
+        const allChip = `
+          <button type="button"
+                  class="kitchen-store-filter-chip${kitchenStoreFilter.size === 0 ? " active" : ""}"
+                  onclick="kitchenClearStoreFilter()">
+            All
+          </button>`;
+        const chips = stores.map((name) => `
+          <button type="button"
+                  class="kitchen-store-filter-chip${kitchenStoreFilter.has(name) ? " active" : ""}"
+                  onclick="${escAttr(`kitchenToggleStoreFilter(${JSON.stringify(name)})`)}">
+            ${escHtml(name)}
+          </button>`).join("");
+        setHtml(target, labelHtml + allChip + chips);
+      }
+
+      function kitchenToggleStoreFilter(name) {
+        if (kitchenStoreFilter.has(name)) {
+          kitchenStoreFilter.delete(name);
+        } else {
+          kitchenStoreFilter.add(name);
+        }
+        renderKitchenStoreFilter();
+        renderKitchenCatalog();
+      }
+
+      function kitchenClearStoreFilter() {
+        kitchenStoreFilter.clear();
+        renderKitchenStoreFilter();
+        renderKitchenCatalog();
       }
 
       function onKitchenSearchInput(value) {
