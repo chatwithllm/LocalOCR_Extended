@@ -3871,6 +3871,21 @@ button.spending-row:hover {
   background: var(--color-surface-2);
   overflow: hidden;
   font-family: inherit;
+  /* Pin to bottom of viewport regardless of content height so the
+     Prev/Next pair stays in the same screen position across pages. */
+  position: sticky;
+  bottom: 8px;
+  z-index: 10;
+  margin-top: auto;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* Make the active page a flex column so .page-pager's margin-top:auto
+   pushes it to the bottom even when content is short. */
+.page.active {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--app-header-height, 64px));
 }
 .page-pager__btn {
   flex: 1;
