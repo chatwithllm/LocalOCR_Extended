@@ -822,27 +822,41 @@
 }
 
 /* Feature 2 — Current List grouped by store */
+/* Grouped current-list: a single grid where store headers span the
+   full row and tiles flow continuously across stores — no trailing
+   empty cells when a store has fewer than `cols` items. */
 .kitchen-list-grid--grouped {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+  align-items: start;
 }
 
-.kitchen-store-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+@media (max-width: 1400px) {
+  .kitchen-list-grid--grouped { grid-template-columns: repeat(6, 1fr); }
 }
+@media (max-width: 1100px) {
+  .kitchen-list-grid--grouped { grid-template-columns: repeat(5, 1fr); }
+}
+@media (max-width: 720px) {
+  .kitchen-list-grid--grouped { grid-template-columns: repeat(4, 1fr); }
+}
+
+.kitchen-store-group { display: contents; }
+.kitchen-store-group .kitchen-grid--list { display: contents; }
 
 .kitchen-store-group-title {
+  grid-column: 1 / -1;
   font-size: 16px;
   font-weight: 700;
   color: var(--color-text);
-  margin: 0;
+  margin: 8px 0 2px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
+.kitchen-store-group-title:first-child { margin-top: 0; }
 
 .kitchen-store-group-count {
   font-size: 12px;
