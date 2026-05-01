@@ -23258,7 +23258,13 @@
         const start = el.scrollLeft;
         const end = start + delta;
         const t0 = performance.now();
-        const ease = (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+        // easeOutCubic — fast departure, gradual settle. Reads as a
+        // physical carousel sliding to its rest position.
+        const ease = (t) => 1 - Math.pow(1 - t, 3);
+        // Suspend scroll-snap during the animation so the snap engine
+        // doesn't fight our rAF target.
+        const prevSnap = el.style.scrollSnapType;
+        el.style.scrollSnapType = "none";
         const step = (now) => {
           const k = Math.min(1, (now - t0) / duration);
           el.scrollLeft = start + (end - start) * ease(k);
@@ -23266,6 +23272,7 @@
             el._kitchenScrollAnim = requestAnimationFrame(step);
           } else {
             el._kitchenScrollAnim = null;
+            el.style.scrollSnapType = prevSnap || "";
           }
         };
         el._kitchenScrollAnim = requestAnimationFrame(step);
@@ -23277,9 +23284,10 @@
         const tile = grid.querySelector(".kitchen-tile");
         const tileW = tile ? tile.getBoundingClientRect().width : 110;
         const gap = 10;
-        // Move two tiles per click — subtle, predictable.
-        const delta = direction * (tileW + gap) * 2;
-        _kitchenSmoothScrollBy(grid, delta, 600);
+        // Move three tiles per click — gives a clearer slide motion than
+        // two (which felt like an in-place swap on small grids).
+        const delta = direction * (tileW + gap) * 3;
+        _kitchenSmoothScrollBy(grid, delta, 750);
       }
 
       function renderKitchenCatalog() {
