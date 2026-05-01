@@ -8345,7 +8345,9 @@
       }
 
       function updateScopedNavigation() {
-        const kitchenAllowed = new Set(["dashboard", "inventory", "shopping"]);
+        const kitchenAllowed = new Set([
+          "dashboard", "inventory", "shopping", "kitchen",
+        ]);
         document.body.classList.toggle(
           "trusted-device-read-only",
           isReadOnlyTrustedDevice(),
