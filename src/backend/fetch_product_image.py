@@ -119,7 +119,9 @@ def _download_and_normalize(
                 logger.info("rejecting %s: exceeded max_bytes=%d", image_url, max_bytes)
                 return None
         raw = bytes(buf)
+        # Pillow integrity check.
         Image.open(io.BytesIO(raw)).verify()
+        # Reopen for actual processing — verify() exhausts the stream.
         img = Image.open(io.BytesIO(raw))
         if img.mode in ("RGBA", "P", "LA"):
             img = img.convert("RGB")

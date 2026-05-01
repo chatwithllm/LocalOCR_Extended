@@ -248,3 +248,28 @@ def test_user_agent_header_set_for_wikimedia(monkeypatch, png_bytes):
     monkeypatch.delenv("PEXELS_API_KEY", raising=False)
     mod.fetch_product_image("Onions")
     assert all("LocalOCR_Extended" in (h.get("User-Agent") or "") for h in captured_headers)
+
+
+def test_fanout_survives_provider_exception(monkeypatch, png_bytes):
+    """A 5xx / Timeout / ConnectionError from one provider must not break
+    the chain — fanout moves on to the next provider."""
+    import requests as _real_requests
+    from src.backend import fetch_product_image as mod
+
+    monkeypatch.setenv("UNSPLASH_ACCESS_KEY", "uk")
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
+
+    def fake_get(url, **kwargs):
+        if "wikipedia.org" in url:
+            raise _real_requests.exceptions.ConnectionError("simulated network blip")
+        if "api.unsplash.com" in url:
+            return _mock_json_response(
+                {"results": [{"urls": {"regular": "https://images.unsplash.com/x.jpg"}}]}
+            )
+        if "images.unsplash.com" in url:
+            return _mock_streamed_response(content_type="image/jpeg", body=png_bytes)
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(mod.requests, "get", fake_get)
+    out = mod.fetch_product_image("Resilience Test")
+    assert isinstance(out, bytes) and out[:3] == b"\xff\xd8\xff"
