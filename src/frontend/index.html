@@ -22711,11 +22711,17 @@
         if (empty) empty.style.display = "none";
         setHtml(grid, items.map(_kitchenItemTile).join(""));
         if (total) {
-          const sum = items.reduce(
-            (acc, i) => acc + (i.manual_estimated_price || 0) * (i.quantity || 0),
-            0,
-          );
-          total.textContent = sum > 0 ? `$${sum.toFixed(2)}` : "";
+          const sum = items.reduce((acc, i) => {
+            const catalogTile = _kitchenCatalogTileForProduct(i.product_id);
+            const unit =
+              i.manual_estimated_price != null
+                ? Number(i.manual_estimated_price)
+                : (i.latest_price && i.latest_price.price) ||
+                  (catalogTile && catalogTile.latest_unit_price) ||
+                  0;
+            return acc + Number(unit || 0) * Number(i.quantity || 0);
+          }, 0);
+          total.textContent = sum > 0 ? `Total $${sum.toFixed(2)}` : "";
         }
       }
 
