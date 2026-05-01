@@ -136,6 +136,32 @@ def _download_and_normalize(
         return None
 
 
+# Generic adjectives that commonly precede a product name and dilute
+# image-search relevance (e.g., "Organic Bananas" → "Bananas").
+_QUERY_NOISE_PREFIXES = {
+    "organic", "org", "raw", "natural", "fresh", "whole", "pure",
+    "ks", "kirkland", "signature", "premium", "select", "great",
+    "value", "store", "brand", "house",
+}
+
+_NOISE_TOKEN_PATTERN = None  # populated lazily below
+
+
+def _build_query(product_name: str, category: str | None) -> str:
+    """Strip generic noise tokens that hurt image-search relevance."""
+    import re
+    tokens = re.findall(r"[A-Za-z]+", product_name)
+    cleaned = [t for t in tokens if t.lower() not in _QUERY_NOISE_PREFIXES]
+    if not cleaned:
+        cleaned = tokens  # don't return empty if every token was noise
+    query = " ".join(cleaned).strip()
+    if category:
+        cat = category.strip()
+        if cat and cat.lower() not in {"other", "unknown"}:
+            query = f"{query} {cat}".strip()
+    return query
+
+
 def fetch_product_image(
     product_name: str,
     category: str | None = None,
@@ -146,18 +172,22 @@ def fetch_product_image(
 ) -> bytes | None:
     """Return JPEG bytes for the best-matching image, or None if all providers fail.
 
+    Provider fanout order is photo-curated APIs first (Unsplash → Pexels)
+    because they return product/food photos by design. Wikimedia is the
+    no-key fallback — its `pageimages` returns the article hero, which is
+    often too generic (e.g., "Organic Bananas" can match an agriculture
+    article whose hero is a market scene). First success wins.
+
     Pure function — no DB, no FS. Caller persists the bytes wherever it likes.
     """
     name = (product_name or "").strip()
     if not name:
         return None
-    query = name
-    if category:
-        cat = category.strip()
-        if cat and cat.lower() not in {"other", "unknown"}:
-            query = f"{name} {cat}"
+    query = _build_query(name, category)
+    if not query:
+        return None
 
-    for provider in (_query_wikimedia, _query_unsplash, _query_pexels):
+    for provider in (_query_unsplash, _query_pexels, _query_wikimedia):
         url = provider(query, timeout)
         if not url:
             continue
