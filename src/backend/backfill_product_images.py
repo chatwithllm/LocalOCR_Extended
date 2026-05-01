@@ -20,7 +20,7 @@ from src.backend.manage_product_snapshots import get_snapshot_root
 
 logger = logging.getLogger(__name__)
 
-RETRY_INTERVAL = timedelta(days=7)
+RETRY_INTERVAL = timedelta(days=1)
 
 _NON_PRODUCT_PATTERNS = frozenset({
     "fee", "fees", "charge", "charges", "service charge",
@@ -43,7 +43,7 @@ def _is_meaningful_product(product) -> bool:
 
 def find_products_needing_images(session, max_products: int = 20) -> list[Product]:
     """Products with NO snapshot, referenced by receipt or shopping list,
-    not attempted in the last 7 days. Ordered by oldest-attempt-first."""
+    not attempted in the last RETRY_INTERVAL. Ordered by oldest-attempt-first."""
     cutoff = datetime.now(timezone.utc) - RETRY_INTERVAL
 
     has_snapshot_subq = (

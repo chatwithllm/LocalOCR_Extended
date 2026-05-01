@@ -101,14 +101,17 @@ def test_includes_product_referenced_only_by_shopping_list_item(db_session):
     assert p.id in [r.id for r in out]
 
 
-def test_respects_seven_day_retry_window(db_session):
+def test_respects_retry_window(db_session):
+    """RETRY_INTERVAL gates re-attempts so the cron doesn't hammer the same products."""
     from src.backend.backfill_product_images import find_products_needing_images
     p = _add_product(db_session, "Cheese")
     _add_receipt_ref(db_session, p)
-    p.last_image_fetch_attempt_at = datetime.now(timezone.utc) - timedelta(days=3)
+    # Fresh attempt (1 hour ago) — excluded.
+    p.last_image_fetch_attempt_at = datetime.now(timezone.utc) - timedelta(hours=1)
     db_session.commit()
     assert p.id not in [r.id for r in find_products_needing_images(db_session)]
-    p.last_image_fetch_attempt_at = datetime.now(timezone.utc) - timedelta(days=8)
+    # Older than retry window (2 days) — included.
+    p.last_image_fetch_attempt_at = datetime.now(timezone.utc) - timedelta(days=2)
     db_session.commit()
     assert p.id in [r.id for r in find_products_needing_images(db_session)]
 

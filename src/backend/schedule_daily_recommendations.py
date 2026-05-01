@@ -166,10 +166,15 @@ def _run_image_backfill():
             if not products:
                 logger.info("Image backfill: nothing to do.")
                 return
-            stats = backfill_images_for_products(session, products)
+            # Cron uses Gemini-only (free tier) — never burns OpenAI credit.
+            # Failures cool down per RETRY_INTERVAL and retry on a later run.
+            stats = backfill_images_for_products(
+                session, products, provider="gemini",
+            )
             logger.info(
-                "Image backfill: fetched=%d failed=%d (cap=50)",
+                "Image backfill: fetched=%d failed=%d providers=%s (cap=50, gemini-only)",
                 stats["fetched"], stats["failed"],
+                stats.get("providers_used", {}),
             )
         finally:
             session.close()

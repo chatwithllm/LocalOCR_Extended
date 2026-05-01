@@ -1027,17 +1027,29 @@ A nightly job (04:00 daily) fetches a matching image for any `Product` that
 has no `ProductSnapshot` yet, so kitchen tiles + shopping rows show real
 imagery instead of category-emoji fallbacks.
 
-Requires `OPENAI_API_KEY` env var with image-generation access.
-Uses `gpt-image-1` low quality (~$0.011/image, ~$0.55/night for a 50-product run).
+Providers (auto-fallback chain in admin "Auto" mode):
+
+1. **Gemini Flash Image** — free tier, requires `GEMINI_API_KEY`. The
+   nightly cron uses **Gemini-only** so it never incurs OpenAI charges:
+   on quota exhaustion the failed products simply retry the next night.
+2. **OpenAI `gpt-image-1`** — paid (~$0.011/image low quality), requires
+   `OPENAI_API_KEY`. Reserved for the admin UI when an admin explicitly
+   picks `openai` or `auto`.
 
 Behaviour:
-- Up to 50 products processed per run; 7-day retry cooldown for products
-  no provider could match.
+- Up to 50 products per nightly run, Gemini-only.
+- 1-day retry cooldown (`RETRY_INTERVAL`) — failed products are eligible
+  again on the next cron run, so quota dips self-heal.
 - Auto-fetched snapshots tagged `source_context="auto_fetch"`,
   `status="auto"`, so they appear immediately on tiles AND surface in the
   existing review queue at `/product-snapshots/review-queue` for admin
   oversight (relink / dismiss bad matches).
 - Images normalized to 600 px wide JPEG (≤ 1 MB) before persistence.
+
+Admin UI (Settings → 🖼️ Image Backfill, admin only):
+- Pick provider (Auto / Gemini / OpenAI), multi-select pending products,
+  click Run. Progress polls every 2s. Use this for targeted retries when
+  the nightly cron's Gemini-only path can't resolve a stubborn product.
 
 Manual one-off trigger:
 
