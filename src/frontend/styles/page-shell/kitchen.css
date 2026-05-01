@@ -362,6 +362,24 @@
   margin-bottom: 16px;
 }
 
+/* Empty state in the catalog should stay compact, not stretch to fill
+   the 2-row carousel template. */
+.kitchen-grid:has(> .kitchen-empty) {
+  display: block;
+  grid-template-rows: auto;
+  padding-bottom: 0;
+  margin-bottom: 8px;
+}
+
+.kitchen-grid > .kitchen-empty {
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: left;
+  background: transparent;
+  border-radius: 0;
+}
+
 .kitchen-grid .kitchen-tile {
   scroll-snap-align: start;
   width: 120px;
