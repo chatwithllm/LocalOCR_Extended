@@ -6047,6 +6047,7 @@
       };
       const KITCHEN_PRODUCT_EMOJI_RULES = [
         // [substring (lowercase), emoji]
+        ["egg mcmuffin", "🥚"],
         ["egg", "🥚"],
         ["milk", "🥛"],
         ["yogurt", "🥛"],
@@ -6096,6 +6097,73 @@
         ["cake", "🍰"],
         ["honey", "🍯"],
         ["salt", "🧂"],
+        ["cherry", "🍒"],
+        ["cherries", "🍒"],
+        ["coconut", "🥥"],
+        ["pineapple", "🍍"],
+        ["mango", "🥭"],
+        ["watermelon", "🍉"],
+        ["melon", "🍈"],
+        ["peach", "🍑"],
+        ["pear", "🍐"],
+        ["kiwi", "🥝"],
+        ["chili", "🌶️"],
+        ["mirch", "🌶️"],
+        ["jalapeno", "🌶️"],
+        ["bell pepper", "🫑"],
+        ["capsicum", "🫑"],
+        ["lettuce", "🥬"],
+        ["cabbage", "🥬"],
+        ["kale", "🥬"],
+        ["dhania", "🌿"],
+        ["cilantro", "🌿"],
+        ["mint", "🌿"],
+        ["pudina", "🌿"],
+        ["herb", "🌿"],
+        ["beans", "🫛"],
+        ["peas", "🫛"],
+        ["bagel", "🥯"],
+        ["donut", "🍩"],
+        ["pretzel", "🥨"],
+        ["taco", "🌮"],
+        ["burrito", "🌯"],
+        ["sushi", "🍣"],
+        ["soup", "🥣"],
+        ["sugar", "🍬"],
+        ["yogurt", "🥛"],
+        ["cream", "🥛"],
+        ["ice cream", "🍦"],
+        ["popcorn", "🍿"],
+        ["nut", "🥜"],
+        ["almond", "🥜"],
+        ["peanut", "🥜"],
+        ["wine", "🍷"],
+        ["beer", "🍺"],
+        ["soda", "🥤"],
+        ["paper", "🧻"],
+        ["towel", "🧻"],
+        ["soap", "🧼"],
+        ["detergent", "🧴"],
+        ["shampoo", "🧴"],
+        ["mcmuffin", "🥪"],
+        ["sandwich", "🥪"],
+        ["sausage", "🌭"],
+        ["mushroom", "🍄"],
+        ["coriander", "🌿"],
+        ["fenugreek", "🌿"],
+        ["methi", "🌿"],
+        ["okra", "🥒"],
+        ["bhindi", "🥒"],
+        ["pumpkin", "🎃"],
+        ["squash", "🎃"],
+        ["zucchini", "🥒"],
+        ["radish", "🥕"],
+        ["beet", "🥕"],
+        ["ginger", "🫚"],
+        ["turmeric", "🫚"],
+        ["dates", "🌴"],
+        ["fig", "🌳"],
+        ["raisin", "🍇"],
       ];
 
       function kitchenEmojiForProduct(item) {
@@ -6104,6 +6172,39 @@
           if (name.includes(needle)) return emoji;
         }
         return KITCHEN_CATEGORY_EMOJI[item.category] || "🛒";
+      }
+
+      function _kitchenCanonicalKey(name) {
+        return String(name || "")
+          .toLowerCase()
+          .replace(/\b(organic|org|ks|kirkland|signature|natural|fresh)\b/g, "")
+          .replace(/\b\d+\s?(lb|oz|ct|count|pack|pk|gal|gallon|kg|g)\b/g, "")
+          .replace(/\b\d+\b/g, "")
+          .replace(/[^a-z\s]+/g, " ")
+          .replace(/\s+/g, " ")
+          .replace(/s$/, "")
+          .trim();
+      }
+
+      function _kitchenGroupTiles(tiles) {
+        const groups = new Map();
+        for (const t of tiles || []) {
+          const key = _kitchenCanonicalKey(t.name) || `__${t.product_id}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(t);
+        }
+        const result = [];
+        for (const variants of groups.values()) {
+          variants.sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0));
+          const primary = variants[0];
+          result.push({
+            ...primary,
+            _variants: variants,
+            _variant_count: variants.length,
+          });
+        }
+        result.sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0));
+        return result;
       }
       const KITCHEN_PRESETS = {
         bought: ["Paid more", "Paid less", "Different brand", "Different size"],
@@ -22572,8 +22673,10 @@
       }
 
       function _kitchenTilesForActiveChip() {
-        if (kitchenActiveCategory === "frequent") return kitchenCatalog.frequent || [];
-        return (kitchenCatalog.categories || {})[kitchenActiveCategory] || [];
+        const raw = kitchenActiveCategory === "frequent"
+          ? (kitchenCatalog.frequent || [])
+          : ((kitchenCatalog.categories || {})[kitchenActiveCategory] || []);
+        return _kitchenGroupTiles(raw);
       }
 
       function renderKitchenCatalog() {
@@ -22610,9 +22713,14 @@
             const priceHtml = t.latest_unit_price
               ? `<span class="kitchen-tile-price">$${t.latest_unit_price.toFixed(2)}</span>`
               : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
+            const variantBadge = (t._variant_count > 1)
+              ? `<span class="kitchen-tile-variants" title="${t._variant_count} variants">+${t._variant_count - 1}</span>`
+              : "";
             const onclickPayload = isOnList
               ? ""
-              : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`;
+              : (t._variant_count && t._variant_count > 1)
+                ? `_kitchenOpenVariantPickerForKey(${JSON.stringify(_kitchenCanonicalKey(t.name))}, ${JSON.stringify(kitchenActiveCategory)})`
+                : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`;
             return `
               <div
                 class="kitchen-tile${isOnList ? " on-list" : ""}"
@@ -22624,6 +22732,7 @@
                   <div class="kitchen-tile-name">${escHtml(t.name)}</div>
                   <div class="kitchen-tile-meta">
                     ${priceHtml}
+                    ${variantBadge}
                     ${
                       t.purchase_count
                         ? `<span class="kitchen-tile-badge" title="bought ${t.purchase_count}× in last 90 days">${t.purchase_count}×</span>`
@@ -22797,6 +22906,51 @@
         } catch (err) {
           toast(err.message || "Add failed", "error");
         }
+      }
+
+      function _kitchenOpenVariantPicker(variants) {
+        const sheet = document.getElementById("kitchen-sheet");
+        const card = document.getElementById("kitchen-sheet-card");
+        if (!sheet || !card) return;
+        kitchenSheetItemId = null;
+        kitchenStagedAction = null;
+        const rows = variants.map((v) => {
+          const inner = v.image_url
+            ? `<img src="${escAttr(v.image_url)}" alt="${escAttr(v.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;">`
+            : `<span style="font-size:32px;">${kitchenEmojiForProduct(v)}</span>`;
+          const price = v.latest_unit_price
+            ? `$${Number(v.latest_unit_price).toFixed(2)}`
+            : "—";
+          const onclickPayload = `addProductToList(${v.product_id}, ${JSON.stringify(v.name)}, ${JSON.stringify(v.category)}); closeKitchenSheet();`;
+          return `
+            <button type="button" class="kitchen-variant-row" onclick="${escAttr(onclickPayload)}">
+              <span class="kitchen-variant-img">${inner}</span>
+              <span class="kitchen-variant-name">${escHtml(v.name)}</span>
+              <span class="kitchen-variant-meta">${escHtml(price)} · ${v.purchase_count || 0}×</span>
+            </button>`;
+        }).join("");
+        const html = `
+          <div class="kitchen-sheet-header">
+            <span class="kitchen-sheet-name">Pick a variant</span>
+            <button class="kitchen-sheet-close" onclick="closeKitchenSheet()" type="button" aria-label="Close">✕</button>
+          </div>
+          <div class="kitchen-variant-list">${rows}</div>
+        `;
+        setHtml(card, html);
+        sheet.style.display = "flex";
+      }
+
+      function _kitchenOpenVariantPickerForKey(key, activeChip) {
+        const raw = activeChip === "frequent"
+          ? (kitchenCatalog.frequent || [])
+          : ((kitchenCatalog.categories || {})[activeChip] || []);
+        const variants = raw.filter((t) => _kitchenCanonicalKey(t.name) === key);
+        if (!variants.length) return;
+        if (variants.length === 1) {
+          addProductToList(variants[0].product_id, variants[0].name, variants[0].category);
+          return;
+        }
+        _kitchenOpenVariantPicker(variants);
       }
       async function kitchenSheetSetQty(delta) {
         const item = _kitchenItemById(kitchenSheetItemId);
