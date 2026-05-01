@@ -324,34 +324,24 @@
 .kitchen-tile.on-list::before {
   content: "";
   position: absolute;
-  left: 6px;
-  top: 6px;
+  left: 4px;
+  top: 4px;
   z-index: 3;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   pointer-events: none;
-  background-color: #10b981;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 5h2.4l2.6 11.7a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2L22 9H7'/><circle cx='10' cy='20.5' r='1' fill='white'/><circle cx='18' cy='20.5' r='1' fill='white'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' stroke='%23172029' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2.5 4 H5 L5.6 7 H21 L19 15 H7 Z' fill='%2310b981'/><path d='M5.6 7 L7 15' fill='none'/><path d='M12 8.6 V12.6 M10 10.6 L12 12.6 L14 10.6' fill='none'/><circle cx='9' cy='19' r='1.6' fill='%2310b981'/><circle cx='17' cy='19' r='1.6' fill='%2310b981'/></svg>");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 16px 16px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.85);
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
-  animation:
-    kitchen-cart-beat 2s ease-in-out infinite,
-    kitchen-cart-pulse 2s ease-out infinite;
+  background-size: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
+  transform-origin: center;
+  animation: kitchen-cart-beat 2s ease-in-out infinite;
 }
 
 @keyframes kitchen-cart-beat {
   0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.08); }
-}
-
-@keyframes kitchen-cart-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
-  70%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50%      { transform: scale(1.12); }
 }
 
 .kitchen-tile.skipped .kitchen-tile-img { filter: brightness(0.45); }
