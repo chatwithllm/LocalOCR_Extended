@@ -18,42 +18,62 @@
 .kitchen-toolbar .kitchen-catalog-toggle { margin-bottom: 0; }
 .kitchen-toolbar .kitchen-section-title { margin: 0; }
 
+/* Search lives inside the chip row — collapsed magnifier by default,
+   expands to a small input on focus or when query is non-empty. */
 .kitchen-search-wrap {
-  flex: 1 1 200px;
-  min-width: 160px;
-  max-width: 360px;
-  position: relative;
-  display: flex;
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0;
+  height: 28px;
+  cursor: text;
+  overflow: hidden;
+  transition: width 0.18s ease, padding 0.18s ease;
+  width: 28px;
+}
+
+.kitchen-search-wrap:focus-within,
+.kitchen-search-wrap.has-query {
+  width: 200px;
+  padding: 0 10px 0 4px;
 }
 
 .kitchen-search-icon {
-  position: absolute;
-  left: 10px;
+  width: 28px;
+  flex: 0 0 28px;
+  text-align: center;
   font-size: 13px;
   color: var(--color-text-muted);
   pointer-events: none;
+  line-height: 28px;
 }
 
 .kitchen-search-input {
   flex: 1 1 auto;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
+  width: 0;
+  min-width: 0;
+  background: transparent;
+  border: none;
   color: var(--color-text);
-  border-radius: 999px;
-  padding: 5px 12px 5px 28px;
   font-size: 12px;
   font-weight: 500;
   outline: none;
+  padding: 0;
 }
 
-.kitchen-search-input:focus {
-  border-color: var(--color-brand);
-  background: var(--color-surface);
+.kitchen-search-input::placeholder {
+  color: var(--color-text-muted);
 }
 
 .kitchen-search-input::-webkit-search-cancel-button {
   cursor: pointer;
+}
+
+.kitchen-chip-bar {
+  flex: 0 1 auto;
 }
 
 .kitchen-empty {

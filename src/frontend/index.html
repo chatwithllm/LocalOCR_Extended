@@ -1956,13 +1956,6 @@
               <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
               <span class="kitchen-catalog-toggle-caret">▾</span>
             </button>
-            <div class="kitchen-search-wrap">
-              <span class="kitchen-search-icon">🔍</span>
-              <input type="search" id="kitchen-search" class="kitchen-search-input"
-                     placeholder="Search products…"
-                     oninput="onKitchenSearchInput(this.value)"
-                     autocomplete="off">
-            </div>
             <h2 class="kitchen-section-title">
               <span>Current List</span>
               <span class="kitchen-list-total" id="kitchen-list-total"></span>
@@ -1977,6 +1970,13 @@
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
               <div class="kitchen-chip-row">
                 <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
+                <label class="kitchen-search-wrap" title="Search products">
+                  <span class="kitchen-search-icon" aria-hidden="true">🔍</span>
+                  <input type="search" id="kitchen-search" class="kitchen-search-input"
+                         placeholder="Search…"
+                         oninput="onKitchenSearchInput(this.value)"
+                         autocomplete="off">
+                </label>
                 <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
               </div>
               <div class="kitchen-grid-wrap">
@@ -23219,7 +23219,8 @@
 
       function onKitchenSearchInput(value) {
         kitchenSearchQuery = String(value || "");
-        // Auto-expand the catalog if collapsed so search results are visible.
+        const wrap = document.querySelector(".kitchen-search-wrap");
+        if (wrap) wrap.classList.toggle("has-query", !!kitchenSearchQuery);
         if (kitchenSearchQuery && kitchenCatalogCollapsed) {
           kitchenCatalogCollapsed = false;
           applyKitchenCatalogCollapsed();
