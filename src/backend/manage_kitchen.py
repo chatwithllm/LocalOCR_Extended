@@ -129,7 +129,9 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
     )
 
     # Build product_id -> set of distinct store names within the
-    # frequency window. One round-trip; small payload.
+    # frequency window. Excludes payment-artifact stores and any
+    # admin-hidden stores so the kitchen filter only shows merchants
+    # the user actually shops at.
     from src.backend.initialize_database_schema import Store
     store_rows = (
         session.query(
@@ -137,10 +139,15 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
             Store.name,
         )
         .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
-        .outerjoin(Store, Store.id == Purchase.store_id)
+        .join(Store, Store.id == Purchase.store_id)
         .filter(Purchase.date >= cutoff)
         .filter(ReceiptItem.product_id.isnot(None))
         .filter(Store.name.isnot(None))
+        .filter(Store.is_payment_artifact.is_(False))
+        .filter(
+            (Store.visibility_override.is_(None))
+            | (Store.visibility_override != "hidden")
+        )
         .distinct()
         .all()
     )
