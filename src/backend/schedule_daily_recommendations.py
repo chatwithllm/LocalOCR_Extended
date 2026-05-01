@@ -72,12 +72,74 @@ def start_recommendation_scheduler():
         name="Plaid Transaction Sync",
     )
 
-    _scheduler.start()
-    logger.info(
-        f"Schedulers started — recommendations daily at {RECOMMENDATION_TIME}, "
-        f"threshold checks every 5 min, image cleanup Sundays at 3 AM, "
-        f"Plaid sync hourly"
+    # Nightly proactive product image backfill — schedule loaded from
+    # admin-tweakable JSON file in /data so it survives restarts.
+    from src.backend.image_backfill_schedule import load_schedule
+    sched = load_schedule()
+    _scheduler.add_job(
+        _run_image_backfill,
+        trigger="cron",
+        hour=sched["hour"],
+        minute=sched["minute"],
+        id="image_backfill",
+        name="Proactive Product Image Backfill",
+        misfire_grace_time=3600,
     )
+    _scheduler.start()
+    if not sched["enabled"]:
+        try:
+            _scheduler.pause_job("image_backfill")
+        except Exception as exc:
+            logger.warning("Could not pause image_backfill job: %s", exc)
+    logger.info(
+        "Schedulers started — recommendations daily at %s, threshold checks "
+        "every 5 min, image cleanup Sundays at 3 AM, Plaid sync hourly, "
+        "image_backfill@%02d:%02d (%s)",
+        RECOMMENDATION_TIME, sched["hour"], sched["minute"],
+        "enabled" if sched["enabled"] else "PAUSED",
+    )
+
+
+def reschedule_image_backfill(*, enabled: bool, hour: int, minute: int) -> dict | None:
+    """Apply a new schedule to the live APScheduler. Returns next-run info."""
+    global _scheduler
+    if _scheduler is None:
+        return None
+    from apscheduler.triggers.cron import CronTrigger
+    try:
+        _scheduler.reschedule_job(
+            "image_backfill", trigger=CronTrigger(hour=hour, minute=minute),
+        )
+    except Exception as exc:
+        logger.exception("Failed to reschedule image_backfill: %s", exc)
+        raise
+    try:
+        if enabled:
+            _scheduler.resume_job("image_backfill")
+        else:
+            _scheduler.pause_job("image_backfill")
+    except Exception as exc:
+        logger.warning("Could not toggle image_backfill pause state: %s", exc)
+    job = _scheduler.get_job("image_backfill")
+    next_run = getattr(job, "next_run_time", None) if job else None
+    return {
+        "enabled": enabled, "hour": hour, "minute": minute,
+        "next_run_at": next_run.isoformat() if next_run else None,
+    }
+
+
+def get_image_backfill_runtime() -> dict | None:
+    """Return current live job state (next_run_time, paused) for the admin UI."""
+    if _scheduler is None:
+        return None
+    job = _scheduler.get_job("image_backfill")
+    if job is None:
+        return None
+    next_run = getattr(job, "next_run_time", None)
+    return {
+        "next_run_at": next_run.isoformat() if next_run else None,
+        "enabled": next_run is not None,
+    }
 
 
 def push_daily_recommendations():
@@ -136,6 +198,39 @@ def _run_plaid_sync():
         run_scheduled_plaid_sync()
     except Exception as e:  # noqa: BLE001
         logger.error(f"Plaid scheduled sync failed: {e}")
+
+
+def _run_image_backfill():
+    """Nightly: fetch images for products missing a ProductSnapshot."""
+    try:
+        from src.backend.initialize_database_schema import (
+            create_db_engine, create_session_factory,
+        )
+        from src.backend.backfill_product_images import (
+            find_products_needing_images, backfill_images_for_products,
+        )
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+        session = Session()
+        try:
+            products = find_products_needing_images(session, max_products=50)
+            if not products:
+                logger.info("Image backfill: nothing to do.")
+                return
+            # Cron uses Gemini-only (free tier) — never burns OpenAI credit.
+            # Failures cool down per RETRY_INTERVAL and retry on a later run.
+            stats = backfill_images_for_products(
+                session, products, provider="gemini",
+            )
+            logger.info(
+                "Image backfill: fetched=%d failed=%d providers=%s (cap=50, gemini-only)",
+                stats["fetched"], stats["failed"],
+                stats.get("providers_used", {}),
+            )
+        finally:
+            session.close()
+    except Exception as exc:
+        logger.error("Image backfill failed: %s", exc)
 
 
 def stop_recommendation_scheduler():

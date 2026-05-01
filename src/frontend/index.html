@@ -4041,6 +4041,47 @@
               </div>
             </div>
           </div>
+          <div class="card" id="settings-image-backfill-card">
+            <div class="card-header">
+              <span class="card-title">🖼️ Image Backfill</span>
+              <div class="table-toolbar">
+                <select id="image-backfill-provider" aria-label="Image gen provider">
+                  <option value="auto" selected>Auto (Gemini → OpenAI)</option>
+                  <option value="gemini">Gemini Flash Image (free tier)</option>
+                  <option value="openai">OpenAI gpt-image-1 ($0.011/img)</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="loadImageBackfillCandidates()" aria-label="Refresh candidates">🔄</button>
+                <button class="btn btn-primary btn-sm" id="image-backfill-run-btn" onclick="runImageBackfill()" disabled>Run</button>
+              </div>
+            </div>
+            <div id="image-backfill-note" style="color: var(--muted); font-size: 0.84rem">
+              Products with no image. Pick rows + provider → Run. Failures auto-fall-back to next provider when Auto is selected.
+            </div>
+            <fieldset id="image-backfill-schedule-row" style="margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.92rem">
+              <legend style="padding: 0 6px; color: var(--muted); font-size: 0.8rem">Nightly schedule</legend>
+              <label style="display: inline-flex; gap: 8px; align-items: center; white-space: nowrap">
+                <input type="checkbox" id="image-backfill-schedule-enabled">
+                <span>Enabled</span>
+              </label>
+              <div style="display: inline-flex; gap: 6px; align-items: center; white-space: nowrap">
+                <span>Run at</span>
+                <input type="number" id="image-backfill-schedule-hour" min="0" max="23" value="4"
+                       style="width: 5em; padding: 4px 6px; text-align: center"
+                       aria-label="Hour (0-23)" placeholder="HH">
+                <span style="font-weight: 600">:</span>
+                <input type="number" id="image-backfill-schedule-minute" min="0" max="59" value="0"
+                       style="width: 5em; padding: 4px 6px; text-align: center"
+                       aria-label="Minute (0-59)" placeholder="MM">
+                <span style="color: var(--muted); font-size: 0.82rem">(server time, 24h)</span>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="saveImageBackfillSchedule()" style="margin-left: auto">💾 Save schedule</button>
+              <div id="image-backfill-next-run" style="flex-basis: 100%; color: var(--muted); font-size: 0.85rem"></div>
+            </fieldset>
+            <div id="image-backfill-status" style="margin-top: 12px; font-size: 0.9rem"></div>
+            <div class="table-wrap" style="margin-top: 12px">
+              <div id="image-backfill-body"></div>
+            </div>
+          </div>
           <div class="card" id="settings-chat-audit-card">
             <div class="card-header">
               <span class="card-title">🛡️ Chat Audit</span>
@@ -12812,6 +12853,8 @@
             loadAdminAiModels();
             loadAdminAiUsage();
             loadChatAudit();
+            loadImageBackfillCandidates();
+            loadImageBackfillSchedule();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -25805,6 +25848,214 @@
           supports_json_mode: checkedOf("admin-ai-model-supports-json"),
           supports_image_input: checkedOf("admin-ai-model-supports-image"),
         };
+      }
+
+      // ----- Image Backfill admin -----
+      let imageBackfillCandidates = [];
+      let imageBackfillSelectedIds = new Set();
+      let imageBackfillJobPolling = null;
+
+      function escapeHtml(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      async function loadImageBackfillSchedule() {
+        if (!currentUser || currentUser.role !== "admin") return;
+        try {
+          const res = await api("/api/admin/image-backfill/schedule");
+          if (!res.ok) return;
+          const cfg = await res.json();
+          const en = document.getElementById("image-backfill-schedule-enabled");
+          const h = document.getElementById("image-backfill-schedule-hour");
+          const m = document.getElementById("image-backfill-schedule-minute");
+          const nx = document.getElementById("image-backfill-next-run");
+          if (en) en.checked = !!cfg.enabled;
+          if (h) h.value = cfg.hour;
+          if (m) m.value = cfg.minute;
+          if (nx) renderImageBackfillNextRun(cfg);
+        } catch (e) {}
+      }
+
+      function renderImageBackfillNextRun(cfg) {
+        const nx = document.getElementById("image-backfill-next-run");
+        if (!nx) return;
+        if (!cfg.enabled) {
+          nx.textContent = "⏸ Job paused — no upcoming runs.";
+          return;
+        }
+        if (cfg.next_run_at) {
+          const when = new Date(cfg.next_run_at);
+          nx.textContent = `▶ Next run: ${when.toLocaleString()}`;
+        } else {
+          nx.textContent = "▶ Next run: pending (scheduler still warming up)";
+        }
+      }
+
+      async function saveImageBackfillSchedule() {
+        const en = document.getElementById("image-backfill-schedule-enabled");
+        const h = parseInt(document.getElementById("image-backfill-schedule-hour").value, 10);
+        const m = parseInt(document.getElementById("image-backfill-schedule-minute").value, 10);
+        if (!Number.isInteger(h) || h < 0 || h > 23) {
+          toast("Hour must be 0-23", "error"); return;
+        }
+        if (!Number.isInteger(m) || m < 0 || m > 59) {
+          toast("Minute must be 0-59", "error"); return;
+        }
+        try {
+          const res = await api("/api/admin/image-backfill/schedule", {
+            method: "PUT",
+            body: JSON.stringify({ enabled: !!en.checked, hour: h, minute: m }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            toast(`Save failed: ${err.error || res.status}`, "error");
+            return;
+          }
+          const cfg = await res.json();
+          renderImageBackfillNextRun(cfg);
+          toast("Schedule saved", "success");
+        } catch (e) {
+          toast(`Error: ${e.message || e}`, "error");
+        }
+      }
+
+      async function loadImageBackfillCandidates() {
+        const body = document.getElementById("image-backfill-body");
+        if (!body) return;
+        if (!currentUser || currentUser.role !== "admin") {
+          body.innerHTML = "<div class='muted'>Admin only.</div>";
+          return;
+        }
+        body.innerHTML = "<div class='muted'>Loading…</div>";
+        try {
+          const res = await api("/api/admin/image-backfill/candidates?limit=100");
+          if (!res.ok) {
+            body.innerHTML = `<div class='error'>Failed: ${res.status}</div>`;
+            return;
+          }
+          const data = await res.json();
+          imageBackfillCandidates = data.candidates || [];
+          imageBackfillSelectedIds = new Set();
+          renderImageBackfillCandidates();
+          // Also refresh provider options based on env availability.
+          loadImageBackfillProviders();
+        } catch (e) {
+          body.innerHTML = `<div class='error'>Error: ${e.message || e}</div>`;
+        }
+      }
+
+      async function loadImageBackfillProviders() {
+        try {
+          const res = await api("/api/admin/image-backfill/providers");
+          if (!res.ok) return;
+          const data = await res.json();
+          const sel = document.getElementById("image-backfill-provider");
+          if (!sel) return;
+          for (const opt of sel.options) {
+            if (opt.value === "auto") continue;
+            const p = (data.providers || []).find((x) => x.id === opt.value);
+            if (p && !p.available) {
+              opt.disabled = true;
+              if (!opt.textContent.endsWith(" (key missing)")) {
+                opt.textContent = opt.textContent + " (key missing)";
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      function renderImageBackfillCandidates() {
+        const body = document.getElementById("image-backfill-body");
+        if (!body) return;
+        if (imageBackfillCandidates.length === 0) {
+          body.innerHTML = "<div class='muted'>No candidates — every product with a receipt or shopping ref already has an image.</div>";
+          document.getElementById("image-backfill-run-btn").disabled = true;
+          return;
+        }
+        const rows = imageBackfillCandidates.map((c) => {
+          const checked = imageBackfillSelectedIds.has(c.id) ? "checked" : "";
+          const last = c.last_attempt_at
+            ? new Date(c.last_attempt_at).toLocaleString()
+            : "—";
+          return `<tr>
+            <td><input type="checkbox" data-pid="${c.id}" ${checked} onchange="onImageBackfillCheck(${c.id}, this.checked)"></td>
+            <td>${escapeHtml(c.name || "")}</td>
+            <td>${escapeHtml(c.category || "")}</td>
+            <td style="color: var(--muted); font-size: 0.85rem">${last}</td>
+          </tr>`;
+        });
+        body.innerHTML = `<table class="data-table"><thead><tr>
+          <th><input type="checkbox" id="image-backfill-select-all" onchange="onImageBackfillSelectAll(this.checked)"></th>
+          <th>Product</th><th>Category</th><th>Last attempt</th>
+        </tr></thead><tbody>${rows.join("")}</tbody></table>`;
+        document.getElementById("image-backfill-run-btn").disabled = imageBackfillSelectedIds.size === 0;
+      }
+
+      function onImageBackfillCheck(pid, checked) {
+        if (checked) imageBackfillSelectedIds.add(pid);
+        else imageBackfillSelectedIds.delete(pid);
+        document.getElementById("image-backfill-run-btn").disabled = imageBackfillSelectedIds.size === 0;
+      }
+
+      function onImageBackfillSelectAll(checked) {
+        imageBackfillSelectedIds = new Set(
+          checked ? imageBackfillCandidates.map((c) => c.id) : [],
+        );
+        renderImageBackfillCandidates();
+      }
+
+      async function runImageBackfill() {
+        if (imageBackfillSelectedIds.size === 0) return;
+        const provider = document.getElementById("image-backfill-provider").value;
+        const ids = Array.from(imageBackfillSelectedIds);
+        const status = document.getElementById("image-backfill-status");
+        status.innerHTML = "<span class='muted'>Submitting…</span>";
+        document.getElementById("image-backfill-run-btn").disabled = true;
+        try {
+          const res = await api("/api/admin/image-backfill/run", {
+            method: "POST",
+            body: JSON.stringify({ product_ids: ids, provider }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            status.innerHTML = `<span class='error'>Failed: ${escapeHtml(err.error || res.status)}</span>`;
+            document.getElementById("image-backfill-run-btn").disabled = false;
+            return;
+          }
+          const { job_id } = await res.json();
+          pollImageBackfillJob(job_id);
+        } catch (e) {
+          status.innerHTML = `<span class='error'>Error: ${escapeHtml(e.message || e)}</span>`;
+          document.getElementById("image-backfill-run-btn").disabled = false;
+        }
+      }
+
+      async function pollImageBackfillJob(jobId) {
+        if (imageBackfillJobPolling) clearInterval(imageBackfillJobPolling);
+        const status = document.getElementById("image-backfill-status");
+        const tick = async () => {
+          try {
+            const res = await api(`/api/admin/image-backfill/jobs/${jobId}`);
+            if (!res.ok) return;
+            const job = await res.json();
+            const provs = Object.entries(job.providers_used || {})
+              .map(([k, v]) => `${k}=${v}`).join(", ") || "—";
+            const done = job.fetched + job.failed;
+            status.innerHTML = `<span>Job <code>${jobId.slice(0, 8)}</code> · <b>${job.status}</b> · ${done}/${job.total} (${job.fetched} ok, ${job.failed} fail) · providers: ${provs}</span>`;
+            if (job.status === "done" || job.status === "error") {
+              clearInterval(imageBackfillJobPolling);
+              imageBackfillJobPolling = null;
+              loadImageBackfillCandidates();
+            }
+          } catch (e) {}
+        };
+        await tick();
+        imageBackfillJobPolling = setInterval(tick, 2000);
       }
 
       async function saveAdminAiModel() {
