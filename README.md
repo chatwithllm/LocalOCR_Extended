@@ -1021,6 +1021,35 @@ See `docs/BACKUP_RESTORE_RUNBOOK.md` for the step-by-step runbook.
 2. Pull the model: `ollama pull llava:7b`.
 3. Set `OLLAMA_ENDPOINT` to the reachable URL (default `http://host.docker.internal:11434` works from Docker on macOS/Windows).
 
+### Proactive product image backfill
+
+A nightly job (04:00 daily) fetches a matching image for any `Product` that
+has no `ProductSnapshot` yet, so kitchen tiles + shopping rows show real
+imagery instead of category-emoji fallbacks.
+
+Providers (tried in order, first success wins):
+1. Wikimedia (always tried, no API key required, courtesy User-Agent sent).
+2. Unsplash — set `UNSPLASH_ACCESS_KEY` to enable.
+   Signup: <https://unsplash.com/oauth/applications>.
+3. Pexels — set `PEXELS_API_KEY` to enable.
+   Signup: <https://www.pexels.com/api/>.
+
+Behaviour:
+- Up to 50 products processed per run; 7-day retry cooldown for products
+  no provider could match.
+- Auto-fetched snapshots tagged `source_context="auto_fetch"`,
+  `status="auto"`, so they appear immediately on tiles AND surface in the
+  existing review queue at `/product-snapshots/review-queue` for admin
+  oversight (relink / dismiss bad matches).
+- Images normalized to 600 px wide JPEG (≤ 1 MB) before persistence.
+
+Manual one-off trigger:
+
+```bash
+docker compose exec backend python -c \
+  "from src.backend.schedule_daily_recommendations import _run_image_backfill; _run_image_backfill()"
+```
+
 ---
 
 ## Development Guide
