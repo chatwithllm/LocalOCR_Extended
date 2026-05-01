@@ -2007,6 +2007,11 @@
             <div class="kitchen-sheet-backdrop" onclick="closeKitchenSheet()"></div>
             <div class="kitchen-sheet-card" id="kitchen-sheet-card"></div>
           </div>
+
+          <div class="kitchen-ctx" id="kitchen-ctx" style="display: none;">
+            <div class="kitchen-ctx-backdrop" onclick="closeKitchenContextMenu()"></div>
+            <div class="kitchen-ctx-card" id="kitchen-ctx-card"></div>
+          </div>
         </div>
 
         <!-- Upload -->
@@ -23454,6 +23459,13 @@
             return `
               <div
                 class="kitchen-tile${isOnList ? " on-list" : ""}"
+                data-kind="catalog"
+                data-product-id="${t.product_id}"
+                data-product-name="${escAttr(t.name)}"
+                data-product-category="${escAttr(t.category || "")}"
+                data-product-stores="${escAttr((t.stores || []).join('|'))}"
+                data-canonical-key="${escAttr(_kitchenCanonicalKey(t.name))}"
+                data-variant-count="${t._variant_count || 1}"
                 onclick="${escAttr(onclickPayload)}"
                 title="${escAttr(t.name)}"
               >
@@ -23478,6 +23490,7 @@
           html ||
             `<div class="kitchen-empty" style="grid-column: 1/-1;">No products in this category yet.</div>`,
         );
+        _kitchenWireLongPress(grid);
         // Run after layout settles so scrollWidth is accurate.
         requestAnimationFrame(_kitchenUpdateArrowVisibility);
       }
@@ -23520,6 +23533,8 @@
         return `
           <div
             class="kitchen-tile${skipped ? " skipped" : ""}"
+            data-kind="list"
+            data-item-id="${item.id}"
             onclick="openKitchenSheet(${item.id})"
             title="${escAttr(item.name)}"
           >
@@ -23600,6 +23615,8 @@
         // The grid is now a wrapper container — drop its grid styling on the
         // outermost element by toggling a class.
         grid.classList.add("kitchen-list-grid--grouped");
+        const listGrid = document.getElementById("kitchen-list-grid");
+        if (listGrid) _kitchenWireLongPress(listGrid);
 
         if (total) {
           const sum = items.reduce((acc, i) => {
@@ -23618,6 +23635,168 @@
 
       function _kitchenItemById(id) {
         return (kitchenList || []).find((i) => i.id === id) || null;
+      }
+
+      // ============================================================
+      // Long-press context menu (Apple-style) for Kitchen tiles
+      // ============================================================
+      let _kitchenLpTimer = null;
+      let _kitchenLpFired = false;
+      let _kitchenLpStart = null; // {x, y}
+
+      function _kitchenWireLongPress(grid) {
+        if (!grid || grid.dataset.lpWired === "1") return;
+        grid.dataset.lpWired = "1";
+
+        grid.addEventListener("pointerdown", (e) => {
+          const tile = e.target.closest(".kitchen-tile");
+          if (!tile) return;
+          _kitchenLpFired = false;
+          _kitchenLpStart = { x: e.clientX, y: e.clientY };
+          if (_kitchenLpTimer) clearTimeout(_kitchenLpTimer);
+          _kitchenLpTimer = setTimeout(() => {
+            _kitchenLpTimer = null;
+            _kitchenLpFired = true;
+            openKitchenContextMenuFromTile(tile);
+          }, 900);
+        });
+
+        const cancel = () => {
+          if (_kitchenLpTimer) {
+            clearTimeout(_kitchenLpTimer);
+            _kitchenLpTimer = null;
+          }
+        };
+        grid.addEventListener("pointerup", cancel);
+        grid.addEventListener("pointercancel", cancel);
+        grid.addEventListener("pointerleave", cancel);
+        grid.addEventListener("pointermove", (e) => {
+          if (!_kitchenLpStart) return;
+          const dx = Math.abs(e.clientX - _kitchenLpStart.x);
+          const dy = Math.abs(e.clientY - _kitchenLpStart.y);
+          if (dx > 10 || dy > 10) cancel();
+        });
+
+        // Suppress browser context menu (right-click on desktop, long-press on touch).
+        grid.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // Suppress the click that follows a fired long-press.
+        grid.addEventListener("click", (e) => {
+          if (_kitchenLpFired) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            _kitchenLpFired = false;
+          }
+        }, true);
+      }
+
+      function openKitchenContextMenuFromTile(tile) {
+        const kind = tile.dataset.kind;
+        const rect = tile.getBoundingClientRect();
+        const anchor = { x: rect.left + rect.width / 2, y: rect.top };
+        if (kind === "catalog") {
+          _kitchenOpenCtx_Catalog(tile, anchor);
+        } else if (kind === "list") {
+          _kitchenOpenCtx_List(tile, anchor);
+        }
+      }
+
+      function _kitchenOpenCtx_Catalog(tile, anchor) {
+        const productId = parseInt(tile.dataset.productId || "0", 10);
+        const name = tile.dataset.productName || "";
+        const category = tile.dataset.productCategory || "";
+        const stores = (tile.dataset.productStores || "").split("|").filter(Boolean);
+        const variantCount = parseInt(tile.dataset.variantCount || "1", 10);
+        const canonicalKey = tile.dataset.canonicalKey || "";
+
+        const rows = [];
+        rows.push({
+          icon: "➕", label: "Add to list",
+          payload: `addProductToList(${productId}, ${JSON.stringify(name)}, ${JSON.stringify(category)}); closeKitchenContextMenu();`,
+        });
+        if (variantCount > 1) {
+          rows.push({
+            icon: "⭐", label: `Pick variant (${variantCount})`,
+            payload: `_kitchenOpenVariantPickerForKey(${JSON.stringify(canonicalKey)}, ${JSON.stringify(kitchenActiveCategory)}); closeKitchenContextMenu();`,
+          });
+        }
+        if (stores.length) {
+          rows.push({
+            icon: "🏪", label: `Show only ${stores.length === 1 ? stores[0] : "this product's stores"}`,
+            payload: `kitchenSetStoreFilterTo(${JSON.stringify(stores)}); closeKitchenContextMenu();`,
+          });
+        }
+        _kitchenRenderCtxMenu(rows, anchor, name);
+      }
+
+      function _kitchenOpenCtx_List(tile, anchor) {
+        const itemId = parseInt(tile.dataset.itemId || "0", 10);
+        const item = _kitchenItemById(itemId);
+        if (!item) return;
+        const rows = [
+          { icon: "−", label: "Decrease qty",
+            payload: `kitchenSheetItemId = ${itemId}; kitchenSheetSetQty(-1);` },
+          { icon: "+", label: "Increase qty",
+            payload: `kitchenSheetItemId = ${itemId}; kitchenSheetSetQty(1);` },
+        ];
+        if (item.status !== "skipped") {
+          rows.push({ icon: "✓", label: "Bought",
+            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('bought');` });
+          rows.push({ icon: "📝", label: "Low",
+            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('low');` });
+          rows.push({ icon: "⏭", label: "Skip",
+            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('skipped');` });
+        } else {
+          rows.push({ icon: "↩", label: "Open",
+            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('open');` });
+        }
+        rows.push({ icon: "🗑", label: "Delete",
+          payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('delete');` });
+        rows.push({ icon: "✎", label: "Edit details…",
+          payload: `closeKitchenContextMenu(); openKitchenSheet(${itemId});` });
+
+        _kitchenRenderCtxMenu(rows, anchor, item.name);
+      }
+
+      function _kitchenRenderCtxMenu(rows, anchor, title) {
+        const overlay = document.getElementById("kitchen-ctx");
+        const card = document.getElementById("kitchen-ctx-card");
+        if (!overlay || !card) return;
+        const rowsHtml = rows.map((r) => `
+          <button type="button" class="kitchen-ctx-row" onclick="${escAttr(r.payload)}">
+            <span class="kitchen-ctx-row-icon">${escHtml(r.icon)}</span>
+            <span class="kitchen-ctx-row-label">${escHtml(r.label)}</span>
+          </button>`).join("");
+        const html = `
+          <div class="kitchen-ctx-title">${escHtml(title || "")}</div>
+          <div class="kitchen-ctx-rows">${rowsHtml}</div>
+        `;
+        setHtml(card, html);
+        overlay.style.display = "flex";
+
+        // Position the card near the anchor (centered horizontally, above tile if there's room).
+        requestAnimationFrame(() => {
+          const cardRect = card.getBoundingClientRect();
+          let left = anchor.x - cardRect.width / 2;
+          let top = anchor.y - cardRect.height - 8;
+          if (top < 8) top = anchor.y + 8;  // not enough above; place below
+          left = Math.max(8, Math.min(left, window.innerWidth - cardRect.width - 8));
+          card.style.position = "fixed";
+          card.style.left = `${left}px`;
+          card.style.top = `${top}px`;
+        });
+      }
+
+      function closeKitchenContextMenu() {
+        const overlay = document.getElementById("kitchen-ctx");
+        if (overlay) overlay.style.display = "none";
+      }
+
+      function kitchenSetStoreFilterTo(storeNames) {
+        kitchenStoreFilter.clear();
+        for (const s of storeNames) kitchenStoreFilter.add(s);
+        renderKitchenStoreFilter();
+        renderKitchenCatalog();
       }
 
       function openKitchenSheet(itemId) {

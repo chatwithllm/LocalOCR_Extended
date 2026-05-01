@@ -987,3 +987,89 @@ body.kitchen-show-names .kitchen-grid--list .kitchen-tile-name { display: -webki
   color: var(--color-text-muted);
   background: transparent;
 }
+
+/* ============================================================
+   Long-press context menu (Apple-style) for Kitchen tiles
+   ============================================================ */
+.kitchen-ctx {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+}
+
+.kitchen-ctx-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.kitchen-ctx-card {
+  position: fixed;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 220px;
+  max-width: 320px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 1101;
+  animation: kitchen-ctx-pop 0.16s ease-out;
+}
+
+@keyframes kitchen-ctx-pop {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.kitchen-ctx-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kitchen-ctx-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kitchen-ctx-row {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kitchen-ctx-row:hover { background: var(--color-surface-2); }
+
+.kitchen-ctx-row-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+  flex: 0 0 22px;
+}
+
+/* Suppress iOS long-press selection / callout on tiles. */
+.kitchen-tile {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
