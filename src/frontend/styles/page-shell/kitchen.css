@@ -354,7 +354,7 @@
 }
 
 .kitchen-grid--list .kitchen-tile {
-  aspect-ratio: 1.25;
+  aspect-ratio: 1;
   width: auto;
   height: auto;
   scroll-snap-align: none;
@@ -373,7 +373,7 @@
 @media (max-width: 720px) {
   .kitchen-grid { grid-auto-columns: 100px; }
   .kitchen-grid .kitchen-tile { width: 100px; height: 100px; }
-  .kitchen-grid--list { grid-template-columns: repeat(3, 1fr); }
+  .kitchen-grid--list { grid-template-columns: repeat(4, 1fr); }
 
   /* Stack name above meta on narrow tiles so name has full width. */
   .kitchen-tile-foot {
