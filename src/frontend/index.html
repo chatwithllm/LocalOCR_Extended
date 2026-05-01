@@ -6079,12 +6079,39 @@
         ["garlic", "🧄"],
         ["mushroom", "🍄"],
         ["corn", "🌽"],
+        ["drumstick", "🍗"],
+        ["thigh", "🍗"],
+        ["chk", "🍗"],
+        ["chkn", "🍗"],
         ["chicken", "🍗"],
+        ["wing", "🍗"],
+        ["turkey", "🦃"],
+        ["duck", "🦆"],
+        ["lamb", "🥩"],
+        ["mutton", "🥩"],
+        ["goat", "🥩"],
+        ["liver", "🥩"],
+        ["kheema", "🥩"],
+        ["cube", "🥩"],
+        ["steak", "🥩"],
         ["beef", "🥩"],
         ["pork", "🥓"],
         ["bacon", "🥓"],
+        ["sausage", "🌭"],
+        ["tilapia", "🐟"],
+        ["salmon", "🐟"],
+        ["tuna", "🐟"],
+        ["trout", "🐟"],
+        ["cod", "🐟"],
+        ["mackerel", "🐟"],
+        ["sardine", "🐟"],
+        ["pomfret", "🐟"],
+        ["korameen", "🐟"],
         ["fish", "🐟"],
         ["shrimp", "🍤"],
+        ["prawn", "🍤"],
+        ["crab", "🦀"],
+        ["lobster", "🦞"],
         ["rice", "🍚"],
         ["pasta", "🍝"],
         ["pizza", "🍕"],
@@ -6171,7 +6198,13 @@
         for (const [needle, emoji] of KITCHEN_PRODUCT_EMOJI_RULES) {
           if (name.includes(needle)) return emoji;
         }
-        return KITCHEN_CATEGORY_EMOJI[item.category] || "🛒";
+        // Case-insensitive category lookup — ShoppingListItem.category is
+        // lowercased in storage but the emoji map keys are TitleCase.
+        const rawCat = String(item.category || "").trim();
+        const titleCat = rawCat
+          ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase()
+          : "";
+        return KITCHEN_CATEGORY_EMOJI[titleCat] || KITCHEN_CATEGORY_EMOJI[rawCat] || "🛒";
       }
 
       function _kitchenCanonicalKey(name) {
