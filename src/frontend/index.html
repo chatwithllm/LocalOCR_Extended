@@ -1972,7 +1972,13 @@
                 <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
                 <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
               </div>
-              <div class="kitchen-grid" id="kitchen-grid"></div>
+              <div class="kitchen-grid-wrap">
+                <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--prev"
+                        onclick="kitchenGridScrollBy(-1)" aria-label="Scroll left">‹</button>
+                <div class="kitchen-grid" id="kitchen-grid"></div>
+                <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--next"
+                        onclick="kitchenGridScrollBy(1)" aria-label="Scroll right">›</button>
+              </div>
             </div>
           </div>
 
@@ -23182,10 +23188,32 @@
         return _kitchenGroupTiles(raw);
       }
 
+      function _kitchenWireGridWheel(grid) {
+        if (!grid || grid.dataset.wheelWired === "1") return;
+        grid.dataset.wheelWired = "1";
+        // Map vertical mouse-wheel ticks to horizontal scroll on the
+        // catalog carousel. Trackpad horizontal scroll already works
+        // natively (deltaX > deltaY) — fall through in that case.
+        grid.addEventListener("wheel", (e) => {
+          if (e.deltaY === 0) return;
+          if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+          e.preventDefault();
+          grid.scrollLeft += e.deltaY;
+        }, { passive: false });
+      }
+
+      function kitchenGridScrollBy(direction) {
+        const grid = document.getElementById("kitchen-grid");
+        if (!grid) return;
+        const step = Math.max(grid.clientWidth * 0.6, 240);
+        grid.scrollBy({ left: direction * step, behavior: "smooth" });
+      }
+
       function renderKitchenCatalog() {
         const chipBar = document.getElementById("kitchen-chip-bar");
         const grid = document.getElementById("kitchen-grid");
         if (!chipBar || !grid) return;
+        _kitchenWireGridWheel(grid);
 
         const chips = [
           { key: "frequent", label: "⭐ Frequent" },

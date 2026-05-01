@@ -93,6 +93,42 @@
 
 .kitchen-chip .ico { font-size: 14px; line-height: 1; }
 
+/* Carousel wrapper — positions side arrows over the grid edges. */
+.kitchen-grid-wrap {
+  position: relative;
+}
+
+.kitchen-grid-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  opacity: 0.85;
+}
+
+.kitchen-grid-arrow:hover { opacity: 1; }
+.kitchen-grid-arrow--prev { left: -10px; }
+.kitchen-grid-arrow--next { right: -10px; }
+
+/* On touch devices the swipe gesture is enough — hide arrows. */
+@media (hover: none) and (pointer: coarse) {
+  .kitchen-grid-arrow { display: none; }
+}
+
 /* Catalog grid — 2-row horizontal swipe carousel.
    Tile width fixed; users swipe left/right through products. */
 .kitchen-grid {
