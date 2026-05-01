@@ -23326,15 +23326,25 @@
         wrap.classList.toggle("popover-open", open);
         if (open) {
           renderKitchenStoreFilter();
+          // On narrow viewports the popover is fixed-position so it can't
+          // drift off-screen when the magnifier sits at unpredictable
+          // toolbar positions. Pin its top to right below the wrap.
+          if (window.matchMedia("(max-width: 600px)").matches) {
+            const pop = document.getElementById("kitchen-search-popover");
+            const rect = wrap.getBoundingClientRect();
+            if (pop) pop.style.top = `${rect.bottom + 6}px`;
+          }
           if (!_kitchenPopoverOutsideHandler) {
             _kitchenPopoverOutsideHandler = (e) => {
               const w = document.getElementById("kitchen-search-wrap");
               if (w && !w.contains(e.target)) toggleKitchenSearchPopover(false);
             };
             document.addEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
+            document.addEventListener("touchstart", _kitchenPopoverOutsideHandler, true);
           }
         } else if (_kitchenPopoverOutsideHandler) {
           document.removeEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
+          document.removeEventListener("touchstart", _kitchenPopoverOutsideHandler, true);
           _kitchenPopoverOutsideHandler = null;
         }
       }

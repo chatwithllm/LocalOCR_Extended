@@ -117,12 +117,25 @@
   text-overflow: ellipsis;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .kitchen-search-popover {
-    width: 320px;
-    right: -4px;
+    /* Anchor to viewport instead of the magnifier wrap so the popover
+       can't drift off-screen when the wrap sits in different toolbar
+       positions across breakpoints. */
+    position: fixed;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: auto;
+    width: auto;
+    max-width: none;
+    margin-top: 8px;
   }
-  .kitchen-search-popover-stores { grid-template-columns: 1fr; }
+  .kitchen-search-wrap.popover-open .kitchen-search-popover {
+    /* Re-anchor below the wrap using its bounding rect at open time
+       (computed in JS to avoid hard-coding header height). */
+  }
+  .kitchen-search-popover-stores { grid-template-columns: repeat(2, 1fr); }
 }
 
 .kitchen-search-popover-empty {
