@@ -47,10 +47,11 @@
   border-radius: 999px;
   padding: 0;
   height: 28px;
-  cursor: text;
   position: relative;
   transition: width 0.18s ease, padding 0.18s ease;
   width: 28px;
+  /* Clip the input + popover-bg edges when wrap is collapsed.
+     Popover lives outside this clip via its own position:absolute layer. */
 }
 
 .kitchen-search-wrap:focus-within,
@@ -136,8 +137,9 @@
   text-align: center;
   font-size: 13px;
   color: var(--color-text-muted);
-  pointer-events: none;
+  cursor: pointer;
   line-height: 28px;
+  user-select: none;
 }
 
 .kitchen-search-input {
@@ -151,6 +153,13 @@
   font-weight: 500;
   outline: none;
   padding: 0;
+  visibility: hidden;
+}
+
+.kitchen-search-wrap:focus-within .kitchen-search-input,
+.kitchen-search-wrap.has-query .kitchen-search-input,
+.kitchen-search-wrap.popover-open .kitchen-search-input {
+  visibility: visible;
 }
 
 .kitchen-search-input::placeholder {
