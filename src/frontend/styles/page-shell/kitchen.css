@@ -374,6 +374,40 @@
   .kitchen-grid { grid-auto-columns: 100px; }
   .kitchen-grid .kitchen-tile { width: 100px; height: 100px; }
   .kitchen-grid--list { grid-template-columns: repeat(3, 1fr); }
+
+  /* Stack name above meta on narrow tiles so name has full width. */
+  .kitchen-tile-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px 6px 5px;
+  }
+  .kitchen-tile-meta {
+    width: 100%;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .kitchen-tile-name {
+    -webkit-line-clamp: 1;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Compact toolbar — drop the "Browse products" label, keep just icon. */
+  .kitchen-catalog-toggle .kitchen-catalog-toggle-label {
+    font-size: 0;
+  }
+  .kitchen-catalog-toggle .kitchen-catalog-toggle-label::before {
+    content: "🛒";
+    font-size: 14px;
+  }
+
+  /* Smaller weather pill — drop the description word, keep emoji + temp. */
+  .kitchen-weather .desc { display: none; }
+
+  /* Section title smaller on mobile. */
+  .kitchen-section-title { font-size: 14px; }
+  .kitchen-list-total { font-size: 12px; }
 }
 
 .kitchen-tile-name { font-size: 12px !important; }
