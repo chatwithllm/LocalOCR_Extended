@@ -1968,7 +1968,10 @@
 
           <div class="kitchen-catalog" id="kitchen-catalog">
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
-              <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
+              <div class="kitchen-chip-row">
+                <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
+                <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
+              </div>
               <div class="kitchen-grid" id="kitchen-grid"></div>
             </div>
           </div>
@@ -22714,9 +22717,102 @@
           renderKitchenCatalog();
           renderKitchenList();
           applyKitchenCatalogCollapsed();
+          loadKitchenWeather();
         } catch (err) {
           toast(err.message || "Failed to load kitchen view", "error");
         }
+      }
+
+      const _KITCHEN_WEATHER_CACHE_KEY = "kitchen-weather-cache";
+      const _KITCHEN_WEATHER_TTL_MS = 30 * 60 * 1000;
+
+      function _kitchenWeatherEmoji(code) {
+        if (code === 0) return "☀️";
+        if (code <= 3) return "⛅";
+        if (code === 45 || code === 48) return "🌫️";
+        if (code >= 51 && code <= 67) return "🌧️";
+        if (code >= 71 && code <= 77) return "🌨️";
+        if (code >= 80 && code <= 82) return "🌧️";
+        if (code === 85 || code === 86) return "🌨️";
+        if (code >= 95) return "⛈️";
+        return "🌡️";
+      }
+
+      function _kitchenWeatherDesc(code) {
+        if (code === 0) return "Clear";
+        if (code <= 3) return "Cloudy";
+        if (code === 45 || code === 48) return "Fog";
+        if (code >= 51 && code <= 67) return "Rain";
+        if (code >= 71 && code <= 77) return "Snow";
+        if (code >= 80 && code <= 82) return "Showers";
+        if (code === 85 || code === 86) return "Snow";
+        if (code >= 95) return "Storm";
+        return "";
+      }
+
+      function _kitchenRenderWeather(temp, code) {
+        const target = document.getElementById("kitchen-weather");
+        if (!target) return;
+        const tempStr = `${Math.round(temp)}°F`;
+        const html = `
+          <span class="ico">${_kitchenWeatherEmoji(code)}</span>
+          <span class="temp">${escHtml(tempStr)}</span>
+          <span class="desc">${escHtml(_kitchenWeatherDesc(code))}</span>`;
+        setHtml(target, html);
+      }
+
+      async function _kitchenFetchWeather(lat, lon) {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("weather fetch failed");
+        const data = await res.json();
+        const cw = data.current_weather || {};
+        return { temp: cw.temperature, code: cw.weathercode };
+      }
+
+      function _kitchenReadWeatherCache() {
+        try {
+          const raw = localStorage.getItem(_KITCHEN_WEATHER_CACHE_KEY);
+          if (!raw) return null;
+          const obj = JSON.parse(raw);
+          if (!obj || !obj.fetched_at) return null;
+          if (Date.now() - obj.fetched_at > _KITCHEN_WEATHER_TTL_MS) return null;
+          return obj;
+        } catch (_) { return null; }
+      }
+
+      function _kitchenWriteWeatherCache(payload) {
+        try {
+          localStorage.setItem(
+            _KITCHEN_WEATHER_CACHE_KEY,
+            JSON.stringify({ ...payload, fetched_at: Date.now() }),
+          );
+        } catch (_) { /* ignore */ }
+      }
+
+      async function loadKitchenWeather() {
+        const cached = _kitchenReadWeatherCache();
+        if (cached && cached.temp != null) {
+          _kitchenRenderWeather(cached.temp, cached.code);
+          return;
+        }
+        // Need geolocation. If user previously denied, skip silently.
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            try {
+              const { latitude, longitude } = pos.coords;
+              const w = await _kitchenFetchWeather(latitude, longitude);
+              _kitchenWriteWeatherCache({
+                lat: latitude, lon: longitude,
+                temp: w.temp, code: w.code,
+              });
+              _kitchenRenderWeather(w.temp, w.code);
+            } catch (_) { /* silent */ }
+          },
+          () => { /* permission denied — silent */ },
+          { timeout: 5000, maximumAge: 30 * 60 * 1000 },
+        );
       }
 
       function toggleKitchenCatalog() {

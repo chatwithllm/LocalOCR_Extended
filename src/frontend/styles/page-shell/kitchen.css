@@ -25,14 +25,46 @@
   border-radius: 14px;
 }
 
+.kitchen-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 10px;
+}
+
 .kitchen-chip-bar {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  padding: 4px 0 8px;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 10px;
+  flex: 1 1 auto;
+}
+
+.kitchen-weather {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  padding: 4px 10px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.kitchen-weather:empty { display: none; }
+.kitchen-weather .ico { font-size: 16px; line-height: 1; }
+.kitchen-weather .temp { font-size: 13px; }
+.kitchen-weather .desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .kitchen-chip {
