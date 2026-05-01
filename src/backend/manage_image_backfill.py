@@ -28,6 +28,7 @@ from src.backend.create_flask_application import require_auth
 from src.backend.fetch_product_image import (
     DEFAULT_PROVIDER_CHAIN, available_providers, fetch_product_image,
 )
+from src.backend.image_backfill_schedule import load_schedule, save_schedule
 from src.backend.initialize_database_schema import (
     Product, ProductSnapshot, create_db_engine, create_session_factory,
 )
@@ -237,6 +238,53 @@ def run_backfill():
         daemon=True,
     ).start()
     return jsonify({"job_id": job_id}), 202
+
+
+@image_backfill_bp.route("/schedule", methods=["GET"])
+@require_auth
+def get_schedule():
+    _, error = _admin_or_403()
+    if error:
+        return error
+    cfg = load_schedule()
+    next_run = None
+    try:
+        from src.backend.schedule_daily_recommendations import get_image_backfill_runtime
+        rt = get_image_backfill_runtime() or {}
+        next_run = rt.get("next_run_at")
+    except Exception:
+        pass
+    return jsonify({**cfg, "next_run_at": next_run}), 200
+
+
+@image_backfill_bp.route("/schedule", methods=["PUT"])
+@require_auth
+def update_schedule():
+    _, error = _admin_or_403()
+    if error:
+        return error
+    body = request.get_json(silent=True) or {}
+    try:
+        enabled = bool(body.get("enabled", True))
+        hour = int(body.get("hour"))
+        minute = int(body.get("minute"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "enabled, hour, minute are required"}), 400
+    try:
+        cfg = save_schedule(enabled=enabled, hour=hour, minute=minute)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    next_run = None
+    try:
+        from src.backend.schedule_daily_recommendations import reschedule_image_backfill
+        rt = reschedule_image_backfill(**cfg) or {}
+        next_run = rt.get("next_run_at")
+    except Exception as exc:
+        logger.exception("Live reschedule failed: %s", exc)
+        return jsonify({**cfg, "next_run_at": None,
+                        "warning": f"saved but live reschedule failed: {exc}"}), 200
+    return jsonify({**cfg, "next_run_at": next_run}), 200
 
 
 @image_backfill_bp.route("/jobs/<job_id>", methods=["GET"])

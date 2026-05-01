@@ -4057,6 +4057,17 @@
             <div id="image-backfill-note" style="color: var(--muted); font-size: 0.84rem">
               Products with no image. Pick rows + provider → Run. Failures auto-fall-back to next provider when Auto is selected.
             </div>
+            <div id="image-backfill-schedule-row" style="margin-top: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 0.9rem">
+              <label style="display: flex; gap: 6px; align-items: center">
+                <input type="checkbox" id="image-backfill-schedule-enabled">
+                Nightly job enabled
+              </label>
+              <label>at
+                <input type="number" id="image-backfill-schedule-hour" min="0" max="23" style="width: 4em" value="4">:<input type="number" id="image-backfill-schedule-minute" min="0" max="59" style="width: 4em" value="0">
+              </label>
+              <button class="btn btn-ghost btn-sm" onclick="saveImageBackfillSchedule()">Save schedule</button>
+              <span id="image-backfill-next-run" style="color: var(--muted)"></span>
+            </div>
             <div id="image-backfill-status" style="margin-top: 12px; font-size: 0.9rem"></div>
             <div class="table-wrap" style="margin-top: 12px">
               <div id="image-backfill-body"></div>
@@ -12834,6 +12845,7 @@
             loadAdminAiUsage();
             loadChatAudit();
             loadImageBackfillCandidates();
+            loadImageBackfillSchedule();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -25841,6 +25853,60 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      async function loadImageBackfillSchedule() {
+        if (!currentUser || currentUser.role !== "admin") return;
+        try {
+          const res = await api("/api/admin/image-backfill/schedule");
+          if (!res.ok) return;
+          const cfg = await res.json();
+          const en = document.getElementById("image-backfill-schedule-enabled");
+          const h = document.getElementById("image-backfill-schedule-hour");
+          const m = document.getElementById("image-backfill-schedule-minute");
+          const nx = document.getElementById("image-backfill-next-run");
+          if (en) en.checked = !!cfg.enabled;
+          if (h) h.value = cfg.hour;
+          if (m) m.value = cfg.minute;
+          if (nx) {
+            nx.textContent = cfg.next_run_at
+              ? `Next run: ${new Date(cfg.next_run_at).toLocaleString()}`
+              : (cfg.enabled ? "Next run: pending" : "Next run: disabled");
+          }
+        } catch (e) {}
+      }
+
+      async function saveImageBackfillSchedule() {
+        const en = document.getElementById("image-backfill-schedule-enabled");
+        const h = parseInt(document.getElementById("image-backfill-schedule-hour").value, 10);
+        const m = parseInt(document.getElementById("image-backfill-schedule-minute").value, 10);
+        if (!Number.isInteger(h) || h < 0 || h > 23) {
+          toast("Hour must be 0-23", "error"); return;
+        }
+        if (!Number.isInteger(m) || m < 0 || m > 59) {
+          toast("Minute must be 0-59", "error"); return;
+        }
+        try {
+          const res = await api("/api/admin/image-backfill/schedule", {
+            method: "PUT",
+            body: JSON.stringify({ enabled: !!en.checked, hour: h, minute: m }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            toast(`Save failed: ${err.error || res.status}`, "error");
+            return;
+          }
+          const cfg = await res.json();
+          const nx = document.getElementById("image-backfill-next-run");
+          if (nx) {
+            nx.textContent = cfg.next_run_at
+              ? `Next run: ${new Date(cfg.next_run_at).toLocaleString()}`
+              : (cfg.enabled ? "Next run: pending" : "Next run: disabled");
+          }
+          toast("Schedule saved", "success");
+        } catch (e) {
+          toast(`Error: ${e.message || e}`, "error");
+        }
       }
 
       async function loadImageBackfillCandidates() {
