@@ -173,21 +173,29 @@
 }
 
 .kitchen-tile.on-list::before {
-  content: "🛒";
+  content: "💚";
   position: absolute;
   left: 6px;
-  bottom: 6px;
+  top: 6px;
   z-index: 3;
-  background: rgba(0,0,0,0.65);
-  color: #fff;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 20px;
   pointer-events: none;
+  transform-origin: center;
+  animation: kitchen-heartbeat 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
+}
+
+@keyframes kitchen-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15%      { transform: scale(1.3); }
+  30%      { transform: scale(1); }
+  45%      { transform: scale(1.18); }
+  60%      { transform: scale(1); }
 }
 
 .kitchen-tile.skipped .kitchen-tile-img { filter: brightness(0.45); }
