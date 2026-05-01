@@ -23253,11 +23253,33 @@
         wrap.classList.toggle("can-scroll-next", canNext);
       }
 
+      function _kitchenSmoothScrollBy(el, delta, duration) {
+        if (el._kitchenScrollAnim) cancelAnimationFrame(el._kitchenScrollAnim);
+        const start = el.scrollLeft;
+        const end = start + delta;
+        const t0 = performance.now();
+        const ease = (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+        const step = (now) => {
+          const k = Math.min(1, (now - t0) / duration);
+          el.scrollLeft = start + (end - start) * ease(k);
+          if (k < 1) {
+            el._kitchenScrollAnim = requestAnimationFrame(step);
+          } else {
+            el._kitchenScrollAnim = null;
+          }
+        };
+        el._kitchenScrollAnim = requestAnimationFrame(step);
+      }
+
       function kitchenGridScrollBy(direction) {
         const grid = document.getElementById("kitchen-grid");
         if (!grid) return;
-        const step = Math.max(grid.clientWidth * 0.6, 240);
-        grid.scrollBy({ left: direction * step, behavior: "smooth" });
+        const tile = grid.querySelector(".kitchen-tile");
+        const tileW = tile ? tile.getBoundingClientRect().width : 110;
+        const gap = 10;
+        // Move two tiles per click — subtle, predictable.
+        const delta = direction * (tileW + gap) * 2;
+        _kitchenSmoothScrollBy(grid, delta, 600);
       }
 
       function renderKitchenCatalog() {
