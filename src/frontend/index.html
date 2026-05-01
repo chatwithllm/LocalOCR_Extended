@@ -22641,22 +22641,54 @@
         );
       }
 
+      function _kitchenCatalogTileForProduct(productId) {
+        if (!productId || !kitchenCatalog) return null;
+        if (Array.isArray(kitchenCatalog.frequent)) {
+          const hit = kitchenCatalog.frequent.find((t) => t.product_id === productId);
+          if (hit) return hit;
+        }
+        const cats = kitchenCatalog.categories || {};
+        for (const list of Object.values(cats)) {
+          if (!Array.isArray(list)) continue;
+          const hit = list.find((t) => t.product_id === productId);
+          if (hit) return hit;
+        }
+        return null;
+      }
+
       function _kitchenItemTile(item) {
         const snap = item.latest_snapshot;
-        const inner = snap && snap.image_url
-          ? `<img src="${escHtml(snap.image_url)}" alt="${escHtml(item.name)}">`
+        const catalogTile = _kitchenCatalogTileForProduct(item.product_id);
+        const imageUrl =
+          (snap && snap.image_url) ||
+          (catalogTile && catalogTile.image_url) ||
+          null;
+        const inner = imageUrl
+          ? `<img src="${escAttr(imageUrl)}" alt="${escAttr(item.name)}">`
           : `${kitchenEmojiForProduct(item)}`;
         const skipped = item.status === "skipped";
+        const unitPrice =
+          item.manual_estimated_price != null
+            ? Number(item.manual_estimated_price)
+            : (item.latest_price && item.latest_price.price) ||
+              (catalogTile && catalogTile.latest_unit_price) ||
+              null;
+        const priceHtml = unitPrice
+          ? `<span class="kitchen-tile-price">$${Number(unitPrice).toFixed(2)}</span>`
+          : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
         return `
           <div
             class="kitchen-tile${skipped ? " skipped" : ""}"
             onclick="openKitchenSheet(${item.id})"
-            title="${escHtml(item.name)}"
+            title="${escAttr(item.name)}"
           >
             <div class="kitchen-tile-img">${inner}</div>
             <div class="kitchen-tile-foot">
-              <span class="kitchen-tile-name">${escHtml(item.name)}</span>
-              <span class="kitchen-tile-badge">${item.quantity}</span>
+              <div class="kitchen-tile-name">${escHtml(item.name)}</div>
+              <div class="kitchen-tile-meta">
+                ${priceHtml}
+                <span class="kitchen-tile-badge" title="quantity">×${item.quantity}</span>
+              </div>
             </div>
           </div>`;
       }
