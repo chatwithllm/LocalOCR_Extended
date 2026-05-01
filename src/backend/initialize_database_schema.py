@@ -579,6 +579,9 @@ class TrustedDevice(Base):
     token_hash = Column(String(255), nullable=False, unique=True)
     linked_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # JSON-encoded list of sidebar page ids the device can see. NULL =
+    # follow legacy scope-based behaviour (no per-device restriction).
+    allowed_pages = Column(Text, nullable=True)
     last_seen_at = Column(DateTime, nullable=True)
     revoked_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
@@ -601,6 +604,9 @@ class DevicePairingSession(Base):
     created_by_device = Column(String(255), nullable=True)
     approved_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     trusted_device_id = Column(Integer, ForeignKey("trusted_devices.id"), nullable=True)
+    # Optional per-pairing allowed_pages payload — copied onto the
+    # resulting TrustedDevice at approve-time. NULL = legacy scope-only.
+    allowed_pages = Column(Text, nullable=True)
     expires_at = Column(DateTime, nullable=False)
     approved_at = Column(DateTime, nullable=True)
     claimed_at = Column(DateTime, nullable=True)

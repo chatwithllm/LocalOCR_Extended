@@ -1554,3 +1554,37 @@
   color: var(--color-warning, #b00);
 }
 
+
+/* Trusted-device approval modal: per-device page-allowlist picker.
+   Mirrors the household-user "Pages for User" picker, but rendered into
+   a dedicated container so the device-pairing modal can reuse it. */
+.device-pages-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--color-surface-2);
+}
+
+.device-page-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.device-page-row:hover {
+  background: var(--color-surface-3, var(--color-surface-2));
+}
+
+.device-page-row input {
+  margin: 0;
+  accent-color: var(--color-brand, #097fe8);
+}

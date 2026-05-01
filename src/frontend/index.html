@@ -5657,7 +5657,8 @@
                 updateDeviceScopeHelp(
                   'device-approval-scope',
                   'device-approval-scope-help',
-                )
+                );
+                deviceApprovalApplyScopeDefaults();
               "
             >
               <option value="shared_household" selected>
@@ -5672,6 +5673,45 @@
             >
               Best for a fridge or shared household tablet with normal
               day-to-day access.
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Pages this device can access</label>
+            <div
+              id="device-approval-pages"
+              class="device-pages-picker"
+            ></div>
+            <div
+              style="margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap"
+            >
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                onclick="deviceApprovalSelectAllPages()"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                onclick="deviceApprovalClearAllPages()"
+              >
+                Clear all
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-ghost"
+                onclick="deviceApprovalApplyScopeDefaults()"
+              >
+                Reset to scope defaults
+              </button>
+            </div>
+            <div
+              style="margin-top: 6px; color: var(--muted); font-size: 0.78rem"
+            >
+              Pick which sidebar pages this device can see. Settings stays
+              available for admins. Leave checked to mirror the scope's
+              default set.
             </div>
           </div>
         </div>
@@ -8345,7 +8385,11 @@
       }
 
       function updateScopedNavigation() {
-        const kitchenAllowed = new Set([
+        const td = currentAuthContext?.trusted_device;
+        const explicit = Array.isArray(td?.allowed_pages)
+          ? new Set(td.allowed_pages)
+          : null;
+        const legacyKitchenAllowed = new Set([
           "dashboard", "inventory", "shopping", "kitchen",
         ]);
         document.body.classList.toggle(
@@ -8362,13 +8406,25 @@
           );
           if (!match) return;
           const page = match[1];
+
+          // Path 1: explicit per-device allowed_pages set — honor it
+          // strictly for trusted-device contexts only. Admins on regular
+          // sessions still see everything.
+          if (explicit && isTrustedDeviceContext()) {
+            item.style.display = explicit.has(page) ? "" : "none";
+            return;
+          }
+
+          // Path 2: legacy fallback — kitchen_display scope hides
+          // non-allowed; other scopes show everything (modulo module
+          // toggles).
           if (!isKitchenDisplayTrustedDevice()) {
             item.style.display = "";
             if (item.id === "nav-restaurant" && !appConfig.modules?.restaurant)
               item.style.display = "none";
             return;
           }
-          item.style.display = kitchenAllowed.has(page) ? "" : "none";
+          item.style.display = legacyKitchenAllowed.has(page) ? "" : "none";
         });
         // Notion guest demo banner is gated by the same auth state.
         if (typeof updateGuestDemoBanner === "function") {
@@ -8378,9 +8434,20 @@
 
       function getScopedPreferredPage() {
         const preferred = getLastPage();
+        const td = currentAuthContext?.trusted_device;
+        const explicit = Array.isArray(td?.allowed_pages)
+          ? new Set(td.allowed_pages)
+          : null;
+        if (explicit && isTrustedDeviceContext()) {
+          if (explicit.has(preferred)) return preferred;
+          const fallback = ALL_SIDEBAR_PAGES.find(([id]) => explicit.has(id));
+          return fallback ? fallback[0] : "dashboard";
+        }
         if (!isKitchenDisplayTrustedDevice()) return preferred;
         if (
-          ["dashboard", "shopping", "inventory", "products"].includes(preferred)
+          ["dashboard", "shopping", "inventory", "products", "kitchen"].includes(
+            preferred,
+          )
         )
           return preferred;
         return "dashboard";
@@ -13684,6 +13751,89 @@
         };
       }
 
+      // Per-scope default page allowlists for the approval modal. NULL
+      // means "no restriction" — render every primary sidebar page as
+      // checked. Kitchen Display narrows to the four high-trust pages.
+      const DEVICE_SCOPE_DEFAULT_PAGES = {
+        shared_household: null,
+        kitchen_display: ["dashboard", "inventory", "shopping", "kitchen"],
+        read_only: null,
+      };
+
+      function _deviceApprovalScopeDefaults(scope) {
+        const defaults = DEVICE_SCOPE_DEFAULT_PAGES[scope];
+        if (defaults === null || defaults === undefined) {
+          // null = no restriction → return every primary page id (skip
+          // sub-feature rows like spend-by-person).
+          return ALL_SIDEBAR_PAGES
+            .map(([id]) => id)
+            .filter((id) => !id.startsWith("spend-by-person"));
+        }
+        return [...defaults];
+      }
+
+      function renderDeviceApprovalPages(initialChecked) {
+        const target = document.getElementById("device-approval-pages");
+        if (!target) return;
+        const checkedSet = new Set(initialChecked || []);
+        const html = ALL_SIDEBAR_PAGES
+          .map(([id, label]) => {
+            const checked = checkedSet.has(id) ? "checked" : "";
+            return (
+              '<label class="device-page-row">' +
+              '<input type="checkbox" data-page-id="' + escAttr(id) + '" ' + checked + '>' +
+              '<span>' + escHtml(label) + '</span>' +
+              '</label>'
+            );
+          })
+          .join("");
+        setHtml(target, html);
+      }
+
+      function deviceApprovalSelectAllPages() {
+        document
+          .querySelectorAll("#device-approval-pages input[type=checkbox]")
+          .forEach((cb) => {
+            cb.checked = true;
+          });
+      }
+
+      function deviceApprovalClearAllPages() {
+        document
+          .querySelectorAll("#device-approval-pages input[type=checkbox]")
+          .forEach((cb) => {
+            cb.checked = false;
+          });
+      }
+
+      function deviceApprovalApplyScopeDefaults() {
+        const scope =
+          document.getElementById("device-approval-scope")?.value ||
+          "shared_household";
+        const defaults = new Set(_deviceApprovalScopeDefaults(scope));
+        const target = document.getElementById("device-approval-pages");
+        if (!target) return;
+        // First render — populate rows from the scope defaults so the
+        // grid is visible even before the modal-open path runs.
+        if (!target.querySelector("input[type=checkbox]")) {
+          renderDeviceApprovalPages([...defaults]);
+          return;
+        }
+        target
+          .querySelectorAll("input[type=checkbox]")
+          .forEach((cb) => {
+            cb.checked = defaults.has(cb.dataset.pageId);
+          });
+      }
+
+      function _readDeviceApprovalCheckedPages() {
+        return [
+          ...document.querySelectorAll(
+            "#device-approval-pages input[type=checkbox]:checked",
+          ),
+        ].map((cb) => cb.dataset.pageId);
+      }
+
       async function maybeHandleDeviceApprovalLink() {
         const requestSeq = ++deviceApprovalRequestSeq;
         const url = new URL(window.location.href);
@@ -13812,6 +13962,18 @@
             "device-approval-scope",
             "device-approval-scope-help",
           );
+          // Pre-fill the page checkboxes from any allowlist suggested at
+          // pairing-start; otherwise fall back to scope defaults.
+          const suggestedPages = Array.isArray(data.allowed_pages)
+            ? data.allowed_pages
+            : null;
+          if (suggestedPages && suggestedPages.length) {
+            renderDeviceApprovalPages(suggestedPages);
+          } else {
+            renderDeviceApprovalPages(
+              _deviceApprovalScopeDefaults(data.scope || "shared_household"),
+            );
+          }
           document.getElementById("device-approval-body").textContent =
             `Approve persistent access for ${data.device_name || "this device"}?`;
           setDeviceApprovalNotice("pending", {
@@ -13868,6 +14030,7 @@
         }
         const { name, linkedUserId, scope, adminEmail, adminPassword } =
           getPendingDeviceApprovalValues();
+        const allowedPages = _readDeviceApprovalCheckedPages();
         const res = await api("/auth/device-pairing/approve", {
           method: "POST",
           ignoreTrustedDeviceToken: true,
@@ -13878,6 +14041,7 @@
             linked_user_id: linkedUserId,
             admin_email: adminEmail,
             admin_password: adminPassword,
+            allowed_pages: allowedPages,
           }),
         });
         const data = await res.json();
@@ -14039,6 +14203,11 @@
           return;
         }
         const devices = data.devices || [];
+        // Cache by id so the per-device Pages editor can read the
+        // current allowed_pages without an extra round-trip.
+        window._trustedDevicesById = Object.fromEntries(
+          devices.map((d) => [String(d.id), d]),
+        );
         if (!devices.length) {
           body.innerHTML =
             '<div class="empty-state"><div class="icon">📱</div><p>No trusted devices yet. Pair one from the login screen or with the button above.</p></div>';
@@ -14070,6 +14239,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <button class="btn btn-sm btn-ghost" onclick="renameTrustedDevice(${device.id}, decodeURIComponent('${encodeURIComponent(device.name || "Trusted Device")}'))">Rename</button>
             <button class="btn btn-sm btn-ghost" onclick="changeTrustedDeviceScope(${device.id}, '${escAttr(device.scope || "shared_household")}')">Scope</button>
+            <button class="btn btn-sm btn-ghost" onclick="editTrustedDevicePages(${device.id})" title="Choose which sidebar pages this device can see">Pages</button>
             <button class="btn btn-sm btn-danger" onclick="revokeTrustedDevice(${device.id})">Revoke</button>
             <button class="btn btn-sm btn-danger" onclick="deleteTrustedDevice(${device.id})" title="Permanently remove this trusted-device record">🗑️ Delete</button>
           </div>
@@ -16281,6 +16451,128 @@
           return;
         }
         toast("Trusted device scope updated ✅", "success");
+        loadTrustedDevices();
+      }
+
+      async function editTrustedDevicePages(deviceId) {
+        const device = (window._trustedDevicesById || {})[String(deviceId)];
+        if (!device) {
+          toast("Trusted device not found", "error");
+          return;
+        }
+        const current = Array.isArray(device.allowed_pages)
+          ? new Set(device.allowed_pages)
+          : null;
+
+        const overlay = document.getElementById("confirm-overlay");
+        const titleEl = document.getElementById("confirm-title");
+        const bodyEl = document.getElementById("confirm-body");
+        const okBtn = document.getElementById("confirm-ok");
+        const cancelBtn = document.getElementById("confirm-cancel");
+        if (!overlay || !bodyEl || !okBtn || !cancelBtn) return;
+
+        titleEl.textContent = `Pages for ${device.name || "Trusted Device"}`;
+        const rows = ALL_SIDEBAR_PAGES.map(([id, label]) => {
+          const isOn = current === null ? true : current.has(id);
+          return (
+            '<label class="device-page-row">' +
+            '<input type="checkbox" data-page-id="' + escAttr(id) + '" ' +
+            (isOn ? "checked" : "") + '>' +
+            '<span>' + escHtml(label) + '</span>' +
+            '</label>'
+          );
+        }).join("");
+        const helpHtml =
+          '<div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">' +
+          'Pick which sidebar pages this device can see. Uncheck all to ' +
+          'leave the device on legacy scope-based behaviour (NULL).' +
+          '</div>';
+        const pickerHtml =
+          '<div id="device-pages-edit-body" class="device-pages-picker">' +
+          rows +
+          '</div>';
+        const ctrlHtml =
+          '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-sm btn-ghost" id="device-pages-edit-all">Select all</button>' +
+          '<button type="button" class="btn btn-sm btn-ghost" id="device-pages-edit-none">Clear all</button>' +
+          '<button type="button" class="btn btn-sm btn-ghost" id="device-pages-edit-clear">Use scope default (clear restriction)</button>' +
+          '</div>';
+        setHtml(
+          bodyEl,
+          '<div style="text-align:left">' +
+            helpHtml +
+            pickerHtml +
+            ctrlHtml +
+            '</div>',
+        );
+        const allBtn = document.getElementById("device-pages-edit-all");
+        const noneBtn = document.getElementById("device-pages-edit-none");
+        const clearBtn = document.getElementById("device-pages-edit-clear");
+        const pickerBody = document.getElementById("device-pages-edit-body");
+        let clearMode = false;
+        if (allBtn) allBtn.onclick = () => {
+          clearMode = false;
+          pickerBody.querySelectorAll('input[type="checkbox"]').forEach((c) => (c.checked = true));
+        };
+        if (noneBtn) noneBtn.onclick = () => {
+          clearMode = false;
+          pickerBody.querySelectorAll('input[type="checkbox"]').forEach((c) => (c.checked = false));
+        };
+        if (clearBtn) clearBtn.onclick = () => {
+          clearMode = true;
+          toast("Will clear restriction on save", "info");
+        };
+        okBtn.textContent = "Save";
+        okBtn.className = "btn btn-primary";
+        cancelBtn.textContent = "Cancel";
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden", "false");
+
+        const result = await new Promise((resolve) => {
+          const finish = (out) => {
+            overlay.classList.remove("show");
+            overlay.setAttribute("aria-hidden", "true");
+            okBtn.onclick = null;
+            cancelBtn.onclick = null;
+            overlay.onclick = null;
+            document.onkeydown = null;
+            bodyEl.textContent = "Are you sure?";
+            okBtn.textContent = "Confirm";
+            resolve(out);
+          };
+          okBtn.onclick = () => {
+            if (clearMode) {
+              finish({ clear: true });
+              return;
+            }
+            const picked = Array.from(
+              pickerBody.querySelectorAll('input[type="checkbox"]:checked'),
+            ).map((c) => c.getAttribute("data-page-id"));
+            finish({ clear: false, pages: picked });
+          };
+          cancelBtn.onclick = () => finish(null);
+          overlay.onclick = (ev) => {
+            if (ev.target === overlay) finish(null);
+          };
+          document.onkeydown = (ev) => {
+            if (ev.key === "Escape") finish(null);
+          };
+        });
+        if (!result) return;
+
+        const payload = result.clear
+          ? { name: device.name, scope: device.scope, allowed_pages: null }
+          : { name: device.name, scope: device.scope, allowed_pages: result.pages };
+        const res = await api(`/auth/trusted-devices/${deviceId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast(data.error || "Could not update device pages", "error");
+          return;
+        }
+        toast("Device pages updated ✅", "success");
         loadTrustedDevices();
       }
 

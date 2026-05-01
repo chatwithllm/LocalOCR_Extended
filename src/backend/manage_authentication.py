@@ -524,6 +524,7 @@ def serialize_trusted_device(device: TrustedDevice) -> dict:
         "linked_user_name": linked_user.name if linked_user else None,
         "created_by_id": device.created_by_id,
         "created_by_name": creator.name if creator else None,
+        "allowed_pages": _parse_allowed_pages(getattr(device, "allowed_pages", None)),
         "last_seen_at": device.last_seen_at.isoformat() if device.last_seen_at else None,
         "revoked_at": device.revoked_at.isoformat() if device.revoked_at else None,
         "created_at": device.created_at.isoformat() if device.created_at else None,
@@ -982,12 +983,21 @@ def device_pairing_start():
     scope = _normalize_device_scope(data.get("scope"))
     base_url = build_public_base_url(data.get("current_base_url"))
     pairing_token = secrets.token_urlsafe(32)
+    # The requesting device may suggest a page allowlist, but the admin
+    # gets final say at approve-time. None / missing is the common case.
+    suggested_pages_json = None
+    if "allowed_pages" in data and data.get("allowed_pages") is not None:
+        try:
+            suggested_pages_json = _serialize_allowed_pages(data.get("allowed_pages"))
+        except ValueError:
+            suggested_pages_json = None
     pairing = DevicePairingSession(
         pairing_token_hash=hash_token(pairing_token),
         device_name=device_name[:120] or "Kitchen Fridge",
         scope=scope,
         status="pending",
         created_by_device=(request.headers.get("User-Agent") or "")[:255] or None,
+        allowed_pages=suggested_pages_json,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
     )
     g.db_session.add(pairing)
@@ -1001,6 +1011,7 @@ def device_pairing_start():
         "device_name": pairing.device_name,
         "scope": pairing.scope,
         "status": pairing.status,
+        "allowed_pages": _parse_allowed_pages(pairing.allowed_pages),
     }), 201
 
 
@@ -1213,6 +1224,18 @@ def approve_device_pairing():
 
     device_name = (data.get("device_name") or pairing.device_name or "Trusted Device").strip()[:120] or "Trusted Device"
     scope = _normalize_device_scope(data.get("scope") or pairing.scope)
+    # Optional per-device allowed_pages. Admin's request body wins; if
+    # absent, fall back to whatever the pairing session captured (NULL =
+    # legacy scope-only behaviour). Permissive validation: we accept any
+    # page-id strings and let the frontend ignore unknowns, mirroring the
+    # household-user picker.
+    if "allowed_pages" in data:
+        try:
+            allowed_pages_json = _serialize_allowed_pages(data.get("allowed_pages"))
+        except ValueError:
+            return jsonify({"error": "allowed_pages must be a list of page ids"}), 400
+    else:
+        allowed_pages_json = pairing.allowed_pages
     matching_devices = (
         g.db_session.query(TrustedDevice)
         .filter(
@@ -1255,6 +1278,7 @@ def approve_device_pairing():
         trusted_device.created_by_id = actor.id
         trusted_device.revoked_at = None
         trusted_device.last_seen_at = None
+        trusted_device.allowed_pages = allowed_pages_json
     else:
         trusted_device = TrustedDevice(
             name=device_name,
@@ -1263,6 +1287,7 @@ def approve_device_pairing():
             token_hash=hash_token(pairing_token),
             linked_user_id=linked_user.id,
             created_by_id=actor.id,
+            allowed_pages=allowed_pages_json,
             last_seen_at=None,
         )
         g.db_session.add(trusted_device)
@@ -1278,6 +1303,7 @@ def approve_device_pairing():
     pairing.status = "approved"
     pairing.approved_by_user_id = actor.id
     pairing.trusted_device_id = trusted_device.id
+    pairing.allowed_pages = allowed_pages_json
     pairing.approved_at = datetime.now(timezone.utc)
     g.db_session.commit()
 
@@ -1348,6 +1374,13 @@ def update_trusted_device(device_id: int):
 
     device.name = name[:120]
     device.scope = scope
+    # allowed_pages is optional. Sending an explicit null clears the
+    # restriction (legacy behaviour); sending a list narrows visibility.
+    if "allowed_pages" in data:
+        try:
+            device.allowed_pages = _serialize_allowed_pages(data.get("allowed_pages"))
+        except ValueError:
+            return jsonify({"error": "allowed_pages must be a list of page ids"}), 400
     g.db_session.commit()
     return jsonify({"trusted_device": serialize_trusted_device(device)}), 200
 
