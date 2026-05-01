@@ -214,6 +214,7 @@ def register_blueprints(app):
     from src.backend.plaid_integration import plaid_bp
     from src.backend.chat_endpoints import chat_bp
     from src.backend.manage_stores_endpoint import stores_bp
+    from src.backend.manage_kitchen_endpoint import kitchen_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
@@ -234,6 +235,7 @@ def register_blueprints(app):
     app.register_blueprint(plaid_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(stores_bp)
+    app.register_blueprint(kitchen_bp)
 
     logger.info("All blueprints registered.")
 
