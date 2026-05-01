@@ -27,12 +27,12 @@
 
 .kitchen-chip-bar {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  padding: 8px 0 16px;
+  padding: 4px 0 8px;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .kitchen-chip {
@@ -40,14 +40,15 @@
   border: 1px solid var(--color-border);
   background: var(--color-surface-2);
   color: var(--color-text);
-  padding: 12px 18px;
+  padding: 5px 11px;
   border-radius: 999px;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   cursor: pointer;
+  line-height: 1.2;
 }
 
 .kitchen-chip:hover { filter: brightness(1.07); }
@@ -58,7 +59,7 @@
   color: var(--color-text);
 }
 
-.kitchen-chip .ico { font-size: 20px; line-height: 1; }
+.kitchen-chip .ico { font-size: 14px; line-height: 1; }
 
 .kitchen-grid {
   display: grid;
