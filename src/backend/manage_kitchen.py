@@ -78,7 +78,7 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
     ProductTile shape:
         {"product_id": int, "name": str, "category": str,
          "image_url": str | None, "fallback_emoji": str,
-         "purchase_count": int, "_latest_snapshot_id": int | None}
+         "purchase_count": int}
     """
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(days=FREQUENCY_WINDOW_DAYS)
@@ -130,7 +130,6 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
             "image_url": image_url,
             "fallback_emoji": emoji,
             "purchase_count": int(count or 0),
-            "_latest_snapshot_id": snapshot_id,
         }
         categories[bucket].append(tile)
         all_tiles.append(tile)
@@ -143,19 +142,19 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
     purchased.sort(key=lambda t: (-t["purchase_count"], t["name"]))
     frequent = purchased[:FREQUENT_LIMIT]
 
-    active = (
+    current = (
         session.query(ShoppingSession.id)
-        .filter(ShoppingSession.status == "active")
+        .filter(ShoppingSession.status.in_(("active", "ready_to_bill")))
         .all()
     )
-    active_ids = [s.id for s in active]
+    current_ids = [s.id for s in current]
     on_list = []
-    if active_ids:
+    if current_ids:
         on_list = [
             row[0]
             for row in session.query(ShoppingListItem.product_id)
             .filter(
-                ShoppingListItem.shopping_session_id.in_(active_ids),
+                ShoppingListItem.shopping_session_id.in_(current_ids),
                 ShoppingListItem.product_id.isnot(None),
                 ShoppingListItem.status.in_(["open", "skipped"]),
             )

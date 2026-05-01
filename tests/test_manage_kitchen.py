@@ -176,7 +176,8 @@ def test_image_url_from_latest_snapshot(db_session):
         t for t in get_kitchen_catalog(db_session)["categories"]["Dairy"]
         if t["name"] == "Eggs"
     )
-    assert tile["image_url"].endswith(f"/product-snapshots/{tile['_latest_snapshot_id']}/image")
+    import re
+    assert re.match(r"^/product-snapshots/\d+/image$", tile["image_url"])
     assert tile["fallback_emoji"] == "🥛"
 
 
@@ -209,7 +210,7 @@ def test_on_list_product_ids_from_active_session(db_session):
 
 def test_finalized_session_items_not_in_on_list(db_session):
     p = _fresh_product(db_session, "Croissant", category="Bakery")
-    sess = ShoppingSession(name="old", status="finalized")
+    sess = ShoppingSession(name="old", status="closed")
     db_session.add(sess)
     db_session.flush()
     db_session.add(ShoppingListItem(
@@ -220,3 +221,18 @@ def test_finalized_session_items_not_in_on_list(db_session):
 
     out = get_kitchen_catalog(db_session)
     assert p.id not in out["on_list_product_ids"]
+
+
+def test_ready_to_bill_session_items_still_on_list(db_session):
+    p = _fresh_product(db_session, "Naan", category="Bakery")
+    sess = ShoppingSession(name="rtb", status="ready_to_bill")
+    db_session.add(sess)
+    db_session.flush()
+    db_session.add(ShoppingListItem(
+        product_id=p.id, name="Naan", category="Bakery",
+        quantity=1, status="open", shopping_session_id=sess.id,
+    ))
+    db_session.commit()
+
+    out = get_kitchen_catalog(db_session)
+    assert p.id in out["on_list_product_ids"]
