@@ -360,6 +360,49 @@
   scroll-snap-align: none;
 }
 
+/* Current-list tile: name top-left chip, price+qty bottom strip,
+   image fills in between. */
+.kitchen-grid--list .kitchen-tile-foot {
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.kitchen-grid--list .kitchen-tile-name {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  max-width: calc(100% - 8px);
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px !important;
+  font-weight: 700;
+  text-shadow: none;
+  line-height: 1.2;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.kitchen-grid--list .kitchen-tile-meta {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 60%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
 @media (max-width: 1400px) {
   .kitchen-grid--list { grid-template-columns: repeat(6, 1fr); }
 }
