@@ -22790,29 +22790,62 @@
         } catch (_) { /* ignore */ }
       }
 
+      async function _kitchenGeoByIp() {
+        // Try ipapi.co first — works on HTTP, no permission prompt, no key.
+        try {
+          const res = await fetch("https://ipapi.co/json/");
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.latitude && data.longitude) {
+              return { lat: data.latitude, lon: data.longitude };
+            }
+          }
+        } catch (_) { /* try next */ }
+        // Fallback: open-meteo's geocoding-by-IP doesn't exist, so try ip-api.com
+        try {
+          const res = await fetch("https://ipwho.is/");
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && data.latitude && data.longitude) {
+              return { lat: data.latitude, lon: data.longitude };
+            }
+          }
+        } catch (_) { /* give up */ }
+        return null;
+      }
+
       async function loadKitchenWeather() {
+        const target = document.getElementById("kitchen-weather");
+        if (!target) return;
         const cached = _kitchenReadWeatherCache();
         if (cached && cached.temp != null) {
           _kitchenRenderWeather(cached.temp, cached.code);
           return;
         }
-        // Need geolocation. If user previously denied, skip silently.
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            try {
-              const { latitude, longitude } = pos.coords;
-              const w = await _kitchenFetchWeather(latitude, longitude);
-              _kitchenWriteWeatherCache({
-                lat: latitude, lon: longitude,
-                temp: w.temp, code: w.code,
-              });
-              _kitchenRenderWeather(w.temp, w.code);
-            } catch (_) { /* silent */ }
-          },
-          () => { /* permission denied — silent */ },
-          { timeout: 5000, maximumAge: 30 * 60 * 1000 },
-        );
+        // 1) IP geo (no permission, works over HTTP) — try first.
+        let coords = await _kitchenGeoByIp();
+        // 2) If IP geo failed AND we're on HTTPS or localhost, try browser geo.
+        if (!coords && navigator.geolocation && (
+              location.protocol === "https:" ||
+              location.hostname === "localhost" ||
+              location.hostname === "127.0.0.1")) {
+          coords = await new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+              () => resolve(null),
+              { timeout: 4000, maximumAge: 30 * 60 * 1000 },
+            );
+          });
+        }
+        if (!coords) return;
+        try {
+          const w = await _kitchenFetchWeather(coords.lat, coords.lon);
+          _kitchenWriteWeatherCache({
+            lat: coords.lat, lon: coords.lon,
+            temp: w.temp, code: w.code,
+          });
+          _kitchenRenderWeather(w.temp, w.code);
+        } catch (_) { /* silent */ }
       }
 
       function toggleKitchenCatalog() {
