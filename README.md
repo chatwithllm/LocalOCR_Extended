@@ -1027,12 +1027,8 @@ A nightly job (04:00 daily) fetches a matching image for any `Product` that
 has no `ProductSnapshot` yet, so kitchen tiles + shopping rows show real
 imagery instead of category-emoji fallbacks.
 
-Providers (tried in order, first success wins):
-1. Wikimedia (always tried, no API key required, courtesy User-Agent sent).
-2. Unsplash — set `UNSPLASH_ACCESS_KEY` to enable.
-   Signup: <https://unsplash.com/oauth/applications>.
-3. Pexels — set `PEXELS_API_KEY` to enable.
-   Signup: <https://www.pexels.com/api/>.
+Requires `OPENAI_API_KEY` env var with image-generation access.
+Uses `gpt-image-1` low quality (~$0.011/image, ~$0.55/night for a 50-product run).
 
 Behaviour:
 - Up to 50 products processed per run; 7-day retry cooldown for products

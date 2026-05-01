@@ -22,6 +22,24 @@ logger = logging.getLogger(__name__)
 
 RETRY_INTERVAL = timedelta(days=7)
 
+_NON_PRODUCT_PATTERNS = frozenset({
+    "fee", "fees", "charge", "charges", "service charge",
+    "bag fee", "bag charge", "bottle deposit", "deposit",
+    "tax", "taxes", "gst", "hst", "vat", "tip", "gratuity",
+    "credit", "refund", "return", "rebate", "discount", "coupon",
+    "savings", "promo", "promotion",
+    "subtotal", "total", "balance", "amount due",
+    "delivery", "shipping", "handling",
+    "misc", "miscellaneous", "other", "unknown", "n/a",
+})
+
+
+def _is_meaningful_product(product) -> bool:
+    name = ((product.display_name or product.name) or "").strip().lower()
+    if not name or len(name) < 3:
+        return False
+    return not any(pat in name for pat in _NON_PRODUCT_PATTERNS)
+
 
 def find_products_needing_images(session, max_products: int = 20) -> list[Product]:
     """Products with NO snapshot, referenced by receipt or shopping list,
@@ -60,9 +78,10 @@ def find_products_needing_images(session, max_products: int = 20) -> list[Produc
         )
         .order_by(Product.last_image_fetch_attempt_at.asc().nullsfirst(),
                   Product.id.asc())
-        .limit(max_products)
+        .limit(max_products * 2)
     )
-    return query.all()
+    products = query.all()
+    return [p for p in products if _is_meaningful_product(p)][:max_products]
 
 
 def backfill_images_for_products(session, products) -> dict:

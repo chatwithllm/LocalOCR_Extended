@@ -192,3 +192,31 @@ def test_per_product_commit_survives_partial_failure(db_session, snapshots_dir):
     assert stats["failed"] == 1
     snaps = db_session.query(ProductSnapshot).all()
     assert len(snaps) == 1
+
+
+def test_excludes_non_product_names(db_session):
+    from src.backend.backfill_product_images import find_products_needing_images
+
+    noise = ["Service Fee", "Sales Tax", "Subtotal", "Delivery", "Bag Charge"]
+    for name in noise:
+        p = _add_product(db_session, name)
+        _add_receipt_ref(db_session, p)
+    db_session.commit()
+
+    out = find_products_needing_images(db_session)
+    names = {r.name for r in out}
+    assert names.isdisjoint(set(noise))
+
+
+def test_meaningful_products_pass_filter(db_session):
+    from src.backend.backfill_product_images import find_products_needing_images
+
+    real = ["Bananas", "Chicken Wings", "Basmati Rice"]
+    for name in real:
+        p = _add_product(db_session, name)
+        _add_receipt_ref(db_session, p)
+    db_session.commit()
+
+    out = find_products_needing_images(db_session)
+    names = {r.name for r in out}
+    assert set(real).issubset(names)
