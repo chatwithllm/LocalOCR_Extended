@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="/styles/page-shell/tokens-themes.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/layout.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/cards.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/kitchen.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/controls.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/page-states.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/apple-phases.css?v=20260430b" />
@@ -130,6 +131,9 @@
         </div>
         <div class="nav-item" id="nav-shopping" onclick="nav('shopping', this)">
           <span class="nav-icon">🛒</span> Shopping List
+        </div>
+        <div class="nav-item" id="nav-kitchen" onclick="nav('kitchen', this)">
+          <span class="nav-icon">👨‍🍳</span> Kitchen
         </div>
         <div
           class="nav-item"
@@ -1942,6 +1946,38 @@
               <span id="shopping-past-trips-chevron">▸</span>
             </div>
             <div id="shopping-past-trips-body" style="display: none"></div>
+          </div>
+        </div>
+
+        <div class="page" id="page-kitchen">
+          <div class="page-header">
+            <h1>👨‍🍳 Kitchen</h1>
+            <p class="page-subtitle">Tablet-friendly shopping. Tap to act.</p>
+          </div>
+
+          <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
+            <p>No active shopping session.</p>
+            <button class="btn btn-primary" onclick="nav('shopping', document.getElementById('nav-shopping'))">
+              Open Shopping List
+            </button>
+          </div>
+
+          <div class="kitchen-catalog" id="kitchen-catalog">
+            <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
+            <div class="kitchen-grid" id="kitchen-grid"></div>
+          </div>
+
+          <div class="kitchen-list" id="kitchen-list-container">
+            <h2 class="kitchen-section-title">
+              <span>Current List</span>
+              <span class="kitchen-list-total" id="kitchen-list-total"></span>
+            </h2>
+            <div class="kitchen-grid kitchen-grid--list" id="kitchen-list-grid"></div>
+          </div>
+
+          <div class="kitchen-sheet" id="kitchen-sheet" style="display: none;">
+            <div class="kitchen-sheet-backdrop" onclick="closeKitchenSheet()"></div>
+            <div class="kitchen-sheet-card" id="kitchen-sheet-card"></div>
           </div>
         </div>
 
@@ -6002,6 +6038,11 @@
       let shoppingManualVisible = false;
       let shoppingStoreOptions = [];
       let shoppingStoreBuckets = { frequent: [], low_freq: [] };
+      let kitchenCatalog = { frequent: [], categories: {}, on_list_product_ids: [] };
+      let kitchenList = [];
+      let kitchenActiveCategory = "frequent";
+      let kitchenSheetItemId = null;
+      let kitchenStagedAction = null;
       const STORE_DEFAULTS = ["Costco", "Kroger", "Target", "India Bazar"];
 
       function buildStoreOptionTags(selectedValue, bucketsOverride) {
@@ -12352,6 +12393,7 @@
           if (allowed && allowed.size) {
             const order = [
               "dashboard", "inventory", "upload", "receipts", "shopping",
+              "kitchen",
               "restaurant", "expenses", "budget", "bills", "accounts",
               "analytics", "contributions",
             ];
@@ -12378,7 +12420,7 @@
         }
         if (
           isKitchenDisplayTrustedDevice() &&
-          !["dashboard", "inventory", "shopping"].includes(page)
+          !["dashboard", "inventory", "shopping", "kitchen"].includes(page)
         ) {
           page = "dashboard";
         }
@@ -12406,6 +12448,7 @@
           if (!isShoppingSectionCollapsed("recommendations"))
             loadRecs("shopping-recs-body");
         }
+        if (page === "kitchen") loadKitchen();
         if (page === "restaurant") loadRestaurant();
         if (page === "expenses") {
           loadExpenses();
@@ -22387,6 +22430,17 @@
       }
 
       let shoppingSessionState = null;
+
+      async function loadKitchen() { /* implemented in Task 7 */ }
+      function renderKitchenCatalog() { /* Task 7 */ }
+      function renderKitchenList() { /* Task 8 */ }
+      function openKitchenSheet(itemId) { /* Task 8 */ }
+      function closeKitchenSheet() { /* Task 8 */ }
+      async function addProductToList(productId) { /* Task 7 */ }
+      function kitchenSetActiveCategory(name) { /* Task 7 */ }
+      async function kitchenSheetAction(action) { /* Task 9 */ }
+      async function kitchenSheetSetQty(delta) { /* Task 9 */ }
+      async function kitchenStampNote(presetText) { /* Task 9 */ }
 
       async function loadShoppingList() {
         const status = "";
