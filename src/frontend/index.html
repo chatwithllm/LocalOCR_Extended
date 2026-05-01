@@ -1976,6 +1976,9 @@
               </div>
               <h2 class="kitchen-section-title">
                 <span>Current List</span>
+                <button type="button" class="kitchen-names-toggle" id="kitchen-names-toggle"
+                        onclick="toggleKitchenNames()" title="Toggle item names"
+                        aria-label="Toggle item names">🏷️</button>
                 <span class="kitchen-list-total" id="kitchen-list-total"></span>
               </h2>
               <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
@@ -6108,6 +6111,8 @@
       let kitchenActiveCategory = "frequent";
       let kitchenSearchQuery = "";
       let kitchenStoreFilter = new Set();
+      let kitchenShowNames = (typeof localStorage !== "undefined") &&
+        localStorage.getItem("kitchen-show-names") === "1";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
       let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
@@ -23042,6 +23047,7 @@
           renderKitchenCatalog();
           renderKitchenList();
           applyKitchenCatalogCollapsed();
+          applyKitchenShowNames();
           loadKitchenWeather();
         } catch (err) {
           toast(err.message || "Failed to load kitchen view", "error");
@@ -23191,6 +23197,20 @@
         if (cat) cat.classList.toggle("collapsed", kitchenCatalogCollapsed);
         if (toggle) toggle.setAttribute("aria-expanded", kitchenCatalogCollapsed ? "false" : "true");
         if (caret) caret.textContent = kitchenCatalogCollapsed ? "▸" : "▾";
+      }
+
+      function applyKitchenShowNames() {
+        document.body.classList.toggle("kitchen-show-names", kitchenShowNames);
+        const btn = document.getElementById("kitchen-names-toggle");
+        if (btn) btn.classList.toggle("active", kitchenShowNames);
+      }
+
+      function toggleKitchenNames() {
+        kitchenShowNames = !kitchenShowNames;
+        applyKitchenShowNames();
+        try {
+          localStorage.setItem("kitchen-show-names", kitchenShowNames ? "1" : "0");
+        } catch (_) { /* ignore */ }
       }
 
       function kitchenSetActiveCategory(name) {
