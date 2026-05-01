@@ -55,3 +55,4 @@ alembic/__pycache__/
 .kanban/buffer.errors.log
 .kanban/flush.log
 .kanban/pending-milestones.jsonl
+.superpowers/
