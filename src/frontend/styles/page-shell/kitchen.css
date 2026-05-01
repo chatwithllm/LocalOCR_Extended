@@ -36,8 +36,8 @@
 .kitchen-catalog.collapsed .kitchen-toolbar-when-open { display: none; }
 .kitchen-catalog.collapsed > .kitchen-catalog-body { display: none; }
 
-/* Search lives inside the chip row — collapsed magnifier by default,
-   expands to a small input on focus or when query is non-empty. */
+/* Search magnifier — collapsed by default, expands inline with input
+   and reveals a popover with store filter when opened. */
 .kitchen-search-wrap {
   flex: 0 0 auto;
   display: inline-flex;
@@ -48,15 +48,62 @@
   padding: 0;
   height: 28px;
   cursor: text;
-  overflow: hidden;
+  position: relative;
   transition: width 0.18s ease, padding 0.18s ease;
   width: 28px;
 }
 
 .kitchen-search-wrap:focus-within,
-.kitchen-search-wrap.has-query {
-  width: 200px;
+.kitchen-search-wrap.has-query,
+.kitchen-search-wrap.popover-open {
+  width: 220px;
   padding: 0 10px 0 4px;
+}
+
+.kitchen-search-wrap.has-store-filter {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.kitchen-search-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  width: 320px;
+  max-width: 90vw;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  z-index: 50;
+  display: none;
+}
+
+.kitchen-search-wrap.popover-open .kitchen-search-popover { display: block; }
+
+.kitchen-search-popover-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.kitchen-search-popover-stores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.kitchen-search-popover-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
 }
 
 .kitchen-search-icon {
@@ -94,28 +141,7 @@
   flex: 0 1 auto;
 }
 
-.kitchen-store-filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 0 0 8px;
-  font-size: 11px;
-}
-
-.kitchen-store-filter:empty {
-  display: none;
-}
-
-.kitchen-store-filter-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-right: 4px;
-}
-
+/* Store filter chips — used inside the search magnifier popover. */
 .kitchen-store-filter-chip {
   appearance: none;
   background: var(--color-surface-2);

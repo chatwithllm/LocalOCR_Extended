@@ -1959,13 +1959,20 @@
               </button>
               <div class="kitchen-toolbar-when-open">
                 <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
-                <label class="kitchen-search-wrap" title="Search products">
-                  <span class="kitchen-search-icon" aria-hidden="true">🔍</span>
+                <div class="kitchen-search-wrap" id="kitchen-search-wrap" title="Search products + filter by store">
+                  <span class="kitchen-search-icon" aria-hidden="true"
+                        onclick="toggleKitchenSearchPopover(true)">🔍</span>
                   <input type="search" id="kitchen-search" class="kitchen-search-input"
                          placeholder="Search…"
+                         onfocus="toggleKitchenSearchPopover(true)"
                          oninput="onKitchenSearchInput(this.value)"
                          autocomplete="off">
-                </label>
+                  <div class="kitchen-search-popover" id="kitchen-search-popover">
+                    <div class="kitchen-search-popover-label">Filter by store</div>
+                    <div class="kitchen-search-popover-stores"
+                         id="kitchen-search-popover-stores"></div>
+                  </div>
+                </div>
               </div>
               <h2 class="kitchen-section-title">
                 <span>Current List</span>
@@ -1975,7 +1982,6 @@
             </div>
 
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
-              <div class="kitchen-store-filter" id="kitchen-store-filter"></div>
               <div class="kitchen-grid-wrap">
                 <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--prev"
                         onclick="kitchenGridScrollBy(-1)" aria-label="Scroll left">‹</button>
@@ -23243,27 +23249,32 @@
       }
 
       function renderKitchenStoreFilter() {
-        const target = document.getElementById("kitchen-store-filter");
+        // Stores live inside the search-magnifier popover.
+        const target = document.getElementById("kitchen-search-popover-stores");
         if (!target) return;
         const stores = _kitchenAvailableStoresForFilter();
         if (!stores.length) {
-          setHtml(target, "");
+          setHtml(target, `<span class="kitchen-search-popover-empty">No store history yet.</span>`);
           return;
         }
-        const labelHtml = `<span class="kitchen-store-filter-label">🏪 Stores:</span>`;
         const allChip = `
           <button type="button"
                   class="kitchen-store-filter-chip${kitchenStoreFilter.size === 0 ? " active" : ""}"
-                  onclick="kitchenClearStoreFilter()">
-            All
-          </button>`;
+                  onclick="kitchenClearStoreFilter()">All</button>`;
         const chips = stores.map((name) => `
           <button type="button"
                   class="kitchen-store-filter-chip${kitchenStoreFilter.has(name) ? " active" : ""}"
                   onclick="${escAttr(`kitchenToggleStoreFilter(${JSON.stringify(name)})`)}">
             ${escHtml(name)}
           </button>`).join("");
-        setHtml(target, labelHtml + allChip + chips);
+        setHtml(target, allChip + chips);
+        _kitchenSyncSearchWrapState();
+      }
+
+      function _kitchenSyncSearchWrapState() {
+        const wrap = document.getElementById("kitchen-search-wrap");
+        if (!wrap) return;
+        wrap.classList.toggle("has-store-filter", kitchenStoreFilter.size > 0);
       }
 
       function kitchenToggleStoreFilter(name) {
@@ -23281,6 +23292,28 @@
         renderKitchenStoreFilter();
         renderKitchenCatalog();
       }
+
+      function toggleKitchenSearchPopover(forceOpen) {
+        const wrap = document.getElementById("kitchen-search-wrap");
+        if (!wrap) return;
+        const wasOpen = wrap.classList.contains("popover-open");
+        const open = (forceOpen === undefined) ? !wasOpen : !!forceOpen;
+        wrap.classList.toggle("popover-open", open);
+        if (open) {
+          renderKitchenStoreFilter();
+          if (!_kitchenPopoverOutsideHandler) {
+            _kitchenPopoverOutsideHandler = (e) => {
+              const w = document.getElementById("kitchen-search-wrap");
+              if (w && !w.contains(e.target)) toggleKitchenSearchPopover(false);
+            };
+            document.addEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
+          }
+        } else if (_kitchenPopoverOutsideHandler) {
+          document.removeEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
+          _kitchenPopoverOutsideHandler = null;
+        }
+      }
+      let _kitchenPopoverOutsideHandler = null;
 
       function onKitchenSearchInput(value) {
         kitchenSearchQuery = String(value || "");
