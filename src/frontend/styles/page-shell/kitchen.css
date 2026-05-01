@@ -238,8 +238,8 @@
   color: var(--color-text);
   margin: 8px 0 6px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
 }
 
 .kitchen-list-total {
