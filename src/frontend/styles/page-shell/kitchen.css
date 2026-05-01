@@ -18,6 +18,44 @@
 .kitchen-toolbar .kitchen-catalog-toggle { margin-bottom: 0; }
 .kitchen-toolbar .kitchen-section-title { margin: 0; }
 
+.kitchen-search-wrap {
+  flex: 1 1 200px;
+  min-width: 160px;
+  max-width: 360px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.kitchen-search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.kitchen-search-input {
+  flex: 1 1 auto;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 5px 12px 5px 28px;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.kitchen-search-input:focus {
+  border-color: var(--color-brand);
+  background: var(--color-surface);
+}
+
+.kitchen-search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
 .kitchen-empty {
   padding: 40px 20px;
   text-align: center;

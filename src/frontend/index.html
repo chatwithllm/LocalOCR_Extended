@@ -1956,6 +1956,13 @@
               <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
               <span class="kitchen-catalog-toggle-caret">▾</span>
             </button>
+            <div class="kitchen-search-wrap">
+              <span class="kitchen-search-icon">🔍</span>
+              <input type="search" id="kitchen-search" class="kitchen-search-input"
+                     placeholder="Search products…"
+                     oninput="onKitchenSearchInput(this.value)"
+                     autocomplete="off">
+            </div>
             <h2 class="kitchen-section-title">
               <span>Current List</span>
               <span class="kitchen-list-total" id="kitchen-list-total"></span>
@@ -6092,6 +6099,7 @@
       let kitchenCatalog = { frequent: [], categories: {}, on_list_product_ids: [] };
       let kitchenList = [];
       let kitchenActiveCategory = "frequent";
+      let kitchenSearchQuery = "";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
       let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
@@ -23181,11 +23189,43 @@
         renderKitchenCatalog();
       }
 
+      function _kitchenAllTiles() {
+        const cats = kitchenCatalog.categories || {};
+        const seen = new Set();
+        const out = [];
+        for (const list of Object.values(cats)) {
+          for (const t of list || []) {
+            if (seen.has(t.product_id)) continue;
+            seen.add(t.product_id);
+            out.push(t);
+          }
+        }
+        return out;
+      }
+
       function _kitchenTilesForActiveChip() {
+        const q = (kitchenSearchQuery || "").trim().toLowerCase();
+        if (q) {
+          const all = _kitchenAllTiles().filter((t) =>
+            String(t.name || "").toLowerCase().includes(q),
+          );
+          return _kitchenGroupTiles(all);
+        }
         const raw = kitchenActiveCategory === "frequent"
           ? (kitchenCatalog.frequent || [])
           : ((kitchenCatalog.categories || {})[kitchenActiveCategory] || []);
         return _kitchenGroupTiles(raw);
+      }
+
+      function onKitchenSearchInput(value) {
+        kitchenSearchQuery = String(value || "");
+        // Auto-expand the catalog if collapsed so search results are visible.
+        if (kitchenSearchQuery && kitchenCatalogCollapsed) {
+          kitchenCatalogCollapsed = false;
+          applyKitchenCatalogCollapsed();
+          try { localStorage.setItem("kitchen-catalog-collapsed", "0"); } catch (_) {}
+        }
+        renderKitchenCatalog();
       }
 
       function _kitchenWireGridWheel(grid) {
