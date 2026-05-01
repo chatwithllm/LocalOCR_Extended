@@ -23536,6 +23536,27 @@
         kitchenStagedAction = null;
       }
 
+      function _kitchenStoreChip(name, currentStore) {
+        const isCurrent = currentStore && currentStore.toLowerCase() === name.toLowerCase();
+        return `
+          <button type="button"
+                  class="kitchen-store-chip${isCurrent ? " kitchen-store-chip--active" : ""}"
+                  onclick="${escAttr(`pickKitchenStore(${JSON.stringify(name)})`)}">
+            ${escHtml(name)}
+          </button>`;
+      }
+
+      function _kitchenStoreSection(label, names, currentStore) {
+        if (!names.length) return "";
+        const sorted = [...names].sort((a, b) => a.localeCompare(b));
+        const chips = sorted.map((n) => _kitchenStoreChip(n, currentStore)).join("");
+        return `
+          <div class="kitchen-store-section">
+            <div class="kitchen-store-section-label">${escHtml(label)}</div>
+            <div class="kitchen-store-section-chips">${chips}</div>
+          </div>`;
+      }
+
       function toggleKitchenStorePicker() {
         const picker = document.getElementById("kitchen-store-picker");
         const caret = document.getElementById("kitchen-store-picker-caret");
@@ -23546,23 +23567,20 @@
           if (caret) caret.textContent = "▸";
           return;
         }
-        // Render chips from shoppingStoreBuckets.
+        const item = _kitchenItemById(kitchenSheetItemId);
+        const currentStore = item?.preferred_store || "";
         const buckets = shoppingStoreBuckets || { frequent: [], low_freq: [] };
-        const all = [
-          ...(buckets.frequent || []),
-          ...(buckets.low_freq || []),
-        ];
-        const unique = [...new Set(all.filter(Boolean))];
-        const chips = unique
-          .map((name) => `
-            <button type="button" class="kitchen-store-chip"
-                    onclick="${escAttr(`pickKitchenStore(${JSON.stringify(name)})`)}">
-              ${escHtml(name)}
-            </button>`)
-          .join("") +
-          `<button type="button" class="kitchen-store-chip kitchen-store-chip--clear"
-                   onclick="pickKitchenStore('')">Clear</button>`;
-        setHtml(picker, chips);
+        const frequent = [...new Set((buckets.frequent || []).filter(Boolean))];
+        const lowFreq = [...new Set((buckets.low_freq || []).filter(Boolean))]
+          .filter((n) => !frequent.includes(n));
+        const html =
+          _kitchenStoreSection("⭐ Frequent", frequent, currentStore) +
+          _kitchenStoreSection("Rarely Used", lowFreq, currentStore) +
+          `<div class="kitchen-store-section">
+             <button type="button" class="kitchen-store-chip kitchen-store-chip--clear"
+                     onclick="pickKitchenStore('')">— Clear store —</button>
+           </div>`;
+        setHtml(picker, html);
         picker.style.display = "flex";
         if (caret) caret.textContent = "▾";
       }
