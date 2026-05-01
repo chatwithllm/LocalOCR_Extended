@@ -6043,6 +6043,11 @@
       let kitchenActiveCategory = "frequent";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
+      const KITCHEN_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"];
+      const KITCHEN_CATEGORY_EMOJI = {
+        Produce: "🥬", Meat: "🥩", Dairy: "🥛",
+        Bakery: "🍞", Pantry: "🥫", Other: "🧴",
+      };
       const STORE_DEFAULTS = ["Costco", "Kroger", "Target", "India Bazar"];
 
       function buildStoreOptionTags(selectedValue, bucketsOverride) {
@@ -22431,13 +22436,111 @@
 
       let shoppingSessionState = null;
 
-      async function loadKitchen() { /* implemented in Task 7 */ }
-      function renderKitchenCatalog() { /* Task 7 */ }
+      async function loadKitchen() {
+        try {
+          const [catRes, listRes] = await Promise.all([
+            api("/api/kitchen/catalog"),
+            api("/shopping-list"),
+          ]);
+          const cat = await catRes.json();
+          const list = await listRes.json();
+          if (!catRes.ok) throw new Error(cat.error || "kitchen catalog failed");
+          if (!listRes.ok) throw new Error(list.error || "shopping list failed");
+          kitchenCatalog = cat;
+          kitchenList = (list.items || []).filter(
+            (i) => i.status === "open" || i.status === "skipped",
+          );
+          renderKitchenCatalog();
+          renderKitchenList();
+        } catch (err) {
+          toast(err.message || "Failed to load kitchen view", "error");
+        }
+      }
+
+      function kitchenSetActiveCategory(name) {
+        kitchenActiveCategory = name;
+        renderKitchenCatalog();
+      }
+
+      function _kitchenTilesForActiveChip() {
+        if (kitchenActiveCategory === "frequent") return kitchenCatalog.frequent || [];
+        return (kitchenCatalog.categories || {})[kitchenActiveCategory] || [];
+      }
+
+      function renderKitchenCatalog() {
+        const chipBar = document.getElementById("kitchen-chip-bar");
+        const grid = document.getElementById("kitchen-grid");
+        if (!chipBar || !grid) return;
+
+        const chips = [
+          { key: "frequent", label: "⭐ Frequent" },
+          ...KITCHEN_CATEGORIES.map((c) => ({
+            key: c, label: `${KITCHEN_CATEGORY_EMOJI[c] || ""} ${c}`,
+          })),
+        ];
+        const chipHtml = chips
+          .map(
+            (c) => `
+              <button
+                class="kitchen-chip${kitchenActiveCategory === c.key ? " active" : ""}"
+                onclick="kitchenSetActiveCategory(${JSON.stringify(c.key)})"
+                type="button"
+              >${escHtml(c.label)}</button>`,
+          )
+          .join("");
+        setHtml(chipBar, chipHtml);
+
+        const tiles = _kitchenTilesForActiveChip();
+        const onListSet = new Set(kitchenCatalog.on_list_product_ids || []);
+        const html = tiles
+          .map((t) => {
+            const isOnList = onListSet.has(t.product_id);
+            const inner = t.image_url
+              ? `<img src="${escHtml(t.image_url)}" alt="${escHtml(t.name)}">`
+              : `${t.fallback_emoji}`;
+            return `
+              <div
+                class="kitchen-tile${isOnList ? " on-list" : ""}"
+                onclick="${isOnList ? "" : `addProductToList(${t.product_id})`}"
+                title="${escHtml(t.name)}"
+              >
+                <div class="kitchen-tile-img">${inner}</div>
+                <div class="kitchen-tile-foot">
+                  <span class="kitchen-tile-name">${escHtml(t.name)}</span>
+                  ${
+                    t.purchase_count
+                      ? `<span class="kitchen-tile-badge">${t.purchase_count}×</span>`
+                      : ""
+                  }
+                </div>
+              </div>`;
+          })
+          .join("");
+        setHtml(
+          grid,
+          html ||
+            `<div class="kitchen-empty" style="grid-column: 1/-1;">No products in this category yet.</div>`,
+        );
+      }
+
       function renderKitchenList() { /* Task 8 */ }
       function openKitchenSheet(itemId) { /* Task 8 */ }
       function closeKitchenSheet() { /* Task 8 */ }
-      async function addProductToList(productId) { /* Task 7 */ }
-      function kitchenSetActiveCategory(name) { /* Task 7 */ }
+      async function addProductToList(productId) {
+        if (!productId) return;
+        try {
+          const res = await api("/shopping-list/items", {
+            method: "POST",
+            body: JSON.stringify({ product_id: productId, quantity: 1 }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not add to list");
+          toast("Added ✓", "success");
+          await loadKitchen();
+        } catch (err) {
+          toast(err.message || "Add failed", "error");
+        }
+      }
       async function kitchenSheetAction(action) { /* Task 9 */ }
       async function kitchenSheetSetQty(delta) { /* Task 9 */ }
       async function kitchenStampNote(presetText) { /* Task 9 */ }
