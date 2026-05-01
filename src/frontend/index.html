@@ -23232,15 +23232,25 @@
       function _kitchenWireGridWheel(grid) {
         if (!grid || grid.dataset.wheelWired === "1") return;
         grid.dataset.wheelWired = "1";
-        // Map vertical mouse-wheel ticks to horizontal scroll on the
-        // catalog carousel. Trackpad horizontal scroll already works
-        // natively (deltaX > deltaY) — fall through in that case.
         grid.addEventListener("wheel", (e) => {
           if (e.deltaY === 0) return;
           if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
           e.preventDefault();
           grid.scrollLeft += e.deltaY;
         }, { passive: false });
+        grid.addEventListener("scroll", _kitchenUpdateArrowVisibility, { passive: true });
+        window.addEventListener("resize", _kitchenUpdateArrowVisibility);
+      }
+
+      function _kitchenUpdateArrowVisibility() {
+        const grid = document.getElementById("kitchen-grid");
+        const wrap = grid?.parentElement;
+        if (!grid || !wrap) return;
+        const epsilon = 2;
+        const canPrev = grid.scrollLeft > epsilon;
+        const canNext = grid.scrollLeft + grid.clientWidth < grid.scrollWidth - epsilon;
+        wrap.classList.toggle("can-scroll-prev", canPrev);
+        wrap.classList.toggle("can-scroll-next", canNext);
       }
 
       function kitchenGridScrollBy(direction) {
@@ -23320,6 +23330,8 @@
           html ||
             `<div class="kitchen-empty" style="grid-column: 1/-1;">No products in this category yet.</div>`,
         );
+        // Run after layout settles so scrollWidth is accurate.
+        requestAnimationFrame(_kitchenUpdateArrowVisibility);
       }
 
       function _kitchenCatalogTileForProduct(productId) {

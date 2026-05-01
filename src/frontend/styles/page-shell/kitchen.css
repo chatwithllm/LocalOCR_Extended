@@ -182,9 +182,15 @@
 .kitchen-grid-arrow--prev { left: -10px; }
 .kitchen-grid-arrow--next { right: -10px; }
 
-/* On touch devices the swipe gesture is enough — hide arrows. */
+/* Hide by default — JS adds .can-scroll-prev / .can-scroll-next on the
+   wrapper based on actual scrollLeft + scrollWidth. */
+.kitchen-grid-arrow { display: none; }
+.kitchen-grid-wrap.can-scroll-prev .kitchen-grid-arrow--prev { display: flex; }
+.kitchen-grid-wrap.can-scroll-next .kitchen-grid-arrow--next { display: flex; }
+
+/* On touch devices the swipe gesture is enough — hide arrows always. */
 @media (hover: none) and (pointer: coarse) {
-  .kitchen-grid-arrow { display: none; }
+  .kitchen-grid-arrow { display: none !important; }
 }
 
 /* Catalog grid — 2-row horizontal swipe carousel.
