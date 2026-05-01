@@ -21800,7 +21800,8 @@
         const selectedStatus = SHOPPING_HELPER_MODE ? "" : shoppingListView;
         const query = shoppingSearchQuery;
         const baseItems = shoppingListCache.filter((item) => {
-          if (selectedStatus === "open") return item.status !== "purchased";
+          if (selectedStatus === "open")
+            return item.status !== "purchased" && item.status !== "skipped";
           if (selectedStatus === "purchased")
             return item.status === "purchased";
           return true;
@@ -21843,9 +21844,51 @@
             totalEl.innerHTML = "";
           }
         }
+        // Skipped group: surface items the user marked skipped (e.g. from
+        // kitchen view) so they can be reopened or deleted. Shown in
+        // non-helper, non-purchased views only.
+        const showSkippedGroup =
+          !SHOPPING_HELPER_MODE && selectedStatus !== "purchased";
+        const skippedItems = showSkippedGroup
+          ? shoppingListCache.filter((i) => i.status === "skipped")
+          : [];
+        let skippedHtml = "";
+        if (skippedItems.length) {
+          const skippedRowsHtml = skippedItems
+            .map((item) => {
+              const qtyLabel =
+                item.quantity && Number(item.quantity) !== 1
+                  ? ` <span style="opacity:0.65">×${escHtml(String(item.quantity))}</span>`
+                  : "";
+              const noteLabel = item.note
+                ? `<div style="font-size:0.85em;color:var(--muted);margin-top:2px">${escHtml(item.note)}</div>`
+                : "";
+              return `
+                <div class="shopping-row shopping-row--skipped" data-item-id="${item.id}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 4px;border-bottom:1px solid var(--color-border,rgba(127,127,127,0.18));opacity:0.9">
+                  <div style="min-width:0;flex:1">
+                    <div style="font-weight:600">${escHtml(item.name || "")}${qtyLabel}</div>
+                    ${noteLabel}
+                  </div>
+                  <div style="display:flex;gap:6px;flex-shrink:0">
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingItem(${item.id}, 'open')" title="Move back to open">↩ Open</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteShoppingItem(${item.id})" title="Delete">🗑</button>
+                  </div>
+                </div>`;
+            })
+            .join("");
+          skippedHtml = `
+            <details class="shopping-skipped-group" style="margin-top:16px">
+              <summary style="cursor:pointer;padding:8px 12px;background:var(--color-surface-2,rgba(127,127,127,0.08));border-radius:8px;font-weight:600">
+                Skipped (${skippedItems.length})
+              </summary>
+              <div style="padding:8px 12px">${skippedRowsHtml}</div>
+            </details>
+          `;
+        }
         if (!items.length) {
           const emptyLabel = selectedStatus === "purchased" ? "closed" : "open";
           body.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${query ? "No shopping items match your search." : `No ${emptyLabel} shopping items right now.`}</p></div>`;
+          body.innerHTML += skippedHtml;
           return;
         }
         const grouped = items.reduce((acc, item) => {
@@ -22418,6 +22461,7 @@
         ${purchasedGroups.length ? '<div class="helper-section-label" style="margin:8px 0 10px">Recently Checked Off</div>' : ""}
         ${renderMobileStoreCards(purchasedGroups, { dimmed: true, sectionKey: "purchased-groups" })}
       `;
+            body.innerHTML += skippedHtml;
             return;
           }
           body.innerHTML = `
@@ -22426,17 +22470,20 @@
       ${purchasedGroups.length ? '<div class="helper-section-label" style="margin:8px 0 10px">Recently Checked Off</div>' : ""}
       ${renderStoreTables(purchasedGroups, { dimmed: true, badgeTone: "ok", sectionKey: "purchased-groups" })}
     `;
+          body.innerHTML += skippedHtml;
           return;
         }
         if (isMobileShoppingList()) {
           body.innerHTML = renderMobileStoreCards(Object.entries(grouped), {
             sectionKey: selectedStatus || "current",
           });
+          body.innerHTML += skippedHtml;
           return;
         }
         body.innerHTML = renderStoreTables(Object.entries(grouped), {
           sectionKey: selectedStatus || "current",
         });
+        body.innerHTML += skippedHtml;
       }
 
       let shoppingSessionState = null;
