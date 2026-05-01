@@ -6048,6 +6048,11 @@
         Produce: "🥬", Meat: "🥩", Dairy: "🥛",
         Bakery: "🍞", Pantry: "🥫", Other: "🧴",
       };
+      const KITCHEN_PRESETS = {
+        bought: ["Paid more", "Paid less", "Different brand", "Different size"],
+        low: ["Almost out", "Restock soon"],
+        skipped: ["Too expensive", "Out of stock", "Changed mind", "Got from elsewhere"],
+      };
       const STORE_DEFAULTS = ["Costco", "Kroger", "Target", "India Bazar"];
 
       function buildStoreOptionTags(selectedValue, bucketsOverride) {
@@ -22637,9 +22642,162 @@
           toast(err.message || "Add failed", "error");
         }
       }
-      async function kitchenSheetAction(action) { /* Task 9 */ }
-      async function kitchenSheetSetQty(delta) { /* Task 9 */ }
-      async function kitchenStampNote(presetText) { /* Task 9 */ }
+      async function kitchenSheetSetQty(delta) {
+        const item = _kitchenItemById(kitchenSheetItemId);
+        if (!item) return;
+        const next = Math.max(1, Number(item.quantity || 1) + delta);
+        if (next === item.quantity) return;
+        try {
+          const res = await api(`/shopping-list/items/${item.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ quantity: next }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not update quantity");
+          item.quantity = next;
+          const valueEl = document.getElementById("kitchen-sheet-qty-value");
+          if (valueEl) valueEl.textContent = String(next);
+          renderKitchenList();
+        } catch (err) {
+          toast(err.message || "Update failed", "error");
+        }
+      }
+
+      async function kitchenSheetAction(action) {
+        const item = _kitchenItemById(kitchenSheetItemId);
+        if (!item) return;
+
+        if (action === "delete") {
+          if (!confirm(`Delete "${item.name}" from list?`)) return;
+          try {
+            const res = await api(`/shopping-list/items/${item.id}`, {
+              method: "DELETE",
+            });
+            if (!res.ok && res.status !== 204) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error || "Could not delete");
+            }
+            toast("Deleted", "success");
+            closeKitchenSheet();
+            await loadKitchen();
+          } catch (err) {
+            toast(err.message || "Delete failed", "error");
+          }
+          return;
+        }
+
+        if (action === "low") {
+          if (!item.product_id) {
+            toast("This item has no linked product — cannot mark low", "error");
+            return;
+          }
+          try {
+            const res = await api(
+              `/inventory/products/${item.product_id}/low`,
+              {
+                method: "POST",
+                body: JSON.stringify({ manual_low: true }),
+              },
+            );
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Could not mark low");
+            toast("Marked Low ✓", "success");
+            kitchenStagedAction = "low";
+            _kitchenShowPresets("low");
+          } catch (err) {
+            toast(err.message || "Low failed", "error");
+          }
+          return;
+        }
+
+        // 'bought' | 'skipped' | 'open' — all are status PUTs.
+        const nextStatus = action === "bought" ? "purchased" : action;
+        try {
+          const res = await api(`/shopping-list/items/${item.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ status: nextStatus }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not update status");
+          toast(
+            action === "bought" ? "Marked Bought ✓"
+            : action === "skipped" ? "Skipped ⏭"
+            : "Re-opened",
+            "success",
+          );
+          if (action === "open") {
+            closeKitchenSheet();
+            await loadKitchen();
+            return;
+          }
+          if (action === "bought") {
+            item.status = "purchased";
+            kitchenStagedAction = "bought";
+            _kitchenShowPresets("bought");
+            renderKitchenList();
+            setTimeout(() => {
+              if (kitchenStagedAction === "bought") {
+                closeKitchenSheet();
+                loadKitchen();
+              }
+            }, 4000);
+            return;
+          }
+          // skipped
+          item.status = "skipped";
+          kitchenStagedAction = "skipped";
+          _kitchenShowPresets("skipped");
+          renderKitchenList();
+        } catch (err) {
+          toast(err.message || "Update failed", "error");
+        }
+      }
+
+      function _kitchenShowPresets(action) {
+        const chipKey = action === "bought" ? "bought"
+          : action === "low" ? "low"
+          : "skipped";
+        const presets = KITCHEN_PRESETS[chipKey] || [];
+        const target = document.getElementById("kitchen-presets");
+        if (!target) return;
+        const html = presets
+          .map(
+            (p) => `
+              <button
+                class="kitchen-preset"
+                type="button"
+                onclick="kitchenStampNote(${JSON.stringify(p)})"
+              >${escHtml(p)}</button>`,
+          )
+          .join("") +
+          `<button class="kitchen-preset" type="button" onclick="kitchenStampNote('')">✏️ custom</button>`;
+        setHtml(target, html);
+        target.style.display = "flex";
+      }
+
+      async function kitchenStampNote(presetText) {
+        const itemId = kitchenSheetItemId;
+        if (!itemId) return;
+        let note = presetText || "";
+        if (presetText === "") {
+          const typed = window.prompt("Note for this item:");
+          if (typed === null) return;
+          note = typed.trim();
+        }
+        try {
+          const res = await api(`/shopping-list/items/${itemId}`, {
+            method: "PUT",
+            body: JSON.stringify({ note: note || null }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not save note");
+          toast(note ? `Noted: ${note}` : "Note cleared", "success");
+          const item = _kitchenItemById(itemId);
+          if (item) item.note = note || null;
+        } catch (err) {
+          toast(err.message || "Note save failed", "error");
+        }
+      }
 
       async function loadShoppingList() {
         const status = "";
