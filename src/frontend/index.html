@@ -23547,14 +23547,30 @@
           return a.localeCompare(b);
         });
 
+        const _storeUnitPrice = (i) => {
+          const catalogTile = _kitchenCatalogTileForProduct(i.product_id);
+          if (i.manual_estimated_price != null) return Number(i.manual_estimated_price);
+          if (i.latest_price && i.latest_price.price) return Number(i.latest_price.price);
+          if (catalogTile && catalogTile.latest_unit_price)
+            return Number(catalogTile.latest_unit_price);
+          return 0;
+        };
         const html = storeNames.map((store) => {
           const list = groups.get(store);
           const tilesHtml = list.map(_kitchenItemTile).join("");
+          const storeTotal = list.reduce(
+            (acc, i) => acc + _storeUnitPrice(i) * Number(i.quantity || 0),
+            0,
+          );
+          const totalHtml = storeTotal > 0
+            ? `<span class="kitchen-store-group-total">$${storeTotal.toFixed(2)}</span>`
+            : "";
           return `
             <div class="kitchen-store-group">
               <h3 class="kitchen-store-group-title">
                 <span>${escHtml(store)}</span>
                 <span class="kitchen-store-group-count">${list.length} item${list.length === 1 ? "" : "s"}</span>
+                ${totalHtml}
               </h3>
               <div class="kitchen-grid kitchen-grid--list">${tilesHtml}</div>
             </div>`;
