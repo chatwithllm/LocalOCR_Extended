@@ -22523,9 +22523,105 @@
         );
       }
 
-      function renderKitchenList() { /* Task 8 */ }
-      function openKitchenSheet(itemId) { /* Task 8 */ }
-      function closeKitchenSheet() { /* Task 8 */ }
+      function _kitchenItemTile(item) {
+        const snap = item.latest_snapshot;
+        const inner = snap && snap.image_url
+          ? `<img src="${escHtml(snap.image_url)}" alt="${escHtml(item.name)}">`
+          : `${KITCHEN_CATEGORY_EMOJI[item.category] || "🛒"}`;
+        const skipped = item.status === "skipped";
+        return `
+          <div
+            class="kitchen-tile${skipped ? " skipped" : ""}"
+            onclick="openKitchenSheet(${item.id})"
+            title="${escHtml(item.name)}"
+          >
+            <div class="kitchen-tile-img">${inner}</div>
+            <div class="kitchen-tile-foot">
+              <span class="kitchen-tile-name">${escHtml(item.name)}</span>
+              <span class="kitchen-tile-badge">${item.quantity}</span>
+            </div>
+          </div>`;
+      }
+
+      function renderKitchenList() {
+        const empty = document.getElementById("kitchen-empty");
+        const container = document.getElementById("kitchen-list-container");
+        const grid = document.getElementById("kitchen-list-grid");
+        const total = document.getElementById("kitchen-list-total");
+        if (!grid) return;
+        const items = kitchenList || [];
+        if (!items.length) {
+          if (container) container.style.display = "none";
+          if (empty) empty.style.display = "block";
+          setHtml(grid, "");
+          if (total) total.textContent = "";
+          return;
+        }
+        if (container) container.style.display = "block";
+        if (empty) empty.style.display = "none";
+        setHtml(grid, items.map(_kitchenItemTile).join(""));
+        if (total) {
+          const sum = items.reduce(
+            (acc, i) => acc + (i.manual_estimated_price || 0) * (i.quantity || 0),
+            0,
+          );
+          total.textContent = sum > 0 ? `$${sum.toFixed(2)}` : "";
+        }
+      }
+
+      function _kitchenItemById(id) {
+        return (kitchenList || []).find((i) => i.id === id) || null;
+      }
+
+      function openKitchenSheet(itemId) {
+        const item = _kitchenItemById(itemId);
+        if (!item) return;
+        kitchenSheetItemId = itemId;
+        kitchenStagedAction = null;
+        const sheet = document.getElementById("kitchen-sheet");
+        const card = document.getElementById("kitchen-sheet-card");
+        if (!sheet || !card) return;
+
+        const skipped = item.status === "skipped";
+        const meta = [
+          item.manual_estimated_price ? `$${item.manual_estimated_price.toFixed(2)}` : "",
+          item.preferred_store || (item.latest_price && item.latest_price.store) || "",
+          item.category || "",
+        ].filter(Boolean).join(" · ");
+
+        const html = `
+          <div class="kitchen-sheet-header">
+            <span class="kitchen-sheet-name">${escHtml(item.name)}</span>
+            <button class="kitchen-sheet-close" onclick="closeKitchenSheet()" type="button" aria-label="Close">✕</button>
+          </div>
+          <div class="kitchen-sheet-meta">${escHtml(meta)}</div>
+
+          <div class="kitchen-sheet-actions">
+            <div class="kitchen-sheet-qty">
+              <button type="button" onclick="kitchenSheetSetQty(-1)" aria-label="Decrease quantity">−</button>
+              <span id="kitchen-sheet-qty-value">${item.quantity}</span>
+              <button type="button" onclick="kitchenSheetSetQty(1)" aria-label="Increase quantity">+</button>
+            </div>
+            ${skipped
+              ? `<button class="kitchen-action unskip" type="button" onclick="kitchenSheetAction('open')">↩ Open</button>`
+              : `<button class="kitchen-action bought" type="button" onclick="kitchenSheetAction('bought')">✓ Bought</button>
+                 <button class="kitchen-action low" type="button" onclick="kitchenSheetAction('low')">📝 Low</button>
+                 <button class="kitchen-action skip" type="button" onclick="kitchenSheetAction('skipped')">⏭ Skip</button>`}
+            <button class="kitchen-action delete" type="button" onclick="kitchenSheetAction('delete')">🗑</button>
+          </div>
+
+          <div class="kitchen-presets" id="kitchen-presets" style="display: none;"></div>
+        `;
+        setHtml(card, html);
+        sheet.style.display = "flex";
+      }
+
+      function closeKitchenSheet() {
+        const sheet = document.getElementById("kitchen-sheet");
+        if (sheet) sheet.style.display = "none";
+        kitchenSheetItemId = null;
+        kitchenStagedAction = null;
+      }
       async function addProductToList(productId) {
         if (!productId) return;
         try {
