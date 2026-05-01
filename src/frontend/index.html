@@ -22610,10 +22610,13 @@
             const priceHtml = t.latest_unit_price
               ? `<span class="kitchen-tile-price">$${t.latest_unit_price.toFixed(2)}</span>`
               : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
+            const onclickPayload = isOnList
+              ? ""
+              : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`;
             return `
               <div
                 class="kitchen-tile${isOnList ? " on-list" : ""}"
-                onclick="${isOnList ? "" : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`}"
+                onclick="${escHtml(onclickPayload)}"
                 title="${escHtml(t.name)}"
               >
                 <div class="kitchen-tile-img">${inner}</div>
