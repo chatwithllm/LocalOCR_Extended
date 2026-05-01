@@ -1960,8 +1960,15 @@
           </div>
 
           <div class="kitchen-catalog" id="kitchen-catalog">
-            <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
-            <div class="kitchen-grid" id="kitchen-grid"></div>
+            <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
+                    onclick="toggleKitchenCatalog()" aria-expanded="true">
+              <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
+              <span class="kitchen-catalog-toggle-caret">▾</span>
+            </button>
+            <div class="kitchen-catalog-body" id="kitchen-catalog-body">
+              <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
+              <div class="kitchen-grid" id="kitchen-grid"></div>
+            </div>
           </div>
 
           <div class="kitchen-list" id="kitchen-list-container">
@@ -6040,6 +6047,8 @@
       let kitchenActiveCategory = "frequent";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
+      let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
+        localStorage.getItem("kitchen-catalog-collapsed") === "1";
       const KITCHEN_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"];
       const KITCHEN_CATEGORY_EMOJI = {
         Produce: "🥬", Meat: "🥩", Dairy: "🥛",
@@ -22701,11 +22710,35 @@
           kitchenList = (list.items || []).filter(
             (i) => i.status === "open" || i.status === "skipped",
           );
+          if (list.available_store_buckets) {
+            shoppingStoreBuckets = list.available_store_buckets;
+          }
           renderKitchenCatalog();
           renderKitchenList();
+          applyKitchenCatalogCollapsed();
         } catch (err) {
           toast(err.message || "Failed to load kitchen view", "error");
         }
+      }
+
+      function toggleKitchenCatalog() {
+        kitchenCatalogCollapsed = !kitchenCatalogCollapsed;
+        applyKitchenCatalogCollapsed();
+        try {
+          localStorage.setItem(
+            "kitchen-catalog-collapsed",
+            kitchenCatalogCollapsed ? "1" : "0",
+          );
+        } catch (_) { /* ignore */ }
+      }
+
+      function applyKitchenCatalogCollapsed() {
+        const cat = document.getElementById("kitchen-catalog");
+        const toggle = document.getElementById("kitchen-catalog-toggle");
+        const caret = toggle ? toggle.querySelector(".kitchen-catalog-toggle-caret") : null;
+        if (cat) cat.classList.toggle("collapsed", kitchenCatalogCollapsed);
+        if (toggle) toggle.setAttribute("aria-expanded", kitchenCatalogCollapsed ? "false" : "true");
+        if (caret) caret.textContent = kitchenCatalogCollapsed ? "▸" : "▾";
       }
 
       function kitchenSetActiveCategory(name) {
@@ -22859,7 +22892,41 @@
         }
         if (container) container.style.display = "block";
         if (empty) empty.style.display = "none";
-        setHtml(grid, items.map(_kitchenItemTile).join(""));
+
+        // Group by preferred store.
+        const groups = new Map();
+        for (const item of items) {
+          const store =
+            item.preferred_store ||
+            (item.latest_price && item.latest_price.store) ||
+            "Unassigned";
+          if (!groups.has(store)) groups.set(store, []);
+          groups.get(store).push(item);
+        }
+        const storeNames = [...groups.keys()].sort((a, b) => {
+          if (a === "Unassigned") return 1;
+          if (b === "Unassigned") return -1;
+          return a.localeCompare(b);
+        });
+
+        const html = storeNames.map((store) => {
+          const list = groups.get(store);
+          const tilesHtml = list.map(_kitchenItemTile).join("");
+          return `
+            <div class="kitchen-store-group">
+              <h3 class="kitchen-store-group-title">
+                <span>${escHtml(store)}</span>
+                <span class="kitchen-store-group-count">${list.length} item${list.length === 1 ? "" : "s"}</span>
+              </h3>
+              <div class="kitchen-grid kitchen-grid--list">${tilesHtml}</div>
+            </div>`;
+        }).join("");
+
+        setHtml(grid, html);
+        // The grid is now a wrapper container — drop its grid styling on the
+        // outermost element by toggling a class.
+        grid.classList.add("kitchen-list-grid--grouped");
+
         if (total) {
           const sum = items.reduce((acc, i) => {
             const catalogTile = _kitchenCatalogTileForProduct(i.product_id);
@@ -22901,6 +22968,14 @@
             <button class="kitchen-sheet-close" onclick="closeKitchenSheet()" type="button" aria-label="Close">✕</button>
           </div>
           <div class="kitchen-sheet-meta">${escHtml(meta)}</div>
+          <div class="kitchen-sheet-store">
+            <button type="button" class="kitchen-sheet-store-btn" onclick="toggleKitchenStorePicker()">
+              <span class="kitchen-sheet-store-label">🏪 Store</span>
+              <span class="kitchen-sheet-store-value">${escHtml(item.preferred_store || "—")}</span>
+              <span class="kitchen-sheet-store-caret" id="kitchen-store-picker-caret">▸</span>
+            </button>
+            <div class="kitchen-sheet-store-picker" id="kitchen-store-picker" style="display: none;"></div>
+          </div>
 
           <div class="kitchen-sheet-actions">
             <div class="kitchen-sheet-qty">
@@ -22927,6 +23002,63 @@
         if (sheet) sheet.style.display = "none";
         kitchenSheetItemId = null;
         kitchenStagedAction = null;
+      }
+
+      function toggleKitchenStorePicker() {
+        const picker = document.getElementById("kitchen-store-picker");
+        const caret = document.getElementById("kitchen-store-picker-caret");
+        if (!picker) return;
+        const isOpen = picker.style.display !== "none";
+        if (isOpen) {
+          picker.style.display = "none";
+          if (caret) caret.textContent = "▸";
+          return;
+        }
+        // Render chips from shoppingStoreBuckets.
+        const buckets = shoppingStoreBuckets || { frequent: [], low_freq: [] };
+        const all = [
+          ...(buckets.frequent || []),
+          ...(buckets.low_freq || []),
+        ];
+        const unique = [...new Set(all.filter(Boolean))];
+        const chips = unique
+          .map((name) => `
+            <button type="button" class="kitchen-store-chip"
+                    onclick="${escAttr(`pickKitchenStore(${JSON.stringify(name)})`)}">
+              ${escHtml(name)}
+            </button>`)
+          .join("") +
+          `<button type="button" class="kitchen-store-chip kitchen-store-chip--clear"
+                   onclick="pickKitchenStore('')">Clear</button>`;
+        setHtml(picker, chips);
+        picker.style.display = "flex";
+        if (caret) caret.textContent = "▾";
+      }
+
+      async function pickKitchenStore(storeName) {
+        const item = _kitchenItemById(kitchenSheetItemId);
+        if (!item) return;
+        try {
+          const res = await api(`/shopping-list/items/${item.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ preferred_store: storeName || null }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Could not save store");
+          item.preferred_store = storeName || null;
+          toast(storeName ? `Store set: ${storeName}` : "Store cleared", "success");
+          // Update sheet's visible store value
+          const valueEl = document.querySelector(".kitchen-sheet-store-value");
+          if (valueEl) valueEl.textContent = storeName || "—";
+          const picker = document.getElementById("kitchen-store-picker");
+          if (picker) picker.style.display = "none";
+          const caret = document.getElementById("kitchen-store-picker-caret");
+          if (caret) caret.textContent = "▸";
+          // Re-render list so the item moves to the right store group.
+          renderKitchenList();
+        } catch (err) {
+          toast(err.message || "Save store failed", "error");
+        }
       }
       async function addProductToList(productId, name, category) {
         if (!productId) return;
