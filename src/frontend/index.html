@@ -6175,15 +6175,23 @@
       }
 
       function _kitchenCanonicalKey(name) {
-        return String(name || "")
+        let s = String(name || "")
           .toLowerCase()
-          .replace(/\b(organic|org|ks|kirkland|signature|natural|fresh)\b/g, "")
-          .replace(/\b\d+\s?(lb|oz|ct|count|pack|pk|gal|gallon|kg|g)\b/g, "")
+          .replace(/\b(organic|org|ks|kirkland|signature|natural|fresh|raw|frozen|pure|whole|baby|mini|jumbo|small|large)\b/g, "")
+          .replace(/\b\d+\s?(lb|oz|ct|count|pack|pk|gal|gallon|kg|g|ml|l)\b/g, "")
           .replace(/\b\d+\b/g, "")
           .replace(/[^a-z\s]+/g, " ")
           .replace(/\s+/g, " ")
-          .replace(/s$/, "")
           .trim();
+        if (!s) return "";
+        // Group by HEAD NOUN — e.g. "Roma Tomato" / "Vine Tomato" /
+        // "Cherry Tomato" / "Cocktail Tomatoes" all → "tomato".
+        // English compound nouns put the modifier first; the last word is
+        // the noun being modified.
+        const parts = s.split(" ");
+        let head = parts[parts.length - 1];
+        head = head.replace(/ies$/, "y").replace(/(es|s)$/, "");
+        return head;
       }
 
       function _kitchenGroupTiles(tiles) {
