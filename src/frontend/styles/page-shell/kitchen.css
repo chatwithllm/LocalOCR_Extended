@@ -9,14 +9,32 @@
 .kitchen-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
-.kitchen-toolbar .kitchen-catalog-toggle { margin-bottom: 0; }
-.kitchen-toolbar .kitchen-section-title { margin: 0; }
+.kitchen-toolbar .kitchen-catalog-toggle { margin-bottom: 0; flex: 0 0 auto; }
+.kitchen-toolbar .kitchen-section-title { margin: 0; flex: 0 0 auto; }
+.kitchen-toolbar .kitchen-weather { flex: 0 0 auto; margin-left: 0; }
+
+.kitchen-toolbar-when-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+/* Push the rightmost cluster (Current List + weather) to the far end. */
+.kitchen-toolbar > .kitchen-section-title {
+  margin-left: auto;
+}
+
+/* Collapsed catalog hides chip-bar + search and the body. */
+.kitchen-catalog.collapsed .kitchen-toolbar-when-open { display: none; }
+.kitchen-catalog.collapsed > .kitchen-catalog-body { display: none; }
 
 /* Search lives inside the chip row — collapsed magnifier by default,
    expands to a small input on focus or when query is non-empty. */

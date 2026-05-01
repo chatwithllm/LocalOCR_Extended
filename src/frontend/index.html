@@ -1950,26 +1950,14 @@
         </div>
 
         <div class="page" id="page-kitchen">
-          <div class="kitchen-toolbar">
-            <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
-                    onclick="toggleKitchenCatalog()" aria-expanded="true">
-              <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
-              <span class="kitchen-catalog-toggle-caret">▾</span>
-            </button>
-            <h2 class="kitchen-section-title">
-              <span>Current List</span>
-              <span class="kitchen-list-total" id="kitchen-list-total"></span>
-            </h2>
-          </div>
-
-          <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
-            <p>Your shopping list is empty. Tap a product above to add it.</p>
-          </div>
-
           <div class="kitchen-catalog" id="kitchen-catalog">
-            <div class="kitchen-catalog-body" id="kitchen-catalog-body">
-              <div class="kitchen-store-filter" id="kitchen-store-filter"></div>
-              <div class="kitchen-chip-row">
+            <div class="kitchen-toolbar">
+              <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
+                      onclick="toggleKitchenCatalog()" aria-expanded="true">
+                <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
+                <span class="kitchen-catalog-toggle-caret">▾</span>
+              </button>
+              <div class="kitchen-toolbar-when-open">
                 <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
                 <label class="kitchen-search-wrap" title="Search products">
                   <span class="kitchen-search-icon" aria-hidden="true">🔍</span>
@@ -1978,8 +1966,16 @@
                          oninput="onKitchenSearchInput(this.value)"
                          autocomplete="off">
                 </label>
-                <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
               </div>
+              <h2 class="kitchen-section-title">
+                <span>Current List</span>
+                <span class="kitchen-list-total" id="kitchen-list-total"></span>
+              </h2>
+              <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
+            </div>
+
+            <div class="kitchen-catalog-body" id="kitchen-catalog-body">
+              <div class="kitchen-store-filter" id="kitchen-store-filter"></div>
               <div class="kitchen-grid-wrap">
                 <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--prev"
                         onclick="kitchenGridScrollBy(-1)" aria-label="Scroll left">‹</button>
@@ -1988,6 +1984,10 @@
                         onclick="kitchenGridScrollBy(1)" aria-label="Scroll right">›</button>
               </div>
             </div>
+          </div>
+
+          <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
+            <p>Your shopping list is empty. Tap a product above to add it.</p>
           </div>
 
           <div class="kitchen-list" id="kitchen-list-container">
