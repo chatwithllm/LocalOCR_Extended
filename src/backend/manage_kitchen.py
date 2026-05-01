@@ -57,7 +57,7 @@ from sqlalchemy import func
 
 from src.backend.initialize_database_schema import (
     Product, ProductSnapshot, Purchase, ReceiptItem,
-    ShoppingListItem, ShoppingSession,
+    ShoppingListItem, ShoppingSession, PriceHistory,
 )
 
 
@@ -78,7 +78,7 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
     ProductTile shape:
         {"product_id": int, "name": str, "category": str,
          "image_url": str | None, "fallback_emoji": str,
-         "purchase_count": int}
+         "purchase_count": int, "latest_unit_price": float | None}
     """
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(days=FREQUENCY_WINDOW_DAYS)
@@ -104,20 +104,33 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
         .subquery()
     )
 
+    latest_price_subq = (
+        session.query(
+            PriceHistory.product_id.label("product_id"),
+            func.max(PriceHistory.id).label("price_history_id"),
+        )
+        .filter(PriceHistory.product_id.isnot(None))
+        .group_by(PriceHistory.product_id)
+        .subquery()
+    )
+
     rows = (
         session.query(
             Product,
             snapshot_subq.c.snapshot_id,
             count_subq.c.purchase_count,
+            PriceHistory.price.label("latest_price"),
         )
         .outerjoin(snapshot_subq, snapshot_subq.c.product_id == Product.id)
         .outerjoin(count_subq, count_subq.c.product_id == Product.id)
+        .outerjoin(latest_price_subq, latest_price_subq.c.product_id == Product.id)
+        .outerjoin(PriceHistory, PriceHistory.id == latest_price_subq.c.price_history_id)
         .all()
     )
 
     categories = {cat: [] for cat in DEFAULT_CATEGORIES}
     all_tiles = []
-    for product, snapshot_id, count in rows:
+    for product, snapshot_id, count, latest_price in rows:
         bucket = category_for_product(product)
         emoji = CATEGORY_EMOJI.get(bucket, CATEGORY_EMOJI["Other"])
         image_url = (
@@ -130,6 +143,7 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
             "image_url": image_url,
             "fallback_emoji": emoji,
             "purchase_count": int(count or 0),
+            "latest_unit_price": float(latest_price) if latest_price is not None else None,
         }
         categories[bucket].append(tile)
         all_tiles.append(tile)

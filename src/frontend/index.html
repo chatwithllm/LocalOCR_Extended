@@ -1956,10 +1956,7 @@
           </div>
 
           <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
-            <p>No active shopping session.</p>
-            <button class="btn btn-primary" onclick="nav('shopping', document.getElementById('nav-shopping'))">
-              Open Shopping List
-            </button>
+            <p>Your shopping list is empty. Tap a product above to add it.</p>
           </div>
 
           <div class="kitchen-catalog" id="kitchen-catalog">
@@ -6048,6 +6045,66 @@
         Produce: "🥬", Meat: "🥩", Dairy: "🥛",
         Bakery: "🍞", Pantry: "🥫", Other: "🧴",
       };
+      const KITCHEN_PRODUCT_EMOJI_RULES = [
+        // [substring (lowercase), emoji]
+        ["egg", "🥚"],
+        ["milk", "🥛"],
+        ["yogurt", "🥛"],
+        ["cheese", "🧀"],
+        ["butter", "🧈"],
+        ["bread", "🍞"],
+        ["bagel", "🥯"],
+        ["croissant", "🥐"],
+        ["banana", "🍌"],
+        ["apple", "🍎"],
+        ["strawberry", "🍓"],
+        ["strawberries", "🍓"],
+        ["grape", "🍇"],
+        ["lemon", "🍋"],
+        ["orange", "🍊"],
+        ["watermelon", "🍉"],
+        ["pineapple", "🍍"],
+        ["mango", "🥭"],
+        ["avocado", "🥑"],
+        ["tomato", "🍅"],
+        ["potato", "🥔"],
+        ["carrot", "🥕"],
+        ["broccoli", "🥦"],
+        ["lettuce", "🥬"],
+        ["spinach", "🥬"],
+        ["cucumber", "🥒"],
+        ["pepper", "🌶️"],
+        ["onion", "🧅"],
+        ["garlic", "🧄"],
+        ["mushroom", "🍄"],
+        ["corn", "🌽"],
+        ["chicken", "🍗"],
+        ["beef", "🥩"],
+        ["pork", "🥓"],
+        ["bacon", "🥓"],
+        ["fish", "🐟"],
+        ["shrimp", "🍤"],
+        ["rice", "🍚"],
+        ["pasta", "🍝"],
+        ["pizza", "🍕"],
+        ["water", "💧"],
+        ["juice", "🧃"],
+        ["coffee", "☕"],
+        ["tea", "🍵"],
+        ["chocolate", "🍫"],
+        ["cookie", "🍪"],
+        ["cake", "🍰"],
+        ["honey", "🍯"],
+        ["salt", "🧂"],
+      ];
+
+      function kitchenEmojiForProduct(item) {
+        const name = (item.name || "").toLowerCase();
+        for (const [needle, emoji] of KITCHEN_PRODUCT_EMOJI_RULES) {
+          if (name.includes(needle)) return emoji;
+        }
+        return KITCHEN_CATEGORY_EMOJI[item.category] || "🛒";
+      }
       const KITCHEN_PRESETS = {
         bought: ["Paid more", "Paid less", "Different brand", "Different size"],
         low: ["Almost out", "Restock soon"],
@@ -22549,21 +22606,27 @@
             const isOnList = onListSet.has(t.product_id);
             const inner = t.image_url
               ? `<img src="${escHtml(t.image_url)}" alt="${escHtml(t.name)}">`
-              : `${t.fallback_emoji}`;
+              : `${kitchenEmojiForProduct(t)}`;
+            const priceHtml = t.latest_unit_price
+              ? `<span class="kitchen-tile-price">$${t.latest_unit_price.toFixed(2)}</span>`
+              : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
             return `
               <div
                 class="kitchen-tile${isOnList ? " on-list" : ""}"
-                onclick="${isOnList ? "" : `addProductToList(${t.product_id})`}"
+                onclick="${isOnList ? "" : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`}"
                 title="${escHtml(t.name)}"
               >
                 <div class="kitchen-tile-img">${inner}</div>
                 <div class="kitchen-tile-foot">
-                  <span class="kitchen-tile-name">${escHtml(t.name)}</span>
-                  ${
-                    t.purchase_count
-                      ? `<span class="kitchen-tile-badge">${t.purchase_count}×</span>`
-                      : ""
-                  }
+                  <div class="kitchen-tile-name">${escHtml(t.name)}</div>
+                  <div class="kitchen-tile-meta">
+                    ${priceHtml}
+                    ${
+                      t.purchase_count
+                        ? `<span class="kitchen-tile-badge" title="bought ${t.purchase_count}× in last 90 days">${t.purchase_count}×</span>`
+                        : ""
+                    }
+                  </div>
                 </div>
               </div>`;
           })
@@ -22579,7 +22642,7 @@
         const snap = item.latest_snapshot;
         const inner = snap && snap.image_url
           ? `<img src="${escHtml(snap.image_url)}" alt="${escHtml(item.name)}">`
-          : `${KITCHEN_CATEGORY_EMOJI[item.category] || "🛒"}`;
+          : `${kitchenEmojiForProduct(item)}`;
         const skipped = item.status === "skipped";
         return `
           <div
@@ -22674,12 +22737,17 @@
         kitchenSheetItemId = null;
         kitchenStagedAction = null;
       }
-      async function addProductToList(productId) {
+      async function addProductToList(productId, name, category) {
         if (!productId) return;
         try {
           const res = await api("/shopping-list/items", {
             method: "POST",
-            body: JSON.stringify({ product_id: productId, quantity: 1 }),
+            body: JSON.stringify({
+              product_id: productId,
+              name: name || "",
+              category: category || "other",
+              quantity: 1,
+            }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Could not add to list");

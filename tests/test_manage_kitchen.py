@@ -236,3 +236,29 @@ def test_ready_to_bill_session_items_still_on_list(db_session):
 
     out = get_kitchen_catalog(db_session)
     assert p.id in out["on_list_product_ids"]
+
+
+def test_tile_includes_latest_unit_price(db_session):
+    from src.backend.initialize_database_schema import PriceHistory
+    p = _fresh_product(db_session, "Bread", category="Bakery")
+    now = datetime.now(timezone.utc)
+    db_session.add_all([
+        PriceHistory(product_id=p.id, price=2.50, date=now - timedelta(days=1)),
+        PriceHistory(product_id=p.id, price=2.75, date=now),
+    ])
+    db_session.commit()
+    tile = next(
+        t for t in get_kitchen_catalog(db_session)["categories"]["Bakery"]
+        if t["name"] == "Bread"
+    )
+    assert tile["latest_unit_price"] == 2.75
+
+
+def test_tile_no_price_history_returns_none(db_session):
+    _fresh_product(db_session, "Lettuce2", category="Produce")
+    db_session.commit()
+    tile = next(
+        t for t in get_kitchen_catalog(db_session)["categories"]["Produce"]
+        if t["name"] == "Lettuce2"
+    )
+    assert tile["latest_unit_price"] is None

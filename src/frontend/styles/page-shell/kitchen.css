@@ -96,8 +96,10 @@
 
 .kitchen-tile-foot {
   padding: 8px 10px;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   border-top: 1px solid var(--color-border);
 }
 
@@ -108,6 +110,24 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.kitchen-tile-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.kitchen-tile-price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.kitchen-tile-price--placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
 }
 
 .kitchen-tile-badge {
