@@ -22592,7 +22592,7 @@
             (c) => `
               <button
                 class="kitchen-chip${kitchenActiveCategory === c.key ? " active" : ""}"
-                onclick="kitchenSetActiveCategory(${JSON.stringify(c.key)})"
+                onclick="${escAttr(`kitchenSetActiveCategory(${JSON.stringify(c.key)})`)}"
                 type="button"
               >${escHtml(c.label)}</button>`,
           )
@@ -22616,8 +22616,8 @@
             return `
               <div
                 class="kitchen-tile${isOnList ? " on-list" : ""}"
-                onclick="${escHtml(onclickPayload)}"
-                title="${escHtml(t.name)}"
+                onclick="${escAttr(onclickPayload)}"
+                title="${escAttr(t.name)}"
               >
                 <div class="kitchen-tile-img">${inner}</div>
                 <div class="kitchen-tile-foot">
@@ -22884,7 +22884,7 @@
               <button
                 class="kitchen-preset"
                 type="button"
-                onclick="kitchenStampNote(${JSON.stringify(p)})"
+                onclick="${escAttr(`kitchenStampNote(${JSON.stringify(p)})`)}"
               >${escHtml(p)}</button>`,
           )
           .join("") +
