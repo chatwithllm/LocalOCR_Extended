@@ -1950,9 +1950,16 @@
         </div>
 
         <div class="page" id="page-kitchen">
-          <div class="page-header">
-            <h1>👨‍🍳 Kitchen</h1>
-            <p class="page-subtitle">Tablet-friendly shopping. Tap to act.</p>
+          <div class="kitchen-toolbar">
+            <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
+                    onclick="toggleKitchenCatalog()" aria-expanded="true">
+              <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
+              <span class="kitchen-catalog-toggle-caret">▾</span>
+            </button>
+            <h2 class="kitchen-section-title">
+              <span>Current List</span>
+              <span class="kitchen-list-total" id="kitchen-list-total"></span>
+            </h2>
           </div>
 
           <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
@@ -1960,11 +1967,6 @@
           </div>
 
           <div class="kitchen-catalog" id="kitchen-catalog">
-            <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
-                    onclick="toggleKitchenCatalog()" aria-expanded="true">
-              <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
-              <span class="kitchen-catalog-toggle-caret">▾</span>
-            </button>
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
               <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
               <div class="kitchen-grid" id="kitchen-grid"></div>
@@ -1972,10 +1974,6 @@
           </div>
 
           <div class="kitchen-list" id="kitchen-list-container">
-            <h2 class="kitchen-section-title">
-              <span>Current List</span>
-              <span class="kitchen-list-total" id="kitchen-list-total"></span>
-            </h2>
             <div class="kitchen-grid kitchen-grid--list" id="kitchen-list-grid"></div>
           </div>
 
