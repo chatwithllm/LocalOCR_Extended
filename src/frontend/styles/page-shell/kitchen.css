@@ -284,39 +284,35 @@
 }
 
 .kitchen-tile.on-list::before {
-  content: "🛒";
+  content: "";
   position: absolute;
   left: 6px;
   top: 6px;
   z-index: 3;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
+  width: 26px;
+  height: 26px;
   pointer-events: none;
-  background: #10b981;
-  color: #fff;
+  background-color: #10b981;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 5h2.4l2.6 11.7a1.6 1.6 0 0 0 1.6 1.3h8.4a1.6 1.6 0 0 0 1.6-1.2L22 9H7'/><circle cx='10' cy='20.5' r='1' fill='white'/><circle cx='18' cy='20.5' r='1' fill='white'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
   border-radius: 50%;
   border: 2px solid rgba(255,255,255,0.85);
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
   animation:
-    kitchen-cart-beat 1.2s ease-in-out infinite,
-    kitchen-cart-pulse 1.2s ease-out infinite;
+    kitchen-cart-beat 2s ease-in-out infinite,
+    kitchen-cart-pulse 2s ease-out infinite;
 }
 
 @keyframes kitchen-cart-beat {
   0%, 100% { transform: scale(1); }
-  15%      { transform: scale(1.25); }
-  30%      { transform: scale(1); }
-  45%      { transform: scale(1.15); }
-  60%      { transform: scale(1); }
+  50%      { transform: scale(1.08); }
 }
 
 @keyframes kitchen-cart-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70%  { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  70%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
   100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
