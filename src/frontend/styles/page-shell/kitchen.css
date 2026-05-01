@@ -1,16 +1,27 @@
 /* src/frontend/styles/page-shell/kitchen.css */
 
 #page-kitchen {
-  padding: 16px 20px 32px;
+  padding: 8px 20px 32px;
 }
 
 #page-kitchen .page-header {
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 #page-kitchen .page-header h1 {
-  font-size: 32px;
-  margin: 0 0 4px;
+  font-size: 22px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+#page-kitchen .page-header .page-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
 }
 
 .kitchen-empty {
@@ -228,17 +239,17 @@
 }
 
 .kitchen-section-title {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--color-text);
-  margin: 16px 0 12px;
+  margin: 8px 0 6px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .kitchen-list-total {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-muted);
 }
@@ -438,22 +449,22 @@
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  padding: 10px 14px;
-  border-radius: 10px;
-  display: flex;
+  padding: 4px 10px;
+  border-radius: 8px;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  font-size: 14px;
+  gap: 8px;
+  width: auto;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .kitchen-catalog-toggle:hover { filter: brightness(1.07); }
 
 .kitchen-catalog-toggle-caret {
-  font-size: 14px;
+  font-size: 11px;
   color: var(--color-text-muted);
 }
 
