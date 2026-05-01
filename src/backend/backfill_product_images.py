@@ -84,11 +84,15 @@ def find_products_needing_images(session, max_products: int = 20) -> list[Produc
     return [p for p in products if _is_meaningful_product(p)][:max_products]
 
 
-def backfill_images_for_products(session, products) -> dict:
+def backfill_images_for_products(session, products, *, provider: str = "auto") -> dict:
     """For each product: fetch image bytes, persist as ProductSnapshot row,
-    update last_image_fetch_attempt_at. Per-product commit."""
+    update last_image_fetch_attempt_at. Per-product commit.
+
+    provider: ``"auto"`` (gemini→openai fallback), ``"gemini"``, ``"openai"``.
+    """
     fetched = 0
     failed = 0
+    providers_used: dict[str, int] = {}
     for product in products:
         query_name = (product.display_name or product.name or "").strip()
         if not query_name:
@@ -97,10 +101,12 @@ def backfill_images_for_products(session, products) -> dict:
             failed += 1
             continue
         try:
-            data = fetch_product_image(query_name, product.category)
+            data, prov_used = fetch_product_image(
+                query_name, product.category, provider=provider,
+            )
         except Exception as exc:
             logger.exception("fetch_product_image raised for %s: %s", product.id, exc)
-            data = None
+            data, prov_used = None, None
 
         if data:
             now = datetime.now(timezone.utc)
@@ -120,9 +126,11 @@ def backfill_images_for_products(session, products) -> dict:
                 captured_at=now,
             ))
             fetched += 1
+            if prov_used:
+                providers_used[prov_used] = providers_used.get(prov_used, 0) + 1
         else:
             failed += 1
 
         product.last_image_fetch_attempt_at = datetime.now(timezone.utc)
         session.commit()
-    return {"fetched": fetched, "failed": failed}
+    return {"fetched": fetched, "failed": failed, "providers_used": providers_used}

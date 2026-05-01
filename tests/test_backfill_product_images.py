@@ -133,10 +133,12 @@ def test_backfill_creates_snapshot_and_marks_attempt(db_session, snapshots_dir):
 
     products = find_products_needing_images(db_session)
     with patch("src.backend.backfill_product_images.fetch_product_image",
-               return_value=_jpeg_bytes()):
+               return_value=(_jpeg_bytes(), "gemini")):
         stats = backfill_images_for_products(db_session, products)
 
-    assert stats == {"fetched": 1, "failed": 0}
+    assert stats["fetched"] == 1
+    assert stats["failed"] == 0
+    assert stats["providers_used"] == {"gemini": 1}
     snaps = db_session.query(ProductSnapshot).filter_by(product_id=p.id).all()
     assert len(snaps) == 1
     assert snaps[0].source_context == "auto_fetch"
@@ -158,10 +160,11 @@ def test_backfill_marks_attempt_even_when_fetch_fails(db_session, snapshots_dir)
 
     products = find_products_needing_images(db_session)
     with patch("src.backend.backfill_product_images.fetch_product_image",
-               return_value=None):
+               return_value=(None, None)):
         stats = backfill_images_for_products(db_session, products)
 
-    assert stats == {"fetched": 0, "failed": 1}
+    assert stats["fetched"] == 0
+    assert stats["failed"] == 1
     assert db_session.query(ProductSnapshot).filter_by(product_id=p.id).count() == 0
     db_session.refresh(p)
     assert p.last_image_fetch_attempt_at is not None
@@ -181,7 +184,7 @@ def test_per_product_commit_survives_partial_failure(db_session, snapshots_dir):
     def _fake(name, *a, **kw):
         call_count["n"] += 1
         if call_count["n"] == 1:
-            return _jpeg_bytes()
+            return (_jpeg_bytes(), "gemini")
         raise RuntimeError("simulated provider crash")
 
     products = find_products_needing_images(db_session)
