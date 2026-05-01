@@ -34,8 +34,9 @@ ALLOWED_SOURCE_CONTEXTS = {
     "after_purchase",
     "receipt_backfill",
     "manual",
+    "auto_fetch",
 }
-ALLOWED_STATUSES = {"unreviewed", "linked", "needs_review", "archived"}
+ALLOWED_STATUSES = {"unreviewed", "linked", "needs_review", "archived", "auto"}
 
 
 def _get_snapshot_root() -> Path:
@@ -49,6 +50,10 @@ def _get_snapshot_root() -> Path:
 
     repo_root = Path(__file__).resolve().parents[2]
     return repo_root / "data" / "product_snapshots"
+
+
+# Public alias — see backfill_product_images.py and other future callers.
+get_snapshot_root = _get_snapshot_root
 
 
 def _resolve_snapshot_path(image_path: str | None) -> Path | None:
