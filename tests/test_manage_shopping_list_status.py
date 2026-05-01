@@ -164,3 +164,26 @@ def test_put_no_status_field_is_noop(app, sample_shopping_item_id):
         {"note": "hi"},
     )
     assert status == 200, body
+
+
+def test_put_status_empty_string_is_noop(app, sample_shopping_item_id):
+    # Empty status should not 400; it falls through and keeps the existing value.
+    status, body = _invoke_put(
+        app,
+        f"/shopping-list/items/{sample_shopping_item_id}",
+        "shoplist_status@test.local",
+        {"status": ""},
+    )
+    assert status == 200, body
+    assert body["item"]["status"] == "open"  # unchanged from default
+
+
+def test_put_status_out_of_stock_accepted(app, sample_shopping_item_id):
+    status, body = _invoke_put(
+        app,
+        f"/shopping-list/items/{sample_shopping_item_id}",
+        "shoplist_status@test.local",
+        {"status": "out_of_stock"},
+    )
+    assert status == 200, body
+    assert body["item"]["status"] == "out_of_stock"
