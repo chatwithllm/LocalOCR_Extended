@@ -72,11 +72,22 @@ def start_recommendation_scheduler():
         name="Plaid Transaction Sync",
     )
 
+    # Nightly proactive product image backfill (04:00 daily, cap 50 products).
+    _scheduler.add_job(
+        _run_image_backfill,
+        trigger="cron",
+        hour=4,
+        minute=0,
+        id="image_backfill",
+        name="Proactive Product Image Backfill",
+        misfire_grace_time=3600,
+    )
+
     _scheduler.start()
     logger.info(
         f"Schedulers started — recommendations daily at {RECOMMENDATION_TIME}, "
         f"threshold checks every 5 min, image cleanup Sundays at 3 AM, "
-        f"Plaid sync hourly"
+        f"Plaid sync hourly, image_backfill@04:00"
     )
 
 
@@ -136,6 +147,34 @@ def _run_plaid_sync():
         run_scheduled_plaid_sync()
     except Exception as e:  # noqa: BLE001
         logger.error(f"Plaid scheduled sync failed: {e}")
+
+
+def _run_image_backfill():
+    """Nightly: fetch images for products missing a ProductSnapshot."""
+    try:
+        from src.backend.initialize_database_schema import (
+            create_db_engine, create_session_factory,
+        )
+        from src.backend.backfill_product_images import (
+            find_products_needing_images, backfill_images_for_products,
+        )
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+        session = Session()
+        try:
+            products = find_products_needing_images(session, max_products=50)
+            if not products:
+                logger.info("Image backfill: nothing to do.")
+                return
+            stats = backfill_images_for_products(session, products)
+            logger.info(
+                "Image backfill: fetched=%d failed=%d (cap=50)",
+                stats["fetched"], stats["failed"],
+            )
+        finally:
+            session.close()
+    except Exception as exc:
+        logger.error("Image backfill failed: %s", exc)
 
 
 def stop_recommendation_scheduler():
