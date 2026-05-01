@@ -1974,14 +1974,6 @@
                   </div>
                 </div>
               </div>
-              <h2 class="kitchen-section-title">
-                <span>Current List</span>
-                <button type="button" class="kitchen-names-toggle" id="kitchen-names-toggle"
-                        onclick="toggleKitchenNames()" title="Toggle item names"
-                        aria-label="Toggle item names">🏷️</button>
-                <span class="kitchen-list-total" id="kitchen-list-total"></span>
-              </h2>
-              <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
             </div>
 
             <div class="kitchen-catalog-body" id="kitchen-catalog-body">
@@ -1993,6 +1985,17 @@
                         onclick="kitchenGridScrollBy(1)" aria-label="Scroll right">›</button>
               </div>
             </div>
+          </div>
+
+          <div class="kitchen-list-header">
+            <h2 class="kitchen-section-title">
+              <span>Current List</span>
+              <button type="button" class="kitchen-names-toggle" id="kitchen-names-toggle"
+                      onclick="toggleKitchenNames()" title="Toggle item names"
+                      aria-label="Toggle item names">🏷️</button>
+              <span class="kitchen-list-total" id="kitchen-list-total"></span>
+            </h2>
+            <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
           </div>
 
           <div class="kitchen-empty" id="kitchen-empty" style="display: none;">

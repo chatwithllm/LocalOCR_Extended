@@ -18,6 +18,17 @@
 .kitchen-toolbar .kitchen-section-title { margin: 0; flex: 0 0 auto; }
 .kitchen-toolbar .kitchen-weather { flex: 0 0 auto; margin-left: 0; }
 
+.kitchen-list-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 6px;
+}
+
+.kitchen-list-header .kitchen-section-title { margin: 0; flex: 0 0 auto; }
+.kitchen-list-header .kitchen-weather { margin-left: auto; }
+
 .kitchen-toolbar-when-open {
   display: flex;
   align-items: center;
