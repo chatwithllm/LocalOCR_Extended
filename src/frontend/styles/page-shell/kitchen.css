@@ -118,24 +118,44 @@
 }
 
 @media (max-width: 600px) {
+  /* Mobile: slide-up bottom sheet with dim backdrop. */
   .kitchen-search-popover {
-    /* Anchor to viewport instead of the magnifier wrap so the popover
-       can't drift off-screen when the wrap sits in different toolbar
-       positions across breakpoints. */
     position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
     top: auto;
-    left: 8px;
-    right: 8px;
-    bottom: auto;
     width: auto;
     max-width: none;
-    margin-top: 8px;
+    max-height: 70vh;
+    border-radius: 16px 16px 0 0;
+    padding: 14px 16px env(safe-area-inset-bottom, 16px);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+    animation: kitchen-popover-slide-up 0.18s ease-out;
   }
-  .kitchen-search-wrap.popover-open .kitchen-search-popover {
-    /* Re-anchor below the wrap using its bounding rect at open time
-       (computed in JS to avoid hard-coding header height). */
+
+  @keyframes kitchen-popover-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
   }
+
+  /* Backdrop behind the sheet, only on mobile when open. */
+  .kitchen-search-wrap.popover-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 49;
+    animation: kitchen-popover-fade 0.18s ease-out;
+  }
+
+  @keyframes kitchen-popover-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   .kitchen-search-popover-stores { grid-template-columns: repeat(2, 1fr); }
+  .kitchen-search-popover-label { font-size: 12px; }
 }
 
 .kitchen-search-popover-empty {
