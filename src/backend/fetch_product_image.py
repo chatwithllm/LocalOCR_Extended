@@ -56,7 +56,6 @@ def fetch_product_image(
             size="1024x1024",
             quality="low",
             n=1,
-            response_format="b64_json",
         )
         raw = base64.b64decode(resp.data[0].b64_json)
     except (openai.APIError, openai.APITimeoutError, Exception) as exc:
