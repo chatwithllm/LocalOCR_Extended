@@ -12590,7 +12590,14 @@
       // ---- Per-user page-access restriction --------------------------
       // `currentUser.allowed_pages` is either null (no restriction, legacy
       // behaviour) or a list of page ids the user may see. Admins bypass.
+      // On a trusted device, the DEVICE's allowed_pages overrides the
+      // user's — admins pick what a kitchen tablet can see independently
+      // of who's signed in on it.
       function getAllowedPages() {
+        const devicePages = currentAuthContext?.trusted_device?.allowed_pages;
+        if (Array.isArray(devicePages)) {
+          return new Set(devicePages.map((p) => String(p).toLowerCase()));
+        }
         if (!currentUser) return null;
         if (currentUser.role === "admin") return null; // bypass
         const list = currentUser.allowed_pages;
