@@ -36,6 +36,11 @@ from src.backend.normalize_store_names import canonicalize_store_name
 
 shopping_list_bp = Blueprint("shopping_list", __name__, url_prefix="/shopping-list")
 
+# Authoritative set of allowed ShoppingListItem.status values for authed PUTs.
+# The shared/anonymous link route stays narrower ({"open", "purchased"}) on
+# purpose — see update_shared_shopping_item below.
+_VALID_ITEM_STATUSES = {"open", "purchased", "skipped"}
+
 
 def _hash_access_token(token: str) -> str:
     import hashlib
@@ -741,7 +746,10 @@ def update_shopping_item(item_id):
     if "quantity" in data:
         item.quantity = float(data["quantity"])
     if "status" in data:
-        item.status = str(data["status"]).strip().lower() or item.status
+        next_status = str(data["status"]).strip().lower()
+        if next_status and next_status not in _VALID_ITEM_STATUSES:
+            return jsonify({"error": "invalid status"}), 400
+        item.status = next_status or item.status
     if "note" in data:
         item.note = (data["note"] or "").strip() or None
     if "preferred_store" in data:
@@ -838,6 +846,8 @@ def update_shared_shopping_item(token: str, item_id: int):
 
     data = request.get_json(silent=True) or {}
     next_status = str(data.get("status") or "").strip().lower()
+    # Anonymous shared-link route is intentionally narrower than the authed
+    # PUT — no "skipped" because the shopping helper UI can't undo it.
     if next_status not in {"open", "purchased"}:
         return jsonify({"error": "Only open and purchased status updates are allowed"}), 400
 
