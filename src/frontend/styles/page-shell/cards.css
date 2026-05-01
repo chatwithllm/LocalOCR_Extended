@@ -1559,15 +1559,19 @@
    Mirrors the household-user "Pages for User" picker, but rendered into
    a dedicated container so the device-pairing modal can reuse it. */
 .device-pages-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 240px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+  max-height: 50vh;
   overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 8px;
   background: var(--color-surface-2);
+}
+
+@media (max-width: 480px) {
+  .device-pages-picker { grid-template-columns: 1fr; }
 }
 
 .device-page-row {
@@ -1578,6 +1582,13 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
+  min-width: 0;
+}
+
+.device-page-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .device-page-row:hover {
