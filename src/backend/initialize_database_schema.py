@@ -115,6 +115,7 @@ class Product(Base):
     default_size_label = Column(String(120), nullable=True)
     enrichment_confidence = Column(Float, nullable=True)
     enriched_at = Column(DateTime, nullable=True)
+    last_image_fetch_attempt_at = Column(DateTime, nullable=True)
     review_state = Column(String(20), nullable=True, default="pending")  # pending, resolved, dismissed
     reviewed_at = Column(DateTime, nullable=True)
     reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
