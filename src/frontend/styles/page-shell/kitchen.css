@@ -66,6 +66,10 @@
   grid-template-columns: repeat(8, 1fr);
 }
 
+.kitchen-grid--list .kitchen-tile {
+  aspect-ratio: 1.25;
+}
+
 @media (max-width: 1400px) {
   .kitchen-grid { grid-template-columns: repeat(8, 1fr); }
   .kitchen-grid--list { grid-template-columns: repeat(6, 1fr); }
