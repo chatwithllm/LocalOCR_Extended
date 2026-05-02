@@ -21325,17 +21325,65 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           sheet.appendChild(title);
           // Name row — let users correct OCR misreads ("Rsp Sgr CK" →
           // "Raspberry Sugar Cake"). On save we PATCH display_name and
-          // the backend marks review_state=resolved.
+          // the backend marks review_state=resolved. Right-aligned camera
+          // icon uploads a product photo to /product-snapshots/upload.
           const nameLabel = document.createElement("label");
           nameLabel.textContent = "Name";
           nameLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const nameRow = document.createElement("div");
+          nameRow.style.cssText = "display:flex;gap:8px;margin-bottom:14px;align-items:stretch";
           const nameInput = document.createElement("input");
           nameInput.type = "text";
           nameInput.value = inv.product_name || "";
           nameInput.autocomplete = "off";
           nameInput.spellcheck = true;
-          nameInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
-          sheet.appendChild(nameLabel); sheet.appendChild(nameInput);
+          nameInput.style.cssText = "flex:1;min-width:0;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;text-align:left;-webkit-appearance:none;appearance:none";
+          const photoBtn = document.createElement("button");
+          photoBtn.type = "button";
+          photoBtn.title = "Add photo";
+          photoBtn.textContent = "📷";
+          photoBtn.style.cssText = "flex:0 0 50px;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:#fff;font-size:1.2rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center";
+          // Hidden file input — clicking the camera icon proxies through.
+          // capture="environment" is honored only on mobile + asks the OS
+          // to default to the rear camera; desktop still gets file picker.
+          const photoFile = document.createElement("input");
+          photoFile.type = "file";
+          photoFile.accept = "image/*";
+          photoFile.setAttribute("capture", "environment");
+          photoFile.style.cssText = "display:none";
+          photoBtn.addEventListener("click", function() { photoFile.click(); });
+          photoFile.addEventListener("change", async function() {
+            const f = photoFile.files && photoFile.files[0];
+            if (!f) return;
+            const original = photoBtn.textContent;
+            photoBtn.disabled = true; photoBtn.textContent = "…";
+            try {
+              const fd = new FormData();
+              fd.append("image", f);
+              fd.append("product_id", String(inv.product_id));
+              fd.append("source_context", "manual");
+              fd.append("status", "linked");
+              // api() injects auth + base URL; pass the FormData through
+              // without setting Content-Type so the browser fills the
+              // multipart boundary for us.
+              const res = await api("/product-snapshots/upload", { method: "POST", body: fd });
+              if (!res.ok) {
+                const err = await res.json().catch(function() { return {}; });
+                toast("Photo upload failed: " + (err.error || res.status), "error");
+                return;
+              }
+              toast("📷 Photo added", "info");
+              photoBtn.textContent = "✓";
+              setTimeout(function() { photoBtn.textContent = original; }, 1500);
+            } catch (e) {
+              toast("Photo upload failed: " + (e.message || e), "error");
+            } finally {
+              photoBtn.disabled = false;
+              photoFile.value = "";
+            }
+          });
+          nameRow.appendChild(nameInput); nameRow.appendChild(photoBtn); nameRow.appendChild(photoFile);
+          sheet.appendChild(nameLabel); sheet.appendChild(nameRow);
           // Quantity + Unit row — paired so the user reads them as a single
           // measurement (e.g. "3 lb"). Unit choices cover the common cases;
           // unknown legacy values stay selected via dynamic option.
