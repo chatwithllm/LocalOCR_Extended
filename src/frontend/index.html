@@ -20542,22 +20542,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       function _invBuildRestoreTile(it) {
         // Style mirrors .inv-tile but with a red-tinted "used-up" treatment
         // so users know they're looking at archived items, not live ones.
+        // No "USED UP" label per tile — the section header already says it.
         const tile = document.createElement("div");
         tile.className = "inv-tile inv-tile-used-up";
         const head = document.createElement("div");
         head.className = "inv-tile-head";
         const left = document.createElement("div");
         left.className = "inv-tile-head-left";
-        const usedUp = document.createElement("span");
-        usedUp.className = "inv-tile-days";
-        usedUp.style.color = "#ff8a8a";
-        usedUp.textContent = "USED UP";
-        left.appendChild(usedUp);
         const when = it.used_up_at ? String(it.used_up_at).slice(0, 10) : "?";
         const dateSpan = document.createElement("span");
-        dateSpan.className = "inv-tile-range";
+        dateSpan.className = "inv-tile-days";
         dateSpan.style.color = "var(--muted,#888)";
-        dateSpan.textContent = " · " + when;
+        dateSpan.style.fontWeight = "400";
+        dateSpan.textContent = when;
         left.appendChild(dateSpan);
         head.appendChild(left);
         const qty = document.createElement("span");
@@ -20569,14 +20566,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         name.className = "inv-tile-name";
         name.textContent = it.product_name;
         tile.appendChild(name);
-        const meta = document.createElement("div");
-        meta.className = "inv-tile-meta";
-        meta.style.color = "var(--muted,#888)";
         if (it.category) {
+          const meta = document.createElement("div");
+          meta.className = "inv-tile-meta";
+          meta.style.color = "var(--muted,#888)";
           meta.appendChild(_invElText("div", null, "📁 " + it.category));
+          tile.appendChild(meta);
         }
-        meta.appendChild(_invElText("div", null, "🗑️ Marked used up " + when));
-        tile.appendChild(meta);
         const actions = document.createElement("div");
         actions.className = "inv-tile-actions";
         const btn = document.createElement("button");
