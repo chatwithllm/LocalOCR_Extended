@@ -20219,11 +20219,16 @@
           tile.dataset.swiping = "0";
           tile.setPointerCapture(e.pointerId);
         });
+        function _cleanup() {
+          dragging = false;
+          tile.style.transform = "";
+          tile.classList.remove("swipe-right-active", "swipe-left-active");
+        }
         tile.addEventListener("pointermove", function(e) {
           if (!dragging) return;
           var dx = e.clientX - startX;
           var dy = e.clientY - startY;
-          if (Math.abs(dy) > 30) { dragging = false; tile.style.transform = ""; return; }
+          if (Math.abs(dy) > 30) { _cleanup(); return; }
           if (Math.abs(dx) > 12) {
             tile.dataset.swiping = "1";
             tile.style.transform = "translateX(" + dx + "px)";
@@ -20232,13 +20237,11 @@
           }
         });
         tile.addEventListener("pointerup", function(e) {
-          if (!dragging) return;
-          dragging = false;
+          var wasDragging = dragging;
           var dx = e.clientX - startX;
           var dt = Date.now() - startT;
-          tile.style.transform = "";
-          tile.classList.remove("swipe-right-active", "swipe-left-active");
-          if (dt < 500 && Math.abs(dx) >= 60) {
+          _cleanup();
+          if (wasDragging && dt < 500 && Math.abs(dx) >= 60) {
             var name = item.product_name || "item";
             if (dx > 0) {
               invDecrement(item.product_id);
@@ -20250,11 +20253,8 @@
           }
           setTimeout(function() { tile.dataset.swiping = "0"; }, 250);
         });
-        tile.addEventListener("pointercancel", function() {
-          dragging = false;
-          tile.style.transform = "";
-          tile.classList.remove("swipe-right-active", "swipe-left-active");
-        });
+        tile.addEventListener("pointercancel", _cleanup);
+        tile.addEventListener("pointerleave", _cleanup);
       }
 
       async function invPatch(pid, body) {
