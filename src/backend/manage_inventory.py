@@ -623,12 +623,14 @@ def list_recently_used_up():
         if prod.id in seen:
             continue
         seen.add(prod.id)
+        snap = _latest_snapshot_for_product(session, prod.id)
         items.append({
             "product_id": prod.id,
             "product_name": get_product_display_name(prod),
             "category": prod.category,
             "prior_quantity": abs(float(adj.quantity_delta or 0)),
             "used_up_at": adj.created_at.isoformat() if adj.created_at else None,
+            "image_url": snap["image_url"] if snap else None,
         })
     return jsonify({"items": items}), 200
 

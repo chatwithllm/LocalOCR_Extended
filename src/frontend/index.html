@@ -154,6 +154,31 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* Restore action must always be visible — even on mobile where the
    regular .inv-tile-actions row is gated behind tap-to-expand. */
 .inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
+/* Image layout — left-aligned, fills tile height. Used-up tiles only. */
+.inv-tile-used-up.inv-tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  padding: 10px;
+}
+.inv-tile-used-up > :not(.inv-tile-img-wrap) { grid-column: 2; min-width: 0; }
+.inv-tile-img-wrap {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  display: flex;
+}
+.inv-tile-img {
+  width: 80px;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #222;
+}
+@media (max-width: 600px) {
+  .inv-tile-used-up.inv-tile { padding: 10px; }
+  .inv-tile-img { width: 110px; }
+}
 #inventory-bulk-bar {
   display: none;
   flex-wrap: wrap;
@@ -20545,6 +20570,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         // No "USED UP" label per tile — the section header already says it.
         const tile = document.createElement("div");
         tile.className = "inv-tile inv-tile-used-up";
+        // Optional product image — left-aligned via .inv-tile-img-wrap; on
+        // mobile CSS reflows the tile so the image fills the full height.
+        if (it.image_url) {
+          const imgWrap = document.createElement("div");
+          imgWrap.className = "inv-tile-img-wrap";
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + it.image_url;
+          img.alt = it.product_name;
+          img.loading = "lazy";
+          imgWrap.appendChild(img);
+          tile.appendChild(imgWrap);
+        }
         const head = document.createElement("div");
         head.className = "inv-tile-head";
         const left = document.createElement("div");
