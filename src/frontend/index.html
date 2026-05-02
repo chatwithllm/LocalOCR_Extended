@@ -94,7 +94,15 @@
 /* ===== Inventory Expiry Tile View — Mobile (<600px) ===== */
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
-  .inv-tile { padding: 14px; cursor: pointer; transition: transform 0.18s ease, background 0.18s ease; }
+  .inv-tile {
+    padding: 14px;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease;
+    /* Release horizontal pans to JS while keeping native vertical scroll. */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
   .inv-tile-actions { display: none; gap: 8px; }
   .inv-tile.expanded .inv-tile-actions { display: flex; }
   .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
