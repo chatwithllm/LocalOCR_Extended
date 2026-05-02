@@ -20320,6 +20320,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (window.__inventorySelectionMode) return;
         window.__inventorySelectionMode = true;
         document.body.classList.add("inv-selection-mode");
+        // Lift bar to <body> so no ancestor (transform, filter, etc.)
+        // creates a containing block that pulls fixed positioning out
+        // of the viewport. Idempotent on re-entry.
+        var bar = document.getElementById("inventory-bulk-bar");
+        if (bar && bar.parentElement !== document.body) {
+          document.body.appendChild(bar);
+        }
       }
       function _invExitSelectionMode() {
         window.__inventorySelectionMode = false;
