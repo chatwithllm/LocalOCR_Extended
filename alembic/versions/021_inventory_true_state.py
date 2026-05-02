@@ -1,4 +1,4 @@
-"""inventory_true_state: location/expires_at/expires_source/last_purchased_at + shelf-life defaults table.
+"""inventory_true_state: expires_at/expires_at_system/expires_source/last_purchased_at + shelf-life defaults table.
 
 Revision ID: 021_inventory_true_state
 Revises: 020_product_image_fetch_attempt
