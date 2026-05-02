@@ -5,6 +5,7 @@ Per-product commit so partial failures preserve previous successes.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -19,6 +20,14 @@ from src.backend.manage_product_snapshots import get_snapshot_root
 
 
 logger = logging.getLogger(__name__)
+
+# Per-image USD cost by provider. Gemini Flash Image is free-tier; OpenAI
+# gpt-image-1 at low quality 1024² lists at $0.011/image. Update if pricing
+# changes — single source of truth for the history/cost endpoint.
+_PROVIDER_COST_USD = {
+    "openai": 0.011,
+    "gemini": 0.0,
+}
 
 RETRY_INTERVAL = timedelta(days=1)
 
@@ -118,12 +127,20 @@ def backfill_images_for_products(session, products, *, provider: str = "auto") -
             save_path = save_dir / filename
             save_path.write_bytes(data)
 
+            # Stamp provider + cost into notes as JSON so the history
+            # endpoint can split runs by provider and compute spend
+            # without a schema change. Older rows have no notes; the
+            # reader treats them as unknown / 0-cost.
             session.add(ProductSnapshot(
                 product_id=product.id,
                 source_context="auto_fetch",
                 status="auto",
                 image_path=str(save_path),
                 captured_at=now,
+                notes=json.dumps({
+                    "provider": prov_used,
+                    "cost_usd": _PROVIDER_COST_USD.get(prov_used, 0.0),
+                }),
             ))
             fetched += 1
             if prov_used:

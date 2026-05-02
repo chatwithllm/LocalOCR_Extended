@@ -13,16 +13,17 @@ Endpoints (all require admin):
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date as _date, datetime, timedelta, timezone
 from uuid import uuid4
 
 from flask import Blueprint, g, jsonify, request
 
 from src.backend.backfill_product_images import (
-    _is_meaningful_product, find_products_needing_images,
+    _PROVIDER_COST_USD, _is_meaningful_product, find_products_needing_images,
 )
 from src.backend.create_flask_application import require_auth
 from src.backend.fetch_product_image import (
@@ -162,6 +163,10 @@ def _run_admin_job(job_id: str, product_ids: list[int], provider: str) -> None:
                     status="auto",
                     image_path=str(save_path),
                     captured_at=now,
+                    notes=json.dumps({
+                        "provider": prov_used,
+                        "cost_usd": _PROVIDER_COST_USD.get(prov_used, 0.0),
+                    }),
                 ))
                 with _JOBS_LOCK:
                     _JOBS[job_id]["items"].append({
@@ -299,3 +304,67 @@ def get_job(job_id):
         if not job:
             return jsonify({"error": "job not found"}), 404
         return jsonify(dict(job)), 200
+
+
+@image_backfill_bp.route("/history", methods=["GET"])
+@require_auth
+def get_history():
+    """Daily history of auto_fetch ProductSnapshots over the last N days
+    so admins can see how many images were generated each night and what
+    it cost. Provider + cost are read from the snapshot's notes field
+    (stamped at write time); rows without notes count as unknown_provider
+    and contribute 0 to the cost total.
+    """
+    _, error = _admin_or_403()
+    if error:
+        return error
+    try:
+        days = max(1, min(int(request.args.get("days", 30)), 365))
+    except (TypeError, ValueError):
+        days = 30
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    rows = (
+        g.db_session.query(ProductSnapshot)
+        .filter(ProductSnapshot.source_context == "auto_fetch")
+        .filter(ProductSnapshot.created_at >= cutoff)
+        .order_by(ProductSnapshot.created_at.desc())
+        .all()
+    )
+    by_day: dict[str, dict] = {}
+    totals_by_provider: dict[str, int] = {}
+    total_fetched = 0
+    total_cost = 0.0
+    for r in rows:
+        day = (r.created_at or r.captured_at or datetime.now(timezone.utc)).date().isoformat()
+        prov = "unknown"
+        cost = 0.0
+        if r.notes:
+            try:
+                meta = json.loads(r.notes)
+                prov = (meta.get("provider") or "unknown").lower()
+                cost = float(meta.get("cost_usd") or _PROVIDER_COST_USD.get(prov, 0.0))
+            except (ValueError, TypeError):
+                pass
+        bucket = by_day.setdefault(day, {
+            "date": day, "fetched": 0, "cost_usd": 0.0, "by_provider": {}
+        })
+        bucket["fetched"] += 1
+        bucket["cost_usd"] += cost
+        bucket["by_provider"][prov] = bucket["by_provider"].get(prov, 0) + 1
+        totals_by_provider[prov] = totals_by_provider.get(prov, 0) + 1
+        total_fetched += 1
+        total_cost += cost
+    days_sorted = sorted(by_day.values(), key=lambda d: d["date"], reverse=True)
+    # Round each day's cost so floating-point cruft doesn't leak into UI.
+    for d in days_sorted:
+        d["cost_usd"] = round(d["cost_usd"], 4)
+    return jsonify({
+        "days": days_sorted,
+        "totals": {
+            "fetched": total_fetched,
+            "cost_usd": round(total_cost, 4),
+            "by_provider": totals_by_provider,
+        },
+        "window_days": days,
+        "provider_pricing_usd": _PROVIDER_COST_USD,
+    }), 200

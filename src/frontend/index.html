@@ -4466,6 +4466,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             <div class="table-wrap" style="margin-top: 12px">
               <div id="image-backfill-body"></div>
             </div>
+            <fieldset style="margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px">
+              <legend style="padding: 0 6px; color: var(--muted); font-size: 0.8rem">History &amp; spend</legend>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <select id="image-backfill-history-window" onchange="loadImageBackfillHistory()" style="padding:4px 8px">
+                  <option value="7">Last 7 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="365">Last 365 days</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="loadImageBackfillHistory()">🔄</button>
+                <span id="image-backfill-history-totals" style="margin-left:auto;color:var(--muted);font-size:0.88rem"></span>
+              </div>
+              <div id="image-backfill-history-body"></div>
+            </fieldset>
           </div>
           <div class="card" id="settings-chat-audit-card">
             <div class="card-header">
@@ -13240,6 +13254,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             loadChatAudit();
             loadImageBackfillCandidates();
             loadImageBackfillSchedule();
+            loadImageBackfillHistory();
           } else {
             adminAiModels = [];
             adminAiUsage = { models: [], daily: [], totals: {} };
@@ -27667,6 +27682,56 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           checked ? imageBackfillCandidates.map((c) => c.id) : [],
         );
         renderImageBackfillCandidates();
+      }
+
+      async function loadImageBackfillHistory() {
+        const body = document.getElementById("image-backfill-history-body");
+        const totals = document.getElementById("image-backfill-history-totals");
+        if (!body || !totals) return;
+        const win = document.getElementById("image-backfill-history-window");
+        const days = win ? win.value : 30;
+        body.innerHTML = "<div class='muted' style='padding:10px'>Loading…</div>";
+        totals.textContent = "";
+        try {
+          const res = await api("/api/admin/image-backfill/history?days=" + encodeURIComponent(days));
+          if (!res.ok) {
+            body.innerHTML = "<div class='muted' style='padding:10px'>Failed to load history (HTTP " + res.status + ")</div>";
+            return;
+          }
+          const data = await res.json();
+          const t = data.totals || {};
+          const provs = t.by_provider || {};
+          const provText = Object.keys(provs).length
+            ? " · " + Object.entries(provs).map(([k,v]) => k + ":" + v).join(", ")
+            : "";
+          totals.textContent = "Total " + (t.fetched || 0) + " images · $"
+            + (t.cost_usd != null ? Number(t.cost_usd).toFixed(2) : "0.00")
+            + provText;
+          const days_ = data.days || [];
+          if (!days_.length) {
+            body.innerHTML = "<div class='muted' style='padding:14px'>No backfill activity in the last " + (data.window_days || days) + " days.</div>";
+            return;
+          }
+          const rows = days_.map(function(d) {
+            const provs = d.by_provider || {};
+            const provStr = Object.entries(provs).map(([k,v]) => k + ":" + v).join(", ") || "—";
+            return "<tr>"
+              + "<td style='padding:6px 10px'>" + escHtml(d.date) + "</td>"
+              + "<td style='padding:6px 10px;text-align:right'>" + (d.fetched || 0) + "</td>"
+              + "<td style='padding:6px 10px;text-align:right'>$" + Number(d.cost_usd || 0).toFixed(4) + "</td>"
+              + "<td style='padding:6px 10px;color:var(--muted);font-size:0.85rem'>" + escHtml(provStr) + "</td>"
+              + "</tr>";
+          }).join("");
+          body.innerHTML = "<div style='max-height:240px;overflow-y:auto'><table style='width:100%;border-collapse:collapse;font-size:0.9rem'>"
+            + "<thead><tr style='border-bottom:1px solid var(--border,#2a2a2a);color:var(--muted);font-size:0.78rem;text-align:left'>"
+            + "<th style='padding:6px 10px'>Date</th>"
+            + "<th style='padding:6px 10px;text-align:right'>Fetched</th>"
+            + "<th style='padding:6px 10px;text-align:right'>Cost</th>"
+            + "<th style='padding:6px 10px'>Providers</th>"
+            + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+        } catch (e) {
+          body.innerHTML = "<div class='muted' style='padding:10px'>Failed: " + escHtml(e.message || e) + "</div>";
+        }
       }
 
       async function runImageBackfill() {
