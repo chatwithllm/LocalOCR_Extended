@@ -154,6 +154,40 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* Restore action must always be visible — even on mobile where the
    regular .inv-tile-actions row is gated behind tap-to-expand. */
 .inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
+/* Inventory toolbar — uniform height/radius for every control. */
+.inv-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.inv-toolbar > input,
+.inv-toolbar > select,
+.inv-toolbar > button,
+.inv-toolbar > label {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #3a3a3c);
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #eee);
+  font-size: 0.88rem;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.inv-toolbar > input { cursor: text; min-width: 180px; }
+.inv-toolbar > input:focus,
+.inv-toolbar > select:focus { outline: 2px solid #4a8aef; outline-offset: -2px; border-color: #4a8aef; }
+.inv-toolbar > select { padding-right: 26px; -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted, #aaa) 50%), linear-gradient(135deg, var(--muted, #aaa) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.inv-toolbar > label { background: transparent; gap: 8px; }
+.inv-toolbar > label input[type="checkbox"] { margin: 0; accent-color: #4a8aef; width: 16px; height: 16px; }
+.inv-toolbar > button:hover { border-color: #4a8aef; }
+
 /* Image-on-left layout — applies to live tiles (.inv-tile-has-img,
    added when latest_snapshot.image_url is present) AND every used-up
    tile (.inv-tile-used-up always wraps content). Image stretches to
@@ -1511,9 +1545,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           <div class="card" id="inventory-tile-card" style="margin-top:16px">
             <div class="page-header" style="padding-bottom:10px;border-bottom:1px solid var(--border,#333);margin-bottom:10px">
               <h2 style="font-size:1rem;margin:0">Expiry View</h2>
-              <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <input id="inventory-search" class="page-search" placeholder="Search items..." style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
-                <select id="inventory-location-filter" aria-label="Filter by location" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+              <div class="page-actions inv-toolbar">
+                <input id="inventory-search" placeholder="Search items…">
+                <select id="inventory-location-filter" aria-label="Filter by location">
                   <option value="">All locations</option>
                   <option value="Fridge">Fridge</option>
                   <option value="Freezer">Freezer</option>
@@ -1521,20 +1555,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <option value="Cabinet">Cabinet</option>
                   <option value="Bathroom">Bathroom</option>
                 </select>
-                <select id="inventory-group-by" aria-label="Group tiles by" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                <select id="inventory-group-by" aria-label="Group tiles by">
                   <option value="domain" selected>Group: Domain</option>
                   <option value="location">Group: Location</option>
                   <option value="low_first">Group: Running low first</option>
                 </select>
-                <select id="inventory-sort" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                <select id="inventory-sort">
                   <option value="expiry">Sort: expiry asc</option>
                   <option value="name">Sort: name</option>
                   <option value="qty">Sort: quantity</option>
                 </select>
-                <label class="page-toggle" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
+                <label>
                   <input type="checkbox" id="inventory-show-empty"> Show empty
                 </label>
-                <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#444);background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">↻ Recently used up</button>
+                <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()">↻ Recently used up</button>
               </div>
             </div>
             <div class="page-body">
