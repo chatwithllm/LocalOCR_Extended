@@ -20906,7 +20906,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           headLeft.appendChild(range);
         }
         head.appendChild(headLeft);
-        head.appendChild(_invElText("span", "inv-tile-qty", "×" + _invFmtQty(i.quantity)));
+        // Qty pill shows unit suffix when it's something other than "each"
+        // ("×3 lb" reads as a real measurement; "×3 each" is just noise).
+        const qtyText = "×" + _invFmtQty(i.quantity)
+          + (i.unit && i.unit !== "each" ? " " + i.unit : "");
+        head.appendChild(_invElText("span", "inv-tile-qty", qtyText));
         content.appendChild(head);
         content.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
         const meta = _invElText("div", "inv-tile-meta");
@@ -21287,6 +21291,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             body.display_name = trimmed;
           }
         }
+        if (result.unit != null) {
+          const u = String(result.unit).trim().toLowerCase();
+          if (u && u !== (inv.unit || "each").toLowerCase()) body.unit = u;
+        }
+        if (result.size_label != null) {
+          const s = String(result.size_label).trim();
+          if (s !== (inv.size_label || "")) body.size_label = s;
+        }
         invPatch(pid, body);
       }
 
@@ -21324,17 +21336,49 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           nameInput.spellcheck = true;
           nameInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
           sheet.appendChild(nameLabel); sheet.appendChild(nameInput);
-          // Quantity row
+          // Quantity + Unit row — paired so the user reads them as a single
+          // measurement (e.g. "3 lb"). Unit choices cover the common cases;
+          // unknown legacy values stay selected via dynamic option.
           const qtyLabel = document.createElement("label");
-          qtyLabel.textContent = "Quantity";
+          qtyLabel.textContent = "Quantity & Unit";
           qtyLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const qtyRow = document.createElement("div");
+          qtyRow.style.cssText = "display:flex;gap:8px;margin-bottom:14px";
           const qtyInput = document.createElement("input");
           qtyInput.type = "number";
           qtyInput.step = "any";
           qtyInput.inputMode = "decimal";
           qtyInput.value = inv.quantity != null ? inv.quantity : "";
-          qtyInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
-          sheet.appendChild(qtyLabel); sheet.appendChild(qtyInput);
+          qtyInput.style.cssText = "flex:1;min-width:0;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;text-align:left;-webkit-appearance:none;appearance:none";
+          const unitInput = document.createElement("select");
+          unitInput.style.cssText = "flex:0 0 130px;padding:13px 12px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;-webkit-appearance:none;appearance:none";
+          const _UNIT_CHOICES = ["each","pack","box","bag","bottle","can","dozen","count","lb","oz","g","kg","ml","l","gallon","fl oz"];
+          const currentUnit = (inv.unit || "each").toLowerCase();
+          let foundUnit = false;
+          _UNIT_CHOICES.forEach(function(u) {
+            const opt = document.createElement("option");
+            opt.value = u; opt.textContent = u;
+            if (u === currentUnit) { opt.selected = true; foundUnit = true; }
+            unitInput.appendChild(opt);
+          });
+          if (!foundUnit && currentUnit) {
+            const opt = document.createElement("option");
+            opt.value = currentUnit; opt.textContent = currentUnit; opt.selected = true;
+            unitInput.appendChild(opt);
+          }
+          qtyRow.appendChild(qtyInput); qtyRow.appendChild(unitInput);
+          sheet.appendChild(qtyLabel); sheet.appendChild(qtyRow);
+          // Optional size label — preserves package context like "16 oz" /
+          // "3lb bag" / "12 ct" that a single unit dropdown can't capture.
+          const sizeLabel = document.createElement("label");
+          sizeLabel.textContent = "Size label (optional)";
+          sizeLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const sizeInput = document.createElement("input");
+          sizeInput.type = "text";
+          sizeInput.value = inv.size_label || "";
+          sizeInput.placeholder = "e.g. 16 oz, 3lb bag, 12 ct";
+          sizeInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
+          sheet.appendChild(sizeLabel); sheet.appendChild(sizeInput);
           // Date row
           const dateLabel = document.createElement("label");
           dateLabel.textContent = "Expires";
@@ -21369,7 +21413,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           cancel.addEventListener("click", function() { close(null); });
           back.addEventListener("click", function(e) { if (e.target === back) close(null); });
           save.addEventListener("click", function() {
-            close({ quantity: qtyInput.value, expires_at: dateInput.value, display_name: nameInput.value });
+            close({
+              quantity: qtyInput.value,
+              expires_at: dateInput.value,
+              display_name: nameInput.value,
+              unit: unitInput.value,
+              size_label: sizeInput.value,
+            });
           });
         });
       }

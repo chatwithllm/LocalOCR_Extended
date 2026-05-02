@@ -142,6 +142,8 @@ def list_inventory():
                 "size": item.product.size,
                 "brand": item.product.brand,
                 "category": item.product.category,
+                "unit": item.product.default_unit or "each",
+                "size_label": item.product.default_size_label,
                 "latest_price": _get_latest_price(session, item.product_id),
                 "latest_snapshot": _latest_snapshot_for_product(session, item.product_id),
                 "recent_receipts": _get_product_receipt_links(session, item.product_id),
@@ -583,21 +585,40 @@ def patch_inventory_truth(product_id: int):
         return jsonify({"error": "inventory row not found"}), 404
     user_id = getattr(g.current_user, "id", None)
     new_name = body.get("display_name")
-    if new_name is not None:
-        cleaned = str(new_name).strip()
-        if not cleaned:
-            return jsonify({"error": "display_name cannot be empty"}), 400
+    new_unit = body.get("unit")
+    new_size_label = body.get("size_label")
+    if new_name is not None or new_unit is not None or new_size_label is not None:
         prod = g.db_session.query(Product).filter_by(id=product_id).first()
-        if prod and cleaned != (prod.display_name or prod.name or ""):
-            prod.display_name = cleaned
+        if prod is None:
+            return jsonify({"error": "product not found"}), 404
+        touched = False
+        if new_name is not None:
+            cleaned = str(new_name).strip()
+            if not cleaned:
+                return jsonify({"error": "display_name cannot be empty"}), 400
+            if cleaned != (prod.display_name or prod.name or ""):
+                prod.display_name = cleaned
+                prod.review_state = "resolved"
+                touched = True
+                record_inventory_adjustment(
+                    g.db_session,
+                    product_id=product_id,
+                    quantity_delta=0,
+                    user_id=user_id,
+                    reason="rename",
+                )
+        if new_unit is not None:
+            unit = str(new_unit).strip().lower() or "each"
+            if unit != (prod.default_unit or "each"):
+                prod.default_unit = unit
+                touched = True
+        if new_size_label is not None:
+            size = str(new_size_label).strip() or None
+            if size != prod.default_size_label:
+                prod.default_size_label = size
+                touched = True
+        if touched and prod.review_state != "resolved":
             prod.review_state = "resolved"
-            record_inventory_adjustment(
-                g.db_session,
-                product_id=product_id,
-                quantity_delta=0,
-                user_id=user_id,
-                reason="rename",
-            )
     try:
         result = apply_manual_patch(g.db_session, inv, body, user_id=user_id)
     except (ValueError, TypeError) as exc:
