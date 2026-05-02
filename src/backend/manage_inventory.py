@@ -10,6 +10,7 @@ MQTT Topic: home/grocery/inventory/{product_id}
 """
 
 import logging
+from datetime import date as _date
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy import func
 
@@ -26,6 +27,7 @@ from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.initialize_database_schema import Inventory, PriceHistory, Product, ProductSnapshot
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
+from src.backend.inventory_writes import apply_manual_patch, reset_expiry_to_system
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +122,6 @@ def list_inventory():
 
     items = query.order_by(Product.name).all()
 
-    from datetime import date as _date
     _today = _date.today()
     return jsonify({
         "inventory": [
@@ -541,12 +542,9 @@ def _trigger_low_stock_alert(product, item):
 # Inventory true-state endpoints (PATCH + expiry-override DELETE)
 # ---------------------------------------------------------------------------
 
-from src.backend.inventory_writes import apply_manual_patch, reset_expiry_to_system  # noqa: E402
-
 
 def _serialize_inventory(inv):
     """Serialize an Inventory row to a JSON-safe dict."""
-    from datetime import date as _date
     today = _date.today()
     expires_at = inv.expires_at
     days_left = (expires_at - today).days if expires_at else None
