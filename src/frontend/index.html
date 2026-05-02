@@ -1488,6 +1488,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <label class="page-toggle" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
                   <input type="checkbox" id="inventory-show-empty"> Show empty
                 </label>
+                <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#444);background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">↻ Recently used up</button>
               </div>
             </div>
             <div class="page-body">
@@ -1500,6 +1501,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <button class="inv-bulk-btn"               onclick="invBulkClear()" style="margin-left:auto;padding:8px 12px;border:1px solid var(--border,#444);border-radius:6px;background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">Clear</button>
               </div>
               <div id="inventory-groups"></div>
+            </div>
+            <div id="inv-restore-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)invCloseRestoreModal()">
+              <div style="background:var(--surface,#1a1a1a);border:1px solid var(--border,#444);border-radius:12px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border,#333)">
+                  <span style="font-weight:700">Recently used up · last 14 days</span>
+                  <button type="button" onclick="invCloseRestoreModal()" style="background:none;border:none;color:var(--muted,#888);font-size:1.4rem;cursor:pointer;padding:0 6px">×</button>
+                </div>
+                <div id="inv-restore-list" style="overflow-y:auto;flex:1;padding:4px 0"></div>
+              </div>
             </div>
           </div>
 
@@ -20457,6 +20467,89 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         for (const pid of ids) invDefer(pid, days);
         invBulkClear();
         _invShowUndoToast(snap, "+" + days + "d");
+      }
+
+      // ----- Recently used-up restore modal -----
+      // Recovery for tiles whose 5s undo window has expired. Lists every
+      // product whose last InventoryAdjustment.reason='consumed_all' is
+      // within the lookback window AND has no current Inventory row.
+      async function invOpenRestoreModal() {
+        const wrap = document.getElementById("inv-restore-modal");
+        if (!wrap) return;
+        wrap.style.display = "flex";
+        const list = document.getElementById("inv-restore-list");
+        list.textContent = "Loading…";
+        try {
+          const res = await api("/inventory/recently-used-up?days=14");
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          _invRenderRestoreList(data.items || []);
+        } catch (e) {
+          list.textContent = "Failed to load: " + (e.message || e);
+        }
+      }
+
+      function invCloseRestoreModal() {
+        const wrap = document.getElementById("inv-restore-modal");
+        if (wrap) wrap.style.display = "none";
+      }
+
+      function _invRenderRestoreList(items) {
+        const list = document.getElementById("inv-restore-list");
+        list.replaceChildren();
+        if (!items.length) {
+          const msg = document.createElement("div");
+          msg.style.color = "var(--muted, #888)";
+          msg.style.padding = "20px";
+          msg.style.textAlign = "center";
+          msg.textContent = "Nothing used-up in the last 14 days.";
+          list.appendChild(msg);
+          return;
+        }
+        for (const it of items) {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border,#333)";
+          const info = document.createElement("div");
+          info.style.flex = "1";
+          info.style.minWidth = "0";
+          const name = document.createElement("div");
+          name.style.fontWeight = "600";
+          name.textContent = it.product_name;
+          const meta = document.createElement("div");
+          meta.style.cssText = "font-size:0.78rem;color:var(--muted,#888);margin-top:2px";
+          const when = it.used_up_at ? String(it.used_up_at).slice(0, 10) : "?";
+          meta.textContent = "×" + _invFmtQty(it.prior_quantity) + " · used up " + when;
+          info.appendChild(name); info.appendChild(meta);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.style.cssText = "padding:6px 12px;border:none;border-radius:6px;background:#3a6b3a;color:#fff;font-size:0.85rem;cursor:pointer;flex-shrink:0";
+          btn.textContent = "Restore";
+          btn.addEventListener("click", function() { _invRestoreOne(it, btn, row); });
+          row.appendChild(info); row.appendChild(btn);
+          list.appendChild(row);
+        }
+      }
+
+      async function _invRestoreOne(item, btn, row) {
+        btn.disabled = true; btn.textContent = "…";
+        try {
+          const res = await api("/inventory/products/" + item.product_id + "/restore", {
+            method: "POST",
+            body: JSON.stringify({ quantity: item.prior_quantity }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            toast("Restore failed: " + (err.error || res.status), "error");
+            btn.disabled = false; btn.textContent = "Restore";
+            return;
+          }
+          toast("Restored " + item.product_name, "info");
+          row.remove();
+          await loadInventory();
+        } catch (e) {
+          toast("Restore failed: " + (e.message || e), "error");
+          btn.disabled = false; btn.textContent = "Restore";
+        }
       }
 
       function _invBuildTile(i) {

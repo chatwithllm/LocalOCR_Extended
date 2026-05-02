@@ -10,11 +10,12 @@ MQTT Topic: home/grocery/inventory/{product_id}
 """
 
 import logging
-from datetime import date as _date
+from datetime import date as _date, datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy import func
 
 from src.backend.active_inventory import get_active_inventory_cutoff, rebuild_active_inventory, record_inventory_adjustment
+from src.backend.category_shelf_life import get_category_default
 from src.backend.contribution_scores import (
     award_contribution_event,
     cancel_pending_low_event,
@@ -24,7 +25,7 @@ from src.backend.contribution_scores import (
 )
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
-from src.backend.initialize_database_schema import Inventory, PriceHistory, Product, ProductSnapshot
+from src.backend.initialize_database_schema import Inventory, InventoryAdjustment, PriceHistory, Product, ProductSnapshot
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
 from src.backend.inventory_writes import apply_manual_patch, reset_expiry_to_system
@@ -589,3 +590,103 @@ def delete_expiry_override(product_id: int):
     reset_expiry_to_system(g.db_session, inv, user_id=getattr(g.current_user, "id", None))
     g.db_session.commit()
     return jsonify(_serialize_inventory(inv)), 200
+
+
+@inventory_bp.route("/recently-used-up", methods=["GET"])
+@require_auth
+def list_recently_used_up():
+    """Items marked used-up in the last N days that have no current
+    inventory row (i.e. weren't already restored or re-purchased).
+    Used by the inventory page's restore modal so users can recover
+    accidental ✓ Used up taps after the 5s undo toast has expired.
+    """
+    try:
+        days = max(1, min(60, int(request.args.get("days", 14))))
+    except (TypeError, ValueError):
+        days = 14
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    session = g.db_session
+    rows = (
+        session.query(InventoryAdjustment, Product)
+        .join(Product, Product.id == InventoryAdjustment.product_id)
+        .outerjoin(Inventory, Inventory.product_id == InventoryAdjustment.product_id)
+        .filter(InventoryAdjustment.reason == "consumed_all")
+        .filter(InventoryAdjustment.created_at >= cutoff)
+        .filter(Inventory.id.is_(None))
+        .order_by(InventoryAdjustment.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    items = []
+    seen = set()
+    for adj, prod in rows:
+        if prod.id in seen:
+            continue
+        seen.add(prod.id)
+        items.append({
+            "product_id": prod.id,
+            "product_name": get_product_display_name(prod),
+            "category": prod.category,
+            "prior_quantity": abs(float(adj.quantity_delta or 0)),
+            "used_up_at": adj.created_at.isoformat() if adj.created_at else None,
+        })
+    return jsonify({"items": items}), 200
+
+
+@inventory_bp.route("/products/<int:product_id>/restore", methods=["POST"])
+@require_write_access
+def restore_inventory(product_id: int):
+    """Recreate an Inventory row for a product whose row was deleted
+    (e.g. used-up). Refuses if a row already exists. Quantity defaults
+    to whatever the audit log captured for the most recent
+    `consumed_all` event; caller can override via request body.
+    """
+    session = g.db_session
+    if session.query(Inventory).filter_by(product_id=product_id).first():
+        return jsonify({"error": "inventory row already exists"}), 409
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": f"product {product_id} not found"}), 404
+
+    body = request.get_json(silent=True) or {}
+    qty = body.get("quantity")
+    if qty is None:
+        last = (
+            session.query(InventoryAdjustment)
+            .filter_by(product_id=product_id, reason="consumed_all")
+            .order_by(InventoryAdjustment.created_at.desc())
+            .first()
+        )
+        qty = abs(float(last.quantity_delta or 1)) if last else 1.0
+    try:
+        qty = max(0.0, float(qty))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid quantity"}), 400
+    if qty <= 0:
+        return jsonify({"error": "quantity must be > 0"}), 400
+
+    defaults = get_category_default(session, product.category)
+    inv = Inventory(
+        product_id=product.id,
+        quantity=qty,
+        location=defaults.location_default,
+        expires_source="system",
+        is_active_window=True,
+    )
+    if defaults.shelf_life_days > 0:
+        today = _date.today()
+        inv.expires_at_system = today + timedelta(days=defaults.shelf_life_days)
+        inv.expires_at = inv.expires_at_system
+    inv.last_updated = datetime.now(timezone.utc)
+    session.add(inv)
+    session.flush()
+
+    user_id = getattr(g.current_user, "id", None)
+    session.add(InventoryAdjustment(
+        product_id=product.id,
+        quantity_delta=qty,
+        reason="restore_used_up",
+        user_id=user_id,
+    ))
+    session.commit()
+    return jsonify(_serialize_inventory(inv)), 201
