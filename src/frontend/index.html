@@ -20861,7 +20861,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function _invBuildTile(i) {
-        const imageUrl = i.latest_snapshot && i.latest_snapshot.image_url ? i.latest_snapshot.image_url : null;
+        // Cache-bust image URLs with the snapshot's created_at so a
+        // restored older snapshot shows the right photo immediately
+        // instead of serving Flask's cached send_file response from a
+        // prior fetch of the same path.
+        const _snap = i.latest_snapshot;
+        const imageUrl = _snap && _snap.image_url
+          ? _snap.image_url + (_snap.image_url.indexOf("?") === -1 ? "?" : "&")
+            + "v=" + encodeURIComponent(_snap.created_at || _snap.id || "")
+          : null;
         const tileCls = "inv-tile " + i._expCls
           + ((i.quantity || 0) === 0 ? " empty" : "")
           + (_invIsSelected(i.product_id) ? " selected" : "")
@@ -21375,9 +21383,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               toast("📷 Photo added", "info");
               photoBtn.textContent = "✓";
               setTimeout(function() { photoBtn.textContent = original; }, 1500);
-              // Backdrop tile picks up the new image without waiting for
-              // the user to close the sheet.
-              loadInventory();
+              // Backdrop tile + gallery pick up the new image without
+              // waiting for the user to close the sheet.
+              await loadInventory();
             } catch (e) {
               toast("Photo upload failed: " + (e.message || e), "error");
             } finally {
@@ -21430,11 +21438,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   const r = await api("/product-snapshots/" + s.id, { method: "DELETE" });
                   if (!r.ok) { toast("Delete failed", "error"); return; }
                   toast("Photo removed", "info");
+                  await loadInventory();
                   await _refreshGallery();
-                  // Tile beneath the sheet may now show a different
-                  // (or no) image — reload so the user sees the change
-                  // without closing the dialog.
-                  loadInventory();
                 });
                 cell.appendChild(del);
                 cell.addEventListener("click", async function() {
@@ -21442,8 +21447,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   const r = await api("/product-snapshots/" + s.id + "/promote", { method: "POST" });
                   if (!r.ok) { toast("Restore failed", "error"); return; }
                   toast("📷 Photo restored", "info");
+                  // Reload inventory FIRST so when the user closes the
+                  // sheet, the underlying tile already shows the right
+                  // photo. Then refresh the gallery's blue-border state.
+                  await loadInventory();
                   await _refreshGallery();
-                  loadInventory();
                 });
                 galRow.appendChild(cell);
               });
