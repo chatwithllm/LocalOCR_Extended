@@ -71,7 +71,7 @@
   background: var(--surface, #2a2a2a);
   border-left: 4px solid #4a4;
   border-radius: 6px; padding: 10px;
-  min-height: 96px;
+  min-height: 140px;
   display: flex;
   flex-direction: column;
 }
@@ -230,13 +230,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   align-items: stretch;
   gap: 12px;
   padding: 10px;
-  min-height: 96px;
+  /* Fixed (not min) height so every image stretches to the SAME size —
+     tile-to-tile consistency wins over a 1-line name shrinking the box. */
+  height: 140px;
+  min-height: 140px;
 }
 .inv-tile-content {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+.inv-tile-content .inv-tile-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
 }
 .inv-tile-content .inv-tile-actions { margin-top: auto; }
 /* Image hugs content height (align-items:stretch on parent), fixed
@@ -262,6 +273,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 @media (max-width: 600px) {
   .inv-tile-img { width: 96px; }
+  /* Mobile tile taller — 5 always-visible thumb buttons + 2-line name
+     room. Still fixed (height, not min-height) so all images match. */
+  .inv-tile.inv-tile-has-img,
+  .inv-tile-used-up.inv-tile { height: 168px; min-height: 168px; }
+  .inv-tile { min-height: 168px; }
   /* Touch devices have no real hover — tap-active gives a peek. */
   .inv-tile-img:active { transform: scale(2.2); z-index: 100; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
   .inv-tile-img:hover { transform: none; box-shadow: none; }
