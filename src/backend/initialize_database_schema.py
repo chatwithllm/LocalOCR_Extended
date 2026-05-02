@@ -893,6 +893,17 @@ def initialize_database(database_url=None):
     _ensure_runtime_columns(engine)
     Session = create_session_factory(engine)
     _seed_default_ai_model_configs(Session)
+    try:
+        from src.backend.active_inventory import backfill_inventory_truth
+        session = Session()
+        try:
+            n = backfill_inventory_truth(session)
+            if n:
+                logger.info("Inventory backfill: filled %d rows with true-state defaults", n)
+        finally:
+            session.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Inventory backfill failed: %s", exc)
     logger.info("Database schema initialized successfully.")
     return engine, Session
 

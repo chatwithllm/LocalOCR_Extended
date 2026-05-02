@@ -124,3 +124,47 @@ def rebuild_active_inventory(session):
         item.last_updated = now
         if not item.location:
             item.location = "Pantry"
+
+
+def backfill_inventory_truth(session) -> int:
+    """Populate the new true-state columns for existing Inventory rows.
+
+    Idempotent: rows where ``expires_at_system`` is already set are skipped.
+    Returns the number of rows touched.
+    """
+    from datetime import date, timedelta
+    from src.backend.category_shelf_life import get_category_default
+    from src.backend.initialize_database_schema import (
+        Inventory, Product, Purchase, ReceiptItem,
+    )
+
+    today = date.today()
+    floor = today + timedelta(days=7)
+    touched = 0
+    rows = session.query(Inventory).filter(Inventory.expires_at_system.is_(None)).all()
+    for inv in rows:
+        product = session.query(Product).get(inv.product_id)
+        if not product:
+            continue
+        defaults = get_category_default(session, product.category)
+        last_ri = (
+            session.query(ReceiptItem)
+            .filter_by(product_id=product.id)
+            .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
+            .order_by(Purchase.date.desc())
+            .first()
+        )
+        last_purchased = last_ri.purchase.date if last_ri else None
+        inv.last_purchased_at = last_purchased
+        if not inv.location:
+            inv.location = defaults.location_default
+        if defaults.shelf_life_days > 0 and last_purchased is not None:
+            computed = last_purchased.date() + timedelta(days=defaults.shelf_life_days)
+            inv.expires_at_system = max(computed, floor)
+        else:
+            inv.expires_at_system = None
+        inv.expires_at = inv.expires_at_system
+        inv.expires_source = "system"
+        touched += 1
+    session.commit()
+    return touched
