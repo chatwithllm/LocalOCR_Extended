@@ -92,7 +92,10 @@ def apply_manual_patch(session, inv: Inventory, patch: dict, user_id: int | None
     if "quantity" in patch:
         new_qty = max(0.0, float(patch["quantity"]))
         delta = new_qty - float(inv.quantity or 0)
-        if new_qty == 0 and (inv.quantity or 0) > 0:
+        if new_qty == 0:
+            # Any patch landing at qty=0 means "remove from inventory" —
+            # delete the row regardless of the prior quantity. Idempotent:
+            # repeated 0-patches on a zero row still delete cleanly.
             reason = "consumed_all"
             deleted = True
         else:
