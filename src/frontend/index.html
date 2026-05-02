@@ -20433,10 +20433,12 @@ body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
       // long-press on iOS. We disarm only on real lift (touchend /
       // pointerup) or a significant movement, never on cancel/leave.
       function _invAttachLongPress(tile, item) {
-        var timer = null, sx = 0, sy = 0, pressed = false;
+        var timer = null, sx = 0, sy = 0, pressed = false, dbgWhy = "";
+        function dbg(s) { try { toast("LP:" + s, "info"); } catch(_){} }
         function fire() {
           timer = null;
-          if (!pressed) return;
+          if (!pressed) { dbg("fire-but-not-pressed:" + dbgWhy); return; }
+          dbg("fire OK");
           tile.classList.remove("long-press-arming");
           _invEnterSelectionMode();
           var nowSel = !_invIsSelected(item.product_id);
@@ -20446,39 +20448,42 @@ body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
           tile.dataset.longpressFired = "1";
           setTimeout(function() { tile.dataset.longpressFired = "0"; }, 500);
         }
-        function arm(x, y, e) {
+        function arm(x, y, e, src) {
           if (e && e.target && e.target.closest && e.target.closest("button")) return;
           if (pressed) return;  // ignore secondary touches / duplicate events
-          sx = x; sy = y; pressed = true;
+          sx = x; sy = y; pressed = true; dbgWhy = "";
+          dbg("arm:" + src);
           tile.classList.add("long-press-arming");
           timer = setTimeout(fire, 500);
         }
-        function disarm() {
-          pressed = false;
+        function disarm(why) {
+          if (pressed) dbg("disarm:" + why);
+          pressed = false; dbgWhy = why;
           if (timer) { clearTimeout(timer); timer = null; }
           tile.classList.remove("long-press-arming");
         }
         function checkMove(x, y) {
           if (!pressed) return;
-          if (Math.abs(x - sx) > 8 || Math.abs(y - sy) > 8) disarm();
+          if (Math.abs(x - sx) > 8 || Math.abs(y - sy) > 8) disarm("move>8");
         }
 
         // Touch events — primary path on iOS; { passive: true } so we
         // don't block native vertical scrolling.
         tile.addEventListener("touchstart", function(e) {
           var t = e.touches[0]; if (!t) return;
-          arm(t.clientX, t.clientY, e);
+          arm(t.clientX, t.clientY, e, "touch");
         }, { passive: true });
         tile.addEventListener("touchmove", function(e) {
           var t = e.touches[0]; if (!t) return;
           checkMove(t.clientX, t.clientY);
         }, { passive: true });
-        tile.addEventListener("touchend", disarm);
+        tile.addEventListener("touchend", function() { disarm("touchend"); });
+        tile.addEventListener("touchcancel", function() { disarm("touchcancel"); });
 
         // Pointer events — desktop mouse + non-iOS browsers.
         tile.addEventListener("pointerdown", function(e) {
           if (e.pointerType === "touch") return;  // touch* path handles iOS
-          arm(e.clientX, e.clientY, e);
+          arm(e.clientX, e.clientY, e, "ptr");
         });
         tile.addEventListener("pointermove", function(e) {
           if (e.pointerType === "touch") return;
@@ -20486,7 +20491,7 @@ body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
         });
         tile.addEventListener("pointerup", function(e) {
           if (e.pointerType === "touch") return;
-          disarm();
+          disarm("pointerup");
         });
 
         // Tap-to-toggle while in selection mode. Capture phase so it
