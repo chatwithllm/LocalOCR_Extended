@@ -91,6 +91,16 @@
 @media (prefers-reduced-motion: reduce) {
   .flash-soon, .flash-expired { animation: none; }
 }
+/* ===== Inventory Expiry Tile View — Mobile (<600px) ===== */
+@media (max-width: 600px) {
+  .inv-tiles { grid-template-columns: 1fr; }
+  .inv-tile { padding: 14px; cursor: pointer; transition: transform 0.18s ease, background 0.18s ease; }
+  .inv-tile-actions { display: none; gap: 8px; }
+  .inv-tile.expanded .inv-tile-actions { display: flex; }
+  .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
+  .inv-tile.swipe-right-active { background: #2a4a2a; }
+  .inv-tile.swipe-left-active  { background: #4a2a2a; }
+}
     </style>
   </head>
 
@@ -20165,6 +20175,7 @@
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
         tile.appendChild(actions);
+        _invAttachMobileGestures(tile, i);
         return tile;
       }
 
@@ -20172,8 +20183,70 @@
         const b = document.createElement("button");
         b.className = cls;
         b.textContent = text;
-        b.addEventListener("click", onClick);
+        b.addEventListener("click", function(e) {
+          e.stopPropagation();
+          onClick(e);
+        });
         return b;
+      }
+
+      function _invAttachMobileGestures(tile, item) {
+        const isMobile = function() { return window.matchMedia("(max-width: 600px)").matches; };
+
+        // Tap-to-expand (mobile only) — button clicks bypass via stopPropagation
+        tile.addEventListener("click", function(e) {
+          if (!isMobile()) return;
+          if (e.target.closest("button")) return;
+          if (tile.dataset.swiping === "1") return;
+          tile.classList.toggle("expanded");
+        });
+
+        // Swipe with pointer events
+        var startX = 0, startY = 0, startT = 0, dragging = false;
+        tile.addEventListener("pointerdown", function(e) {
+          if (!isMobile()) return;
+          if (e.target.closest("button")) return;
+          startX = e.clientX; startY = e.clientY; startT = Date.now();
+          dragging = true;
+          tile.dataset.swiping = "0";
+          tile.setPointerCapture(e.pointerId);
+        });
+        tile.addEventListener("pointermove", function(e) {
+          if (!dragging) return;
+          var dx = e.clientX - startX;
+          var dy = e.clientY - startY;
+          if (Math.abs(dy) > 30) { dragging = false; tile.style.transform = ""; return; }
+          if (Math.abs(dx) > 12) {
+            tile.dataset.swiping = "1";
+            tile.style.transform = "translateX(" + dx + "px)";
+            tile.classList.toggle("swipe-right-active", dx > 60);
+            tile.classList.toggle("swipe-left-active", dx < -60);
+          }
+        });
+        tile.addEventListener("pointerup", function(e) {
+          if (!dragging) return;
+          dragging = false;
+          var dx = e.clientX - startX;
+          var dt = Date.now() - startT;
+          tile.style.transform = "";
+          tile.classList.remove("swipe-right-active", "swipe-left-active");
+          if (dt < 500 && Math.abs(dx) >= 60) {
+            var name = item.product_name || "item";
+            if (dx > 0) {
+              invDecrement(item.product_id);
+              toast("−1 " + name + " · undo", "info");
+            } else {
+              invUsedUp(item.product_id);
+              toast("Used up: " + name + " · undo", "info");
+            }
+          }
+          setTimeout(function() { tile.dataset.swiping = "0"; }, 250);
+        });
+        tile.addEventListener("pointercancel", function() {
+          dragging = false;
+          tile.style.transform = "";
+          tile.classList.remove("swipe-right-active", "swipe-left-active");
+        });
       }
 
       async function invPatch(pid, body) {
