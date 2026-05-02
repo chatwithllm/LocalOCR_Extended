@@ -151,6 +151,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   color: #ddd;
 }
 .inv-tile-used-up:hover { opacity: 1; background: rgba(196, 66, 74, 0.14); }
+/* Restore action must always be visible — even on mobile where the
+   regular .inv-tile-actions row is gated behind tap-to-expand. */
+.inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
 #inventory-bulk-bar {
   display: none;
   flex-wrap: wrap;
