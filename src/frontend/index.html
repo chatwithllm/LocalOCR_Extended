@@ -96,15 +96,24 @@
    meta block already shows Bought + Expires lines. */
 .inv-tile-range { display: none; color: var(--muted, #999); font-size: 0.78rem; }
 
-/* Multi-select checkbox + selected-state outline (works on both desktop & mobile) */
+/* Multi-select checkbox + selected-state outline (works on both desktop & mobile).
+   Top-LEFT corner so it never collides with the right-aligned ×N qty pill. */
 .inv-tile-checkbox {
   position: absolute;
-  top: 8px; right: 8px;
-  width: 20px; height: 20px;
+  top: 8px; left: 8px;
+  width: 16px; height: 16px;
   cursor: pointer;
   z-index: 3;
   accent-color: #4a8aef;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
 }
+.inv-tile-checkbox:hover,
+.inv-tile-checkbox:checked,
+.inv-tile.selected .inv-tile-checkbox { opacity: 1; }
+/* Reserve space at the left of the head row so the days-left text doesn't
+   slide under the checkbox. */
+.inv-tile-head { padding-left: 22px; }
 .inv-tile.selected {
   outline: 2px solid #4a8aef;
   outline-offset: -2px;
