@@ -154,8 +154,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* Restore action must always be visible — even on mobile where the
    regular .inv-tile-actions row is gated behind tap-to-expand. */
 .inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
-/* Inventory toolbar — uniform height/radius for every control. */
-.inv-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Inventory toolbar — uniform height/radius, spread across the row. */
+.inv-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 2fr)
+    minmax(120px, 1fr)
+    minmax(140px, 1fr)
+    minmax(140px, 1fr)
+    auto
+    auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+@media (max-width: 900px) {
+  .inv-toolbar { grid-template-columns: 1fr 1fr; }
+  .inv-toolbar > input { grid-column: 1 / -1; }
+  .inv-toolbar > button { grid-column: 1 / -1; }
+}
 .inv-toolbar > input,
 .inv-toolbar > select,
 .inv-toolbar > button,
@@ -175,7 +192,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.inv-toolbar > input { cursor: text; min-width: 180px; }
+.inv-toolbar > input { cursor: text; min-width: 0; width: 100%; }
+.inv-toolbar > select { width: 100%; }
 .inv-toolbar > input:focus,
 .inv-toolbar > select:focus { outline: 2px solid #4a8aef; outline-offset: -2px; border-color: #4a8aef; }
 .inv-toolbar > select { padding-right: 26px; -webkit-appearance: none; appearance: none;
