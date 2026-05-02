@@ -137,15 +137,20 @@ def test_apply_manual_patch_quantity(session):
     assert adj.reason == "manual_edit"
 
 
-def test_apply_manual_patch_used_up(session):
+def test_apply_manual_patch_used_up_deletes_row(session):
+    """Used-up (qty 0 from positive) deletes the Inventory row entirely.
+    The audit InventoryAdjustment row is preserved so history survives."""
     from src.backend.inventory_writes import apply_manual_patch
     prod = Product(name="Eggs", category="dairy"); session.add(prod); session.flush()
     inv = Inventory(product_id=prod.id, quantity=12, location="Fridge", expires_source="system")
     session.add(inv); session.flush()
-    apply_manual_patch(session, inv, {"quantity": 0}, user_id=None)
-    assert inv.quantity == 0
+    result = apply_manual_patch(session, inv, {"quantity": 0}, user_id=None)
+    session.commit()
+    assert result is None
+    assert session.query(Inventory).filter_by(product_id=prod.id).count() == 0
     adj = session.query(InventoryAdjustment).filter_by(product_id=prod.id).one()
     assert adj.reason == "consumed_all"
+    assert adj.quantity_delta == -12
 
 
 def test_apply_manual_patch_explicit_expiry_marks_user(session):

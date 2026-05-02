@@ -82,12 +82,22 @@ def _coerce_date(value: Any) -> date | None:
     raise ValueError(f"unsupported date value: {value!r}")
 
 
-def apply_manual_patch(session, inv: Inventory, patch: dict, user_id: int | None) -> Inventory:
+def apply_manual_patch(session, inv: Inventory, patch: dict, user_id: int | None) -> Inventory | None:
+    """Apply a partial update to ``inv``. Returns the row, or ``None`` when
+    the row was deleted (used-up transition: quantity 0 from a positive value).
+    The audit InventoryAdjustment row is preserved either way so history
+    survives the deletion.
+    """
+    deleted = False
     if "quantity" in patch:
         new_qty = max(0.0, float(patch["quantity"]))
         delta = new_qty - float(inv.quantity or 0)
-        if new_qty == 0 and (inv.quantity or 0) > 0:
+        if new_qty == 0:
+            # Any patch landing at qty=0 means "remove from inventory" —
+            # delete the row regardless of the prior quantity. Idempotent:
+            # repeated 0-patches on a zero row still delete cleanly.
             reason = "consumed_all"
+            deleted = True
         else:
             reason = "manual_edit"
         inv.quantity = new_qty
@@ -112,6 +122,12 @@ def apply_manual_patch(session, inv: Inventory, patch: dict, user_id: int | None
         _audit(session, inv.product_id, 0, f"defer_expiry_+{days}d", user_id)
 
     inv.last_updated = datetime.now(timezone.utc)
+
+    if deleted:
+        # Used-up: drop the row entirely. Next receipt for this product
+        # will upsert a fresh Inventory row via receipt finalize.
+        session.delete(inv)
+        return None
     return inv
 
 

@@ -80,11 +80,17 @@ def test_patch_quantity(client):
     assert r.get_json()["quantity"] == 1
 
 
-def test_patch_used_up(client):
+def test_patch_used_up_deletes_row(client):
+    """Used-up returns 200 with deleted=True; the row is gone."""
     c, pid = client
     r = c.patch(f"/inventory/products/{pid}", json={"quantity": 0})
     assert r.status_code == 200
-    assert r.get_json()["quantity"] == 0
+    body = r.get_json()
+    assert body.get("deleted") is True
+    assert body.get("product_id") == pid
+    # Subsequent GET (or PATCH) should now 404 since the row is gone.
+    r2 = c.patch(f"/inventory/products/{pid}", json={"defer_days": 3})
+    assert r2.status_code == 404
 
 
 def test_patch_defer_days_marks_defer(client):
@@ -113,11 +119,13 @@ def test_reset_expiry_clears_override(client):
     assert body["expires_at"] == "2026-05-03"
 
 
-def test_patch_negative_clamps(client):
+def test_patch_negative_clamps_to_used_up(client):
+    """Negative qty clamps to 0; with prior qty positive that triggers used-up = delete."""
     c, pid = client
     r = c.patch(f"/inventory/products/{pid}", json={"quantity": -5})
     assert r.status_code == 200
-    assert r.get_json()["quantity"] == 0
+    body = r.get_json()
+    assert body.get("deleted") is True
 
 
 def test_patch_invalid_date_400(client):

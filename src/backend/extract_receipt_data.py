@@ -22,6 +22,7 @@ from typing import Any
 
 from flask import g
 from PIL import Image, ImageOps
+from sqlalchemy import func
 
 from src.backend.active_inventory import rebuild_active_inventory
 from src.backend.enrich_product_names import should_enrich_product_name
@@ -85,26 +86,89 @@ def _safe_float(value, default=0.0):
 
 def _is_non_product_line(item_data: dict) -> bool:
     """Return True for discounts, coupons, and other non-merchandise lines."""
-    name = str(item_data.get("name", "") or "").strip().lower()
-    if not name:
-        return True
+    return classify_line_kind(item_data.get("name"), item_data.get("category"),
+                              item_data.get("unit_price"), item_data.get("quantity")) != "product"
 
-    if any(token in name for token in NON_PRODUCT_PATTERNS):
-        return True
 
-    if name.endswith(" savings") or name.startswith("savings "):
-        return True
+def _persist_non_product_line(session, purchase, item_data: dict, kind: str, engine: str) -> None:
+    """Record a non-merchandise line as a ReceiptItem tagged with its kind.
+    The underlying Product is created with is_non_product=True so it stays
+    out of inventory, kitchen, and restore views — but the receipt history
+    still has a row to roll up for analytics (taxes, fees, savings, etc).
+    """
+    from src.backend.normalize_product_names import canonicalize_product_identity
+    from src.backend.initialize_database_schema import Product, ReceiptItem
+    name = str(item_data.get("name") or "").strip() or kind.replace("_", " ").title()
+    product_name, category = canonicalize_product_identity(name, item_data.get("category", "other") or "other")
+    product = (
+        session.query(Product)
+        .filter(func.lower(Product.name) == product_name.lower())
+        .filter(func.lower(func.coalesce(Product.category, "other")) == category)
+        .first()
+    )
+    if product is None:
+        product = Product(
+            name=product_name,
+            raw_name=item_data.get("name", product_name),
+            display_name=product_name,
+            category=category,
+            is_non_product=True,
+            review_state="resolved",
+        )
+        session.add(product)
+        session.flush()
+    elif not product.is_non_product:
+        product.is_non_product = True
+    receipt_item = ReceiptItem(
+        purchase_id=purchase.id,
+        product_id=product.id,
+        quantity=_safe_float(item_data.get("quantity", 1), 1.0),
+        unit_price=_safe_float(item_data.get("unit_price", 0.0), 0.0),
+        unit=(str(item_data.get("unit", "each") or "each").strip().lower() or "each"),
+        size_label=(str(item_data.get("size_label", "") or "").strip() or None),
+        kind=kind,
+        extracted_by=engine,
+    )
+    session.add(receipt_item)
 
-    category = str(item_data.get("category", "") or "").strip().lower()
-    if category in {"discount", "coupon", "promotion"}:
-        return True
 
-    unit_price = _safe_float(item_data.get("unit_price", 0.0), 0.0)
-    quantity = _safe_float(item_data.get("quantity", 1), 1.0)
-    if unit_price < 0 or quantity < 0:
-        return True
+# Ordered prefix→kind mapping. First match wins so more specific patterns
+# (e.g. "service charge") win over generic ones (e.g. "fee").
+_KIND_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("tax",            ("tax", "gst ", "hst ", "vat ", "sales tax")),
+    ("tip",            ("tip", "gratuity")),
+    ("shipping",       ("delivery", "shipping", "handling fee")),
+    ("deposit",        ("bottle deposit", "deposit")),
+    ("service_charge", ("service charge", "service fee")),
+    ("membership",     ("plus customer", "rewards member", "member id", "membership", "loyalty")),
+    ("discount",       ("discount", "coupon", "savings", "promo", "promotion", "rebate", "manufacturer", "instant savings", "store savings", "digital coupon")),
+    ("fee",            ("bag fee", "bag charge", "fee", "charge", "surcharge")),
+    ("summary",        ("subtotal", "total", "balance", "amount due", "change due")),
+)
 
-    return False
+
+def classify_line_kind(name, category=None, unit_price=None, quantity=None) -> str:
+    """Tag a receipt line with its kind. Returns 'product' for normal
+    merchandise; otherwise one of: discount, fee, tax, tip, membership,
+    shipping, deposit, service_charge, summary, other.
+    """
+    n = str(name or "").strip().lower()
+    if not n:
+        return "other"
+    c = str(category or "").strip().lower()
+    if c in {"discount", "coupon", "promotion"}:
+        return "discount"
+    for kind, tokens in _KIND_PATTERNS:
+        if any(t in n for t in tokens):
+            return kind
+    if n.endswith(" savings") or n.startswith("savings "):
+        return "discount"
+    up = _safe_float(unit_price, 0.0) if unit_price is not None else 0.0
+    qty = _safe_float(quantity, 1.0) if quantity is not None else 1.0
+    if up < 0 or qty < 0:
+        # Negative line on its own is almost always a discount/refund.
+        return "discount"
+    return "product"
 
 
 def _is_placeholder_text(value: object) -> bool:
@@ -800,8 +864,18 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
         # Process each item
         persisted_items = []
         for item_data in ocr_data.get("items", []):
-            if _is_non_product_line(item_data):
-                logger.info("Skipping non-product receipt line: %s", item_data.get("name"))
+            line_kind = classify_line_kind(
+                item_data.get("name"),
+                item_data.get("category"),
+                item_data.get("unit_price"),
+                item_data.get("quantity"),
+            )
+            if line_kind != "product":
+                # Non-merchandise: persist for analytics but don't touch
+                # Inventory and tag the underlying Product so other
+                # surfaces (kitchen, restore modal) skip it.
+                logger.info("Tagging non-product receipt line: %s (kind=%s)", item_data.get("name"), line_kind)
+                _persist_non_product_line(session, purchase, item_data, line_kind, engine)
                 continue
 
             product_name, category = canonicalize_product_identity(
@@ -863,6 +937,7 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 spending_domain=item_spending_domain,
                 budget_category=item_budget_category,
                 extracted_by=engine,
+                kind="product",
             )
             session.add(receipt_item)
 

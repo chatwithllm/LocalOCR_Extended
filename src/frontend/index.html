@@ -91,6 +91,235 @@
 @media (prefers-reduced-motion: reduce) {
   .flash-soon, .flash-expired { animation: none; }
 }
+/* ===== Inventory Expiry Tile View — Mobile (<600px) ===== */
+/* Date-range chip is mobile-only — hidden on desktop where the full
+   meta block already shows Bought + Expires lines. */
+.inv-tile-range { display: none; color: var(--muted, #999); font-size: 0.78rem; }
+
+/* Multi-select: Gmail/iOS-style — long-press a tile to enter selection
+   mode, then tap any tile to toggle. No always-visible checkbox. The
+   ✓ badge top-left only appears on selected tiles. */
+.inv-tile-checkmark {
+  position: absolute;
+  top: 6px; left: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #4a8aef;
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  z-index: 3;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.45);
+}
+.inv-tile.selected .inv-tile-checkmark { display: flex; }
+.inv-tile.selected {
+  outline: 2px solid #4a8aef;
+  outline-offset: -2px;
+  background: rgba(74, 138, 239, 0.22);
+  box-shadow: 0 4px 14px rgba(74,138,239,0.28);
+}
+/* Subtle pre-trigger feedback during the 500ms long-press hold. */
+.inv-tile.long-press-arming {
+  transform: scale(0.97);
+  transition: transform 0.18s ease;
+}
+.inv-tile { position: relative; }
+/* Selection mode: dim un-selected tiles to focus the user on the picks. */
+body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
+/* Reserve top space so the fixed bulk bar doesn't cover content. */
+body.inv-selection-mode #page-inventory { padding-top: 64px; }
+@media (max-width: 768px) {
+  /* Mobile header (52) + bar (~52) + gap = ~120px clearance. */
+  body.inv-selection-mode #page-inventory { padding-top: 70px; }
+}
+/* Reserve top-left space so the ✓ badge never sits on top of the
+   "7d left" days label when selected. */
+.inv-tile-head { padding-left: 26px; }
+/* Recently used-up tile — visually distinct from live inventory so
+   users know they're in an archive view. Red border + dim background +
+   strikethrough on the name. */
+.inv-tile-used-up {
+  border-left-color: #c4424a !important;
+  background: rgba(196, 66, 74, 0.08);
+  opacity: 0.92;
+}
+.inv-tile-used-up .inv-tile-name {
+  text-decoration: line-through;
+  color: #ddd;
+}
+.inv-tile-used-up:hover { opacity: 1; background: rgba(196, 66, 74, 0.14); }
+/* Restore action must always be visible — even on mobile where the
+   regular .inv-tile-actions row is gated behind tap-to-expand. */
+.inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
+/* Inventory toolbar — uniform height/radius, spread across the row. */
+.inv-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 2fr)
+    minmax(120px, 1fr)
+    minmax(140px, 1fr)
+    minmax(140px, 1fr)
+    auto
+    auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+@media (max-width: 900px) {
+  .inv-toolbar { grid-template-columns: 1fr 1fr; }
+  .inv-toolbar > input { grid-column: 1 / -1; }
+  .inv-toolbar > button { grid-column: 1 / -1; }
+}
+.inv-toolbar > input,
+.inv-toolbar > select,
+.inv-toolbar > button,
+.inv-toolbar > label {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #3a3a3c);
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #eee);
+  font-size: 0.88rem;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.inv-toolbar > input { cursor: text; min-width: 0; width: 100%; }
+.inv-toolbar > select { width: 100%; }
+.inv-toolbar > input:focus,
+.inv-toolbar > select:focus { outline: 2px solid #4a8aef; outline-offset: -2px; border-color: #4a8aef; }
+.inv-toolbar > select { padding-right: 26px; -webkit-appearance: none; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted, #aaa) 50%), linear-gradient(135deg, var(--muted, #aaa) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.inv-toolbar > label { background: transparent; gap: 8px; }
+.inv-toolbar > label input[type="checkbox"] { margin: 0; accent-color: #4a8aef; width: 16px; height: 16px; }
+.inv-toolbar > button:hover { border-color: #4a8aef; }
+
+/* Image-on-left layout — applies to live tiles (.inv-tile-has-img,
+   added when latest_snapshot.image_url is present) AND every used-up
+   tile (.inv-tile-used-up always wraps content). Image stretches to
+   fill the full content height; the action row sits at the bottom. */
+.inv-tile.inv-tile-has-img,
+.inv-tile-used-up.inv-tile {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  padding: 10px;
+}
+.inv-tile-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.inv-tile-content .inv-tile-actions { margin-top: auto; }
+.inv-tile-img {
+  flex: 0 0 auto;
+  width: 80px;
+  align-self: stretch;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #222;
+}
+@media (max-width: 600px) {
+  .inv-tile-img { width: 110px; }
+}
+#inventory-bulk-bar {
+  display: none;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  overflow: visible;
+}
+#inventory-bulk-bar.is-visible { display: flex; }
+/* Desktop: sidebar is fixed at left:0 width:230 — push bar past it
+   unless the sidebar is collapsed (body class added by the toggle). */
+@media (min-width: 769px) {
+  body:not(.sidebar-collapsed) #inventory-bulk-bar { left: 242px; }
+}
+@media (max-width: 768px) {
+  /* Mobile header is position:fixed top:0 height ~52px — push bar below. */
+  #inventory-bulk-bar {
+    top: 60px;
+    left: 8px;
+    right: 8px;
+    /* On phones the count + 4 actions + Clear can't fit in one row.
+       Switch to a horizontal-scroll strip so the row stays single-line
+       and the buttons keep their full height. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #inventory-bulk-bar > * { flex-shrink: 0; }
+}
+@media (max-width: 600px) {
+  .inv-tiles { grid-template-columns: 1fr; }
+  .inv-tile-wrap {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  .inv-tile {
+    padding: 14px;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease;
+    /* Release horizontal pans to JS while keeping native vertical scroll. */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    z-index: 2;
+  }
+  /* Mobile: drop the verbose meta block (📅 Bought + 🍂 Expires) and
+     surface the compact MM-DD → MM-DD range inline with the days-left
+     header instead. Saves two rows per tile. */
+  .inv-tile-meta { display: none; }
+  .inv-tile-range { display: inline; }
+  .inv-tile-head-left { display: flex; flex-wrap: wrap; gap: 0; align-items: baseline; }
+  .inv-tile-actions { display: none; gap: 8px; }
+  .inv-tile.expanded .inv-tile-actions { display: flex; }
+  .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
+  .inv-tile.swipe-right-active { background: #2a4a2a; }
+  .inv-tile.swipe-left-active  { background: #4a2a2a; }
+
+  /* Reveal layer behind the tile — peeks out as the tile slides. */
+  .inv-swipe-bg {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; font-weight: 700; font-size: 1rem;
+    color: #fff; pointer-events: none;
+    background: transparent;
+    transition: background 0.18s ease;
+  }
+  .inv-swipe-label { opacity: 0; transition: opacity 0.12s ease, transform 0.12s ease; }
+  .inv-tile-wrap.swiping-right .inv-swipe-bg { background: #2a6b2a; }
+  .inv-tile-wrap.swiping-right .inv-swipe-label-decr { opacity: 1; }
+  .inv-tile-wrap.swiping-left  .inv-swipe-bg { background: #6b2a2a; }
+  .inv-tile-wrap.swiping-left  .inv-swipe-label-remove { opacity: 1; }
+  .inv-tile-wrap.swipe-armed .inv-swipe-label { transform: scale(1.08); }
+}
+@media (min-width: 601px) {
+  /* Desktop: no reveal layer — hide the bg + labels so they don't peek
+     through if a tile is rendered momentarily before media query kicks in. */
+  .inv-swipe-bg { display: none; }
+}
     </style>
   </head>
 
@@ -1334,9 +1563,9 @@
           <div class="card" id="inventory-tile-card" style="margin-top:16px">
             <div class="page-header" style="padding-bottom:10px;border-bottom:1px solid var(--border,#333);margin-bottom:10px">
               <h2 style="font-size:1rem;margin:0">Expiry View</h2>
-              <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                <input id="inventory-search" class="page-search" placeholder="Search items..." style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
-                <select id="inventory-location-filter" aria-label="Filter by location" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+              <div class="page-actions inv-toolbar">
+                <input id="inventory-search" placeholder="Search items…">
+                <select id="inventory-location-filter" aria-label="Filter by location">
                   <option value="">All locations</option>
                   <option value="Fridge">Fridge</option>
                   <option value="Freezer">Freezer</option>
@@ -1344,18 +1573,43 @@
                   <option value="Cabinet">Cabinet</option>
                   <option value="Bathroom">Bathroom</option>
                 </select>
-                <select id="inventory-sort" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                <select id="inventory-group-by" aria-label="Group tiles by">
+                  <option value="domain" selected>Group: Domain</option>
+                  <option value="location">Group: Location</option>
+                  <option value="low_first">Group: Running low first</option>
+                </select>
+                <select id="inventory-sort">
                   <option value="expiry">Sort: expiry asc</option>
                   <option value="name">Sort: name</option>
                   <option value="qty">Sort: quantity</option>
                 </select>
-                <label class="page-toggle" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
+                <label>
                   <input type="checkbox" id="inventory-show-empty"> Show empty
                 </label>
+                <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()">↻ Recently used up</button>
               </div>
             </div>
             <div class="page-body">
+              <div id="inventory-bulk-bar" style="padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);gap:8px;align-items:center">
+                <span id="inventory-bulk-count" style="font-weight:600;font-size:0.92rem">0 selected</span>
+                <button class="inv-bulk-btn inv-btn-decr"  onclick="invBulkDecrement()" style="padding:8px 12px;border:none;border-radius:6px;background:#444;color:#ffb;font-size:0.85rem;cursor:pointer">−1 all</button>
+                <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(3)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+3d all</button>
+                <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(7)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+7d all</button>
+                <button class="inv-bulk-btn inv-btn-used"  onclick="invBulkUsedUp()" style="padding:8px 12px;border:none;border-radius:6px;background:#3a6b3a;color:#fff;font-size:0.85rem;cursor:pointer">✓ Used up all</button>
+                <button class="inv-bulk-btn"               onclick="invBulkClear()" style="margin-left:auto;padding:8px 12px;border:1px solid var(--border,#444);border-radius:6px;background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">Clear</button>
+              </div>
               <div id="inventory-groups"></div>
+              <div id="inv-restore-section" style="display:none;margin-top:24px;border-top:1px solid var(--border,#333);padding-top:18px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                  <span style="font-size:1.3rem">🗑️</span>
+                  <div style="flex:1">
+                    <div style="font-weight:700;color:#ffb3b3;font-size:1rem">Used Up — Last 30 Days</div>
+                    <div style="font-size:0.78rem;color:var(--muted,#888);margin-top:2px">Items removed from inventory. Tap <b style="color:#9bd99b">Restore</b> to bring back.</div>
+                  </div>
+                  <button type="button" onclick="invCloseRestoreModal()" style="background:transparent;border:1px solid var(--border,#444);color:var(--muted,#aaa);border-radius:6px;padding:5px 10px;font-size:0.82rem;cursor:pointer">Hide</button>
+                </div>
+                <div id="inv-restore-list"></div>
+              </div>
             </div>
           </div>
 
@@ -20047,6 +20301,14 @@
         return "exp-fresh";
       }
 
+      function _invFmtQty(q) {
+        // Cap to 2 decimals, strip trailing zeros: 0.3600000000000001 → 0.36, 3 → 3, 1.5 → 1.5
+        var n = Number(q || 0);
+        if (!isFinite(n)) return "0";
+        // Round to 2 decimals via toFixed, then re-parse to drop trailing zeros.
+        return String(parseFloat(n.toFixed(2)));
+      }
+
       function _invFlashClass(expClass) {
         if (expClass === "exp-expired") return "flash-expired";
         if (expClass === "exp-soon") return "flash-soon";
@@ -20070,10 +20332,12 @@
         const locEl = document.getElementById("inventory-location-filter");
         const sortEl = document.getElementById("inventory-sort");
         const emptyEl = document.getElementById("inventory-show-empty");
+        const groupEl = document.getElementById("inventory-group-by");
         const search = searchEl ? (searchEl.value || "").toLowerCase() : "";
         const locFilter = locEl ? locEl.value : "";
         const sort = sortEl ? sortEl.value : "expiry";
         const showEmpty = emptyEl ? emptyEl.checked : false;
+        const groupBy = groupEl ? groupEl.value : "domain";
 
         let enriched = _invEnrich(items)
           .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
@@ -20084,20 +20348,41 @@
         else if (sort === "qty") enriched.sort(function(a, b) { return (b.quantity || 0) - (a.quantity || 0); });
         else enriched.sort(function(a, b) { return ((a._days != null ? a._days : 9999) - (b._days != null ? b._days : 9999)); });
 
+        // Group + order based on the selected grouping mode.
         const groups = {};
-        for (const item of enriched) {
-          const loc = item.location || "Pantry";
-          if (!groups[loc]) groups[loc] = [];
-          groups[loc].push(item);
+        let order;
+
+        if (groupBy === "domain") {
+          for (const item of enriched) {
+            const dom = (typeof inventoryDomainFor === "function" ? inventoryDomainFor(item) : "other") || "other";
+            (groups[dom] = groups[dom] || []).push(item);
+          }
+          const known = (typeof INVENTORY_DOMAIN_ORDER !== "undefined") ? INVENTORY_DOMAIN_ORDER.slice() : ["grocery","household","personal_care","apparel","other"];
+          const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
+          order = known.concat(extra);
+        } else if (groupBy === "low_first") {
+          for (const item of enriched) {
+            const isLow = !!(item.is_low || item.manual_low);
+            const key = isLow ? "running_low" : "ok";
+            (groups[key] = groups[key] || []).push(item);
+          }
+          order = ["running_low", "ok"];
+        } else {
+          // location (legacy default)
+          for (const item of enriched) {
+            const loc = item.location || "Pantry";
+            (groups[loc] = groups[loc] || []).push(item);
+          }
+          const known = LOCATION_ORDER.slice();
+          const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
+          order = known.concat(extra);
         }
-        const known = LOCATION_ORDER.slice();
-        const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
-        const order = known.concat(extra);
+
         const newChildren = [];
-        for (const loc of order) {
-          const list = groups[loc] || [];
+        for (const key of order) {
+          const list = groups[key] || [];
           if (!list.length) continue;
-          newChildren.push(_invBuildGroup(loc, list));
+          newChildren.push(_invBuildGroup(key, list, groupBy));
         }
         if (newChildren.length) {
           root.replaceChildren.apply(root, newChildren);
@@ -20107,12 +20392,27 @@
         }
       }
 
-      function _invBuildGroup(loc, items) {
+      function _invGroupLabel(key, mode) {
+        if (mode === "domain") {
+          const labels = (typeof INVENTORY_DOMAIN_LABELS !== "undefined") ? INVENTORY_DOMAIN_LABELS : null;
+          const meta = labels && labels[key];
+          if (meta) return { emoji: meta.icon || "📦", text: meta.label || key };
+          return { emoji: "📦", text: key };
+        }
+        if (mode === "low_first") {
+          if (key === "running_low") return { emoji: "🔴", text: "Running Low" };
+          return { emoji: "✅", text: "OK" };
+        }
+        // location
+        return { emoji: LOCATION_EMOJI[key] || "📦", text: key };
+      }
+
+      function _invBuildGroup(key, items, mode) {
         const wrap = _invElText("div", "inv-group");
         const head = _invElText("div", "inv-group-header");
         const expSoon = items.filter(function(i) { return i._expCls === "exp-soon" || i._expCls === "exp-expired"; }).length;
-        const emoji = LOCATION_EMOJI[loc] || "📦";
-        head.appendChild(document.createTextNode(emoji + " " + loc + " · " + items.length + " items"));
+        const lbl = _invGroupLabel(key, mode || "location");
+        head.appendChild(document.createTextNode(lbl.emoji + " " + lbl.text + " · " + items.length + " items"));
         if (expSoon) {
           const s = _invElText("span", null, " · " + expSoon + " expiring soon");
           s.style.color = "#e87";
@@ -20125,18 +20425,339 @@
         return wrap;
       }
 
+      // ----- Multi-select bulk actions -----
+      window.__inventorySelected = window.__inventorySelected || new Set();
+      window.__inventorySelectionMode = window.__inventorySelectionMode || false;
+
+      function _invIsSelected(pid) { return window.__inventorySelected.has(pid); }
+
+      function _invEnterSelectionMode() {
+        if (window.__inventorySelectionMode) return;
+        window.__inventorySelectionMode = true;
+        document.body.classList.add("inv-selection-mode");
+        // Lift bar to <body> so no ancestor (transform, filter, etc.)
+        // creates a containing block that pulls fixed positioning out
+        // of the viewport. Idempotent on re-entry.
+        var bar = document.getElementById("inventory-bulk-bar");
+        if (bar && bar.parentElement !== document.body) {
+          document.body.appendChild(bar);
+        }
+      }
+      function _invExitSelectionMode() {
+        window.__inventorySelectionMode = false;
+        document.body.classList.remove("inv-selection-mode");
+      }
+
+      function _invToggleSelect(pid, on) {
+        const sel = window.__inventorySelected;
+        if (on) sel.add(pid); else sel.delete(pid);
+        _invUpdateBulkBar();
+        if (sel.size === 0) _invExitSelectionMode();
+      }
+
+      function _invUpdateBulkBar() {
+        const bar = document.getElementById("inventory-bulk-bar");
+        const count = document.getElementById("inventory-bulk-count");
+        if (!bar) return;
+        const n = window.__inventorySelected.size;
+        // Selection has at least one item — make sure mode is on, bar
+        // is portalled to <body>, and the row is visible. Idempotent.
+        if (n > 0) _invEnterSelectionMode();
+        bar.classList.toggle("is-visible", n > 0);
+        if (count) count.textContent = n + " selected";
+      }
+
+      function _invSelectedIds() {
+        return Array.from(window.__inventorySelected);
+      }
+
+      function invBulkClear() {
+        window.__inventorySelected.clear();
+        _invExitSelectionMode();
+        _invUpdateBulkBar();
+        renderInventory();
+      }
+
+      // ----- Bulk-action undo (5s grace window) -----
+      // Only reversible actions get an undo: −1 and +Nd both stay in
+      // PATCH-able territory. ✓ Used up all deletes the row server-side
+      // so it's gated behind a confirm dialog instead.
+      var _invUndoState = null;
+
+      function _invHideUndoToast() {
+        if (_invUndoState) {
+          clearTimeout(_invUndoState.timer);
+          clearInterval(_invUndoState.interval);
+        }
+        _invUndoState = null;
+        try { hideActionToast(); } catch (_) {}
+      }
+
+      function _invShowUndoToast(snapshots, label) {
+        _invHideUndoToast();
+        const el = document.getElementById("action-toast");
+        if (!el || !snapshots.length) return;
+        const expiresAt = Date.now() + 5000;
+        _invUndoState = { snapshots: snapshots, expiresAt: expiresAt, timer: null, interval: null };
+        const render = function() {
+          const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+          const pct = Math.max(0, Math.min(100, ((expiresAt - Date.now()) / 5000) * 100));
+          el.innerHTML =
+            '<div class="action-toast-row">' +
+              '<div class="action-toast-message">' + escHtml(label) + ' on ' + snapshots.length + ' items · Undo in ' + remaining + 's</div>' +
+              '<button type="button" class="action-toast-button" onclick="invUndoBulk()">Undo</button>' +
+            '</div>' +
+            '<div class="action-toast-progress"><div class="action-toast-progress-bar" style="width:' + pct + '%"></div></div>';
+          el.className = "show";
+        };
+        render();
+        _invUndoState.interval = setInterval(render, 250);
+        _invUndoState.timer = setTimeout(_invHideUndoToast, 5000);
+      }
+
+      async function invUndoBulk() {
+        if (!_invUndoState || !_invUndoState.snapshots) return;
+        const snaps = _invUndoState.snapshots.slice();
+        _invHideUndoToast();
+        // Restore each item's pre-action state. Done sequentially so one
+        // server failure leaves the rest in their original good state.
+        for (const s of snaps) await invPatch(s.pid, s.body);
+        toast("Restored " + snaps.length + " items", "info");
+      }
+
+      function _invSnapshot(ids, fields) {
+        // fields: subset of ['quantity','expires_at']
+        const arr = window.__inventoryRaw || [];
+        return ids
+          .map(function(pid) {
+            const inv = arr.find(function(x) { return x.product_id === pid; });
+            if (!inv) return null;
+            const body = {};
+            if (fields.indexOf("quantity") >= 0) body.quantity = inv.quantity;
+            if (fields.indexOf("expires_at") >= 0) body.expires_at = inv.expires_at;
+            return { pid: pid, body: body };
+          })
+          .filter(Boolean);
+      }
+
+      function invBulkDecrement() {
+        const ids = _invSelectedIds();
+        if (!ids.length) return;
+        const snap = _invSnapshot(ids, ["quantity"]);
+        for (const pid of ids) invDecrement(pid);
+        invBulkClear();
+        _invShowUndoToast(snap, "−1");
+      }
+
+      function invBulkUsedUp() {
+        const ids = _invSelectedIds();
+        if (!ids.length) return;
+        // Destructive: deletes inventory rows server-side, so PATCH-undo
+        // can't bring them back. Confirm before applying.
+        if (!confirm("Mark " + ids.length + " item(s) as used up? They'll be removed from inventory.")) return;
+        for (const pid of ids) invUsedUp(pid);
+        toast("Removed " + ids.length + " items", "info");
+        invBulkClear();
+      }
+
+      function invBulkDefer(days) {
+        const ids = _invSelectedIds();
+        if (!ids.length) return;
+        const snap = _invSnapshot(ids, ["expires_at"]);
+        for (const pid of ids) invDefer(pid, days);
+        invBulkClear();
+        _invShowUndoToast(snap, "+" + days + "d");
+      }
+
+      // ----- Recently used-up restore modal -----
+      // Recovery for tiles whose 5s undo window has expired. Lists every
+      // product whose last InventoryAdjustment.reason='consumed_all' is
+      // within the lookback window AND has no current Inventory row.
+      async function invOpenRestoreModal() {
+        const sec = document.getElementById("inv-restore-section");
+        if (!sec) return;
+        sec.style.display = "block";
+        sec.scrollIntoView({ behavior: "smooth", block: "start" });
+        const list = document.getElementById("inv-restore-list");
+        list.replaceChildren();
+        const loading = document.createElement("div");
+        loading.style.cssText = "color:var(--muted,#888);padding:30px 20px;text-align:center;font-size:0.95rem";
+        loading.textContent = "Loading…";
+        list.appendChild(loading);
+        try {
+          const res = await api("/inventory/recently-used-up?days=30");
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          _invRenderRestoreList(data.items || []);
+        } catch (e) {
+          list.replaceChildren();
+          const err = document.createElement("div");
+          err.style.cssText = "color:#ff8a8a;padding:30px 20px;text-align:center";
+          err.textContent = "Failed to load: " + (e.message || e);
+          list.appendChild(err);
+        }
+      }
+
+      function invCloseRestoreModal() {
+        const sec = document.getElementById("inv-restore-section");
+        if (sec) sec.style.display = "none";
+      }
+
+      function _invRenderRestoreList(items) {
+        const list = document.getElementById("inv-restore-list");
+        list.replaceChildren();
+        if (!items.length) {
+          const msg = document.createElement("div");
+          msg.style.cssText = "color:var(--muted,#888);padding:40px 20px;text-align:center;font-size:0.95rem";
+          msg.textContent = "Nothing used-up in the last 30 days. ✨";
+          list.appendChild(msg);
+          return;
+        }
+        // Tile-grid layout — same .inv-tiles class so it inherits the
+        // inventory grid sizing on desktop + 1-column on mobile.
+        const grid = document.createElement("div");
+        grid.className = "inv-tiles";
+        for (const it of items) grid.appendChild(_invBuildRestoreTile(it));
+        list.appendChild(grid);
+      }
+
+      function _invBuildRestoreTile(it) {
+        // Style mirrors .inv-tile but with a red-tinted "used-up" treatment
+        // so users know they're looking at archived items, not live ones.
+        // Layout: flex row — image (if any) on left, content column on right.
+        // Image height matches content height; Restore is anchored at bottom.
+        const tile = document.createElement("div");
+        tile.className = "inv-tile inv-tile-used-up";
+
+        if (it.image_url) {
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + it.image_url;
+          img.alt = it.product_name;
+          img.loading = "lazy";
+          tile.appendChild(img);
+        }
+
+        const content = document.createElement("div");
+        content.className = "inv-tile-content";
+
+        const head = document.createElement("div");
+        head.className = "inv-tile-head";
+        const left = document.createElement("div");
+        left.className = "inv-tile-head-left";
+        const when = it.used_up_at ? String(it.used_up_at).slice(0, 10) : "?";
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "inv-tile-days";
+        dateSpan.style.color = "var(--muted,#888)";
+        dateSpan.style.fontWeight = "400";
+        dateSpan.textContent = when;
+        left.appendChild(dateSpan);
+        head.appendChild(left);
+        const qty = document.createElement("span");
+        qty.className = "inv-tile-qty";
+        qty.textContent = "×" + _invFmtQty(it.prior_quantity);
+        head.appendChild(qty);
+        content.appendChild(head);
+
+        const name = document.createElement("div");
+        name.className = "inv-tile-name";
+        name.textContent = it.product_name;
+        content.appendChild(name);
+
+        if (it.category) {
+          const meta = document.createElement("div");
+          meta.className = "inv-tile-meta";
+          meta.style.color = "var(--muted,#888)";
+          meta.appendChild(_invElText("div", null, "📁 " + it.category));
+          content.appendChild(meta);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "inv-tile-actions";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "inv-btn-used";
+        btn.style.cssText = "flex:1;padding:8px;background:#3a6b3a;color:#fff;border:none;border-radius:4px;font-size:0.88rem;cursor:pointer;font-weight:600";
+        btn.textContent = "↻ Restore";
+        btn.addEventListener("click", function() { _invRestoreOne(it, btn, tile); });
+        actions.appendChild(btn);
+        content.appendChild(actions);
+
+        tile.appendChild(content);
+        return tile;
+      }
+
+      async function _invRestoreOne(item, btn, row) {
+        btn.disabled = true; btn.textContent = "…";
+        try {
+          const res = await api("/inventory/products/" + item.product_id + "/restore", {
+            method: "POST",
+            body: JSON.stringify({ quantity: item.prior_quantity }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            toast("Restore failed: " + (err.error || res.status), "error");
+            btn.disabled = false; btn.textContent = "Restore";
+            return;
+          }
+          toast("Restored " + item.product_name, "info");
+          row.remove();
+          await loadInventory();
+        } catch (e) {
+          toast("Restore failed: " + (e.message || e), "error");
+          btn.disabled = false; btn.textContent = "Restore";
+        }
+      }
+
       function _invBuildTile(i) {
-        const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : ""));
+        const imageUrl = i.latest_snapshot && i.latest_snapshot.image_url ? i.latest_snapshot.image_url : null;
+        const tileCls = "inv-tile " + i._expCls
+          + ((i.quantity || 0) === 0 ? " empty" : "")
+          + (_invIsSelected(i.product_id) ? " selected" : "")
+          + (imageUrl ? " inv-tile-has-img" : "");
+        const tile = _invElText("div", tileCls);
+        // ✓ badge — visible only when tile is selected (CSS-driven). Selection
+        // is entered via long-press; tap toggles while in selection mode.
+        tile.appendChild(_invElText("span", "inv-tile-checkmark", "✓"));
+        if (imageUrl) {
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
+          img.alt = i.product_name || "";
+          img.loading = "lazy";
+          tile.appendChild(img);
+        }
+        // Wrap content in a column-flex container so the image flex-row
+        // sibling sits flush-left and content stretches to its right.
+        const content = _invElText("div", "inv-tile-content");
         const head = _invElText("div", "inv-tile-head");
         const flashCls = _invFlashClass(i._expCls);
         if (flashCls) head.className = "inv-tile-head " + flashCls;
         const headLabel = i._days === null ? "no expiry"
                         : i._days <= 0 ? "EXPIRED " + Math.abs(i._days) + "d ago"
                         : i._days + "d left";
-        head.appendChild(_invElText("span", null, headLabel));
-        head.appendChild(_invElText("span", null, "×" + (i.quantity || 0)));
-        tile.appendChild(head);
-        tile.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
+        const headLeft = _invElText("div", "inv-tile-head-left");
+        headLeft.appendChild(_invElText("span", "inv-tile-days", headLabel));
+        // Compact date-range line (MM/DD → MM/DD) shown only on mobile.
+        const bought = i.last_purchased_at ? String(i.last_purchased_at).slice(0, 10) : null;
+        const expires = i.expires_at ? String(i.expires_at).slice(0, 10) : null;
+        if (bought || expires) {
+          const range = _invElText("span", "inv-tile-range");
+          const fmt = function(d) { return d ? d.slice(5) : "—"; };  // MM-DD
+          range.textContent = " · " + fmt(bought) + " → " + fmt(expires);
+          if (i.expires_source === "user") {
+            range.appendChild(document.createTextNode(" "));
+            range.appendChild(_invElText("span", "tag-user", "user"));
+          } else if (i.expires_source === "defer") {
+            range.appendChild(document.createTextNode(" "));
+            range.appendChild(_invElText("span", "tag-defer", "defer"));
+          }
+          headLeft.appendChild(range);
+        }
+        head.appendChild(headLeft);
+        head.appendChild(_invElText("span", "inv-tile-qty", "×" + _invFmtQty(i.quantity)));
+        content.appendChild(head);
+        content.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
         const meta = _invElText("div", "inv-tile-meta");
         if (i.last_purchased_at) {
           meta.appendChild(_invElText("div", null, "📅 Bought " + String(i.last_purchased_at).slice(0, 10)));
@@ -20157,60 +20778,329 @@
           }
           meta.appendChild(line);
         }
-        tile.appendChild(meta);
+        content.appendChild(meta);
         const actions = _invElText("div", "inv-tile-actions");
         actions.appendChild(_invMakeBtn("inv-btn-edit",  "✎", function() { invEdit(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-defer", "+3d", function() { invDefer(i.product_id, 3); }));
         actions.appendChild(_invMakeBtn("inv-btn-defer", "+7d", function() { invDefer(i.product_id, 7); }));
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
-        tile.appendChild(actions);
-        return tile;
+        content.appendChild(actions);
+        tile.appendChild(content);
+
+        // Wrap tile in a positioned container so swipe reveal labels can sit
+        // behind it (left = "−1 used" / green, right = "Removed" / red).
+        const wrap = document.createElement("div");
+        wrap.className = "inv-tile-wrap";
+        const bg = document.createElement("div");
+        bg.className = "inv-swipe-bg";
+        const decrLabel = _invElText("span", "inv-swipe-label inv-swipe-label-decr", "−1 used");
+        const removeLabel = _invElText("span", "inv-swipe-label inv-swipe-label-remove", "Removed");
+        bg.appendChild(decrLabel);
+        bg.appendChild(removeLabel);
+        wrap.appendChild(bg);
+        wrap.appendChild(tile);
+        _invAttachLongPress(tile, i);
+        _invAttachMobileGestures(tile, i, wrap);
+        return wrap;
+      }
+
+      // Long-press (500ms hold without moving) enters selection mode and
+      // selects the held tile. While in selection mode, plain taps toggle
+      // membership and swipe/expand gestures are suppressed.
+      //
+      // We listen to BOTH touch* and pointer* because iOS Safari fires
+      // pointercancel during a stationary touch when it speculatively
+      // hands the gesture to its native scroller — using touchstart /
+      // touchend directly is the only reliable way to detect a true
+      // long-press on iOS. We disarm only on real lift (touchend /
+      // pointerup) or a significant movement, never on cancel/leave.
+      function _invAttachLongPress(tile, item) {
+        var timer = null, sx = 0, sy = 0, pressed = false;
+        function fire() {
+          timer = null;
+          if (!pressed) return;
+          tile.classList.remove("long-press-arming");
+          _invEnterSelectionMode();
+          var nowSel = !_invIsSelected(item.product_id);
+          _invToggleSelect(item.product_id, nowSel);
+          tile.classList.toggle("selected", nowSel);
+          if (navigator.vibrate) { try { navigator.vibrate(40); } catch (_) {} }
+          tile.dataset.longpressFired = "1";
+          setTimeout(function() { tile.dataset.longpressFired = "0"; }, 500);
+        }
+        function arm(x, y, e) {
+          if (e && e.target && e.target.closest && e.target.closest("button")) return;
+          if (pressed) return;  // ignore secondary touches / duplicate events
+          sx = x; sy = y; pressed = true;
+          tile.classList.add("long-press-arming");
+          timer = setTimeout(fire, 500);
+        }
+        function disarm() {
+          pressed = false;
+          if (timer) { clearTimeout(timer); timer = null; }
+          tile.classList.remove("long-press-arming");
+        }
+        function checkMove(x, y) {
+          if (!pressed) return;
+          if (Math.abs(x - sx) > 10 || Math.abs(y - sy) > 10) disarm();
+        }
+
+        // Touch events — primary path on iOS; { passive: true } so we
+        // don't block native vertical scrolling.
+        tile.addEventListener("touchstart", function(e) {
+          var t = e.touches[0]; if (!t) return;
+          arm(t.clientX, t.clientY, e);
+        }, { passive: true });
+        tile.addEventListener("touchmove", function(e) {
+          var t = e.touches[0]; if (!t) return;
+          checkMove(t.clientX, t.clientY);
+        }, { passive: true });
+        tile.addEventListener("touchend", disarm);
+        tile.addEventListener("touchcancel", disarm);
+
+        // Pointer events — desktop mouse + non-iOS browsers.
+        tile.addEventListener("pointerdown", function(e) {
+          if (e.pointerType === "touch") return;  // touch* path handles iOS
+          arm(e.clientX, e.clientY, e);
+        });
+        tile.addEventListener("pointermove", function(e) {
+          if (e.pointerType === "touch") return;
+          checkMove(e.clientX, e.clientY);
+        });
+        tile.addEventListener("pointerup", function(e) {
+          if (e.pointerType === "touch") return;
+          disarm();
+        });
+
+        // Tap-to-toggle while in selection mode. Capture phase so it
+        // beats the mobile-expand handler. Suppresses the synthetic click
+        // immediately following a long-press.
+        tile.addEventListener("click", function(e) {
+          if (e.target.closest("button")) return;
+          if (tile.dataset.longpressFired === "1") {
+            e.preventDefault(); e.stopPropagation();
+            return;
+          }
+          if (window.__inventorySelectionMode) {
+            e.preventDefault(); e.stopPropagation();
+            var nowSel = !_invIsSelected(item.product_id);
+            _invToggleSelect(item.product_id, nowSel);
+            tile.classList.toggle("selected", nowSel);
+          }
+        }, true);
       }
 
       function _invMakeBtn(cls, text, onClick) {
         const b = document.createElement("button");
         b.className = cls;
         b.textContent = text;
-        b.addEventListener("click", onClick);
+        b.addEventListener("click", function(e) {
+          e.stopPropagation();
+          onClick(e);
+        });
         return b;
       }
 
-      async function invPatch(pid, body) {
+      function _invAttachMobileGestures(tile, item, wrap) {
+        const isMobile = function() { return window.matchMedia("(max-width: 600px)").matches; };
+        const reveal = wrap || tile;
+
+        // Tap-to-expand (mobile only) — button clicks bypass via stopPropagation.
+        // Suppressed while in selection mode (tap toggles select instead).
+        tile.addEventListener("click", function(e) {
+          if (!isMobile()) return;
+          if (window.__inventorySelectionMode) return;
+          if (e.target.closest("button")) return;
+          if (tile.dataset.swiping === "1") return;
+          tile.classList.toggle("expanded");
+        });
+
+        // Swipe with pointer events. Suppressed in selection mode.
+        var startX = 0, startY = 0, dragging = false, lastDx = 0;
+        tile.addEventListener("pointerdown", function(e) {
+          if (!isMobile()) return;
+          if (window.__inventorySelectionMode) return;
+          if (e.target.closest("button")) return;
+          startX = e.clientX; startY = e.clientY; lastDx = 0;
+          dragging = true;
+          tile.dataset.swiping = "0";
+          try { tile.setPointerCapture(e.pointerId); } catch (_) {}
+        });
+        function _cleanup() {
+          dragging = false;
+          tile.style.transform = "";
+          tile.classList.remove("swipe-right-active", "swipe-left-active");
+          reveal.classList.remove("swiping-right", "swiping-left", "swipe-armed");
+        }
+        tile.addEventListener("pointermove", function(e) {
+          if (!dragging) return;
+          if (window.__inventorySelectionMode) { _cleanup(); return; }
+          var dx = e.clientX - startX;
+          var dy = e.clientY - startY;
+          if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) { _cleanup(); return; }
+          lastDx = dx;
+          if (Math.abs(dx) > 12) {
+            tile.dataset.swiping = "1";
+            tile.style.transform = "translateX(" + dx + "px)";
+            // Reveal label behind the tile — direction-tagged so CSS shows
+            // the right copy + bg color
+            reveal.classList.toggle("swiping-right", dx > 0);
+            reveal.classList.toggle("swiping-left", dx < 0);
+            reveal.classList.toggle("swipe-armed", Math.abs(dx) >= 60);
+            tile.classList.toggle("swipe-right-active", dx > 60);
+            tile.classList.toggle("swipe-left-active", dx < -60);
+          }
+        });
+        tile.addEventListener("pointerup", function(e) {
+          var wasDragging = dragging;
+          var dx = lastDx;  // last value seen by pointermove, not stale e.clientX
+          _cleanup();
+          if (wasDragging && Math.abs(dx) >= 60) {
+            var name = item.product_name || "item";
+            if (dx > 0) {
+              invDecrement(item.product_id);
+              toast("−1 " + name + " · undo", "info");
+            } else {
+              invUsedUp(item.product_id);
+              toast("Removed: " + name, "info");
+            }
+          }
+          setTimeout(function() { tile.dataset.swiping = "0"; }, 250);
+        });
+        tile.addEventListener("pointercancel", _cleanup);
+        tile.addEventListener("pointerleave", _cleanup);
+      }
+
+      async function invPatch(pid, body, opts) {
+        opts = opts || {};
         const res = await api("/inventory/products/" + pid, { method: "PATCH", body: JSON.stringify(body) });
         if (!res.ok) {
           const err = await res.json().catch(function() { return {}; });
           toast("Failed: " + (err.error || res.status), "error");
+          // Server rejected — pull ground truth back to undo the optimistic UI.
+          await loadInventory();
           return;
         }
-        await loadInventory();
+        // On success, reload only when caller didn't already update UI optimistically.
+        if (!opts.skipReload) await loadInventory();
       }
 
       function invDefer(pid, days)   { invPatch(pid, { defer_days: days }); }
+
       function invDecrement(pid) {
-        const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
-        if (!inv) return;
-        invPatch(pid, { quantity: Math.max(0, (inv.quantity || 0) - 1) });
+        const arr = window.__inventoryRaw || [];
+        const idx = arr.findIndex(function(x) { return x.product_id === pid; });
+        if (idx < 0) return;
+        const inv = arr[idx];
+        const newQty = Math.max(0, (inv.quantity || 0) - 1);
+        // Optimistic UI update
+        if (newQty <= 0) {
+          arr.splice(idx, 1);
+        } else {
+          inv.quantity = newQty;
+        }
+        renderInventory();
+        invPatch(pid, { quantity: newQty }, { skipReload: true });
       }
+
       function invUsedUp(pid) {
-        invPatch(pid, { quantity: 0 });
-        toast("Marked used up", "info");
+        const arr = window.__inventoryRaw || [];
+        const idx = arr.findIndex(function(x) { return x.product_id === pid; });
+        if (idx < 0) return;
+        // Optimistic remove — tile vanishes instantly
+        arr.splice(idx, 1);
+        renderInventory();
+        invPatch(pid, { quantity: 0 }, { skipReload: true });
       }
-      function invEdit(pid) {
+      async function invEdit(pid) {
         const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
         if (!inv) return;
-        const nextQty = prompt("Quantity", inv.quantity);
-        if (nextQty === null) return;
-        const nextDate = prompt("Expires (YYYY-MM-DD or empty)", inv.expires_at || "");
+        const result = await _invShowEditDialog(inv);
+        if (!result) return;
         const body = {};
-        if (nextQty !== "" && !isNaN(parseFloat(nextQty))) body.quantity = parseFloat(nextQty);
-        if (nextDate !== null) body.expires_at = nextDate || null;
+        if (result.quantity !== "" && result.quantity != null && !isNaN(parseFloat(result.quantity))) {
+          body.quantity = parseFloat(result.quantity);
+        }
+        // expires_at: empty string clears, undefined leaves it alone.
+        if (result.expires_at !== undefined) body.expires_at = result.expires_at || null;
         invPatch(pid, body);
+      }
+
+      // Apple-style sheet using native <input type="date"> + numeric qty.
+      // Returns Promise<{quantity, expires_at} | null>. On iOS, the date
+      // input opens the native scrolling wheel; on desktop it shows the
+      // browser's calendar popup.
+      function _invShowEditDialog(inv) {
+        return new Promise(function(resolve) {
+          // Backdrop
+          const back = document.createElement("div");
+          back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
+          // Sheet
+          const sheet = document.createElement("div");
+          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          // Drag handle
+          const handle = document.createElement("div");
+          handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
+          sheet.appendChild(handle);
+          // Title
+          const title = document.createElement("div");
+          title.textContent = inv.product_name || "Edit item";
+          title.style.cssText = "font-weight:700;font-size:1.05rem;text-align:center;margin-bottom:14px";
+          sheet.appendChild(title);
+          // Quantity row
+          const qtyLabel = document.createElement("label");
+          qtyLabel.textContent = "Quantity";
+          qtyLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const qtyInput = document.createElement("input");
+          qtyInput.type = "number";
+          qtyInput.step = "any";
+          qtyInput.inputMode = "decimal";
+          qtyInput.value = inv.quantity != null ? inv.quantity : "";
+          qtyInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
+          sheet.appendChild(qtyLabel); sheet.appendChild(qtyInput);
+          // Date row
+          const dateLabel = document.createElement("label");
+          dateLabel.textContent = "Expires";
+          dateLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const dateInput = document.createElement("input");
+          dateInput.type = "date";
+          dateInput.value = inv.expires_at ? String(inv.expires_at).slice(0, 10) : "";
+          dateInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:18px;color-scheme:dark;text-align:left;-webkit-appearance:none;appearance:none;display:block;min-height:48px;font-family:inherit";
+          sheet.appendChild(dateLabel); sheet.appendChild(dateInput);
+          // Buttons
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;gap:10px";
+          const cancel = document.createElement("button");
+          cancel.type = "button";
+          cancel.textContent = "Cancel";
+          cancel.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:1rem;font-weight:500;cursor:pointer";
+          const save = document.createElement("button");
+          save.type = "button";
+          save.textContent = "Save";
+          save.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:#0a84ff;color:#fff;font-size:1rem;font-weight:600;cursor:pointer";
+          row.appendChild(cancel); row.appendChild(save);
+          sheet.appendChild(row);
+          back.appendChild(sheet);
+          document.body.appendChild(back);
+          // Animate slide-up
+          requestAnimationFrame(function() { sheet.style.transform = "translateY(0)"; });
+
+          function close(value) {
+            sheet.style.transform = "translateY(100%)";
+            setTimeout(function() { back.remove(); resolve(value); }, 200);
+          }
+          cancel.addEventListener("click", function() { close(null); });
+          back.addEventListener("click", function(e) { if (e.target === back) close(null); });
+          save.addEventListener("click", function() {
+            close({ quantity: qtyInput.value, expires_at: dateInput.value });
+          });
+        });
       }
 
       // Wire toolbar controls to live-filter the tile view
       (function() {
-        var ids = ["inventory-search","inventory-location-filter","inventory-sort","inventory-show-empty"];
+        var ids = ["inventory-search","inventory-location-filter","inventory-sort","inventory-show-empty","inventory-group-by"];
         function wireInvControls() {
           ids.forEach(function(id) {
             var el = document.getElementById(id);

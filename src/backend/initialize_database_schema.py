@@ -122,6 +122,10 @@ class Product(Base):
     category = Column(String(100), nullable=True)
     barcode = Column(String(50), nullable=True)
     is_regular_use = Column(Boolean, nullable=True, default=False)
+    # True for products that represent fees, discounts, taxes, savings,
+    # membership IDs, etc. — kept in the catalog for analytics but never
+    # surfaced in inventory or kitchen views.
+    is_non_product = Column(Boolean, nullable=True, default=False)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -382,10 +386,16 @@ class ReceiptItem(Base):
     attribution_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     attribution_user_ids = Column(Text, nullable=True)
     attribution_kind = Column(String(16), nullable=True)
+    # Line-kind tag set during OCR. 'product' is the default and feeds
+    # inventory; everything else (discount, fee, tax, tip, membership,
+    # shipping, deposit, service_charge, summary, other) is preserved
+    # for analytics but skipped by inventory writes.
+    kind = Column(String(24), nullable=True, default="product")
     created_at = Column(DateTime, default=utcnow)
 
     __table_args__ = (
         Index("ix_receipt_item_product_id", "product_id"),
+        Index("ix_receipt_item_kind", "kind"),
     )
 
     # Relationships
