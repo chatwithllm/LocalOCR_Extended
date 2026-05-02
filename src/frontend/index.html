@@ -19799,7 +19799,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // Inventory
       // ============================================================
       async function loadInventory() {
-        const res = await api("/inventory");
+        // Cache-buster query param defeats any browser-level caching of
+        // the /inventory response — used after photo mutations where
+        // we need the freshest latest_snapshot data immediately.
+        const res = await api("/inventory?_t=" + Date.now(), { cache: "no-store" });
         const body = document.getElementById("inv-table-body");
         if (!res.ok) {
           body.innerHTML =
@@ -20870,11 +20873,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           ? _snap.image_url + (_snap.image_url.indexOf("?") === -1 ? "?" : "&")
             + "v=" + encodeURIComponent(_snap.created_at || _snap.id || "")
           : null;
+        // data-product-id lets photo handlers swap the tile's img src
+        // directly without waiting for a full re-render.
+        const tileDataPid = i.product_id;
         const tileCls = "inv-tile " + i._expCls
           + ((i.quantity || 0) === 0 ? " empty" : "")
           + (_invIsSelected(i.product_id) ? " selected" : "")
           + (imageUrl ? " inv-tile-has-img" : "");
         const tile = _invElText("div", tileCls);
+        tile.dataset.productId = String(tileDataPid);
         // ✓ badge — visible only when tile is selected (CSS-driven). Selection
         // is entered via long-press; tap toggles while in selection mode.
         tile.appendChild(_invElText("span", "inv-tile-checkmark", "✓"));
@@ -21136,6 +21143,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // action ran — long-press is invisible without this signal.
       function _invHintToast(label) {
         try { toast(label, "info"); } catch (_) {}
+      }
+
+      // Direct DOM swap of a tile's image — used after photo gallery
+      // mutations so the user sees the change without waiting for the
+      // /inventory round-trip + full re-render. The eventual loadInventory
+      // still runs and reconciles state authoritatively.
+      function _invSwapTileImage(productId, imageUrl) {
+        const root = document.getElementById("inventory-groups");
+        if (!root) return;
+        const tile = root.querySelector('.inv-tile[data-product-id="' + productId + '"]');
+        if (!tile) return;
+        const img = tile.querySelector("img.inv-tile-img");
+        if (img) {
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
+        }
       }
 
       function _invAttachMobileGestures(tile, item, wrap) {
@@ -21447,9 +21469,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   const r = await api("/product-snapshots/" + s.id + "/promote", { method: "POST" });
                   if (!r.ok) { toast("Restore failed", "error"); return; }
                   toast("📷 Photo restored", "info");
-                  // Reload inventory FIRST so when the user closes the
-                  // sheet, the underlying tile already shows the right
-                  // photo. Then refresh the gallery's blue-border state.
+                  // Direct DOM swap on the underlying tile — paints
+                  // instantly, before the /inventory round-trip lands.
+                  _invSwapTileImage(inv.product_id, s.image_url + "?v=" + Date.now());
                   await loadInventory();
                   await _refreshGallery();
                 });
