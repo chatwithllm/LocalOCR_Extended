@@ -154,7 +154,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* Restore action must always be visible — even on mobile where the
    regular .inv-tile-actions row is gated behind tap-to-expand. */
 .inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
-/* Image layout — left-aligned, fills tile height. Used-up tiles only. */
+/* Image-on-left layout — applies to live tiles (.inv-tile-has-img,
+   added when latest_snapshot.image_url is present) AND every used-up
+   tile (.inv-tile-used-up always wraps content). Image stretches to
+   fill the full content height; the action row sits at the bottom. */
+.inv-tile.inv-tile-has-img,
 .inv-tile-used-up.inv-tile {
   display: flex;
   flex-direction: row;
@@ -20654,10 +20658,26 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function _invBuildTile(i) {
-        const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : "") + (_invIsSelected(i.product_id) ? " selected" : ""));
+        const imageUrl = i.latest_snapshot && i.latest_snapshot.image_url ? i.latest_snapshot.image_url : null;
+        const tileCls = "inv-tile " + i._expCls
+          + ((i.quantity || 0) === 0 ? " empty" : "")
+          + (_invIsSelected(i.product_id) ? " selected" : "")
+          + (imageUrl ? " inv-tile-has-img" : "");
+        const tile = _invElText("div", tileCls);
         // ✓ badge — visible only when tile is selected (CSS-driven). Selection
         // is entered via long-press; tap toggles while in selection mode.
         tile.appendChild(_invElText("span", "inv-tile-checkmark", "✓"));
+        if (imageUrl) {
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
+          img.alt = i.product_name || "";
+          img.loading = "lazy";
+          tile.appendChild(img);
+        }
+        // Wrap content in a column-flex container so the image flex-row
+        // sibling sits flush-left and content stretches to its right.
+        const content = _invElText("div", "inv-tile-content");
         const head = _invElText("div", "inv-tile-head");
         const flashCls = _invFlashClass(i._expCls);
         if (flashCls) head.className = "inv-tile-head " + flashCls;
@@ -20684,8 +20704,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         head.appendChild(headLeft);
         head.appendChild(_invElText("span", "inv-tile-qty", "×" + _invFmtQty(i.quantity)));
-        tile.appendChild(head);
-        tile.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
+        content.appendChild(head);
+        content.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
         const meta = _invElText("div", "inv-tile-meta");
         if (i.last_purchased_at) {
           meta.appendChild(_invElText("div", null, "📅 Bought " + String(i.last_purchased_at).slice(0, 10)));
@@ -20706,14 +20726,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           meta.appendChild(line);
         }
-        tile.appendChild(meta);
+        content.appendChild(meta);
         const actions = _invElText("div", "inv-tile-actions");
         actions.appendChild(_invMakeBtn("inv-btn-edit",  "✎", function() { invEdit(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-defer", "+3d", function() { invDefer(i.product_id, 3); }));
         actions.appendChild(_invMakeBtn("inv-btn-defer", "+7d", function() { invDefer(i.product_id, 7); }));
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
-        tile.appendChild(actions);
+        content.appendChild(actions);
+        tile.appendChild(content);
 
         // Wrap tile in a positioned container so swipe reveal labels can sit
         // behind it (left = "−1 used" / green, right = "Removed" / red).
