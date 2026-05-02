@@ -129,6 +129,10 @@
 .inv-tile { position: relative; }
 /* Selection mode: dim un-selected tiles to focus the user on the picks. */
 body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
+/* Reserve top space so the fixed bulk bar doesn't cover the first tile.
+   Padding scopes to the inventory page wrapper so other pages aren't
+   shifted. */
+body.inv-selection-mode #page-inventory { padding-top: 70px; }
 /* Reserve top-left space so the ✓ badge never sits on top of the
    "7d left" days label when selected. */
 .inv-tile-head { padding-left: 26px; }
@@ -1455,7 +1459,7 @@ body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
               </div>
             </div>
             <div class="page-body">
-              <div id="inventory-bulk-bar" style="position:sticky;top:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);gap:8px;align-items:center;z-index:50">
+              <div id="inventory-bulk-bar" style="position:fixed;top:8px;left:8px;right:8px;padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);gap:8px;align-items:center;z-index:1000">
                 <span id="inventory-bulk-count" style="font-weight:600;font-size:0.92rem">0 selected</span>
                 <button class="inv-bulk-btn inv-btn-decr"  onclick="invBulkDecrement()" style="padding:8px 12px;border:none;border-radius:6px;background:#444;color:#ffb;font-size:0.85rem;cursor:pointer">−1 all</button>
                 <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(3)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+3d all</button>
