@@ -92,6 +92,9 @@
   .flash-soon, .flash-expired { animation: none; }
 }
 /* ===== Inventory Expiry Tile View — Mobile (<600px) ===== */
+/* Date-range chip is mobile-only — hidden on desktop where the full
+   meta block already shows Bought + Expires lines. */
+.inv-tile-range { display: none; color: var(--muted, #999); font-size: 0.78rem; }
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
   .inv-tile-wrap {
@@ -111,6 +114,12 @@
     position: relative;
     z-index: 2;
   }
+  /* Mobile: drop the verbose meta block (📅 Bought + 🍂 Expires) and
+     surface the compact MM-DD → MM-DD range inline with the days-left
+     header instead. Saves two rows per tile. */
+  .inv-tile-meta { display: none; }
+  .inv-tile-range { display: inline; }
+  .inv-tile-head-left { display: flex; flex-wrap: wrap; gap: 0; align-items: baseline; }
   .inv-tile-actions { display: none; gap: 8px; }
   .inv-tile.expanded .inv-tile-actions { display: flex; }
   .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
@@ -20231,8 +20240,26 @@
         const headLabel = i._days === null ? "no expiry"
                         : i._days <= 0 ? "EXPIRED " + Math.abs(i._days) + "d ago"
                         : i._days + "d left";
-        head.appendChild(_invElText("span", null, headLabel));
-        head.appendChild(_invElText("span", null, "×" + _invFmtQty(i.quantity)));
+        const headLeft = _invElText("div", "inv-tile-head-left");
+        headLeft.appendChild(_invElText("span", "inv-tile-days", headLabel));
+        // Compact date-range line (MM/DD → MM/DD) shown only on mobile.
+        const bought = i.last_purchased_at ? String(i.last_purchased_at).slice(0, 10) : null;
+        const expires = i.expires_at ? String(i.expires_at).slice(0, 10) : null;
+        if (bought || expires) {
+          const range = _invElText("span", "inv-tile-range");
+          const fmt = function(d) { return d ? d.slice(5) : "—"; };  // MM-DD
+          range.textContent = " · " + fmt(bought) + " → " + fmt(expires);
+          if (i.expires_source === "user") {
+            range.appendChild(document.createTextNode(" "));
+            range.appendChild(_invElText("span", "tag-user", "user"));
+          } else if (i.expires_source === "defer") {
+            range.appendChild(document.createTextNode(" "));
+            range.appendChild(_invElText("span", "tag-defer", "defer"));
+          }
+          headLeft.appendChild(range);
+        }
+        head.appendChild(headLeft);
+        head.appendChild(_invElText("span", "inv-tile-qty", "×" + _invFmtQty(i.quantity)));
         tile.appendChild(head);
         tile.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
         const meta = _invElText("div", "inv-tile-meta");
