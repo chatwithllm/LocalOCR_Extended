@@ -68,7 +68,11 @@
   background: var(--surface, #2a2a2a);
   border-left: 4px solid #4a4;
   border-radius: 6px; padding: 10px;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
 }
+.inv-tile > .inv-tile-actions { margin-top: auto; }
 .inv-tile.exp-expired { border-left-color: #d33; }
 .inv-tile.exp-soon    { border-left-color: #e87; }
 .inv-tile.exp-watch   { border-left-color: #cc0; }
@@ -208,15 +212,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
 /* Image-on-left layout — applies to live tiles (.inv-tile-has-img,
    added when latest_snapshot.image_url is present) AND every used-up
-   tile (.inv-tile-used-up always wraps content). Image stretches to
-   fill the full content height; the action row sits at the bottom. */
+   tile (.inv-tile-used-up always wraps content). Image is a fixed
+   square thumbnail (top-aligned, never stretching past content). All
+   tiles share a min-height so the grid feels uniform. Hover scales the
+   thumbnail up as a quick preview without any popup framework. */
 .inv-tile.inv-tile-has-img,
 .inv-tile-used-up.inv-tile {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 12px;
   padding: 10px;
+  min-height: 96px;
 }
 .inv-tile-content {
   flex: 1;
@@ -227,14 +234,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .inv-tile-content .inv-tile-actions { margin-top: auto; }
 .inv-tile-img {
   flex: 0 0 auto;
-  width: 80px;
-  align-self: stretch;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #222;
+  position: relative;
+  z-index: 1;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  transform-origin: 0 0;
+  cursor: zoom-in;
+}
+.inv-tile-img:hover {
+  transform: scale(3.2);
+  z-index: 100;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
 }
 @media (max-width: 600px) {
-  .inv-tile-img { width: 110px; }
+  .inv-tile.inv-tile-has-img,
+  .inv-tile-used-up.inv-tile { min-height: 110px; }
+  .inv-tile-img { width: 76px; height: 76px; }
+  /* Touch devices have no real hover — tap-active gives a peek. */
+  .inv-tile-img:active { transform: scale(2.6); z-index: 100; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+  .inv-tile-img:hover { transform: none; box-shadow: none; }
 }
 #inventory-bulk-bar {
   display: none;
