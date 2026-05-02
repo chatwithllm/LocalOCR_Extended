@@ -20094,6 +20094,14 @@
         return "exp-fresh";
       }
 
+      function _invFmtQty(q) {
+        // Cap to 2 decimals, strip trailing zeros: 0.3600000000000001 → 0.36, 3 → 3, 1.5 → 1.5
+        var n = Number(q || 0);
+        if (!isFinite(n)) return "0";
+        // Round to 2 decimals via toFixed, then re-parse to drop trailing zeros.
+        return String(parseFloat(n.toFixed(2)));
+      }
+
       function _invFlashClass(expClass) {
         if (expClass === "exp-expired") return "flash-expired";
         if (expClass === "exp-soon") return "flash-soon";
@@ -20181,7 +20189,7 @@
                         : i._days <= 0 ? "EXPIRED " + Math.abs(i._days) + "d ago"
                         : i._days + "d left";
         head.appendChild(_invElText("span", null, headLabel));
-        head.appendChild(_invElText("span", null, "×" + (i.quantity || 0)));
+        head.appendChild(_invElText("span", null, "×" + _invFmtQty(i.quantity)));
         tile.appendChild(head);
         tile.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
         const meta = _invElText("div", "inv-tile-meta");
