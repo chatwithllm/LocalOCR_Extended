@@ -572,13 +572,34 @@ def _serialize_inventory(inv):
 @inventory_bp.route("/products/<int:product_id>", methods=["PATCH"])
 @require_auth
 def patch_inventory_truth(product_id: int):
-    """Edit qty / location / expiry / defer for any product's inventory row."""
+    """Edit qty / location / expiry / defer for any product's inventory row.
+    Also accepts ``display_name`` to correct an OCR misread on the
+    underlying Product — promotes review_state to ``resolved`` since a
+    human just confirmed the name.
+    """
     body = request.get_json(silent=True) or {}
     inv = g.db_session.query(Inventory).filter_by(product_id=product_id).first()
     if not inv:
         return jsonify({"error": "inventory row not found"}), 404
+    user_id = getattr(g.current_user, "id", None)
+    new_name = body.get("display_name")
+    if new_name is not None:
+        cleaned = str(new_name).strip()
+        if not cleaned:
+            return jsonify({"error": "display_name cannot be empty"}), 400
+        prod = g.db_session.query(Product).filter_by(id=product_id).first()
+        if prod and cleaned != (prod.display_name or prod.name or ""):
+            prod.display_name = cleaned
+            prod.review_state = "resolved"
+            record_inventory_adjustment(
+                g.db_session,
+                product_id=product_id,
+                quantity_delta=0,
+                user_id=user_id,
+                reason="rename",
+            )
     try:
-        result = apply_manual_patch(g.db_session, inv, body, user_id=getattr(g.current_user, "id", None))
+        result = apply_manual_patch(g.db_session, inv, body, user_id=user_id)
     except (ValueError, TypeError) as exc:
         return jsonify({"error": f"invalid patch: {exc}"}), 400
     g.db_session.commit()
