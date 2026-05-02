@@ -41,6 +41,7 @@ from src.backend.budgeting_domains import (
 from src.backend.budgeting_rollups import normalize_transaction_type
 from src.backend.bill_cadence import normalize_billing_cycle
 from src.backend.normalize_store_names import canonicalize_store_name, find_matching_store
+from src.backend.inventory_writes import upsert_inventory_for_receipt_item
 
 logger = logging.getLogger(__name__)
 
@@ -876,6 +877,16 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 session.add(ph)
             persisted_items.append(item_data)
             session.flush()
+            if product is not None:
+                rt = (receipt_type or "").lower() if isinstance(receipt_type, str) else ""
+                if rt in {"grocery", "retail_items", ""}:
+                    try:
+                        upsert_inventory_for_receipt_item(session, product, receipt_item, purchase)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception(
+                            "inventory upsert failed for product %s: %s",
+                            product.id, exc,
+                        )
             if purchase_domain == "grocery" and purchase.transaction_type != "refund":
                 validate_low_workflow(
                     session,
