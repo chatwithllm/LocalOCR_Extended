@@ -106,9 +106,9 @@ def list_inventory():
     location = request.args.get("location")
     low_stock = request.args.get("low_stock", "false").lower() == "true"
 
-    rebuild_active_inventory(session)
-    session.flush()
-
+    # Inventory is now the source of truth — receipt finalize is the only
+    # automatic writer. Calling rebuild_active_inventory here would clobber
+    # manual PATCH edits (used-up, defer, decrement) on every GET.
     query = session.query(Inventory).join(Product).filter(Inventory.is_active_window.is_(True))
 
     if location:
