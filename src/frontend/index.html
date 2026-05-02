@@ -52,6 +52,46 @@
     <link rel="stylesheet" href="/styles/design-system.css?v=20260425i" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
+    <style>
+/* ===== Inventory Expiry Tile View ===== */
+.inv-group { margin-bottom: 18px; }
+.inv-group-header {
+  font-size: 0.95rem; font-weight: 600; padding: 6px 0;
+  border-bottom: 1px solid var(--border, #333); color: var(--accent, #aad);
+  user-select: none;
+}
+.inv-tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px; margin-top: 10px;
+}
+.inv-tile {
+  background: var(--surface, #2a2a2a);
+  border-left: 4px solid #4a4;
+  border-radius: 6px; padding: 10px;
+}
+.inv-tile.exp-expired { border-left-color: #d33; }
+.inv-tile.exp-soon    { border-left-color: #e87; }
+.inv-tile.exp-watch   { border-left-color: #cc0; }
+.inv-tile.empty       { opacity: 0.55; }
+.inv-tile-head { display: flex; justify-content: space-between; font-size: 0.85rem; align-items: center; }
+.inv-tile-name { font-weight: 600; margin: 4px 0; font-size: 1rem; }
+.inv-tile-meta { font-size: 0.75rem; color: var(--muted, #999); line-height: 1.5; }
+.inv-tile-meta .tag-user  { background: #3a4f6b; color: #cde; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; }
+.inv-tile-meta .tag-defer { background: #5a4a2a; color: #ffd; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; }
+.inv-tile-actions { display: flex; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+.inv-tile-actions button { flex: 1; padding: 5px 8px; border: none; border-radius: 4px; font-size: 0.74rem; cursor: pointer; }
+.inv-btn-edit  { background: #444;    color: #ddd; }
+.inv-btn-defer { background: #5a4a2a; color: #ffd; }
+.inv-btn-decr  { background: #444;    color: #ffb; }
+.inv-btn-used  { background: #3a6b3a; color: #fff; }
+@keyframes invExpiryPulse  { 0%,100% { color:#e87; text-shadow:0 0 0 transparent; } 50% { color:#fff; text-shadow:0 0 8px #e87; } }
+@keyframes invExpiredPulse { 0%,100% { color:#d33; text-shadow:0 0 0 transparent; } 50% { color:#fff; text-shadow:0 0 10px #d33; } }
+.flash-soon    { animation: invExpiryPulse 1.4s ease-in-out infinite; font-weight: 600; }
+.flash-expired { animation: invExpiredPulse 1s ease-in-out infinite; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .flash-soon, .flash-expired { animation: none; }
+}
+    </style>
   </head>
 
   <body>
@@ -1287,6 +1327,35 @@
                 style="display: none"
                 onchange="uploadProductSnapshotFromPicker(event)"
               />
+            </div>
+          </div>
+
+          <!-- ===== Expiry Tile View ===== -->
+          <div class="card" id="inventory-tile-card" style="margin-top:16px">
+            <div class="page-header" style="padding-bottom:10px;border-bottom:1px solid var(--border,#333);margin-bottom:10px">
+              <h2 style="font-size:1rem;margin:0">Expiry View</h2>
+              <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input id="inventory-search" class="page-search" placeholder="Search items..." style="padding:5px 10px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                <select id="inventory-location-filter" aria-label="Filter by location" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                  <option value="">All locations</option>
+                  <option value="Fridge">Fridge</option>
+                  <option value="Freezer">Freezer</option>
+                  <option value="Pantry">Pantry</option>
+                  <option value="Cabinet">Cabinet</option>
+                  <option value="Bathroom">Bathroom</option>
+                </select>
+                <select id="inventory-sort" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                  <option value="expiry">Sort: expiry asc</option>
+                  <option value="name">Sort: name</option>
+                  <option value="qty">Sort: quantity</option>
+                </select>
+                <label class="page-toggle" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">
+                  <input type="checkbox" id="inventory-show-empty"> Show empty
+                </label>
+              </div>
+            </div>
+            <div class="page-body">
+              <div id="inventory-groups"></div>
             </div>
           </div>
 
@@ -19424,6 +19493,8 @@
         const data = await res.json();
         const allItems = getInventoryItems(data);
         inventoryAllItemsCache = allItems;
+        // Populate raw cache for tile view (uses same fetch result)
+        window.__inventoryRaw = allItems;
         const note = document.getElementById("inv-window-note");
         if (note) {
           note.textContent = data.window_start
@@ -19953,7 +20024,210 @@
         .join("")}
       </tbody>
     </table>`;
+        // Also refresh the expiry tile view with fresh data
+        if (typeof renderInventory === "function") renderInventory();
       }
+
+      // ===== Expiry Tile View — DOM-built, no innerHTML for user data =====
+      const LOCATION_ORDER = ["Fridge", "Freezer", "Pantry", "Cabinet", "Bathroom"];
+      const LOCATION_EMOJI = {Fridge:"🧊", Freezer:"❄️", Pantry:"🥫", Cabinet:"🚪", Bathroom:"🛁"};
+
+      function _invElText(tag, cls, text) {
+        const el = document.createElement(tag);
+        if (cls) el.className = cls;
+        if (text != null) el.textContent = text;
+        return el;
+      }
+
+      function _invClassifyExpiry(daysLeft) {
+        if (daysLeft === null || daysLeft === undefined) return "exp-fresh";
+        if (daysLeft <= 0) return "exp-expired";
+        if (daysLeft <= 3) return "exp-soon";
+        if (daysLeft <= 7) return "exp-watch";
+        return "exp-fresh";
+      }
+
+      function _invFlashClass(expClass) {
+        if (expClass === "exp-expired") return "flash-expired";
+        if (expClass === "exp-soon") return "flash-soon";
+        return "";
+      }
+
+      function _invEnrich(items) {
+        const today = new Date(); today.setHours(0,0,0,0);
+        return items.map(function(i) {
+          const exp = i.expires_at ? new Date(i.expires_at + "T00:00:00") : null;
+          const days = exp ? Math.round((exp - today) / 86400000) : null;
+          return Object.assign({}, i, { _days: days, _expCls: _invClassifyExpiry(days) });
+        });
+      }
+
+      function renderInventory() {
+        const root = document.getElementById("inventory-groups");
+        if (!root) return;
+        const items = window.__inventoryRaw || [];
+        const searchEl = document.getElementById("inventory-search");
+        const locEl = document.getElementById("inventory-location-filter");
+        const sortEl = document.getElementById("inventory-sort");
+        const emptyEl = document.getElementById("inventory-show-empty");
+        const search = searchEl ? (searchEl.value || "").toLowerCase() : "";
+        const locFilter = locEl ? locEl.value : "";
+        const sort = sortEl ? sortEl.value : "expiry";
+        const showEmpty = emptyEl ? emptyEl.checked : false;
+
+        let enriched = _invEnrich(items)
+          .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
+          .filter(function(i) { return !search || (i.product_name || "").toLowerCase().includes(search); })
+          .filter(function(i) { return !locFilter || i.location === locFilter; });
+
+        if (sort === "name") enriched.sort(function(a, b) { return (a.product_name || "").localeCompare(b.product_name || ""); });
+        else if (sort === "qty") enriched.sort(function(a, b) { return (b.quantity || 0) - (a.quantity || 0); });
+        else enriched.sort(function(a, b) { return ((a._days != null ? a._days : 9999) - (b._days != null ? b._days : 9999)); });
+
+        const groups = {};
+        for (const item of enriched) {
+          const loc = item.location || "Pantry";
+          if (!groups[loc]) groups[loc] = [];
+          groups[loc].push(item);
+        }
+        const known = LOCATION_ORDER.slice();
+        const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
+        const order = known.concat(extra);
+        const newChildren = [];
+        for (const loc of order) {
+          const list = groups[loc] || [];
+          if (!list.length) continue;
+          newChildren.push(_invBuildGroup(loc, list));
+        }
+        if (newChildren.length) {
+          root.replaceChildren.apply(root, newChildren);
+        } else {
+          const msg = _invElText("div", "muted", items.length ? "No items match the current filters." : "No inventory data yet.");
+          root.replaceChildren(msg);
+        }
+      }
+
+      function _invBuildGroup(loc, items) {
+        const wrap = _invElText("div", "inv-group");
+        const head = _invElText("div", "inv-group-header");
+        const expSoon = items.filter(function(i) { return i._expCls === "exp-soon" || i._expCls === "exp-expired"; }).length;
+        const emoji = LOCATION_EMOJI[loc] || "📦";
+        head.appendChild(document.createTextNode(emoji + " " + loc + " · " + items.length + " items"));
+        if (expSoon) {
+          const s = _invElText("span", null, " · " + expSoon + " expiring soon");
+          s.style.color = "#e87";
+          head.appendChild(s);
+        }
+        wrap.appendChild(head);
+        const tiles = _invElText("div", "inv-tiles");
+        for (const i of items) tiles.appendChild(_invBuildTile(i));
+        wrap.appendChild(tiles);
+        return wrap;
+      }
+
+      function _invBuildTile(i) {
+        const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : ""));
+        const head = _invElText("div", "inv-tile-head");
+        const flashCls = _invFlashClass(i._expCls);
+        if (flashCls) head.className = "inv-tile-head " + flashCls;
+        const headLabel = i._days === null ? "no expiry"
+                        : i._days <= 0 ? "EXPIRED " + Math.abs(i._days) + "d ago"
+                        : i._days + "d left";
+        head.appendChild(_invElText("span", null, headLabel));
+        head.appendChild(_invElText("span", null, "×" + (i.quantity || 0)));
+        tile.appendChild(head);
+        tile.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
+        const meta = _invElText("div", "inv-tile-meta");
+        if (i.last_purchased_at) {
+          meta.appendChild(_invElText("div", null, "📅 Bought " + String(i.last_purchased_at).slice(0, 10)));
+        }
+        if (i.expires_at) {
+          const line = document.createElement("div");
+          line.appendChild(document.createTextNode("🍂 Expires "));
+          const dateSpan = document.createElement("span");
+          if (flashCls) dateSpan.className = flashCls;
+          dateSpan.textContent = i.expires_at;
+          line.appendChild(dateSpan);
+          if (i.expires_source === "user") {
+            line.appendChild(document.createTextNode(" "));
+            line.appendChild(_invElText("span", "tag-user", "user"));
+          } else if (i.expires_source === "defer") {
+            line.appendChild(document.createTextNode(" "));
+            line.appendChild(_invElText("span", "tag-defer", "defer"));
+          }
+          meta.appendChild(line);
+        }
+        tile.appendChild(meta);
+        const actions = _invElText("div", "inv-tile-actions");
+        actions.appendChild(_invMakeBtn("inv-btn-edit",  "✎", function() { invEdit(i.product_id); }));
+        actions.appendChild(_invMakeBtn("inv-btn-defer", "+3d", function() { invDefer(i.product_id, 3); }));
+        actions.appendChild(_invMakeBtn("inv-btn-defer", "+7d", function() { invDefer(i.product_id, 7); }));
+        actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
+        actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
+        tile.appendChild(actions);
+        return tile;
+      }
+
+      function _invMakeBtn(cls, text, onClick) {
+        const b = document.createElement("button");
+        b.className = cls;
+        b.textContent = text;
+        b.addEventListener("click", onClick);
+        return b;
+      }
+
+      async function invPatch(pid, body) {
+        const res = await api("/inventory/products/" + pid, { method: "PATCH", body: JSON.stringify(body) });
+        if (!res.ok) {
+          const err = await res.json().catch(function() { return {}; });
+          toast("Failed: " + (err.error || res.status), "error");
+          return;
+        }
+        await loadInventory();
+      }
+
+      function invDefer(pid, days)   { invPatch(pid, { defer_days: days }); }
+      function invDecrement(pid) {
+        const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
+        if (!inv) return;
+        invPatch(pid, { quantity: Math.max(0, (inv.quantity || 0) - 1) });
+      }
+      function invUsedUp(pid) {
+        invPatch(pid, { quantity: 0 });
+        toast("Marked used up", "info");
+      }
+      function invEdit(pid) {
+        const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
+        if (!inv) return;
+        const nextQty = prompt("Quantity", inv.quantity);
+        if (nextQty === null) return;
+        const nextDate = prompt("Expires (YYYY-MM-DD or empty)", inv.expires_at || "");
+        const body = {};
+        if (nextQty !== "" && !isNaN(parseFloat(nextQty))) body.quantity = parseFloat(nextQty);
+        if (nextDate !== null) body.expires_at = nextDate || null;
+        invPatch(pid, body);
+      }
+
+      // Wire toolbar controls to live-filter the tile view
+      (function() {
+        var ids = ["inventory-search","inventory-location-filter","inventory-sort","inventory-show-empty"];
+        function wireInvControls() {
+          ids.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el && !el.dataset.invWired) {
+              el.addEventListener("input", renderInventory);
+              el.dataset.invWired = "1";
+            }
+          });
+        }
+        // Wire after DOM ready
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", wireInvControls);
+        } else {
+          wireInvControls();
+        }
+      })();
+      // ===== End Expiry Tile View =====
 
       function searchInventory() {
         inventorySearchQuery =
