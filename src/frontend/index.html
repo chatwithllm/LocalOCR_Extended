@@ -20260,25 +20260,46 @@
         tile.addEventListener("pointerleave", _cleanup);
       }
 
-      async function invPatch(pid, body) {
+      async function invPatch(pid, body, opts) {
+        opts = opts || {};
         const res = await api("/inventory/products/" + pid, { method: "PATCH", body: JSON.stringify(body) });
         if (!res.ok) {
           const err = await res.json().catch(function() { return {}; });
           toast("Failed: " + (err.error || res.status), "error");
+          // Server rejected — pull ground truth back to undo the optimistic UI.
+          await loadInventory();
           return;
         }
-        await loadInventory();
+        // On success, reload only when caller didn't already update UI optimistically.
+        if (!opts.skipReload) await loadInventory();
       }
 
       function invDefer(pid, days)   { invPatch(pid, { defer_days: days }); }
+
       function invDecrement(pid) {
-        const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
-        if (!inv) return;
-        invPatch(pid, { quantity: Math.max(0, (inv.quantity || 0) - 1) });
+        const arr = window.__inventoryRaw || [];
+        const idx = arr.findIndex(function(x) { return x.product_id === pid; });
+        if (idx < 0) return;
+        const inv = arr[idx];
+        const newQty = Math.max(0, (inv.quantity || 0) - 1);
+        // Optimistic UI update
+        if (newQty <= 0) {
+          arr.splice(idx, 1);
+        } else {
+          inv.quantity = newQty;
+        }
+        renderInventory();
+        invPatch(pid, { quantity: newQty }, { skipReload: true });
       }
+
       function invUsedUp(pid) {
-        invPatch(pid, { quantity: 0 });
-        toast("Removed from inventory", "info");
+        const arr = window.__inventoryRaw || [];
+        const idx = arr.findIndex(function(x) { return x.product_id === pid; });
+        if (idx < 0) return;
+        // Optimistic remove — tile vanishes instantly
+        arr.splice(idx, 1);
+        renderInventory();
+        invPatch(pid, { quantity: 0 }, { skipReload: true });
       }
       function invEdit(pid) {
         const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
