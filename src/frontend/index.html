@@ -1391,6 +1391,11 @@
                   <option value="Cabinet">Cabinet</option>
                   <option value="Bathroom">Bathroom</option>
                 </select>
+                <select id="inventory-group-by" aria-label="Group tiles by" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
+                  <option value="domain" selected>Group: Domain</option>
+                  <option value="location">Group: Location</option>
+                  <option value="low_first">Group: Running low first</option>
+                </select>
                 <select id="inventory-sort" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface,#2a2a2a);color:var(--text,#eee);font-size:0.85rem">
                   <option value="expiry">Sort: expiry asc</option>
                   <option value="name">Sort: name</option>
@@ -20125,10 +20130,12 @@
         const locEl = document.getElementById("inventory-location-filter");
         const sortEl = document.getElementById("inventory-sort");
         const emptyEl = document.getElementById("inventory-show-empty");
+        const groupEl = document.getElementById("inventory-group-by");
         const search = searchEl ? (searchEl.value || "").toLowerCase() : "";
         const locFilter = locEl ? locEl.value : "";
         const sort = sortEl ? sortEl.value : "expiry";
         const showEmpty = emptyEl ? emptyEl.checked : false;
+        const groupBy = groupEl ? groupEl.value : "domain";
 
         let enriched = _invEnrich(items)
           .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
@@ -20139,20 +20146,41 @@
         else if (sort === "qty") enriched.sort(function(a, b) { return (b.quantity || 0) - (a.quantity || 0); });
         else enriched.sort(function(a, b) { return ((a._days != null ? a._days : 9999) - (b._days != null ? b._days : 9999)); });
 
+        // Group + order based on the selected grouping mode.
         const groups = {};
-        for (const item of enriched) {
-          const loc = item.location || "Pantry";
-          if (!groups[loc]) groups[loc] = [];
-          groups[loc].push(item);
+        let order;
+
+        if (groupBy === "domain") {
+          for (const item of enriched) {
+            const dom = (typeof inventoryDomainFor === "function" ? inventoryDomainFor(item) : "other") || "other";
+            (groups[dom] = groups[dom] || []).push(item);
+          }
+          const known = (typeof INVENTORY_DOMAIN_ORDER !== "undefined") ? INVENTORY_DOMAIN_ORDER.slice() : ["grocery","household","personal_care","apparel","other"];
+          const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
+          order = known.concat(extra);
+        } else if (groupBy === "low_first") {
+          for (const item of enriched) {
+            const isLow = !!(item.is_low || item.manual_low);
+            const key = isLow ? "running_low" : "ok";
+            (groups[key] = groups[key] || []).push(item);
+          }
+          order = ["running_low", "ok"];
+        } else {
+          // location (legacy default)
+          for (const item of enriched) {
+            const loc = item.location || "Pantry";
+            (groups[loc] = groups[loc] || []).push(item);
+          }
+          const known = LOCATION_ORDER.slice();
+          const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
+          order = known.concat(extra);
         }
-        const known = LOCATION_ORDER.slice();
-        const extra = Object.keys(groups).filter(function(k) { return !known.includes(k); });
-        const order = known.concat(extra);
+
         const newChildren = [];
-        for (const loc of order) {
-          const list = groups[loc] || [];
+        for (const key of order) {
+          const list = groups[key] || [];
           if (!list.length) continue;
-          newChildren.push(_invBuildGroup(loc, list));
+          newChildren.push(_invBuildGroup(key, list, groupBy));
         }
         if (newChildren.length) {
           root.replaceChildren.apply(root, newChildren);
@@ -20162,12 +20190,27 @@
         }
       }
 
-      function _invBuildGroup(loc, items) {
+      function _invGroupLabel(key, mode) {
+        if (mode === "domain") {
+          const labels = (typeof INVENTORY_DOMAIN_LABELS !== "undefined") ? INVENTORY_DOMAIN_LABELS : null;
+          const meta = labels && labels[key];
+          if (meta) return { emoji: meta.icon || "📦", text: meta.label || key };
+          return { emoji: "📦", text: key };
+        }
+        if (mode === "low_first") {
+          if (key === "running_low") return { emoji: "🔴", text: "Running Low" };
+          return { emoji: "✅", text: "OK" };
+        }
+        // location
+        return { emoji: LOCATION_EMOJI[key] || "📦", text: key };
+      }
+
+      function _invBuildGroup(key, items, mode) {
         const wrap = _invElText("div", "inv-group");
         const head = _invElText("div", "inv-group-header");
         const expSoon = items.filter(function(i) { return i._expCls === "exp-soon" || i._expCls === "exp-expired"; }).length;
-        const emoji = LOCATION_EMOJI[loc] || "📦";
-        head.appendChild(document.createTextNode(emoji + " " + loc + " · " + items.length + " items"));
+        const lbl = _invGroupLabel(key, mode || "location");
+        head.appendChild(document.createTextNode(lbl.emoji + " " + lbl.text + " · " + items.length + " items"));
         if (expSoon) {
           const s = _invElText("span", null, " · " + expSoon + " expiring soon");
           s.style.color = "#e87";
@@ -20369,7 +20412,7 @@
 
       // Wire toolbar controls to live-filter the tile view
       (function() {
-        var ids = ["inventory-search","inventory-location-filter","inventory-sort","inventory-show-empty"];
+        var ids = ["inventory-search","inventory-location-filter","inventory-sort","inventory-show-empty","inventory-group-by"];
         function wireInvControls() {
           ids.forEach(function(id) {
             var el = document.getElementById(id);
