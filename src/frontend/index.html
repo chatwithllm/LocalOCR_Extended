@@ -129,12 +129,11 @@
 .inv-tile { position: relative; }
 /* Selection mode: dim un-selected tiles to focus the user on the picks. */
 body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
-/* Reserve top space so the fixed bulk bar doesn't cover content. The
-   bar sits below the mobile header on small screens, so allocate more
-   padding-top there. */
+/* Reserve top space so the fixed bulk bar doesn't cover content. */
 body.inv-selection-mode #page-inventory { padding-top: 64px; }
 @media (max-width: 768px) {
-  body.inv-selection-mode #page-inventory { padding-top: 120px; }
+  /* Mobile header (52) + bar (~52) + gap = ~120px clearance. */
+  body.inv-selection-mode #page-inventory { padding-top: 70px; }
 }
 /* Reserve top-left space so the ✓ badge never sits on top of the
    "7d left" days label when selected. */
@@ -142,22 +141,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 #inventory-bulk-bar {
   display: none;
   flex-wrap: wrap;
+  align-content: flex-start;
   position: fixed;
-  /* Desktop default — sit just below the page top edge. Mobile override
-     below pushes it under the fixed mobile header. */
   top: 12px;
   left: 12px;
   right: 12px;
   z-index: 1000;
-  /* Force a compositor layer so iOS Safari doesn't drop the fixed
-     element during momentum scrolling. */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  overflow: visible;
 }
 #inventory-bulk-bar.is-visible { display: flex; }
 @media (max-width: 768px) {
   /* Mobile header is position:fixed top:0 height ~52px — push bar below. */
-  #inventory-bulk-bar { top: 60px; left: 8px; right: 8px; }
+  #inventory-bulk-bar {
+    top: 60px;
+    left: 8px;
+    right: 8px;
+    /* On phones the count + 4 actions + Clear can't fit in one row.
+       Switch to a horizontal-scroll strip so the row stays single-line
+       and the buttons keep their full height. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #inventory-bulk-bar > * { flex-shrink: 0; }
 }
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
