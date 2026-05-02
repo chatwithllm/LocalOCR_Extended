@@ -324,7 +324,8 @@ def get_history():
         days = 30
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     rows = (
-        g.db_session.query(ProductSnapshot)
+        g.db_session.query(ProductSnapshot, Product)
+        .join(Product, Product.id == ProductSnapshot.product_id)
         .filter(ProductSnapshot.source_context == "auto_fetch")
         .filter(ProductSnapshot.created_at >= cutoff)
         .order_by(ProductSnapshot.created_at.desc())
@@ -334,7 +335,7 @@ def get_history():
     totals_by_provider: dict[str, int] = {}
     total_fetched = 0
     total_cost = 0.0
-    for r in rows:
+    for r, prod in rows:
         day = (r.created_at or r.captured_at or datetime.now(timezone.utc)).date().isoformat()
         prov = "unknown"
         cost = 0.0
@@ -346,11 +347,21 @@ def get_history():
             except (ValueError, TypeError):
                 pass
         bucket = by_day.setdefault(day, {
-            "date": day, "fetched": 0, "cost_usd": 0.0, "by_provider": {}
+            "date": day, "fetched": 0, "cost_usd": 0.0, "by_provider": {}, "items": [],
         })
         bucket["fetched"] += 1
         bucket["cost_usd"] += cost
         bucket["by_provider"][prov] = bucket["by_provider"].get(prov, 0) + 1
+        bucket["items"].append({
+            "snapshot_id": r.id,
+            "product_id": prod.id,
+            "product_name": (prod.display_name or prod.name) if prod else None,
+            "category": prod.category if prod else None,
+            "image_url": f"/product-snapshots/{r.id}/image",
+            "provider": prov,
+            "cost_usd": cost,
+            "captured_at": (r.captured_at or r.created_at).isoformat() if (r.captured_at or r.created_at) else None,
+        })
         totals_by_provider[prov] = totals_by_provider.get(prov, 0) + 1
         total_fetched += 1
         total_cost += cost
