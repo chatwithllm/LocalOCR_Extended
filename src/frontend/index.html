@@ -94,6 +94,12 @@
 /* ===== Inventory Expiry Tile View — Mobile (<600px) ===== */
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
+  .inv-tile-wrap {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
   .inv-tile {
     padding: 14px;
     cursor: pointer;
@@ -102,12 +108,35 @@
     touch-action: pan-y;
     user-select: none;
     -webkit-user-select: none;
+    position: relative;
+    z-index: 2;
   }
   .inv-tile-actions { display: none; gap: 8px; }
   .inv-tile.expanded .inv-tile-actions { display: flex; }
   .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
   .inv-tile.swipe-right-active { background: #2a4a2a; }
   .inv-tile.swipe-left-active  { background: #4a2a2a; }
+
+  /* Reveal layer behind the tile — peeks out as the tile slides. */
+  .inv-swipe-bg {
+    position: absolute; inset: 0; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px; font-weight: 700; font-size: 1rem;
+    color: #fff; pointer-events: none;
+    background: transparent;
+    transition: background 0.18s ease;
+  }
+  .inv-swipe-label { opacity: 0; transition: opacity 0.12s ease, transform 0.12s ease; }
+  .inv-tile-wrap.swiping-right .inv-swipe-bg { background: #2a6b2a; }
+  .inv-tile-wrap.swiping-right .inv-swipe-label-decr { opacity: 1; }
+  .inv-tile-wrap.swiping-left  .inv-swipe-bg { background: #6b2a2a; }
+  .inv-tile-wrap.swiping-left  .inv-swipe-label-remove { opacity: 1; }
+  .inv-tile-wrap.swipe-armed .inv-swipe-label { transform: scale(1.08); }
+}
+@media (min-width: 601px) {
+  /* Desktop: no reveal layer — hide the bg + labels so they don't peek
+     through if a tile is rendered momentarily before media query kicks in. */
+  .inv-swipe-bg { display: none; }
 }
     </style>
   </head>
@@ -20183,8 +20212,21 @@
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
         tile.appendChild(actions);
-        _invAttachMobileGestures(tile, i);
-        return tile;
+
+        // Wrap tile in a positioned container so swipe reveal labels can sit
+        // behind it (left = "−1 used" / green, right = "Removed" / red).
+        const wrap = document.createElement("div");
+        wrap.className = "inv-tile-wrap";
+        const bg = document.createElement("div");
+        bg.className = "inv-swipe-bg";
+        const decrLabel = _invElText("span", "inv-swipe-label inv-swipe-label-decr", "−1 used");
+        const removeLabel = _invElText("span", "inv-swipe-label inv-swipe-label-remove", "Removed");
+        bg.appendChild(decrLabel);
+        bg.appendChild(removeLabel);
+        wrap.appendChild(bg);
+        wrap.appendChild(tile);
+        _invAttachMobileGestures(tile, i, wrap);
+        return wrap;
       }
 
       function _invMakeBtn(cls, text, onClick) {
@@ -20198,8 +20240,9 @@
         return b;
       }
 
-      function _invAttachMobileGestures(tile, item) {
+      function _invAttachMobileGestures(tile, item, wrap) {
         const isMobile = function() { return window.matchMedia("(max-width: 600px)").matches; };
+        const reveal = wrap || tile;
 
         // Tap-to-expand (mobile only) — button clicks bypass via stopPropagation
         tile.addEventListener("click", function(e) {
@@ -20210,9 +20253,6 @@
         });
 
         // Swipe with pointer events.
-        // We track the latest dx in a closure because some browsers
-        // return a stale e.clientX at pointerup. Time threshold dropped
-        // because deliberate swipes can take >500ms.
         var startX = 0, startY = 0, dragging = false, lastDx = 0;
         tile.addEventListener("pointerdown", function(e) {
           if (!isMobile()) return;
@@ -20226,6 +20266,7 @@
           dragging = false;
           tile.style.transform = "";
           tile.classList.remove("swipe-right-active", "swipe-left-active");
+          reveal.classList.remove("swiping-right", "swiping-left", "swipe-armed");
         }
         tile.addEventListener("pointermove", function(e) {
           if (!dragging) return;
@@ -20236,6 +20277,11 @@
           if (Math.abs(dx) > 12) {
             tile.dataset.swiping = "1";
             tile.style.transform = "translateX(" + dx + "px)";
+            // Reveal label behind the tile — direction-tagged so CSS shows
+            // the right copy + bg color
+            reveal.classList.toggle("swiping-right", dx > 0);
+            reveal.classList.toggle("swiping-left", dx < 0);
+            reveal.classList.toggle("swipe-armed", Math.abs(dx) >= 60);
             tile.classList.toggle("swipe-right-active", dx > 60);
             tile.classList.toggle("swipe-left-active", dx < -60);
           }
