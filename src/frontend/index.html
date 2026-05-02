@@ -20986,7 +20986,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
           // Sheet
           const sheet = document.createElement("div");
-          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px 18px 22px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          // Drag handle
+          const handle = document.createElement("div");
+          handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
+          sheet.appendChild(handle);
           // Title
           const title = document.createElement("div");
           title.textContent = inv.product_name || "Edit item";
@@ -21001,7 +21005,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           qtyInput.step = "any";
           qtyInput.inputMode = "decimal";
           qtyInput.value = inv.quantity != null ? inv.quantity : "";
-          qtyInput.style.cssText = "width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:10px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px";
+          qtyInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px;text-align:left;-webkit-appearance:none;appearance:none";
           sheet.appendChild(qtyLabel); sheet.appendChild(qtyInput);
           // Date row
           const dateLabel = document.createElement("label");
@@ -21010,7 +21014,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const dateInput = document.createElement("input");
           dateInput.type = "date";
           dateInput.value = inv.expires_at ? String(inv.expires_at).slice(0, 10) : "";
-          dateInput.style.cssText = "width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:10px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:18px;color-scheme:dark";
+          dateInput.style.cssText = "width:100%;padding:13px 14px;font-size:1.05rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:18px;color-scheme:dark;text-align:left;-webkit-appearance:none;appearance:none;display:block;min-height:48px;font-family:inherit";
           sheet.appendChild(dateLabel); sheet.appendChild(dateInput);
           // Buttons
           const row = document.createElement("div");
