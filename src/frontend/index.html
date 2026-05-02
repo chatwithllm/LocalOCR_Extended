@@ -150,6 +150,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   overflow: visible;
 }
 #inventory-bulk-bar.is-visible { display: flex; }
+/* Desktop: sidebar is fixed at left:0 width:230 — push bar past it
+   unless the sidebar is collapsed (body class added by the toggle). */
+@media (min-width: 769px) {
+  body:not(.sidebar-collapsed) #inventory-bulk-bar { left: 242px; }
+}
 @media (max-width: 768px) {
   /* Mobile header is position:fixed top:0 height ~52px — push bar below. */
   #inventory-bulk-bar {
@@ -20345,6 +20350,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const count = document.getElementById("inventory-bulk-count");
         if (!bar) return;
         const n = window.__inventorySelected.size;
+        // Selection has at least one item — make sure mode is on, bar
+        // is portalled to <body>, and the row is visible. Idempotent.
+        if (n > 0) _invEnterSelectionMode();
         bar.classList.toggle("is-visible", n > 0);
         if (count) count.textContent = n + " selected";
       }
