@@ -20856,22 +20856,27 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           toast("Restored " + item.product_name, "info");
           row.remove();
+          // Two-step refresh — loadInventory may set __inventoryRaw but
+          // the visible tile grid sometimes lags one frame behind. Force
+          // a second renderInventory pass after a beat so the tile is
+          // definitely in DOM before we try to scroll to it.
           await loadInventory();
-          // Scroll the just-restored tile into view + flash a green
-          // outline so the user sees WHERE it landed in the live grid.
-          // Without this the new tile lives above the used-up section
-          // the user is currently scrolled to, looking like nothing
-          // happened until they manually refresh / scroll up.
-          requestAnimationFrame(function() {
-            const root = document.getElementById("inventory-groups");
-            if (!root) return;
-            const tile = root.querySelector('.inv-tile[data-product-id="' + item.product_id + '"]');
-            if (!tile) return;
+          await new Promise(function(r) { setTimeout(r, 50); });
+          if (typeof renderInventory === "function") renderInventory();
+          await new Promise(function(r) { requestAnimationFrame(r); });
+          const root = document.getElementById("inventory-groups");
+          const tile = root && root.querySelector('.inv-tile[data-product-id="' + item.product_id + '"]');
+          if (tile) {
             tile.scrollIntoView({ behavior: "smooth", block: "center" });
-            tile.style.transition = "box-shadow 600ms ease, outline 600ms ease";
+            tile.style.transition = "outline 600ms ease";
             tile.style.outline = "3px solid #3a6b3a";
             setTimeout(function() { tile.style.outline = ""; }, 1800);
-          });
+          } else {
+            // Tile genuinely missing from grid (filter/group/search active
+            // hides it). Tell the user instead of silently failing — they
+            // were chasing a phantom "did it work?" question otherwise.
+            toast("Tile not in current view — clear filters or scroll up", "info");
+          }
         } catch (e) {
           toast("Restore failed: " + (e.message || e), "error");
           btn.disabled = false; btn.textContent = "Restore";
