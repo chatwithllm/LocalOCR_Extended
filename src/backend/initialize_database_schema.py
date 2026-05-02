@@ -159,7 +159,7 @@ class Inventory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, nullable=False, default=0)
-    location = Column(String(50), nullable=True, default="Pantry")
+    location = Column(String(50), nullable=True, default="Pantry")  # Fridge, Pantry, Freezer, Cabinet, Bathroom
     threshold = Column(Float, nullable=True)
     manual_low = Column(Boolean, nullable=False, default=False)
     is_active_window = Column(Boolean, nullable=False, default=True)
@@ -168,7 +168,7 @@ class Inventory(Base):
 
     expires_at = Column(Date, nullable=True)
     expires_at_system = Column(Date, nullable=True)
-    expires_source = Column(String(10), nullable=False, default="system")
+    expires_source = Column(String(10), nullable=False, server_default="system", default="system")
     last_purchased_at = Column(DateTime, nullable=True)
 
     __table_args__ = (Index("ix_inventory_product_id", "product_id"),)
