@@ -20961,16 +20961,85 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         renderInventory();
         invPatch(pid, { quantity: 0 }, { skipReload: true });
       }
-      function invEdit(pid) {
+      async function invEdit(pid) {
         const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
         if (!inv) return;
-        const nextQty = prompt("Quantity", inv.quantity);
-        if (nextQty === null) return;
-        const nextDate = prompt("Expires (YYYY-MM-DD or empty)", inv.expires_at || "");
+        const result = await _invShowEditDialog(inv);
+        if (!result) return;
         const body = {};
-        if (nextQty !== "" && !isNaN(parseFloat(nextQty))) body.quantity = parseFloat(nextQty);
-        if (nextDate !== null) body.expires_at = nextDate || null;
+        if (result.quantity !== "" && result.quantity != null && !isNaN(parseFloat(result.quantity))) {
+          body.quantity = parseFloat(result.quantity);
+        }
+        // expires_at: empty string clears, undefined leaves it alone.
+        if (result.expires_at !== undefined) body.expires_at = result.expires_at || null;
         invPatch(pid, body);
+      }
+
+      // Apple-style sheet using native <input type="date"> + numeric qty.
+      // Returns Promise<{quantity, expires_at} | null>. On iOS, the date
+      // input opens the native scrolling wheel; on desktop it shows the
+      // browser's calendar popup.
+      function _invShowEditDialog(inv) {
+        return new Promise(function(resolve) {
+          // Backdrop
+          const back = document.createElement("div");
+          back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
+          // Sheet
+          const sheet = document.createElement("div");
+          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px 18px 22px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          // Title
+          const title = document.createElement("div");
+          title.textContent = inv.product_name || "Edit item";
+          title.style.cssText = "font-weight:700;font-size:1.05rem;text-align:center;margin-bottom:14px";
+          sheet.appendChild(title);
+          // Quantity row
+          const qtyLabel = document.createElement("label");
+          qtyLabel.textContent = "Quantity";
+          qtyLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const qtyInput = document.createElement("input");
+          qtyInput.type = "number";
+          qtyInput.step = "any";
+          qtyInput.inputMode = "decimal";
+          qtyInput.value = inv.quantity != null ? inv.quantity : "";
+          qtyInput.style.cssText = "width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:10px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:14px";
+          sheet.appendChild(qtyLabel); sheet.appendChild(qtyInput);
+          // Date row
+          const dateLabel = document.createElement("label");
+          dateLabel.textContent = "Expires";
+          dateLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+          const dateInput = document.createElement("input");
+          dateInput.type = "date";
+          dateInput.value = inv.expires_at ? String(inv.expires_at).slice(0, 10) : "";
+          dateInput.style.cssText = "width:100%;padding:11px 12px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:10px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:18px;color-scheme:dark";
+          sheet.appendChild(dateLabel); sheet.appendChild(dateInput);
+          // Buttons
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;gap:10px";
+          const cancel = document.createElement("button");
+          cancel.type = "button";
+          cancel.textContent = "Cancel";
+          cancel.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:1rem;font-weight:500;cursor:pointer";
+          const save = document.createElement("button");
+          save.type = "button";
+          save.textContent = "Save";
+          save.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:#0a84ff;color:#fff;font-size:1rem;font-weight:600;cursor:pointer";
+          row.appendChild(cancel); row.appendChild(save);
+          sheet.appendChild(row);
+          back.appendChild(sheet);
+          document.body.appendChild(back);
+          // Animate slide-up
+          requestAnimationFrame(function() { sheet.style.transform = "translateY(0)"; });
+
+          function close(value) {
+            sheet.style.transform = "translateY(100%)";
+            setTimeout(function() { back.remove(); resolve(value); }, 200);
+          }
+          cancel.addEventListener("click", function() { close(null); });
+          back.addEventListener("click", function(e) { if (e.target === back) close(null); });
+          save.addEventListener("click", function() {
+            close({ quantity: qtyInput.value, expires_at: dateInput.value });
+          });
+        });
       }
 
       // Wire toolbar controls to live-filter the tile view
