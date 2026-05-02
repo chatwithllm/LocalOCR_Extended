@@ -23,6 +23,7 @@ from PIL import Image, ImageOps
 from sqlalchemy import or_, and_, not_, text as sql_text
 
 from src.backend.active_inventory import rebuild_active_inventory
+from src.backend.inventory_writes import upsert_inventory_for_receipt_item
 from src.backend.budgeting_domains import (
     default_budget_category_for_spending_domain,
     derive_receipt_budget_defaults,
@@ -539,19 +540,29 @@ def _create_manual_receipt_entry(
             item_spending_domain = purchase.default_spending_domain
         if item_spending_domain and not item_budget_category:
             item_budget_category = default_budget_category_for_spending_domain(item_spending_domain)
-        session.add(
-            ReceiptItem(
-                purchase_id=purchase.id,
-                product_id=product.id,
-                quantity=quantity,
-                unit_price=unit_price,
-                unit=unit,
-                size_label=size_label,
-                spending_domain=item_spending_domain,
-                budget_category=item_budget_category,
-                extracted_by="manual",
-            )
+        receipt_item = ReceiptItem(
+            purchase_id=purchase.id,
+            product_id=product.id,
+            quantity=quantity,
+            unit_price=unit_price,
+            unit=unit,
+            size_label=size_label,
+            spending_domain=item_spending_domain,
+            budget_category=item_budget_category,
+            extracted_by="manual",
         )
+        session.add(receipt_item)
+        if product is not None:
+            rt = (receipt_type or "").lower() if isinstance(receipt_type, str) else ""
+            if rt in {"grocery", "retail_items", ""}:
+                try:
+                    session.flush()
+                    upsert_inventory_for_receipt_item(session, product, receipt_item, purchase)
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception(
+                        "inventory upsert failed for product %s: %s",
+                        product.id, exc,
+                    )
         if unit_price > 0 and purchase.transaction_type != "refund":
             session.add(
                 PriceHistory(

@@ -10,6 +10,7 @@ MQTT Topic: home/grocery/inventory/{product_id}
 """
 
 import logging
+from datetime import date as _date
 from flask import Blueprint, request, jsonify, g
 from sqlalchemy import func
 
@@ -26,6 +27,7 @@ from src.backend.enrich_product_names import should_enrich_product_name
 from src.backend.initialize_database_schema import Inventory, PriceHistory, Product, ProductSnapshot
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
+from src.backend.inventory_writes import apply_manual_patch, reset_expiry_to_system
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +122,7 @@ def list_inventory():
 
     items = query.order_by(Product.name).all()
 
+    _today = _date.today()
     return jsonify({
         "inventory": [
             {
@@ -141,6 +144,12 @@ def list_inventory():
                 "is_regular_use": bool(getattr(item.product, "is_regular_use", False) or False),
                 "updated_by": item.updated_by,
                 "last_updated": item.last_updated.isoformat() if item.last_updated else None,
+                # Expiry true-state fields
+                "expires_at": item.expires_at.isoformat() if item.expires_at else None,
+                "expires_at_system": item.expires_at_system.isoformat() if item.expires_at_system else None,
+                "expires_source": item.expires_source,
+                "last_purchased_at": item.last_purchased_at.isoformat() if item.last_purchased_at else None,
+                "days_left": (item.expires_at - _today).days if item.expires_at else None,
             }
             for item in items
         ],
@@ -527,3 +536,53 @@ def _trigger_low_stock_alert(product, item):
         )
     except Exception as e:
         logger.warning(f"Failed to publish low-stock alert: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Inventory true-state endpoints (PATCH + expiry-override DELETE)
+# ---------------------------------------------------------------------------
+
+
+def _serialize_inventory(inv):
+    """Serialize an Inventory row to a JSON-safe dict."""
+    today = _date.today()
+    expires_at = inv.expires_at
+    days_left = (expires_at - today).days if expires_at else None
+    return {
+        "product_id": inv.product_id,
+        "quantity": inv.quantity,
+        "location": inv.location,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        "expires_at_system": inv.expires_at_system.isoformat() if inv.expires_at_system else None,
+        "expires_source": inv.expires_source,
+        "last_purchased_at": inv.last_purchased_at.isoformat() if inv.last_purchased_at else None,
+        "days_left": days_left,
+    }
+
+
+@inventory_bp.route("/products/<int:product_id>", methods=["PATCH"])
+@require_auth
+def patch_inventory_truth(product_id: int):
+    """Edit qty / location / expiry / defer for any product's inventory row."""
+    body = request.get_json(silent=True) or {}
+    inv = g.db_session.query(Inventory).filter_by(product_id=product_id).first()
+    if not inv:
+        return jsonify({"error": "inventory row not found"}), 404
+    try:
+        apply_manual_patch(g.db_session, inv, body, user_id=getattr(g.current_user, "id", None))
+    except (ValueError, TypeError) as exc:
+        return jsonify({"error": f"invalid patch: {exc}"}), 400
+    g.db_session.commit()
+    return jsonify(_serialize_inventory(inv)), 200
+
+
+@inventory_bp.route("/products/<int:product_id>/expiry-override", methods=["DELETE"])
+@require_auth
+def delete_expiry_override(product_id: int):
+    """Reset expires_at back to the system-calculated value."""
+    inv = g.db_session.query(Inventory).filter_by(product_id=product_id).first()
+    if not inv:
+        return jsonify({"error": "inventory row not found"}), 404
+    reset_expiry_to_system(g.db_session, inv, user_id=getattr(g.current_user, "id", None))
+    g.db_session.commit()
+    return jsonify(_serialize_inventory(inv)), 200
