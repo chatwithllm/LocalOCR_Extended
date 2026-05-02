@@ -395,3 +395,46 @@ def review_product_snapshot(snapshot_id: int):
 
     session.commit()
     return jsonify({"snapshot": _serialize_review_snapshot(session, snapshot)}), 200
+
+
+@product_snapshots_bp.route("/<int:snapshot_id>/promote", methods=["POST"])
+@require_auth
+@require_write_access
+def promote_product_snapshot(snapshot_id: int):
+    """Bump created_at to NOW so this snapshot becomes the "latest" one
+    that tile views show. Lets users restore an older photo when a newer
+    upload was a mistake — no separate is_primary flag needed; the same
+    "most recent wins" rule keeps applying.
+    """
+    session = g.db_session
+    snapshot = session.query(ProductSnapshot).filter_by(id=snapshot_id).first()
+    if not snapshot:
+        return jsonify({"error": "Snapshot not found"}), 404
+    now = datetime.now()
+    snapshot.created_at = now
+    snapshot.updated_at = now
+    session.commit()
+    return jsonify({"snapshot": _serialize_snapshot(snapshot)}), 200
+
+
+@product_snapshots_bp.route("/<int:snapshot_id>", methods=["DELETE"])
+@require_auth
+@require_write_access
+def delete_product_snapshot(snapshot_id: int):
+    """Delete a snapshot row + its image file. Used when a user uploads
+    a wrong photo and wants it gone from the gallery."""
+    session = g.db_session
+    snapshot = session.query(ProductSnapshot).filter_by(id=snapshot_id).first()
+    if not snapshot:
+        return jsonify({"error": "Snapshot not found"}), 404
+    image_path = _resolve_snapshot_path(snapshot.image_path)
+    session.delete(snapshot)
+    session.commit()
+    # Best-effort file cleanup — orphan rows would be louder than orphan
+    # files, so commit first and only then unlink.
+    if image_path and image_path.exists():
+        try:
+            image_path.unlink()
+        except OSError as exc:
+            logger.warning("Failed to remove snapshot file %s: %s", image_path, exc)
+    return jsonify({"deleted": True, "id": snapshot_id}), 200
