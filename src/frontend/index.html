@@ -4439,7 +4439,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <button class="btn btn-primary btn-sm" id="image-backfill-run-btn" onclick="runImageBackfill()" disabled>Run</button>
               </div>
             </div>
-            <div id="image-backfill-note" style="color: var(--muted); font-size: 0.84rem">
+            <fieldset style="margin-top: 6px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px">
+              <legend style="padding: 0 6px; color: var(--muted); font-size: 0.8rem">History &amp; spend</legend>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <select id="image-backfill-history-window" onchange="loadImageBackfillHistory()" style="padding:4px 8px">
+                  <option value="7">Last 7 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="365">Last 365 days</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="loadImageBackfillHistory()">🔄</button>
+                <span id="image-backfill-history-totals" style="margin-left:auto;color:var(--muted);font-size:0.88rem"></span>
+              </div>
+              <div id="image-backfill-history-body"></div>
+            </fieldset>
+            <div id="image-backfill-note" style="color: var(--muted); font-size: 0.84rem; margin-top: 14px">
               Products with no image. Pick rows + provider → Run. Failures auto-fall-back to next provider when Auto is selected.
             </div>
             <fieldset id="image-backfill-schedule-row" style="margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.92rem">
@@ -4466,20 +4480,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             <div class="table-wrap" style="margin-top: 12px">
               <div id="image-backfill-body"></div>
             </div>
-            <fieldset style="margin-top: 14px; padding: 10px 12px; border: 1px solid var(--border, #2a2a2a); border-radius: 8px">
-              <legend style="padding: 0 6px; color: var(--muted); font-size: 0.8rem">History &amp; spend</legend>
-              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-                <select id="image-backfill-history-window" onchange="loadImageBackfillHistory()" style="padding:4px 8px">
-                  <option value="7">Last 7 days</option>
-                  <option value="30" selected>Last 30 days</option>
-                  <option value="90">Last 90 days</option>
-                  <option value="365">Last 365 days</option>
-                </select>
-                <button class="btn btn-ghost btn-sm" onclick="loadImageBackfillHistory()">🔄</button>
-                <span id="image-backfill-history-totals" style="margin-left:auto;color:var(--muted);font-size:0.88rem"></span>
-              </div>
-              <div id="image-backfill-history-body"></div>
-            </fieldset>
           </div>
           <div class="card" id="settings-chat-audit-card">
             <div class="card-header">
