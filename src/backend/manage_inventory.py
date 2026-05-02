@@ -569,11 +569,14 @@ def patch_inventory_truth(product_id: int):
     if not inv:
         return jsonify({"error": "inventory row not found"}), 404
     try:
-        apply_manual_patch(g.db_session, inv, body, user_id=getattr(g.current_user, "id", None))
+        result = apply_manual_patch(g.db_session, inv, body, user_id=getattr(g.current_user, "id", None))
     except (ValueError, TypeError) as exc:
         return jsonify({"error": f"invalid patch: {exc}"}), 400
     g.db_session.commit()
-    return jsonify(_serialize_inventory(inv)), 200
+    if result is None:
+        # used-up: row deleted, audit InventoryAdjustment preserved
+        return jsonify({"deleted": True, "product_id": product_id}), 200
+    return jsonify(_serialize_inventory(result)), 200
 
 
 @inventory_bp.route("/products/<int:product_id>/expiry-override", methods=["DELETE"])

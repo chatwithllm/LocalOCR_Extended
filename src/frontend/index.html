@@ -20251,7 +20251,7 @@
               toast("−1 " + name + " · undo", "info");
             } else {
               invUsedUp(item.product_id);
-              toast("Used up: " + name + " · undo", "info");
+              toast("Removed: " + name, "info");
             }
           }
           setTimeout(function() { tile.dataset.swiping = "0"; }, 250);
@@ -20278,7 +20278,7 @@
       }
       function invUsedUp(pid) {
         invPatch(pid, { quantity: 0 });
-        toast("Marked used up", "info");
+        toast("Removed from inventory", "info");
       }
       function invEdit(pid) {
         const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
