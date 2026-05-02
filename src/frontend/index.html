@@ -20368,15 +20368,83 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         renderInventory();
       }
 
+      // ----- Bulk-action undo (5s grace window) -----
+      // Only reversible actions get an undo: −1 and +Nd both stay in
+      // PATCH-able territory. ✓ Used up all deletes the row server-side
+      // so it's gated behind a confirm dialog instead.
+      var _invUndoState = null;
+
+      function _invHideUndoToast() {
+        if (_invUndoState) {
+          clearTimeout(_invUndoState.timer);
+          clearInterval(_invUndoState.interval);
+        }
+        _invUndoState = null;
+        try { hideActionToast(); } catch (_) {}
+      }
+
+      function _invShowUndoToast(snapshots, label) {
+        _invHideUndoToast();
+        const el = document.getElementById("action-toast");
+        if (!el || !snapshots.length) return;
+        const expiresAt = Date.now() + 5000;
+        _invUndoState = { snapshots: snapshots, expiresAt: expiresAt, timer: null, interval: null };
+        const render = function() {
+          const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+          const pct = Math.max(0, Math.min(100, ((expiresAt - Date.now()) / 5000) * 100));
+          el.innerHTML =
+            '<div class="action-toast-row">' +
+              '<div class="action-toast-message">' + escHtml(label) + ' on ' + snapshots.length + ' items · Undo in ' + remaining + 's</div>' +
+              '<button type="button" class="action-toast-button" onclick="invUndoBulk()">Undo</button>' +
+            '</div>' +
+            '<div class="action-toast-progress"><div class="action-toast-progress-bar" style="width:' + pct + '%"></div></div>';
+          el.className = "show";
+        };
+        render();
+        _invUndoState.interval = setInterval(render, 250);
+        _invUndoState.timer = setTimeout(_invHideUndoToast, 5000);
+      }
+
+      async function invUndoBulk() {
+        if (!_invUndoState || !_invUndoState.snapshots) return;
+        const snaps = _invUndoState.snapshots.slice();
+        _invHideUndoToast();
+        // Restore each item's pre-action state. Done sequentially so one
+        // server failure leaves the rest in their original good state.
+        for (const s of snaps) await invPatch(s.pid, s.body);
+        toast("Restored " + snaps.length + " items", "info");
+      }
+
+      function _invSnapshot(ids, fields) {
+        // fields: subset of ['quantity','expires_at']
+        const arr = window.__inventoryRaw || [];
+        return ids
+          .map(function(pid) {
+            const inv = arr.find(function(x) { return x.product_id === pid; });
+            if (!inv) return null;
+            const body = {};
+            if (fields.indexOf("quantity") >= 0) body.quantity = inv.quantity;
+            if (fields.indexOf("expires_at") >= 0) body.expires_at = inv.expires_at;
+            return { pid: pid, body: body };
+          })
+          .filter(Boolean);
+      }
+
       function invBulkDecrement() {
         const ids = _invSelectedIds();
+        if (!ids.length) return;
+        const snap = _invSnapshot(ids, ["quantity"]);
         for (const pid of ids) invDecrement(pid);
-        toast("−1 on " + ids.length + " items", "info");
         invBulkClear();
+        _invShowUndoToast(snap, "−1");
       }
 
       function invBulkUsedUp() {
         const ids = _invSelectedIds();
+        if (!ids.length) return;
+        // Destructive: deletes inventory rows server-side, so PATCH-undo
+        // can't bring them back. Confirm before applying.
+        if (!confirm("Mark " + ids.length + " item(s) as used up? They'll be removed from inventory.")) return;
         for (const pid of ids) invUsedUp(pid);
         toast("Removed " + ids.length + " items", "info");
         invBulkClear();
@@ -20384,9 +20452,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       function invBulkDefer(days) {
         const ids = _invSelectedIds();
+        if (!ids.length) return;
+        const snap = _invSnapshot(ids, ["expires_at"]);
         for (const pid of ids) invDefer(pid, days);
-        toast("+" + days + "d on " + ids.length + " items", "info");
         invBulkClear();
+        _invShowUndoToast(snap, "+" + days + "d");
       }
 
       function _invBuildTile(i) {
