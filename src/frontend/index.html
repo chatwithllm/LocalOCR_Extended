@@ -138,6 +138,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* Reserve top-left space so the ✓ badge never sits on top of the
    "7d left" days label when selected. */
 .inv-tile-head { padding-left: 26px; }
+/* Recently used-up tile — visually distinct from live inventory so
+   users know they're in an archive view. Red border + dim background +
+   strikethrough on the name. */
+.inv-tile-used-up {
+  border-left-color: #c4424a !important;
+  background: rgba(196, 66, 74, 0.08);
+  opacity: 0.92;
+}
+.inv-tile-used-up .inv-tile-name {
+  text-decoration: line-through;
+  color: #ddd;
+}
+.inv-tile-used-up:hover { opacity: 1; background: rgba(196, 66, 74, 0.14); }
 #inventory-bulk-bar {
   display: none;
   flex-wrap: wrap;
@@ -1502,13 +1515,17 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
               <div id="inventory-groups"></div>
             </div>
-            <div id="inv-restore-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)invCloseRestoreModal()">
-              <div style="background:var(--surface,#1a1a1a);border:1px solid var(--border,#444);border-radius:12px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column">
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border,#333)">
-                  <span style="font-weight:700">Recently used up · last 14 days</span>
-                  <button type="button" onclick="invCloseRestoreModal()" style="background:none;border:none;color:var(--muted,#888);font-size:1.4rem;cursor:pointer;padding:0 6px">×</button>
+            <div id="inv-restore-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:2000;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)invCloseRestoreModal()">
+              <div style="background:var(--surface,#1a1a1a);border:2px solid #6b2a2a;border-radius:14px;max-width:1200px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(107,42,42,0.4)">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border,#333);background:linear-gradient(90deg,#3a1a1a,#1a1a1a)">
+                  <span style="font-size:1.4rem">🗑️</span>
+                  <div style="flex:1">
+                    <div style="font-weight:700;font-size:1.05rem;color:#ffb3b3">Used Up — Last 14 Days</div>
+                    <div style="font-size:0.78rem;color:var(--muted,#888);margin-top:2px">Items removed from inventory. Tap <b style="color:#9bd99b">Restore</b> to bring back.</div>
+                  </div>
+                  <button type="button" onclick="invCloseRestoreModal()" style="background:none;border:none;color:var(--muted,#888);font-size:1.6rem;cursor:pointer;padding:0 6px;line-height:1">×</button>
                 </div>
-                <div id="inv-restore-list" style="overflow-y:auto;flex:1;padding:4px 0"></div>
+                <div id="inv-restore-list" style="overflow-y:auto;flex:1;padding:14px"></div>
               </div>
             </div>
           </div>
@@ -20499,35 +20516,68 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         list.replaceChildren();
         if (!items.length) {
           const msg = document.createElement("div");
-          msg.style.color = "var(--muted, #888)";
-          msg.style.padding = "20px";
-          msg.style.textAlign = "center";
-          msg.textContent = "Nothing used-up in the last 14 days.";
+          msg.style.cssText = "color:var(--muted,#888);padding:40px 20px;text-align:center;font-size:0.95rem";
+          msg.textContent = "Nothing used-up in the last 14 days. ✨";
           list.appendChild(msg);
           return;
         }
-        for (const it of items) {
-          const row = document.createElement("div");
-          row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border,#333)";
-          const info = document.createElement("div");
-          info.style.flex = "1";
-          info.style.minWidth = "0";
-          const name = document.createElement("div");
-          name.style.fontWeight = "600";
-          name.textContent = it.product_name;
-          const meta = document.createElement("div");
-          meta.style.cssText = "font-size:0.78rem;color:var(--muted,#888);margin-top:2px";
-          const when = it.used_up_at ? String(it.used_up_at).slice(0, 10) : "?";
-          meta.textContent = "×" + _invFmtQty(it.prior_quantity) + " · used up " + when;
-          info.appendChild(name); info.appendChild(meta);
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.style.cssText = "padding:6px 12px;border:none;border-radius:6px;background:#3a6b3a;color:#fff;font-size:0.85rem;cursor:pointer;flex-shrink:0";
-          btn.textContent = "Restore";
-          btn.addEventListener("click", function() { _invRestoreOne(it, btn, row); });
-          row.appendChild(info); row.appendChild(btn);
-          list.appendChild(row);
+        // Tile-grid layout — same .inv-tiles class so it inherits the
+        // inventory grid sizing on desktop + 1-column on mobile.
+        const grid = document.createElement("div");
+        grid.className = "inv-tiles";
+        for (const it of items) grid.appendChild(_invBuildRestoreTile(it));
+        list.appendChild(grid);
+      }
+
+      function _invBuildRestoreTile(it) {
+        // Style mirrors .inv-tile but with a red-tinted "used-up" treatment
+        // so users know they're looking at archived items, not live ones.
+        const tile = document.createElement("div");
+        tile.className = "inv-tile inv-tile-used-up";
+        const head = document.createElement("div");
+        head.className = "inv-tile-head";
+        const left = document.createElement("div");
+        left.className = "inv-tile-head-left";
+        const usedUp = document.createElement("span");
+        usedUp.className = "inv-tile-days";
+        usedUp.style.color = "#ff8a8a";
+        usedUp.textContent = "USED UP";
+        left.appendChild(usedUp);
+        const when = it.used_up_at ? String(it.used_up_at).slice(0, 10) : "?";
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "inv-tile-range";
+        dateSpan.style.color = "var(--muted,#888)";
+        dateSpan.textContent = " · " + when;
+        left.appendChild(dateSpan);
+        head.appendChild(left);
+        const qty = document.createElement("span");
+        qty.className = "inv-tile-qty";
+        qty.textContent = "×" + _invFmtQty(it.prior_quantity);
+        head.appendChild(qty);
+        tile.appendChild(head);
+        const name = document.createElement("div");
+        name.className = "inv-tile-name";
+        name.textContent = it.product_name;
+        tile.appendChild(name);
+        const meta = document.createElement("div");
+        meta.className = "inv-tile-meta";
+        meta.style.color = "var(--muted,#888)";
+        if (it.category) {
+          meta.appendChild(_invElText("div", null, "📁 " + it.category));
         }
+        meta.appendChild(_invElText("div", null, "🗑️ Marked used up " + when));
+        tile.appendChild(meta);
+        const actions = document.createElement("div");
+        actions.className = "inv-tile-actions";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "inv-btn-used";
+        btn.style.cssText = "flex:1;padding:8px;background:#3a6b3a;color:#fff;border:none;border-radius:4px;font-size:0.88rem;cursor:pointer;font-weight:600";
+        btn.textContent = "↻ Restore";
+        btn.addEventListener("click", function() { _invRestoreOne(it, btn, tile); });
+        actions.appendChild(btn);
+        tile.appendChild(actions);
+        return tile;
       }
 
       async function _invRestoreOne(item, btn, row) {
