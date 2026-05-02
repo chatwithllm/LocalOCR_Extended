@@ -61,8 +61,11 @@
   user-select: none;
 }
 .inv-tiles {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 10px; margin-top: 10px;
+}
+@media (max-width: 600px) {
+  .inv-tiles { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 .inv-tile {
   background: var(--surface, #2a2a2a);
@@ -82,8 +85,12 @@
 .inv-tile-meta { font-size: 0.75rem; color: var(--muted, #999); line-height: 1.5; }
 .inv-tile-meta .tag-user  { background: #3a4f6b; color: #cde; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; }
 .inv-tile-meta .tag-defer { background: #5a4a2a; color: #ffd; padding: 1px 6px; border-radius: 4px; font-size: 0.7rem; }
-.inv-tile-actions { display: flex; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
-.inv-tile-actions button { flex: 1; padding: 5px 8px; border: none; border-radius: 4px; font-size: 0.74rem; cursor: pointer; }
+.inv-tile-actions { display: flex; gap: 4px; margin-top: 10px; flex-wrap: nowrap; }
+.inv-tile-actions button { flex: 1; min-width: 0; padding: 5px 4px; border: none; border-radius: 4px; font-size: 0.74rem; cursor: pointer; white-space: nowrap; }
+@media (max-width: 600px) {
+  .inv-tile-actions { flex-wrap: wrap; }
+  .inv-tile-actions button { padding: 5px 8px; }
+}
 .inv-btn-edit  { background: #444;    color: #ddd; }
 .inv-btn-defer { background: #5a4a2a; color: #ffd; }
 .inv-btn-decr  { background: #444;    color: #ffb; }
@@ -220,7 +227,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .inv-tile-used-up.inv-tile {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
   padding: 10px;
   min-height: 96px;
@@ -232,10 +239,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   flex-direction: column;
 }
 .inv-tile-content .inv-tile-actions { margin-top: auto; }
+/* Image hugs content height (align-items:stretch on parent), fixed
+   width so the right column is roomy enough for a 5-button action
+   row. Hover scales as a quick preview without a popup framework. */
 .inv-tile-img {
   flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  align-self: stretch;
   object-fit: cover;
   border-radius: 6px;
   background: #222;
@@ -246,16 +256,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   cursor: zoom-in;
 }
 .inv-tile-img:hover {
-  transform: scale(3.2);
+  transform: scale(2.6);
   z-index: 100;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
 }
 @media (max-width: 600px) {
-  .inv-tile.inv-tile-has-img,
-  .inv-tile-used-up.inv-tile { min-height: 110px; }
-  .inv-tile-img { width: 76px; height: 76px; }
+  .inv-tile-img { width: 96px; }
   /* Touch devices have no real hover — tap-active gives a peek. */
-  .inv-tile-img:active { transform: scale(2.6); z-index: 100; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+  .inv-tile-img:active { transform: scale(2.2); z-index: 100; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
   .inv-tile-img:hover { transform: none; box-shadow: none; }
 }
 #inventory-bulk-bar {
