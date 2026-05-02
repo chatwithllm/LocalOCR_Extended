@@ -111,8 +111,8 @@
   background: rgba(74, 138, 239, 0.08);
 }
 .inv-tile { position: relative; }
-#inventory-bulk-bar { display: none; }
-#inventory-bulk-bar[style*="flex"] { display: flex !important; }
+#inventory-bulk-bar { display: none; flex-wrap: wrap; }
+#inventory-bulk-bar.is-visible { display: flex; }
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
   .inv-tile-wrap {
@@ -1435,7 +1435,7 @@
             </div>
             <div class="page-body">
               <div id="inventory-groups"></div>
-              <div id="inventory-bulk-bar" style="display:none;position:sticky;bottom:8px;margin-top:12px;padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);display:none;flex-wrap:wrap;gap:8px;align-items:center;z-index:5">
+              <div id="inventory-bulk-bar" style="position:sticky;bottom:8px;margin-top:12px;padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);gap:8px;align-items:center;z-index:5">
                 <span id="inventory-bulk-count" style="font-weight:600;font-size:0.92rem">0 selected</span>
                 <button class="inv-bulk-btn inv-btn-decr"  onclick="invBulkDecrement()" style="padding:8px 12px;border:none;border-radius:6px;background:#444;color:#ffb;font-size:0.85rem;cursor:pointer">−1 all</button>
                 <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(3)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+3d all</button>
@@ -20274,11 +20274,7 @@
         const count = document.getElementById("inventory-bulk-count");
         if (!bar) return;
         const n = window.__inventorySelected.size;
-        if (n === 0) {
-          bar.style.display = "none";
-          return;
-        }
-        bar.style.display = "flex";
+        bar.classList.toggle("is-visible", n > 0);
         if (count) count.textContent = n + " selected";
       }
 
