@@ -156,27 +156,28 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .inv-tile-used-up .inv-tile-actions { display: flex !important; margin-top: 10px; }
 /* Image layout — left-aligned, fills tile height. Used-up tiles only. */
 .inv-tile-used-up.inv-tile {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
   padding: 10px;
 }
-.inv-tile-used-up > :not(.inv-tile-img-wrap) { grid-column: 2; min-width: 0; }
-.inv-tile-img-wrap {
-  grid-column: 1;
-  grid-row: 1 / -1;
-  align-self: stretch;
+.inv-tile-content {
+  flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
 }
+.inv-tile-content .inv-tile-actions { margin-top: auto; }
 .inv-tile-img {
+  flex: 0 0 auto;
   width: 80px;
-  height: 100%;
+  align-self: stretch;
   object-fit: cover;
   border-radius: 4px;
   background: #222;
 }
 @media (max-width: 600px) {
-  .inv-tile-used-up.inv-tile { padding: 10px; }
   .inv-tile-img { width: 110px; }
 }
 #inventory-bulk-bar {
@@ -20567,22 +20568,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       function _invBuildRestoreTile(it) {
         // Style mirrors .inv-tile but with a red-tinted "used-up" treatment
         // so users know they're looking at archived items, not live ones.
-        // No "USED UP" label per tile — the section header already says it.
+        // Layout: flex row — image (if any) on left, content column on right.
+        // Image height matches content height; Restore is anchored at bottom.
         const tile = document.createElement("div");
         tile.className = "inv-tile inv-tile-used-up";
-        // Optional product image — left-aligned via .inv-tile-img-wrap; on
-        // mobile CSS reflows the tile so the image fills the full height.
+
         if (it.image_url) {
-          const imgWrap = document.createElement("div");
-          imgWrap.className = "inv-tile-img-wrap";
           const img = document.createElement("img");
           img.className = "inv-tile-img";
           img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + it.image_url;
           img.alt = it.product_name;
           img.loading = "lazy";
-          imgWrap.appendChild(img);
-          tile.appendChild(imgWrap);
+          tile.appendChild(img);
         }
+
+        const content = document.createElement("div");
+        content.className = "inv-tile-content";
+
         const head = document.createElement("div");
         head.className = "inv-tile-head";
         const left = document.createElement("div");
@@ -20599,18 +20601,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         qty.className = "inv-tile-qty";
         qty.textContent = "×" + _invFmtQty(it.prior_quantity);
         head.appendChild(qty);
-        tile.appendChild(head);
+        content.appendChild(head);
+
         const name = document.createElement("div");
         name.className = "inv-tile-name";
         name.textContent = it.product_name;
-        tile.appendChild(name);
+        content.appendChild(name);
+
         if (it.category) {
           const meta = document.createElement("div");
           meta.className = "inv-tile-meta";
           meta.style.color = "var(--muted,#888)";
           meta.appendChild(_invElText("div", null, "📁 " + it.category));
-          tile.appendChild(meta);
+          content.appendChild(meta);
         }
+
         const actions = document.createElement("div");
         actions.className = "inv-tile-actions";
         const btn = document.createElement("button");
@@ -20620,7 +20625,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         btn.textContent = "↻ Restore";
         btn.addEventListener("click", function() { _invRestoreOne(it, btn, tile); });
         actions.appendChild(btn);
-        tile.appendChild(actions);
+        content.appendChild(actions);
+
+        tile.appendChild(content);
         return tile;
       }
 
