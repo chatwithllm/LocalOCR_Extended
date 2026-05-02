@@ -110,7 +110,15 @@ def list_inventory():
     # Inventory is now the source of truth — receipt finalize is the only
     # automatic writer. Calling rebuild_active_inventory here would clobber
     # manual PATCH edits (used-up, defer, decrement) on every GET.
-    query = session.query(Inventory).join(Product).filter(Inventory.is_active_window.is_(True))
+    query = (
+        session.query(Inventory)
+        .join(Product)
+        .filter(Inventory.is_active_window.is_(True))
+        # Skip catalog rows that came from receipt-line junk (fees,
+        # discounts, taxes, tips, membership IDs, etc.) so they never
+        # appear in inventory views.
+        .filter((Product.is_non_product.is_(None)) | (Product.is_non_product.is_(False)))
+    )
 
     if location:
         query = query.filter(Inventory.location == location)
@@ -613,6 +621,7 @@ def list_recently_used_up():
         .filter(InventoryAdjustment.reason == "consumed_all")
         .filter(InventoryAdjustment.created_at >= cutoff)
         .filter(Inventory.id.is_(None))
+        .filter((Product.is_non_product.is_(None)) | (Product.is_non_product.is_(False)))
         .order_by(InventoryAdjustment.created_at.desc())
         .limit(100)
         .all()
