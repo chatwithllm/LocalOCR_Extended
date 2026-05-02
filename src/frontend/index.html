@@ -323,9 +323,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   .inv-tile-meta { display: none; }
   .inv-tile-range { display: inline; }
   .inv-tile-head-left { display: flex; flex-wrap: wrap; gap: 0; align-items: baseline; }
-  .inv-tile-actions { display: none; gap: 8px; }
-  .inv-tile.expanded .inv-tile-actions { display: flex; }
-  .inv-tile-actions button { min-height: 44px; font-size: 0.9rem; }
+  /* Show every action on mobile too — tap-to-expand made them invisible
+     and users had no idea what was hidden. Single row when there's room
+     (image-tile content is wide enough), wraps at very narrow widths. */
+  .inv-tile-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .inv-tile-actions button { min-height: 40px; font-size: 0.85rem; padding: 6px 4px; }
   .inv-tile.swipe-right-active { background: #2a4a2a; }
   .inv-tile.swipe-left-active  { background: #4a2a2a; }
 
