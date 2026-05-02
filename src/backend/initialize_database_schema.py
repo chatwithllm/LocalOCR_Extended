@@ -159,16 +159,19 @@ class Inventory(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, nullable=False, default=0)
-    location = Column(String(50), nullable=True)  # Fridge, Pantry, Freezer, Cabinet
-    threshold = Column(Float, nullable=True)  # Low-stock alert threshold
+    location = Column(String(50), nullable=True, default="Pantry")
+    threshold = Column(Float, nullable=True)
     manual_low = Column(Boolean, nullable=False, default=False)
     is_active_window = Column(Boolean, nullable=False, default=True)
     last_updated = Column(DateTime, default=utcnow, onupdate=utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
-    __table_args__ = (
-        Index("ix_inventory_product_id", "product_id"),
-    )
+    expires_at = Column(Date, nullable=True)
+    expires_at_system = Column(Date, nullable=True)
+    expires_source = Column(String(10), nullable=False, default="system")
+    last_purchased_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (Index("ix_inventory_product_id", "product_id"),)
 
     # Relationships
     product = relationship("Product", back_populates="inventory_items")
@@ -188,6 +191,14 @@ class InventoryAdjustment(Base):
         Index("ix_inventory_adjustment_product_id", "product_id"),
         Index("ix_inventory_adjustment_created_at", "created_at"),
     )
+
+
+class CategoryShelfLifeDefault(Base):
+    __tablename__ = "category_shelf_life_default"
+
+    category = Column(String(40), primary_key=True)
+    location_default = Column(String(40), nullable=False)
+    shelf_life_days = Column(Integer, nullable=False, default=0)
 
 
 class Purchase(Base):
