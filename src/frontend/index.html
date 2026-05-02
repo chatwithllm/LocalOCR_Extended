@@ -21375,6 +21375,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               toast("📷 Photo added", "info");
               photoBtn.textContent = "✓";
               setTimeout(function() { photoBtn.textContent = original; }, 1500);
+              // Backdrop tile picks up the new image without waiting for
+              // the user to close the sheet.
+              loadInventory();
             } catch (e) {
               toast("Photo upload failed: " + (e.message || e), "error");
             } finally {
@@ -21428,6 +21431,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   if (!r.ok) { toast("Delete failed", "error"); return; }
                   toast("Photo removed", "info");
                   await _refreshGallery();
+                  // Tile beneath the sheet may now show a different
+                  // (or no) image — reload so the user sees the change
+                  // without closing the dialog.
+                  loadInventory();
                 });
                 cell.appendChild(del);
                 cell.addEventListener("click", async function() {
@@ -21436,6 +21443,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   if (!r.ok) { toast("Restore failed", "error"); return; }
                   toast("📷 Photo restored", "info");
                   await _refreshGallery();
+                  loadInventory();
                 });
                 galRow.appendChild(cell);
               });
