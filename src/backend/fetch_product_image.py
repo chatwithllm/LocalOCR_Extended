@@ -31,6 +31,20 @@ OPENAI_IMAGE_MODEL = "gpt-image-1"
 # Provider preference when caller passes provider="auto"
 DEFAULT_PROVIDER_CHAIN = ("gemini", "openai")
 
+# Single source of truth for which model string each provider uses —
+# stamped onto ProductSnapshot.notes by the backfill writers so history
+# views can show "what model produced this image" without re-deriving.
+PROVIDER_MODELS = {
+    "gemini": GEMINI_IMAGE_MODEL,
+    "openai": OPENAI_IMAGE_MODEL,
+}
+
+
+def model_for_provider(provider: str | None) -> str | None:
+    if not provider:
+        return None
+    return PROVIDER_MODELS.get(provider.lower())
+
 
 def _build_prompt(name: str, category: str | None) -> str:
     cat_suffix = ""

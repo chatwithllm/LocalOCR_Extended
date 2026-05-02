@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from sqlalchemy import not_
 
-from src.backend.fetch_product_image import fetch_product_image
+from src.backend.fetch_product_image import fetch_product_image, model_for_provider
 from src.backend.initialize_database_schema import (
     Product, ProductSnapshot, ReceiptItem, ShoppingListItem,
 )
@@ -139,6 +139,7 @@ def backfill_images_for_products(session, products, *, provider: str = "auto") -
                 captured_at=now,
                 notes=json.dumps({
                     "provider": prov_used,
+                    "model": model_for_provider(prov_used),
                     "cost_usd": _PROVIDER_COST_USD.get(prov_used, 0.0),
                 }),
             ))

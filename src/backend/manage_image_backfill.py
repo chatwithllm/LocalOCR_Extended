@@ -28,6 +28,7 @@ from src.backend.backfill_product_images import (
 from src.backend.create_flask_application import require_auth
 from src.backend.fetch_product_image import (
     DEFAULT_PROVIDER_CHAIN, available_providers, fetch_product_image,
+    model_for_provider,
 )
 from src.backend.image_backfill_schedule import load_schedule, save_schedule
 from src.backend.initialize_database_schema import (
@@ -165,6 +166,7 @@ def _run_admin_job(job_id: str, product_ids: list[int], provider: str) -> None:
                     captured_at=now,
                     notes=json.dumps({
                         "provider": prov_used,
+                        "model": model_for_provider(prov_used),
                         "cost_usd": _PROVIDER_COST_USD.get(prov_used, 0.0),
                     }),
                 ))
@@ -333,25 +335,34 @@ def get_history():
     )
     by_day: dict[str, dict] = {}
     totals_by_provider: dict[str, int] = {}
+    totals_by_model: dict[str, int] = {}
     total_fetched = 0
     total_cost = 0.0
     for r, prod in rows:
         day = (r.created_at or r.captured_at or datetime.now(timezone.utc)).date().isoformat()
         prov = "unknown"
+        model = None
         cost = 0.0
         if r.notes:
             try:
                 meta = json.loads(r.notes)
                 prov = (meta.get("provider") or "unknown").lower()
+                model = meta.get("model")
                 cost = float(meta.get("cost_usd") or _PROVIDER_COST_USD.get(prov, 0.0))
             except (ValueError, TypeError):
                 pass
+        # Fall back to the provider→model map for older rows that have a
+        # provider stamp but no explicit model field.
+        if not model:
+            model = model_for_provider(prov) or "unknown"
         bucket = by_day.setdefault(day, {
-            "date": day, "fetched": 0, "cost_usd": 0.0, "by_provider": {}, "items": [],
+            "date": day, "fetched": 0, "cost_usd": 0.0,
+            "by_provider": {}, "by_model": {}, "items": [],
         })
         bucket["fetched"] += 1
         bucket["cost_usd"] += cost
         bucket["by_provider"][prov] = bucket["by_provider"].get(prov, 0) + 1
+        bucket["by_model"][model] = bucket["by_model"].get(model, 0) + 1
         bucket["items"].append({
             "snapshot_id": r.id,
             "product_id": prod.id,
@@ -359,10 +370,12 @@ def get_history():
             "category": prod.category if prod else None,
             "image_url": f"/product-snapshots/{r.id}/image",
             "provider": prov,
+            "model": model,
             "cost_usd": cost,
             "captured_at": (r.captured_at or r.created_at).isoformat() if (r.captured_at or r.created_at) else None,
         })
         totals_by_provider[prov] = totals_by_provider.get(prov, 0) + 1
+        totals_by_model[model] = totals_by_model.get(model, 0) + 1
         total_fetched += 1
         total_cost += cost
     days_sorted = sorted(by_day.values(), key=lambda d: d["date"], reverse=True)
@@ -375,6 +388,7 @@ def get_history():
             "fetched": total_fetched,
             "cost_usd": round(total_cost, 4),
             "by_provider": totals_by_provider,
+            "by_model": totals_by_model,
         },
         "window_days": days,
         "provider_pricing_usd": _PROVIDER_COST_USD,

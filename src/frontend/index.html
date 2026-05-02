@@ -27732,7 +27732,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           meta.appendChild(nameEl);
           const sub = document.createElement("div");
           sub.style.cssText = "color:var(--muted);font-size:0.75rem;margin-top:2px";
-          sub.textContent = (it.provider || "?") + " · $" + Number(it.cost_usd || 0).toFixed(4);
+          sub.textContent = (it.model || it.provider || "?") + " · $" + Number(it.cost_usd || 0).toFixed(4);
           meta.appendChild(sub);
           card.appendChild(meta);
           const actions = document.createElement("div");
@@ -27800,13 +27800,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           const data = await res.json();
           const t = data.totals || {};
-          const provs = t.by_provider || {};
-          const provText = Object.keys(provs).length
-            ? " · " + Object.entries(provs).map(([k,v]) => k + ":" + v).join(", ")
+          const models = t.by_model || {};
+          const modelText = Object.keys(models).length
+            ? " · " + Object.entries(models).map(([k,v]) => k + ":" + v).join(", ")
             : "";
           totals.textContent = "Total " + (t.fetched || 0) + " images · $"
             + (t.cost_usd != null ? Number(t.cost_usd).toFixed(2) : "0.00")
-            + provText;
+            + modelText;
           const days_ = data.days || [];
           if (!days_.length) {
             body.innerHTML = "<div class='muted' style='padding:14px'>No backfill activity in the last " + (data.window_days || days) + " days.</div>";
@@ -27816,13 +27816,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           window._imageBackfillHistoryByDate = {};
           days_.forEach(function(d) { window._imageBackfillHistoryByDate[d.date] = d; });
           const rows = days_.map(function(d) {
-            const provs = d.by_provider || {};
-            const provStr = Object.entries(provs).map(([k,v]) => k + ":" + v).join(", ") || "—";
+            const mods = d.by_model || {};
+            const modelStr = Object.entries(mods).map(([k,v]) => k + ":" + v).join(", ") || "—";
             return "<tr style='cursor:pointer' onclick='toggleImageBackfillDay(\"" + escAttr(d.date) + "\")'>"
               + "<td style='padding:6px 10px'><span class='ib-chev' data-date='" + escAttr(d.date) + "' style='display:inline-block;width:12px;color:var(--muted)'>▸</span> " + escHtml(d.date) + "</td>"
               + "<td style='padding:6px 10px;text-align:right'>" + (d.fetched || 0) + "</td>"
               + "<td style='padding:6px 10px;text-align:right'>$" + Number(d.cost_usd || 0).toFixed(4) + "</td>"
-              + "<td style='padding:6px 10px;color:var(--muted);font-size:0.85rem'>" + escHtml(provStr) + "</td>"
+              + "<td style='padding:6px 10px;color:var(--muted);font-size:0.85rem'>" + escHtml(modelStr) + "</td>"
               + "</tr>"
               + "<tr class='ib-detail-row' data-date='" + escAttr(d.date) + "' style='display:none'>"
               + "<td colspan='4' style='padding:0 10px 12px'><div class='ib-detail-grid' data-date='" + escAttr(d.date) + "'></div></td>"
@@ -27833,7 +27833,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + "<th style='padding:6px 10px'>Date</th>"
             + "<th style='padding:6px 10px;text-align:right'>Fetched</th>"
             + "<th style='padding:6px 10px;text-align:right'>Cost</th>"
-            + "<th style='padding:6px 10px'>Providers</th>"
+            + "<th style='padding:6px 10px'>Models</th>"
             + "</tr></thead><tbody>" + rows + "</tbody></table></div>";
         } catch (e) {
           body.innerHTML = "<div class='muted' style='padding:10px'>Failed: " + escHtml(e.message || e) + "</div>";
