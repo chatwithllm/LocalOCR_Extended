@@ -96,30 +96,42 @@
    meta block already shows Bought + Expires lines. */
 .inv-tile-range { display: none; color: var(--muted, #999); font-size: 0.78rem; }
 
-/* Multi-select checkbox + selected-state outline (works on both desktop & mobile).
-   Top-LEFT corner so it never collides with the right-aligned ×N qty pill. */
-.inv-tile-checkbox {
+/* Multi-select: Gmail/iOS-style — long-press a tile to enter selection
+   mode, then tap any tile to toggle. No always-visible checkbox. The
+   ✓ badge top-left only appears on selected tiles. */
+.inv-tile-checkmark {
   position: absolute;
-  top: 8px; left: 8px;
-  width: 16px; height: 16px;
-  cursor: pointer;
+  top: 6px; left: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #4a8aef;
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
   z-index: 3;
-  accent-color: #4a8aef;
-  opacity: 0.55;
-  transition: opacity 0.15s ease;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.45);
 }
-.inv-tile-checkbox:hover,
-.inv-tile-checkbox:checked,
-.inv-tile.selected .inv-tile-checkbox { opacity: 1; }
-/* Reserve space at the left of the head row so the days-left text doesn't
-   slide under the checkbox. */
-.inv-tile-head { padding-left: 22px; }
+.inv-tile.selected .inv-tile-checkmark { display: flex; }
 .inv-tile.selected {
   outline: 2px solid #4a8aef;
   outline-offset: -2px;
-  background: rgba(74, 138, 239, 0.08);
+  background: rgba(74, 138, 239, 0.22);
+  box-shadow: 0 4px 14px rgba(74,138,239,0.28);
+}
+/* Subtle pre-trigger feedback during the 500ms long-press hold. */
+.inv-tile.long-press-arming {
+  transform: scale(0.97);
+  transition: transform 0.18s ease;
 }
 .inv-tile { position: relative; }
+/* Selection mode: dim un-selected tiles to focus the user on the picks. */
+body.inv-selection-mode .inv-tile:not(.selected) { opacity: 0.7; }
+/* Reserve top-left space so the ✓ badge never sits on top of the
+   "7d left" days label when selected. */
+.inv-tile-head { padding-left: 26px; }
 #inventory-bulk-bar { display: none; flex-wrap: wrap; }
 #inventory-bulk-bar.is-visible { display: flex; }
 @media (max-width: 600px) {
@@ -20269,13 +20281,25 @@
 
       // ----- Multi-select bulk actions -----
       window.__inventorySelected = window.__inventorySelected || new Set();
+      window.__inventorySelectionMode = window.__inventorySelectionMode || false;
 
       function _invIsSelected(pid) { return window.__inventorySelected.has(pid); }
+
+      function _invEnterSelectionMode() {
+        if (window.__inventorySelectionMode) return;
+        window.__inventorySelectionMode = true;
+        document.body.classList.add("inv-selection-mode");
+      }
+      function _invExitSelectionMode() {
+        window.__inventorySelectionMode = false;
+        document.body.classList.remove("inv-selection-mode");
+      }
 
       function _invToggleSelect(pid, on) {
         const sel = window.__inventorySelected;
         if (on) sel.add(pid); else sel.delete(pid);
         _invUpdateBulkBar();
+        if (sel.size === 0) _invExitSelectionMode();
       }
 
       function _invUpdateBulkBar() {
@@ -20293,6 +20317,7 @@
 
       function invBulkClear() {
         window.__inventorySelected.clear();
+        _invExitSelectionMode();
         _invUpdateBulkBar();
         renderInventory();
       }
@@ -20320,18 +20345,9 @@
 
       function _invBuildTile(i) {
         const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : "") + (_invIsSelected(i.product_id) ? " selected" : ""));
-        // Selection checkbox — top-right, doesn't trigger expand or swipe.
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.className = "inv-tile-checkbox";
-        cb.checked = _invIsSelected(i.product_id);
-        cb.addEventListener("click", function(e) { e.stopPropagation(); });
-        cb.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
-        cb.addEventListener("change", function(e) {
-          _invToggleSelect(i.product_id, e.target.checked);
-          tile.classList.toggle("selected", e.target.checked);
-        });
-        tile.appendChild(cb);
+        // ✓ badge — visible only when tile is selected (CSS-driven). Selection
+        // is entered via long-press; tap toggles while in selection mode.
+        tile.appendChild(_invElText("span", "inv-tile-checkmark", "✓"));
         const head = _invElText("div", "inv-tile-head");
         const flashCls = _invFlashClass(i._expCls);
         if (flashCls) head.className = "inv-tile-head " + flashCls;
@@ -20401,8 +20417,63 @@
         bg.appendChild(removeLabel);
         wrap.appendChild(bg);
         wrap.appendChild(tile);
+        _invAttachLongPress(tile, i);
         _invAttachMobileGestures(tile, i, wrap);
         return wrap;
+      }
+
+      // Long-press (500ms hold without moving) enters selection mode and
+      // selects the held tile. While in selection mode, plain taps toggle
+      // membership and swipe/expand gestures are suppressed.
+      function _invAttachLongPress(tile, item) {
+        var timer = null, sx = 0, sy = 0, pressed = false;
+        function arm(e) {
+          if (e.target.closest("button")) return;
+          sx = e.clientX; sy = e.clientY; pressed = true;
+          tile.classList.add("long-press-arming");
+          timer = setTimeout(function() {
+            timer = null;
+            if (!pressed) return;
+            tile.classList.remove("long-press-arming");
+            _invEnterSelectionMode();
+            var nowSel = !_invIsSelected(item.product_id);
+            _invToggleSelect(item.product_id, nowSel);
+            tile.classList.toggle("selected", nowSel);
+            if (navigator.vibrate) { try { navigator.vibrate(40); } catch (_) {} }
+            tile.dataset.longpressFired = "1";
+            setTimeout(function() { tile.dataset.longpressFired = "0"; }, 500);
+          }, 500);
+        }
+        function disarm() {
+          pressed = false;
+          if (timer) { clearTimeout(timer); timer = null; }
+          tile.classList.remove("long-press-arming");
+        }
+        tile.addEventListener("pointerdown", arm);
+        tile.addEventListener("pointermove", function(e) {
+          if (!pressed) return;
+          if (Math.abs(e.clientX - sx) > 6 || Math.abs(e.clientY - sy) > 6) disarm();
+        });
+        tile.addEventListener("pointerup", disarm);
+        tile.addEventListener("pointercancel", disarm);
+        tile.addEventListener("pointerleave", disarm);
+
+        // Tap-to-toggle while in selection mode. Capture phase so it
+        // beats the mobile-expand handler. Suppresses the synthetic click
+        // immediately following a long-press.
+        tile.addEventListener("click", function(e) {
+          if (e.target.closest("button")) return;
+          if (tile.dataset.longpressFired === "1") {
+            e.preventDefault(); e.stopPropagation();
+            return;
+          }
+          if (window.__inventorySelectionMode) {
+            e.preventDefault(); e.stopPropagation();
+            var nowSel = !_invIsSelected(item.product_id);
+            _invToggleSelect(item.product_id, nowSel);
+            tile.classList.toggle("selected", nowSel);
+          }
+        }, true);
       }
 
       function _invMakeBtn(cls, text, onClick) {
@@ -20420,18 +20491,21 @@
         const isMobile = function() { return window.matchMedia("(max-width: 600px)").matches; };
         const reveal = wrap || tile;
 
-        // Tap-to-expand (mobile only) — button clicks bypass via stopPropagation
+        // Tap-to-expand (mobile only) — button clicks bypass via stopPropagation.
+        // Suppressed while in selection mode (tap toggles select instead).
         tile.addEventListener("click", function(e) {
           if (!isMobile()) return;
+          if (window.__inventorySelectionMode) return;
           if (e.target.closest("button")) return;
           if (tile.dataset.swiping === "1") return;
           tile.classList.toggle("expanded");
         });
 
-        // Swipe with pointer events.
+        // Swipe with pointer events. Suppressed in selection mode.
         var startX = 0, startY = 0, dragging = false, lastDx = 0;
         tile.addEventListener("pointerdown", function(e) {
           if (!isMobile()) return;
+          if (window.__inventorySelectionMode) return;
           if (e.target.closest("button")) return;
           startX = e.clientX; startY = e.clientY; lastDx = 0;
           dragging = true;
