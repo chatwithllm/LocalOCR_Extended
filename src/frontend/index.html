@@ -20857,6 +20857,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           toast("Restored " + item.product_name, "info");
           row.remove();
           await loadInventory();
+          // Scroll the just-restored tile into view + flash a green
+          // outline so the user sees WHERE it landed in the live grid.
+          // Without this the new tile lives above the used-up section
+          // the user is currently scrolled to, looking like nothing
+          // happened until they manually refresh / scroll up.
+          requestAnimationFrame(function() {
+            const root = document.getElementById("inventory-groups");
+            if (!root) return;
+            const tile = root.querySelector('.inv-tile[data-product-id="' + item.product_id + '"]');
+            if (!tile) return;
+            tile.scrollIntoView({ behavior: "smooth", block: "center" });
+            tile.style.transition = "box-shadow 600ms ease, outline 600ms ease";
+            tile.style.outline = "3px solid #3a6b3a";
+            setTimeout(function() { tile.style.outline = ""; }, 1800);
+          });
         } catch (e) {
           toast("Restore failed: " + (e.message || e), "error");
           btn.disabled = false; btn.textContent = "Restore";
