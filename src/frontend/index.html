@@ -95,6 +95,24 @@
 /* Date-range chip is mobile-only — hidden on desktop where the full
    meta block already shows Bought + Expires lines. */
 .inv-tile-range { display: none; color: var(--muted, #999); font-size: 0.78rem; }
+
+/* Multi-select checkbox + selected-state outline (works on both desktop & mobile) */
+.inv-tile-checkbox {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 20px; height: 20px;
+  cursor: pointer;
+  z-index: 3;
+  accent-color: #4a8aef;
+}
+.inv-tile.selected {
+  outline: 2px solid #4a8aef;
+  outline-offset: -2px;
+  background: rgba(74, 138, 239, 0.08);
+}
+.inv-tile { position: relative; }
+#inventory-bulk-bar { display: none; }
+#inventory-bulk-bar[style*="flex"] { display: flex !important; }
 @media (max-width: 600px) {
   .inv-tiles { grid-template-columns: 1fr; }
   .inv-tile-wrap {
@@ -1417,6 +1435,14 @@
             </div>
             <div class="page-body">
               <div id="inventory-groups"></div>
+              <div id="inventory-bulk-bar" style="display:none;position:sticky;bottom:8px;margin-top:12px;padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);display:none;flex-wrap:wrap;gap:8px;align-items:center;z-index:5">
+                <span id="inventory-bulk-count" style="font-weight:600;font-size:0.92rem">0 selected</span>
+                <button class="inv-bulk-btn inv-btn-decr"  onclick="invBulkDecrement()" style="padding:8px 12px;border:none;border-radius:6px;background:#444;color:#ffb;font-size:0.85rem;cursor:pointer">−1 all</button>
+                <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(3)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+3d all</button>
+                <button class="inv-bulk-btn inv-btn-defer" onclick="invBulkDefer(7)" style="padding:8px 12px;border:none;border-radius:6px;background:#5a4a2a;color:#ffd;font-size:0.85rem;cursor:pointer">+7d all</button>
+                <button class="inv-bulk-btn inv-btn-used"  onclick="invBulkUsedUp()" style="padding:8px 12px;border:none;border-radius:6px;background:#3a6b3a;color:#fff;font-size:0.85rem;cursor:pointer">✓ Used up all</button>
+                <button class="inv-bulk-btn"               onclick="invBulkClear()" style="margin-left:auto;padding:8px 12px;border:1px solid var(--border,#444);border-radius:6px;background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">Clear</button>
+              </div>
             </div>
           </div>
 
@@ -20232,8 +20258,75 @@
         return wrap;
       }
 
+      // ----- Multi-select bulk actions -----
+      window.__inventorySelected = window.__inventorySelected || new Set();
+
+      function _invIsSelected(pid) { return window.__inventorySelected.has(pid); }
+
+      function _invToggleSelect(pid, on) {
+        const sel = window.__inventorySelected;
+        if (on) sel.add(pid); else sel.delete(pid);
+        _invUpdateBulkBar();
+      }
+
+      function _invUpdateBulkBar() {
+        const bar = document.getElementById("inventory-bulk-bar");
+        const count = document.getElementById("inventory-bulk-count");
+        if (!bar) return;
+        const n = window.__inventorySelected.size;
+        if (n === 0) {
+          bar.style.display = "none";
+          return;
+        }
+        bar.style.display = "flex";
+        if (count) count.textContent = n + " selected";
+      }
+
+      function _invSelectedIds() {
+        return Array.from(window.__inventorySelected);
+      }
+
+      function invBulkClear() {
+        window.__inventorySelected.clear();
+        _invUpdateBulkBar();
+        renderInventory();
+      }
+
+      function invBulkDecrement() {
+        const ids = _invSelectedIds();
+        for (const pid of ids) invDecrement(pid);
+        toast("−1 on " + ids.length + " items", "info");
+        invBulkClear();
+      }
+
+      function invBulkUsedUp() {
+        const ids = _invSelectedIds();
+        for (const pid of ids) invUsedUp(pid);
+        toast("Removed " + ids.length + " items", "info");
+        invBulkClear();
+      }
+
+      function invBulkDefer(days) {
+        const ids = _invSelectedIds();
+        for (const pid of ids) invDefer(pid, days);
+        toast("+" + days + "d on " + ids.length + " items", "info");
+        invBulkClear();
+      }
+
       function _invBuildTile(i) {
-        const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : ""));
+        const tile = _invElText("div", "inv-tile " + i._expCls + ((i.quantity || 0) === 0 ? " empty" : "") + (_invIsSelected(i.product_id) ? " selected" : ""));
+        // Selection checkbox — top-right, doesn't trigger expand or swipe.
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "inv-tile-checkbox";
+        cb.checked = _invIsSelected(i.product_id);
+        cb.addEventListener("click", function(e) { e.stopPropagation(); });
+        cb.addEventListener("pointerdown", function(e) { e.stopPropagation(); });
+        cb.addEventListener("change", function(e) {
+          _invToggleSelect(i.product_id, e.target.checked);
+          tile.classList.toggle("selected", e.target.checked);
+        });
+        tile.appendChild(cb);
         const head = _invElText("div", "inv-tile-head");
         const flashCls = _invFlashClass(i._expCls);
         if (flashCls) head.className = "inv-tile-head " + flashCls;
