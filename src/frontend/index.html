@@ -20209,15 +20209,18 @@
           tile.classList.toggle("expanded");
         });
 
-        // Swipe with pointer events
-        var startX = 0, startY = 0, startT = 0, dragging = false;
+        // Swipe with pointer events.
+        // We track the latest dx in a closure because some browsers
+        // return a stale e.clientX at pointerup. Time threshold dropped
+        // because deliberate swipes can take >500ms.
+        var startX = 0, startY = 0, dragging = false, lastDx = 0;
         tile.addEventListener("pointerdown", function(e) {
           if (!isMobile()) return;
           if (e.target.closest("button")) return;
-          startX = e.clientX; startY = e.clientY; startT = Date.now();
+          startX = e.clientX; startY = e.clientY; lastDx = 0;
           dragging = true;
           tile.dataset.swiping = "0";
-          tile.setPointerCapture(e.pointerId);
+          try { tile.setPointerCapture(e.pointerId); } catch (_) {}
         });
         function _cleanup() {
           dragging = false;
@@ -20228,7 +20231,8 @@
           if (!dragging) return;
           var dx = e.clientX - startX;
           var dy = e.clientY - startY;
-          if (Math.abs(dy) > 30) { _cleanup(); return; }
+          if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) { _cleanup(); return; }
+          lastDx = dx;
           if (Math.abs(dx) > 12) {
             tile.dataset.swiping = "1";
             tile.style.transform = "translateX(" + dx + "px)";
@@ -20238,10 +20242,9 @@
         });
         tile.addEventListener("pointerup", function(e) {
           var wasDragging = dragging;
-          var dx = e.clientX - startX;
-          var dt = Date.now() - startT;
+          var dx = lastDx;  // last value seen by pointermove, not stale e.clientX
           _cleanup();
-          if (wasDragging && dt < 500 && Math.abs(dx) >= 60) {
+          if (wasDragging && Math.abs(dx) >= 60) {
             var name = item.product_name || "item";
             if (dx > 0) {
               invDecrement(item.product_id);
