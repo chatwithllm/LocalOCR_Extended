@@ -25,7 +25,7 @@ from src.backend.contribution_scores import (
 )
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.enrich_product_names import should_enrich_product_name
-from src.backend.initialize_database_schema import Inventory, InventoryAdjustment, PriceHistory, Product, ProductSnapshot
+from src.backend.initialize_database_schema import Inventory, InventoryAdjustment, PriceHistory, Product, ProductSnapshot, ShoppingListItem
 from src.backend.normalize_product_names import canonicalize_product_identity, get_product_display_name
 from src.backend.initialize_database_schema import Purchase, ReceiptItem, Store, TelegramReceipt
 from src.backend.inventory_writes import apply_manual_patch, reset_expiry_to_system
@@ -626,6 +626,20 @@ def list_recently_used_up():
         .limit(100)
         .all()
     )
+    # Single query for shopping-list membership rather than N+1 — UI uses
+    # this flag to swap the "Add to list" button for a disabled "On list"
+    # state, so the answer must reflect every candidate up-front.
+    candidate_ids = [prod.id for _, prod in rows]
+    on_list_ids = set()
+    if candidate_ids:
+        on_list_ids = {
+            pid for (pid,) in (
+                session.query(ShoppingListItem.product_id)
+                .filter(ShoppingListItem.product_id.in_(candidate_ids))
+                .filter(ShoppingListItem.status == "open")
+                .all()
+            )
+        }
     items = []
     seen = set()
     for adj, prod in rows:
@@ -640,6 +654,7 @@ def list_recently_used_up():
             "prior_quantity": abs(float(adj.quantity_delta or 0)),
             "used_up_at": adj.created_at.isoformat() if adj.created_at else None,
             "image_url": snap["image_url"] if snap else None,
+            "in_shopping_list": prod.id in on_list_ids,
         })
     return jsonify({"items": items}), 200
 

@@ -93,8 +93,13 @@
 }
 .inv-btn-edit  { background: #444;    color: #ddd; }
 .inv-btn-defer { background: #5a4a2a; color: #ffd; }
+.inv-btn-cart  { background: #2a4a6b; color: #cde; }
 .inv-btn-decr  { background: #444;    color: #ffb; }
 .inv-btn-used  { background: #3a6b3a; color: #fff; }
+.inv-btn-cart.on-list { background: #2a3a3a; color: #888; cursor: default; }
+/* Brief visual feedback while a button long-press is being held — lets
+   the user see they're firing the alt action, not the tap action. */
+.inv-action-arming { transform: scale(0.93); filter: brightness(1.3); transition: transform 80ms ease, filter 80ms ease; }
 @keyframes invExpiryPulse  { 0%,100% { color:#e87; text-shadow:0 0 0 transparent; } 50% { color:#fff; text-shadow:0 0 8px #e87; } }
 @keyframes invExpiredPulse { 0%,100% { color:#d33; text-shadow:0 0 0 transparent; } 50% { color:#fff; text-shadow:0 0 10px #d33; } }
 .flash-soon    { animation: invExpiryPulse 1.4s ease-in-out infinite; font-weight: 600; }
@@ -20606,15 +20611,64 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         _invShowUndoToast(snap, "−1");
       }
 
-      function invBulkUsedUp() {
+      async function invBulkUsedUp() {
         const ids = _invSelectedIds();
         if (!ids.length) return;
         // Destructive: deletes inventory rows server-side, so PATCH-undo
-        // can't bring them back. Confirm before applying.
-        if (!confirm("Mark " + ids.length + " item(s) as used up? They'll be removed from inventory.")) return;
+        // can't bring them back. Confirm before applying. Sheet also
+        // offers to bulk-add the same items to the shopping list — used
+        // up usually means "buy again".
+        const choice = await _invConfirmUsedUpSheet(ids.length);
+        if (!choice) return;
+        if (choice.addToList) {
+          for (const pid of ids) invAddToShoppingList(pid, { silent: true });
+          toast("🛒 Added " + ids.length + " to shopping list", "info");
+        }
         for (const pid of ids) invUsedUp(pid);
         toast("Removed " + ids.length + " items", "info");
         invBulkClear();
+      }
+
+      // Bottom-sheet confirm that also offers "Add to shopping list".
+      // Resolves with { addToList: bool } on confirm, or null on cancel.
+      function _invConfirmUsedUpSheet(count) {
+        return new Promise(function(resolve) {
+          const back = document.createElement("div");
+          back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:flex-end;justify-content:center";
+          const sheet = document.createElement("div");
+          sheet.style.cssText = "background:#222;color:#eee;width:100%;max-width:420px;border-radius:14px 14px 0 0;padding:18px 18px 22px;box-shadow:0 -8px 32px rgba(0,0,0,0.5)";
+          const title = document.createElement("div");
+          title.style.cssText = "font-weight:600;font-size:1.05rem;margin-bottom:6px";
+          title.textContent = "Mark " + count + " item" + (count === 1 ? "" : "s") + " as used up?";
+          const sub = document.createElement("div");
+          sub.style.cssText = "color:#aaa;font-size:0.85rem;margin-bottom:14px";
+          sub.textContent = "They'll be removed from inventory.";
+          const lbl = document.createElement("label");
+          lbl.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 12px;background:#2c3e55;border-radius:8px;cursor:pointer;font-size:0.9rem;margin-bottom:14px";
+          const cb = document.createElement("input");
+          cb.type = "checkbox"; cb.checked = true;
+          cb.style.cssText = "width:18px;height:18px;accent-color:#4a8aef";
+          lbl.appendChild(cb);
+          const lblText = document.createElement("span");
+          lblText.textContent = "🛒 Also add to shopping list";
+          lbl.appendChild(lblText);
+          const btnRow = document.createElement("div");
+          btnRow.style.cssText = "display:flex;gap:10px";
+          const cancel = document.createElement("button");
+          cancel.textContent = "Cancel";
+          cancel.style.cssText = "flex:1;padding:12px;background:#444;color:#ddd;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer";
+          const ok = document.createElement("button");
+          ok.textContent = "Mark used up";
+          ok.style.cssText = "flex:2;padding:12px;background:#3a6b3a;color:#fff;border:none;border-radius:8px;font-size:0.95rem;cursor:pointer;font-weight:600";
+          btnRow.appendChild(cancel); btnRow.appendChild(ok);
+          sheet.appendChild(title); sheet.appendChild(sub); sheet.appendChild(lbl); sheet.appendChild(btnRow);
+          back.appendChild(sheet);
+          document.body.appendChild(back);
+          function close(result) { back.remove(); resolve(result); }
+          cancel.addEventListener("click", function() { close(null); });
+          ok.addEventListener("click", function() { close({ addToList: cb.checked }); });
+          back.addEventListener("click", function(e) { if (e.target === back) close(null); });
+        });
       }
 
       function invBulkDefer(days) {
@@ -20738,10 +20792,50 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         btn.textContent = "↻ Restore";
         btn.addEventListener("click", function() { _invRestoreOne(it, btn, tile); });
         actions.appendChild(btn);
+        // Used-up implies the user finished the item and might want to buy it
+        // again. Surface it directly here. If it's already on the list, show
+        // a disabled "On list" badge so the user knows they're covered.
+        const cart = document.createElement("button");
+        cart.type = "button";
+        cart.className = "inv-btn-cart" + (it.in_shopping_list ? " on-list" : "");
+        cart.style.cssText = "flex:1;padding:8px;border:none;border-radius:4px;font-size:0.88rem;cursor:pointer;font-weight:600";
+        cart.textContent = it.in_shopping_list ? "✓ On list" : "🛒 Add to list";
+        cart.disabled = !!it.in_shopping_list;
+        cart.addEventListener("click", function() { _invRestoreAddToList(it, cart); });
+        actions.appendChild(cart);
         content.appendChild(actions);
 
         tile.appendChild(content);
         return tile;
+      }
+
+      async function _invRestoreAddToList(item, btn) {
+        if (btn.disabled) return;
+        btn.disabled = true; btn.textContent = "…";
+        try {
+          const res = await api("/shopping-list/items", {
+            method: "POST",
+            body: JSON.stringify({
+              product_id: item.product_id,
+              name: item.product_name,
+              category: item.category || "other",
+              quantity: 1,
+              source: "auto_used_up",
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            toast("Add to list failed: " + (err.error || res.status), "error");
+            btn.disabled = false; btn.textContent = "🛒 Add to list";
+            return;
+          }
+          btn.classList.add("on-list");
+          btn.textContent = "✓ On list";
+          toast("🛒 Added to shopping list", "info");
+        } catch (e) {
+          toast("Add to list failed: " + (e.message || e), "error");
+          btn.disabled = false; btn.textContent = "🛒 Add to list";
+        }
       }
 
       async function _invRestoreOne(item, btn, row) {
@@ -20838,10 +20932,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         content.appendChild(meta);
         const actions = _invElText("div", "inv-tile-actions");
         actions.appendChild(_invMakeBtn("inv-btn-edit",  "✎", function() { invEdit(i.product_id); }));
-        actions.appendChild(_invMakeBtn("inv-btn-defer", "+3d", function() { invDefer(i.product_id, 3); }));
-        actions.appendChild(_invMakeBtn("inv-btn-defer", "+7d", function() { invDefer(i.product_id, 7); }));
+        // +3d defers 3 days on tap, 7 days on hold — replaces the old +7d
+        // slot which is now occupied by the cart button.
+        const deferBtn = _invMakeBtn("inv-btn-defer", "+3d", function() { invDefer(i.product_id, 3); });
+        _invAttachButtonHold(deferBtn, function() { invDefer(i.product_id, 7); _invHintToast("+7d"); });
+        actions.appendChild(deferBtn);
+        actions.appendChild(_invMakeBtn("inv-btn-cart", "🛒", function() { invAddToShoppingList(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
-        actions.appendChild(_invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); }));
+        // ✓ marks used-up on tap; hold also adds to shopping list.
+        const usedBtn = _invMakeBtn("inv-btn-used",  "✓",   function() { invUsedUp(i.product_id); });
+        _invAttachButtonHold(usedBtn, function() {
+          invAddToShoppingList(i.product_id, { silent: true });
+          invUsedUp(i.product_id);
+          _invHintToast("✓ + 🛒");
+        });
+        actions.appendChild(usedBtn);
         content.appendChild(actions);
         tile.appendChild(content);
 
@@ -20954,9 +21059,71 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         b.textContent = text;
         b.addEventListener("click", function(e) {
           e.stopPropagation();
+          if (b.dataset.heldFired === "1") {
+            // The hold-handler already ran on this gesture. Skip the
+            // tap so we don't fire BOTH actions.
+            b.dataset.heldFired = "0";
+            return;
+          }
           onClick(e);
         });
         return b;
+      }
+
+      // Long-press on action buttons fires an alternate action (e.g.
+      // hold +3d → +7d). stopPropagation everywhere so the tile-level
+      // long-press selection handler doesn't also arm. 500ms + 8px move
+      // disarm matches the tile-level gesture's feel.
+      function _invAttachButtonHold(btn, onHold) {
+        var timer = null, sx = 0, sy = 0, pressed = false;
+        function fire() {
+          timer = null;
+          if (!pressed) return;
+          btn.classList.remove("inv-action-arming");
+          btn.dataset.heldFired = "1";
+          if (navigator.vibrate) { try { navigator.vibrate(35); } catch (_) {} }
+          onHold();
+        }
+        function arm(x, y, e) {
+          if (e) { e.stopPropagation(); }
+          if (pressed) return;
+          sx = x; sy = y; pressed = true;
+          btn.classList.add("inv-action-arming");
+          timer = setTimeout(fire, 500);
+        }
+        function disarm() {
+          pressed = false;
+          if (timer) { clearTimeout(timer); timer = null; }
+          btn.classList.remove("inv-action-arming");
+        }
+        function checkMove(x, y) {
+          if (!pressed) return;
+          if (Math.abs(x - sx) > 8 || Math.abs(y - sy) > 8) disarm();
+        }
+        btn.addEventListener("touchstart", function(e) {
+          var t = e.touches[0]; if (!t) return;
+          arm(t.clientX, t.clientY, e);
+        }, { passive: true });
+        btn.addEventListener("touchmove", function(e) {
+          var t = e.touches[0]; if (!t) return;
+          checkMove(t.clientX, t.clientY);
+        }, { passive: true });
+        btn.addEventListener("touchend", function() { disarm(); });
+        btn.addEventListener("touchcancel", function() { disarm(); });
+        btn.addEventListener("pointerdown", function(e) {
+          if (e.pointerType === "touch") return;  // touchstart owns it
+          arm(e.clientX, e.clientY, e);
+        });
+        btn.addEventListener("pointermove", function(e) { checkMove(e.clientX, e.clientY); });
+        btn.addEventListener("pointerup", function() { disarm(); });
+        btn.addEventListener("pointerleave", function() { disarm(); });
+        btn.addEventListener("pointercancel", function() { disarm(); });
+      }
+
+      // Quick info toast on hold-fire so the user knows the alternate
+      // action ran — long-press is invisible without this signal.
+      function _invHintToast(label) {
+        try { toast(label, "info"); } catch (_) {}
       }
 
       function _invAttachMobileGestures(tile, item, wrap) {
@@ -21069,6 +21236,37 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         arr.splice(idx, 1);
         renderInventory();
         invPatch(pid, { quantity: 0 }, { skipReload: true });
+      }
+
+      // POSTs to the shopping-list /items endpoint with the inventory
+      // tile's product context. Endpoint already merges duplicates by
+      // (name, category, active session), so a double-tap is harmless.
+      // opts.silent suppresses the success toast — used when the call
+      // is paired with a more important toast (e.g. ✓-hold combo).
+      async function invAddToShoppingList(pid, opts) {
+        opts = opts || {};
+        const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
+        if (!inv) return;
+        try {
+          const res = await api("/shopping-list/items", {
+            method: "POST",
+            body: JSON.stringify({
+              product_id: pid,
+              name: inv.product_name || inv.display_name || "",
+              category: inv.category || "other",
+              quantity: 1,
+              source: "auto_inventory",
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function() { return {}; });
+            toast("Add to list failed: " + (err.error || res.status), "error");
+            return;
+          }
+          if (!opts.silent) toast("🛒 Added to shopping list", "info");
+        } catch (e) {
+          toast("Add to list failed: " + (e.message || e), "error");
+        }
       }
       async function invEdit(pid) {
         const inv = (window.__inventoryRaw || []).find(function(x) { return x.product_id === pid; });
