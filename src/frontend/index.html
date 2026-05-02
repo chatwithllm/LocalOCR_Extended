@@ -20867,7 +20867,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const root = document.getElementById("inventory-groups");
           const tile = root && root.querySelector('.inv-tile[data-product-id="' + item.product_id + '"]');
           if (tile) {
-            tile.scrollIntoView({ behavior: "smooth", block: "center" });
             tile.style.transition = "outline 600ms ease";
             tile.style.outline = "3px solid #3a6b3a";
             setTimeout(function() { tile.style.outline = ""; }, 1800);
