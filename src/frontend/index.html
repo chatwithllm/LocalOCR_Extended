@@ -272,12 +272,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
 }
 @media (max-width: 600px) {
-  .inv-tile-img { width: 96px; }
-  /* Mobile tile taller — 5 always-visible thumb buttons + 2-line name
-     room. Still fixed (height, not min-height) so all images match. */
+  /* Mobile: drop fixed height + stretch — caused empty space under
+     short content. Image is a fixed square, top-aligned; tile grows
+     with its content like normal. */
   .inv-tile.inv-tile-has-img,
-  .inv-tile-used-up.inv-tile { height: 168px; min-height: 168px; }
-  .inv-tile { min-height: 168px; }
+  .inv-tile-used-up.inv-tile {
+    height: auto;
+    min-height: 0;
+    align-items: flex-start;
+  }
+  .inv-tile { min-height: 0; }
+  .inv-tile-img {
+    width: 96px;
+    height: 96px;
+    align-self: flex-start;
+  }
   /* Touch devices have no real hover — tap-active gives a peek. */
   .inv-tile-img:active { transform: scale(2.2); z-index: 100; box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
   .inv-tile-img:hover { transform: none; box-shadow: none; }
