@@ -20694,17 +20694,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         actions.appendChild(deferBtn);
         actions.appendChild(_invMakeBtn("inv-btn-cart", "🛒", function() { invAddToShoppingList(i.product_id); }));
         actions.appendChild(_invMakeBtn("inv-btn-decr",  "−1",  function() { invDecrement(i.product_id); }));
-        // ✓ on manual-low items clears the flag ("I have enough").
-        // ✓ on threshold-low items marks used-up (quantity → 0).
-        // Hold always adds to cart then marks used-up regardless.
+        // ✓ on any running-low item clears all low signals ("I have enough"):
+        //   manual_low items → clear the flag
+        //   threshold-low items → clear the threshold so qty no longer triggers it
+        // Hold always adds to cart + marks used-up.
+        const _itemIsLow = !!(i.is_low || i.manual_low);
         const usedBtn = _invMakeBtn("inv-btn-used", "✓", function() {
-          if (i.manual_low) {
-            setProductLowStatus(i.product_id, false);
+          if (_itemIsLow) {
+            const ops = [];
+            if (i.manual_low) ops.push(setProductLowStatus(i.product_id, false));
+            if (!i.manual_low && i.threshold) ops.push(invPatch(i.product_id, { threshold: null }, { skipReload: true }));
+            Promise.all(ops).then(function() { loadInventory(); });
           } else {
             invUsedUp(i.product_id);
           }
         });
-        usedBtn.title = i.manual_low ? "Clear low flag — I have enough" : "Used up";
+        usedBtn.title = _itemIsLow ? "I have enough — clear low flag" : "Used up";
         _invAttachButtonHold(usedBtn, function() {
           invAddToShoppingList(i.product_id, { silent: true });
           invUsedUp(i.product_id);
