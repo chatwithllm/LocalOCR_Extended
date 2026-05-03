@@ -22011,8 +22011,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const url = query
           ? `/products/search?q=${encodeURIComponent(query)}`
           : "/products";
-        const res = await api(url);
         const body = document.getElementById("prod-table-body");
+        if (body) body.innerHTML = '<div class="empty-state" style="opacity:0.5"><p>Loading…</p></div>';
+        let res;
+        try {
+          res = await api(url);
+        } catch (err) {
+          if (body) body.innerHTML = '<div class="empty-state"><p>Network error loading products.</p></div>';
+          return;
+        }
         if (!res.ok) {
           if (body) body.innerHTML = '<div class="empty-state"><p>Could not load products.</p></div>';
           return;
@@ -22020,7 +22027,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const data = await res.json();
         const allItems = data.products || data.results || [];
         renderProductCategoryChips(allItems);
-        const activeCategoryFilters = productCategoryFilters;
+        // When a search query is active, skip category filters — search already narrows results.
+        const activeCategoryFilters = query ? new Set() : productCategoryFilters;
         const items = activeCategoryFilters.size
           ? allItems.filter((item) =>
               activeCategoryFilters.has(
