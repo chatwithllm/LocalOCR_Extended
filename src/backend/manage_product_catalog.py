@@ -452,6 +452,16 @@ def update_review_status(product_id):
     return jsonify({"product": _serialize_product(session, product)}), 200
 
 
+@products_bp.route("/<int:product_id>", methods=["GET"])
+@require_auth
+def get_product(product_id):
+    session = g.db_session
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    return jsonify({"product": _serialize_product(session, product)}), 200
+
+
 @products_bp.route("/<int:product_id>", methods=["DELETE"])
 @require_write_access
 def delete_product(product_id):

@@ -1556,6 +1556,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()">↻ Recently used up</button>
               </div>
             </div>
+            <div id="inv-category-chips" class="filter-chip-row" style="padding:0 0 10px 0"></div>
             <div class="page-body">
               <div id="inventory-bulk-bar" style="padding:10px 12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.35);gap:8px;align-items:center">
                 <span id="inventory-bulk-count" style="font-weight:600;font-size:0.92rem">0 selected</span>
@@ -6422,6 +6423,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       };
       let selectedReceiptId = null;
       let inventorySearchQuery = "";
+      let invCategoryFilters = new Set();
       let activeDevicePairing = null;
       let devicePairingPollTimer = null;
       let pendingApprovalPairingToken = "";
@@ -13209,8 +13211,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           inventoryBtn.className = `btn ${showingInventory ? "btn-primary" : "btn-ghost"}`;
         if (productsBtn)
           productsBtn.className = `btn ${showingInventory ? "btn-ghost" : "btn-primary"}`;
-        if (inventoryPanel) inventoryPanel.style.display = "block";
-        if (productsPanel) productsPanel.style.display = "none";
+        if (inventoryPanel) inventoryPanel.style.display = showingInventory ? "block" : "none";
+        if (productsPanel) productsPanel.style.display = showingInventory ? "none" : "block";
         if (note) {
           note.textContent = showingInventory
             ? "Inventory shows active household stock from the current and previous month."
@@ -19622,6 +19624,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         populateInventoryStoreSelect();
         populateShoppingManualCategorySelect();
         renderInventoryUnitChips();
+        renderInvCategoryChips(window.__inventoryRaw || []);
         updateInventoryAddCardVisibility();
         updateInventoryAddDetailsVisibility();
         if (typeof renderInventory === "function") renderInventory();
@@ -20200,7 +20203,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         let enriched = _invEnrich(items)
           .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
           .filter(function(i) { return !search || (i.product_name || "").toLowerCase().includes(search); })
-          .filter(function(i) { return !locFilter || i.location === locFilter; });
+          .filter(function(i) { return !locFilter || i.location === locFilter; })
+          .filter(function(i) { return invCategoryFilters.size === 0 || invCategoryFilters.has(String(i.category || "").trim().toLowerCase()); });
 
         if (sort === "name") enriched.sort(function(a, b) { return (a.product_name || "").localeCompare(b.product_name || ""); });
         else if (sort === "qty") enriched.sort(function(a, b) { return (b.quantity || 0) - (a.quantity || 0); });
@@ -20536,7 +20540,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const tile = document.createElement("div");
         tile.className = "inv-tile inv-tile-used-up";
 
-        if (it.image_url) {
+        if (it.image_url && currentUser?.role === "admin") {
           const img = document.createElement("img");
           img.className = "inv-tile-img";
           img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + it.image_url;
@@ -20697,7 +20701,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         // ✓ badge — visible only when tile is selected (CSS-driven). Selection
         // is entered via long-press; tap toggles while in selection mode.
         tile.appendChild(_invElText("span", "inv-tile-checkmark", "✓"));
-        if (imageUrl) {
+        if (imageUrl && currentUser?.role === "admin") {
           const img = document.createElement("img");
           img.className = "inv-tile-img";
           img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
@@ -20778,6 +20782,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           _invHintToast("✓ + 🛒");
         });
         actions.appendChild(usedBtn);
+        if (!imageUrl && currentUser?.role === "admin") {
+          const genBtn = _invMakeBtn("inv-btn-gen", "✨", function() {
+            invGenerateTileImage(i.product_id, genBtn, function(snap) {
+              const imgEl = document.createElement("img");
+              imgEl.className = "inv-tile-img";
+              imgEl.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + snap.image_url + "?v=" + encodeURIComponent(snap.created_at || snap.id || "");
+              imgEl.alt = i.product_name || "";
+              imgEl.loading = "lazy";
+              tile.classList.add("inv-tile-has-img");
+              tile.insertBefore(imgEl, content);
+              genBtn.remove();
+            });
+          });
+          genBtn.title = "Generate image with AI";
+          actions.appendChild(genBtn);
+        }
         content.appendChild(actions);
         tile.appendChild(content);
 
@@ -21481,6 +21501,70 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         );
       }
 
+      function renderInvCategoryChips(items) {
+        const el = document.getElementById("inv-category-chips");
+        if (!el) return;
+        const cats = [...new Set((items || []).map(i => String(i.category || "").trim().toLowerCase()).filter(Boolean))].sort();
+        if (!cats.length) { el.innerHTML = ""; return; }
+        el.innerHTML = `<button type="button" class="filter-chip ${invCategoryFilters.size === 0 ? "active" : ""}" onclick="clearInvCategoryFilters()">All</button>`
+          + cats.map(c => `<button type="button" class="filter-chip ${invCategoryFilters.has(c) ? "active" : ""}" onclick="toggleInvCategoryFilter('${escAttr(c)}')">${escHtml(formatLabel(c, c))}</button>`).join("");
+      }
+
+      function toggleInvCategoryFilter(cat) {
+        if (invCategoryFilters.has(cat)) invCategoryFilters.delete(cat);
+        else invCategoryFilters.add(cat);
+        renderInventory();
+        renderInvCategoryChips(window.__inventoryRaw || []);
+      }
+
+      function clearInvCategoryFilters() {
+        invCategoryFilters.clear();
+        renderInventory();
+        renderInvCategoryChips(window.__inventoryRaw || []);
+      }
+
+      async function invGenerateTileImage(productId, btn, onSuccess) {
+        btn.disabled = true;
+        btn.textContent = "…";
+        try {
+          const runRes = await api("/api/admin/image-backfill/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_ids: [productId], provider: "auto" }),
+          });
+          if (!runRes.ok) { btn.textContent = "✕"; btn.title = "Failed to start"; return; }
+          const { job_id } = await runRes.json();
+          // Poll until done
+          for (let i = 0; i < 30; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+            const jobRes = await api(`/api/admin/image-backfill/jobs/${job_id}`);
+            if (!jobRes.ok) break;
+            const job = await jobRes.json();
+            if (job.status === "done" || job.status === "error") {
+              const item = (job.items || []).find(x => x.id === productId);
+              if (item && item.result === "fetched") {
+                const prodRes = await api(`/products/${productId}`);
+                if (prodRes.ok) {
+                  const { product } = await prodRes.json();
+                  const snap = product && product.latest_snapshot;
+                  if (snap && snap.image_url) {
+                    if (typeof onSuccess === "function") onSuccess(snap);
+                    return;
+                  }
+                }
+              }
+              btn.textContent = "✕";
+              btn.title = item ? item.result : "failed";
+              btn.disabled = false;
+              return;
+            }
+          }
+          btn.textContent = "✕"; btn.title = "Timed out"; btn.disabled = false;
+        } catch (e) {
+          btn.textContent = "✕"; btn.title = String(e); btn.disabled = false;
+        }
+      }
+
       function renderProductCategoryOptionTags(selectedCategory = "other") {
         const normalized =
           String(selectedCategory || "other")
@@ -22106,11 +22190,205 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>';
           return;
         }
-        if (catalogMode === "products") {
-          // Shared card renderer used by both the flat mobile list and
-          // the domain-grouped view (any width).
-          const renderProductCard = (group) => {
-            const key = `product:${group.key}`;
+        renderProductTiles(groups, body);
+      }
+
+      function renderProductTiles(groups, body) {
+        const catMap = new Map();
+        for (const g of groups) {
+          const cat = g.displayCategory || "other";
+          if (!catMap.has(cat)) catMap.set(cat, []);
+          catMap.get(cat).push(g);
+        }
+        const frag = document.createDocumentFragment();
+        for (const [cat, catGroups] of catMap) {
+          const groupEl = document.createElement("div");
+          groupEl.className = "inv-group";
+          const headerEl = document.createElement("div");
+          headerEl.className = "inv-group-header";
+          headerEl.textContent = `🏷️ ${formatLabel(cat, "Other")} · ${catGroups.length} product${catGroups.length !== 1 ? "s" : ""}`;
+          groupEl.appendChild(headerEl);
+          const tilesEl = document.createElement("div");
+          tilesEl.className = "inv-tiles";
+          for (const g of catGroups) tilesEl.appendChild(_buildProductTile(g));
+          groupEl.appendChild(tilesEl);
+          frag.appendChild(groupEl);
+        }
+        body.replaceChildren(frag);
+      }
+
+      function _buildProductTile(group) {
+        const primary = group.primaryItem;
+        const snap = primary && primary.latest_snapshot;
+        const imageUrl = snap && snap.image_url
+          ? snap.image_url + (snap.image_url.indexOf("?") === -1 ? "?" : "&") + "v=" + encodeURIComponent(snap.created_at || snap.id || "")
+          : null;
+        const isLow = primary && (primary.manual_low || primary.is_low);
+        const tileEl = document.createElement("div");
+        const isAdmin = currentUser?.role === "admin";
+        tileEl.className = "inv-tile" + (imageUrl && isAdmin ? " inv-tile-has-img" : "") + (isLow ? " exp-soon" : "");
+        tileEl.dataset.productKey = group.key;
+        if (imageUrl && isAdmin) {
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
+          img.alt = group.family;
+          img.loading = "lazy";
+          tileEl.appendChild(img);
+        }
+        const content = document.createElement("div");
+        content.className = "inv-tile-content";
+        const head = document.createElement("div");
+        head.className = "inv-tile-head";
+        const catBadge = document.createElement("span");
+        catBadge.className = "badge badge-" + normalizeBadge(group.displayCategory, "other");
+        catBadge.textContent = formatLabel(group.displayCategory, "Other");
+        head.appendChild(catBadge);
+        if (isLow) {
+          const lowBadge = document.createElement("span");
+          lowBadge.className = "badge badge-low";
+          lowBadge.style.marginLeft = "4px";
+          lowBadge.textContent = "Low";
+          head.appendChild(lowBadge);
+        }
+        const countEl = document.createElement("span");
+        countEl.className = "inv-tile-qty";
+        countEl.textContent = "×" + group.count;
+        head.appendChild(countEl);
+        content.appendChild(head);
+        const nameEl = document.createElement("div");
+        nameEl.className = "inv-tile-name";
+        nameEl.textContent = (primary && primary.is_regular_use ? "⭐ " : "") + group.family;
+        content.appendChild(nameEl);
+        const meta = document.createElement("div");
+        meta.className = "inv-tile-meta";
+        const latestPurchase = group.items.reduce(function(latest, item) {
+          return item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest;
+        }, "");
+        if (latestPurchase) {
+          const dateEl = document.createElement("div");
+          dateEl.textContent = "📅 " + latestPurchase;
+          meta.appendChild(dateEl);
+        }
+        if (group.count > 1 && group.examples && group.examples.length) {
+          const variantsEl = document.createElement("div");
+          variantsEl.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+          variantsEl.textContent = group.examples.slice(0, 2).join(", ") + (group.count > 2 ? " …" : "");
+          meta.appendChild(variantsEl);
+        }
+        content.appendChild(meta);
+        const actions = document.createElement("div");
+        actions.className = "inv-tile-actions";
+        if (primary) {
+          const addBtn = document.createElement("button");
+          addBtn.type = "button"; addBtn.title = "Add to shopping list"; addBtn.textContent = "🛒";
+          addBtn.onclick = (function(p) { return function() { quickAddToShoppingList({ product_id: p.id, name: p.name, category: p.category || "other", quantity: 1, source: "product" }); }; })(primary);
+          actions.appendChild(addBtn);
+          const renameBtn = document.createElement("button");
+          renameBtn.type = "button"; renameBtn.title = "Rename"; renameBtn.textContent = "✎";
+          renameBtn.onclick = (function(p) { return function() { renameProduct(p.id, p.name); }; })(primary);
+          actions.appendChild(renameBtn);
+          const photoBtn = document.createElement("button");
+          photoBtn.type = "button"; photoBtn.title = snap && snap.image_url ? "Replace photo" : "Add photo"; photoBtn.textContent = "📷";
+          photoBtn.onclick = (function(p) { return function() { selectProductSnapshotFile(p.id, encodeURIComponent(p.name)); }; })(primary);
+          actions.appendChild(photoBtn);
+        }
+        if (!imageUrl && isAdmin && primary) {
+          const genBtn = document.createElement("button");
+          genBtn.type = "button"; genBtn.title = "Generate image with AI"; genBtn.textContent = "✨";
+          genBtn.onclick = (function(pid, tile, cnt) {
+            return function() {
+              invGenerateTileImage(pid, genBtn, function(newSnap) {
+                const imgEl = document.createElement("img");
+                imgEl.className = "inv-tile-img";
+                imgEl.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + newSnap.image_url + "?v=" + encodeURIComponent(newSnap.created_at || newSnap.id || "");
+                imgEl.alt = cnt;
+                imgEl.loading = "lazy";
+                tile.classList.add("inv-tile-has-img");
+                tile.insertBefore(imgEl, tile.querySelector(".inv-tile-content"));
+                genBtn.remove();
+              });
+            };
+          })(primary.id, tileEl, group.family);
+          actions.appendChild(genBtn);
+        }
+        const expandBtn = document.createElement("button");
+        expandBtn.type = "button"; expandBtn.title = "View details"; expandBtn.textContent = group.count > 1 ? "▾ " + group.count : "▾";
+        expandBtn.onclick = (function(tile, g) { return function() { _toggleProductVariants(tile, g); }; })(tileEl, group);
+        actions.appendChild(expandBtn);
+        content.appendChild(actions);
+        tileEl.appendChild(content);
+        return tileEl;
+      }
+
+      function _toggleProductVariants(tileEl, group) {
+        const existing = tileEl.querySelector(".prod-tile-detail");
+        if (existing) { existing.remove(); return; }
+        const detail = document.createElement("div");
+        detail.className = "prod-tile-detail";
+        detail.style.cssText = "margin-top:10px;display:grid;gap:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px";
+        for (const item of group.items) {
+          const row = document.createElement("div");
+          row.style.cssText = "padding:8px;border-radius:8px;background:rgba(255,255,255,0.04);display:grid;gap:6px";
+          const nameRow = document.createElement("div");
+          nameRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap";
+          const nameStrong = document.createElement("strong");
+          nameStrong.textContent = item.name;
+          nameRow.appendChild(nameStrong);
+          if (item.manual_low || item.is_low) {
+            const lb = document.createElement("span"); lb.className = "badge badge-low"; lb.textContent = "Low";
+            nameRow.appendChild(lb);
+          }
+          row.appendChild(nameRow);
+          const metaBits = [item.default_size_label, item.last_purchase_date ? "Bought " + item.last_purchase_date : null].filter(Boolean);
+          if (metaBits.length) {
+            const metaEl = document.createElement("div"); metaEl.className = "inv-tile-meta"; metaEl.textContent = metaBits.join(" · ");
+            row.appendChild(metaEl);
+          }
+          if (item.recent_receipts && item.recent_receipts.length) {
+            const links = document.createElement("div"); links.className = "mini-links";
+            for (const link of item.recent_receipts) {
+              const btn = document.createElement("button"); btn.type = "button"; btn.className = "mini-link";
+              btn.textContent = (link.store || "Receipt") + " · " + (link.date || "—");
+              btn.title = (link.store || "Unknown") + " · " + (link.date || "—") + " · " + formatMoney(link.total || 0);
+              btn.onclick = (function(l) { return function() { openReceiptDetail(l.receipt_id, String(l.date || "").slice(0, 10)); }; })(link);
+              links.appendChild(btn);
+            }
+            row.appendChild(links);
+          }
+          if (item.latest_snapshot && item.latest_snapshot.image_url && currentUser?.role === "admin") {
+            const thumbImg = document.createElement("img");
+            thumbImg.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + item.latest_snapshot.image_url;
+            thumbImg.alt = item.name; thumbImg.loading = "lazy";
+            thumbImg.style.cssText = "width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)";
+            thumbImg.onclick = (function(u) { return function() { openProductSnapshot(u); }; })(item.latest_snapshot.image_url);
+            row.appendChild(thumbImg);
+          }
+          const itemActions = document.createElement("div"); itemActions.style.cssText = "display:flex;gap:4px;flex-wrap:wrap";
+          const iAdd = document.createElement("button"); iAdd.type = "button"; iAdd.className = "btn btn-sm btn-ghost"; iAdd.textContent = "🛒 Add";
+          iAdd.onclick = (function(it) { return function() { quickAddToShoppingList({ product_id: it.id, name: it.name, category: it.category || "other", quantity: 1, source: "product" }); }; })(item);
+          itemActions.appendChild(iAdd);
+          const iRename = document.createElement("button"); iRename.type = "button"; iRename.className = "btn btn-sm btn-ghost"; iRename.textContent = "✎ Rename";
+          iRename.onclick = (function(it) { return function() { renameProduct(it.id, it.name); }; })(item);
+          itemActions.appendChild(iRename);
+          const iPhoto = document.createElement("button"); iPhoto.type = "button"; iPhoto.className = "btn btn-sm btn-ghost";
+          iPhoto.textContent = item.latest_snapshot && item.latest_snapshot.image_url ? "📷 Replace" : "📷 Photo";
+          iPhoto.onclick = (function(it) { return function() { selectProductSnapshotFile(it.id, encodeURIComponent(it.name)); }; })(item);
+          itemActions.appendChild(iPhoto);
+          const iDel = document.createElement("button"); iDel.type = "button"; iDel.className = "btn btn-sm btn-danger"; iDel.textContent = "🗑";
+          iDel.onclick = (function(it) { return function() { deleteProduct(it.id); }; })(item);
+          itemActions.appendChild(iDel);
+          row.appendChild(itemActions);
+          detail.appendChild(row);
+        }
+        tileEl.querySelector(".inv-tile-content").appendChild(detail);
+      }
+
+      // ---- dead placeholder so old call sites don't error ----
+      function _legacyProductCardRender_UNUSED(group) {
+        void group;
+        /* replaced by renderProductTiles / _buildProductTile */
+        const key = `product:${group.key}`;
             const primary = group.primaryItem;
             const latestPurchase = group.items.reduce(
               (latest, item) =>
@@ -22210,119 +22488,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
             </div>
           `;
-          };
-
-
-          // Flat mobile list (A / Z / $ / recent / variants sorts).
-          if (window.innerWidth <= 640) {
-            body.innerHTML = `
-              <div class="inventory-mobile-list">
-                ${groups.map(renderProductCard).join("")}
-              </div>`;
-            return;
           }
-          // Falls through to desktop <table> below for flat sorts.
-        }
-        body.innerHTML = `
-    <table>
-      <thead><tr><th>Type</th><th>Category</th><th>Variants</th><th>Examples</th><th>Actions</th></tr></thead>
-      <tbody>${groups
-        .map(
-          (group) => `
-        <tr>
-          <td><strong>${escHtml(group.family)}</strong></td>
-          <td><span class="badge badge-${normalizeBadge(group.displayCategory)}">${formatLabel(group.displayCategory, "—")}</span></td>
-          <td>
-            <details>
-              <summary style="cursor:pointer;color:var(--text)">${group.count} ${group.count === 1 ? "item" : "items"}</summary>
-              <div style="display:grid;gap:8px;margin-top:10px">
-                ${group.items
-                  .map(
-                    (item) => `
-                  <div style="display:flex;flex-direction:column;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">
-                    <div style="min-width:0">
-                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                        <div style="font-weight:600">${escHtml(item.name)}</div>
-                        ${item.manual_low ? '<span class="badge badge-low">Low</span>' : item.is_low ? '<span class="badge badge-low">Low</span>' : ""}
-                      </div>
-                      <div style="color:var(--muted);font-size:0.78rem">
-                        ${[
-                          ...formatProductUnitMeta(item),
-                          formatLabel(item.category, "Other"),
-                        ]
-                          .filter(Boolean)
-                          .map((value) => escHtml(value))
-                          .join(" · ")}
-                        ${item.last_purchase_date ? ` · Purchased ${escHtml(item.last_purchase_date)}` : ""}
-                      </div>
-                      ${
-                        item.recent_receipts?.length
-                          ? `
-                        <div class="mini-links">
-                          ${item.recent_receipts
-                            .map(
-                              (link) => `
-                            <button
-                              type="button"
-                              class="mini-link"
-                              onclick="openReceiptDetail(${link.receipt_id}, '${escAttr(String(link.date || '').slice(0, 10))}')"
-                              title="${escHtml(`${link.store || "Unknown"} · ${link.date || "—"} · ${formatMoney(link.total || 0)}`)}"
-                            >
-                              ${escHtml(link.store || "Receipt")} · ${escHtml(link.date || "—")}
-                            </button>
-                          `,
-                            )
-                            .join("")}
-                        </div>
-                      `
-                          : ""
-                      }
-                    </div>
-                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-                      ${item.latest_snapshot?.image_url ? `<img src="${escAttr(item.latest_snapshot.image_url)}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)" onclick="openProductSnapshot('${escAttr(item.latest_snapshot.image_url)}')" />` : ""}
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name)}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, source: 'product' })" aria-label="Add to shopping list" title="Add to shopping list">🛒</button>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, ${!item.manual_low})">${item.manual_low ? "Clear Low" : "Low"}</button>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="renameProduct(${item.id}, decodeURIComponent('${encodeURIComponent(item.name)}'))">Rename</button>
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="selectProductSnapshotFile(${item.id}, '${encodeURIComponent(item.name)}')">📷 ${item.latest_snapshot?.image_url ? "Replace" : "Add"} Photo</button>
-                      <select class="inline-select" title="Change category" onchange="updateProductCategory(${item.id}, this.value)">${renderProductCategoryOptionTags(item.category || "other")}</select>
-                      <select id="product-default-unit-${item.id}" class="inline-select" title="Default unit">${renderUnitOptionTags(item.default_unit || "each")}</select>
-                      <input id="product-default-size-${item.id}" class="inline-input" style="width:140px" value="${escAttr(item.default_size_label || "")}" placeholder="18 count, 1 gal" />
-                      <button type="button" class="btn btn-sm btn-ghost" onclick="updateProductUnitDefaults(${item.id})">Save Unit</button>
-                      <button type="button" class="btn btn-sm btn-danger" onclick="deleteProduct(${item.id})" aria-label="Delete product" title="Delete product">🗑</button>
-                    </div>
-                  </div>`,
-                  )
-                  .join("")}
-              </div>
-            </details>
-          </td>
-          <td style="color:var(--muted);font-size:0.82rem">${group.examples.map((example) => escHtml(example)).join(", ")}</td>
-          <td>
-            ${
-              group.primaryItem
-                ? `
-              <div style="display:flex;gap:6px;flex-wrap:wrap">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-ghost"
-                  onclick="quickAddToShoppingList({ product_id: ${group.primaryItem.id}, name: decodeURIComponent('${encodeURIComponent(group.primaryItem.name)}'), category: decodeURIComponent('${encodeURIComponent(group.primaryItem.category || "other")}'), quantity: 1, source: 'product' })"
-                >🛒 Add</button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-ghost"
-                  onclick="setProductLowStatus(${group.primaryItem.id}, ${!group.primaryItem.manual_low})"
-                >${group.primaryItem.manual_low ? "Clear Low" : "Low"}</button>
-              </div>
-            `
-                : ""
-            }
-          </td>
-        </tr>`,
-        )
-        .join("")}
-      </tbody>
-    </table>`;
-      }
 
       function searchProducts() {
         const q =
