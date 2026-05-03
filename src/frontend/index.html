@@ -19628,7 +19628,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       // ---- dead-code stub kept so old call-sites compile ----
-      function _legacyInventoryListRender_UNUSED(allItems) {
+      async function _legacyInventoryListRender_UNUSED(allItems) {
         const filteredItems = allItems;
         filteredItems.sort((a, b) => {
           const leftName = simplifyInventoryDisplayName(a.product_name);
