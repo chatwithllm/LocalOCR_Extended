@@ -1347,7 +1347,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             <div>
               <h1>Inventory</h1>
               <p id="inventory-subtitle">
-                Switch between active inventory and your full product catalog
+                Active stock and product catalog
               </p>
             </div>
             <div class="inventory-page-controls">
@@ -1366,14 +1366,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 onclick="setCatalogMode('products', { load: true })"
               >
                 Products
-              </button>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                id="inventory-page-tools-toggle"
-                onclick="toggleInventoryTools()"
-              >
-                🔍
               </button>
             </div>
           </div>
@@ -1529,102 +1521,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 </div>
               </div>
             </div>
-            <div class="card">
-              <div class="card-header">
-                <span class="card-title" id="catalog-list-title"
-                  >Current Inventory</span
-                >
-                <div class="inventory-header-tools" id="inventory-header-tools">
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-sm"
-                    id="inventory-tools-toggle"
-                    onclick="toggleInventoryTools()"
-                  >
-                    🔍
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-ghost btn-sm inventory-category-toggle"
-                    id="inventory-category-toggle"
-                    onclick="toggleInventoryCategories()"
-                  >
-                    🏷 Categories
-                  </button>
-                  <input
-                    id="inv-search"
-                    class="inventory-search-box"
-                    placeholder="Search inventory…"
-                    oninput="searchInventory()"
-                  />
-                  <div class="inventory-sort-chips">
-                    <button
-                      type="button"
-                      class="inventory-sort-chip"
-                      id="inventory-sort-domain-recent"
-                      onclick="setInventorySort('domain_recent')"
-                      aria-label="Group by domain, most recently bought first"
-                      title="Group by domain · most recent buys first"
-                    >
-                      📋
-                    </button>
-                    <button
-                      type="button"
-                      class="inventory-sort-chip"
-                      id="inventory-sort-name-asc"
-                      onclick="setInventorySort('name_asc')"
-                      aria-label="Sort inventory A to Z"
-                    >
-                      A
-                    </button>
-                    <button
-                      type="button"
-                      class="inventory-sort-chip"
-                      id="inventory-sort-name-desc"
-                      onclick="setInventorySort('name_desc')"
-                      aria-label="Sort inventory Z to A"
-                    >
-                      Z
-                    </button>
-                    <button
-                      type="button"
-                      class="inventory-sort-chip"
-                      id="inventory-sort-price"
-                      onclick="toggleInventoryPriceSort()"
-                      aria-label="Sort inventory by price"
-                    >
-                      $
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div
-                id="inventory-search-assist"
-                class="inventory-search-assist"
-              ></div>
-              <div
-                id="inv-window-note"
-                class="muted"
-                style="margin-bottom: 12px"
-              ></div>
-              <div id="inv-category-chips" class="filter-chip-row"></div>
-              <div class="table-wrap">
-                <div id="inv-table-body"></div>
-              </div>
-              <input
-                id="product-snapshot-input"
-                type="file"
-                accept="image/*"
-                style="display: none"
-                onchange="uploadProductSnapshotFromPicker(event)"
-              />
-            </div>
           </div>
 
-          <!-- ===== Expiry Tile View ===== -->
+          <!-- ===== Inventory (Expiry Tile View) ===== -->
           <div class="card" id="inventory-tile-card" style="margin-top:16px">
             <div class="page-header" style="padding-bottom:10px;border-bottom:1px solid var(--border,#333);margin-bottom:10px">
-              <h2 style="font-size:1rem;margin:0">Expiry View</h2>
+              <div>
+                <h2 style="font-size:1rem;margin:0">Current Inventory <span id="inv-low-badge" style="display:none;margin-left:8px;background:#8a2020;color:#ffb3b3;border-radius:12px;padding:1px 9px;font-size:0.78rem;font-weight:700;vertical-align:middle"></span></h2>
+                <div id="inv-window-note" class="muted" style="font-size:0.8rem;margin-top:3px"></div>
+              </div>
               <div class="page-actions inv-toolbar">
                 <input id="inventory-search" placeholder="Search items…">
                 <select id="inventory-location-filter" aria-label="Filter by location">
@@ -1636,9 +1541,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <option value="Bathroom">Bathroom</option>
                 </select>
                 <select id="inventory-group-by" aria-label="Group tiles by">
-                  <option value="domain" selected>Group: Domain</option>
+                  <option value="low_first" selected>Group: Running low first</option>
+                  <option value="domain">Group: Domain</option>
                   <option value="location">Group: Location</option>
-                  <option value="low_first">Group: Running low first</option>
                 </select>
                 <select id="inventory-sort">
                   <option value="expiry">Sort: expiry asc</option>
@@ -1660,6 +1565,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <button class="inv-bulk-btn inv-btn-used"  onclick="invBulkUsedUp()" style="padding:8px 12px;border:none;border-radius:6px;background:#3a6b3a;color:#fff;font-size:0.85rem;cursor:pointer">✓ Used up all</button>
                 <button class="inv-bulk-btn"               onclick="invBulkClear()" style="margin-left:auto;padding:8px 12px;border:1px solid var(--border,#444);border-radius:6px;background:transparent;color:var(--muted,#aaa);font-size:0.85rem;cursor:pointer">Clear</button>
               </div>
+              <input id="product-snapshot-input" type="file" accept="image/*" style="display:none" onchange="uploadProductSnapshotFromPicker(event)" />
               <div id="inventory-groups"></div>
               <div id="inv-restore-section" style="display:none;margin-top:24px;border-top:1px solid var(--border,#333);padding-top:18px">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
@@ -6527,7 +6433,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let inventorySearchAssistLoading = false;
       let inventorySearchAssistToken = 0;
       let productCategoryFilters = new Set();
-      let inventorySort = "domain_recent";
       let productSort = "name_asc";
       let shoppingSort = "name_asc";
       let receiptSort = "date_desc";
@@ -6929,14 +6834,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let inventoryToolsCollapsed = (() => {
         try {
           const stored = localStorage.getItem("inventory_tools_collapsed");
-          return stored == null ? true : stored === "true";
-        } catch (_error) {
-          return true;
-        }
-      })();
-      let inventoryCategoriesCollapsed = (() => {
-        try {
-          const stored = localStorage.getItem("inventory_categories_collapsed");
           return stored == null ? true : stored === "true";
         } catch (_error) {
           return true;
@@ -8422,48 +8319,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }));
       }
 
-      function setInventorySort(value) {
-        inventorySort = value || "name_asc";
-        updateInventorySortControls();
-        if (catalogMode === "products")
-          loadProducts(
-            document.getElementById("inv-search")?.value?.trim() || "",
-          );
-        else loadInventory();
-      }
-
-      function toggleInventoryPriceSort() {
-        inventorySort =
-          inventorySort === "price_desc" ? "price_asc" : "price_desc";
-        updateInventorySortControls();
-        if (catalogMode === "products")
-          loadProducts(
-            document.getElementById("inv-search")?.value?.trim() || "",
-          );
-        else loadInventory();
-      }
-
-      function updateInventorySortControls() {
-        document
-          .getElementById("inventory-sort-domain-recent")
-          ?.classList.toggle("active", inventorySort === "domain_recent");
-        document
-          .getElementById("inventory-sort-name-asc")
-          ?.classList.toggle("active", inventorySort === "name_asc");
-        document
-          .getElementById("inventory-sort-name-desc")
-          ?.classList.toggle("active", inventorySort === "name_desc");
-        document
-          .getElementById("inventory-sort-price")
-          ?.classList.toggle(
-            "active",
-            inventorySort === "price_desc" || inventorySort === "price_asc",
-          );
-        const priceChip = document.getElementById("inventory-sort-price");
-        if (priceChip)
-          priceChip.textContent = inventorySort === "price_asc" ? "$↑" : "$";
-      }
-
       function setProductSort(value) {
         productSort = value || "name_asc";
         loadProducts(
@@ -9829,44 +9684,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function toggleInventoryTools() {
-        inventoryToolsCollapsed = !inventoryToolsCollapsed;
-        localStorage.setItem(
-          "inventory_tools_collapsed",
-          String(inventoryToolsCollapsed),
-        );
-        updateInventoryToolsVisibility();
-        if (!inventoryToolsCollapsed) {
-          setTimeout(() => document.getElementById("inv-search")?.focus(), 30);
-        }
-      }
-
-      function updateInventoryCategoryVisibility() {
-        const container = document.getElementById("inv-category-chips");
-        const toggle = document.getElementById("inventory-category-toggle");
-        if (!container || !toggle) return;
-        const collapsed = inventoryCategoriesCollapsed;
-        container.classList.toggle("inventory-categories-collapsed", collapsed);
-        toggle.classList.toggle(
-          "btn-primary",
-          !collapsed || inventoryCategoryFilters.size > 0,
-        );
-        toggle.classList.toggle(
-          "btn-ghost",
-          collapsed && inventoryCategoryFilters.size === 0,
-        );
-        toggle.setAttribute(
-          "aria-label",
-          collapsed ? "Show category filters" : "Hide category filters",
-        );
-      }
-
-      function toggleInventoryCategories() {
-        inventoryCategoriesCollapsed = !inventoryCategoriesCollapsed;
-        localStorage.setItem(
-          "inventory_categories_collapsed",
-          String(inventoryCategoriesCollapsed),
-        );
-        updateInventoryCategoryVisibility();
+        setTimeout(() => document.getElementById("inventory-search")?.focus(), 30);
       }
 
       function actionScorePill(label, tone = "info") {
@@ -10950,36 +10768,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       function formatDateInputValue(date) {
         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      }
-
-      function renderInventoryCategoryChips(items = []) {
-        const container = document.getElementById("inv-category-chips");
-        if (!container) return;
-
-        const preferredOrder = PRODUCT_CATEGORY_OPTIONS;
-        const present = new Set(
-          items
-            .map((item) => String(item.category || "").toLowerCase())
-            .filter(Boolean),
-        );
-        const categories = preferredOrder.filter((category) =>
-          present.has(category),
-        );
-        const selectedCount = inventoryCategoryFilters.size;
-
-        container.innerHTML = [
-          `<button type="button" class="filter-chip ${selectedCount === 0 ? "active" : ""}" onclick="clearInventoryCategoryFilters()">All</button>`,
-          ...categories.map(
-            (category) => `
-      <button
-        type="button"
-        class="filter-chip ${inventoryCategoryFilters.has(category) ? "active" : ""}"
-        onclick="toggleInventoryCategoryFilter('${category}')"
-      >${escHtml(formatLabel(category, category))}</button>
-    `,
-          ),
-        ].join("");
-        updateInventoryCategoryVisibility();
       }
 
       let suppressNextDefaultReceiptFilters = false;
@@ -13311,13 +13099,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const inventoryNav = [...document.querySelectorAll(".nav-item")].find(
             (item) => item.textContent.includes("Inventory"),
           );
-          inventorySort = "low_first";
           nav("inventory", inventoryNav);
           setCatalogMode("inventory", { load: true });
-          inventoryToolsCollapsed = false;
-          localStorage.setItem("inventory_tools_collapsed", "false");
-          updateInventoryToolsVisibility();
-          updateInventorySortControls();
+          const groupBy = document.getElementById("inventory-group-by");
+          if (groupBy) groupBy.value = "low_first";
+          if (typeof renderInventory === "function") renderInventory();
           return;
         }
         if (target === "budget") {
@@ -19818,10 +19604,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         // the /inventory response — used after photo mutations where
         // we need the freshest latest_snapshot data immediately.
         const res = await api("/inventory?_t=" + Date.now(), { cache: "no-store" });
-        const body = document.getElementById("inv-table-body");
         if (!res.ok) {
-          body.innerHTML =
-            '<div class="empty-state"><p>Could not load inventory.</p></div>';
           return;
         }
         const data = await res.json();
@@ -19835,32 +19618,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             ? `Showing active inventory from ${data.window_start} through today.`
             : "Showing active inventory from the current and previous month.";
         }
-        const query = inventorySearchQuery.trim().toLowerCase();
-        const items = query
-          ? allItems.filter((i) => {
-              const haystack = [
-                simplifyInventoryDisplayName(i.product_name),
-                i.product_name,
-                i.brand,
-                i.size,
-                i.category,
-                i.location,
-                i.quantity != null ? String(i.quantity) : "",
-                i.threshold != null ? String(i.threshold) : "",
-              ]
-                .join(" ")
-                .toLowerCase();
-              return haystack.includes(query);
-            })
-          : allItems;
-        renderInventoryCategoryChips(allItems);
-        const filteredItems = inventoryCategoryFilters.size
-          ? items.filter((i) =>
-              inventoryCategoryFilters.has(
-                String(i.category || "").toLowerCase(),
-              ),
-            )
-          : items;
+        populateInventoryManualCategorySelect();
+        populateInventoryStoreSelect();
+        populateShoppingManualCategorySelect();
+        renderInventoryUnitChips();
+        updateInventoryAddCardVisibility();
+        updateInventoryAddDetailsVisibility();
+        if (typeof renderInventory === "function") renderInventory();
+      }
+
+      // ---- dead-code stub kept so old call-sites compile ----
+      function _legacyInventoryListRender_UNUSED(allItems) {
+        const filteredItems = allItems;
         filteredItems.sort((a, b) => {
           const leftName = simplifyInventoryDisplayName(a.product_name);
           const rightName = simplifyInventoryDisplayName(b.product_name);
@@ -20358,8 +20127,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         .join("")}
       </tbody>
     </table>`;
-        // Also refresh the expiry tile view with fresh data
-        if (typeof renderInventory === "function") renderInventory();
       }
 
       // ===== Expiry Tile View — DOM-built, no innerHTML for user data =====
@@ -20417,7 +20184,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const locFilter = locEl ? locEl.value : "";
         const sort = sortEl ? sortEl.value : "expiry";
         const showEmpty = emptyEl ? emptyEl.checked : false;
-        const groupBy = groupEl ? groupEl.value : "domain";
+        const groupBy = groupEl ? groupEl.value : "low_first";
+
+        const lowCount = items.filter(i => i.is_low || i.manual_low).length;
+        const badge = document.getElementById("inv-low-badge");
+        if (badge) {
+          if (lowCount > 0) {
+            badge.textContent = lowCount + " running low";
+            badge.style.display = "inline";
+          } else {
+            badge.style.display = "none";
+          }
+        }
 
         let enriched = _invEnrich(items)
           .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
@@ -21630,20 +21408,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       })();
       // ===== End Expiry Tile View =====
 
-      function searchInventory() {
-        inventorySearchQuery =
-          document.getElementById("inv-search")?.value || "";
-        if (catalogMode === "products") {
-          clearTimeout(window._searchTimer);
-          window._searchTimer = setTimeout(
-            () => loadProducts(inventorySearchQuery),
-            250,
-          );
-          return;
-        }
-        loadInventory();
-      }
-
       function toggleInventoryCategoryFilter(category) {
         if (inventoryCategoryFilters.has(category))
           inventoryCategoryFilters.delete(category);
@@ -22244,23 +22008,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           ? `/products/search?q=${encodeURIComponent(query)}`
           : "/products";
         const res = await api(url);
-        const body =
-          catalogMode === "products"
-            ? document.getElementById("inv-table-body")
-            : document.getElementById("prod-table-body");
+        const body = document.getElementById("prod-table-body");
         if (!res.ok) {
-          body.innerHTML =
-            '<div class="empty-state"><p>Could not load products.</p></div>';
+          if (body) body.innerHTML = '<div class="empty-state"><p>Could not load products.</p></div>';
           return;
         }
         const data = await res.json();
         const allItems = data.products || data.results || [];
-        if (catalogMode === "products") renderInventoryCategoryChips(allItems);
-        else renderProductCategoryChips(allItems);
-        const activeCategoryFilters =
-          catalogMode === "products"
-            ? inventoryCategoryFilters
-            : productCategoryFilters;
+        renderProductCategoryChips(allItems);
+        const activeCategoryFilters = productCategoryFilters;
         const items = activeCategoryFilters.size
           ? allItems.filter((item) =>
               activeCategoryFilters.has(
@@ -22270,17 +22026,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           : allItems;
         const groups = groupProducts(items);
         groups.sort((a, b) => {
-          const effectiveSort =
-            catalogMode === "products"
-              ? inventorySort === "domain_recent"
-                ? "domain_recent"
-                : inventorySort === "name_desc"
-                  ? "name_desc"
-                  : inventorySort === "price_desc" ||
-                      inventorySort === "price_asc"
-                    ? "recent_desc"
-                    : "name_asc"
-              : productSort;
+          const effectiveSort = productSort;
           if (effectiveSort === "domain_recent") {
             // Primary: domain rank; tie-break by most recent purchase, then name.
             const leftDomain = inventoryDomainFor(a.primaryItem);
@@ -22466,123 +22212,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           `;
           };
 
-          // Grouped view (Running Low + domain sections + category
-          // subsections) — matches the Inventory pattern. Runs on any
-          // screen width when inventorySort is "domain_recent".
-          if (inventorySort === "domain_recent") {
-            const familyIsLow = (g) =>
-              (g.items || []).some((it) => it.manual_low || it.is_low);
-            const lowGroups = groups.filter(familyIsLow);
-            const domainBuckets = new Map();
-            for (const g of groups) {
-              const d = inventoryDomainFor(g.primaryItem);
-              if (!domainBuckets.has(d)) domainBuckets.set(d, []);
-              domainBuckets.get(d).push(g);
-            }
-            const sections = [];
-            if (lowGroups.length) {
-              const lowCollapsed = isInventoryDomainCollapsed(
-                "__low__",
-                lowGroups.length,
-              );
-              sections.push(`
-                <div class="inventory-domain-section inventory-domain-section--low ${lowCollapsed ? "is-collapsed" : ""}" data-domain="__low__">
-                  <button
-                    type="button"
-                    class="inventory-domain-header"
-                    onclick="toggleInventoryDomainCollapse('__low__')"
-                    aria-expanded="${!lowCollapsed}"
-                  >
-                    <span class="inventory-domain-icon">🔴</span>
-                    <span class="inventory-domain-title">Running Low</span>
-                    <span class="inventory-domain-count">${lowGroups.length}</span>
-                    <span class="inventory-domain-chevron" aria-hidden="true">${lowCollapsed ? "▸" : "▾"}</span>
-                  </button>
-                  <div class="inventory-domain-body">
-                    ${lowGroups.map(renderProductCard).join("")}
-                  </div>
-                </div>
-              `);
-            }
-            for (const domain of INVENTORY_DOMAIN_ORDER) {
-              const dGroups = domainBuckets.get(domain);
-              if (!dGroups || !dGroups.length) continue;
-              const spec = inventoryDomainLabel(domain);
-              const collapsed = isInventoryDomainCollapsed(
-                domain,
-                dGroups.length,
-              );
-              const categoryBuckets = new Map();
-              for (const g of dGroups) {
-                const rawCat =
-                  String(g.primaryItem?.category || "")
-                    .trim()
-                    .toLowerCase() || "uncategorized";
-                if (!categoryBuckets.has(rawCat))
-                  categoryBuckets.set(rawCat, []);
-                categoryBuckets.get(rawCat).push(g);
-              }
-              const categoryKeys = [...categoryBuckets.keys()].sort(
-                (a, b) =>
-                  categoryBuckets.get(b).length -
-                  categoryBuckets.get(a).length,
-              );
-              let bodyHtml;
-              if (categoryKeys.length <= 1) {
-                bodyHtml = dGroups.map(renderProductCard).join("");
-              } else {
-                bodyHtml = categoryKeys
-                  .map((cat) => {
-                    const catGroups = categoryBuckets.get(cat);
-                    const catCollapsed = isInventoryCategoryCollapsed(
-                      cat,
-                      catGroups.length,
-                    );
-                    const catLabel = inventoryCategoryLabel(cat);
-                    return `
-                      <div class="inventory-category-section ${catCollapsed ? "is-collapsed" : ""}" data-category="${escAttr(cat)}">
-                        <button
-                          type="button"
-                          class="inventory-category-header"
-                          onclick="toggleInventoryCategoryCollapse('${escAttr(cat)}')"
-                          aria-expanded="${!catCollapsed}"
-                        >
-                          <span class="inventory-category-title">${escHtml(catLabel)}</span>
-                          <span class="inventory-category-count">${catGroups.length}</span>
-                          <span class="inventory-category-chevron" aria-hidden="true">${catCollapsed ? "▸" : "▾"}</span>
-                        </button>
-                        <div class="inventory-category-body">
-                          ${catGroups.map(renderProductCard).join("")}
-                        </div>
-                      </div>`;
-                  })
-                  .join("");
-              }
-              sections.push(`
-                <div class="inventory-domain-section ${collapsed ? "is-collapsed" : ""}" data-domain="${escAttr(domain)}">
-                  <button
-                    type="button"
-                    class="inventory-domain-header"
-                    onclick="toggleInventoryDomainCollapse('${escAttr(domain)}')"
-                    aria-expanded="${!collapsed}"
-                  >
-                    <span class="inventory-domain-icon">${escHtml(spec.icon)}</span>
-                    <span class="inventory-domain-title">${escHtml(spec.label)}</span>
-                    <span class="inventory-domain-count">${dGroups.length}</span>
-                    <span class="inventory-domain-chevron" aria-hidden="true">${collapsed ? "▸" : "▾"}</span>
-                  </button>
-                  <div class="inventory-domain-body">
-                    ${bodyHtml}
-                  </div>
-                </div>
-              `);
-            }
-            body.innerHTML = `
-              <div class="inventory-mobile-list inventory-mobile-list--grouped">
-                ${sections.join("")}
-              </div>`;
-            return;
-          }
 
           // Flat mobile list (A / Z / $ / recent / variants sorts).
           if (window.innerWidth <= 640) {
@@ -30311,7 +29940,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             return;
           }
           toast("Product photo saved ✅", "success");
-          if (catalogMode === "products") await loadProducts(inventorySearchQuery);
+          if (catalogMode === "products") await loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
           else await loadInventory();
         } catch (error) {
           console.error(error);
