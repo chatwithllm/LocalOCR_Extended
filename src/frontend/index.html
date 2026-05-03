@@ -454,6 +454,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         >
           <span class="nav-icon">📦</span> Inventory
         </div>
+        <div
+          class="nav-item"
+          id="nav-products"
+          onclick="nav('products', this)"
+        >
+          <span class="nav-icon">🏷️</span> Products
+        </div>
         <div class="nav-item" onclick="nav('upload', this)">
           <span class="nav-icon">📸</span> Upload Receipt
         </div>
@@ -1346,35 +1353,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           <div class="page-header">
             <div>
               <h1>Inventory</h1>
-              <p id="inventory-subtitle">
-                Active stock and product catalog
-              </p>
-            </div>
-            <div class="inventory-page-controls">
-              <button
-                type="button"
-                id="catalog-toggle-inventory"
-                class="btn btn-primary"
-                onclick="setCatalogMode('inventory', { load: true })"
-              >
-                Inventory
-              </button>
-              <button
-                type="button"
-                id="catalog-toggle-products"
-                class="btn btn-ghost"
-                onclick="setCatalogMode('products', { load: true })"
-              >
-                Products
-              </button>
+              <p>Active household stock</p>
             </div>
           </div>
-
-          <div
-            id="catalog-mode-note"
-            class="muted"
-            style="margin-bottom: 16px"
-          ></div>
 
           <div id="catalog-panel-inventory">
             <div class="card" id="inventory-add-card">
@@ -1582,7 +1563,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
           </div>
 
-          <div id="catalog-panel-products" style="display: none">
+        </div>
+
+        <div class="page" id="page-products">
+          <div class="page-header">
+            <div>
+              <h1>Products</h1>
+              <p>Full catalog — everything ever purchased, OCR-normalized</p>
+            </div>
+          </div>
+          <div id="catalog-panel-products">
             <div class="card">
               <div class="card-header">
                 <span class="card-title">Add Product</span>
@@ -12938,9 +12928,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           window.resetOverscrollNav();
         }
         let requestedPage = page;
-        if (page === "products") {
-          page = "inventory";
-        }
+        // products is now its own page — no redirect needed
         // Per-user access check — redirect to the first page the user
         // CAN access (typically Dashboard) rather than silently dumping
         // them on Settings. Rewire `requestedPage` + `el` so the header,
@@ -12996,11 +12984,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         updatePageHeaderBranding(requestedPage);
         closeMobileMenu();
         if (page === "dashboard") loadDashboard();
-        if (page === "inventory")
-          setCatalogMode(
-            requestedPage === "products" ? "products" : catalogMode,
-            { load: true },
-          );
+        if (page === "inventory") loadInventory();
+        if (page === "products") loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
         if (page === "receipts") loadReceipts();
         if (page === "shopping") {
           updateAllShoppingSectionVisibility();
@@ -13090,7 +13075,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             (item) => item.textContent.includes("Inventory"),
           );
           nav("inventory", inventoryNav);
-          setCatalogMode("inventory", { load: true });
           inventoryToolsCollapsed = false;
           localStorage.setItem("inventory_tools_collapsed", "false");
           updateInventoryToolsVisibility();
@@ -13102,7 +13086,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             (item) => item.textContent.includes("Inventory"),
           );
           nav("inventory", inventoryNav);
-          setCatalogMode("inventory", { load: true });
           const groupBy = document.getElementById("inventory-group-by");
           if (groupBy) groupBy.value = "low_first";
           if (typeof renderInventory === "function") renderInventory();
@@ -13182,76 +13165,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function setCatalogMode(mode, options = {}) {
+        /* Products is now its own nav page — this stub exists only so
+           any lingering call sites don't throw. */
         catalogMode = mode === "products" ? "products" : "inventory";
-        const showingInventory = catalogMode === "inventory";
-        const inventoryBtn = document.getElementById(
-          "catalog-toggle-inventory",
-        );
-        const productsBtn = document.getElementById("catalog-toggle-products");
-        const inventoryPanel = document.getElementById(
-          "catalog-panel-inventory",
-        );
-        const productsPanel = document.getElementById("catalog-panel-products");
-        const note = document.getElementById("catalog-mode-note");
-        const addTitle = document.getElementById("catalog-add-title");
-        const listTitle = document.getElementById("catalog-list-title");
-        const invAddForm = document.getElementById("add-inv-form");
-        const invAddDetails = document.getElementById("inventory-add-details");
-        const invAddDetailsToggle = document.getElementById(
-          "inventory-add-details-toggle",
-        );
-        const invAddActions = document.querySelector(
-          "#inventory-add-card .inventory-add-actions",
-        );
-        const prodAddShared = document.getElementById("add-prod-form-shared");
-        const searchInput = document.getElementById("inv-search");
-        const searchAssist = document.getElementById("inventory-search-assist");
-
-        if (inventoryBtn)
-          inventoryBtn.className = `btn ${showingInventory ? "btn-primary" : "btn-ghost"}`;
-        if (productsBtn)
-          productsBtn.className = `btn ${showingInventory ? "btn-ghost" : "btn-primary"}`;
-        if (inventoryPanel) inventoryPanel.style.display = showingInventory ? "block" : "none";
-        if (productsPanel) productsPanel.style.display = showingInventory ? "none" : "block";
-        if (note) {
-          note.textContent = showingInventory
-            ? "Inventory shows active household stock from the current and previous month."
-            : "Products shows the full normalized catalog, including OCR names and receipt links.";
-        }
-        if (addTitle)
-          addTitle.textContent = showingInventory ? "Add Item" : "Add Product";
-        if (listTitle)
-          listTitle.textContent = showingInventory
-            ? "Current Inventory"
-            : "Catalog";
-        if (invAddForm)
-          invAddForm.style.display = showingInventory ? "" : "none";
-        if (invAddDetails)
-          invAddDetails.style.display =
-            showingInventory && inventoryAddDetailsVisible ? "" : "none";
-        if (invAddDetailsToggle)
-          invAddDetailsToggle.style.display = showingInventory ? "" : "none";
-        if (invAddActions)
-          invAddActions.style.display = showingInventory ? "" : "none";
-        if (prodAddShared)
-          prodAddShared.style.display = showingInventory ? "none" : "block";
-        if (searchInput) {
-          searchInput.placeholder = showingInventory
-            ? "Search inventory…"
-            : "Search catalog…";
-          searchInput.value = showingInventory
-            ? inventorySearchQuery
-            : document.getElementById("prod-search")?.value || "";
-        }
-        if (searchAssist)
-          searchAssist.style.display = showingInventory ? "" : "none";
-
         if (options.load) {
-          if (showingInventory) loadInventory();
-          else
-            loadProducts(
-              document.getElementById("inv-search")?.value?.trim() || "",
-            );
+          if (catalogMode === "inventory") loadInventory();
+          else loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
         }
       }
 
@@ -17861,6 +17780,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       const ALL_SIDEBAR_PAGES = [
         ["dashboard", "📊 Dashboard"],
         ["inventory", "📦 Inventory"],
+        ["products", "🏷️ Products"],
         ["upload", "📸 Upload Receipt"],
         ["receipts", "🧾 Receipts"],
         ["shopping", "🛒 Shopping List"],
@@ -22173,18 +22093,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           return compareText(a.family, b.family, "asc");
         });
-        if (catalogMode !== "products") {
-          document.getElementById("prod-count").textContent =
-            `${groups.length} groups / ${items.length} items`;
-        } else {
-          const listTitle = document.getElementById("catalog-list-title");
-          if (listTitle)
-            listTitle.textContent = `Catalog (${groups.length} groups / ${items.length} items)`;
-          const note = document.getElementById("inv-window-note");
-          if (note)
-            note.textContent =
-              "Catalog shows grouped product families, OCR-normalized names, and receipt history.";
-        }
+        const listTitle = document.getElementById("catalog-list-title");
+        if (listTitle)
+          listTitle.textContent = `Catalog (${groups.length} groups / ${items.length} items)`;
         if (!items.length) {
           body.innerHTML =
             '<div class="empty-state"><div class="icon">🏷️</div><p>No products yet.</p></div>';
@@ -22491,27 +22402,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
 
       function searchProducts() {
-        const q =
-          catalogMode === "products"
-            ? document.getElementById("inv-search")?.value || ""
-            : document.getElementById("prod-search").value;
+        const q = document.getElementById("prod-search")?.value || "";
         clearTimeout(window._searchTimer);
         window._searchTimer = setTimeout(() => loadProducts(q), 300);
       }
 
       async function createProduct() {
-        const nameField =
-          catalogMode === "products"
-            ? document.getElementById("prod-name-shared")
-            : document.getElementById("prod-name");
-        const categoryField =
-          catalogMode === "products"
-            ? document.getElementById("prod-cat-shared")
-            : document.getElementById("prod-cat");
-        const barcodeField =
-          catalogMode === "products"
-            ? document.getElementById("prod-barcode-shared")
-            : document.getElementById("prod-barcode");
+        const nameField = document.getElementById("prod-name");
+        const categoryField = document.getElementById("prod-cat");
+        const barcodeField = document.getElementById("prod-barcode");
         const name = nameField.value.trim();
         if (!name) {
           toast("Enter a product name", "error");
@@ -22529,11 +22428,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           toast(`${name} created ✅`, "success");
           nameField.value = "";
           barcodeField.value = "";
-          if (catalogMode === "products")
-            loadProducts(
-              document.getElementById("inv-search")?.value?.trim() || "",
-            );
-          else loadProducts();
+          loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
         } else {
           const e = await res.json();
           toast(e.error || "Failed", "error");
@@ -30106,7 +30001,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             return;
           }
           toast("Product photo saved ✅", "success");
-          if (catalogMode === "products") await loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
+          const prodPage = document.getElementById("page-products");
+          if (prodPage && prodPage.classList.contains("active"))
+            await loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
           else await loadInventory();
         } catch (error) {
           console.error(error);
