@@ -22840,7 +22840,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const back = document.createElement("div");
           back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);overflow-y:auto";
           const sheet = document.createElement("div");
-          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);box-sizing:border-box";
           const handle = document.createElement("div");
           handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
           sheet.appendChild(handle);
