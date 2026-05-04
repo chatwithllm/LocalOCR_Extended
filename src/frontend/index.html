@@ -22217,19 +22217,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           addBtn.onclick = (function(p) { return function() { quickAddToShoppingList({ product_id: p.id, name: p.name, category: p.category || "other", quantity: 1, source: "product" }); }; })(primary);
           actions.appendChild(addBtn);
           const renameBtn = document.createElement("button");
-          renameBtn.type = "button"; renameBtn.title = "Rename"; renameBtn.textContent = "✎";
-          renameBtn.onclick = (function(p) { return function() { renameProduct(p.id, p.name); }; })(primary);
+          renameBtn.type = "button"; renameBtn.title = "Edit name & category"; renameBtn.textContent = "✎";
+          renameBtn.onclick = (function(p) { return function() { editProductDetails(p.id, p.name, p.category); }; })(primary);
           actions.appendChild(renameBtn);
-          const catSel = document.createElement("select");
-          catSel.className = "inline-select"; catSel.title = "Change category";
-          (PRODUCT_CATEGORY_OPTIONS || []).forEach(function(cat) {
-            const opt = document.createElement("option");
-            opt.value = cat; opt.textContent = formatLabel(cat, cat);
-            if (cat === (primary.category || "other")) opt.selected = true;
-            catSel.appendChild(opt);
-          });
-          catSel.onchange = (function(p, sel) { return function() { updateProductCategory(p.id, sel.value); }; })(primary, catSel);
-          actions.appendChild(catSel);
           const photoBtn = document.createElement("button");
           photoBtn.type = "button"; photoBtn.title = snap && snap.image_url ? "Replace photo" : "Add photo"; photoBtn.textContent = "📷";
           photoBtn.onclick = (function(p) { return function() { selectProductSnapshotFile(p.id, encodeURIComponent(p.name)); }; })(primary);
@@ -22310,19 +22300,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const iAdd = document.createElement("button"); iAdd.type = "button"; iAdd.className = "btn btn-sm btn-ghost"; iAdd.textContent = "🛒 Add";
           iAdd.onclick = (function(it) { return function() { quickAddToShoppingList({ product_id: it.id, name: it.name, category: it.category || "other", quantity: 1, source: "product" }); }; })(item);
           itemActions.appendChild(iAdd);
-          const iRename = document.createElement("button"); iRename.type = "button"; iRename.className = "btn btn-sm btn-ghost"; iRename.textContent = "✎ Rename";
-          iRename.onclick = (function(it) { return function() { renameProduct(it.id, it.name); }; })(item);
+          const iRename = document.createElement("button"); iRename.type = "button"; iRename.className = "btn btn-sm btn-ghost"; iRename.textContent = "✎ Edit";
+          iRename.onclick = (function(it) { return function() { editProductDetails(it.id, it.name, it.category); }; })(item);
           itemActions.appendChild(iRename);
-          const iCatSel = document.createElement("select");
-          iCatSel.className = "inline-select"; iCatSel.title = "Change category";
-          (PRODUCT_CATEGORY_OPTIONS || []).forEach(function(cat) {
-            const opt = document.createElement("option");
-            opt.value = cat; opt.textContent = formatLabel(cat, cat);
-            if (cat === (item.category || "other")) opt.selected = true;
-            iCatSel.appendChild(opt);
-          });
-          iCatSel.onchange = (function(it, sel) { return function() { updateProductCategory(it.id, sel.value); }; })(item, iCatSel);
-          itemActions.appendChild(iCatSel);
           const iPhoto = document.createElement("button"); iPhoto.type = "button"; iPhoto.className = "btn btn-sm btn-ghost";
           iPhoto.textContent = item.latest_snapshot && item.latest_snapshot.image_url ? "📷 Replace" : "📷 Photo";
           iPhoto.onclick = (function(it) { return function() { selectProductSnapshotFile(it.id, encodeURIComponent(it.name)); }; })(item);
@@ -22521,6 +22501,58 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           loadProducts(
             document.getElementById("prod-search")?.value?.trim() || "",
           ),
+          loadInventory(),
+        ]);
+      }
+
+      async function editProductDetails(id, currentName, currentCategory) {
+        const name = await askForTextInput(
+          "Enter the product name.",
+          "Edit product",
+          currentName || "",
+          { placeholder: "e.g. Lay's Kettle Cooked" },
+        );
+        if (name === null) return;
+        if (!name.trim()) { toast("Product name cannot be blank", "error"); return; }
+
+        const categoryLabels = (PRODUCT_CATEGORY_OPTIONS || []).map(function(c) {
+          return formatLabel(c, c);
+        });
+        const categoryValues = PRODUCT_CATEGORY_OPTIONS || [];
+        const currentLabel = formatLabel(currentCategory || "other", currentCategory || "other");
+        const pickedLabel = await askForTextInput(
+          "Choose a category for this product.",
+          "Edit product — category",
+          currentLabel,
+          {
+            suggestions: categoryLabels,
+            useSelectSuggestions: true,
+            helpText: "Pick a category.",
+          },
+        );
+        if (pickedLabel === null) return;
+        const labelNorm = String(pickedLabel || "").trim().toLowerCase();
+        const category = categoryValues.find(function(c) {
+          return formatLabel(c, c).toLowerCase() === labelNorm || c === labelNorm;
+        }) || currentCategory || "other";
+
+        const nameChanged = name.trim() !== (currentName || "").trim();
+        const catChanged = category !== (currentCategory || "other");
+        if (!nameChanged && !catChanged) return;
+
+        const body = {};
+        if (nameChanged) body.name = name.trim();
+        if (catChanged) body.category = category;
+
+        const res = await api(`/products/${id}/update`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json();
+        if (!res.ok) { toast(payload.error || "Could not update product", "error"); return; }
+        toast(payload.merged ? "Updated and merged ✅" : "Updated ✅", "success");
+        await Promise.all([
+          loadProducts(document.getElementById("prod-search")?.value?.trim() || ""),
           loadInventory(),
         ]);
       }
