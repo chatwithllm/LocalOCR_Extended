@@ -22839,14 +22839,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         return new Promise(function(resolve) {
           const back = document.createElement("div");
           back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
+          // Sheet: fixed frame at bottom, never grows beyond viewport
           const sheet = document.createElement("div");
-          sheet.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-height:90dvh;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);box-sizing:border-box;z-index:3001";
+          sheet.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;height:90vh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);box-sizing:border-box;z-index:3001";
+          // Sticky header: handle + title + scan buttons
+          const sheetHeader = document.createElement("div");
+          sheetHeader.style.cssText = "flex-shrink:0;padding:14px 16px 0";
           const handle = document.createElement("div");
           handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
-          sheet.appendChild(handle);
+          sheetHeader.appendChild(handle);
           const titleEl = _invElText("div", null, isEdit ? "Edit Medication" : "Add Medication");
           titleEl.style.cssText = "font-weight:700;font-size:1.05rem;text-align:center;margin-bottom:14px";
-          sheet.appendChild(titleEl);
+          sheetHeader.appendChild(titleEl);
+          sheet.appendChild(sheetHeader);
+          // Scrollable body — holds all form fields
+          const scrollBody = document.createElement("div");
+          scrollBody.style.cssText = "flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 8px";
 
           function mkLabel(text) {
             const l = _invElText("label", null, text);
@@ -22999,39 +23007,44 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             scanRow.appendChild(fileInput);
             scanRow.appendChild(scanLabel);
             scanRow.appendChild(lookupBtn);
-            sheet.appendChild(scanRow);
+            sheetHeader.appendChild(scanRow);
           }
 
-          sheet.appendChild(nameInpLabel);
-          sheet.appendChild(nameInp);
-          sheet.appendChild(mkLabel("Active Ingredient"));
-          sheet.appendChild(activeInp);
-          sheet.appendChild(mkLabel("Brand / Manufacturer"));
-          sheet.appendChild(brandInp);
-          sheet.appendChild(mkLabel("Strength"));
-          sheet.appendChild(strengthInp);
-          sheet.appendChild(mkLabel("Dosage Form"));
-          sheet.appendChild(formSel);
-          sheet.appendChild(mkLabel("For"));
-          sheet.appendChild(ageSel);
-          sheet.appendChild(mkLabel("Belongs To"));
-          sheet.appendChild(memberSel);
-          sheet.appendChild(mkLabel("Quantity"));
+          sheet.appendChild(scrollBody);
+
+          scrollBody.appendChild(nameInpLabel);
+          scrollBody.appendChild(nameInp);
+          scrollBody.appendChild(mkLabel("Active Ingredient"));
+          scrollBody.appendChild(activeInp);
+          scrollBody.appendChild(mkLabel("Brand / Manufacturer"));
+          scrollBody.appendChild(brandInp);
+          scrollBody.appendChild(mkLabel("Strength"));
+          scrollBody.appendChild(strengthInp);
+          scrollBody.appendChild(mkLabel("Dosage Form"));
+          scrollBody.appendChild(formSel);
+          scrollBody.appendChild(mkLabel("For"));
+          scrollBody.appendChild(ageSel);
+          scrollBody.appendChild(mkLabel("Belongs To"));
+          scrollBody.appendChild(memberSel);
+          scrollBody.appendChild(mkLabel("Quantity"));
           const qtyRow = document.createElement("div");
           qtyRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px";
           qtyRow.appendChild(qtyInp); qtyRow.appendChild(unitSel);
-          sheet.appendChild(qtyRow);
-          sheet.appendChild(mkLabel("Expiry Date"));
-          sheet.appendChild(expiryInp);
-          sheet.appendChild(mkLabel("Manufacture Date (optional)"));
-          sheet.appendChild(mfgInp);
-          sheet.appendChild(mkLabel("Barcode (optional)"));
-          sheet.appendChild(barcodeInp);
-          sheet.appendChild(mkLabel("Notes (optional)"));
-          sheet.appendChild(notesInp);
+          scrollBody.appendChild(qtyRow);
+          scrollBody.appendChild(mkLabel("Expiry Date"));
+          scrollBody.appendChild(expiryInp);
+          scrollBody.appendChild(mkLabel("Manufacture Date (optional)"));
+          scrollBody.appendChild(mfgInp);
+          scrollBody.appendChild(mkLabel("Barcode (optional)"));
+          scrollBody.appendChild(barcodeInp);
+          scrollBody.appendChild(mkLabel("Notes (optional)"));
+          scrollBody.appendChild(notesInp);
 
+          // Sticky footer
+          const sheetFooter = document.createElement("div");
+          sheetFooter.style.cssText = "flex-shrink:0;padding:8px 16px 26px;border-top:1px solid var(--border,#3a3a3c)";
           const btnRow = document.createElement("div");
-          btnRow.style.cssText = "display:flex;gap:10px;margin-top:8px";
+          btnRow.style.cssText = "display:flex;gap:10px";
           const cancelBtn = document.createElement("button");
           cancelBtn.type = "button"; cancelBtn.textContent = "Cancel";
           cancelBtn.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:1rem;font-weight:500;cursor:pointer";
@@ -23039,7 +23052,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           saveBtn.type = "button"; saveBtn.textContent = "Save";
           saveBtn.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:#0a84ff;color:#fff;font-size:1rem;font-weight:600;cursor:pointer";
           btnRow.appendChild(cancelBtn); btnRow.appendChild(saveBtn);
-          sheet.appendChild(btnRow);
+          sheetFooter.appendChild(btnRow);
+          sheet.appendChild(sheetFooter);
 
           back.appendChild(sheet);
           document.body.appendChild(back);
