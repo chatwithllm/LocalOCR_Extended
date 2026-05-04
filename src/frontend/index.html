@@ -20122,7 +20122,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
         let enriched = _invEnrich(items)
           .filter(function(i) { return showEmpty || (i.quantity || 0) > 0; })
-          .filter(function(i) { return !search || (i.product_name || "").toLowerCase().includes(search); })
+          .filter(function(i) { return !search || (i.product_name || "").toLowerCase().includes(search) || (i.category || "").toLowerCase().includes(search); })
           .filter(function(i) { return !locFilter || i.location === locFilter; })
           .filter(function(i) { return invCategoryFilters.size === 0 || invCategoryFilters.has(String(i.category || "").trim().toLowerCase()); });
 
