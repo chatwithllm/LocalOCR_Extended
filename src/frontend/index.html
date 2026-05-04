@@ -22220,6 +22220,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           renameBtn.type = "button"; renameBtn.title = "Rename"; renameBtn.textContent = "✎";
           renameBtn.onclick = (function(p) { return function() { renameProduct(p.id, p.name); }; })(primary);
           actions.appendChild(renameBtn);
+          const catSel = document.createElement("select");
+          catSel.className = "inline-select"; catSel.title = "Change category";
+          (PRODUCT_CATEGORY_OPTIONS || []).forEach(function(cat) {
+            const opt = document.createElement("option");
+            opt.value = cat; opt.textContent = formatLabel(cat, cat);
+            if (cat === (primary.category || "other")) opt.selected = true;
+            catSel.appendChild(opt);
+          });
+          catSel.onchange = (function(p, sel) { return function() { updateProductCategory(p.id, sel.value); }; })(primary, catSel);
+          actions.appendChild(catSel);
           const photoBtn = document.createElement("button");
           photoBtn.type = "button"; photoBtn.title = snap && snap.image_url ? "Replace photo" : "Add photo"; photoBtn.textContent = "📷";
           photoBtn.onclick = (function(p) { return function() { selectProductSnapshotFile(p.id, encodeURIComponent(p.name)); }; })(primary);
@@ -22303,6 +22313,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const iRename = document.createElement("button"); iRename.type = "button"; iRename.className = "btn btn-sm btn-ghost"; iRename.textContent = "✎ Rename";
           iRename.onclick = (function(it) { return function() { renameProduct(it.id, it.name); }; })(item);
           itemActions.appendChild(iRename);
+          const iCatSel = document.createElement("select");
+          iCatSel.className = "inline-select"; iCatSel.title = "Change category";
+          (PRODUCT_CATEGORY_OPTIONS || []).forEach(function(cat) {
+            const opt = document.createElement("option");
+            opt.value = cat; opt.textContent = formatLabel(cat, cat);
+            if (cat === (item.category || "other")) opt.selected = true;
+            iCatSel.appendChild(opt);
+          });
+          iCatSel.onchange = (function(it, sel) { return function() { updateProductCategory(it.id, sel.value); }; })(item, iCatSel);
+          itemActions.appendChild(iCatSel);
           const iPhoto = document.createElement("button"); iPhoto.type = "button"; iPhoto.className = "btn btn-sm btn-ghost";
           iPhoto.textContent = item.latest_snapshot && item.latest_snapshot.image_url ? "📷 Replace" : "📷 Photo";
           iPhoto.onclick = (function(it) { return function() { selectProductSnapshotFile(it.id, encodeURIComponent(it.name)); }; })(item);
