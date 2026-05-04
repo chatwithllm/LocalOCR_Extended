@@ -22933,11 +22933,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
 
           // Barcode scan section (add mode only)
+          // Always use file/camera-app approach — works on HTTP, HTTPS, mobile, desktop
           if (!isEdit) {
             const scanRow = document.createElement("div");
             scanRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px";
 
-            // File-based scan: works on HTTP and mobile without getUserMedia
             const fileInput = document.createElement("input");
             fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.capture = "environment";
             fileInput.style.cssText = "display:none";
@@ -22945,10 +22945,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             const scanBtn = document.createElement("button");
             scanBtn.type = "button"; scanBtn.textContent = "📷 Scan Barcode";
             scanBtn.style.cssText = "flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;cursor:pointer";
-
-            const scanPreview = document.createElement("div");
-            scanPreview.id = "med-qr-preview-" + Date.now();
-            scanPreview.style.cssText = "display:none;width:100%;height:200px;margin-bottom:12px;border-radius:10px;overflow:hidden;background:#000";
 
             async function _doBarcodeLookup(code) {
               scanBtn.disabled = true; scanBtn.textContent = "Looking up…";
@@ -22979,52 +22975,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               fileInput.value = "";
             });
 
-            scanBtn.addEventListener("click", function() {
-              // Stop live scanner if running
-              if (scanner) {
-                scanner.stop().catch(function(){});
-                scanner = null;
-                scanPreview.style.display = "none";
-                scanBtn.textContent = "📷 Scan Barcode";
-                return;
-              }
-              // Prefer file-based scan (works on HTTP + mobile)
-              const isHttps = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
-              if (!isHttps) {
-                fileInput.click();
-                return;
-              }
-              // On HTTPS: use live camera stream
-              scanPreview.style.display = "block";
-              scanBtn.textContent = "⏹ Stop";
-              if (typeof Html5Qrcode === "undefined") {
-                toast("Barcode scanner library not loaded", "error");
-                scanPreview.style.display = "none";
-                scanBtn.textContent = "📷 Scan Barcode";
-                return;
-              }
-              scanner = new Html5Qrcode(scanPreview.id);
-              scanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 150 } },
-                async function(code) {
-                  scanner.stop().catch(function(){});
-                  scanner = null;
-                  scanPreview.style.display = "none";
-                  await _doBarcodeLookup(code);
-                },
-                function() {}
-              ).catch(function() {
-                // Live camera failed — fall back to file
-                scanPreview.style.display = "none";
-                scanBtn.textContent = "📷 Scan Barcode";
-                scanner = null;
-                fileInput.click();
-              });
-            });
-
-            scanRow.appendChild(fileInput);
-            scanRow.appendChild(scanBtn);
+            scanBtn.addEventListener("click", function() { fileInput.click(); });
 
             const lookupBtn = document.createElement("button");
             lookupBtn.type = "button"; lookupBtn.textContent = "🔍 Lookup";
@@ -23041,19 +22992,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               } catch(e) { toast("Lookup failed", "error"); }
               finally { lookupBtn.disabled = false; lookupBtn.textContent = "🔍 Lookup"; }
             });
+            scanRow.appendChild(fileInput);
+            scanRow.appendChild(scanBtn);
             scanRow.appendChild(lookupBtn);
             sheet.appendChild(scanRow);
-            sheet.appendChild(scanPreview);
           }
 
           sheet.appendChild(nameInpLabel);
           sheet.appendChild(nameInp);
+          sheet.appendChild(mkLabel("Active Ingredient"));
+          sheet.appendChild(activeInp);
           sheet.appendChild(mkLabel("Brand / Manufacturer"));
           sheet.appendChild(brandInp);
           sheet.appendChild(mkLabel("Strength"));
           sheet.appendChild(strengthInp);
-          sheet.appendChild(mkLabel("Active Ingredient"));
-          sheet.appendChild(activeInp);
           sheet.appendChild(mkLabel("Dosage Form"));
           sheet.appendChild(formSel);
           sheet.appendChild(mkLabel("For"));
