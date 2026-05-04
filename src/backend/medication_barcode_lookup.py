@@ -108,30 +108,65 @@ def _normalize_openfda_result(hit: dict) -> dict:
 # Public lookup functions
 # ---------------------------------------------------------------------------
 
+def _ndc_candidates(clean: str) -> list[str]:
+    """Return NDC strings to try given a raw numeric barcode.
+
+    OTC products use UPC-12 (or EAN-13). The 10-digit NDC is embedded in
+    positions 2-11 of a 12-digit UPC (strip leading 0 and trailing check
+    digit).  We try the number as-is plus common NDC dash formats so that
+    OpenFDA wildcard search can match either package_ndc or product_ndc.
+    """
+    candidates = [clean]
+
+    # UPC-12 → extract 10-digit NDC (digits 2..11, i.e. strip first+last)
+    if len(clean) == 12:
+        ndc10 = clean[1:11]
+        candidates.append(ndc10)
+        # dash formats: 5-4-1, 5-3-2, 4-4-2
+        for a, b in ((5, 4), (5, 3), (4, 4)):
+            c = 10 - a - b
+            if c > 0:
+                candidates.append(f"{ndc10[:a]}-{ndc10[a:a+b]}-{ndc10[a+b:]}")
+
+    # EAN-13 → strip leading digit, then apply same UPC-12 logic
+    elif len(clean) == 13:
+        upc12 = clean[1:]
+        ndc10 = upc12[1:11]
+        candidates.append(ndc10)
+        for a, b in ((5, 4), (5, 3), (4, 4)):
+            c = 10 - a - b
+            if c > 0:
+                candidates.append(f"{ndc10[:a]}-{ndc10[a:a+b]}-{ndc10[a+b:]}")
+
+    return list(dict.fromkeys(candidates))  # deduplicate, preserve order
+
+
 def lookup_by_barcode(barcode: str) -> dict | None:
     """Query OpenFDA by UPC/NDC barcode.
 
-    Tries ``package_ndc`` first, then ``product_ndc``.
+    Tries package_ndc and product_ndc with multiple NDC formats derived
+    from the raw barcode (including UPC-12 → NDC extraction).
     Returns a normalized dict or None if nothing is found.
     """
     clean = re.sub(r"[^0-9]", "", barcode or "")
     if not clean:
         return None
 
-    urls = [
-        f"https://api.fda.gov/drug/ndc.json?search=package_ndc:{clean}&limit=1",
-        f"https://api.fda.gov/drug/ndc.json?search=product_ndc:{clean}&limit=1",
-    ]
-    for url in urls:
-        try:
-            resp = requests.get(url, timeout=OPENFDA_TIMEOUT)
-            if resp.status_code == 200:
-                data = resp.json()
-                results = data.get("results") or []
-                if results:
-                    return _normalize_openfda_result(results[0])
-        except Exception as exc:
-            logger.warning("OpenFDA barcode lookup failed: %s", exc)
+    candidates = _ndc_candidates(clean)
+    for candidate in candidates:
+        enc = requests.utils.quote(candidate)
+        for field in ("package_ndc", "product_ndc"):
+            url = f"https://api.fda.gov/drug/ndc.json?search={field}:{enc}&limit=1"
+            try:
+                resp = requests.get(url, timeout=OPENFDA_TIMEOUT)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    results = data.get("results") or []
+                    if results:
+                        logger.info("Barcode %s matched via %s=%s", clean, field, candidate)
+                        return _normalize_openfda_result(results[0])
+            except Exception as exc:
+                logger.warning("OpenFDA barcode lookup failed (%s=%s): %s", field, candidate, exc)
     return None
 
 
