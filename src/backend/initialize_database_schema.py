@@ -892,6 +892,69 @@ class ChatMessage(Base):
     )
 
 
+class HouseholdMember(Base):
+    """A person in the household — used to assign medications and track dosage."""
+
+    __tablename__ = "household_members"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, nullable=False)
+    age_group = Column(Text, nullable=False, default="adult")  # adult | child
+    avatar_emoji = Column(Text, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    # Relationships
+    medications = relationship("Medication", back_populates="member")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+
+
+class Medication(Base):
+    """A medication in the household medicine cabinet."""
+
+    __tablename__ = "medications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, nullable=False)
+    brand = Column(Text, nullable=True)
+    strength = Column(Text, nullable=True)          # e.g. "500mg", "10mg/5ml"
+    dosage_form = Column(Text, nullable=True)       # tablet/capsule/liquid/cream/spray/patch/other
+    active_ingredient = Column(Text, nullable=True)
+    age_group = Column(Text, nullable=False, default="both")       # adult | child | both
+    belongs_to = Column(Text, nullable=False, default="household") # 'household' or str(member_id)
+    member_id = Column(Integer, ForeignKey("household_members.id", ondelete="SET NULL"), nullable=True)
+    barcode = Column(Text, nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
+    manufacture_date = Column(Date, nullable=True)
+    expiry_date = Column(Date, nullable=True)
+    quantity = Column(Float, nullable=True, default=1)
+    unit = Column(Text, nullable=True, default="count")  # tablets/ml/oz/count
+    low_threshold = Column(Float, nullable=True)
+    rx_number = Column(Text, nullable=True)
+    prescribing_doctor = Column(Text, nullable=True)
+    ai_warnings = Column(Text, nullable=True)       # JSON array stored as text
+    ai_enriched_at = Column(DateTime, nullable=True)
+    image_path = Column(Text, nullable=True)
+    status = Column(Text, nullable=False, default="active")  # active | expired | finished
+    notes = Column(Text, nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_medications_status", "status"),
+        Index("ix_medications_member_id", "member_id"),
+        Index("ix_medications_barcode", "barcode"),
+        Index("ix_medications_product_id", "product_id"),
+    )
+
+    # Relationships
+    member = relationship("HouseholdMember", back_populates="medications")
+    product = relationship("Product", foreign_keys=[product_id])
+    created_by = relationship("User", foreign_keys=[created_by_id])
+
+
 # ---------------------------------------------------------------------------
 # Schema Initialization
 # ---------------------------------------------------------------------------
