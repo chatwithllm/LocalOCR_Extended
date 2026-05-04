@@ -22156,160 +22156,128 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           ? snap.image_url + (snap.image_url.indexOf("?") === -1 ? "?" : "&") + "v=" + encodeURIComponent(snap.created_at || snap.id || "")
           : null;
         const isLow = primary && (primary.manual_low || primary.is_low);
-        const tileEl = document.createElement("div");
         const isAdmin = currentUser?.role === "admin";
-        tileEl.className = "inv-tile" + (imageUrl && isAdmin ? " inv-tile-has-img" : "") + (isLow ? " exp-soon" : "");
-        tileEl.dataset.productKey = group.key;
+
+        const tile = _invElText("div", "inv-tile"
+          + (imageUrl && isAdmin ? " inv-tile-has-img" : "")
+          + (isLow ? " exp-soon" : ""));
+        tile.dataset.productKey = group.key;
+        if (primary) tile.dataset.productId = String(primary.id);
+
         if (imageUrl && isAdmin) {
           const img = document.createElement("img");
           img.className = "inv-tile-img";
           img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + imageUrl;
-          img.alt = group.family;
-          img.loading = "lazy";
-          tileEl.appendChild(img);
+          img.alt = group.family; img.loading = "lazy";
+          tile.appendChild(img);
         }
-        const content = document.createElement("div");
-        content.className = "inv-tile-content";
-        const head = document.createElement("div");
-        head.className = "inv-tile-head";
-        const catBadge = document.createElement("span");
-        catBadge.className = "badge badge-" + normalizeBadge(group.displayCategory, "other");
-        catBadge.textContent = formatLabel(group.displayCategory, "Other");
-        head.appendChild(catBadge);
+
+        const content = _invElText("div", "inv-tile-content");
+
+        // Head: category label (left) + ×count (right)
+        const head = _invElText("div", "inv-tile-head");
+        const headLeft = _invElText("div", "inv-tile-head-left");
+        const catSpan = _invElText("span", "inv-tile-days", formatLabel(group.displayCategory, "Other"));
+        headLeft.appendChild(catSpan);
         if (isLow) {
-          const lowBadge = document.createElement("span");
-          lowBadge.className = "badge badge-low";
+          const lowBadge = _invElText("span", "badge badge-low", "Low");
           lowBadge.style.marginLeft = "4px";
-          lowBadge.textContent = "Low";
-          head.appendChild(lowBadge);
+          headLeft.appendChild(lowBadge);
         }
-        const countEl = document.createElement("span");
-        countEl.className = "inv-tile-qty";
-        countEl.textContent = "×" + group.count;
-        head.appendChild(countEl);
+        head.appendChild(headLeft);
+        head.appendChild(_invElText("span", "inv-tile-qty", "×" + group.count));
         content.appendChild(head);
-        const nameEl = document.createElement("div");
-        nameEl.className = "inv-tile-name";
-        nameEl.textContent = (primary && primary.is_regular_use ? "⭐ " : "") + group.family;
-        content.appendChild(nameEl);
-        const meta = document.createElement("div");
-        meta.className = "inv-tile-meta";
+
+        // Name
+        content.appendChild(_invElText("div", "inv-tile-name",
+          (primary && primary.is_regular_use ? "⭐ " : "") + group.family));
+
+        // Meta: last purchase date + variant examples
+        const meta = _invElText("div", "inv-tile-meta");
         const latestPurchase = group.items.reduce(function(latest, item) {
-          return item.last_purchase_date && (!latest || item.last_purchase_date > latest) ? item.last_purchase_date : latest;
+          return item.last_purchase_date && (!latest || item.last_purchase_date > latest)
+            ? item.last_purchase_date : latest;
         }, "");
-        if (latestPurchase) {
-          const dateEl = document.createElement("div");
-          dateEl.textContent = "📅 " + latestPurchase;
-          meta.appendChild(dateEl);
-        }
+        if (latestPurchase) meta.appendChild(_invElText("div", null, "📅 " + latestPurchase));
         if (group.count > 1 && group.examples && group.examples.length) {
-          const variantsEl = document.createElement("div");
-          variantsEl.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
-          variantsEl.textContent = group.examples.slice(0, 2).join(", ") + (group.count > 2 ? " …" : "");
-          meta.appendChild(variantsEl);
+          const v = _invElText("div", null,
+            group.examples.slice(0, 2).join(", ") + (group.count > 2 ? " …" : ""));
+          v.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+          meta.appendChild(v);
         }
         content.appendChild(meta);
-        const actions = document.createElement("div");
-        actions.className = "inv-tile-actions";
+
+        // Actions — mirror inventory button style via _invMakeBtn
+        const actions = _invElText("div", "inv-tile-actions");
         if (primary) {
-          const addBtn = document.createElement("button");
-          addBtn.type = "button"; addBtn.title = "Add to shopping list"; addBtn.textContent = "🛒";
-          addBtn.onclick = (function(p) { return function() { quickAddToShoppingList({ product_id: p.id, name: p.name, category: p.category || "other", quantity: 1, source: "product" }); }; })(primary);
-          actions.appendChild(addBtn);
-          const renameBtn = document.createElement("button");
-          renameBtn.type = "button"; renameBtn.title = "Edit name & category"; renameBtn.textContent = "✎";
-          renameBtn.onclick = (function(p) { return function() { editProductDetails(p.id, p.name, p.category); }; })(primary);
-          actions.appendChild(renameBtn);
-          const photoBtn = document.createElement("button");
-          photoBtn.type = "button"; photoBtn.title = snap && snap.image_url ? "Replace photo" : "Add photo"; photoBtn.textContent = "📷";
-          photoBtn.onclick = (function(p) { return function() { selectProductSnapshotFile(p.id, encodeURIComponent(p.name)); }; })(primary);
-          actions.appendChild(photoBtn);
-        }
-        if (!imageUrl && isAdmin && primary) {
-          const genBtn = document.createElement("button");
-          genBtn.type = "button"; genBtn.title = "Generate image with AI"; genBtn.textContent = "✨";
-          genBtn.onclick = (function(pid, tile, cnt) {
-            return function() {
-              invGenerateTileImage(pid, genBtn, function(newSnap) {
+          actions.appendChild(_invMakeBtn("inv-btn-edit", "✎",
+            (function(p) { return function() { editProductDetails(p.id, p.name, p.category); }; })(primary)));
+          actions.appendChild(_invMakeBtn("inv-btn-cart", "🛒",
+            (function(p) { return function() { quickAddToShoppingList({ product_id: p.id, name: p.name, category: p.category || "other", quantity: 1, source: "product" }); }; })(primary)));
+          if (!imageUrl && isAdmin) {
+            const genBtn = _invMakeBtn("inv-btn-gen", "✨", function() {
+              invGenerateTileImage(primary.id, genBtn, function(newSnap) {
                 const imgEl = document.createElement("img");
                 imgEl.className = "inv-tile-img";
                 imgEl.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + newSnap.image_url + "?v=" + encodeURIComponent(newSnap.created_at || newSnap.id || "");
-                imgEl.alt = cnt;
-                imgEl.loading = "lazy";
+                imgEl.alt = group.family; imgEl.loading = "lazy";
                 tile.classList.add("inv-tile-has-img");
-                tile.insertBefore(imgEl, tile.querySelector(".inv-tile-content"));
+                tile.insertBefore(imgEl, content);
                 genBtn.remove();
               });
-            };
-          })(primary.id, tileEl, group.family);
-          actions.appendChild(genBtn);
+            });
+            genBtn.title = "Generate image with AI";
+            actions.appendChild(genBtn);
+          }
+          actions.appendChild(_invMakeBtn("inv-btn-danger", "🗑",
+            (function(p) { return function() { deleteProduct(p.id); }; })(primary)));
         }
-        const expandBtn = document.createElement("button");
-        expandBtn.type = "button"; expandBtn.title = "View details"; expandBtn.textContent = group.count > 1 ? "▾ " + group.count : "▾";
-        expandBtn.onclick = (function(tile, g) { return function() { _toggleProductVariants(tile, g); }; })(tileEl, group);
-        actions.appendChild(expandBtn);
+        if (group.count > 1) {
+          const expBtn = _invMakeBtn("inv-btn-expand", "▾ " + group.count,
+            (function(t, g) { return function() { _toggleProductVariants(t, g); }; })(tile, group));
+          expBtn.title = "Show variants";
+          actions.appendChild(expBtn);
+        }
         content.appendChild(actions);
-        tileEl.appendChild(content);
-        return tileEl;
+        tile.appendChild(content);
+        return tile;
       }
 
       function _toggleProductVariants(tileEl, group) {
         const existing = tileEl.querySelector(".prod-tile-detail");
         if (existing) { existing.remove(); return; }
-        const detail = document.createElement("div");
-        detail.className = "prod-tile-detail";
+        const detail = _invElText("div", "prod-tile-detail");
         detail.style.cssText = "margin-top:10px;display:grid;gap:8px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px";
         for (const item of group.items) {
-          const row = document.createElement("div");
+          const row = _invElText("div", null);
           row.style.cssText = "padding:8px;border-radius:8px;background:rgba(255,255,255,0.04);display:grid;gap:6px";
-          const nameRow = document.createElement("div");
+          const nameRow = _invElText("div", null);
           nameRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap";
-          const nameStrong = document.createElement("strong");
-          nameStrong.textContent = item.name;
-          nameRow.appendChild(nameStrong);
-          if (item.manual_low || item.is_low) {
-            const lb = document.createElement("span"); lb.className = "badge badge-low"; lb.textContent = "Low";
-            nameRow.appendChild(lb);
-          }
+          nameRow.appendChild(_invElText("strong", null, item.name));
+          if (item.manual_low || item.is_low) nameRow.appendChild(_invElText("span", "badge badge-low", "Low"));
           row.appendChild(nameRow);
           const metaBits = [item.default_size_label, item.last_purchase_date ? "Bought " + item.last_purchase_date : null].filter(Boolean);
-          if (metaBits.length) {
-            const metaEl = document.createElement("div"); metaEl.className = "inv-tile-meta"; metaEl.textContent = metaBits.join(" · ");
-            row.appendChild(metaEl);
-          }
+          if (metaBits.length) row.appendChild(_invElText("div", "inv-tile-meta", metaBits.join(" · ")));
           if (item.recent_receipts && item.recent_receipts.length) {
-            const links = document.createElement("div"); links.className = "mini-links";
+            const links = _invElText("div", "mini-links");
             for (const link of item.recent_receipts) {
-              const btn = document.createElement("button"); btn.type = "button"; btn.className = "mini-link";
-              btn.textContent = (link.store || "Receipt") + " · " + (link.date || "—");
+              const btn = _invElText("button", "mini-link",
+                (link.store || "Receipt") + " · " + (link.date || "—"));
+              btn.type = "button";
               btn.title = (link.store || "Unknown") + " · " + (link.date || "—") + " · " + formatMoney(link.total || 0);
               btn.onclick = (function(l) { return function() { openReceiptDetail(l.receipt_id, String(l.date || "").slice(0, 10)); }; })(link);
               links.appendChild(btn);
             }
             row.appendChild(links);
           }
-          if (item.latest_snapshot && item.latest_snapshot.image_url && currentUser?.role === "admin") {
-            const thumbImg = document.createElement("img");
-            thumbImg.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + item.latest_snapshot.image_url;
-            thumbImg.alt = item.name; thumbImg.loading = "lazy";
-            thumbImg.style.cssText = "width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border)";
-            thumbImg.onclick = (function(u) { return function() { openProductSnapshot(u); }; })(item.latest_snapshot.image_url);
-            row.appendChild(thumbImg);
-          }
-          const itemActions = document.createElement("div"); itemActions.style.cssText = "display:flex;gap:4px;flex-wrap:wrap";
-          const iAdd = document.createElement("button"); iAdd.type = "button"; iAdd.className = "btn btn-sm btn-ghost"; iAdd.textContent = "🛒 Add";
-          iAdd.onclick = (function(it) { return function() { quickAddToShoppingList({ product_id: it.id, name: it.name, category: it.category || "other", quantity: 1, source: "product" }); }; })(item);
-          itemActions.appendChild(iAdd);
-          const iRename = document.createElement("button"); iRename.type = "button"; iRename.className = "btn btn-sm btn-ghost"; iRename.textContent = "✎ Edit";
-          iRename.onclick = (function(it) { return function() { editProductDetails(it.id, it.name, it.category); }; })(item);
-          itemActions.appendChild(iRename);
-          const iPhoto = document.createElement("button"); iPhoto.type = "button"; iPhoto.className = "btn btn-sm btn-ghost";
-          iPhoto.textContent = item.latest_snapshot && item.latest_snapshot.image_url ? "📷 Replace" : "📷 Photo";
-          iPhoto.onclick = (function(it) { return function() { selectProductSnapshotFile(it.id, encodeURIComponent(it.name)); }; })(item);
-          itemActions.appendChild(iPhoto);
-          const iDel = document.createElement("button"); iDel.type = "button"; iDel.className = "btn btn-sm btn-danger"; iDel.textContent = "🗑";
-          iDel.onclick = (function(it) { return function() { deleteProduct(it.id); }; })(item);
-          itemActions.appendChild(iDel);
+          const itemActions = _invElText("div", "inv-tile-actions");
+          itemActions.style.marginTop = "4px";
+          itemActions.appendChild(_invMakeBtn("inv-btn-edit", "✎ Edit",
+            (function(it) { return function() { editProductDetails(it.id, it.name, it.category); }; })(item)));
+          itemActions.appendChild(_invMakeBtn("inv-btn-cart", "🛒 Add",
+            (function(it) { return function() { quickAddToShoppingList({ product_id: it.id, name: it.name, category: it.category || "other", quantity: 1, source: "product" }); }; })(item)));
+          itemActions.appendChild(_invMakeBtn("inv-btn-danger", "🗑",
+            (function(it) { return function() { deleteProduct(it.id); }; })(item)));
           row.appendChild(itemActions);
           detail.appendChild(row);
         }
