@@ -22938,16 +22938,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             const scanRow = document.createElement("div");
             scanRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px";
 
+            // Use <label> wrapping file input — direct user gesture, works on iOS Safari
+            const fileInputId = "med-barcode-file-" + Date.now();
             const fileInput = document.createElement("input");
-            fileInput.type = "file"; fileInput.accept = "image/*"; fileInput.capture = "environment";
-            fileInput.style.cssText = "display:none";
+            fileInput.type = "file"; fileInput.accept = "image/*";
+            fileInput.id = fileInputId;
+            fileInput.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";
 
-            const scanBtn = document.createElement("button");
-            scanBtn.type = "button"; scanBtn.textContent = "📷 Scan Barcode";
-            scanBtn.style.cssText = "flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;cursor:pointer";
+            const scanLabel = document.createElement("label");
+            scanLabel.htmlFor = fileInputId;
+            scanLabel.textContent = "📷 Scan Barcode";
+            scanLabel.style.cssText = "flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;box-sizing:border-box";
 
             async function _doBarcodeLookup(code) {
-              scanBtn.disabled = true; scanBtn.textContent = "Looking up…";
+              scanLabel.textContent = "Looking up…";
+              scanLabel.style.pointerEvents = "none";
               try {
                 const res = await api("/medications/barcode-lookup", {
                   method: "POST",
@@ -22957,25 +22962,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 if (data.found && data.fields) { _fillSheetFields(data.fields); toast("Filled from drug database ✅", "success"); }
                 else toast("Not found in drug database", "info");
               } catch(e) { toast("Lookup failed", "error"); }
-              finally { scanBtn.disabled = false; scanBtn.textContent = "📷 Scan Barcode"; }
+              finally { scanLabel.textContent = "📷 Scan Barcode"; scanLabel.style.pointerEvents = ""; }
             }
 
             fileInput.addEventListener("change", async function() {
               const file = fileInput.files && fileInput.files[0];
               if (!file) return;
               if (typeof Html5Qrcode === "undefined") { toast("Barcode scanner library not loaded", "error"); return; }
-              scanBtn.disabled = true; scanBtn.textContent = "Reading…";
+              scanLabel.textContent = "Reading…";
+              scanLabel.style.pointerEvents = "none";
               try {
                 const code = await Html5Qrcode.scanFile(file, false);
                 await _doBarcodeLookup(code);
               } catch(e) {
                 toast("No barcode found in image — try again", "error");
-                scanBtn.disabled = false; scanBtn.textContent = "📷 Scan Barcode";
+                scanLabel.textContent = "📷 Scan Barcode"; scanLabel.style.pointerEvents = "";
               }
               fileInput.value = "";
             });
-
-            scanBtn.addEventListener("click", function() { fileInput.click(); });
 
             const lookupBtn = document.createElement("button");
             lookupBtn.type = "button"; lookupBtn.textContent = "🔍 Lookup";
@@ -22993,7 +22997,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               finally { lookupBtn.disabled = false; lookupBtn.textContent = "🔍 Lookup"; }
             });
             scanRow.appendChild(fileInput);
-            scanRow.appendChild(scanBtn);
+            scanRow.appendChild(scanLabel);
             scanRow.appendChild(lookupBtn);
             sheet.appendChild(scanRow);
           }
