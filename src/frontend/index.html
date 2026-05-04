@@ -6861,6 +6861,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let catalogMode = "inventory";
       let __medicineRaw = [];
       let __medicineMembers = [];
+      let __medicinePeople = []; // combined: users + household members
       let __medicineMemberFilter = null;
       let selectedReceiptMonth = null;
       let selectedExpenseReceiptId = null;
@@ -22675,11 +22676,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       async function loadMedicineCabinet() {
         const status = document.getElementById("medicine-filter-status")?.value || "active";
         const params = new URLSearchParams({ status });
-        if (__medicineMemberFilter !== null) params.set("member_id", __medicineMemberFilter);
+        if (__medicineMemberFilter !== null) {
+          if (__medicineMemberFilter === "household") {
+            params.set("member_id", "none");
+          } else if (typeof __medicineMemberFilter === "string" && __medicineMemberFilter.startsWith("user_")) {
+            params.set("user_id", __medicineMemberFilter.slice(5));
+          } else if (typeof __medicineMemberFilter === "string" && __medicineMemberFilter.startsWith("member_")) {
+            params.set("member_id", __medicineMemberFilter.slice(7));
+          }
+        }
         try {
-          const [medRes, memRes] = await Promise.all([
+          const [medRes, memRes, usersRes] = await Promise.all([
             api("/medications?" + params),
             api("/household-members"),
+            api("/auth/users"),
           ]);
           if (medRes.ok) {
             const data = await medRes.json();
@@ -22689,6 +22699,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             const data = await memRes.json();
             __medicineMembers = data.members || [];
           }
+          const users = usersRes.ok ? ((await usersRes.json()).users || []) : [];
+          __medicinePeople = [
+            ...users.map(function(u) { return { type: "user", id: u.id, name: u.display_name || u.username, emoji: "👤" }; }),
+            ...__medicineMembers.map(function(m) { return { type: "member", id: m.id, name: m.name, emoji: m.avatar_emoji || "👤" }; }),
+          ];
           _renderMedicineCabinet();
           _renderMedicineMemberChips();
         } catch (e) {
@@ -22705,12 +22720,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         allBtn.textContent = "All";
         allBtn.onclick = function() { __medicineMemberFilter = null; loadMedicineCabinet(); };
         el.replaceChildren(allBtn);
-        __medicineMembers.forEach(function(m) {
+        __medicinePeople.forEach(function(p) {
+          const key = p.type + "_" + p.id;
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.className = "filter-chip" + (__medicineMemberFilter === m.id ? " active" : "");
-          btn.textContent = (m.avatar_emoji ? m.avatar_emoji + " " : "") + m.name;
-          btn.onclick = function() { __medicineMemberFilter = m.id; loadMedicineCabinet(); };
+          btn.className = "filter-chip" + (__medicineMemberFilter === key ? " active" : "");
+          btn.textContent = (p.emoji ? p.emoji + " " : "") + p.name;
+          btn.onclick = function() { __medicineMemberFilter = key; loadMedicineCabinet(); };
           el.appendChild(btn);
         });
         const hBtn = document.createElement("button");
@@ -22765,9 +22781,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
         const meta = _invElText("div", "inv-tile-meta");
         if (med.expiry_date) meta.appendChild(_invElText("div", null, "🍂 Exp: " + med.expiry_date));
-        if (med.member_id) {
-          const member = __medicineMembers.find(function(m) { return m.id === med.member_id; });
-          if (member) meta.appendChild(_invElText("div", null, (member.avatar_emoji || "👤") + " " + member.name));
+        let memberLabel = null;
+        if (med.user_id) {
+          const p = __medicinePeople.find(function(p) { return p.type === "user" && p.id === med.user_id; });
+          if (p) memberLabel = (p.emoji || "👤") + " " + p.name;
+        } else if (med.member_id) {
+          const p = __medicinePeople.find(function(p) { return p.type === "member" && p.id === med.member_id; });
+          if (p) memberLabel = (p.emoji || "👤") + " " + p.name;
+        }
+        if (memberLabel) {
+          meta.appendChild(_invElText("div", null, memberLabel));
         } else if (med.belongs_to === "household") {
           meta.appendChild(_invElText("div", null, "🏠 Household"));
         }
@@ -22866,9 +22889,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             {value:"child",label:"👶 Kids only"},
           ], isEdit ? (existingMed.age_group || "both") : "both");
           const memberOptions = [{value:"household",label:"🏠 Household (shared)"}].concat(
-            __medicineMembers.map(function(m) { return { value: String(m.id), label: (m.avatar_emoji || "👤") + " " + m.name }; })
+            __medicinePeople.map(function(p) {
+              return { value: p.type + "_" + p.id, label: (p.emoji || "👤") + " " + p.name };
+            })
           );
-          const memberSel = mkSelect(memberOptions, isEdit ? (existingMed.member_id ? String(existingMed.member_id) : "household") : "household");
+          let currentMemberVal = "household";
+          if (isEdit) {
+            if (existingMed.user_id) currentMemberVal = "user_" + existingMed.user_id;
+            else if (existingMed.member_id) currentMemberVal = "member_" + existingMed.member_id;
+          }
+          const memberSel = mkSelect(memberOptions, currentMemberVal);
           const qtyInp = document.createElement("input");
           qtyInp.type = "number"; qtyInp.step = "1"; qtyInp.min = "0";
           qtyInp.value = isEdit ? (existingMed.quantity != null ? existingMed.quantity : "") : "";
@@ -23032,7 +23062,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           saveBtn.addEventListener("click", async function() {
             const name = nameInp.value.trim();
             if (!name) { toast("Name is required", "error"); return; }
-            const memberVal = memberSel.value;
+            const selVal = memberSel.value;
+            let bodyMemberId = null;
+            let bodyUserId = null;
+            if (selVal && selVal !== "household") {
+              if (selVal.startsWith("user_")) bodyUserId = parseInt(selVal.slice(5));
+              else if (selVal.startsWith("member_")) bodyMemberId = parseInt(selVal.slice(7));
+            }
             const body = {
               name,
               brand: brandInp.value.trim() || null,
@@ -23040,8 +23076,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               active_ingredient: activeInp.value.trim() || null,
               dosage_form: formSel.value,
               age_group: ageSel.value,
-              belongs_to: memberVal === "household" ? "household" : memberVal,
-              member_id: memberVal !== "household" ? parseInt(memberVal) : null,
+              belongs_to: selVal === "household" ? "household" : selVal,
+              member_id: bodyMemberId,
+              user_id: bodyUserId,
               quantity: qtyInp.value !== "" ? parseFloat(qtyInp.value) : null,
               unit: unitSel.value,
               expiry_date: expiryInp.value || null,

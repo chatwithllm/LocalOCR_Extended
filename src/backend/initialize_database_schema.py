@@ -924,6 +924,7 @@ class Medication(Base):
     age_group = Column(Text, nullable=False, default="both")       # adult | child | both
     belongs_to = Column(Text, nullable=False, default="household") # 'household' or str(member_id)
     member_id = Column(Integer, ForeignKey("household_members.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     barcode = Column(Text, nullable=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     manufacture_date = Column(Date, nullable=True)

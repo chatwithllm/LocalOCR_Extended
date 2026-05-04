@@ -66,6 +66,7 @@ def _serialize_medication(med: Medication) -> dict:
         "age_group": med.age_group or "both",
         "belongs_to": med.belongs_to or "household",
         "member_id": med.member_id,
+        "user_id": med.user_id,
         "barcode": med.barcode,
         "product_id": med.product_id,
         "manufacture_date": str(med.manufacture_date) if med.manufacture_date else None,
@@ -108,7 +109,7 @@ def _parse_date(value: str):
 # Mutable fields accepted by POST (create) and PUT (update)
 _MUTABLE_FIELDS = (
     "name", "brand", "strength", "dosage_form", "active_ingredient",
-    "age_group", "belongs_to", "member_id", "barcode", "product_id",
+    "age_group", "belongs_to", "member_id", "user_id", "barcode", "product_id",
     "quantity", "unit", "low_threshold", "rx_number", "prescribing_doctor",
     "notes", "status", "image_path",
 )
@@ -129,9 +130,17 @@ def list_medications():
     if status != "all":
         query = query.filter(Medication.status == status)
 
-    member_id = _parse_int(request.args.get("member_id"))
-    if member_id is not None:
-        query = query.filter(Medication.member_id == member_id)
+    member_id_raw = request.args.get("member_id")
+    if member_id_raw == "none":
+        query = query.filter(Medication.member_id.is_(None), Medication.user_id.is_(None))
+    elif member_id_raw is not None:
+        member_id = _parse_int(member_id_raw)
+        if member_id is not None:
+            query = query.filter(Medication.member_id == member_id)
+
+    user_id_filter = request.args.get("user_id")
+    if user_id_filter:
+        query = query.filter(Medication.user_id == int(user_id_filter))
 
     age_group = request.args.get("age_group")
     if age_group:
