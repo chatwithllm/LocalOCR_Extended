@@ -217,6 +217,7 @@ def register_blueprints(app):
     from src.backend.manage_kitchen_endpoint import kitchen_bp
     from src.backend.manage_image_backfill import image_backfill_bp
     from src.backend.manage_household_members import household_members_bp
+    from src.backend.manage_medications import medications_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
@@ -240,6 +241,7 @@ def register_blueprints(app):
     app.register_blueprint(kitchen_bp)
     app.register_blueprint(image_backfill_bp)
     app.register_blueprint(household_members_bp)
+    app.register_blueprint(medications_bp)
 
     logger.info("All blueprints registered.")
 
