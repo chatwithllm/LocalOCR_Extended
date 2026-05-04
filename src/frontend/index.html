@@ -52,6 +52,7 @@
     <link rel="stylesheet" href="/styles/design-system.css?v=20260425i" />
     <!-- Plaid Link - loaded lazily only when a Connect Bank action fires. -->
     <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" defer></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
 /* ===== Inventory Expiry Tile View ===== */
 .inv-group { margin-bottom: 18px; }
@@ -460,6 +461,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           onclick="nav('products', this)"
         >
           <span class="nav-icon">🏷️</span> Products
+        </div>
+        <div class="nav-item" id="nav-medicine" onclick="nav('medicine', this)">
+          <span class="nav-icon">💊</span> Medicine
         </div>
         <div class="nav-item" onclick="nav('upload', this)">
           <span class="nav-icon">📸</span> Upload Receipt
@@ -1644,6 +1648,27 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="page" id="page-medicine">
+          <div class="page-header">
+            <div>
+              <h1>Medicine Cabinet</h1>
+              <p>Track household medications, expiry dates, and members</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" onclick="openAddMedicationSheet()">+ Add Medication</button>
+            <button type="button" class="btn btn-ghost" onclick="openMembersSheet()">👥 Members</button>
+            <select id="medicine-filter-status" class="inline-select" onchange="loadMedicineCabinet()" style="margin-left:auto">
+              <option value="active">Active</option>
+              <option value="all">All</option>
+              <option value="expired">Expired</option>
+              <option value="finished">Finished</option>
+            </select>
+          </div>
+          <div class="filter-chip-row" id="medicine-member-chips"></div>
+          <div id="medicine-cabinet-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px"></div>
         </div>
 
         <div class="page" id="page-restaurant">
@@ -6834,6 +6859,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       const PAGE_STORAGE_KEY = "extended_last_page";
       const SIDEBAR_COLLAPSED_KEY = "extended_sidebar_collapsed";
       let catalogMode = "inventory";
+      let __medicineRaw = [];
+      let __medicineMembers = [];
+      let __medicineMemberFilter = null;
       let selectedReceiptMonth = null;
       let selectedExpenseReceiptId = null;
       let latestReceiptSummary = {};
@@ -12986,6 +13014,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (page === "dashboard") loadDashboard();
         if (page === "inventory") loadInventory();
         if (page === "products") loadProducts(document.getElementById("prod-search")?.value?.trim() || "");
+        if (page === "medicine") loadMedicineCabinet();
         if (page === "receipts") loadReceipts();
         if (page === "shopping") {
           updateAllShoppingSectionVisibility();
@@ -20684,6 +20713,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           meta.appendChild(line);
         }
+        // Check if this inventory item has a linked medication
+        if (typeof __medicineRaw !== "undefined") {
+          const linkedMed = __medicineRaw.find(function(m) { return m.product_id === i.product_id; });
+          if (linkedMed) {
+            meta.appendChild(_invElText("div", null, "💊 " + linkedMed.name));
+          }
+        }
         content.appendChild(meta);
         const actions = _invElText("div", "inv-tile-actions");
         actions.appendChild(_invMakeBtn("inv-btn-edit",  "✎", function() { invEdit(i.product_id); }));
@@ -22631,6 +22667,491 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             ]);
             close(payload);
           });
+        });
+      }
+
+      // ===== Medicine Cabinet =====
+
+      async function loadMedicineCabinet() {
+        const status = document.getElementById("medicine-filter-status")?.value || "active";
+        const params = new URLSearchParams({ status });
+        if (__medicineMemberFilter !== null) params.set("member_id", __medicineMemberFilter);
+        try {
+          const [medRes, memRes] = await Promise.all([
+            api("/medications?" + params),
+            api("/household-members"),
+          ]);
+          if (medRes.ok) {
+            const data = await medRes.json();
+            __medicineRaw = data.medications || [];
+          }
+          if (memRes.ok) {
+            const data = await memRes.json();
+            __medicineMembers = data.members || [];
+          }
+          _renderMedicineCabinet();
+          _renderMedicineMemberChips();
+        } catch (e) {
+          toast("Failed to load medicine cabinet", "error");
+        }
+      }
+
+      function _renderMedicineMemberChips() {
+        const el = document.getElementById("medicine-member-chips");
+        if (!el) return;
+        const allBtn = document.createElement("button");
+        allBtn.type = "button";
+        allBtn.className = "filter-chip" + (__medicineMemberFilter === null ? " active" : "");
+        allBtn.textContent = "All";
+        allBtn.onclick = function() { __medicineMemberFilter = null; loadMedicineCabinet(); };
+        el.replaceChildren(allBtn);
+        __medicineMembers.forEach(function(m) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "filter-chip" + (__medicineMemberFilter === m.id ? " active" : "");
+          btn.textContent = (m.avatar_emoji ? m.avatar_emoji + " " : "") + m.name;
+          btn.onclick = function() { __medicineMemberFilter = m.id; loadMedicineCabinet(); };
+          el.appendChild(btn);
+        });
+        const hBtn = document.createElement("button");
+        hBtn.type = "button";
+        hBtn.className = "filter-chip" + (__medicineMemberFilter === "household" ? " active" : "");
+        hBtn.textContent = "🏠 Household";
+        hBtn.onclick = function() { __medicineMemberFilter = "household"; loadMedicineCabinet(); };
+        el.appendChild(hBtn);
+      }
+
+      function _renderMedicineCabinet() {
+        const body = document.getElementById("medicine-cabinet-body");
+        if (!body) return;
+        if (!__medicineRaw.length) {
+          body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px 0;grid-column:1/-1">No medications. Tap <strong>+ Add Medication</strong> to get started.</div>';
+          return;
+        }
+        body.replaceChildren();
+        __medicineRaw.forEach(function(med) {
+          body.appendChild(_buildMedTile(med));
+        });
+      }
+
+      function _buildMedTile(med) {
+        const isExpired = med.is_expired || med.status === "expired";
+        const isLow = med.is_low;
+        const tile = _invElText("div", "inv-tile" + (isExpired ? " exp-expired" : isLow ? " exp-soon" : ""));
+        tile.dataset.medId = String(med.id);
+
+        if (med.image_path && currentUser?.role === "admin") {
+          const img = document.createElement("img");
+          img.className = "inv-tile-img";
+          img.src = (typeof API_BASE !== "undefined" && API_BASE ? API_BASE : "") + "/medications/" + med.id + "/photo";
+          img.alt = med.name; img.loading = "lazy";
+          tile.classList.add("inv-tile-has-img");
+          tile.appendChild(img);
+        }
+
+        const content = _invElText("div", "inv-tile-content");
+        const head = _invElText("div", "inv-tile-head");
+        const headLeft = _invElText("div", "inv-tile-head-left");
+        const ageLabel = med.age_group === "child" ? "👶 Kids" : med.age_group === "adult" ? "🧑 Adult" : "👪 All";
+        headLeft.appendChild(_invElText("span", "inv-tile-days", ageLabel));
+        if (isExpired) headLeft.appendChild(_invElText("span", "badge badge-low", "Expired"));
+        else if (isLow) headLeft.appendChild(_invElText("span", "badge badge-low", "Low"));
+        head.appendChild(headLeft);
+        const qtyText = med.quantity != null ? "×" + med.quantity + (med.unit && med.unit !== "count" ? " " + med.unit : "") : "";
+        head.appendChild(_invElText("span", "inv-tile-qty", qtyText));
+        content.appendChild(head);
+
+        content.appendChild(_invElText("div", "inv-tile-name", med.name + (med.strength ? " · " + med.strength : "")));
+
+        const meta = _invElText("div", "inv-tile-meta");
+        if (med.expiry_date) meta.appendChild(_invElText("div", null, "🍂 Exp: " + med.expiry_date));
+        if (med.member_id) {
+          const member = __medicineMembers.find(function(m) { return m.id === med.member_id; });
+          if (member) meta.appendChild(_invElText("div", null, (member.avatar_emoji || "👤") + " " + member.name));
+        } else if (med.belongs_to === "household") {
+          meta.appendChild(_invElText("div", null, "🏠 Household"));
+        }
+        if (med.ai_warnings && med.ai_warnings.length) {
+          const w = _invElText("div", null, "⚠️ " + med.ai_warnings[0]);
+          w.style.cssText = "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.7rem;color:var(--muted)";
+          meta.appendChild(w);
+        }
+        content.appendChild(meta);
+
+        const actions = _invElText("div", "inv-tile-actions");
+        actions.appendChild(_invMakeBtn("inv-btn-edit", "✎", (function(m) { return function() { openEditMedicationSheet(m); }; })(med)));
+        if (med.status === "active") {
+          actions.appendChild(_invMakeBtn("inv-btn-used", "✓ Done", (function(id) { return function() { _medMarkFinished(id); }; })(med.id)));
+        }
+        actions.appendChild(_invMakeBtn("inv-btn-danger", "🗑", (function(id) { return function() { _medDelete(id); }; })(med.id)));
+        content.appendChild(actions);
+        tile.appendChild(content);
+        return tile;
+      }
+
+      async function _medMarkFinished(id) {
+        const res = await api("/medications/" + id, { method: "PUT", body: JSON.stringify({ status: "finished" }) });
+        if (res.ok) { toast("Marked as finished ✅", "success"); loadMedicineCabinet(); }
+        else toast("Failed", "error");
+      }
+
+      async function _medDelete(id) {
+        if (!(await askForConfirmation("Delete this medication?", "Delete"))) return;
+        const res = await api("/medications/" + id, { method: "DELETE" });
+        if (res.ok) { toast("Deleted", "info"); loadMedicineCabinet(); }
+        else toast("Failed", "error");
+      }
+
+      function openAddMedicationSheet() {
+        return _openMedicationSheet(null);
+      }
+
+      function openEditMedicationSheet(med) {
+        return _openMedicationSheet(med);
+      }
+
+      function _openMedicationSheet(existingMed) {
+        const isEdit = !!existingMed;
+        return new Promise(function(resolve) {
+          const back = document.createElement("div");
+          back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);overflow-y:auto";
+          const sheet = document.createElement("div");
+          sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+          const handle = document.createElement("div");
+          handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
+          sheet.appendChild(handle);
+          const titleEl = _invElText("div", null, isEdit ? "Edit Medication" : "Add Medication");
+          titleEl.style.cssText = "font-weight:700;font-size:1.05rem;text-align:center;margin-bottom:14px";
+          sheet.appendChild(titleEl);
+
+          function mkLabel(text) {
+            const l = _invElText("label", null, text);
+            l.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+            return l;
+          }
+          function mkInput(type, value, placeholder) {
+            const inp = document.createElement("input");
+            inp.type = type || "text"; inp.value = value || ""; inp.placeholder = placeholder || "";
+            inp.style.cssText = "width:100%;padding:12px 14px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:12px;-webkit-appearance:none;appearance:none";
+            return inp;
+          }
+          function mkSelect(options, selectedValue) {
+            const sel = document.createElement("select");
+            sel.style.cssText = "width:100%;padding:12px 14px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;margin-bottom:12px;-webkit-appearance:none;appearance:none";
+            options.forEach(function(o) {
+              const opt = document.createElement("option");
+              opt.value = o.value; opt.textContent = o.label;
+              if (o.value === selectedValue) opt.selected = true;
+              sel.appendChild(opt);
+            });
+            return sel;
+          }
+
+          let scanner = null;
+
+          // Fields (declared first so scan handlers can reference)
+          const nameInpLabel = mkLabel("Name *");
+          const nameInp = mkInput("text", isEdit ? existingMed.name : "", "e.g. Ibuprofen");
+          const brandInp = mkInput("text", isEdit ? (existingMed.brand || "") : "", "e.g. Advil");
+          const strengthInp = mkInput("text", isEdit ? (existingMed.strength || "") : "", "e.g. 200mg");
+          const activeInp = mkInput("text", isEdit ? (existingMed.active_ingredient || "") : "", "e.g. Ibuprofen");
+          const formSel = mkSelect([
+            {value:"tablet",label:"Tablet"},{value:"capsule",label:"Capsule"},
+            {value:"liquid",label:"Liquid/Syrup"},{value:"cream",label:"Cream/Gel/Ointment"},
+            {value:"spray",label:"Spray"},{value:"patch",label:"Patch"},{value:"other",label:"Other"},
+          ], isEdit ? (existingMed.dosage_form || "tablet") : "tablet");
+          const ageSel = mkSelect([
+            {value:"both",label:"👪 Everyone (Adult & Kids)"},
+            {value:"adult",label:"🧑 Adults only"},
+            {value:"child",label:"👶 Kids only"},
+          ], isEdit ? (existingMed.age_group || "both") : "both");
+          const memberOptions = [{value:"household",label:"🏠 Household (shared)"}].concat(
+            __medicineMembers.map(function(m) { return { value: String(m.id), label: (m.avatar_emoji || "👤") + " " + m.name }; })
+          );
+          const memberSel = mkSelect(memberOptions, isEdit ? (existingMed.member_id ? String(existingMed.member_id) : "household") : "household");
+          const qtyInp = document.createElement("input");
+          qtyInp.type = "number"; qtyInp.step = "1"; qtyInp.min = "0";
+          qtyInp.value = isEdit ? (existingMed.quantity != null ? existingMed.quantity : "") : "";
+          qtyInp.placeholder = "e.g. 30";
+          qtyInp.style.cssText = "flex:1;padding:12px 14px;font-size:1rem;border:1px solid var(--border,#3a3a3c);border-radius:12px;background:var(--surface2,#2c2c2e);color:var(--text,#fff);box-sizing:border-box;-webkit-appearance:none;appearance:none";
+          const unitSel = mkSelect([
+            {value:"tablets",label:"Tablets"},{value:"capsules",label:"Capsules"},
+            {value:"ml",label:"ml"},{value:"oz",label:"oz"},
+            {value:"count",label:"Count"},{value:"doses",label:"Doses"},
+          ], isEdit ? (existingMed.unit || "tablets") : "tablets");
+          unitSel.style.marginBottom = "0";
+          const expiryInp = mkInput("date", isEdit ? (existingMed.expiry_date || "") : "", "");
+          const mfgInp = mkInput("date", isEdit ? (existingMed.manufacture_date || "") : "", "");
+          const barcodeInp = mkInput("text", isEdit ? (existingMed.barcode || "") : "", "UPC/NDC");
+          const notesInp = mkInput("text", isEdit ? (existingMed.notes || "") : "", "e.g. Take with food");
+
+          function _fillSheetFields(fields) {
+            if (fields.name) nameInp.value = fields.name;
+            if (fields.brand) brandInp.value = fields.brand;
+            if (fields.strength) strengthInp.value = fields.strength;
+            if (fields.active_ingredient) activeInp.value = fields.active_ingredient;
+            if (fields.dosage_form) {
+              const opt = [...formSel.options].find(function(o) { return o.value === fields.dosage_form; });
+              if (opt) formSel.value = fields.dosage_form;
+            }
+            if (fields.age_group) {
+              const opt = [...ageSel.options].find(function(o) { return o.value === fields.age_group; });
+              if (opt) ageSel.value = fields.age_group;
+            }
+            if (fields.barcode) barcodeInp.value = fields.barcode;
+          }
+
+          // Barcode scan section (add mode only)
+          if (!isEdit) {
+            const scanRow = document.createElement("div");
+            scanRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px";
+            const scanBtn = document.createElement("button");
+            scanBtn.type = "button"; scanBtn.textContent = "📷 Scan Barcode";
+            scanBtn.style.cssText = "flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;cursor:pointer";
+            const scanPreview = document.createElement("div");
+            scanPreview.id = "med-qr-preview-" + Date.now();
+            scanPreview.style.cssText = "display:none;width:100%;height:200px;margin-bottom:12px;border-radius:10px;overflow:hidden;background:#000";
+            scanBtn.addEventListener("click", function() {
+              if (scanner) {
+                scanner.stop().catch(function(){});
+                scanner = null;
+                scanPreview.style.display = "none";
+                scanBtn.textContent = "📷 Scan Barcode";
+                return;
+              }
+              scanPreview.style.display = "block";
+              scanBtn.textContent = "⏹ Stop";
+              if (typeof Html5Qrcode === "undefined") {
+                toast("Barcode scanner library not loaded", "error");
+                scanPreview.style.display = "none";
+                scanBtn.textContent = "📷 Scan Barcode";
+                return;
+              }
+              scanner = new Html5Qrcode(scanPreview.id);
+              scanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                async function(code) {
+                  scanner.stop().catch(function(){});
+                  scanner = null;
+                  scanPreview.style.display = "none";
+                  scanBtn.textContent = "📷 Scan Barcode";
+                  scanBtn.disabled = true; scanBtn.textContent = "Looking up…";
+                  try {
+                    const res = await api("/medications/barcode-lookup", {
+                      method: "POST",
+                      body: JSON.stringify({ barcode: code }),
+                    });
+                    const data = await res.json();
+                    if (data.found && data.fields) { _fillSheetFields(data.fields); }
+                    else toast("Not found in drug database", "info");
+                  } catch(e) { toast("Lookup failed", "error"); }
+                  finally { scanBtn.disabled = false; scanBtn.textContent = "📷 Scan Barcode"; }
+                },
+                function() {}
+              ).catch(function(err) {
+                toast("Camera access denied or unavailable", "error");
+                scanPreview.style.display = "none";
+                scanBtn.textContent = "📷 Scan Barcode";
+                scanner = null;
+              });
+            });
+            scanRow.appendChild(scanBtn);
+
+            const lookupBtn = document.createElement("button");
+            lookupBtn.type = "button"; lookupBtn.textContent = "🔍 Lookup";
+            lookupBtn.style.cssText = "flex:0 0 90px;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;cursor:pointer";
+            lookupBtn.addEventListener("click", async function() {
+              const nm = nameInp.value.trim();
+              if (!nm) { toast("Enter a name first", "error"); return; }
+              lookupBtn.disabled = true; lookupBtn.textContent = "…";
+              try {
+                const res = await api("/medications/barcode-lookup", { method: "POST", body: JSON.stringify({ name: nm }) });
+                const data = await res.json();
+                if (data.found && data.fields) { _fillSheetFields(data.fields); toast("Filled from drug database ✅", "success"); }
+                else toast("Not found in drug database", "info");
+              } catch(e) { toast("Lookup failed", "error"); }
+              finally { lookupBtn.disabled = false; lookupBtn.textContent = "🔍 Lookup"; }
+            });
+            scanRow.appendChild(lookupBtn);
+            sheet.appendChild(scanRow);
+            sheet.appendChild(scanPreview);
+          }
+
+          sheet.appendChild(nameInpLabel);
+          sheet.appendChild(nameInp);
+          sheet.appendChild(mkLabel("Brand / Manufacturer"));
+          sheet.appendChild(brandInp);
+          sheet.appendChild(mkLabel("Strength"));
+          sheet.appendChild(strengthInp);
+          sheet.appendChild(mkLabel("Active Ingredient"));
+          sheet.appendChild(activeInp);
+          sheet.appendChild(mkLabel("Dosage Form"));
+          sheet.appendChild(formSel);
+          sheet.appendChild(mkLabel("For"));
+          sheet.appendChild(ageSel);
+          sheet.appendChild(mkLabel("Belongs To"));
+          sheet.appendChild(memberSel);
+          sheet.appendChild(mkLabel("Quantity"));
+          const qtyRow = document.createElement("div");
+          qtyRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px";
+          qtyRow.appendChild(qtyInp); qtyRow.appendChild(unitSel);
+          sheet.appendChild(qtyRow);
+          sheet.appendChild(mkLabel("Expiry Date"));
+          sheet.appendChild(expiryInp);
+          sheet.appendChild(mkLabel("Manufacture Date (optional)"));
+          sheet.appendChild(mfgInp);
+          sheet.appendChild(mkLabel("Barcode (optional)"));
+          sheet.appendChild(barcodeInp);
+          sheet.appendChild(mkLabel("Notes (optional)"));
+          sheet.appendChild(notesInp);
+
+          const btnRow = document.createElement("div");
+          btnRow.style.cssText = "display:flex;gap:10px;margin-top:8px";
+          const cancelBtn = document.createElement("button");
+          cancelBtn.type = "button"; cancelBtn.textContent = "Cancel";
+          cancelBtn.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:1rem;font-weight:500;cursor:pointer";
+          const saveBtn = document.createElement("button");
+          saveBtn.type = "button"; saveBtn.textContent = "Save";
+          saveBtn.style.cssText = "flex:1;padding:13px;border-radius:10px;border:none;background:#0a84ff;color:#fff;font-size:1rem;font-weight:600;cursor:pointer";
+          btnRow.appendChild(cancelBtn); btnRow.appendChild(saveBtn);
+          sheet.appendChild(btnRow);
+
+          back.appendChild(sheet);
+          document.body.appendChild(back);
+          requestAnimationFrame(function() { sheet.style.transform = "translateY(0)"; });
+
+          function close(v) {
+            if (scanner) { scanner.stop().catch(function(){}); scanner = null; }
+            sheet.style.transform = "translateY(100%)";
+            setTimeout(function() { back.remove(); resolve(v); }, 200);
+          }
+          cancelBtn.addEventListener("click", function() { close(null); });
+          back.addEventListener("click", function(e) { if (e.target === back) close(null); });
+
+          saveBtn.addEventListener("click", async function() {
+            const name = nameInp.value.trim();
+            if (!name) { toast("Name is required", "error"); return; }
+            const memberVal = memberSel.value;
+            const body = {
+              name,
+              brand: brandInp.value.trim() || null,
+              strength: strengthInp.value.trim() || null,
+              active_ingredient: activeInp.value.trim() || null,
+              dosage_form: formSel.value,
+              age_group: ageSel.value,
+              belongs_to: memberVal === "household" ? "household" : memberVal,
+              member_id: memberVal !== "household" ? parseInt(memberVal) : null,
+              quantity: qtyInp.value !== "" ? parseFloat(qtyInp.value) : null,
+              unit: unitSel.value,
+              expiry_date: expiryInp.value || null,
+              manufacture_date: mfgInp.value || null,
+              barcode: barcodeInp.value.trim() || null,
+              notes: notesInp.value.trim() || null,
+              status: "active",
+            };
+            saveBtn.disabled = true; saveBtn.textContent = "Saving…";
+            try {
+              const url = isEdit ? "/medications/" + existingMed.id : "/medications";
+              const method = isEdit ? "PUT" : "POST";
+              const res = await api(url, { method, body: JSON.stringify(body) });
+              const data = await res.json();
+              if (!res.ok) { toast(data.error || "Failed to save", "error"); return; }
+              toast(isEdit ? "Updated ✅" : "Added ✅", "success");
+              await loadMedicineCabinet();
+              close(data.medication || data);
+            } catch(e) { toast("Failed: " + e.message, "error"); }
+            finally { saveBtn.disabled = false; saveBtn.textContent = "Save"; }
+          });
+        });
+      }
+
+      function openMembersSheet() {
+        const back = document.createElement("div");
+        back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
+        const sheet = document.createElement("div");
+        sheet.style.cssText = "background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:14px 16px 26px;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+        const handle = document.createElement("div");
+        handle.style.cssText = "width:36px;height:4px;border-radius:2px;background:#48484a;margin:0 auto 10px";
+        sheet.appendChild(handle);
+        const titleEl = _invElText("div", null, "Household Members");
+        titleEl.style.cssText = "font-weight:700;font-size:1.05rem;text-align:center;margin-bottom:14px";
+        sheet.appendChild(titleEl);
+
+        const listEl = document.createElement("div");
+        listEl.style.cssText = "display:grid;gap:8px;margin-bottom:14px";
+        sheet.appendChild(listEl);
+
+        function renderMembers() {
+          listEl.replaceChildren();
+          __medicineMembers.forEach(function(m) {
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:var(--surface2,#2c2c2e)";
+            const info = _invElText("div", null, (m.avatar_emoji || "👤") + " " + m.name + " · " + (m.age_group === "child" ? "Child" : "Adult"));
+            info.style.flex = "1";
+            const delBtn = _invMakeBtn("inv-btn-danger", "🗑", async function() {
+              if (!confirm("Delete " + m.name + "?")) return;
+              await api("/household-members/" + m.id, { method: "DELETE" });
+              __medicineMembers = __medicineMembers.filter(function(x) { return x.id !== m.id; });
+              renderMembers();
+              _renderMedicineMemberChips();
+            });
+            row.appendChild(info); row.appendChild(delBtn);
+            listEl.appendChild(row);
+          });
+          if (!__medicineMembers.length) {
+            const emptyEl = _invElText("div", null, "No members yet.");
+            emptyEl.style.cssText = "color:var(--muted);text-align:center;padding:16px 0";
+            listEl.appendChild(emptyEl);
+          }
+        }
+        renderMembers();
+
+        const addLabel = _invElText("label", null, "Add Member");
+        addLabel.style.cssText = "display:block;font-size:0.78rem;color:var(--muted,#888);margin-bottom:4px";
+        sheet.appendChild(addLabel);
+        const addRow = document.createElement("div");
+        addRow.style.cssText = "display:flex;gap:8px;margin-bottom:14px";
+        const newNameInp = document.createElement("input");
+        newNameInp.type = "text"; newNameInp.placeholder = "Name (e.g. Emma)";
+        newNameInp.style.cssText = "flex:1;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem;box-sizing:border-box";
+        const ageSel2 = document.createElement("select");
+        ageSel2.style.cssText = "flex:0 0 100px;padding:12px;border-radius:10px;border:1px solid var(--border,#3a3a3c);background:var(--surface2,#2c2c2e);color:#fff;font-size:0.95rem";
+        [{value:"adult",label:"Adult"},{value:"child",label:"Child"}].forEach(function(o) {
+          const opt = document.createElement("option"); opt.value = o.value; opt.textContent = o.label; ageSel2.appendChild(opt);
+        });
+        const addBtn2 = document.createElement("button");
+        addBtn2.type = "button"; addBtn2.textContent = "Add";
+        addBtn2.style.cssText = "flex:0 0 60px;padding:12px;border-radius:10px;border:none;background:#0a84ff;color:#fff;font-size:0.95rem;cursor:pointer;font-weight:600";
+        addBtn2.addEventListener("click", async function() {
+          const nm = newNameInp.value.trim();
+          if (!nm) { toast("Name required", "error"); return; }
+          const res = await api("/household-members", { method: "POST", body: JSON.stringify({ name: nm, age_group: ageSel2.value }) });
+          if (res.ok) {
+            const data = await res.json();
+            __medicineMembers.push(data.member);
+            newNameInp.value = "";
+            renderMembers();
+            _renderMedicineMemberChips();
+            toast("Added ✅", "success");
+          } else toast("Failed", "error");
+        });
+        addRow.appendChild(newNameInp); addRow.appendChild(ageSel2); addRow.appendChild(addBtn2);
+        sheet.appendChild(addRow);
+
+        const doneBtn = document.createElement("button");
+        doneBtn.type = "button"; doneBtn.textContent = "Done";
+        doneBtn.style.cssText = "width:100%;padding:13px;border-radius:10px;border:none;background:var(--surface2,#2c2c2e);color:#fff;font-size:1rem;font-weight:500;cursor:pointer";
+        doneBtn.addEventListener("click", function() {
+          sheet.style.transform = "translateY(100%)";
+          setTimeout(function() { back.remove(); }, 200);
+        });
+        sheet.appendChild(doneBtn);
+        back.appendChild(sheet);
+        document.body.appendChild(back);
+        requestAnimationFrame(function() { sheet.style.transform = "translateY(0)"; });
+        back.addEventListener("click", function(e) {
+          if (e.target === back) { sheet.style.transform = "translateY(100%)"; setTimeout(function() { back.remove(); }, 200); }
         });
       }
 
