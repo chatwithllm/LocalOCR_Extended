@@ -22949,7 +22949,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             // Use <label> wrapping file input — direct user gesture, works on iOS Safari
             const fileInputId = "med-barcode-file-" + Date.now();
             const fileInput = document.createElement("input");
-            fileInput.type = "file"; fileInput.accept = "image/*";
+            fileInput.type = "file"; fileInput.accept = ".jpg,.jpeg,.png,.webp,.heic";
             fileInput.id = fileInputId;
             fileInput.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none";
 
