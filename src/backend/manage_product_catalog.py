@@ -126,6 +126,27 @@ def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
         .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
         .first()
     )
+    if snapshot is None:
+        # Fall back to a sibling product with the same canonical name (any category).
+        product = session.query(Product).filter_by(id=product_id).first()
+        if product:
+            canonical_name, _ = canonicalize_product_identity(product.name)
+            sibling_ids = [
+                row.id
+                for row in session.query(Product.id)
+                .filter(
+                    Product.id != product_id,
+                    func.lower(func.coalesce(Product.display_name, Product.name)) == canonical_name.lower(),
+                )
+                .all()
+            ]
+            if sibling_ids:
+                snapshot = (
+                    session.query(ProductSnapshot)
+                    .filter(ProductSnapshot.product_id.in_(sibling_ids))
+                    .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+                    .first()
+                )
     if not snapshot:
         return None
     return {

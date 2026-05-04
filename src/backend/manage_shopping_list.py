@@ -260,6 +260,30 @@ def _latest_snapshot_for_item(session, item: ShoppingListItem) -> dict | None:
         .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
         .first()
     )
+    if snapshot is None and item.product_id:
+        # Try the linked product directly.
+        snapshot = (
+            session.query(ProductSnapshot)
+            .filter(ProductSnapshot.product_id == item.product_id)
+            .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+            .first()
+        )
+    if snapshot is None:
+        # Fall back to same-canonical-name sibling products (e.g. same item, different category record).
+        canonical_name, _ = canonicalize_product_identity(item.name)
+        exclude_ids = [item.product_id] if item.product_id else []
+        filter_clause = func.lower(func.coalesce(Product.display_name, Product.name)) == canonical_name.lower()
+        q = session.query(Product.id).filter(filter_clause)
+        if exclude_ids:
+            q = q.filter(Product.id.notin_(exclude_ids))
+        sibling_ids = [row.id for row in q.all()]
+        if sibling_ids:
+            snapshot = (
+                session.query(ProductSnapshot)
+                .filter(ProductSnapshot.product_id.in_(sibling_ids))
+                .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+                .first()
+            )
     if not snapshot:
         return None
 

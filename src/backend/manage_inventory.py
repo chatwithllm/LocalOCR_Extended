@@ -90,6 +90,8 @@ def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
         .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
         .first()
     )
+    if snapshot is None:
+        snapshot = _latest_snapshot_for_name_siblings(session, product_id)
     if not snapshot:
         return None
     return {
@@ -97,6 +99,32 @@ def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
         "image_url": f"/product-snapshots/{snapshot.id}/image",
         "created_at": snapshot.created_at.isoformat() if snapshot.created_at else None,
     }
+
+
+def _latest_snapshot_for_name_siblings(session, product_id: int) -> ProductSnapshot | None:
+    """Return the most recent snapshot from any product sharing the same canonical name."""
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return None
+    canonical_name, _ = canonicalize_product_identity(product.name)
+    # Find sibling product IDs with the same canonical name (any category).
+    siblings = (
+        session.query(Product.id)
+        .filter(
+            Product.id != product_id,
+            func.lower(func.coalesce(Product.display_name, Product.name)) == canonical_name.lower(),
+        )
+        .all()
+    )
+    sibling_ids = [row.id for row in siblings]
+    if not sibling_ids:
+        return None
+    return (
+        session.query(ProductSnapshot)
+        .filter(ProductSnapshot.product_id.in_(sibling_ids))
+        .order_by(ProductSnapshot.created_at.desc(), ProductSnapshot.id.desc())
+        .first()
+    )
 
 
 @inventory_bp.route("", methods=["GET"])
