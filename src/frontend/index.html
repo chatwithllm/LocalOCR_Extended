@@ -383,6 +383,83 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
      through if a tile is rendered momentarily before media query kicks in. */
   .inv-swipe-bg { display: none; }
 }
+
+/* Card Usage panel (Accounts page — Panel 0) */
+.card-usage-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.card-usage-summary .stat {
+  background: var(--surface2, #2c2c2e);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.card-usage-summary .stat-label {
+  font-size: 0.78rem;
+  color: var(--muted, #888);
+  margin-bottom: 4px;
+}
+.card-usage-summary .stat-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.card-usage-banner {
+  background: var(--warn-bg, #3a2a18);
+  color: var(--warn-fg, #f0c060);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+.card-usage-group { margin-top: 12px; }
+.card-usage-group h3 {
+  font-size: 0.92rem;
+  color: var(--muted, #888);
+  margin: 12px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.card-usage-row {
+  background: var(--surface2, #2c2c2e);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.card-usage-row .row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.card-usage-row .row-name { font-weight: 600; }
+.card-usage-row .row-util { font-variant-numeric: tabular-nums; }
+.card-usage-row .util-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface, #1c1c1e);
+  overflow: hidden;
+  margin: 6px 0 8px;
+}
+.card-usage-row .util-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.util-good { background: #34c759; color: #34c759; }
+.util-warn { background: #ff9f0a; color: #ff9f0a; }
+.util-bad  { background: #ff453a; color: #ff453a; }
+.card-usage-row .row-meta {
+  font-size: 0.84rem;
+  color: var(--muted, #888);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
     </style>
   </head>
 
@@ -3126,6 +3203,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <p id="accounts-subtitle">Connected banks, recent transactions, and spending trends.</p>
             </div>
           </div>
+
+          <!-- Panel 0 — Card Usage -->
+          <div class="card" id="card-usage-card">
+            <div class="card-header accounts-card-header">
+              <span class="card-title">📊 Card Usage</span>
+              <div class="accounts-toolbar">
+                <button
+                  class="btn btn-ghost btn-sm"
+                  id="card-usage-refresh-btn"
+                  onclick="refreshCardUsage()"
+                  title="Refresh balances and reload"
+                >
+                  ↻ Refresh
+                </button>
+              </div>
+            </div>
+            <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
+            <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
+            <div id="card-usage-body">
+              <div class="empty-state"><p>Loading card usage…</p></div>
+            </div>
+          </div>
+          <!-- /Panel 0 -->
 
           <!-- Panel 1 — Connected Accounts -->
           <div class="card" id="accounts-connections-card">
