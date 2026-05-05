@@ -383,6 +383,83 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
      through if a tile is rendered momentarily before media query kicks in. */
   .inv-swipe-bg { display: none; }
 }
+
+/* Card Usage panel (Accounts page — Panel 0) */
+.card-usage-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.card-usage-summary .stat {
+  background: var(--surface2, #2c2c2e);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.card-usage-summary .stat-label {
+  font-size: 0.78rem;
+  color: var(--muted, #888);
+  margin-bottom: 4px;
+}
+.card-usage-summary .stat-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.card-usage-banner {
+  background: var(--warn-bg, #3a2a18);
+  color: var(--warn-fg, #f0c060);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+.card-usage-group { margin-top: 12px; }
+.card-usage-group h3 {
+  font-size: 0.92rem;
+  color: var(--muted, #888);
+  margin: 12px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.card-usage-row {
+  background: var(--surface2, #2c2c2e);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.card-usage-row .row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.card-usage-row .row-name { font-weight: 600; }
+.card-usage-row .row-util { font-variant-numeric: tabular-nums; }
+.card-usage-row .util-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface, #1c1c1e);
+  overflow: hidden;
+  margin: 6px 0 8px;
+}
+.card-usage-row .util-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.util-good { background: #34c759; color: #34c759; }
+.util-warn { background: #ff9f0a; color: #ff9f0a; }
+.util-bad  { background: #ff453a; color: #ff453a; }
+.card-usage-row .row-meta {
+  font-size: 0.84rem;
+  color: var(--muted, #888);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
     </style>
   </head>
 
@@ -3126,6 +3203,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <p id="accounts-subtitle">Connected banks, recent transactions, and spending trends.</p>
             </div>
           </div>
+
+          <!-- Panel 0 — Card Usage -->
+          <div class="card" id="card-usage-card">
+            <div class="card-header accounts-card-header">
+              <span class="card-title">📊 Card Usage</span>
+              <div class="accounts-toolbar">
+                <button
+                  class="btn btn-ghost btn-sm"
+                  id="card-usage-refresh-btn"
+                  onclick="refreshCardUsage()"
+                  title="Refresh balances and reload"
+                >
+                  ↻ Refresh
+                </button>
+              </div>
+            </div>
+            <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
+            <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
+            <div id="card-usage-body">
+              <div class="empty-state"><p>Loading card usage…</p></div>
+            </div>
+          </div>
+          <!-- /Panel 0 -->
 
           <!-- Panel 1 — Connected Accounts -->
           <div class="card" id="accounts-connections-card">
@@ -14806,6 +14906,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         accountsTxOffset = 0;
         await loadConnectedAccounts();
+        loadCardsOverview();
         // Load the rest in parallel — they don't depend on each other.
         await Promise.all([
           loadPlaidTransactionsList(),
@@ -15167,6 +15268,279 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           body.innerHTML = '<div class="empty-state"><p>Could not load bank connections.</p></div>';
           if (connectBtn) connectBtn.disabled = true;
           if (refreshBtn) refreshBtn.disabled = true;
+        }
+      }
+
+      let __cardsOverviewCache = null;
+      let __cardsOverviewAutoRefreshed = false;
+
+      function _fmtMoneyCents(cents, currency) {
+        const cur = currency || "USD";
+        const abs = Math.abs(cents || 0) / 100;
+        const fmt = abs.toLocaleString("en-US", { style: "currency", currency: cur });
+        return ((cents || 0) < 0 ? "-" : "") + fmt.replace("-", "");
+      }
+
+      function _utilClass(pct) {
+        if (pct == null) return null;
+        if (pct < 30) return "util-good";
+        if (pct < 70) return "util-warn";
+        return "util-bad";
+      }
+
+      function _relativeTime(iso) {
+        if (!iso) return "—";
+        const t = new Date(iso).getTime();
+        const dt = (Date.now() - t) / 1000;
+        if (dt < 60) return "just now";
+        if (dt < 3600) return Math.floor(dt / 60) + " min ago";
+        if (dt < 86400) return Math.floor(dt / 3600) + " hr ago";
+        return Math.floor(dt / 86400) + " d ago";
+      }
+
+      async function loadCardsOverview() {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        const banner = document.getElementById("card-usage-banner");
+        if (!body) return;
+        body.replaceChildren();
+        summary.replaceChildren();
+        banner.replaceChildren();
+        summary.style.display = "none";
+        banner.style.display = "none";
+        const loading = document.createElement("div");
+        loading.className = "empty-state";
+        const lp = document.createElement("p");
+        lp.textContent = "Loading card usage…";
+        loading.appendChild(lp);
+        body.appendChild(loading);
+
+        try {
+          const res = await api("/plaid/cards-overview");
+          if (!res.ok) {
+            _renderCardUsageEmpty("Card usage unavailable.");
+            return;
+          }
+          const data = await res.json();
+          __cardsOverviewCache = data;
+          renderCardsOverview(data);
+          if (typeof _cardsOverviewAutoRefresh === "function") {
+            _cardsOverviewAutoRefresh(data);
+          }
+        } catch (e) {
+          _renderCardUsageEmpty("Failed to load card usage.");
+        }
+      }
+
+      function _renderCardUsageEmpty(msg) {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        body.replaceChildren();
+        summary.style.display = "none";
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        const p = document.createElement("p");
+        p.textContent = msg;
+        empty.appendChild(p);
+        body.appendChild(empty);
+      }
+
+      function _stat(label, value, klass) {
+        const wrap = document.createElement("div");
+        wrap.className = "stat";
+        const l = document.createElement("div");
+        l.className = "stat-label";
+        l.textContent = label;
+        const v = document.createElement("div");
+        v.className = "stat-value";
+        if (klass) v.classList.add(klass);
+        v.textContent = value;
+        wrap.appendChild(l);
+        wrap.appendChild(v);
+        return wrap;
+      }
+
+      function renderCardsOverview(data) {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        const banner = document.getElementById("card-usage-banner");
+        body.replaceChildren();
+        summary.replaceChildren();
+        banner.replaceChildren();
+        summary.style.display = "none";
+        banner.style.display = "none";
+
+        if (!data.groups || data.groups.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          const p1 = document.createElement("p");
+          p1.textContent = "No linked credit cards or loans yet.";
+          const p2 = document.createElement("p");
+          p2.style.marginTop = "8px";
+          const a = document.createElement("a");
+          a.href = "#";
+          a.textContent = "Link via Plaid below.";
+          a.addEventListener("click", function (e) {
+            e.preventDefault();
+            const btn = document.getElementById("accounts-connect-btn");
+            if (btn) btn.click();
+          });
+          p2.appendChild(a);
+          empty.appendChild(p1);
+          empty.appendChild(p2);
+          body.appendChild(empty);
+          return;
+        }
+
+        // Summary
+        const t = data.totals || {};
+        const utilTxt = t.overall_utilization_pct == null ? "—" : t.overall_utilization_pct.toFixed(1) + "%";
+        summary.style.display = "grid";
+        summary.appendChild(_stat("Total credit balance", _fmtMoneyCents(t.credit_balance_cents || 0, "USD")));
+        summary.appendChild(_stat("Total credit limit", _fmtMoneyCents(t.credit_limit_cents || 0, "USD")));
+        summary.appendChild(_stat("Overall utilization", utilTxt, _utilClass(t.overall_utilization_pct)));
+        summary.appendChild(_stat("Credit spend (this month)", _fmtMoneyCents(t.credit_spend_mtd_cents || 0, "USD")));
+
+        // Cross-currency note (per-account currency field is `balance_currency`)
+        const hasNonUsd = data.groups.some(g => g.accounts.some(a => (a.balance_currency || "USD") !== "USD"));
+        if (hasNonUsd) {
+          banner.style.display = "block";
+          banner.textContent = "Some accounts use a non-USD currency and are excluded from totals.";
+        }
+
+        data.groups.forEach(group => {
+          const wrap = document.createElement("div");
+          wrap.className = "card-usage-group";
+          const h = document.createElement("h3");
+          h.textContent = group.label;
+          wrap.appendChild(h);
+
+          const isCredit = group.type === "credit_card";
+          group.accounts.forEach(a => {
+            wrap.appendChild(_renderCardRow(a, isCredit));
+          });
+          body.appendChild(wrap);
+        });
+      }
+
+      function _renderCardRow(a, isCredit) {
+        const row = document.createElement("div");
+        row.className = "card-usage-row";
+        row.addEventListener("click", function () { _drillIntoAccount(a.plaid_account_id); });
+
+        const head = document.createElement("div");
+        head.className = "row-head";
+
+        const name = document.createElement("span");
+        name.className = "row-name";
+        const prefix = isCredit ? "💳 " : "🏦 ";
+        name.textContent = prefix + (a.name || "Account") + " ····" + (a.mask || "");
+        head.appendChild(name);
+
+        const util = document.createElement("span");
+        util.className = "row-util";
+        const utilClass = _utilClass(a.utilization_pct);
+        if (isCredit) {
+          if (utilClass) util.classList.add(utilClass);
+          const balanceTxt = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+          const limitTxt = a.credit_limit_cents == null ? "—" : _fmtMoneyCents(a.credit_limit_cents, a.balance_currency);
+          const utilTxt = a.utilization_pct == null ? "—" : a.utilization_pct.toFixed(1) + "%";
+          util.textContent = balanceTxt + " / " + limitTxt + " · " + utilTxt;
+        } else {
+          util.textContent = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+        }
+        head.appendChild(util);
+
+        row.appendChild(head);
+
+        if (isCredit) {
+          const bar = document.createElement("div");
+          bar.className = "util-bar";
+          const fill = document.createElement("span");
+          if (utilClass) fill.classList.add(utilClass);
+          const w = a.utilization_pct == null ? 0 : Math.min(100, a.utilization_pct);
+          fill.style.width = w + "%";
+          bar.appendChild(fill);
+          row.appendChild(bar);
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "row-meta";
+
+        const spendCents = a.spend_mtd_cents || 0;
+        const spendSpan = document.createElement("span");
+        spendSpan.textContent = "This month: " + _fmtMoneyCents(spendCents, a.balance_currency) +
+          (spendCents < 0 ? " (net refund)" : "") +
+          " · " + (a.txn_count_mtd || 0) + " txns";
+        meta.appendChild(spendSpan);
+
+        if (a.available_credit_cents != null) {
+          const avail = document.createElement("span");
+          avail.textContent = "Available: " + _fmtMoneyCents(a.available_credit_cents, a.balance_currency);
+          meta.appendChild(avail);
+        }
+
+        const updated = document.createElement("span");
+        updated.textContent = a.balance_updated_at
+          ? "Updated " + _relativeTime(a.balance_updated_at)
+          : "Not refreshed yet";
+        meta.appendChild(updated);
+
+        row.appendChild(meta);
+        return row;
+      }
+
+      function _drillIntoAccount(plaidAccountId) {
+        const txnSection = document.getElementById("accounts-staged-card") ||
+                           document.getElementById("accounts-transactions-card");
+        if (txnSection) txnSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      async function refreshCardUsage() {
+        const btn = document.getElementById("card-usage-refresh-btn");
+        if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
+        try {
+          const res = await api("/plaid/accounts/refresh-balances", { method: "POST" });
+          if (res.status === 429) {
+            const data = await res.json().catch(function () { return {}; });
+            const sec = data.retry_after_seconds || 60;
+            toast("Refreshed recently. Try again in " + sec + "s.", "info");
+          } else if (!res.ok) {
+            toast("Refresh failed. Cached data shown.", "error");
+          }
+        } catch (e) {
+          toast("Refresh failed.", "error");
+        }
+        await loadCardsOverview();
+        if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh"; }
+      }
+
+      function _cardsOverviewAutoRefresh(data) {
+        if (__cardsOverviewAutoRefreshed) return;
+        if (!data.groups || data.groups.length === 0) return;
+
+        let newest = 0;
+        data.groups.forEach(function (g) {
+          g.accounts.forEach(function (a) {
+            if (a.balance_updated_at) {
+              const t = new Date(a.balance_updated_at).getTime();
+              if (t > newest) newest = t;
+            }
+          });
+        });
+        if (newest === 0) return;
+
+        const ageMs = Date.now() - newest;
+        if (ageMs > 60 * 60 * 1000) {
+          __cardsOverviewAutoRefreshed = true;
+          refreshCardUsage();
+        }
+        if (ageMs > 24 * 60 * 60 * 1000) {
+          const banner = document.getElementById("card-usage-banner");
+          if (banner) {
+            banner.style.display = "block";
+            banner.textContent = "Balances may be outdated. Tap Refresh.";
+          }
         }
       }
 
