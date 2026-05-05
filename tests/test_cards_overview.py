@@ -260,3 +260,108 @@ def test_serialize_plaid_account_includes_credit_fields():
     out = _serialize_plaid_account(acct)
     assert out["credit_limit_cents"] == 500000
     assert out["available_credit_cents"] == 375700
+
+
+# ---------------------------------------------------------------------------
+# GET /plaid/cards-overview — populated case (credit card with limit + MTD spend)
+# ---------------------------------------------------------------------------
+
+def _seed_plaid_item_simple(session, user_id, item_token="item_pop", inst_id="ins_pop"):
+    """Seed a fresh Plaid item for a populated test."""
+    from src.backend.initialize_database_schema import PlaidItem
+    item = PlaidItem(
+        user_id=user_id,
+        plaid_item_id=item_token,
+        institution_id=inst_id,
+        institution_name="Test Bank",
+        access_token_encrypted="ENC",
+        accounts_json="[]",
+        status="active",
+    )
+    session.add(item)
+    session.commit()
+    return item
+
+
+def _seed_credit_account(session, user_id, item_id, plaid_account_id="cc_1",
+                         balance_cents=124300, limit_cents=500000, avail_cents=375700):
+    from datetime import datetime as _dt
+    from src.backend.initialize_database_schema import PlaidAccount
+    acct = PlaidAccount(
+        plaid_item_id=item_id,
+        user_id=user_id,
+        plaid_account_id=plaid_account_id,
+        account_name="Sapphire",
+        account_mask="4521",
+        account_type="credit",
+        account_subtype="credit card",
+        balance_cents=balance_cents,
+        credit_limit_cents=limit_cents,
+        available_credit_cents=avail_cents,
+        balance_iso_currency_code="USD",
+        balance_updated_at=_dt.utcnow(),
+    )
+    session.add(acct)
+    session.commit()
+    return acct
+
+
+def _seed_staged(session, *, user_id, plaid_item_id, plaid_account_id, amount, date_str,
+                 status="ready_to_import", txn_id=None):
+    from datetime import date as date_cls
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+    txn = PlaidStagedTransaction(
+        plaid_item_id=plaid_item_id,
+        user_id=user_id,
+        plaid_transaction_id=txn_id or f"txn_{plaid_account_id}_{amount}_{date_str}",
+        plaid_account_id=plaid_account_id,
+        amount=amount,
+        transaction_date=date_cls.fromisoformat(date_str),
+        status=status,
+        raw_json="{}",
+    )
+    session.add(txn)
+    session.commit()
+    return txn
+
+
+def test_cards_overview_credit_card_with_limit(app):
+    """Credit card with limit: util%, MTD spend net of refunds, debit-only count."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="cc_pop@test.local", name="CC Pop")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id)
+        _seed_credit_account(session, user_id, item.id)
+
+        today_iso = date_cls.today().isoformat()  # guaranteed in MTD
+        _seed_staged(session, user_id=user_id, plaid_item_id=item.id,
+                     plaid_account_id="cc_1", amount=200.00, date_str=today_iso, txn_id="t1")
+        _seed_staged(session, user_id=user_id, plaid_item_id=item.id,
+                     plaid_account_id="cc_1", amount=250.00, date_str=today_iso, txn_id="t2")
+        _seed_staged(session, user_id=user_id, plaid_item_id=item.id,
+                     plaid_account_id="cc_1", amount=-37.50, date_str=today_iso, txn_id="t3")  # refund
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+
+    month_start = date_cls.today().replace(day=1).isoformat()
+    assert body["month_start"] == month_start
+    assert len(body["groups"]) == 1
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["balance_cents"] == 124300
+    assert cc["credit_limit_cents"] == 500000
+    assert cc["utilization_pct"] == 24.86
+    assert cc["spend_mtd_cents"] == 41250  # (200 + 250 - 37.50) × 100
+    assert cc["txn_count_mtd"] == 2  # refund excluded
+
+    assert body["totals"]["credit_balance_cents"] == 124300
+    assert body["totals"]["credit_limit_cents"] == 500000
+    assert body["totals"]["overall_utilization_pct"] == 24.86
+    assert body["totals"]["credit_spend_mtd_cents"] == 41250
