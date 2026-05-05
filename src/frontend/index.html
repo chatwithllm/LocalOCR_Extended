@@ -22841,7 +22841,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
           // Sheet: fixed frame at bottom, never grows beyond viewport
           const sheet = document.createElement("div");
-          sheet.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;height:90vh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);box-sizing:border-box;z-index:3001";
+          sheet.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;background:var(--surface,#1c1c1e);color:var(--text,#fff);border-radius:16px 16px 0 0;width:100%;height:88vh;height:88dvh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,0.5);transform:translateY(100%);transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);box-sizing:border-box;z-index:3001";
           // Sticky header: handle + title + scan buttons
           const sheetHeader = document.createElement("div");
           sheetHeader.style.cssText = "flex-shrink:0;padding:14px 16px 0";
@@ -23067,10 +23067,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
           back.appendChild(sheet);
           document.body.appendChild(back);
-          requestAnimationFrame(function() { sheet.style.transform = "translateY(0)"; });
+          // Lock body scroll while sheet open (prevents iOS URL-bar reflow shifting fixed sheet off-screen)
+          const __prevBodyOverflow = document.body.style.overflow;
+          document.body.style.overflow = "hidden";
+          requestAnimationFrame(function() {
+            sheet.style.transform = "translateY(0)";
+            // Force scroll body to top so header (with scan buttons) is always visible on open
+            scrollBody.scrollTop = 0;
+          });
 
           function close(v) {
             if (scanner) { scanner.stop().catch(function(){}); scanner = null; }
+            document.body.style.overflow = __prevBodyOverflow;
             sheet.style.transform = "translateY(100%)";
             setTimeout(function() { back.remove(); resolve(v); }, 200);
           }
