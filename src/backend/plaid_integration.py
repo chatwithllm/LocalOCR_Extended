@@ -1782,7 +1782,7 @@ def cards_overview():
     Includes accounts where `account_type` is `credit` or `loan`. Depository
     and investment accounts are excluded.
     """
-    from datetime import datetime, timezone
+    from datetime import timezone
     from sqlalchemy import case, func
 
     user_id = _current_user_id()
@@ -1796,30 +1796,33 @@ def cards_overview():
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     accounts_q = session.query(PlaidAccount).filter(
-        PlaidAccount.user_id == user_id,
         PlaidAccount.account_type.in_(("credit", "loan")),
     )
     if visible_ids is not None:
-        if not visible_ids:
-            accounts = []
-        else:
-            accounts = accounts_q.filter(PlaidAccount.plaid_item_id.in_(visible_ids)).all()
-    else:
-        accounts = accounts_q.all()
+        accounts_q = (
+            accounts_q.filter(PlaidAccount.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else accounts_q.filter(sa_false())
+        )
+    accounts = accounts_q.all()
 
     # MTD spend per plaid_account_id
-    spend_rows = (
+    spend_q = (
         session.query(
             PlaidStagedTransaction.plaid_account_id,
             func.sum(PlaidStagedTransaction.amount).label("net_amount"),
             func.sum(case((PlaidStagedTransaction.amount > 0, 1), else_=0)).label("debit_count"),
         )
-        .filter(PlaidStagedTransaction.user_id == user_id)
         .filter(PlaidStagedTransaction.transaction_date >= month_start.date())
         .filter(PlaidStagedTransaction.status != "dismissed")
-        .group_by(PlaidStagedTransaction.plaid_account_id)
-        .all()
     )
+    if visible_ids is not None:
+        spend_q = (
+            spend_q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+            if visible_ids
+            else spend_q.filter(sa_false())
+        )
+    spend_rows = spend_q.group_by(PlaidStagedTransaction.plaid_account_id).all()
     spend_map = {
         r.plaid_account_id: {
             "spend_mtd_cents": int(round(float(r.net_amount or 0) * 100)),
@@ -1843,8 +1846,6 @@ def cards_overview():
         else:
             base["utilization_pct"] = None
 
-        base["currency"] = a.balance_iso_currency_code
-
         if a.account_type == "credit":
             credit_rows.append(base)
         else:
@@ -1860,8 +1861,8 @@ def cards_overview():
         groups.append({"type": "loan", "label": "Loans", "accounts": loan_rows})
 
     # Totals — USD only, only accounts with non-null limit contribute to limit/util
-    usd_credit = [r for r in credit_rows if (r["currency"] or "USD") == "USD"]
-    usd_loan = [r for r in loan_rows if (r["currency"] or "USD") == "USD"]
+    usd_credit = [r for r in credit_rows if (r["balance_currency"] or "USD") == "USD"]
+    usd_loan = [r for r in loan_rows if (r["balance_currency"] or "USD") == "USD"]
 
     credit_balance_cents = sum((r["balance_cents"] or 0) for r in usd_credit)
     credit_limit_cents = sum((r["credit_limit_cents"] or 0) for r in usd_credit if r["credit_limit_cents"])
