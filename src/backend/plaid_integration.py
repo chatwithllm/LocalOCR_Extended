@@ -1710,13 +1710,21 @@ def refresh_balances():
                 continue
             balances = plaid_acct.get("balances") or {}
             current = balances.get("current")
+            limit = balances.get("limit")
+            available = balances.get("available")
             currency = balances.get("iso_currency_code") or "USD"
-            balance_cents = None
-            if current is not None:
+
+            def _to_cents(v):
+                if v is None:
+                    return None
                 try:
-                    balance_cents = int(round(float(current) * 100))
+                    return int(round(float(v) * 100))
                 except (TypeError, ValueError):
-                    balance_cents = None
+                    return None
+
+            balance_cents = _to_cents(current)
+            credit_limit_cents = _to_cents(limit)
+            available_credit_cents = _to_cents(available)
 
             row = (
                 session.query(PlaidAccount)
@@ -1740,6 +1748,8 @@ def refresh_balances():
                 )
                 session.add(row)
             row.balance_cents = balance_cents
+            row.credit_limit_cents = credit_limit_cents
+            row.available_credit_cents = available_credit_cents
             row.balance_iso_currency_code = currency
             row.balance_updated_at = now
         refreshed_items += 1
