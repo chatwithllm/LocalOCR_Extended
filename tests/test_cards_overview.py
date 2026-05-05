@@ -161,6 +161,82 @@ def test_refresh_balances_persists_limit_and_available(app, credit_card_seed):
         session.close()
 
 
+# ---------------------------------------------------------------------------
+# GET /plaid/cards-overview — empty case
+# ---------------------------------------------------------------------------
+
+def _make_user(app, *, email: str, name: str = "Empty"):
+    """Create a fresh User with no Plaid items. Returns the user id."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    with app.app_context():
+        _, SF = _get_db()
+        session = SF()
+        try:
+            user = User(
+                name=name,
+                email=email,
+                role="user",
+                is_active=1,
+                password_hash="x",
+                session_version=0,
+            )
+            session.add(user)
+            session.commit()
+            return user.id
+        finally:
+            session.close()
+
+
+def _invoke_cards_overview(app, user_id):
+    """Unwrap auth decorators and GET /plaid/cards-overview."""
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        with app.test_request_context(
+            "/plaid/cards-overview", method="GET"
+        ):
+            g.current_user = user
+            g.db_session = session
+            endpoint, args = app.url_map.bind("").match(
+                "/plaid/cards-overview", method="GET"
+            )
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            rv = fn(**args)
+            if isinstance(rv, tuple):
+                body = rv[0].get_json() if hasattr(rv[0], "get_json") else None
+                return rv[1], body
+            return 200, rv.get_json() if hasattr(rv, "get_json") else rv
+    finally:
+        session.close()
+
+
+def test_cards_overview_empty(app):
+    """User with no Plaid items returns 200 with empty groups + zeroed totals."""
+    user_id = _make_user(app, email="cards_empty@test.local", name="EmptyCards")
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+    assert isinstance(body.get("as_of"), str)
+    assert isinstance(body.get("month_start"), str)
+    assert body["groups"] == []
+    assert body["totals"] == {
+        "credit_balance_cents": 0,
+        "credit_limit_cents": 0,
+        "overall_utilization_pct": None,
+        "credit_spend_mtd_cents": 0,
+        "loan_balance_cents": 0,
+    }
+
+
 def test_serialize_plaid_account_includes_credit_fields():
     """Account serializer must surface credit limit and available credit."""
     from src.backend.initialize_database_schema import PlaidAccount

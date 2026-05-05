@@ -1770,6 +1770,122 @@ def refresh_balances():
     }), 200
 
 
+@plaid_bp.route("/cards-overview", methods=["GET"])
+@require_auth
+def cards_overview():
+    """Card-usage view: balance, credit limit, utilization %, MTD spend per card.
+
+    Read-only. No throttle. Sources data exclusively from the
+    `plaid_accounts` cache and `plaid_staged_transactions`. Use
+    `POST /plaid/accounts/refresh-balances` to refresh balances first.
+
+    Includes accounts where `account_type` is `credit` or `loan`. Depository
+    and investment accounts are excluded.
+    """
+    from datetime import datetime, timezone
+    from sqlalchemy import case, func
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    session = g.db_session
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    accounts_q = session.query(PlaidAccount).filter(
+        PlaidAccount.user_id == user_id,
+        PlaidAccount.account_type.in_(("credit", "loan")),
+    )
+    if visible_ids is not None:
+        if not visible_ids:
+            accounts = []
+        else:
+            accounts = accounts_q.filter(PlaidAccount.plaid_item_id.in_(visible_ids)).all()
+    else:
+        accounts = accounts_q.all()
+
+    # MTD spend per plaid_account_id
+    spend_rows = (
+        session.query(
+            PlaidStagedTransaction.plaid_account_id,
+            func.sum(PlaidStagedTransaction.amount).label("net_amount"),
+            func.sum(case((PlaidStagedTransaction.amount > 0, 1), else_=0)).label("debit_count"),
+        )
+        .filter(PlaidStagedTransaction.user_id == user_id)
+        .filter(PlaidStagedTransaction.transaction_date >= month_start.date())
+        .filter(PlaidStagedTransaction.status != "dismissed")
+        .group_by(PlaidStagedTransaction.plaid_account_id)
+        .all()
+    )
+    spend_map = {
+        r.plaid_account_id: {
+            "spend_mtd_cents": int(round(float(r.net_amount or 0) * 100)),
+            "txn_count_mtd": int(r.debit_count or 0),
+        }
+        for r in spend_rows
+    }
+
+    credit_rows = []
+    loan_rows = []
+    for a in accounts:
+        base = _serialize_plaid_account(a)
+        bucket = spend_map.get(a.plaid_account_id, {"spend_mtd_cents": 0, "txn_count_mtd": 0})
+        base["spend_mtd_cents"] = bucket["spend_mtd_cents"]
+        base["txn_count_mtd"] = bucket["txn_count_mtd"]
+
+        limit = a.credit_limit_cents
+        balance = a.balance_cents
+        if a.account_type == "credit" and limit and limit > 0 and balance is not None:
+            base["utilization_pct"] = round(balance / limit * 100, 2)
+        else:
+            base["utilization_pct"] = None
+
+        base["currency"] = a.balance_iso_currency_code
+
+        if a.account_type == "credit":
+            credit_rows.append(base)
+        else:
+            loan_rows.append(base)
+
+    credit_rows.sort(key=lambda r: r["utilization_pct"] if r["utilization_pct"] is not None else -1, reverse=True)
+    loan_rows.sort(key=lambda r: r["balance_cents"] or 0, reverse=True)
+
+    groups = []
+    if credit_rows:
+        groups.append({"type": "credit_card", "label": "Credit Cards", "accounts": credit_rows})
+    if loan_rows:
+        groups.append({"type": "loan", "label": "Loans", "accounts": loan_rows})
+
+    # Totals — USD only, only accounts with non-null limit contribute to limit/util
+    usd_credit = [r for r in credit_rows if (r["currency"] or "USD") == "USD"]
+    usd_loan = [r for r in loan_rows if (r["currency"] or "USD") == "USD"]
+
+    credit_balance_cents = sum((r["balance_cents"] or 0) for r in usd_credit)
+    credit_limit_cents = sum((r["credit_limit_cents"] or 0) for r in usd_credit if r["credit_limit_cents"])
+    credit_spend_mtd_cents = sum((r["spend_mtd_cents"] or 0) for r in usd_credit)
+    loan_balance_cents = sum((r["balance_cents"] or 0) for r in usd_loan)
+
+    overall_util = None
+    if credit_limit_cents > 0:
+        overall_util = round(credit_balance_cents / credit_limit_cents * 100, 2)
+
+    return jsonify({
+        "as_of": now.replace(tzinfo=None).isoformat() + "Z",
+        "month_start": month_start.date().isoformat(),
+        "groups": groups,
+        "totals": {
+            "credit_balance_cents": credit_balance_cents,
+            "credit_limit_cents": credit_limit_cents,
+            "overall_utilization_pct": overall_util,
+            "credit_spend_mtd_cents": credit_spend_mtd_cents,
+            "loan_balance_cents": loan_balance_cents,
+        },
+    }), 200
+
+
 @plaid_bp.route("/transaction-breakdown", methods=["GET"])
 @require_auth
 def transaction_breakdown():
