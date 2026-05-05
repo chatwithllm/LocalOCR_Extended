@@ -14906,6 +14906,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         accountsTxOffset = 0;
         await loadConnectedAccounts();
+        loadCardsOverview();
         // Load the rest in parallel — they don't depend on each other.
         await Promise.all([
           loadPlaidTransactionsList(),
@@ -15268,6 +15269,231 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           if (connectBtn) connectBtn.disabled = true;
           if (refreshBtn) refreshBtn.disabled = true;
         }
+      }
+
+      let __cardsOverviewCache = null;
+      let __cardsOverviewAutoRefreshed = false;
+
+      function _fmtMoneyCents(cents, currency) {
+        const cur = currency || "USD";
+        const abs = Math.abs(cents || 0) / 100;
+        const fmt = abs.toLocaleString("en-US", { style: "currency", currency: cur });
+        return ((cents || 0) < 0 ? "-" : "") + fmt.replace("-", "");
+      }
+
+      function _utilClass(pct) {
+        if (pct == null) return null;
+        if (pct < 30) return "util-good";
+        if (pct < 70) return "util-warn";
+        return "util-bad";
+      }
+
+      function _relativeTime(iso) {
+        if (!iso) return "—";
+        const t = new Date(iso).getTime();
+        const dt = (Date.now() - t) / 1000;
+        if (dt < 60) return "just now";
+        if (dt < 3600) return Math.floor(dt / 60) + " min ago";
+        if (dt < 86400) return Math.floor(dt / 3600) + " hr ago";
+        return Math.floor(dt / 86400) + " d ago";
+      }
+
+      async function loadCardsOverview() {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        const banner = document.getElementById("card-usage-banner");
+        if (!body) return;
+        body.replaceChildren();
+        summary.replaceChildren();
+        banner.replaceChildren();
+        summary.style.display = "none";
+        banner.style.display = "none";
+        const loading = document.createElement("div");
+        loading.className = "empty-state";
+        const lp = document.createElement("p");
+        lp.textContent = "Loading card usage…";
+        loading.appendChild(lp);
+        body.appendChild(loading);
+
+        try {
+          const res = await api("/plaid/cards-overview");
+          if (!res.ok) {
+            _renderCardUsageEmpty("Card usage unavailable.");
+            return;
+          }
+          const data = await res.json();
+          __cardsOverviewCache = data;
+          renderCardsOverview(data);
+          if (typeof _cardsOverviewAutoRefresh === "function") {
+            _cardsOverviewAutoRefresh(data);
+          }
+        } catch (e) {
+          _renderCardUsageEmpty("Failed to load card usage.");
+        }
+      }
+
+      function _renderCardUsageEmpty(msg) {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        body.replaceChildren();
+        summary.style.display = "none";
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        const p = document.createElement("p");
+        p.textContent = msg;
+        empty.appendChild(p);
+        body.appendChild(empty);
+      }
+
+      function _stat(label, value, klass) {
+        const wrap = document.createElement("div");
+        wrap.className = "stat";
+        const l = document.createElement("div");
+        l.className = "stat-label";
+        l.textContent = label;
+        const v = document.createElement("div");
+        v.className = "stat-value";
+        if (klass) v.classList.add(klass);
+        v.textContent = value;
+        wrap.appendChild(l);
+        wrap.appendChild(v);
+        return wrap;
+      }
+
+      function renderCardsOverview(data) {
+        const body = document.getElementById("card-usage-body");
+        const summary = document.getElementById("card-usage-summary");
+        const banner = document.getElementById("card-usage-banner");
+        body.replaceChildren();
+        summary.replaceChildren();
+        banner.replaceChildren();
+        summary.style.display = "none";
+        banner.style.display = "none";
+
+        if (!data.groups || data.groups.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          const p1 = document.createElement("p");
+          p1.textContent = "No linked credit cards or loans yet.";
+          const p2 = document.createElement("p");
+          p2.style.marginTop = "8px";
+          const a = document.createElement("a");
+          a.href = "#";
+          a.textContent = "Link via Plaid below.";
+          a.addEventListener("click", function (e) {
+            e.preventDefault();
+            const btn = document.getElementById("accounts-connect-btn");
+            if (btn) btn.click();
+          });
+          p2.appendChild(a);
+          empty.appendChild(p1);
+          empty.appendChild(p2);
+          body.appendChild(empty);
+          return;
+        }
+
+        // Summary
+        const t = data.totals || {};
+        const utilTxt = t.overall_utilization_pct == null ? "—" : t.overall_utilization_pct.toFixed(1) + "%";
+        summary.style.display = "grid";
+        summary.appendChild(_stat("Total credit balance", _fmtMoneyCents(t.credit_balance_cents || 0, "USD")));
+        summary.appendChild(_stat("Total credit limit", _fmtMoneyCents(t.credit_limit_cents || 0, "USD")));
+        summary.appendChild(_stat("Overall utilization", utilTxt, _utilClass(t.overall_utilization_pct)));
+        summary.appendChild(_stat("Credit spend (this month)", _fmtMoneyCents(t.credit_spend_mtd_cents || 0, "USD")));
+
+        // Cross-currency note (per-account currency field is `balance_currency`)
+        const hasNonUsd = data.groups.some(g => g.accounts.some(a => (a.balance_currency || "USD") !== "USD"));
+        if (hasNonUsd) {
+          banner.style.display = "block";
+          banner.textContent = "Some accounts use a non-USD currency and are excluded from totals.";
+        }
+
+        data.groups.forEach(group => {
+          const wrap = document.createElement("div");
+          wrap.className = "card-usage-group";
+          const h = document.createElement("h3");
+          h.textContent = group.label;
+          wrap.appendChild(h);
+
+          const isCredit = group.type === "credit_card";
+          group.accounts.forEach(a => {
+            wrap.appendChild(_renderCardRow(a, isCredit));
+          });
+          body.appendChild(wrap);
+        });
+      }
+
+      function _renderCardRow(a, isCredit) {
+        const row = document.createElement("div");
+        row.className = "card-usage-row";
+        row.addEventListener("click", function () { _drillIntoAccount(a.plaid_account_id); });
+
+        const head = document.createElement("div");
+        head.className = "row-head";
+
+        const name = document.createElement("span");
+        name.className = "row-name";
+        const prefix = isCredit ? "💳 " : "🏦 ";
+        name.textContent = prefix + (a.name || "Account") + " ····" + (a.mask || "");
+        head.appendChild(name);
+
+        const util = document.createElement("span");
+        util.className = "row-util";
+        const utilClass = _utilClass(a.utilization_pct);
+        if (isCredit) {
+          if (utilClass) util.classList.add(utilClass);
+          const balanceTxt = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+          const limitTxt = a.credit_limit_cents == null ? "—" : _fmtMoneyCents(a.credit_limit_cents, a.balance_currency);
+          const utilTxt = a.utilization_pct == null ? "—" : a.utilization_pct.toFixed(1) + "%";
+          util.textContent = balanceTxt + " / " + limitTxt + " · " + utilTxt;
+        } else {
+          util.textContent = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+        }
+        head.appendChild(util);
+
+        row.appendChild(head);
+
+        if (isCredit) {
+          const bar = document.createElement("div");
+          bar.className = "util-bar";
+          const fill = document.createElement("span");
+          if (utilClass) fill.classList.add(utilClass);
+          const w = a.utilization_pct == null ? 0 : Math.min(100, a.utilization_pct);
+          fill.style.width = w + "%";
+          bar.appendChild(fill);
+          row.appendChild(bar);
+        }
+
+        const meta = document.createElement("div");
+        meta.className = "row-meta";
+
+        const spendCents = a.spend_mtd_cents || 0;
+        const spendSpan = document.createElement("span");
+        spendSpan.textContent = "This month: " + _fmtMoneyCents(spendCents, a.balance_currency) +
+          (spendCents < 0 ? " (net refund)" : "") +
+          " · " + (a.txn_count_mtd || 0) + " txns";
+        meta.appendChild(spendSpan);
+
+        if (a.available_credit_cents != null) {
+          const avail = document.createElement("span");
+          avail.textContent = "Available: " + _fmtMoneyCents(a.available_credit_cents, a.balance_currency);
+          meta.appendChild(avail);
+        }
+
+        const updated = document.createElement("span");
+        updated.textContent = a.balance_updated_at
+          ? "Updated " + _relativeTime(a.balance_updated_at)
+          : "Not refreshed yet";
+        meta.appendChild(updated);
+
+        row.appendChild(meta);
+        return row;
+      }
+
+      function _drillIntoAccount(plaidAccountId) {
+        const txnSection = document.getElementById("accounts-staged-card") ||
+                           document.getElementById("accounts-transactions-card");
+        if (txnSection) txnSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
       function renderConnectedAccountsCards(items, byItem) {
