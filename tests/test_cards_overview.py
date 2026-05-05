@@ -159,3 +159,28 @@ def test_refresh_balances_persists_limit_and_available(app, credit_card_seed):
         assert row.available_credit_cents == 375700
     finally:
         session.close()
+
+
+def test_serialize_plaid_account_includes_credit_fields():
+    """Account serializer must surface credit limit and available credit."""
+    from src.backend.initialize_database_schema import PlaidAccount
+    from src.backend.plaid_integration import _serialize_plaid_account
+
+    acct = PlaidAccount(
+        id=1,
+        plaid_item_id=1,
+        user_id=1,
+        plaid_account_id="x",
+        account_name="Sapphire",
+        account_mask="4521",
+        account_type="credit",
+        account_subtype="credit card",
+        balance_cents=124300,
+        credit_limit_cents=500000,
+        available_credit_cents=375700,
+        balance_iso_currency_code="USD",
+        balance_updated_at=None,
+    )
+    out = _serialize_plaid_account(acct)
+    assert out["credit_limit_cents"] == 500000
+    assert out["available_credit_cents"] == 375700

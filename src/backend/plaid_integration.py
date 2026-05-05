@@ -256,6 +256,8 @@ def _serialize_plaid_account(acct: PlaidAccount) -> dict:
         "type": acct.account_type,
         "subtype": acct.account_subtype,
         "balance_cents": acct.balance_cents,
+        "credit_limit_cents": acct.credit_limit_cents,
+        "available_credit_cents": acct.available_credit_cents,
         "balance_currency": acct.balance_iso_currency_code,
         "balance_updated_at": _iso_utc(acct.balance_updated_at),
     }
