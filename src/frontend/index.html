@@ -15496,6 +15496,54 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (txnSection) txnSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
+      async function refreshCardUsage() {
+        const btn = document.getElementById("card-usage-refresh-btn");
+        if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
+        try {
+          const res = await api("/plaid/accounts/refresh-balances", { method: "POST" });
+          if (res.status === 429) {
+            const data = await res.json().catch(function () { return {}; });
+            const sec = data.retry_after_seconds || 60;
+            toast("Refreshed recently. Try again in " + sec + "s.", "info");
+          } else if (!res.ok) {
+            toast("Refresh failed. Cached data shown.", "error");
+          }
+        } catch (e) {
+          toast("Refresh failed.", "error");
+        }
+        await loadCardsOverview();
+        if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh"; }
+      }
+
+      function _cardsOverviewAutoRefresh(data) {
+        if (__cardsOverviewAutoRefreshed) return;
+        if (!data.groups || data.groups.length === 0) return;
+
+        let newest = 0;
+        data.groups.forEach(function (g) {
+          g.accounts.forEach(function (a) {
+            if (a.balance_updated_at) {
+              const t = new Date(a.balance_updated_at).getTime();
+              if (t > newest) newest = t;
+            }
+          });
+        });
+        if (newest === 0) return;
+
+        const ageMs = Date.now() - newest;
+        if (ageMs > 60 * 60 * 1000) {
+          __cardsOverviewAutoRefreshed = true;
+          refreshCardUsage();
+        }
+        if (ageMs > 24 * 60 * 60 * 1000) {
+          const banner = document.getElementById("card-usage-banner");
+          if (banner) {
+            banner.style.display = "block";
+            banner.textContent = "Balances may be outdated. Tap Refresh.";
+          }
+        }
+      }
+
       function renderConnectedAccountsCards(items, byItem) {
         return `<ul class="summary-row-list">${items
           .map((item) => {
