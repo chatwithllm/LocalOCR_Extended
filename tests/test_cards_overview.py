@@ -365,3 +365,217 @@ def test_cards_overview_credit_card_with_limit(app):
     assert body["totals"]["credit_limit_cents"] == 500000
     assert body["totals"]["overall_utilization_pct"] == 24.86
     assert body["totals"]["credit_spend_mtd_cents"] == 41250
+
+
+# ---------------------------------------------------------------------------
+# Edge cases: null limit, loan, depository exclusion, scoping, MTD boundary
+# ---------------------------------------------------------------------------
+
+def test_cards_overview_credit_card_no_limit(app):
+    """Credit card with null limit: utilization_pct null, available null, still rendered."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="cc_nolim@test.local", name="CC NoLim")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(
+            session, user_id, item_token="item_nolim", inst_id="ins_nolim"
+        )
+        session.add(PlaidAccount(
+            plaid_item_id=item.id,
+            user_id=user_id,
+            plaid_account_id="cc_nolim",
+            account_name="No Limit Card",
+            account_mask="0000",
+            account_type="credit",
+            account_subtype="credit card",
+            balance_cents=10000,
+            credit_limit_cents=None,
+            available_credit_cents=None,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+    assert len(body["groups"]) == 1
+    assert body["groups"][0]["type"] == "credit_card"
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["plaid_account_id"] == "cc_nolim"
+    assert cc["utilization_pct"] is None
+    assert cc["credit_limit_cents"] is None
+    assert cc["available_credit_cents"] is None
+    assert body["totals"]["overall_utilization_pct"] is None
+
+
+def test_cards_overview_loan_excludes_util(app):
+    """Loan accounts: no util%, balance only, grouped under 'loan'."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan@test.local", name="Loan User")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(
+            session, user_id, item_token="item_loan", inst_id="ins_loan"
+        )
+        session.add(PlaidAccount(
+            plaid_item_id=item.id,
+            user_id=user_id,
+            plaid_account_id="ln_1",
+            account_name="Mortgage",
+            account_mask="8821",
+            account_type="loan",
+            account_subtype="mortgage",
+            balance_cents=18240000,
+            credit_limit_cents=None,
+            available_credit_cents=None,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+    assert len(body["groups"]) == 1
+    assert body["groups"][0]["type"] == "loan"
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["plaid_account_id"] == "ln_1"
+    assert loan["utilization_pct"] is None
+    assert loan["balance_cents"] == 18240000
+    assert body["totals"]["loan_balance_cents"] == 18240000
+    assert body["totals"]["credit_balance_cents"] == 0
+    assert body["totals"]["credit_limit_cents"] == 0
+    assert body["totals"]["overall_utilization_pct"] is None
+
+
+def test_cards_overview_excludes_depository(app):
+    """Checking / savings accounts must not appear in the response."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="chk@test.local", name="Checking User")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(
+            session, user_id, item_token="item_chk", inst_id="ins_chk"
+        )
+        session.add(PlaidAccount(
+            plaid_item_id=item.id,
+            user_id=user_id,
+            plaid_account_id="chk_1",
+            account_name="Checking",
+            account_mask="1111",
+            account_type="depository",
+            account_subtype="checking",
+            balance_cents=500000,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+    assert body["groups"] == []
+    assert body["totals"]["credit_balance_cents"] == 0
+    assert body["totals"]["loan_balance_cents"] == 0
+
+
+def test_cards_overview_visibility_filter(app):
+    """User A's accounts must not appear in user B's view."""
+    from src.backend.create_flask_application import _get_db
+
+    user_a_id = _make_user(app, email="visa@test.local", name="User A")
+    user_b_id = _make_user(app, email="visb@test.local", name="User B")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(
+            session, user_a_id, item_token="item_a_only", inst_id="ins_a_only"
+        )
+        _seed_credit_account(session, user_a_id, item.id, plaid_account_id="cc_a_only")
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_b_id)
+    assert status == 200, body
+    assert body["groups"] == []
+    assert body["totals"]["credit_balance_cents"] == 0
+    assert body["totals"]["credit_limit_cents"] == 0
+    assert body["totals"]["loan_balance_cents"] == 0
+
+
+def test_cards_overview_mtd_boundary_and_dismissed(app):
+    """Last day of prev month excluded; first day of current included; dismissed excluded."""
+    from datetime import date as date_cls, timedelta
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="mtd@test.local", name="MTD User")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(
+            session, user_id, item_token="item_mtd", inst_id="ins_mtd"
+        )
+        _seed_credit_account(
+            session, user_id, item.id, plaid_account_id="cc_mtd"
+        )
+
+        today = date_cls.today()
+        first_of_month = today.replace(day=1)
+        last_of_prev = first_of_month - timedelta(days=1)
+
+        # $999 last day of previous month — must NOT count
+        _seed_staged(
+            session,
+            user_id=user_id,
+            plaid_item_id=item.id,
+            plaid_account_id="cc_mtd",
+            amount=999.00,
+            date_str=last_of_prev.isoformat(),
+            txn_id="prev_month",
+        )
+        # $10 first day of current month — counted
+        _seed_staged(
+            session,
+            user_id=user_id,
+            plaid_item_id=item.id,
+            plaid_account_id="cc_mtd",
+            amount=10.00,
+            date_str=first_of_month.isoformat(),
+            txn_id="first_of_month",
+        )
+        # $5000 first day of current month, dismissed — must NOT count
+        _seed_staged(
+            session,
+            user_id=user_id,
+            plaid_item_id=item.id,
+            plaid_account_id="cc_mtd",
+            amount=5000.00,
+            date_str=first_of_month.isoformat(),
+            status="dismissed",
+            txn_id="dismissed",
+        )
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+    assert len(body["groups"]) == 1
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["plaid_account_id"] == "cc_mtd"
+    assert cc["spend_mtd_cents"] == 1000  # only the $10 first-of-month debit
+    assert cc["txn_count_mtd"] == 1
