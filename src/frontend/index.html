@@ -464,25 +464,30 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* ============================================================
    Card Usage — credit-card grid tile (new design)
    ============================================================ */
-/* Active credit-card tiles → uniform grid (only expanded ones live here).
-   auto-fill (not auto-fit) keeps empty tracks so a single tile doesn't
-   stretch across the row. minmax cap keeps tiles a sensible width on
-   ultra-wide viewports too. */
-.card-usage-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
-  justify-content: start;
+/* Side-by-side layout: expanded tiles on the left, chip strip flexes
+   to fill the remaining width on the right. Avoids the dead-space
+   problem of stacking them vertically. */
+.card-usage-flex-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 14px;
+  align-items: flex-start;
   margin-top: 4px;
 }
-/* Dormant credit-card chip strip — compact horizontal wrap below the grid */
+.card-usage-grid {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+  gap: 14px;
+}
+/* Chip strip flexes to fill remainder; falls below on narrow viewports */
 .card-usage-strip {
+  flex: 1 1 320px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border, #3a3a3c);
+  align-content: flex-start;
+  padding: 4px 0 0;
 }
 .card-usage-strip-label {
   font-size: 0.74rem;
@@ -491,8 +496,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   text-transform: uppercase;
   letter-spacing: 0.06em;
   width: 100%;
-  margin-bottom: 2px;
+  margin: 0 0 4px;
 }
+/* When ONLY chips (no expanded), strip takes full row instead of partial */
+.card-usage-flex-row.cu-chips-only .card-usage-strip { flex-basis: 100%; }
 .cu-chip-card {
   display: inline-flex;
   align-items: center;
@@ -15870,9 +15877,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
           const isCredit = group.type === "credit_card";
           if (isCredit) {
-            // Credit cards → split into Active grid (expanded tiles)
-            // + Dormant chip strip below (collapsed tiles), so blank
-            // gaps between mixed-height cards never appear.
+            // Credit cards → side-by-side row: expanded grid on the
+            // left (capped tile width), dormant chip strip flexes to
+            // fill remaining width on the right. No dead vertical
+            // space when only one card is expanded.
             const expanded = [];
             const dormant = [];
             group.accounts.forEach(a => {
@@ -15880,15 +15888,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               else expanded.push(a);
             });
 
+            const row = document.createElement("div");
+            row.className = "card-usage-flex-row";
+            if (!expanded.length && dormant.length) {
+              row.classList.add("cu-chips-only");
+            }
+
             if (expanded.length) {
               const grid = document.createElement("div");
               grid.className = "card-usage-grid";
               expanded.forEach(a => grid.appendChild(_renderCreditCardTile(a)));
-              wrap.appendChild(grid);
+              row.appendChild(grid);
             }
             if (dormant.length) {
-              wrap.appendChild(_renderCreditCardStrip(dormant));
+              row.appendChild(_renderCreditCardStrip(dormant));
             }
+            wrap.appendChild(row);
           } else {
             // Loans keep the existing list-row layout.
             group.accounts.forEach(a => {
