@@ -1910,3 +1910,121 @@ def test_auto_dedup_products_skips_different_categories(app):
         assert session.get(Product, snack_id) is not None
     finally:
         session.close()
+
+def test_compute_remaining_auto_decay_midway():
+    """No override, 3 days into 7-day shelf → ~57% remaining, status low."""
+    from datetime import datetime, timedelta
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = "dairy"
+        expected_shelf_days = None
+    class FakeInv:
+        last_purchased_at = datetime(2026, 5, 1, 12, 0, 0)
+        last_updated = None
+        consumed_pct_override = None
+
+    now = datetime(2026, 5, 4, 12, 0, 0)  # 3 days later
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["shelf_days"] == 7
+    assert abs(result["remaining_pct"] - 57.1) < 0.2
+    assert result["status"] == "low"
+    assert result["is_estimated"] is True
+
+
+def test_compute_remaining_override_wins():
+    """Manual override beats auto-decay regardless of date math."""
+    from datetime import datetime
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = "dairy"
+        expected_shelf_days = None
+    class FakeInv:
+        last_purchased_at = datetime(2020, 1, 1)
+        last_updated = None
+        consumed_pct_override = 10.0
+
+    now = datetime(2026, 5, 4)
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["remaining_pct"] == 90.0
+    assert result["status"] == "fresh"
+    assert result["is_estimated"] is False
+
+
+def test_compute_remaining_uses_product_override_shelf_days():
+    """Product.expected_shelf_days beats category default."""
+    from datetime import datetime
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = "dairy"
+        expected_shelf_days = 30
+    class FakeInv:
+        last_purchased_at = datetime(2026, 5, 1)
+        last_updated = None
+        consumed_pct_override = None
+
+    now = datetime(2026, 5, 16)
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["shelf_days"] == 30
+    assert abs(result["remaining_pct"] - 50.0) < 0.2
+    assert result["status"] == "low"
+
+
+def test_compute_remaining_uses_other_when_category_unknown():
+    """Null category falls back to 'other' (30 days)."""
+    from datetime import datetime
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = None
+        expected_shelf_days = None
+    class FakeInv:
+        last_purchased_at = datetime(2026, 5, 1)
+        last_updated = None
+        consumed_pct_override = None
+
+    now = datetime(2026, 5, 4)
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["shelf_days"] == 30
+    assert result["remaining_pct"] == 90.0
+    assert result["status"] == "fresh"
+
+
+def test_compute_remaining_clamps_to_zero():
+    """Far past shelf life → 0% remaining, status out."""
+    from datetime import datetime
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = "dairy"
+        expected_shelf_days = None
+    class FakeInv:
+        last_purchased_at = datetime(2026, 1, 1)
+        last_updated = None
+        consumed_pct_override = None
+
+    now = datetime(2026, 5, 1)
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["remaining_pct"] == 0.0
+    assert result["status"] == "out"
+
+
+def test_compute_remaining_falls_back_to_last_updated():
+    """When last_purchased_at is null, last_updated anchors decay."""
+    from datetime import datetime
+    from src.backend.inventory_status import compute_inventory_status
+
+    class FakeProduct:
+        category = "dairy"
+        expected_shelf_days = None
+    class FakeInv:
+        last_purchased_at = None
+        last_updated = datetime(2026, 5, 1)
+        consumed_pct_override = None
+
+    now = datetime(2026, 5, 4)
+    result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
+    assert result["shelf_days"] == 7
+    assert abs(result["remaining_pct"] - 57.1) < 0.2
