@@ -17147,6 +17147,47 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
           monthsLine.appendChild(monL); monthsLine.appendChild(monV);
           info.appendChild(monthsLine);
+
+          // Next payment due (computed from monthly_payment_due_day)
+          const dueLine = document.createElement("div");
+          dueLine.className = "loan-line due-line";
+          const dueL = document.createElement("span"); dueL.textContent = "Next payment:";
+          const dueV = document.createElement("span");
+          const dueDay = account.monthly_payment_due_day;
+          if (dueDay && dueDay >= 1 && dueDay <= 31 && unpaidCents > 0) {
+            const today = new Date();
+            const todayDay = today.getDate();
+            let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
+            if (todayDay >= dueDay) {
+              nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+            }
+            // Handle months where the requested day-of-month exceeds the
+            // month's last day (e.g., due_day=31 in February). JS Date
+            // auto-rolls into the next month — clamp to the actual last
+            // day of the target month instead.
+            if (nextDue.getDate() !== dueDay) {
+              nextDue = new Date(nextDue.getFullYear(), nextDue.getMonth(), 0);
+            }
+            const daysUntil = Math.ceil((nextDue - today) / 86400000);
+            const dateStr = nextDue.toLocaleDateString("en-US",
+              { month: "short", day: "numeric" });
+            const amtStr = mp ? " · " + _fmtMoneyCents(mp, account.balance_currency) : "";
+            const inDays = daysUntil <= 0
+              ? "today"
+              : daysUntil === 1 ? "tomorrow" : `in ${daysUntil}d`;
+            dueV.textContent = `${dateStr} (${inDays})${amtStr}`;
+            // Color-code urgency
+            if (daysUntil <= 3) dueV.style.color = "#ff453a";
+            else if (daysUntil <= 7) dueV.style.color = "#ff9f0a";
+          } else if (mp && unpaidCents <= 0) {
+            dueV.textContent = "—";
+            dueV.style.color = "var(--muted, #888)";
+          } else {
+            dueV.textContent = "—";
+            dueV.style.color = "var(--muted, #888)";
+          }
+          dueLine.appendChild(dueL); dueLine.appendChild(dueV);
+          info.appendChild(dueLine);
         } else {
           const placeholder = document.createElement("div");
           placeholder.className = "loan-line";
@@ -17215,10 +17256,17 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           account.monthly_payment_cents != null
             ? (account.monthly_payment_cents / 100).toFixed(2) : "",
           "e.g. 850.00");
+        const fDue = mkField("Due day (1-31)", "number", "1",
+          account.monthly_payment_due_day != null
+            ? String(account.monthly_payment_due_day) : "",
+          "e.g. 15");
+        fDue.input.min = "1";
+        fDue.input.max = "31";
 
         form.appendChild(fOrig.wrap);
         form.appendChild(fApr.wrap);
         form.appendChild(fMp.wrap);
+        form.appendChild(fDue.wrap);
 
         const btnRow = document.createElement("div");
         btnRow.className = "loan-edit-btn-row";
@@ -17227,7 +17275,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         save.className = "save";
         save.textContent = "Save";
         save.addEventListener("click", function () {
-          _saveLoanMeta(accountId, fOrig.input.value, fApr.input.value, fMp.input.value);
+          _saveLoanMeta(accountId, fOrig.input.value, fApr.input.value, fMp.input.value, fDue.input.value);
         });
         const cancel = document.createElement("button");
         cancel.type = "button";
@@ -17252,14 +17300,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         return Math.round(num * scale);
       }
 
-      async function _saveLoanMeta(accountId, rawOrig, rawApr, rawMp) {
+      async function _saveLoanMeta(accountId, rawOrig, rawApr, rawMp, rawDue) {
         let body;
         try {
           body = {
             original_loan_amount_cents: _parseLoanField(rawOrig, 100),
             apr_bps: _parseLoanField(rawApr, 100),
             monthly_payment_cents: _parseLoanField(rawMp, 100),
+            monthly_payment_due_day: _parseLoanField(rawDue, 1),
           };
+          // Due day must be 1..31 if provided
+          if (body.monthly_payment_due_day != null) {
+            const d = body.monthly_payment_due_day;
+            if (d < 1 || d > 31) {
+              toast("Due day must be between 1 and 31.", "error");
+              return;
+            }
+          }
         } catch (_) {
           toast("Enter non-negative numbers only.", "error");
           return;
