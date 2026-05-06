@@ -1734,7 +1734,16 @@ def update_receipt(receipt_id):
         "utility_bill", "household_bill", "general_expense",
         "retail_items", "event", "unknown",
     }
-    requires_items = str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
+    # Plaid-sourced receipts only carry a total (no line items per transaction).
+    # Even if the user re-classifies them to grocery / pharmacy / restaurant,
+    # there is nothing to itemize — block-on-items would lock them out of
+    # changing the type at all. Treat plaid origin as itemless regardless of
+    # receipt_type.
+    is_plaid_sourced = (record.ocr_engine or "").strip().lower() == "plaid"
+    requires_items = (
+        str(receipt_type or "").strip().lower() not in _ITEMLESS_TYPES
+        and not is_plaid_sourced
+    )
     required_fields = ("store", "date", "total") if not requires_items else ("store", "date", "items", "total")
     missing = [field for field in required_fields if not sanitized.get(field)]
     if missing:
@@ -2917,7 +2926,8 @@ def get_bill_projection(month):
 def delete_receipt(receipt_id):
     """Delete a receipt record, its stored file, and any associated purchase data."""
     from src.backend.initialize_database_schema import (
-        TelegramReceipt, Purchase, ReceiptItem, PriceHistory, Inventory, BillMeta
+        TelegramReceipt, Purchase, ReceiptItem, PriceHistory, Inventory, BillMeta,
+        PlaidStagedTransaction,
     )
 
     session = g.db_session
@@ -2959,6 +2969,25 @@ def delete_receipt(receipt_id):
             session.query(BillMeta).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
             session.query(ReceiptItem).filter_by(purchase_id=purchase.id).delete(synchronize_session=False)
             session.query(TelegramReceipt).filter(TelegramReceipt.purchase_id == purchase.id).delete(synchronize_session=False)
+
+            # Clear FKs from plaid_staged_transactions before deleting the
+            # Purchase. PRAGMA foreign_keys=ON would otherwise abort the
+            # delete with a FOREIGN KEY constraint violation. Reset
+            # confirmed staged rows back to ready_to_import so the user can
+            # re-handle them; clear duplicate_purchase_id pointers too.
+            session.query(PlaidStagedTransaction).filter(
+                PlaidStagedTransaction.confirmed_purchase_id == purchase.id
+            ).update(
+                {"confirmed_purchase_id": None, "confirmed_at": None, "status": "ready_to_import"},
+                synchronize_session=False,
+            )
+            session.query(PlaidStagedTransaction).filter(
+                PlaidStagedTransaction.duplicate_purchase_id == purchase.id
+            ).update(
+                {"duplicate_purchase_id": None},
+                synchronize_session=False,
+            )
+
             session.query(Purchase).filter_by(id=purchase.id).delete(synchronize_session=False)
         elif linked_records:
             session.query(TelegramReceipt).filter(
