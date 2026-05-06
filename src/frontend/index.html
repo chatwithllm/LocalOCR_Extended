@@ -464,10 +464,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* ============================================================
    Card Usage — credit-card grid tile (new design)
    ============================================================ */
-/* Active credit-card tiles → uniform grid (only expanded ones live here) */
+/* Active credit-card tiles → uniform grid (only expanded ones live here).
+   auto-fill (not auto-fit) keeps empty tracks so a single tile doesn't
+   stretch across the row. minmax cap keeps tiles a sensible width on
+   ultra-wide viewports too. */
 .card-usage-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
+  justify-content: start;
   gap: 14px;
   margin-top: 4px;
 }
