@@ -20,6 +20,12 @@ def test_plaid_account_has_credit_limit_columns():
     assert "available_credit_cents" in cols
 
 
+def test_plaid_account_has_original_loan_amount_column():
+    """Migration 026 must add original_loan_amount_cents."""
+    cols = {c.name for c in Base.metadata.tables["plaid_accounts"].columns}
+    assert "original_loan_amount_cents" in cols
+
+
 # ---------------------------------------------------------------------------
 # refresh_balances persists credit_limit + available_credit
 # ---------------------------------------------------------------------------
