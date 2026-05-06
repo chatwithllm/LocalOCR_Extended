@@ -81,19 +81,31 @@ def _merge_products(session, keeper: Product, duplicate: Product):
 
     from src.backend.initialize_database_schema import Inventory
 
-    duplicate_inventory = session.query(Inventory).filter_by(product_id=duplicate.id).first()
-    keeper_inventory = session.query(Inventory).filter_by(product_id=keeper.id).first()
-    if duplicate_inventory and keeper_inventory:
-        keeper_inventory.quantity += duplicate_inventory.quantity or 0
-        if keeper_inventory.threshold is None:
-            keeper_inventory.threshold = duplicate_inventory.threshold
-        if not keeper_inventory.location:
-            keeper_inventory.location = duplicate_inventory.location
-        if keeper_inventory.updated_by is None:
-            keeper_inventory.updated_by = duplicate_inventory.updated_by
-        session.delete(duplicate_inventory)
-    elif duplicate_inventory:
-        duplicate_inventory.product_id = keeper.id
+    # Inventory has no unique constraint on product_id, so the duplicate
+    # may have multiple rows. Process each: if keeper has a row at the
+    # same location, merge quantities; else reparent the duplicate row.
+    duplicate_inventories = session.query(Inventory).filter_by(product_id=duplicate.id).all()
+    for dup_inv in duplicate_inventories:
+        keeper_inv = (
+            session.query(Inventory)
+            .filter_by(product_id=keeper.id, location=dup_inv.location)
+            .first()
+        )
+        if keeper_inv is None:
+            # No keeper row at this location — reparent
+            dup_inv.product_id = keeper.id
+            continue
+        # Merge quantities + carry over missing fields
+        keeper_inv.quantity = (keeper_inv.quantity or 0) + (dup_inv.quantity or 0)
+        if keeper_inv.threshold is None:
+            keeper_inv.threshold = dup_inv.threshold
+        if not keeper_inv.location:
+            keeper_inv.location = dup_inv.location
+        if keeper_inv.updated_by is None:
+            keeper_inv.updated_by = dup_inv.updated_by
+        if keeper_inv.expires_at is None and dup_inv.expires_at is not None:
+            keeper_inv.expires_at = dup_inv.expires_at
+        session.delete(dup_inv)
 
     session.delete(duplicate)
     return keeper
