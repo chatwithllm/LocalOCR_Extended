@@ -1255,6 +1255,23 @@ def list_receipts():
     records = query.order_by(TelegramReceipt.created_at.desc()).all()
     limited_records = records[:max(1, min(limit, 200))]
 
+    # Plaid-linkage map: purchase_id -> True when ≥1 confirmed staged
+    # transaction points at it. Used to render a "Plaid" badge on
+    # auto-merged receipt rows so users see both sources without
+    # duplicate rows.
+    from src.backend.initialize_database_schema import PlaidStagedTransaction as _PST
+    _purchase_ids_seen = [p.id for _r, p, _s in records if p and p.id]
+    plaid_linked_purchase_ids: set[int] = set()
+    if _purchase_ids_seen:
+        for (pid,) in (
+            session.query(_PST.confirmed_purchase_id)
+            .filter(_PST.confirmed_purchase_id.in_(_purchase_ids_seen))
+            .distinct()
+            .all()
+        ):
+            if pid is not None:
+                plaid_linked_purchase_ids.add(pid)
+
     stores = sorted({
         canonicalize_store_name(row[0])
         for row in session.query(Store.name).filter(Store.name.isnot(None)).distinct().all()
@@ -1299,6 +1316,7 @@ def list_receipts():
                 "refund_reason": getattr(purchase, "refund_reason", None),
                 "refund_note": getattr(purchase, "refund_note", None),
                 "source": _receipt_source_label(record),
+                "linked_to_plaid": purchase.id in plaid_linked_purchase_ids,
                 "status": record.status,
             })
 
@@ -1378,6 +1396,7 @@ def list_receipts():
                 "attribution_user_name": attr_user_names.get(getattr(purchase, "attribution_user_id", None)) if purchase else None,
                 "created_at": record.created_at.isoformat() if record.created_at else None,
                 "source": _receipt_source_label(record),
+                "linked_to_plaid": (purchase is not None) and (purchase.id in plaid_linked_purchase_ids),
                 "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
                 "file_type": _detect_receipt_file_type(record.image_path),
                 "error_message": record.error_message,
@@ -2351,6 +2370,168 @@ def _merge_purchase_pair(session, keep, drop) -> None:
 
     session.flush()
     session.delete(drop)
+
+
+@receipts_bp.route("/auto-link-plaid", methods=["POST"])
+@require_write_access
+def auto_link_plaid_receipts():
+    """Backfill: merge any pre-existing Plaid+Upload duplicate pairs.
+
+    Walks the user's recent Purchases (default ±180 days). For every
+    candidate pair where ONE side is linked to a plaid_staged_transaction
+    and the OTHER has an image-bearing TelegramReceipt (OCR upload),
+    auto-merges them into one row. Only merges Plaid+OCR pairs — pure
+    OCR+OCR duplicates need user judgment via the existing
+    /receipts/dedup-scan + manual /receipts/merge flow.
+
+    Idempotent: running twice returns 0 the second time.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from src.backend.initialize_database_schema import (
+        DedupDismissal,
+        PlaidStagedTransaction,
+        Purchase,
+        Store,
+        TelegramReceipt,
+    )
+    from src.backend.plaid_receipt_matcher import (
+        AMOUNT_EPSILON,
+        DATE_WINDOW_DAYS,
+        merchants_match,
+    )
+
+    user = getattr(g, "current_user", None)
+    if user is None:
+        return jsonify({"error": "Authentication required"}), 401
+    user_id = user.id
+
+    session = g.db_session
+
+    since_raw = request.args.get("since")
+    if since_raw:
+        try:
+            since = _dt.fromisoformat(since_raw)
+        except ValueError:
+            return jsonify({"error": "since must be ISO date"}), 400
+    else:
+        since = _dt.utcnow() - _td(days=180)
+
+    rows = (
+        session.query(Purchase, Store)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .filter(Purchase.user_id == user_id)
+        .filter(Purchase.date >= since)
+        .order_by(Purchase.date.asc(), Purchase.id.asc())
+        .all()
+    )
+    if not rows:
+        return jsonify({"merged": 0, "scanned": 0}), 200
+
+    # Bucket by which Plaid-staged ids reference each Purchase
+    purchase_ids = [p.id for p, _s in rows]
+    plaid_links = {}
+    if purchase_ids:
+        for staged_id, purchase_id in (
+            session.query(PlaidStagedTransaction.id, PlaidStagedTransaction.confirmed_purchase_id)
+            .filter(PlaidStagedTransaction.confirmed_purchase_id.in_(purchase_ids))
+            .all()
+        ):
+            plaid_links.setdefault(purchase_id, []).append(staged_id)
+
+    # Map Purchase id -> has-image bool (OCR upload signal)
+    has_image_map = {}
+    if purchase_ids:
+        for tr_purchase_id, image_path in (
+            session.query(TelegramReceipt.purchase_id, TelegramReceipt.image_path)
+            .filter(TelegramReceipt.purchase_id.in_(purchase_ids))
+            .all()
+        ):
+            if image_path:
+                has_image_map[tr_purchase_id] = True
+
+    dismissed_pairs = set()
+    for low, high in (
+        session.query(DedupDismissal.purchase_id_low, DedupDismissal.purchase_id_high)
+        .all()
+    ):
+        dismissed_pairs.add((low, high))
+
+    merged = 0
+    merged_ids = []
+    consumed: set[int] = set()
+    n = len(rows)
+    for i in range(n):
+        if rows[i][0].id in consumed:
+            continue
+        a_p, a_s = rows[i]
+        a_name = a_s.name if a_s else None
+        a_total = abs(float(a_p.total_amount or 0))
+        if a_total <= 0:
+            continue
+        for j in range(i + 1, n):
+            if rows[j][0].id in consumed:
+                continue
+            b_p, b_s = rows[j]
+            if (b_p.date - a_p.date).days > DATE_WINDOW_DAYS:
+                break
+            if abs(float(b_p.total_amount or 0) - a_total) > AMOUNT_EPSILON:
+                continue
+            if not merchants_match(a_name, b_s.name if b_s else None):
+                continue
+            low, high = (a_p.id, b_p.id) if a_p.id < b_p.id else (b_p.id, a_p.id)
+            if (low, high) in dismissed_pairs:
+                continue
+
+            a_has_plaid = bool(plaid_links.get(a_p.id))
+            b_has_plaid = bool(plaid_links.get(b_p.id))
+            a_has_image = has_image_map.get(a_p.id, False)
+            b_has_image = has_image_map.get(b_p.id, False)
+
+            # Only auto-merge when one side is Plaid-linked and the
+            # other has an OCR upload image. Pure OCR+OCR or pure
+            # Plaid+Plaid pairs are left alone — those need user
+            # judgment via the dedup-scan UI.
+            is_plaid_ocr_pair = (
+                (a_has_plaid and b_has_image and not b_has_plaid)
+                or (b_has_plaid and a_has_image and not a_has_plaid)
+            )
+            if not is_plaid_ocr_pair:
+                continue
+
+            # Keep the side with the image (OCR) — staged FK reparents
+            # to it via _merge_purchase_pair.
+            if a_has_image:
+                keep, drop = a_p, b_p
+            else:
+                keep, drop = b_p, a_p
+
+            _merge_purchase_pair(session, keep, drop)
+            session.flush()
+
+            # Drop image-less placeholder TRs left on the keep
+            placeholder_trs = (
+                session.query(TelegramReceipt)
+                .filter(TelegramReceipt.purchase_id == keep.id)
+                .filter((TelegramReceipt.image_path.is_(None)) | (TelegramReceipt.image_path == ""))
+                .all()
+            )
+            for tr in placeholder_trs:
+                session.delete(tr)
+            session.flush()
+
+            consumed.add(drop.id)
+            merged += 1
+            merged_ids.append({"kept_purchase_id": keep.id, "dropped_purchase_id": drop.id})
+            break  # this `a` is now merged into a keep — move to next i
+
+    if merged:
+        session.commit()
+
+    return jsonify({
+        "merged": merged,
+        "scanned": len(rows),
+        "pairs": merged_ids,
+    }), 200
 
 
 @receipts_bp.route("/merge", methods=["POST"])

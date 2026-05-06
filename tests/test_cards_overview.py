@@ -1434,3 +1434,167 @@ def test_auto_merge_skips_when_amount_differs(app):
         session.close()
 
     assert was_merged is False
+
+
+# ---------------------------------------------------------------------------
+# Auto-link backfill: existing Plaid+OCR pairs collapse into one
+# ---------------------------------------------------------------------------
+
+def _invoke_auto_link_plaid(app, user_id):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = "/receipts/auto-link-plaid"
+        with app.test_request_context(path, method="POST"):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="POST")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn()
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else obj
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_auto_link_plaid_merges_existing_plaid_ocr_pairs(app):
+    """Backfill: pre-existing Plaid-promoted Purchase + OCR Upload Purchase
+    for the same merchant/date/amount → merge into one. Idempotent."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import (
+        PlaidStagedTransaction, Product, Purchase, ReceiptItem, Store, TelegramReceipt,
+    )
+
+    user_id = _make_user(app, email="auto_link@test.local", name="Auto Link")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_alink", inst_id="ins_alink")
+        plaid_ids = _seed_plaid_promoted_receipt(
+            session, user_id, item.id,
+            store_name="India Bazar", amount=36.81,
+            plaid_account_id="cc_alink",
+        )
+
+        # OCR-uploaded duplicate
+        ocr_store = Store(name="India Bazar Inc")
+        session.add(ocr_store); session.flush()
+        ocr_purchase = Purchase(
+            store_id=ocr_store.id, total_amount=36.81, date=_dt.utcnow(),
+            domain="grocery", transaction_type="purchase",
+            default_spending_domain="grocery", default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(ocr_purchase); session.flush()
+        product = Product(name=f"OCRItem-{uuid.uuid4().hex[:6]}", display_name="X")
+        session.add(product); session.flush()
+        session.add(ReceiptItem(
+            purchase_id=ocr_purchase.id, product_id=product.id,
+            quantity=1, unit_price=36.81, unit="each", kind="product",
+        ))
+        ocr_receipt = TelegramReceipt(
+            telegram_user_id=f"upload:{user_id}",
+            purchase_id=ocr_purchase.id,
+            receipt_type="grocery",
+            ocr_engine="gemini",
+            ocr_confidence=0.98,
+            status="processed",
+            raw_ocr_json="{}",
+            image_path="/tmp/india_bazar.jpg",
+        )
+        session.add(ocr_receipt); session.commit()
+
+        plaid_purchase_id = plaid_ids["purchase_id"]
+        ocr_purchase_id = ocr_purchase.id
+    finally:
+        session.close()
+
+    # First pass — should merge
+    status, body = _invoke_auto_link_plaid(app, user_id)
+    assert status == 200
+    assert body["merged"] == 1
+    assert body["pairs"][0]["kept_purchase_id"] == ocr_purchase_id
+    assert body["pairs"][0]["dropped_purchase_id"] == plaid_purchase_id
+
+    # Verify final state
+    session = SF()
+    try:
+        # Plaid placeholder Purchase removed
+        assert session.get(Purchase, plaid_purchase_id) is None
+        # OCR Purchase kept
+        assert session.get(Purchase, ocr_purchase_id) is not None
+        # Staged FK reparented
+        staged = session.get(PlaidStagedTransaction, plaid_ids["staged_id"])
+        assert staged.confirmed_purchase_id == ocr_purchase_id
+        # Only the OCR (image-bearing) TR remains
+        trs = session.query(TelegramReceipt).filter_by(purchase_id=ocr_purchase_id).all()
+        assert len(trs) == 1
+        assert trs[0].image_path == "/tmp/india_bazar.jpg"
+    finally:
+        session.close()
+
+    # Second pass — idempotent
+    status2, body2 = _invoke_auto_link_plaid(app, user_id)
+    assert status2 == 200
+    assert body2["merged"] == 0
+
+
+def test_auto_link_plaid_skips_pure_ocr_pairs(app):
+    """Two OCR upload Purchases for same merchant/amount/date are NOT
+    auto-merged — those need user judgment via the dedup-scan UI."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import (
+        Product, Purchase, ReceiptItem, Store, TelegramReceipt,
+    )
+
+    user_id = _make_user(app, email="auto_link_ocr@test.local", name="Auto Link OCR")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        store = Store(name="DoubleUpload Mart")
+        session.add(store); session.flush()
+        for tag in ("a", "b"):
+            p = Purchase(
+                store_id=store.id, total_amount=42.00, date=_dt.utcnow(),
+                domain="grocery", transaction_type="purchase",
+                default_spending_domain="grocery", default_budget_category="grocery",
+                user_id=user_id,
+            )
+            session.add(p); session.flush()
+            prod = Product(name=f"DupItem-{tag}-{uuid.uuid4().hex[:6]}", display_name=tag)
+            session.add(prod); session.flush()
+            session.add(ReceiptItem(
+                purchase_id=p.id, product_id=prod.id,
+                quantity=1, unit_price=42.00, unit="each", kind="product",
+            ))
+            session.add(TelegramReceipt(
+                telegram_user_id=f"upload:{user_id}",
+                purchase_id=p.id, receipt_type="grocery",
+                ocr_engine="gemini", ocr_confidence=0.95,
+                status="processed", raw_ocr_json="{}",
+                image_path=f"/tmp/dup-{tag}.jpg",
+            ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_auto_link_plaid(app, user_id)
+    assert status == 200
+    assert body["merged"] == 0  # OCR+OCR pairs are left alone
