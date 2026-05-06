@@ -950,3 +950,106 @@ def test_put_loan_meta_visibility_filter(app):
 
     status, body = _invoke_put_loan_meta(app, user_b, loan_id, {"original_loan_amount_cents": 50000})
     assert status == 404
+
+
+def test_cards_overview_loan_paid_off_computed(app):
+    """Loan with original > balance: paid_off = original - balance."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_po@test.local", name="Loan PO")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_po", inst_id="ins_loan_po")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_po",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=400000, original_loan_amount_cents=1000000,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["original_loan_amount_cents"] == 1000000
+    assert loan["paid_off_cents"] == 600000
+
+
+def test_cards_overview_loan_paid_off_overbalance(app):
+    """balance > original → paid_off capped at original."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_ob@test.local", name="Loan OB")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_ob", inst_id="ins_loan_ob")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_ob",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=1100000, original_loan_amount_cents=1000000,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["paid_off_cents"] == 1000000
+
+
+def test_cards_overview_loan_no_original(app):
+    """Loan with original=null → paid_off=null."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_no@test.local", name="Loan NO")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_no", inst_id="ins_loan_no")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_no",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=400000, original_loan_amount_cents=None,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["original_loan_amount_cents"] is None
+    assert loan["paid_off_cents"] is None
+
+
+def test_cards_overview_credit_row_no_loan_fields(app):
+    """Credit accounts have original=null and paid_off=null."""
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="loan_cc2@test.local", name="Loan CC2")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_cc2", inst_id="ins_loan_cc2")
+        _seed_credit_account(session, user_id, item.id)
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["original_loan_amount_cents"] is None
+    assert cc["paid_off_cents"] is None

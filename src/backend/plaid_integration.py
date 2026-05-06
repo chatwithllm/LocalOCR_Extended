@@ -1882,6 +1882,23 @@ def cards_overview():
         else:
             base["utilization_pct"] = None
 
+        # paid_off_cents (loans only). max(0, original - balance), capped at original.
+        if a.account_type == "loan":
+            orig = a.original_loan_amount_cents
+            bal = a.balance_cents
+            if orig is None or bal is None:
+                base["paid_off_cents"] = None
+            else:
+                if bal >= orig:
+                    # Balance >= original: treat as fully paid off
+                    base["paid_off_cents"] = orig
+                else:
+                    # Normal case: original - balance
+                    paid = orig - bal
+                    base["paid_off_cents"] = max(0, paid)
+        else:
+            base["paid_off_cents"] = None
+
         if a.account_type == "credit":
             base["categories_mtd"] = cat_map.get(a.plaid_account_id, [])
         else:
