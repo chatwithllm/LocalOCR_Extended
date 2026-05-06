@@ -579,3 +579,47 @@ def test_cards_overview_mtd_boundary_and_dismissed(app):
     assert cc["plaid_account_id"] == "cc_mtd"
     assert cc["spend_mtd_cents"] == 1000  # only the $10 first-of-month debit
     assert cc["txn_count_mtd"] == 1
+
+
+def test_cards_overview_categories_basic(app):
+    """Per-account categories_mtd: debits only, sorted by amount desc, refund excluded."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="cat_basic@test.local", name="Cat Basic")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_cat_basic", inst_id="ins_cat_basic")
+        _seed_credit_account(session, user_id, item.id)
+
+        today_iso = date_cls.today().isoformat()
+        from src.backend.initialize_database_schema import PlaidStagedTransaction
+        for txn_id, amount, cat in [
+            ("c1", 50.00, "FOOD_AND_DRINK"),
+            ("c2", 30.00, "TRANSPORTATION"),
+            ("c3", -10.00, "FOOD_AND_DRINK"),  # refund — excluded
+        ]:
+            session.add(PlaidStagedTransaction(
+                plaid_item_id=item.id, user_id=user_id,
+                plaid_transaction_id=txn_id,
+                plaid_account_id="cc_1",
+                amount=amount,
+                transaction_date=date_cls.fromisoformat(today_iso),
+                plaid_category_primary=cat,
+                status="ready_to_import",
+                raw_json="{}",
+            ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["categories_mtd"] == [
+        {"category": "FOOD_AND_DRINK", "amount_cents": 5000},
+        {"category": "TRANSPORTATION", "amount_cents": 3000},
+    ]

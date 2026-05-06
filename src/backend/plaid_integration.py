@@ -1831,6 +1831,41 @@ def cards_overview():
         for r in spend_rows
     }
 
+    # Per-account category breakdown — debits only (refunds excluded from pie)
+    cat_q = (
+        session.query(
+            PlaidStagedTransaction.plaid_account_id,
+            PlaidStagedTransaction.plaid_category_primary,
+            func.sum(PlaidStagedTransaction.amount).label("amt"),
+        )
+        .filter(PlaidStagedTransaction.transaction_date >= month_start.date())
+        .filter(PlaidStagedTransaction.status != "dismissed")
+        .filter(PlaidStagedTransaction.amount > 0)
+        .group_by(
+            PlaidStagedTransaction.plaid_account_id,
+            PlaidStagedTransaction.plaid_category_primary,
+        )
+    )
+    if visible_ids is not None:
+        if not visible_ids:
+            cat_q = cat_q.filter(sa_false())
+        else:
+            cat_q = cat_q.filter(PlaidStagedTransaction.plaid_item_id.in_(visible_ids))
+    cat_rows = cat_q.all()
+
+    cat_map: dict[str, list[dict]] = {}
+    for r in cat_rows:
+        cat = r.plaid_category_primary or "UNCATEGORIZED"
+        amt_cents = int(round(float(r.amt or 0) * 100))
+        if amt_cents <= 0:
+            continue
+        cat_map.setdefault(r.plaid_account_id, []).append({
+            "category": cat,
+            "amount_cents": amt_cents,
+        })
+    for slices in cat_map.values():
+        slices.sort(key=lambda s: s["amount_cents"], reverse=True)
+
     credit_rows = []
     loan_rows = []
     for a in accounts:
@@ -1845,6 +1880,11 @@ def cards_overview():
             base["utilization_pct"] = round(balance / limit * 100, 2)
         else:
             base["utilization_pct"] = None
+
+        if a.account_type == "credit":
+            base["categories_mtd"] = cat_map.get(a.plaid_account_id, [])
+        else:
+            base["categories_mtd"] = []
 
         if a.account_type == "credit":
             credit_rows.append(base)
