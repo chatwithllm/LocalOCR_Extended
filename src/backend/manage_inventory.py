@@ -83,6 +83,18 @@ def _get_product_receipt_links(session, product_id: int, limit: int = 3) -> list
     return links
 
 
+def _status_fields(item) -> dict:
+    """Wrap compute_inventory_status into the inventory-row dict shape."""
+    from src.backend.inventory_status import compute_inventory_status
+    s = compute_inventory_status(item.product, item)
+    return {
+        "remaining_pct": s["remaining_pct"],
+        "status": s["status"],
+        "shelf_days": s["shelf_days"],
+        "is_estimated": s["is_estimated"],
+    }
+
+
 def _latest_snapshot_for_product(session, product_id: int) -> dict | None:
     snapshot = (
         session.query(ProductSnapshot)
@@ -189,6 +201,7 @@ def list_inventory():
                 "expires_source": item.expires_source,
                 "last_purchased_at": item.last_purchased_at.isoformat() if item.last_purchased_at else None,
                 "days_left": (item.expires_at - _today).days if item.expires_at else None,
+                **_status_fields(item),
             }
             for item in items
         ],
@@ -313,6 +326,18 @@ def consume_item(item_id):
     actual_amount = min(float(item.quantity or 0), float(amount or 0))
     if actual_amount > 0:
         item.updated_by = user_id
+        # Bump consumed_pct_override proportional to the fraction of the
+        # current quantity being consumed. If override was null, treat
+        # current auto-decayed consumed % as the baseline so the action
+        # shifts the bar visibly forward.
+        qty_at_time = float(item.quantity or 0)
+        if qty_at_time > 0:
+            bump = (actual_amount / qty_at_time) * 100.0
+            from src.backend.inventory_status import compute_inventory_status
+            baseline = item.consumed_pct_override
+            if baseline is None:
+                baseline = 100.0 - compute_inventory_status(item.product, item)["remaining_pct"]
+            item.consumed_pct_override = max(0.0, min(100.0, baseline + bump))
         record_inventory_adjustment(session, item.product_id, -actual_amount, user_id, "consume")
         rebuild_active_inventory(session)
     session.commit()

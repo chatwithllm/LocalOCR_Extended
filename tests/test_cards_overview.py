@@ -2028,3 +2028,161 @@ def test_compute_remaining_falls_back_to_last_updated():
     result = compute_inventory_status(FakeProduct(), FakeInv(), now=now)
     assert result["shelf_days"] == 7
     assert abs(result["remaining_pct"] - 57.1) < 0.2
+
+
+def _invoke_list_inventory(app, user_id):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        with app.test_request_context("/inventory", method="GET"):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match("/inventory", method="GET")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn()
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                return resp[1], (resp[0].get_json() if hasattr(resp[0], "get_json") else resp[0])
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_list_inventory_emits_status_fields(app):
+    """GET /inventory rows carry remaining_pct, status, shelf_days, is_estimated."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    user_id = _make_user(app, email=f"truinv_{uuid.uuid4().hex[:6]}@test.local", name="True Inv")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"TestMilk-{unique}", category="dairy")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=2, location="Fridge",
+            is_active_window=True,
+            last_purchased_at=_dt.utcnow(),
+        )
+        session.add(inv); session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_list_inventory(app, user_id)
+    assert status == 200, body
+    rows = body["inventory"]
+    matches = [r for r in rows if (r.get("product_name") or "").startswith(f"TestMilk-{unique}") or (r.get("raw_name") or "").startswith(f"TestMilk-{unique}")]
+    assert len(matches) >= 1, f"No matching row found among {len(rows)} rows"
+    row = matches[0]
+    assert "remaining_pct" in row
+    assert "status" in row
+    assert "shelf_days" in row
+    assert "is_estimated" in row
+    assert row["shelf_days"] == 7  # dairy
+    assert row["remaining_pct"] >= 90.0
+    assert row["status"] == "fresh"
+    assert row["is_estimated"] is True
+
+
+def _invoke_consume(app, user_id, item_id, amount=1):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/inventory/{item_id}/consume"
+        with app.test_request_context(path, method="PUT", json={"amount": amount}):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(item_id=item_id)
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                return resp[1], (resp[0].get_json() if hasattr(resp[0], "get_json") else resp[0])
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_consume_action_bumps_consumed_override(app):
+    """-1 from qty=4 sets override to ~25 (one quarter consumed)."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    user_id = _make_user(app, email=f"consume_{uuid.uuid4().hex[:6]}@test.local", name="Consume")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"Bagel-{unique}", category="baked")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=4, location="Pantry",
+            is_active_window=True, last_purchased_at=_dt.utcnow(),
+        )
+        session.add(inv); session.commit()
+        item_id = inv.id
+    finally:
+        session.close()
+
+    status, _body = _invoke_consume(app, user_id, item_id, amount=1)
+    assert status == 200
+
+    session = SF()
+    try:
+        inv = session.get(Inventory, item_id)
+        assert inv.consumed_pct_override is not None
+        # 1 of original 4 consumed -> ~25%
+        assert 20.0 <= inv.consumed_pct_override <= 30.0
+    finally:
+        session.close()
+
+
+def test_used_up_sets_override_high(app):
+    """Consuming entire quantity drives override toward 100%."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    user_id = _make_user(app, email=f"useup_{uuid.uuid4().hex[:6]}@test.local", name="Use Up")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"Yogurt-{unique}", category="dairy")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=1, location="Fridge",
+            is_active_window=True, last_purchased_at=_dt.utcnow(),
+        )
+        session.add(inv); session.commit()
+        item_id = inv.id
+    finally:
+        session.close()
+
+    status, _ = _invoke_consume(app, user_id, item_id, amount=1)
+    assert status == 200
+    session = SF()
+    try:
+        inv = session.get(Inventory, item_id)
+        # Consumed all -> override should be high (>=95)
+        assert inv.consumed_pct_override is not None
+        assert inv.consumed_pct_override >= 95.0
+    finally:
+        session.close()
