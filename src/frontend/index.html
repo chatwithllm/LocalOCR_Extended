@@ -563,12 +563,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     min-width: 0;
   }
 
-  /* Loan-row compact on mobile — small donut, info inline if possible */
-  .loan-row { flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; }
-  .loan-row .mini-donut { flex: 0 0 60px; width: 60px; height: 60px; }
-  .loan-row .mini-donut svg { width: 60px; height: 60px; }
-  .loan-row .mini-donut .donut-center { font-size: 0.82rem; }
-  .loan-row .loan-info { flex: 1 1 160px; min-width: 0; font-size: 0.84rem; }
+  /* Loan-row tight on mobile — bar+chips layout */
+  .loan-row { gap: 6px; padding: 10px 0; }
+  .loan-row .loan-head .loan-name { font-size: 0.88rem; }
+  .loan-row .loan-head .loan-pct { font-size: 0.95rem; }
+  .loan-row .loan-totals { font-size: 0.76rem; }
+  .loan-row .loan-chip { padding: 2px 8px; font-size: 0.7rem; }
+  .loan-row .loan-head .name-edit-pencil { opacity: 1; }
   .loan-row .loan-edit-btn {
     flex: 0 0 auto;
     padding: 5px 8px;
@@ -913,6 +914,112 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 .cu-tile-foot .cu-spend.neg { color: #34c759; }
 
+/* Owner badge — small pill colored by owner_label hash */
+.owner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--owner-bg, rgba(255,255,255,0.08));
+  color: var(--owner-fg, #fff);
+  border: 1px solid var(--owner-bg, rgba(255,255,255,0.12));
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.owner-badge.owner-badge-empty {
+  background: transparent;
+  color: var(--muted, #888);
+  border: 1px dashed var(--border, #3a3a3c);
+  cursor: pointer;
+}
+.cu-tile-head .owner-badge { flex: 0 0 auto; }
+/* Inline edit pencils on tile (rename / tag) */
+.cu-tile-head .cu-edit-tools {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 4px;
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.cu-tile:hover .cu-tile-head .cu-edit-tools,
+.cu-tile-head .cu-edit-tools:focus-within { opacity: 1; }
+.cu-tile-head .cu-edit-tools button {
+  background: transparent;
+  border: none;
+  color: var(--muted, #888);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cu-tile-head .cu-edit-tools button:hover {
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+}
+@media (max-width: 640px) {
+  .cu-tile-head .cu-edit-tools { opacity: 1; }
+}
+/* Owner sub-group header — between section h3 and the row of tiles */
+.cu-owner-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.cu-owner-group:last-child { margin-bottom: 0; }
+.cu-owner-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--surface2, #2c2c2e);
+  border-radius: 8px;
+  border: 1px solid var(--border, #3a3a3c);
+  font-size: 0.85rem;
+}
+.cu-owner-group-head .cu-owner-name {
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+.cu-owner-group-head .cu-owner-stat {
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cu-owner-group-head .cu-owner-stat strong {
+  color: var(--text, #fff);
+  font-weight: 600;
+}
+.cu-owner-group-head .cu-owner-spacer { flex: 1 1 auto; }
+/* Popover action row — Rename / Tag links */
+.cu-popover .cu-pop-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, #3a3a3c);
+}
+.cu-popover .cu-pop-actions button {
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  color: var(--text, #fff);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.cu-popover .cu-pop-actions button:hover {
+  background: var(--surface3, #3a3a3c);
+}
+
 /* Collapsed state — single-row chip layout, ~50px tall */
 .cu-tile.cu-collapsed {
   padding: 12px 14px 12px;
@@ -1067,13 +1174,110 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 .loan-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border, #3a3a3c);
 }
 .loan-row:last-child { border-bottom: none; }
+.loan-row .loan-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.loan-row .loan-head .loan-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.loan-row .loan-head .loan-name .name-edit-pencil {
+  background: transparent;
+  border: none;
+  color: var(--muted, #888);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.loan-row:hover .loan-head .loan-name .name-edit-pencil,
+.loan-row .loan-head .loan-name .name-edit-pencil:focus { opacity: 1; }
+.loan-row .loan-head .name-edit-pencil:hover {
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+}
+.loan-row .loan-head .loan-pct {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #34c759;
+  font-variant-numeric: tabular-nums;
+}
+.loan-row .loan-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: var(--surface2, #2c2c2e);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.loan-row .loan-bar .loan-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #30d158, #34c759);
+  border-radius: 4px;
+  transition: width 220ms ease;
+}
+.loan-row .loan-bar.paid-off .loan-bar-fill { background: #30d158; }
+.loan-row .loan-totals {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+.loan-row .loan-totals .paid { color: #34c759; }
+.loan-row .loan-totals .left { color: var(--text, #fff); }
+.loan-row .loan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.loan-row .loan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  font-size: 0.74rem;
+  color: var(--text, #fff);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.loan-row .loan-chip.muted { color: var(--muted, #888); }
+.loan-row .loan-chip.due-soon {
+  background: rgba(255, 159, 10, 0.15);
+  border-color: rgba(255, 159, 10, 0.4);
+  color: #ff9f0a;
+}
+.loan-row .loan-chip.due-urgent {
+  background: rgba(255, 69, 58, 0.18);
+  border-color: rgba(255, 69, 58, 0.45);
+  color: #ff453a;
+}
+.loan-row .loan-chip-label { color: var(--muted, #888); }
 .loan-row.loan-row-compact {
   display: flex;
   flex-direction: row;
@@ -1137,43 +1341,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   background: #0a84ff;
   border-color: #0a84ff;
   color: #fff;
-}
-.loan-row .mini-donut { flex: 0 0 100px; position: relative; }
-.loan-row .mini-donut svg { display: block; }
-.loan-row .mini-donut .donut-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text, #fff);
-  pointer-events: none;
-}
-.loan-row .loan-info {
-  flex: 1 1 220px;
-  min-width: 200px;
-  font-size: 0.9rem;
-}
-.loan-row .loan-info .loan-name {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-.loan-row .loan-info .loan-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--muted, #888);
-  font-variant-numeric: tabular-nums;
-}
-.loan-row .loan-info .loan-line.paid-off-line { color: #34c759; }
-.loan-row .loan-info .loan-line.total-line {
-  color: var(--text, #fff);
-  font-weight: 600;
-  border-top: 1px solid var(--border, #3a3a3c);
-  padding-top: 4px;
-  margin-top: 4px;
 }
 .loan-row .loan-edit-btn {
   background: var(--surface2, #2c2c2e);
@@ -16222,33 +16389,50 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
           const isCredit = group.type === "credit_card";
           if (isCredit) {
-            // Credit cards → side-by-side row: expanded grid on the
-            // left (capped tile width), dormant chip strip flexes to
-            // fill remaining width on the right. No dead vertical
-            // space when only one card is expanded.
-            const expanded = [];
-            const dormant = [];
-            group.accounts.forEach(a => {
-              if (_cuIsCollapsed(a)) dormant.push(a);
-              else expanded.push(a);
+            // Credit cards → optionally grouped by owner_label. When at
+            // least one card has an owner tag, render a sub-group per
+            // owner with a header showing per-owner balance/limit/util.
+            // When no owner is set anywhere, fall back to a single
+            // ungrouped row (existing behavior).
+            const anyOwner = group.accounts.some(a => (a.owner_label || "").trim());
+            const subGroups = anyOwner
+              ? _splitAccountsByOwner(group.accounts)
+              : [{ owner: null, accounts: group.accounts }];
+
+            subGroups.forEach(sg => {
+              const sgWrap = document.createElement("div");
+              sgWrap.className = "cu-owner-group";
+
+              if (anyOwner) {
+                sgWrap.appendChild(_renderOwnerGroupHead(sg));
+              }
+
+              const expanded = [];
+              const dormant = [];
+              sg.accounts.forEach(a => {
+                if (_cuIsCollapsed(a)) dormant.push(a);
+                else expanded.push(a);
+              });
+
+              const row = document.createElement("div");
+              row.className = "card-usage-flex-row";
+              if (!expanded.length && dormant.length) {
+                row.classList.add("cu-chips-only");
+              }
+
+              if (expanded.length) {
+                const grid = document.createElement("div");
+                grid.className = "card-usage-grid";
+                expanded.forEach(a => grid.appendChild(_renderCreditCardTile(a)));
+                row.appendChild(grid);
+              }
+              if (dormant.length) {
+                row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
+              }
+              sgWrap.appendChild(row);
+              wrap.appendChild(sgWrap);
             });
 
-            const row = document.createElement("div");
-            row.className = "card-usage-flex-row";
-            if (!expanded.length && dormant.length) {
-              row.classList.add("cu-chips-only");
-            }
-
-            if (expanded.length) {
-              const grid = document.createElement("div");
-              grid.className = "card-usage-grid";
-              expanded.forEach(a => grid.appendChild(_renderCreditCardTile(a)));
-              row.appendChild(grid);
-            }
-            if (dormant.length) {
-              row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
-            }
-            wrap.appendChild(row);
             body.appendChild(wrap);
           }
           // Loan group: skipped here. Already rendered by the dedicated
@@ -16287,6 +16471,126 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           if (n.includes(needle)) return color;
         }
         return "#6b7280"; // slate fallback
+      }
+
+      // Stable color per owner_label — hash → palette index. Same person
+      // always gets the same chip color across cards + sessions.
+      const _CU_OWNER_PALETTE = [
+        ["#0a84ff", "#003b70"], // blue
+        ["#34c759", "#1c5a2c"], // green
+        ["#ff9f0a", "#5a3a05"], // amber
+        ["#ff453a", "#5a1a1a"], // red
+        ["#bf5af2", "#3a1d50"], // purple
+        ["#5ac8fa", "#1a3d50"], // cyan
+        ["#ff375f", "#5a1830"], // pink
+        ["#ffd60a", "#5a4d05"], // yellow
+      ];
+      function _ownerColor(label) {
+        const s = String(label || "").trim().toLowerCase();
+        if (!s) return null;
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        const [fg, bg] = _CU_OWNER_PALETTE[h % _CU_OWNER_PALETTE.length];
+        return { fg, bg };
+      }
+      // Splits credit-card accounts into sub-groups keyed by owner_label.
+      // Preserves the input order within each group. Accounts without an
+      // owner_label go into a final "Unassigned" sub-group.
+      function _splitAccountsByOwner(accounts) {
+        const map = new Map();
+        let unassigned = [];
+        accounts.forEach(a => {
+          const owner = (a.owner_label || "").trim();
+          if (!owner) {
+            unassigned.push(a);
+            return;
+          }
+          if (!map.has(owner)) map.set(owner, []);
+          map.get(owner).push(a);
+        });
+        const groups = [];
+        // Sort owner-tagged groups by total balance desc — highest debt first.
+        const sortedOwners = Array.from(map.keys()).sort((x, y) => {
+          const sx = map.get(x).reduce((s, a) => s + (a.balance_cents || 0), 0);
+          const sy = map.get(y).reduce((s, a) => s + (a.balance_cents || 0), 0);
+          return sy - sx;
+        });
+        sortedOwners.forEach(o => groups.push({ owner: o, accounts: map.get(o) }));
+        if (unassigned.length) groups.push({ owner: null, accounts: unassigned });
+        return groups;
+      }
+
+      function _renderOwnerGroupHead(sg) {
+        const head = document.createElement("div");
+        head.className = "cu-owner-group-head";
+
+        const badge = document.createElement("span");
+        badge.className = "owner-badge" + (sg.owner ? "" : " owner-badge-empty");
+        if (sg.owner) {
+          const c = _ownerColor(sg.owner);
+          if (c) {
+            badge.style.setProperty("--owner-fg", c.fg);
+            badge.style.setProperty("--owner-bg", c.bg);
+          }
+          badge.textContent = "👤 " + sg.owner;
+        } else {
+          badge.textContent = "Unassigned";
+        }
+        head.appendChild(badge);
+
+        const count = document.createElement("span");
+        count.className = "cu-owner-name";
+        count.textContent = `${sg.accounts.length} card${sg.accounts.length === 1 ? "" : "s"}`;
+        head.appendChild(count);
+
+        const balance = sg.accounts.reduce((s, a) => s + (a.balance_cents || 0), 0);
+        const limit = sg.accounts.reduce((s, a) => s + (a.credit_limit_cents || 0), 0);
+        const util = limit > 0 ? (balance / limit * 100) : null;
+
+        const mkStat = (label, valueText, color) => {
+          const stat = document.createElement("span");
+          stat.className = "cu-owner-stat";
+          stat.appendChild(document.createTextNode(label + ": "));
+          const v = document.createElement("strong");
+          v.textContent = valueText;
+          if (color) v.style.color = color;
+          stat.appendChild(v);
+          return stat;
+        };
+
+        head.appendChild(mkStat("Balance", _fmtMoneyCents(balance, "USD")));
+        head.appendChild(mkStat("Limit", limit > 0 ? _fmtMoneyCents(limit, "USD") : "—"));
+        let utilColor = null;
+        if (util != null) {
+          if (util >= 70) utilColor = "#ff453a";
+          else if (util >= 30) utilColor = "#ff9f0a";
+          else utilColor = "#34c759";
+        }
+        head.appendChild(mkStat("Util", util == null ? "—" : util.toFixed(1) + "%", utilColor));
+
+        return head;
+      }
+
+      function _renderOwnerBadge(account) {
+        const label = (account.owner_label || "").trim();
+        const badge = document.createElement("span");
+        badge.className = "owner-badge" + (label ? "" : " owner-badge-empty");
+        badge.title = label ? "Tagged: " + label + " (click to change)" : "Tag person";
+        if (label) {
+          const c = _ownerColor(label);
+          if (c) {
+            badge.style.setProperty("--owner-fg", c.fg);
+            badge.style.setProperty("--owner-bg", c.bg);
+          }
+          badge.textContent = "👤 " + label;
+        } else {
+          badge.textContent = "+ tag";
+        }
+        badge.addEventListener("click", function (e) {
+          e.stopPropagation();
+          _setOwnerLabelInline(account);
+        });
+        return badge;
       }
 
       // Status chip text + class from utilization %.
@@ -16485,6 +16789,43 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             row.appendChild(left); row.appendChild(right);
             pop.appendChild(row);
           });
+
+          // Owner row when tagged
+          const ownerLbl = (account.owner_label || "").trim();
+          if (ownerLbl) {
+            const ownerRow = document.createElement("div");
+            ownerRow.className = "cu-pop-row";
+            const oL = document.createElement("span");
+            oL.className = "cu-pop-label";
+            oL.appendChild(document.createTextNode("Owner"));
+            const oR = document.createElement("span");
+            oR.textContent = "👤 " + ownerLbl;
+            ownerRow.appendChild(oL); ownerRow.appendChild(oR);
+            pop.appendChild(ownerRow);
+          }
+
+          // Rename + Tag actions
+          const actions = document.createElement("div");
+          actions.className = "cu-pop-actions";
+          const rBtn = document.createElement("button");
+          rBtn.type = "button";
+          rBtn.textContent = "✏️ Rename";
+          rBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            _cuHidePopover();
+            _renameAccountInline(account);
+          });
+          const tBtn = document.createElement("button");
+          tBtn.type = "button";
+          tBtn.textContent = ownerLbl ? "👤 Re-tag" : "👤 Tag person";
+          tBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            _cuHidePopover();
+            _setOwnerLabelInline(account);
+          });
+          actions.appendChild(rBtn);
+          actions.appendChild(tBtn);
+          pop.appendChild(actions);
         };
 
         // Desktop hover
@@ -16571,6 +16912,17 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           name.textContent = a.name || "Card";
           chip.appendChild(name);
 
+          // Optional owner mini-dot when chip belongs to a tagged person.
+          // Keeps chip layout dense — no full pill, just a 6px color dot.
+          const ownerLabel = (a.owner_label || "").trim();
+          if (ownerLabel) {
+            const dot = document.createElement("span");
+            const c = _ownerColor(ownerLabel);
+            dot.title = "Owner: " + ownerLabel;
+            dot.style.cssText = "display:inline-block;width:6px;height:6px;border-radius:50%;flex:0 0 auto;margin-right:2px;background:" + (c ? c.fg : "#888");
+            chip.appendChild(dot);
+          }
+
           const mask = document.createElement("span");
           mask.className = "cu-chip-mask";
           mask.textContent = "····" + (a.mask || "");
@@ -16633,7 +16985,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
         });
 
-        // Head: icon + name (truncates) + mask (pinned, never truncates) + collapsed-meta + toggle
+        // Head: icon + name (truncates) + mask (pinned, never truncates) + owner + edit-tools + collapsed-meta + toggle
         const head = document.createElement("div");
         head.className = "cu-tile-head";
         const icon = document.createElement("span");
@@ -16647,6 +16999,30 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         maskEl.className = "cu-mask";
         maskEl.textContent = "····" + (a.mask || "");
         head.appendChild(maskEl);
+
+        head.appendChild(_renderOwnerBadge(a));
+
+        const editTools = document.createElement("span");
+        editTools.className = "cu-edit-tools";
+        const renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.title = "Rename card";
+        renameBtn.textContent = "✏️";
+        renameBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          _renameAccountInline(a);
+        });
+        const tagBtn = document.createElement("button");
+        tagBtn.type = "button";
+        tagBtn.title = "Tag person";
+        tagBtn.textContent = "👤";
+        tagBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          _setOwnerLabelInline(a);
+        });
+        editTools.appendChild(renameBtn);
+        editTools.appendChild(tagBtn);
+        head.appendChild(editTools);
 
         // Collapsed-only inline meta: util% + mini bar (hidden when expanded via CSS)
         const collapsedMeta = document.createElement("span");
@@ -17048,15 +17424,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
         const total = account.original_loan_amount_cents;
         const paid = account.paid_off_cents;
+        const unpaidCents = account.balance_cents || 0;
+        const mp = account.monthly_payment_cents;
+        const ccy = account.balance_currency;
+        const displayName = account.name || "Loan";
+        const maskStr = account.mask ? " ····" + account.mask : "";
 
-        // Compact form when there's no original amount yet — no donut,
-        // one-line "🏦 AUTO LOAN ····7372 [Set original amount →]".
-        // Saves ~150px of empty vertical space on mobile.
+        // Compact form when there's no original amount yet — single-line CTA.
         if (!total) {
           row.classList.add("loan-row-compact");
           const name = document.createElement("div");
           name.className = "loan-name";
-          name.textContent = "🏦 " + (account.name || "Loan") + " ····" + (account.mask || "");
+          name.textContent = "🏦 " + displayName + maskStr;
           row.appendChild(name);
           const editBtn = document.createElement("button");
           editBtn.type = "button";
@@ -17067,144 +17446,178 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           return row;
         }
 
-        const donutWrap = document.createElement("div");
-        donutWrap.className = "mini-donut";
-        donutWrap.appendChild(_renderLoanMiniDonut(paid, total));
-        if (total && total > 0) {
-          const center = document.createElement("div");
-          center.className = "donut-center";
-          const pct = Math.round(((paid || 0) / total) * 100);
-          center.textContent = pct + "%";
-          donutWrap.appendChild(center);
-        }
-        row.appendChild(donutWrap);
-
-        const info = document.createElement("div");
-        info.className = "loan-info";
+        // Header: name + rename pencil + paid-off pct
+        const head = document.createElement("div");
+        head.className = "loan-head";
         const name = document.createElement("div");
         name.className = "loan-name";
-        name.textContent = "🏦 " + (account.name || "Loan") + " ····" + (account.mask || "");
-        info.appendChild(name);
+        const nameText = document.createElement("span");
+        nameText.textContent = "🏦 " + displayName + maskStr;
+        name.appendChild(nameText);
+        const renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.className = "name-edit-pencil";
+        renameBtn.title = "Rename loan";
+        renameBtn.textContent = "✏️";
+        renameBtn.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          _renameAccountInline(account);
+        });
+        name.appendChild(renameBtn);
+        head.appendChild(name);
 
-        if (total) {
-          const paidLine = document.createElement("div");
-          paidLine.className = "loan-line paid-off-line";
-          const paidL = document.createElement("span"); paidL.textContent = "Paid off:";
-          const paidV = document.createElement("span");
-          const pct = Math.round(((paid || 0) / total) * 100);
-          paidV.textContent = _fmtMoneyCents(paid || 0, account.balance_currency) + " (" + pct + "%)";
-          paidLine.appendChild(paidL); paidLine.appendChild(paidV);
-          info.appendChild(paidLine);
+        const pct = Math.round(((paid || 0) / total) * 100);
+        const pctEl = document.createElement("span");
+        pctEl.className = "loan-pct";
+        pctEl.textContent = pct + "%";
+        head.appendChild(pctEl);
+        row.appendChild(head);
 
-          const unpaidLine = document.createElement("div");
-          unpaidLine.className = "loan-line unpaid-line";
-          const unpL = document.createElement("span"); unpL.textContent = "Unpaid:";
-          const unpV = document.createElement("span");
-          unpV.textContent = _fmtMoneyCents(account.balance_cents || 0, account.balance_currency);
-          unpaidLine.appendChild(unpL); unpaidLine.appendChild(unpV);
-          info.appendChild(unpaidLine);
+        // Bar
+        const bar = document.createElement("div");
+        bar.className = "loan-bar" + (unpaidCents <= 0 ? " paid-off" : "");
+        const fill = document.createElement("div");
+        fill.className = "loan-bar-fill";
+        fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+        bar.appendChild(fill);
+        row.appendChild(bar);
 
-          const totalLine = document.createElement("div");
-          totalLine.className = "loan-line total-line";
-          const totL = document.createElement("span"); totL.textContent = "Total:";
-          const totV = document.createElement("span");
-          totV.textContent = _fmtMoneyCents(total, account.balance_currency);
-          totalLine.appendChild(totL); totalLine.appendChild(totV);
-          info.appendChild(totalLine);
+        // Totals line: $X paid · $Y left
+        const totals = document.createElement("div");
+        totals.className = "loan-totals";
+        const paidSpan = document.createElement("span");
+        paidSpan.className = "paid";
+        paidSpan.textContent = _fmtMoneyCents(paid || 0, ccy) + " paid";
+        const leftSpan = document.createElement("span");
+        leftSpan.className = "left";
+        leftSpan.textContent = _fmtMoneyCents(unpaidCents, ccy) + " left";
+        totals.appendChild(paidSpan);
+        totals.appendChild(leftSpan);
+        row.appendChild(totals);
 
-          // APR row — placeholder when not set
-          const aprLine = document.createElement("div");
-          aprLine.className = "loan-line apr-line";
-          const aprL = document.createElement("span"); aprL.textContent = "APR:";
-          const aprV = document.createElement("span");
-          aprV.textContent = account.apr_bps != null
-            ? (account.apr_bps / 100).toFixed(2) + "%"
-            : "—";
-          if (account.apr_bps == null) aprV.style.color = "var(--muted, #888)";
-          aprLine.appendChild(aprL); aprLine.appendChild(aprV);
-          info.appendChild(aprLine);
+        // Chips: APR · months · next-due · edit
+        const chips = document.createElement("div");
+        chips.className = "loan-chips";
 
-          // Months remaining = ceil(unpaid / monthly_payment)
-          const monthsLine = document.createElement("div");
-          monthsLine.className = "loan-line months-line";
-          const monL = document.createElement("span"); monL.textContent = "Months remaining:";
-          const monV = document.createElement("span");
-          const unpaidCents = account.balance_cents || 0;
-          const mp = account.monthly_payment_cents;
-          if (mp && mp > 0 && unpaidCents > 0) {
-            const months = Math.ceil(unpaidCents / mp);
-            const yrs = Math.floor(months / 12);
-            const remMo = months % 12;
-            monV.textContent = yrs > 0
-              ? (yrs + "y" + (remMo > 0 ? " " + remMo + "mo" : ""))
-              : (months + " mo");
-          } else if (mp && mp > 0 && unpaidCents <= 0) {
-            monV.textContent = "Paid off";
-            monV.style.color = "#34c759";
-          } else {
-            monV.textContent = "—";
-            monV.style.color = "var(--muted, #888)";
-          }
-          monthsLine.appendChild(monL); monthsLine.appendChild(monV);
-          info.appendChild(monthsLine);
+        const aprChip = document.createElement("span");
+        aprChip.className = "loan-chip" + (account.apr_bps == null ? " muted" : "");
+        aprChip.textContent = account.apr_bps != null
+          ? (account.apr_bps / 100).toFixed(2) + "% APR"
+          : "APR —";
+        chips.appendChild(aprChip);
 
-          // Next payment due (computed from monthly_payment_due_day)
-          const dueLine = document.createElement("div");
-          dueLine.className = "loan-line due-line";
-          const dueL = document.createElement("span"); dueL.textContent = "Next payment:";
-          const dueV = document.createElement("span");
-          const dueDay = account.monthly_payment_due_day;
-          if (dueDay && dueDay >= 1 && dueDay <= 31 && unpaidCents > 0) {
-            const today = new Date();
-            const todayDay = today.getDate();
-            let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-            if (todayDay >= dueDay) {
-              nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
-            }
-            // Handle months where the requested day-of-month exceeds the
-            // month's last day (e.g., due_day=31 in February). JS Date
-            // auto-rolls into the next month — clamp to the actual last
-            // day of the target month instead.
-            if (nextDue.getDate() !== dueDay) {
-              nextDue = new Date(nextDue.getFullYear(), nextDue.getMonth(), 0);
-            }
-            const daysUntil = Math.ceil((nextDue - today) / 86400000);
-            const dateStr = nextDue.toLocaleDateString("en-US",
-              { month: "short", day: "numeric" });
-            const amtStr = mp ? " · " + _fmtMoneyCents(mp, account.balance_currency) : "";
-            const inDays = daysUntil <= 0
-              ? "today"
-              : daysUntil === 1 ? "tomorrow" : `in ${daysUntil}d`;
-            dueV.textContent = `${dateStr} (${inDays})${amtStr}`;
-            // Color-code urgency
-            if (daysUntil <= 3) dueV.style.color = "#ff453a";
-            else if (daysUntil <= 7) dueV.style.color = "#ff9f0a";
-          } else if (mp && unpaidCents <= 0) {
-            dueV.textContent = "—";
-            dueV.style.color = "var(--muted, #888)";
-          } else {
-            dueV.textContent = "—";
-            dueV.style.color = "var(--muted, #888)";
-          }
-          dueLine.appendChild(dueL); dueLine.appendChild(dueV);
-          info.appendChild(dueLine);
+        const monChip = document.createElement("span");
+        monChip.className = "loan-chip" + (mp && unpaidCents > 0 ? "" : " muted");
+        if (mp && mp > 0 && unpaidCents > 0) {
+          const months = Math.ceil(unpaidCents / mp);
+          const yrs = Math.floor(months / 12);
+          const remMo = months % 12;
+          monChip.textContent = yrs > 0
+            ? (yrs + "y" + (remMo > 0 ? " " + remMo + "mo" : "") + " left")
+            : (months + " mo left");
+        } else if (mp && unpaidCents <= 0) {
+          monChip.textContent = "Paid off";
+          monChip.classList.remove("muted");
+          monChip.style.color = "#34c759";
         } else {
-          const placeholder = document.createElement("div");
-          placeholder.className = "loan-line";
-          placeholder.textContent = "Original amount not set.";
-          info.appendChild(placeholder);
+          monChip.textContent = "Months —";
         }
+        chips.appendChild(monChip);
 
-        row.appendChild(info);
+        const dueChip = document.createElement("span");
+        dueChip.className = "loan-chip";
+        const dueDay = account.monthly_payment_due_day;
+        if (dueDay && dueDay >= 1 && dueDay <= 31 && unpaidCents > 0) {
+          const today = new Date();
+          const todayDay = today.getDate();
+          let nextDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
+          if (todayDay >= dueDay) {
+            nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+          }
+          // Clamp due_day=31 in short months to month-end.
+          if (nextDue.getDate() !== dueDay) {
+            nextDue = new Date(nextDue.getFullYear(), nextDue.getMonth(), 0);
+          }
+          const daysUntil = Math.ceil((nextDue - today) / 86400000);
+          const dateStr = nextDue.toLocaleDateString("en-US",
+            { month: "short", day: "numeric" });
+          const amtStr = mp ? " · " + _fmtMoneyCents(mp, ccy) : "";
+          dueChip.textContent = "Next: " + dateStr + amtStr;
+          if (daysUntil <= 3) dueChip.classList.add("due-urgent");
+          else if (daysUntil <= 7) dueChip.classList.add("due-soon");
+        } else {
+          dueChip.classList.add("muted");
+          dueChip.textContent = "Next: —";
+        }
+        chips.appendChild(dueChip);
 
-        const editBtn = document.createElement("button");
-        editBtn.type = "button";
-        editBtn.className = "loan-edit-btn";
-        editBtn.textContent = total ? "✏️ Edit" : "✏️ Set original amount";
-        editBtn.addEventListener("click", function () { _toggleLoanEditMode(account.id, true); });
-        row.appendChild(editBtn);
+        const editChip = document.createElement("button");
+        editChip.type = "button";
+        editChip.className = "loan-chip";
+        editChip.style.cursor = "pointer";
+        editChip.textContent = "✏️ Edit";
+        editChip.addEventListener("click", function () {
+          _toggleLoanEditMode(account.id, true);
+        });
+        chips.appendChild(editChip);
 
+        row.appendChild(chips);
         return row;
+      }
+
+      // Inline rename for any plaid account (loan or credit). Uses prompt()
+      // for simplicity — pencil button on hover or always visible on mobile.
+      async function _renameAccountInline(account) {
+        const current = account.display_name || account.original_name || account.name || "";
+        const next = window.prompt(
+          "Rename this account (leave blank to clear and use Plaid's original name):",
+          current,
+        );
+        if (next === null) return; // cancelled
+        const cleaned = (next || "").trim();
+        // null clears the override; empty string normalizes to null on backend.
+        const body = { display_name: cleaned === "" ? null : cleaned };
+        try {
+          const res = await api("/plaid/accounts/" + account.id + "/identity", {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const msg = await res.json().catch(() => ({}));
+            toast("Rename failed: " + (msg.error || res.status), "error");
+            return;
+          }
+          toast("Renamed.", "success");
+          await loadCardsOverview();
+        } catch (e) {
+          toast("Rename failed.", "error");
+        }
+      }
+
+      async function _setOwnerLabelInline(account) {
+        const current = account.owner_label || "";
+        const next = window.prompt(
+          "Tag this card to a person (e.g. \"Me\", \"Spouse\", \"Kid\"). Leave blank to clear:",
+          current,
+        );
+        if (next === null) return;
+        const cleaned = (next || "").trim();
+        const body = { owner_label: cleaned === "" ? null : cleaned };
+        try {
+          const res = await api("/plaid/accounts/" + account.id + "/identity", {
+            method: "PUT",
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const msg = await res.json().catch(() => ({}));
+            toast("Tag failed: " + (msg.error || res.status), "error");
+            return;
+          }
+          toast("Tagged.", "success");
+          await loadCardsOverview();
+        } catch (e) {
+          toast("Tag failed.", "error");
+        }
       }
 
       function _toggleLoanEditMode(accountId, on) {

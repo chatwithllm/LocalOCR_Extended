@@ -248,11 +248,15 @@ def _upsert_plaid_accounts_from_metadata(session, item: PlaidItem, accounts_meta
 
 
 def _serialize_plaid_account(acct: PlaidAccount) -> dict:
+    display = (acct.display_name or "").strip() or None
     return {
         "id": acct.id,
         "plaid_item_id": acct.plaid_item_id,
         "plaid_account_id": acct.plaid_account_id,
-        "name": acct.account_name,
+        "name": display or acct.account_name,
+        "original_name": acct.account_name,
+        "display_name": display,
+        "owner_label": (acct.owner_label or "").strip() or None,
         "mask": acct.account_mask,
         "type": acct.account_type,
         "subtype": acct.account_subtype,
@@ -2055,6 +2059,71 @@ def update_loan_meta(account_id: int):
         acct.monthly_payment_cents = new_mp[0]
     if new_due[0] != "__skip__":
         acct.monthly_payment_due_day = new_due[0]
+    session.commit()
+
+    return jsonify({"account": _serialize_plaid_account(acct)}), 200
+
+
+@plaid_bp.route("/accounts/<int:account_id>/identity", methods=["PUT"])
+@require_auth
+@require_write_access
+def update_account_identity(account_id: int):
+    """Set or clear the user-facing display_name and owner_label on any account.
+
+    Body keys (each optional; missing key = leave unchanged; null = clear):
+      - display_name : str (1..128 chars after strip) | null
+      - owner_label  : str (1..64 chars after strip)  | null
+
+    Empty string normalizes to null (clears the override). Whitespace-only
+    strings are treated as null. 404 on accounts the caller cannot see.
+    """
+    _ALLOWED_KEYS = ("display_name", "owner_label")
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    if not any(k in payload for k in _ALLOWED_KEYS):
+        return jsonify({"error": "At least one of " + ", ".join(_ALLOWED_KEYS) + " is required"}), 400
+
+    def _validate_str(key, max_len):
+        if key not in payload:
+            return ("__skip__",)
+        raw = payload.get(key)
+        if raw is None:
+            return (None,)
+        if not isinstance(raw, str):
+            return ("__error__", f"{key} must be a string or null")
+        cleaned = raw.strip()
+        if not cleaned:
+            return (None,)  # empty/whitespace → clear
+        if len(cleaned) > max_len:
+            return ("__error__", f"{key} must be ≤ {max_len} characters")
+        return (cleaned,)
+
+    new_name = _validate_str("display_name", 128)
+    if new_name and new_name[0] == "__error__":
+        return jsonify({"error": new_name[1]}), 400
+    new_owner = _validate_str("owner_label", 64)
+    if new_owner and new_owner[0] == "__error__":
+        return jsonify({"error": new_owner[1]}), 400
+
+    session = g.db_session
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+
+    q = session.query(PlaidAccount).filter(PlaidAccount.id == account_id)
+    if visible_ids is not None:
+        if not visible_ids:
+            return jsonify({"error": "Account not found"}), 404
+        q = q.filter(PlaidAccount.plaid_item_id.in_(visible_ids))
+    acct = q.first()
+    if acct is None:
+        return jsonify({"error": "Account not found"}), 404
+
+    if new_name[0] != "__skip__":
+        acct.display_name = new_name[0]
+    if new_owner[0] != "__skip__":
+        acct.owner_label = new_owner[0]
     session.commit()
 
     return jsonify({"account": _serialize_plaid_account(acct)}), 200

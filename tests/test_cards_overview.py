@@ -2322,3 +2322,235 @@ def test_update_item_rejects_out_of_range_override(app):
                 assert resp[1] == 400
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# PUT /plaid/accounts/<id>/identity — display_name + owner_label
+# ---------------------------------------------------------------------------
+
+def _invoke_put_identity(app, user_id, account_id, body):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+    import json as _json
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/plaid/accounts/{account_id}/identity"
+        with app.test_request_context(path, method="PUT", json=body):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(account_id=account_id)
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else (_json.loads(obj) if isinstance(obj, str) else obj)
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_put_identity_sets_display_name(app):
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="ident_dn@test.local", name="Ident DN")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_dn", inst_id="ins_ident_dn")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {"display_name": "Daily Driver"})
+    assert status == 200, body
+    assert body["account"]["display_name"] == "Daily Driver"
+    assert body["account"]["name"] == "Daily Driver"  # display_name shadows account_name
+    assert body["account"]["original_name"] == "Sapphire"
+
+
+def test_put_identity_clears_display_name_with_null(app):
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="ident_clr@test.local", name="Ident Clr")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_clr", inst_id="ins_ident_clr")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc.display_name = "Starts Renamed"
+        session.commit()
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {"display_name": None})
+    assert status == 200, body
+    assert body["account"]["display_name"] is None
+    assert body["account"]["name"] == "Sapphire"  # falls back to original
+
+
+def test_put_identity_empty_string_clears(app):
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="ident_empty@test.local", name="Ident Empty")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_e", inst_id="ins_ident_e")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc.display_name = "Will Clear"
+        session.commit()
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {"display_name": "   "})
+    assert status == 200, body
+    assert body["account"]["display_name"] is None
+
+
+def test_put_identity_sets_owner_label(app):
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="ident_own@test.local", name="Ident Own")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_own", inst_id="ins_ident_own")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {"owner_label": "Spouse"})
+    assert status == 200, body
+    assert body["account"]["owner_label"] == "Spouse"
+
+
+def test_put_identity_rejects_too_long_name(app):
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="ident_long@test.local", name="Ident Long")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_long", inst_id="ins_ident_long")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {"display_name": "x" * 200})
+    assert status == 400
+
+
+def test_put_identity_visibility_filter(app):
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_a = _make_user(app, email="ident_va@test.local", name="Ident VA")
+    user_b = _make_user(app, email="ident_vb@test.local", name="Ident VB")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item_a = _seed_plaid_item_simple(session, user_a, item_token="item_ident_va", inst_id="ins_ident_va")
+        cc_a = _seed_credit_account(session, user_a, item_a.id, plaid_account_id="cc_va_only")
+        cc_id = cc_a.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_b, cc_id, {"display_name": "Stolen"})
+    assert status == 404
+
+
+def test_put_identity_requires_at_least_one_key(app):
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="ident_empty_req@test.local", name="Ident Empty Req")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_er", inst_id="ins_ident_er")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, cc_id, {})
+    assert status == 400
+
+
+def test_put_identity_works_on_loan(app):
+    """Identity endpoint accepts loans too (not loan-only like loan-meta)."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="ident_ln@test.local", name="Ident Ln")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_ident_ln", inst_id="ins_ident_ln")
+        loan = PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_ident",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=100000, balance_iso_currency_code="USD",
+        )
+        session.add(loan); session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_identity(app, user_id, loan_id, {"display_name": "Our House"})
+    assert status == 200, body
+    assert body["account"]["display_name"] == "Our House"
+
+
+def test_serialize_plaid_account_display_name_falls_back():
+    """When display_name unset, name field uses Plaid's account_name."""
+    from src.backend.initialize_database_schema import PlaidAccount
+    from src.backend.plaid_integration import _serialize_plaid_account
+
+    acct = PlaidAccount(
+        id=2, plaid_item_id=1, user_id=1, plaid_account_id="x2",
+        account_name="Plaid Original",
+        account_mask="9999", account_type="credit", account_subtype="credit card",
+        balance_cents=0, balance_iso_currency_code="USD",
+        display_name=None, owner_label=None,
+    )
+    out = _serialize_plaid_account(acct)
+    assert out["name"] == "Plaid Original"
+    assert out["original_name"] == "Plaid Original"
+    assert out["display_name"] is None
+    assert out["owner_label"] is None
+
+
+def test_serialize_plaid_account_display_name_overrides():
+    """When display_name set, name field returns the override; original_name keeps Plaid's value."""
+    from src.backend.initialize_database_schema import PlaidAccount
+    from src.backend.plaid_integration import _serialize_plaid_account
+
+    acct = PlaidAccount(
+        id=3, plaid_item_id=1, user_id=1, plaid_account_id="x3",
+        account_name="CHASE FREEDOM 2292",
+        account_mask="2292", account_type="credit", account_subtype="credit card",
+        balance_cents=0, balance_iso_currency_code="USD",
+        display_name="Groceries Card", owner_label="Spouse",
+    )
+    out = _serialize_plaid_account(acct)
+    assert out["name"] == "Groceries Card"
+    assert out["original_name"] == "CHASE FREEDOM 2292"
+    assert out["display_name"] == "Groceries Card"
+    assert out["owner_label"] == "Spouse"

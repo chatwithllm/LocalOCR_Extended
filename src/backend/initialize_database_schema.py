@@ -798,6 +798,8 @@ class PlaidAccount(Base):
     apr_bps = Column(Integer, nullable=True)              # 7.25% APR stored as 725
     monthly_payment_cents = Column(Integer, nullable=True)
     monthly_payment_due_day = Column(Integer, nullable=True)  # 1-31 day of month
+    display_name = Column(String(128), nullable=True)  # user override of account_name
+    owner_label = Column(String(64), nullable=True)    # person tag for grouping (e.g. "Me", "Spouse")
     balance_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
