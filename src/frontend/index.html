@@ -460,6 +460,83 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   flex-wrap: wrap;
   gap: 12px;
 }
+.card-usage-pie-panel {
+  background: var(--surface, #1c1c1e);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 16px 0 8px;
+  border: 1px solid var(--border, #3a3a3c);
+}
+.card-usage-pie-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.card-usage-pie-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.card-usage-pie-filter {
+  font-size: 0.84rem;
+  color: var(--muted, #888);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-usage-pie-filter select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #3a3a3c);
+  font-size: 0.88rem;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.card-usage-pie-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+.card-usage-pie-body svg.donut { flex: 0 0 160px; }
+.card-usage-pie-body .donut-legend {
+  flex: 1 1 220px;
+  min-width: 220px;
+  font-size: 0.88rem;
+}
+.card-usage-pie-body .donut-legend table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.card-usage-pie-body .donut-legend td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+.card-usage-pie-body .donut-legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.card-usage-pie-body .donut-legend .total-row td {
+  border-top: 1px solid var(--border, #3a3a3c);
+  font-weight: 600;
+  padding-top: 8px;
+}
+.card-usage-pie-body .donut-empty {
+  flex: 1;
+  color: var(--muted, #888);
+  font-size: 0.92rem;
+  text-align: center;
+  padding: 20px 0;
+}
     </style>
   </head>
 
@@ -3221,6 +3298,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
             <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
             <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
+            <div id="card-usage-pie-panel" class="card-usage-pie-panel" style="display:none">
+              <div class="card-usage-pie-head">
+                <span class="card-usage-pie-title">Spend by Category (this month)</span>
+                <label class="card-usage-pie-filter">
+                  Filter:
+                  <select id="card-usage-pie-filter-select" onchange="_onCardUsageFilterChange(event)">
+                    <option value="all">All Cards</option>
+                  </select>
+                </label>
+              </div>
+              <div id="card-usage-pie-body" class="card-usage-pie-body">
+                <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
+              </div>
+            </div>
             <div id="card-usage-body">
               <div class="empty-state"><p>Loading card usage…</p></div>
             </div>
@@ -15421,6 +15512,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           });
           body.appendChild(wrap);
         });
+
+        _refreshCardUsageFilterOptions();
+        const sel = document.getElementById("card-usage-pie-filter-select");
+        _renderCardUsagePie(sel ? sel.value : "all");
       }
 
       function _renderCardRow(a, isCredit) {
@@ -15494,6 +15589,246 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const txnSection = document.getElementById("accounts-staged-card") ||
                            document.getElementById("accounts-transactions-card");
         if (txnSection) txnSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      const __cardUsagePalette = ['#2e7d6b', '#0a84ff', '#ff9f0a', '#bf5af2', '#ff453a', '#34c759'];
+      const __cardUsageOtherColor = '#8e8e93';
+
+      function _categoryLabel(raw) {
+        if (!raw) return "Uncategorized";
+        if (raw === "UNCATEGORIZED") return "Uncategorized";
+        return raw
+          .split("_")
+          .map(w => w.charAt(0) + w.slice(1).toLowerCase())
+          .join(" ")
+          .replace(/\bAnd\b/g, "&");
+      }
+
+      function _aggregateCategories(scope, cache) {
+        if (!cache || !cache.groups) return { slices: [], totalCents: 0 };
+        const credit = cache.groups.find(g => g.type === "credit_card");
+        if (!credit) return { slices: [], totalCents: 0 };
+
+        const accounts = scope === "all"
+          ? credit.accounts
+          : credit.accounts.filter(a => a.plaid_account_id === scope);
+
+        const byCat = new Map();
+        accounts.forEach(a => {
+          if ((a.balance_currency || "USD") !== "USD") return;
+          (a.categories_mtd || []).forEach(c => {
+            byCat.set(c.category, (byCat.get(c.category) || 0) + c.amount_cents);
+          });
+        });
+
+        let entries = Array.from(byCat.entries())
+          .map(([cat, cents]) => ({ category: cat, amount_cents: cents }))
+          .sort((a, b) => b.amount_cents - a.amount_cents);
+
+        const totalCents = entries.reduce((acc, e) => acc + e.amount_cents, 0);
+
+        let slices;
+        if (entries.length > 6) {
+          const top = entries.slice(0, 6);
+          const restCents = entries.slice(6).reduce((acc, e) => acc + e.amount_cents, 0);
+          slices = top.concat([{ category: "OTHER", amount_cents: restCents }]);
+        } else {
+          slices = entries;
+        }
+
+        slices.forEach((s, i) => {
+          s.label = s.category === "OTHER" ? "Other" : _categoryLabel(s.category);
+          s.color = s.category === "OTHER"
+            ? __cardUsageOtherColor
+            : __cardUsagePalette[i % __cardUsagePalette.length];
+        });
+
+        return { slices, totalCents };
+      }
+
+      function _renderCardUsageDonut(slices, totalCents) {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const size = 160, cx = size / 2, cy = size / 2;
+        const outerR = 70, innerR = 42;
+
+        const svg = document.createElementNS(SVG_NS, "svg");
+        svg.setAttribute("width", size);
+        svg.setAttribute("height", size);
+        svg.setAttribute("viewBox", "0 0 " + size + " " + size);
+        svg.classList.add("donut");
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", "Spend by category donut chart");
+
+        if (totalCents <= 0) return svg;
+
+        if (slices.length === 1) {
+          const ring = document.createElementNS(SVG_NS, "path");
+          const d = [
+            "M " + cx + " " + (cy - outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy + outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy - outerR),
+            "M " + cx + " " + (cy - innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy + innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy - innerR),
+            "Z"
+          ].join(" ");
+          ring.setAttribute("d", d);
+          ring.setAttribute("fill", slices[0].color);
+          ring.setAttribute("fill-rule", "evenodd");
+          svg.appendChild(ring);
+          return svg;
+        }
+
+        let startAngle = -Math.PI / 2;
+        slices.forEach(s => {
+          const frac = s.amount_cents / totalCents;
+          if (frac <= 0) return;
+          const endAngle = startAngle + frac * 2 * Math.PI;
+          const largeArc = frac > 0.5 ? 1 : 0;
+
+          const x1 = cx + outerR * Math.cos(startAngle);
+          const y1 = cy + outerR * Math.sin(startAngle);
+          const x2 = cx + outerR * Math.cos(endAngle);
+          const y2 = cy + outerR * Math.sin(endAngle);
+          const x3 = cx + innerR * Math.cos(endAngle);
+          const y3 = cy + innerR * Math.sin(endAngle);
+          const x4 = cx + innerR * Math.cos(startAngle);
+          const y4 = cy + innerR * Math.sin(startAngle);
+
+          const path = document.createElementNS(SVG_NS, "path");
+          const d = [
+            "M " + x1 + " " + y1,
+            "A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2 + " " + y2,
+            "L " + x3 + " " + y3,
+            "A " + innerR + " " + innerR + " 0 " + largeArc + " 0 " + x4 + " " + y4,
+            "Z"
+          ].join(" ");
+          path.setAttribute("d", d);
+          path.setAttribute("fill", s.color);
+          const title = document.createElementNS(SVG_NS, "title");
+          title.textContent = s.label + ": " + _fmtMoneyCents(s.amount_cents, "USD");
+          path.appendChild(title);
+          svg.appendChild(path);
+
+          startAngle = endAngle;
+        });
+        return svg;
+      }
+
+      function _renderCardUsageLegend(slices, totalCents) {
+        const wrap = document.createElement("div");
+        wrap.className = "donut-legend";
+        const table = document.createElement("table");
+        slices.forEach(s => {
+          const tr = document.createElement("tr");
+
+          const tdName = document.createElement("td");
+          const sw = document.createElement("span");
+          sw.className = "swatch";
+          sw.style.background = s.color;
+          tdName.appendChild(sw);
+          tdName.appendChild(document.createTextNode(s.label));
+          tr.appendChild(tdName);
+
+          const tdAmt = document.createElement("td");
+          tdAmt.style.textAlign = "right";
+          tdAmt.style.whiteSpace = "nowrap";
+          tdAmt.textContent = _fmtMoneyCents(s.amount_cents, "USD");
+          tr.appendChild(tdAmt);
+
+          const tdPct = document.createElement("td");
+          tdPct.style.textAlign = "right";
+          tdPct.style.color = "var(--muted, #888)";
+          const pct = totalCents > 0 ? Math.round((s.amount_cents / totalCents) * 100) : 0;
+          tdPct.textContent = pct + "%";
+          tr.appendChild(tdPct);
+
+          table.appendChild(tr);
+        });
+
+        const totalTr = document.createElement("tr");
+        totalTr.className = "total-row";
+        const tdTLabel = document.createElement("td");
+        tdTLabel.textContent = "Gross spend";
+        const tdTAmt = document.createElement("td");
+        tdTAmt.style.textAlign = "right";
+        tdTAmt.style.whiteSpace = "nowrap";
+        tdTAmt.textContent = _fmtMoneyCents(totalCents, "USD");
+        const tdTPct = document.createElement("td");
+        totalTr.appendChild(tdTLabel);
+        totalTr.appendChild(tdTAmt);
+        totalTr.appendChild(tdTPct);
+        table.appendChild(totalTr);
+
+        wrap.appendChild(table);
+        return wrap;
+      }
+
+      function _renderCardUsagePie(scope) {
+        const panel = document.getElementById("card-usage-pie-panel");
+        const body = document.getElementById("card-usage-pie-body");
+        if (!panel || !body) return;
+
+        const cache = __cardsOverviewCache;
+        if (!cache) { panel.style.display = "none"; return; }
+
+        const credit = (cache.groups || []).find(g => g.type === "credit_card");
+        if (!credit || credit.accounts.length === 0) {
+          panel.style.display = "none";
+          return;
+        }
+        panel.style.display = "block";
+
+        body.replaceChildren();
+
+        const { slices, totalCents } = _aggregateCategories(scope, cache);
+
+        if (totalCents <= 0 || slices.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "donut-empty";
+          let label = "this month";
+          if (scope !== "all") {
+            const acct = credit.accounts.find(a => a.plaid_account_id === scope);
+            if (acct) label = "on " + acct.name;
+          }
+          empty.textContent = "No spend " + label + ".";
+          body.appendChild(empty);
+          return;
+        }
+
+        body.appendChild(_renderCardUsageDonut(slices, totalCents));
+        body.appendChild(_renderCardUsageLegend(slices, totalCents));
+      }
+
+      function _refreshCardUsageFilterOptions() {
+        const sel = document.getElementById("card-usage-pie-filter-select");
+        if (!sel) return;
+        const cache = __cardsOverviewCache;
+        const credit = cache && (cache.groups || []).find(g => g.type === "credit_card");
+        const prev = sel.value || "all";
+
+        sel.replaceChildren();
+        const optAll = document.createElement("option");
+        optAll.value = "all";
+        optAll.textContent = "All Cards";
+        sel.appendChild(optAll);
+
+        if (credit) {
+          credit.accounts.forEach(a => {
+            const opt = document.createElement("option");
+            opt.value = a.plaid_account_id;
+            opt.textContent = "💳 " + (a.name || "Account") + " ····" + (a.mask || "");
+            sel.appendChild(opt);
+          });
+        }
+
+        const valid = Array.from(sel.options).some(o => o.value === prev);
+        sel.value = valid ? prev : "all";
+      }
+
+      function _onCardUsageFilterChange(e) {
+        const scope = (e && e.target && e.target.value) || "all";
+        _renderCardUsagePie(scope);
       }
 
       async function refreshCardUsage() {

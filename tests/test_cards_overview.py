@@ -579,3 +579,175 @@ def test_cards_overview_mtd_boundary_and_dismissed(app):
     assert cc["plaid_account_id"] == "cc_mtd"
     assert cc["spend_mtd_cents"] == 1000  # only the $10 first-of-month debit
     assert cc["txn_count_mtd"] == 1
+
+
+def test_cards_overview_categories_basic(app):
+    """Per-account categories_mtd: debits only, sorted by amount desc, refund excluded."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="cat_basic@test.local", name="Cat Basic")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_cat_basic", inst_id="ins_cat_basic")
+        _seed_credit_account(session, user_id, item.id)
+
+        today_iso = date_cls.today().isoformat()
+        from src.backend.initialize_database_schema import PlaidStagedTransaction
+        for txn_id, amount, cat in [
+            ("c1", 50.00, "FOOD_AND_DRINK"),
+            ("c2", 30.00, "TRANSPORTATION"),
+            ("c3", -10.00, "FOOD_AND_DRINK"),  # refund — excluded
+        ]:
+            session.add(PlaidStagedTransaction(
+                plaid_item_id=item.id, user_id=user_id,
+                plaid_transaction_id=txn_id,
+                plaid_account_id="cc_1",
+                amount=amount,
+                transaction_date=date_cls.fromisoformat(today_iso),
+                plaid_category_primary=cat,
+                status="ready_to_import",
+                raw_json="{}",
+            ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200, body
+
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["categories_mtd"] == [
+        {"category": "FOOD_AND_DRINK", "amount_cents": 5000},
+        {"category": "TRANSPORTATION", "amount_cents": 3000},
+    ]
+
+
+def test_cards_overview_categories_null_bucket(app):
+    """Null plaid_category_primary buckets as UNCATEGORIZED."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    user_id = _make_user(app, email="cat_null@test.local", name="Cat Null")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_cat_null", inst_id="ins_cat_null")
+        _seed_credit_account(session, user_id, item.id)
+        session.add(PlaidStagedTransaction(
+            plaid_item_id=item.id, user_id=user_id,
+            plaid_transaction_id="cn1", plaid_account_id="cc_1",
+            amount=42.00,
+            transaction_date=date_cls.today(),
+            plaid_category_primary=None,
+            status="ready_to_import", raw_json="{}",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["categories_mtd"] == [{"category": "UNCATEGORIZED", "amount_cents": 4200}]
+
+
+def test_cards_overview_categories_dismissed_excluded(app):
+    """Dismissed txns must not contribute to categories_mtd."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    user_id = _make_user(app, email="cat_dis@test.local", name="Cat Dis")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_cat_dis", inst_id="ins_cat_dis")
+        _seed_credit_account(session, user_id, item.id)
+        session.add(PlaidStagedTransaction(
+            plaid_item_id=item.id, user_id=user_id,
+            plaid_transaction_id="cd_keep", plaid_account_id="cc_1",
+            amount=20.00,
+            transaction_date=date_cls.today(),
+            plaid_category_primary="FOOD_AND_DRINK",
+            status="ready_to_import", raw_json="{}",
+        ))
+        session.add(PlaidStagedTransaction(
+            plaid_item_id=item.id, user_id=user_id,
+            plaid_transaction_id="cd_drop", plaid_account_id="cc_1",
+            amount=999.00,
+            transaction_date=date_cls.today(),
+            plaid_category_primary="FOOD_AND_DRINK",
+            status="dismissed", raw_json="{}",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["categories_mtd"] == [{"category": "FOOD_AND_DRINK", "amount_cents": 2000}]
+
+
+def test_cards_overview_loans_have_empty_categories(app):
+    """Loan accounts always emit categories_mtd: []."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_cat@test.local", name="Loan Cat")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_cat", inst_id="ins_loan_cat")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_cat",
+            account_name="Mortgage", account_mask="8821",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=18240000, balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["categories_mtd"] == []
+
+
+def test_cards_overview_categories_visibility_filter(app):
+    """User A's category data must not leak to user B."""
+    from datetime import date as date_cls
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidStagedTransaction
+
+    user_a = _make_user(app, email="cat_a@test.local", name="Cat A")
+    user_b = _make_user(app, email="cat_b@test.local", name="Cat B")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item_a = _seed_plaid_item_simple(session, user_a, item_token="item_cat_a", inst_id="ins_cat_a")
+        _seed_credit_account(session, user_a, item_a.id, plaid_account_id="cc_a")
+        session.add(PlaidStagedTransaction(
+            plaid_item_id=item_a.id, user_id=user_a,
+            plaid_transaction_id="cv1", plaid_account_id="cc_a",
+            amount=99.00,
+            transaction_date=date_cls.today(),
+            plaid_category_primary="FOOD_AND_DRINK",
+            status="ready_to_import", raw_json="{}",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_b)
+    assert status == 200
+    assert body["groups"] == []
