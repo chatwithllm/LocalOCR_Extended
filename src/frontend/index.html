@@ -514,23 +514,32 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   }
   .cu-tile { max-width: none; }
 
-  /* Card Usage panel header — title + Refresh on one line */
-  #card-usage-card .accounts-card-header {
+  /* Card Usage panel header — title + Refresh on one line.
+     Use very high specificity + !important to beat any cascading
+     center-text or flex-wrap rules from page-states.css. */
+  #card-usage-card > .card-header.accounts-card-header {
     flex-wrap: nowrap !important;
-    align-items: center;
-    gap: 8px;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
   }
-  #card-usage-card .accounts-card-header .card-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    text-align: left;
+  #card-usage-card > .card-header.accounts-card-header > .card-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  #card-usage-card > .card-header.accounts-card-header > .accounts-toolbar {
+    flex: 0 0 auto !important;
+    flex-wrap: nowrap !important;
   }
   #card-usage-card #card-usage-refresh-btn {
-    padding: 6px 10px;
-    font-size: 0.78rem;
-    flex: 0 0 auto;
+    padding: 6px 10px !important;
+    font-size: 0.78rem !important;
+    flex: 0 0 auto !important;
   }
-  #card-usage-card .accounts-toolbar { flex: 0 0 auto; }
 
   /* Summary stat grid: 2x2, tighter on mobile */
   #card-usage-summary {
@@ -1065,6 +1074,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   border-bottom: 1px solid var(--border, #3a3a3c);
 }
 .loan-row:last-child { border-bottom: none; }
+.loan-row.loan-row-compact {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  flex-wrap: wrap;
+}
+.loan-row.loan-row-compact .loan-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.loan-row.loan-row-compact .loan-edit-btn { flex: 0 0 auto; }
 .loan-row .mini-donut { flex: 0 0 100px; position: relative; }
 .loan-row .mini-donut svg { display: block; }
 .loan-row .mini-donut .donut-center {
@@ -16974,10 +16993,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         row.className = "loan-row";
         row.dataset.loanId = account.id;
 
-        const donutWrap = document.createElement("div");
-        donutWrap.className = "mini-donut";
         const total = account.original_loan_amount_cents;
         const paid = account.paid_off_cents;
+
+        // Compact form when there's no original amount yet — no donut,
+        // one-line "🏦 AUTO LOAN ····7372 [Set original amount →]".
+        // Saves ~150px of empty vertical space on mobile.
+        if (!total) {
+          row.classList.add("loan-row-compact");
+          const name = document.createElement("div");
+          name.className = "loan-name";
+          name.textContent = "🏦 " + (account.name || "Loan") + " ····" + (account.mask || "");
+          row.appendChild(name);
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "loan-edit-btn";
+          editBtn.textContent = "✏️ Set original amount";
+          editBtn.addEventListener("click", function () { _toggleLoanEditMode(account.id, true); });
+          row.appendChild(editBtn);
+          return row;
+        }
+
+        const donutWrap = document.createElement("div");
+        donutWrap.className = "mini-donut";
         donutWrap.appendChild(_renderLoanMiniDonut(paid, total));
         if (total && total > 0) {
           const center = document.createElement("div");
