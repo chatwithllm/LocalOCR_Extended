@@ -1374,37 +1374,91 @@ def list_receipts():
         for u in session.query(_AttrUser).filter(_AttrUser.id.in_(attr_user_ids)).all():
             attr_user_names[u.id] = u.name or u.email or f"User {u.id}"
 
+    # Build per-row dicts first, then collapse merge-equivalent rows.
+    # Two rows are equivalent when same canonical store, same date, same
+    # total (rounded to cents). Within a group, prefer the row with an
+    # image (OCR upload) as the survivor; suppress the Plaid placeholder
+    # and merge its source into the survivor's `linked_to_plaid` flag.
+    # This is a defensive UX layer: even if the DB still has two
+    # Purchase rows pre-backfill, the user sees ONE row with both badges.
+    _raw_rows = [
+        {
+            "id": purchase.id if purchase else record.id,
+            "record_id": record.id,
+            "purchase_id": purchase.id if purchase else None,
+            "store": canonicalize_store_name(store.name) if store and store.name else None,
+            "total": purchase.total_amount if purchase else None,
+            "signed_total": signed_purchase_total(purchase) if purchase else None,
+            "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
+            "status": record.status,
+            "ocr_engine": record.ocr_engine,
+            "confidence": record.ocr_confidence,
+            "receipt_type": record.receipt_type,
+            "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
+            "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
+            "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
+            "attribution_user_id": getattr(purchase, "attribution_user_id", None) if purchase else None,
+            "attribution_kind": getattr(purchase, "attribution_kind", None) if purchase else None,
+            "attribution_user_name": attr_user_names.get(getattr(purchase, "attribution_user_id", None)) if purchase else None,
+            "created_at": record.created_at.isoformat() if record.created_at else None,
+            "source": _receipt_source_label(record),
+            "linked_to_plaid": (purchase is not None) and (purchase.id in plaid_linked_purchase_ids),
+            "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
+            "file_type": _detect_receipt_file_type(record.image_path),
+            "error_message": record.error_message,
+            "retry_count": record.retry_count or 0,
+            "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
+            "_has_image": bool(record.image_path),
+            "_source_raw": _receipt_source_label(record),
+        }
+        for record, purchase, store in limited_records
+    ]
+
+    # Group by (store, date, total-cents). Singletons pass through.
+    _groups: dict[tuple, list[dict]] = {}
+    _ungrouped: list[dict] = []
+    for r in _raw_rows:
+        if r["store"] and r["date"] and r["total"] is not None:
+            key = (r["store"], r["date"], round(float(r["total"]), 2))
+            _groups.setdefault(key, []).append(r)
+        else:
+            _ungrouped.append(r)
+
+    _final_rows: list[dict] = []
+    for key, group in _groups.items():
+        if len(group) == 1:
+            _final_rows.append(group[0])
+            continue
+        # Survivor: prefer has_image > non-plaid source > earliest record_id.
+        def _survivor_score(row):
+            return (
+                1 if row["_has_image"] else 0,
+                0 if row["_source_raw"] == "plaid" else 1,
+                -1 * (row.get("record_id") or 0),  # earlier wins on tiebreak
+            )
+        group_sorted = sorted(group, key=_survivor_score, reverse=True)
+        keep = group_sorted[0]
+        # Aggregate: any plaid row in the group → keep gets linked_to_plaid.
+        if any(r["_source_raw"] == "plaid" for r in group):
+            keep["linked_to_plaid"] = True
+        # Surface the alternate sources so the frontend can show extra
+        # badges (e.g., the Plaid row had ocr_engine="plaid", which we
+        # capture as a hint for retro-merge).
+        sources = sorted({r["_source_raw"] for r in group})
+        keep["sources"] = sources
+        keep["_grouped_count"] = len(group)
+        _final_rows.append(keep)
+    # Drop helper underscored fields from output
+    for r in _final_rows + _ungrouped:
+        r.pop("_has_image", None)
+        r.pop("_source_raw", None)
+    receipts_out = _final_rows + _ungrouped
+    # Preserve original order: sort by created_at desc to match the
+    # original query order (TelegramReceipt.created_at.desc()).
+    receipts_out.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+
     return jsonify({
-        "receipts": [
-            {
-                "id": purchase.id if purchase else record.id,
-                "record_id": record.id,
-                "purchase_id": purchase.id if purchase else None,
-                "store": canonicalize_store_name(store.name) if store and store.name else None,
-                "total": purchase.total_amount if purchase else None,
-                "signed_total": signed_purchase_total(purchase) if purchase else None,
-                "date": purchase.date.strftime("%Y-%m-%d") if purchase and purchase.date else None,
-                "status": record.status,
-                "ocr_engine": record.ocr_engine,
-                "confidence": record.ocr_confidence,
-                "receipt_type": record.receipt_type,
-                "transaction_type": normalize_transaction_type(getattr(purchase, "transaction_type", None) if purchase else None),
-                "refund_reason": getattr(purchase, "refund_reason", None) if purchase else None,
-                "refund_note": getattr(purchase, "refund_note", None) if purchase else None,
-                "attribution_user_id": getattr(purchase, "attribution_user_id", None) if purchase else None,
-                "attribution_kind": getattr(purchase, "attribution_kind", None) if purchase else None,
-                "attribution_user_name": attr_user_names.get(getattr(purchase, "attribution_user_id", None)) if purchase else None,
-                "created_at": record.created_at.isoformat() if record.created_at else None,
-                "source": _receipt_source_label(record),
-                "linked_to_plaid": (purchase is not None) and (purchase.id in plaid_linked_purchase_ids),
-                "image_url": f"/receipts/{purchase.id if purchase else record.id}/image" if record.image_path else None,
-                "file_type": _detect_receipt_file_type(record.image_path),
-                "error_message": record.error_message,
-                "retry_count": record.retry_count or 0,
-                "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
-            }
-            for record, purchase, store in limited_records
-        ],
+        "receipts": receipts_out,
         "count": len(records),
         "filters": {
             "stores": stores,
@@ -2313,11 +2367,21 @@ def _merge_purchase_pair(session, keep, drop) -> None:
         BillAllocation,
         BillMeta,
         CashTransaction,
+        DedupDismissal,
         PlaidStagedTransaction,
         ProductSnapshot,
         ReceiptItem,
         TelegramReceipt,
     )
+
+    # --- DedupDismissal — drop any rows referencing the drop Purchase --
+    # PRAGMA foreign_keys=ON would otherwise abort the delete with a
+    # FOREIGN KEY constraint violation. Dismissed pairs become moot once
+    # the Purchases are merged, so simply remove them.
+    session.query(DedupDismissal).filter(
+        (DedupDismissal.purchase_id_low == drop.id)
+        | (DedupDismissal.purchase_id_high == drop.id)
+    ).delete(synchronize_session=False)
 
     # --- Reparent nullable FKs drop → keep -----------------------------
     session.query(ProductSnapshot).filter_by(purchase_id=drop.id).update(

@@ -1598,3 +1598,110 @@ def test_auto_link_plaid_skips_pure_ocr_pairs(app):
     status, body = _invoke_auto_link_plaid(app, user_id)
     assert status == 200
     assert body["merged"] == 0  # OCR+OCR pairs are left alone
+
+
+# ---------------------------------------------------------------------------
+# Defensive list-grouping: two equivalent receipt rows collapse to one
+# ---------------------------------------------------------------------------
+
+def _invoke_list_receipts(app, user_id):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = "/receipts"
+        with app.test_request_context(path, method="GET"):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="GET")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn()
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else obj
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_list_receipts_groups_equivalent_plaid_and_upload(app):
+    """Two Purchase rows for same merchant alias / date / amount —
+    one Plaid placeholder + one OCR upload — collapse to ONE receipt
+    in the list, with linked_to_plaid=True on the survivor (OCR row)."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import (
+        Product, Purchase, ReceiptItem, Store, TelegramReceipt,
+    )
+
+    # Unique store name + amount to avoid cross-test pollution in the
+    # shared module-scoped DB.
+    unique_tag = uuid.uuid4().hex[:8]
+    store_name = f"GroupTest Store {unique_tag}"
+    amount = 0.01 + (int(unique_tag, 16) % 10000) / 100  # unique per test
+
+    user_id = _make_user(app, email=f"list_group_{unique_tag}@test.local", name="List Group")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id,
+                                        item_token=f"item_listg_{unique_tag}",
+                                        inst_id=f"ins_listg_{unique_tag}")
+        plaid_ids = _seed_plaid_promoted_receipt(
+            session, user_id, item.id,
+            store_name=store_name, amount=amount,
+            plaid_account_id=f"cc_listg_{unique_tag}",
+        )
+
+        ocr_store = Store(name=store_name)
+        session.add(ocr_store); session.flush()
+        ocr_purchase = Purchase(
+            store_id=ocr_store.id, total_amount=amount, date=_dt.utcnow(),
+            domain="grocery", transaction_type="purchase",
+            default_spending_domain="grocery", default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(ocr_purchase); session.flush()
+        prod = Product(name=f"GroupItem-{unique_tag}", display_name="X")
+        session.add(prod); session.flush()
+        session.add(ReceiptItem(
+            purchase_id=ocr_purchase.id, product_id=prod.id,
+            quantity=1, unit_price=amount, unit="each", kind="product",
+        ))
+        session.add(TelegramReceipt(
+            telegram_user_id=f"upload:{user_id}",
+            purchase_id=ocr_purchase.id,
+            receipt_type="grocery",
+            ocr_engine="gemini",
+            ocr_confidence=0.98,
+            status="processed",
+            raw_ocr_json="{}",
+            image_path=f"/tmp/group_{unique_tag}.jpg",
+        ))
+        session.commit()
+        ocr_purchase_id = ocr_purchase.id
+    finally:
+        session.close()
+
+    status, body = _invoke_list_receipts(app, user_id)
+    assert status == 200
+    receipts = body["receipts"]
+
+    # Match on amount only (canonicalize_store_name may rewrite spaces/case).
+    rows = [r for r in receipts if abs((r.get("total") or 0) - amount) < 0.005]
+    assert len(rows) == 1, f"Expected 1 grouped row at amount={amount}, got {len(rows)}: {[(r.get('store'), r.get('total'), r.get('purchase_id')) for r in rows]}"
+    survivor = rows[0]
+    assert survivor["purchase_id"] == ocr_purchase_id
+    assert survivor["linked_to_plaid"] is True
+    assert "plaid" in survivor.get("sources", [])
