@@ -705,6 +705,73 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   animation: cuGenieChipIn 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   transform-origin: top center;
 }
+
+/* Collapsible sub-panel sections (Spend by Category, Loan Progress) */
+.cu-section-head { cursor: pointer; user-select: none; }
+.cu-section-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted, #888);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+.cu-section-toggle:hover { color: var(--text, #fff); }
+.cu-section-toggle .cu-caret {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+.cu-section.cu-section-collapsed .cu-section-body { display: none; }
+.cu-section.cu-section-collapsed .cu-section-toggle .cu-caret { transform: rotate(-90deg); }
+.cu-section.cu-section-collapsed .card-usage-pie-filter { display: none; }
+.cu-section.cu-section-collapsed .card-usage-pie-head { margin-bottom: 0; }
+
+/* Custom hover/long-press popover (replaces browser title tooltip) */
+.cu-popover {
+  position: fixed;
+  background: rgba(28, 28, 30, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text, #fff);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  font-size: 0.86rem;
+  max-width: 260px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.cu-popover.cu-popover-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.cu-popover .cu-pop-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  color: var(--text, #fff);
+}
+.cu-popover .cu-pop-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.84rem;
+  padding: 2px 0;
+}
+.cu-popover .cu-pop-label { color: var(--muted, #888); display: inline-flex; align-items: center; gap: 6px; }
+.cu-popover .cu-pop-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block;
+}
+.cu-popover .cu-pop-dot.used { background: #ff453a; }
+.cu-popover .cu-pop-dot.avail { background: #34c759; }
 .cu-tile {
   position: relative;
   background: var(--surface2, #2c2c2e);
@@ -3823,25 +3890,27 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
             <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
             <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
-            <div id="card-usage-pie-panel" class="card-usage-pie-panel" style="display:none">
-              <div class="card-usage-pie-head">
+            <div id="card-usage-pie-panel" class="card-usage-pie-panel cu-section" style="display:none">
+              <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-pie-panel', event)">
                 <span class="card-usage-pie-title">Spend by Category (this month)</span>
-                <label class="card-usage-pie-filter">
+                <label class="card-usage-pie-filter" onclick="event.stopPropagation()">
                   Filter:
                   <select id="card-usage-pie-filter-select" onchange="_onCardUsageFilterChange(event)">
                     <option value="all">All Cards</option>
                   </select>
                 </label>
+                <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
               </div>
-              <div id="card-usage-pie-body" class="card-usage-pie-body">
+              <div id="card-usage-pie-body" class="card-usage-pie-body cu-section-body">
                 <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
               </div>
             </div>
-            <div id="card-usage-loans-panel" class="card-usage-loans-panel" style="display:none">
-              <div class="card-usage-pie-head">
+            <div id="card-usage-loans-panel" class="card-usage-loans-panel cu-section" style="display:none">
+              <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-loans-panel', event)">
                 <span class="card-usage-pie-title">Loan Progress</span>
+                <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
               </div>
-              <div id="card-usage-loans-body" class="card-usage-loans-body">
+              <div id="card-usage-loans-body" class="card-usage-loans-body cu-section-body">
                 <!-- per-loan rows rendered by _renderLoanProgressPanel() -->
               </div>
             </div>
@@ -16079,6 +16148,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         });
 
         _refreshCardUsageFilterOptions();
+        _cuApplyPanelState();
         const sel = document.getElementById("card-usage-pie-filter-select");
         _renderCardUsagePie(sel ? sel.value : "all");
         _renderLoanProgressPanel();
@@ -16193,6 +16263,141 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (override === false) return false;
         return _cuShouldCollapseDefault(account);
       }
+      // ------------------------------------------------------------
+      // Collapsible sub-panel toggling (Spend by Category, Loan Progress)
+      // ------------------------------------------------------------
+      const _CU_PANEL_LS_KEY = "card_usage_panels_collapsed_v1";
+      function _cuLoadPanelState() {
+        try { return JSON.parse(localStorage.getItem(_CU_PANEL_LS_KEY) || "{}") || {}; }
+        catch (_) { return {}; }
+      }
+      function _cuSavePanelState(state) {
+        try { localStorage.setItem(_CU_PANEL_LS_KEY, JSON.stringify(state || {})); } catch (_) {}
+      }
+      function _cuApplyPanelState() {
+        const state = _cuLoadPanelState();
+        document.querySelectorAll(".cu-section").forEach(panel => {
+          const id = panel.id;
+          if (state[id] === true) panel.classList.add("cu-section-collapsed");
+          else panel.classList.remove("cu-section-collapsed");
+        });
+      }
+      window._cuTogglePanel = function (panelId, evt) {
+        // Skip if click landed on the filter dropdown itself
+        if (evt && evt.target && evt.target.closest(".card-usage-pie-filter") &&
+            !evt.target.closest(".cu-section-toggle")) return;
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
+        const state = _cuLoadPanelState();
+        const willCollapse = !panel.classList.contains("cu-section-collapsed");
+        state[panelId] = willCollapse;
+        _cuSavePanelState(state);
+        panel.classList.toggle("cu-section-collapsed", willCollapse);
+      };
+
+      // ------------------------------------------------------------
+      // Custom hover / long-press popover (replaces browser title)
+      // ------------------------------------------------------------
+      let _cuPopoverEl = null;
+      let _cuPopoverHideTimer = null;
+      function _cuEnsurePopover() {
+        if (_cuPopoverEl) return _cuPopoverEl;
+        _cuPopoverEl = document.createElement("div");
+        _cuPopoverEl.className = "cu-popover";
+        document.body.appendChild(_cuPopoverEl);
+        return _cuPopoverEl;
+      }
+      function _cuShowPopover(target, contentBuilder) {
+        clearTimeout(_cuPopoverHideTimer);
+        const pop = _cuEnsurePopover();
+        pop.replaceChildren();
+        contentBuilder(pop);
+        // Position above target if room, else below
+        const rect = target.getBoundingClientRect();
+        pop.style.visibility = "hidden";
+        pop.classList.add("cu-popover-visible");
+        const popRect = pop.getBoundingClientRect();
+        let top = rect.top - popRect.height - 8;
+        if (top < 8) top = rect.bottom + 8;
+        let left = rect.left + (rect.width - popRect.width) / 2;
+        if (left < 8) left = 8;
+        if (left + popRect.width > window.innerWidth - 8) {
+          left = window.innerWidth - popRect.width - 8;
+        }
+        pop.style.top = top + "px";
+        pop.style.left = left + "px";
+        pop.style.visibility = "visible";
+      }
+      function _cuHidePopover() {
+        if (!_cuPopoverEl) return;
+        clearTimeout(_cuPopoverHideTimer);
+        _cuPopoverHideTimer = setTimeout(() => {
+          if (_cuPopoverEl) _cuPopoverEl.classList.remove("cu-popover-visible");
+        }, 120);
+      }
+      function _cuAttachChipPopover(chip, account) {
+        const buildContent = (pop) => {
+          const title = document.createElement("div");
+          title.className = "cu-pop-title";
+          title.textContent = (account.name || "Card") + " ····" + (account.mask || "");
+          pop.appendChild(title);
+
+          const usedTxt = _fmtMoneyCents(account.balance_cents || 0, account.balance_currency);
+          const limitTxt = account.credit_limit_cents == null
+            ? "—"
+            : _fmtMoneyCents(account.credit_limit_cents, account.balance_currency);
+          const availTxt = account.available_credit_cents == null
+            ? "—"
+            : _fmtMoneyCents(account.available_credit_cents, account.balance_currency);
+          const utilTxt = account.utilization_pct == null
+            ? "—"
+            : account.utilization_pct.toFixed(1) + "%";
+
+          const rows = [
+            { dot: "used",  label: "Used",      val: usedTxt },
+            { dot: "avail", label: "Available", val: availTxt },
+            { dot: null,    label: "Limit",     val: limitTxt },
+            { dot: null,    label: "Utilization", val: utilTxt },
+          ];
+          rows.forEach(r => {
+            const row = document.createElement("div");
+            row.className = "cu-pop-row";
+            const left = document.createElement("span");
+            left.className = "cu-pop-label";
+            if (r.dot) {
+              const d = document.createElement("span");
+              d.className = "cu-pop-dot " + r.dot;
+              left.appendChild(d);
+            }
+            left.appendChild(document.createTextNode(r.label));
+            const right = document.createElement("span");
+            right.textContent = r.val;
+            row.appendChild(left); row.appendChild(right);
+            pop.appendChild(row);
+          });
+        };
+
+        // Desktop hover
+        chip.addEventListener("mouseenter", () => _cuShowPopover(chip, buildContent));
+        chip.addEventListener("mouseleave", _cuHidePopover);
+
+        // Mobile long-press (500ms)
+        let lpTimer = null;
+        const cancel = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+        chip.addEventListener("touchstart", (e) => {
+          cancel();
+          lpTimer = setTimeout(() => {
+            _cuShowPopover(chip, buildContent);
+            // Auto-hide after 4s
+            setTimeout(_cuHidePopover, 4000);
+            lpTimer = null;
+          }, 500);
+        }, { passive: true });
+        chip.addEventListener("touchmove", cancel, { passive: true });
+        chip.addEventListener("touchend", cancel);
+        chip.addEventListener("touchcancel", cancel);
+      }
+
       // Tracks the account_id whose tile just toggled — drives the
       // genie-style entry animation on the next render.
       let __cuGenieTarget = null;
@@ -16248,16 +16453,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             __cuGenieTarget = null;
           }
 
-          // Tooltip with exact $ amounts (better than cramming all
-          // 3 numbers into the chip body)
-          const balTxt = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
-          const limTxt = a.credit_limit_cents == null
-            ? "—"
-            : _fmtMoneyCents(a.credit_limit_cents, a.balance_currency);
-          const availTxt = a.available_credit_cents == null
-            ? "—"
-            : _fmtMoneyCents(a.available_credit_cents, a.balance_currency);
-          chip.title = `Used ${balTxt} of ${limTxt} · Available ${availTxt}`;
+          // Custom popover on hover (desktop) / long-press (mobile).
+          // Built lazily by _cuAttachChipPopover at the bottom of the loop.
 
           const name = document.createElement("span");
           name.className = "cu-chip-name";
@@ -16299,6 +16496,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             __cuGenieTarget = a.plaid_account_id;
             if (typeof loadCardsOverview === "function") loadCardsOverview();
           });
+          _cuAttachChipPopover(chip, a);
           strip.appendChild(chip);
         });
         return strip;
