@@ -2186,3 +2186,139 @@ def test_used_up_sets_override_high(app):
         assert inv.consumed_pct_override >= 95.0
     finally:
         session.close()
+
+
+def test_update_item_accepts_consumed_pct_override(app):
+    """PUT /inventory/<id>/update with body {consumed_pct_override: N} persists it."""
+    from datetime import datetime as _dt
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product, User
+
+    user_id = _make_user(app, email=f"override_{uuid.uuid4().hex[:6]}@test.local", name="Override")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"Apples-{unique}", category="fruit")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=3, location="Pantry",
+            is_active_window=True, last_purchased_at=_dt.utcnow(),
+        )
+        session.add(inv); session.commit()
+        item_id = inv.id
+    finally:
+        session.close()
+
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/inventory/{item_id}/update"
+        with app.test_request_context(path, method="PUT", json={"consumed_pct_override": 30.0}):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            fn(item_id=item_id)
+    finally:
+        session.close()
+
+    session = SF()
+    try:
+        inv = session.get(Inventory, item_id)
+        assert inv.consumed_pct_override == 30.0
+    finally:
+        session.close()
+
+
+def test_update_item_clears_override_with_null(app):
+    """PUT with consumed_pct_override=null clears the override."""
+    from datetime import datetime as _dt
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product, User
+
+    user_id = _make_user(app, email=f"clear_{uuid.uuid4().hex[:6]}@test.local", name="Clear")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"Pears-{unique}", category="fruit")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=3, location="Pantry",
+            is_active_window=True, last_purchased_at=_dt.utcnow(),
+            consumed_pct_override=50.0,
+        )
+        session.add(inv); session.commit()
+        item_id = inv.id
+    finally:
+        session.close()
+
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/inventory/{item_id}/update"
+        with app.test_request_context(path, method="PUT", json={"consumed_pct_override": None}):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            fn(item_id=item_id)
+    finally:
+        session.close()
+
+    session = SF()
+    try:
+        inv = session.get(Inventory, item_id)
+        assert inv.consumed_pct_override is None
+    finally:
+        session.close()
+
+
+def test_update_item_rejects_out_of_range_override(app):
+    """PUT with consumed_pct_override > 100 returns 400."""
+    from datetime import datetime as _dt
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Inventory, Product, User
+
+    user_id = _make_user(app, email=f"oor_{uuid.uuid4().hex[:6]}@test.local", name="OOR")
+    unique = uuid.uuid4().hex[:6]
+    _, SF = _get_db()
+    session = SF()
+    try:
+        prod = Product(name=f"Plums-{unique}", category="fruit")
+        session.add(prod); session.flush()
+        inv = Inventory(
+            product_id=prod.id, quantity=2, location="Pantry",
+            is_active_window=True, last_purchased_at=_dt.utcnow(),
+        )
+        session.add(inv); session.commit()
+        item_id = inv.id
+    finally:
+        session.close()
+
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/inventory/{item_id}/update"
+        with app.test_request_context(path, method="PUT", json={"consumed_pct_override": 150.0}):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(item_id=item_id)
+            if hasattr(resp, "status_code"):
+                assert resp.status_code == 400
+            else:
+                assert resp[1] == 400
+    finally:
+        session.close()

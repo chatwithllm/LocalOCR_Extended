@@ -387,6 +387,18 @@ def update_item(item_id):
         item.location = data["location"]
     if "threshold" in data:
         item.threshold = data["threshold"]
+    if "consumed_pct_override" in data:
+        raw = data.get("consumed_pct_override")
+        if raw is None:
+            item.consumed_pct_override = None
+        else:
+            try:
+                v = float(raw)
+            except (TypeError, ValueError):
+                return jsonify({"error": "consumed_pct_override must be a number or null"}), 400
+            if v < 0 or v > 100:
+                return jsonify({"error": "consumed_pct_override must be between 0 and 100"}), 400
+            item.consumed_pct_override = v
 
     user_id = getattr(g, "current_user", None)
     item.updated_by = user_id.id if user_id else None
