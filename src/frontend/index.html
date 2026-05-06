@@ -20629,12 +20629,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const body = await res.json().catch(() => ({}));
           const merged = body.merged || 0;
           const scanned = body.scanned || 0;
+          const failedCount = (body.failed || []).length;
           if (merged > 0) {
-            toast(`Merged ${merged} duplicate product${merged === 1 ? "" : "s"}`, "success");
-            // Re-render inventory so the user sees the collapsed row.
+            const tail = failedCount ? ` (${failedCount} pair${failedCount === 1 ? "" : "s"} failed — see backend logs)` : "";
+            toast(`Merged ${merged} duplicate product${merged === 1 ? "" : "s"}${tail}`, "success");
             if (typeof loadInventory === "function") {
               setTimeout(loadInventory, 200);
             }
+          } else if (failedCount > 0 && verbose) {
+            toast(`Found ${failedCount} candidate pair${failedCount === 1 ? "" : "s"} but merge failed — see backend logs.`, "error");
+            console.warn("Auto-dedup failed pairs:", body.failed);
           } else if (verbose) {
             toast(`No duplicates found (scanned ${scanned})`, "info");
           }

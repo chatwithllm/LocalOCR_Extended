@@ -61,6 +61,14 @@ def _merge_products(session, keeper: Product, duplicate: Product):
         {"product_id": keeper.id}, synchronize_session=False
     )
 
+    # Reparent shopping_list_items.product_id (nullable FK) — otherwise
+    # PRAGMA foreign_keys=ON aborts the duplicate.delete with a FK
+    # constraint violation.
+    from src.backend.initialize_database_schema import ShoppingListItem
+    session.query(ShoppingListItem).filter_by(product_id=duplicate.id).update(
+        {"product_id": keeper.id}, synchronize_session=False
+    )
+
     # Field-level upgrade: keeper "wins" identity, but inherits richer
     # metadata from duplicate when keeper's slot is empty.
     if not keeper.brand and duplicate.brand:
@@ -636,21 +644,38 @@ def auto_dedup_products_by_token_key():
 
     merged = 0
     groups_log: list[dict] = []
+    failed_groups: list[dict] = []
     for (_key, _cat), group in buckets.items():
         if len(group) < 2:
             continue
         ranked = sorted(group, key=_keeper_score, reverse=True)
         keeper = ranked[0]
         dropped_ids: list[int] = []
+        # Try each merge in its own savepoint so a single bad pair
+        # doesn't fail the whole backfill (and surface a 500). Failed
+        # pairs are reported in `failed_groups` for visibility.
         for dup in ranked[1:]:
-            _merge_products(session, keeper, dup)
-            dropped_ids.append(dup.id)
-            merged += 1
-        groups_log.append({
-            "keeper_id": keeper.id,
-            "keeper_name": keeper.name,
-            "dropped_ids": dropped_ids,
-        })
+            try:
+                with session.begin_nested():
+                    _merge_products(session, keeper, dup)
+                dropped_ids.append(dup.id)
+                merged += 1
+            except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "Auto-dedup merge failed: keeper=%s drop=%s err=%s",
+                    keeper.id, dup.id, exc,
+                )
+                failed_groups.append({
+                    "keeper_id": keeper.id,
+                    "drop_id": dup.id,
+                    "error": str(exc)[:200],
+                })
+        if dropped_ids:
+            groups_log.append({
+                "keeper_id": keeper.id,
+                "keeper_name": keeper.name,
+                "dropped_ids": dropped_ids,
+            })
 
     if merged:
         session.commit()
@@ -659,4 +684,5 @@ def auto_dedup_products_by_token_key():
         "merged": merged,
         "scanned": len(products),
         "groups": groups_log,
+        "failed": failed_groups,
     }), 200
