@@ -42,17 +42,23 @@ def _merge_products(session, keeper: Product, duplicate: Product):
     if keeper.id == duplicate.id:
         return keeper
 
+    # IMPORTANT: For tables with `back_populates="product"` on Product
+    # (Inventory, ReceiptItem, PriceHistory), set the relationship
+    # attribute, not just the FK column. Otherwise SQLAlchemy's back-ref
+    # cascade nullifies the FK on session.delete(duplicate) — even after
+    # we reassigned product_id directly. NOT NULL columns then fail with
+    # "NOT NULL constraint failed: <table>.product_id".
     receipt_items = session.query(ReceiptItem).filter_by(product_id=duplicate.id).all()
     for item in receipt_items:
-        item.product_id = keeper.id
+        item.product = keeper
 
     price_rows = session.query(PriceHistory).filter_by(product_id=duplicate.id).all()
     for row in price_rows:
-        row.product_id = keeper.id
+        row.product = keeper
 
     adjustments = session.query(InventoryAdjustment).filter_by(product_id=duplicate.id).all()
     for adjustment in adjustments:
-        adjustment.product_id = keeper.id
+        adjustment.product_id = keeper.id  # no back_populates → column only
 
     # Reparent product snapshots (the source-of-truth for product images)
     # so the keeper inherits any image that was attached to the duplicate.
@@ -100,8 +106,10 @@ def _merge_products(session, keeper: Product, duplicate: Product):
             .first()
         )
         if keeper_inv is None:
-            # No keeper row at this location — reparent
-            dup_inv.product_id = keeper.id
+            # No keeper row at this location — reparent via relationship
+            # attribute so SQLAlchemy's back-populates cascade doesn't
+            # nullify the FK when duplicate Product is deleted.
+            dup_inv.product = keeper
             continue
         # Merge quantities + carry over missing fields
         keeper_inv.quantity = (keeper_inv.quantity or 0) + (dup_inv.quantity or 0)
