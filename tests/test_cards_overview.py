@@ -27,6 +27,18 @@ def test_plaid_account_has_original_loan_amount_column():
     assert "original_loan_amount_cents" in cols
 
 
+def test_inventory_has_consumed_pct_override_column():
+    """Migration 027 must add Inventory.consumed_pct_override."""
+    cols = {c.name for c in Base.metadata.tables["inventory"].columns}
+    assert "consumed_pct_override" in cols
+
+
+def test_product_has_expected_shelf_days_column():
+    """Migration 027 must add Product.expected_shelf_days."""
+    cols = {c.name for c in Base.metadata.tables["products"].columns}
+    assert "expected_shelf_days" in cols
+
+
 # ---------------------------------------------------------------------------
 # refresh_balances persists credit_limit + available_credit
 # ---------------------------------------------------------------------------

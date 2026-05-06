@@ -121,6 +121,7 @@ class Product(Base):
     reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     category = Column(String(100), nullable=True)
     barcode = Column(String(50), nullable=True)
+    expected_shelf_days = Column(Integer, nullable=True)
     is_regular_use = Column(Boolean, nullable=True, default=False)
     # True for products that represent fees, discounts, taxes, savings,
     # membership IDs, etc. — kept in the catalog for analytics but never
@@ -174,6 +175,7 @@ class Inventory(Base):
     expires_at_system = Column(Date, nullable=True)
     expires_source = Column(String(10), nullable=False, server_default="system", default="system")
     last_purchased_at = Column(DateTime, nullable=True)
+    consumed_pct_override = Column(Float, nullable=True)
 
     __table_args__ = (Index("ix_inventory_product_id", "product_id"),)
 
