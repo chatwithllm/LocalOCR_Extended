@@ -795,6 +795,8 @@ class PlaidAccount(Base):
     credit_limit_cents = Column(Integer, nullable=True)
     available_credit_cents = Column(Integer, nullable=True)
     original_loan_amount_cents = Column(Integer, nullable=True)
+    apr_bps = Column(Integer, nullable=True)              # 7.25% APR stored as 725
+    monthly_payment_cents = Column(Integer, nullable=True)
     balance_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
