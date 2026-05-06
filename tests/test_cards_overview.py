@@ -1053,3 +1053,206 @@ def test_cards_overview_credit_row_no_loan_fields(app):
     cc = body["groups"][0]["accounts"][0]
     assert cc["original_loan_amount_cents"] is None
     assert cc["paid_off_cents"] is None
+
+
+# ---------------------------------------------------------------------------
+# Plaid-sourced receipt: type-change + delete bug fixes
+# ---------------------------------------------------------------------------
+
+def _invoke_update_receipt(app, user_id, receipt_id, body):
+    """PUT /receipts/<id>/update — mirrors _invoke_cards_overview unwrap pattern."""
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/receipts/{receipt_id}/update"
+        with app.test_request_context(path, method="PUT", json=body):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(receipt_id=receipt_id)
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else obj
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def _invoke_delete_receipt(app, user_id, receipt_id):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/receipts/{receipt_id}"
+        with app.test_request_context(path, method="DELETE"):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="DELETE")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(receipt_id=receipt_id)
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else obj
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def _seed_plaid_promoted_receipt(session, user_id, item_id, *, store_name="Indian Bazar",
+                                  amount=36.81, plaid_account_id="cc_plaid_promo"):
+    """Mirrors confirm_staged_transaction: creates Store, Purchase, TelegramReceipt
+    (ocr_engine='plaid'), and a PlaidStagedTransaction with confirmed_purchase_id set."""
+    from datetime import date as date_cls, datetime as _dt
+    from src.backend.initialize_database_schema import (
+        Store, Purchase, TelegramReceipt, PlaidStagedTransaction,
+    )
+
+    store = Store(name=store_name)
+    session.add(store)
+    session.flush()
+
+    purchase = Purchase(
+        store_id=store.id,
+        total_amount=amount,
+        date=_dt.utcnow(),
+        domain="general_expense",
+        transaction_type="purchase",
+        default_spending_domain="general_expense",
+        default_budget_category="other",
+        user_id=user_id,
+    )
+    session.add(purchase)
+    session.flush()
+
+    receipt = TelegramReceipt(
+        telegram_user_id=f"plaid:{plaid_account_id}",
+        purchase_id=purchase.id,
+        receipt_type="general_expense",
+        ocr_engine="plaid",
+        ocr_confidence=1.0,
+        status="processed",
+        raw_ocr_json='{"store":"' + store_name + '","items":[],"total":' + str(amount) + '}',
+        image_path=None,
+    )
+    session.add(receipt)
+    session.flush()
+
+    staged = PlaidStagedTransaction(
+        plaid_item_id=item_id,
+        user_id=user_id,
+        plaid_transaction_id=f"plaidtxn_{purchase.id}",
+        plaid_account_id=plaid_account_id,
+        amount=amount,
+        transaction_date=date_cls.today(),
+        name=store_name,
+        merchant_name=store_name,
+        plaid_category_primary="GENERAL_MERCHANDISE",
+        status="confirmed",
+        confirmed_purchase_id=purchase.id,
+        confirmed_at=_dt.utcnow(),
+        raw_json="{}",
+    )
+    session.add(staged)
+    session.commit()
+    return {
+        "purchase_id": purchase.id,
+        "receipt_id": receipt.id,
+        "staged_id": staged.id,
+        "store_id": store.id,
+    }
+
+
+def test_update_plaid_sourced_receipt_to_grocery_succeeds(app):
+    """Bug fix: Plaid-sourced receipt with empty items must accept type=grocery."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import TelegramReceipt
+
+    user_id = _make_user(app, email="plaid_grocery@test.local", name="Plaid Grocery")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_plaid_grocery", inst_id="ins_plaid_grocery")
+        ids = _seed_plaid_promoted_receipt(session, user_id, item.id)
+    finally:
+        session.close()
+
+    body = {
+        "receipt_type": "grocery",
+        "data": {
+            "store": "Indian Bazar",
+            "date": "2026-05-05",
+            "total": 36.81,
+            "subtotal": 36.81,
+            "tax": 0,
+            "tip": 0,
+            "items": [],  # No items — Plaid never gives them
+            "confidence": 1.0,
+        },
+    }
+    status, resp = _invoke_update_receipt(app, user_id, ids["receipt_id"], body)
+    assert status == 200, resp
+
+    # Confirm receipt_type persisted
+    session = SF()
+    try:
+        rec = session.get(TelegramReceipt, ids["receipt_id"])
+        assert rec.receipt_type == "grocery"
+    finally:
+        session.close()
+
+
+def test_delete_plaid_sourced_receipt_clears_staged_fk(app):
+    """Bug fix: deleting a Plaid-promoted receipt must null staged FKs and reset
+    status (otherwise FK constraint blocks the delete)."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import (
+        PlaidStagedTransaction, Purchase, TelegramReceipt,
+    )
+
+    user_id = _make_user(app, email="plaid_del@test.local", name="Plaid Del")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_plaid_del", inst_id="ins_plaid_del")
+        ids = _seed_plaid_promoted_receipt(session, user_id, item.id)
+    finally:
+        session.close()
+
+    status, resp = _invoke_delete_receipt(app, user_id, ids["receipt_id"])
+    assert status == 200, resp
+
+    session = SF()
+    try:
+        # Purchase + receipt rows are gone
+        assert session.get(Purchase, ids["purchase_id"]) is None
+        assert session.get(TelegramReceipt, ids["receipt_id"]) is None
+        # Staged row still exists, but FK is cleared and status reset
+        staged = session.get(PlaidStagedTransaction, ids["staged_id"])
+        assert staged is not None
+        assert staged.confirmed_purchase_id is None
+        assert staged.status == "ready_to_import"
+        assert staged.confirmed_at is None
+    finally:
+        session.close()
