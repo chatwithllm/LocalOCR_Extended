@@ -792,6 +792,7 @@ class PlaidAccount(Base):
     balance_iso_currency_code = Column(String(3), nullable=False, default="USD")
     credit_limit_cents = Column(Integer, nullable=True)
     available_credit_cents = Column(Integer, nullable=True)
+    original_loan_amount_cents = Column(Integer, nullable=True)
     balance_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)

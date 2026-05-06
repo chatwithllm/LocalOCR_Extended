@@ -258,6 +258,7 @@ def _serialize_plaid_account(acct: PlaidAccount) -> dict:
         "balance_cents": acct.balance_cents,
         "credit_limit_cents": acct.credit_limit_cents,
         "available_credit_cents": acct.available_credit_cents,
+        "original_loan_amount_cents": acct.original_loan_amount_cents,
         "balance_currency": acct.balance_iso_currency_code,
         "balance_updated_at": _iso_utc(acct.balance_updated_at),
     }
@@ -1881,6 +1882,23 @@ def cards_overview():
         else:
             base["utilization_pct"] = None
 
+        # paid_off_cents (loans only). max(0, original - balance), capped at original.
+        if a.account_type == "loan":
+            orig = a.original_loan_amount_cents
+            bal = a.balance_cents
+            if orig is None or bal is None:
+                base["paid_off_cents"] = None
+            else:
+                if bal >= orig:
+                    # Balance >= original: treat as fully paid off
+                    base["paid_off_cents"] = orig
+                else:
+                    # Normal case: original - balance
+                    paid = orig - bal
+                    base["paid_off_cents"] = max(0, paid)
+        else:
+            base["paid_off_cents"] = None
+
         if a.account_type == "credit":
             base["categories_mtd"] = cat_map.get(a.plaid_account_id, [])
         else:
@@ -1925,6 +1943,54 @@ def cards_overview():
             "loan_balance_cents": loan_balance_cents,
         },
     }), 200
+
+
+@plaid_bp.route("/accounts/<int:account_id>/loan-meta", methods=["PUT"])
+@require_auth
+@require_write_access
+def update_loan_meta(account_id: int):
+    """Set or clear the user-entered original_loan_amount_cents on a loan account.
+
+    Body: { "original_loan_amount_cents": int >= 0 | null }
+
+    Returns 404 if the account is not visible to the user OR is not a loan
+    (avoids leaking existence). Returns 400 if the value is malformed or
+    negative.
+    """
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    if "original_loan_amount_cents" not in payload:
+        return jsonify({"error": "original_loan_amount_cents is required"}), 400
+
+    raw = payload.get("original_loan_amount_cents")
+    if raw is None:
+        new_value = None
+    else:
+        if not isinstance(raw, int) or isinstance(raw, bool):
+            return jsonify({"error": "original_loan_amount_cents must be a non-negative integer or null"}), 400
+        if raw < 0:
+            return jsonify({"error": "original_loan_amount_cents must be a non-negative integer or null"}), 400
+        new_value = raw
+
+    session = g.db_session
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+
+    q = session.query(PlaidAccount).filter(PlaidAccount.id == account_id)
+    if visible_ids is not None:
+        if not visible_ids:
+            return jsonify({"error": "Account not found"}), 404
+        q = q.filter(PlaidAccount.plaid_item_id.in_(visible_ids))
+    acct = q.first()
+    if acct is None or acct.account_type != "loan":
+        return jsonify({"error": "Account not found"}), 404
+
+    acct.original_loan_amount_cents = new_value
+    session.commit()
+
+    return jsonify({"account": _serialize_plaid_account(acct)}), 200
 
 
 @plaid_bp.route("/transaction-breakdown", methods=["GET"])

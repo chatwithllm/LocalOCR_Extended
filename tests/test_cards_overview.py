@@ -20,6 +20,12 @@ def test_plaid_account_has_credit_limit_columns():
     assert "available_credit_cents" in cols
 
 
+def test_plaid_account_has_original_loan_amount_column():
+    """Migration 026 must add original_loan_amount_cents."""
+    cols = {c.name for c in Base.metadata.tables["plaid_accounts"].columns}
+    assert "original_loan_amount_cents" in cols
+
+
 # ---------------------------------------------------------------------------
 # refresh_balances persists credit_limit + available_credit
 # ---------------------------------------------------------------------------
@@ -215,6 +221,38 @@ def _invoke_cards_overview(app, user_id):
                 body = rv[0].get_json() if hasattr(rv[0], "get_json") else None
                 return rv[1], body
             return 200, rv.get_json() if hasattr(rv, "get_json") else rv
+    finally:
+        session.close()
+
+
+def _invoke_put_loan_meta(app, user_id, account_id, body):
+    """PUT /plaid/accounts/<id>/loan-meta — mirrors _invoke_cards_overview unwrap pattern."""
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+    import json as _json
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = f"/plaid/accounts/{account_id}/loan-meta"
+        with app.test_request_context(path, method="PUT", json=body):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="PUT")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn(account_id=account_id)
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else (_json.loads(obj) if isinstance(obj, str) else obj)
+                return status, payload
+            return 200, resp
     finally:
         session.close()
 
@@ -751,3 +789,267 @@ def test_cards_overview_categories_visibility_filter(app):
     status, body = _invoke_cards_overview(app, user_b)
     assert status == 200
     assert body["groups"] == []
+
+
+# ---------------------------------------------------------------------------
+# PUT /plaid/accounts/<id>/loan-meta
+# ---------------------------------------------------------------------------
+
+def test_put_loan_meta_happy_path(app):
+    """PUT /plaid/accounts/<id>/loan-meta updates original_loan_amount_cents."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_put@test.local", name="Loan PUT")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_put", inst_id="ins_loan_put")
+        loan = PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_put",
+            account_name="Mortgage", account_mask="8821",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=12240000, balance_iso_currency_code="USD",
+        )
+        session.add(loan)
+        session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_id, loan_id, {"original_loan_amount_cents": 18500000})
+    assert status == 200, body
+    assert body["account"]["original_loan_amount_cents"] == 18500000
+
+    session = SF()
+    try:
+        row = session.get(PlaidAccount, loan_id)
+        assert row.original_loan_amount_cents == 18500000
+    finally:
+        session.close()
+
+
+def test_put_loan_meta_clear_with_null(app):
+    """PUT with null clears the column."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_clear@test.local", name="Loan Clear")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_clear", inst_id="ins_loan_clear")
+        loan = PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_clear",
+            account_name="Mortgage", account_mask="8821",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=10000, balance_iso_currency_code="USD",
+            original_loan_amount_cents=50000,
+        )
+        session.add(loan); session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_id, loan_id, {"original_loan_amount_cents": None})
+    assert status == 200
+    assert body["account"]["original_loan_amount_cents"] is None
+
+
+def test_put_loan_meta_rejects_negative(app):
+    """Negative values rejected with 400."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_neg@test.local", name="Loan Neg")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_neg", inst_id="ins_loan_neg")
+        loan = PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_neg",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=10000, balance_iso_currency_code="USD",
+        )
+        session.add(loan); session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_id, loan_id, {"original_loan_amount_cents": -100})
+    assert status == 400
+
+
+def test_put_loan_meta_rejects_non_integer(app):
+    """Non-integer values rejected with 400."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_str@test.local", name="Loan Str")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_str", inst_id="ins_loan_str")
+        loan = PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_str",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=10000, balance_iso_currency_code="USD",
+        )
+        session.add(loan); session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_id, loan_id, {"original_loan_amount_cents": "abc"})
+    assert status == 400
+
+
+def test_put_loan_meta_rejects_credit_account(app):
+    """Credit accounts return 404 (not loans)."""
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="loan_cc@test.local", name="Loan CC")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_cc", inst_id="ins_loan_cc")
+        cc = _seed_credit_account(session, user_id, item.id)
+        cc_id = cc.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_id, cc_id, {"original_loan_amount_cents": 50000})
+    assert status == 404
+
+
+def test_put_loan_meta_visibility_filter(app):
+    """User A cannot edit user B's loan."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_a = _make_user(app, email="loan_va@test.local", name="Loan VA")
+    user_b = _make_user(app, email="loan_vb@test.local", name="Loan VB")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item_a = _seed_plaid_item_simple(session, user_a, item_token="item_loan_va", inst_id="ins_loan_va")
+        loan = PlaidAccount(
+            plaid_item_id=item_a.id, user_id=user_a, plaid_account_id="ln_v",
+            account_name="A's Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=10000, balance_iso_currency_code="USD",
+        )
+        session.add(loan); session.commit()
+        loan_id = loan.id
+    finally:
+        session.close()
+
+    status, body = _invoke_put_loan_meta(app, user_b, loan_id, {"original_loan_amount_cents": 50000})
+    assert status == 404
+
+
+def test_cards_overview_loan_paid_off_computed(app):
+    """Loan with original > balance: paid_off = original - balance."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_po@test.local", name="Loan PO")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_po", inst_id="ins_loan_po")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_po",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=400000, original_loan_amount_cents=1000000,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["original_loan_amount_cents"] == 1000000
+    assert loan["paid_off_cents"] == 600000
+
+
+def test_cards_overview_loan_paid_off_overbalance(app):
+    """balance > original → paid_off capped at original."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_ob@test.local", name="Loan OB")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_ob", inst_id="ins_loan_ob")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_ob",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=1100000, original_loan_amount_cents=1000000,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["paid_off_cents"] == 1000000
+
+
+def test_cards_overview_loan_no_original(app):
+    """Loan with original=null → paid_off=null."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import PlaidAccount
+
+    user_id = _make_user(app, email="loan_no@test.local", name="Loan NO")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_no", inst_id="ins_loan_no")
+        session.add(PlaidAccount(
+            plaid_item_id=item.id, user_id=user_id, plaid_account_id="ln_no",
+            account_name="Mortgage", account_mask="0000",
+            account_type="loan", account_subtype="mortgage",
+            balance_cents=400000, original_loan_amount_cents=None,
+            balance_iso_currency_code="USD",
+        ))
+        session.commit()
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    loan = body["groups"][0]["accounts"][0]
+    assert loan["original_loan_amount_cents"] is None
+    assert loan["paid_off_cents"] is None
+
+
+def test_cards_overview_credit_row_no_loan_fields(app):
+    """Credit accounts have original=null and paid_off=null."""
+    from src.backend.create_flask_application import _get_db
+
+    user_id = _make_user(app, email="loan_cc2@test.local", name="Loan CC2")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_loan_cc2", inst_id="ins_loan_cc2")
+        _seed_credit_account(session, user_id, item.id)
+    finally:
+        session.close()
+
+    status, body = _invoke_cards_overview(app, user_id)
+    assert status == 200
+    cc = body["groups"][0]["accounts"][0]
+    assert cc["original_loan_amount_cents"] is None
+    assert cc["paid_off_cents"] is None
