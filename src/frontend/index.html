@@ -29899,10 +29899,33 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ============================================================
       // Receipts
       // ============================================================
+      let __receiptsAutoLinkRan = false;
+
+      async function _autoLinkPlaidReceiptsOnce() {
+        if (__receiptsAutoLinkRan) return 0;
+        __receiptsAutoLinkRan = true;
+        try {
+          const res = await api("/receipts/auto-link-plaid", { method: "POST" });
+          if (!res.ok) return 0;
+          const body = await res.json().catch(() => ({}));
+          const merged = body.merged || 0;
+          if (merged > 0) {
+            toast(`Linked ${merged} receipt${merged === 1 ? "" : "s"} to Plaid transactions`, "success");
+          }
+          return merged;
+        } catch (_e) {
+          return 0;
+        }
+      }
+
       async function loadReceipts() {
         applyReceiptFilterLayout();
         ensureDefaultReceiptFilters();
         _applyReceiptsSummaryCollapsedState();
+        // Backfill: auto-merge any pre-existing Plaid+Upload pairs
+        // before the list is rendered, so the user sees one row per
+        // logical receipt. Idempotent — runs once per session.
+        const _mergedCount = await _autoLinkPlaidReceiptsOnce();
         renderReceiptAttributionFilterChips().catch(() => {});
         // Re-sync the Untagged-only sticky toolbar to the current
         // selection set (cards are about to be re-rendered, but the
@@ -31992,6 +32015,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                     <div class="result-card__meta">
                       ${escHtml(receipt.date || "—")}
                       ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
+                      ${receipt.linked_to_plaid && receipt.source !== "plaid" ? ` · <span class="badge badge--info" title="Linked to a Plaid transaction">🔗 Plaid</span>` : ""}
                     </div>
                     <div class="result-card__amount" style="margin-top: 2px">
                       ${formatMoney(receiptDisplayTotal(receipt))}
