@@ -465,11 +465,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
    Card Usage — credit-card grid tile (new design)
    ============================================================ */
 .card-usage-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px;
+  /* CSS columns masonry: tiles flow vertically, no row-height gaps
+     between mixed expanded/collapsed cards. Browser auto-balances. */
+  column-width: 280px;
+  column-gap: 14px;
   margin-top: 4px;
-  align-items: start;  /* collapsed tiles stay short instead of stretching to tallest in row */
+}
+.card-usage-grid > .cu-tile {
+  display: block;
+  break-inside: avoid;
+  page-break-inside: avoid;       /* legacy support */
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 14px;
+  width: 100%;
 }
 .cu-tile {
   position: relative;
