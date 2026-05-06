@@ -554,7 +554,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   font-size: 0.78rem;
   flex: 0 0 auto;
 }
-/* Chip mini bar — red (used) on left, green (available) on right */
+/* Chip mini bar — red (used) on left, green (available) on right.
+   When there's no balance/limit data, track turns grey to signal
+   "not refreshed yet" instead of misleading green. */
 .cu-chip-bar {
   flex: 0 0 50px;
   width: 50px;
@@ -565,11 +567,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   overflow: hidden;
   margin-left: 4px;
 }
+.cu-chip-bar.cu-chip-bar-empty {
+  background: rgba(255, 255, 255, 0.12);  /* no-data grey */
+}
 .cu-chip-bar > span {
   display: block;
   height: 100%;
   background: #ff453a;       /* used = red */
-  width: var(--used-pct, 0%);
 }
 
 /* Tile head: name truncates, mask stays pinned visible on the right */
@@ -16194,17 +16198,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           mask.textContent = "····" + (a.mask || "");
           chip.appendChild(mask);
 
-          // Two-color usage bar: red (used) left, green (available) right
-          if (a.utilization_pct != null) {
-            const bar = document.createElement("span");
-            bar.className = "cu-chip-bar";
-            const used = document.createElement("span");
-            const usedPct = Math.max(0, Math.min(100, a.utilization_pct));
-            used.style.setProperty("--used-pct", usedPct + "%");
-            used.style.width = usedPct + "%";
-            bar.appendChild(used);
-            chip.appendChild(bar);
+          // Two-color usage bar: red (used) left, green (available) right.
+          // Always render the bar so layout stays uniform; track turns
+          // grey when there's no data yet.
+          const bar = document.createElement("span");
+          bar.className = "cu-chip-bar";
+          if (a.utilization_pct == null) {
+            bar.classList.add("cu-chip-bar-empty");
           }
+          const used = document.createElement("span");
+          const usedPct = a.utilization_pct == null
+            ? 0
+            : Math.max(0, Math.min(100, a.utilization_pct));
+          used.style.width = usedPct + "%";
+          bar.appendChild(used);
+          chip.appendChild(bar);
 
           const pct = document.createElement("span");
           pct.className = "cu-chip-pct";
