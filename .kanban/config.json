@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "project_key": "github.com/chatwithllm/localocr_extended",
+  "kanban_url": "http://192.168.50.50:3001",
+  "main_branch": "main"
+}

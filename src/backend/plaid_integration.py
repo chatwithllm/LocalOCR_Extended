@@ -260,6 +260,8 @@ def _serialize_plaid_account(acct: PlaidAccount) -> dict:
         "credit_limit_cents": acct.credit_limit_cents,
         "available_credit_cents": acct.available_credit_cents,
         "original_loan_amount_cents": acct.original_loan_amount_cents,
+        "apr_bps": acct.apr_bps,
+        "monthly_payment_cents": acct.monthly_payment_cents,
         "balance_currency": acct.balance_iso_currency_code,
         "balance_updated_at": _iso_utc(acct.balance_updated_at),
     }
@@ -1980,31 +1982,47 @@ def cards_overview():
 @require_auth
 @require_write_access
 def update_loan_meta(account_id: int):
-    """Set or clear the user-entered original_loan_amount_cents on a loan account.
+    """Set or clear user-entered loan metadata on a loan account.
 
-    Body: { "original_loan_amount_cents": int >= 0 | null }
+    Body keys (each optional; missing key = leave unchanged):
+      - original_loan_amount_cents : int >= 0 | null
+      - apr_bps                    : int 0..50000 | null  (basis points; 7.25% = 725)
+      - monthly_payment_cents      : int >= 0 | null
 
-    Returns 404 if the account is not visible to the user OR is not a loan
-    (avoids leaking existence). Returns 400 if the value is malformed or
-    negative.
+    Returns 404 if the account is not visible OR not a loan (avoids
+    leaking existence). Returns 400 on type/range errors.
     """
     user_id = _current_user_id()
     if user_id is None:
         return jsonify({"error": "Authenticated user required"}), 401
 
     payload = request.get_json(silent=True) or {}
-    if "original_loan_amount_cents" not in payload:
-        return jsonify({"error": "original_loan_amount_cents is required"}), 400
+    if not any(k in payload for k in ("original_loan_amount_cents", "apr_bps", "monthly_payment_cents")):
+        return jsonify({"error": "At least one of original_loan_amount_cents, apr_bps, monthly_payment_cents is required"}), 400
 
-    raw = payload.get("original_loan_amount_cents")
-    if raw is None:
-        new_value = None
-    else:
+    def _validate_int(key, max_val=None):
+        if key not in payload:
+            return ("__skip__",)  # sentinel — caller leaves field alone
+        raw = payload.get(key)
+        if raw is None:
+            return (None,)
         if not isinstance(raw, int) or isinstance(raw, bool):
-            return jsonify({"error": "original_loan_amount_cents must be a non-negative integer or null"}), 400
+            return ("__error__", f"{key} must be a non-negative integer or null")
         if raw < 0:
-            return jsonify({"error": "original_loan_amount_cents must be a non-negative integer or null"}), 400
-        new_value = raw
+            return ("__error__", f"{key} must be a non-negative integer or null")
+        if max_val is not None and raw > max_val:
+            return ("__error__", f"{key} must be ≤ {max_val}")
+        return (raw,)
+
+    new_orig = _validate_int("original_loan_amount_cents")
+    if new_orig and new_orig[0] == "__error__":
+        return jsonify({"error": new_orig[1]}), 400
+    new_apr = _validate_int("apr_bps", max_val=50000)  # 500% sanity cap
+    if new_apr and new_apr[0] == "__error__":
+        return jsonify({"error": new_apr[1]}), 400
+    new_mp = _validate_int("monthly_payment_cents")
+    if new_mp and new_mp[0] == "__error__":
+        return jsonify({"error": new_mp[1]}), 400
 
     session = g.db_session
     visible_ids = _visible_plaid_item_ids(session, user_id)
@@ -2018,7 +2036,12 @@ def update_loan_meta(account_id: int):
     if acct is None or acct.account_type != "loan":
         return jsonify({"error": "Account not found"}), 404
 
-    acct.original_loan_amount_cents = new_value
+    if new_orig[0] != "__skip__":
+        acct.original_loan_amount_cents = new_orig[0]
+    if new_apr[0] != "__skip__":
+        acct.apr_bps = new_apr[0]
+    if new_mp[0] != "__skip__":
+        acct.monthly_payment_cents = new_mp[0]
     session.commit()
 
     return jsonify({"account": _serialize_plaid_account(acct)}), 200

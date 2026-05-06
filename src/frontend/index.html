@@ -1084,6 +1084,60 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 .loan-row.loan-row-compact .loan-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
 .loan-row.loan-row-compact .loan-edit-btn { flex: 0 0 auto; }
+
+/* Multi-field loan-meta edit form */
+.loan-edit-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin-top: 6px;
+}
+.loan-edit-form .loan-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.loan-edit-form .loan-edit-label {
+  font-size: 0.74rem;
+  color: var(--muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.loan-edit-form input {
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  color: var(--text, #fff);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.loan-edit-form input:focus {
+  outline: 2px solid #0a84ff;
+  outline-offset: -1px;
+  border-color: transparent;
+}
+.loan-edit-btn-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.loan-edit-btn-row button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #3a3a3c);
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.loan-edit-btn-row button.save {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  color: #fff;
+}
 .loan-row .mini-donut { flex: 0 0 100px; position: relative; }
 .loan-row .mini-donut svg { display: block; }
 .loan-row .mini-donut .donut-center {
@@ -16195,13 +16249,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
             }
             wrap.appendChild(row);
-          } else {
-            // Loans keep the existing list-row layout.
-            group.accounts.forEach(a => {
-              wrap.appendChild(_renderCardRow(a, isCredit));
-            });
+            body.appendChild(wrap);
           }
-          body.appendChild(wrap);
+          // Loan group: skipped here. Already rendered by the dedicated
+          // _renderLoanProgressPanel above (donut, paid/unpaid/total,
+          // APR, months-remaining). Showing them again as list rows
+          // was pure duplication.
         });
 
         _refreshCardUsageFilterOptions();
@@ -17058,6 +17111,42 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           totV.textContent = _fmtMoneyCents(total, account.balance_currency);
           totalLine.appendChild(totL); totalLine.appendChild(totV);
           info.appendChild(totalLine);
+
+          // APR row — placeholder when not set
+          const aprLine = document.createElement("div");
+          aprLine.className = "loan-line apr-line";
+          const aprL = document.createElement("span"); aprL.textContent = "APR:";
+          const aprV = document.createElement("span");
+          aprV.textContent = account.apr_bps != null
+            ? (account.apr_bps / 100).toFixed(2) + "%"
+            : "—";
+          if (account.apr_bps == null) aprV.style.color = "var(--muted, #888)";
+          aprLine.appendChild(aprL); aprLine.appendChild(aprV);
+          info.appendChild(aprLine);
+
+          // Months remaining = ceil(unpaid / monthly_payment)
+          const monthsLine = document.createElement("div");
+          monthsLine.className = "loan-line months-line";
+          const monL = document.createElement("span"); monL.textContent = "Months remaining:";
+          const monV = document.createElement("span");
+          const unpaidCents = account.balance_cents || 0;
+          const mp = account.monthly_payment_cents;
+          if (mp && mp > 0 && unpaidCents > 0) {
+            const months = Math.ceil(unpaidCents / mp);
+            const yrs = Math.floor(months / 12);
+            const remMo = months % 12;
+            monV.textContent = yrs > 0
+              ? (yrs + "y" + (remMo > 0 ? " " + remMo + "mo" : ""))
+              : (months + " mo");
+          } else if (mp && mp > 0 && unpaidCents <= 0) {
+            monV.textContent = "Paid off";
+            monV.style.color = "#34c759";
+          } else {
+            monV.textContent = "—";
+            monV.style.color = "var(--muted, #888)";
+          }
+          monthsLine.appendChild(monL); monthsLine.appendChild(monV);
+          info.appendChild(monthsLine);
         } else {
           const placeholder = document.createElement("div");
           placeholder.className = "loan-line";
@@ -17097,51 +17186,92 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
         const form = document.createElement("div");
         form.className = "loan-edit-form";
-        const input = document.createElement("input");
-        input.type = "number";
-        input.min = "0";
-        input.step = "0.01";
-        input.placeholder = "Original loan amount ($)";
-        if (account.original_loan_amount_cents) {
-          input.value = (account.original_loan_amount_cents / 100).toFixed(2);
-        }
+
+        const mkField = (label, type, step, value, placeholder) => {
+          const wrap = document.createElement("label");
+          wrap.className = "loan-edit-field";
+          const lbl = document.createElement("span");
+          lbl.className = "loan-edit-label";
+          lbl.textContent = label;
+          const inp = document.createElement("input");
+          inp.type = type;
+          inp.step = step;
+          inp.min = "0";
+          inp.placeholder = placeholder;
+          if (value != null && value !== "") inp.value = value;
+          wrap.appendChild(lbl);
+          wrap.appendChild(inp);
+          return { wrap, input: inp };
+        };
+
+        const fOrig = mkField("Original amount ($)", "number", "0.01",
+          account.original_loan_amount_cents != null
+            ? (account.original_loan_amount_cents / 100).toFixed(2) : "",
+          "e.g. 52000.00");
+        const fApr = mkField("APR (%)", "number", "0.01",
+          account.apr_bps != null ? (account.apr_bps / 100).toFixed(2) : "",
+          "e.g. 5.25");
+        const fMp  = mkField("Monthly payment ($)", "number", "0.01",
+          account.monthly_payment_cents != null
+            ? (account.monthly_payment_cents / 100).toFixed(2) : "",
+          "e.g. 850.00");
+
+        form.appendChild(fOrig.wrap);
+        form.appendChild(fApr.wrap);
+        form.appendChild(fMp.wrap);
+
+        const btnRow = document.createElement("div");
+        btnRow.className = "loan-edit-btn-row";
         const save = document.createElement("button");
         save.type = "button";
         save.className = "save";
         save.textContent = "Save";
-        save.addEventListener("click", function () { _saveLoanOriginal(accountId, input.value); });
+        save.addEventListener("click", function () {
+          _saveLoanMeta(accountId, fOrig.input.value, fApr.input.value, fMp.input.value);
+        });
         const cancel = document.createElement("button");
         cancel.type = "button";
         cancel.className = "cancel";
         cancel.textContent = "Cancel";
         cancel.addEventListener("click", function () { _toggleLoanEditMode(accountId, false); });
+        btnRow.appendChild(save); btnRow.appendChild(cancel);
+        form.appendChild(btnRow);
 
-        form.appendChild(input);
-        form.appendChild(save);
-        form.appendChild(cancel);
         row.appendChild(form);
-        input.focus();
-        input.select();
+        fOrig.input.focus();
+        fOrig.input.select();
       }
 
-      async function _saveLoanOriginal(accountId, rawValue) {
-        let cents = null;
-        const trimmed = String(rawValue || "").trim();
-        if (trimmed !== "") {
-          const num = Number(trimmed);
-          if (!isFinite(num) || num < 0) {
-            toast("Enter a non-negative number.", "error");
-            return;
-          }
-          cents = Math.round(num * 100);
+      function _parseLoanField(raw, scale) {
+        // Returns null when blank, a non-negative integer scaled value, or
+        // throws when invalid. scale=100 for $→cents, =100 for %→bps.
+        const trimmed = String(raw || "").trim();
+        if (trimmed === "") return null;
+        const num = Number(trimmed);
+        if (!isFinite(num) || num < 0) throw new Error("invalid");
+        return Math.round(num * scale);
+      }
+
+      async function _saveLoanMeta(accountId, rawOrig, rawApr, rawMp) {
+        let body;
+        try {
+          body = {
+            original_loan_amount_cents: _parseLoanField(rawOrig, 100),
+            apr_bps: _parseLoanField(rawApr, 100),
+            monthly_payment_cents: _parseLoanField(rawMp, 100),
+          };
+        } catch (_) {
+          toast("Enter non-negative numbers only.", "error");
+          return;
         }
         try {
           const res = await api("/plaid/accounts/" + accountId + "/loan-meta", {
             method: "PUT",
-            body: JSON.stringify({ original_loan_amount_cents: cents }),
+            body: JSON.stringify(body),
           });
           if (!res.ok) {
-            toast("Save failed.", "error");
+            const msg = await res.json().catch(() => ({}));
+            toast("Save failed: " + (msg.error || res.status), "error");
             return;
           }
           toast("Updated.", "success");
