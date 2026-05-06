@@ -1705,3 +1705,196 @@ def test_list_receipts_groups_equivalent_plaid_and_upload(app):
     assert survivor["purchase_id"] == ocr_purchase_id
     assert survivor["linked_to_plaid"] is True
     assert "plaid" in survivor.get("sources", [])
+
+
+# ---------------------------------------------------------------------------
+# Product token-set dedup
+# ---------------------------------------------------------------------------
+
+def test_product_token_key_basic():
+    """product_token_key normalizes word order, casing, plurals, stopwords."""
+    from src.backend.normalize_product_names import product_token_key
+    # Word-order swap → same key
+    assert product_token_key("Red Onions") == product_token_key("Onions Red")
+    assert product_token_key("Red Onions") == product_token_key("ONIONS RED")
+    # Plural collapse
+    assert product_token_key("Red Onions") == product_token_key("Red Onion")
+    # Stopword drop ("of" gone)
+    assert product_token_key("Onions of Red") == product_token_key("Red Onions")
+    # Single-token returns None (skip auto-merge)
+    assert product_token_key("Apple") is None
+    # Punctuation
+    assert product_token_key("Red, Onions") == product_token_key("Red Onions")
+
+
+def test_find_matching_product_token_set_fallback(app):
+    """find_matching_product matches by token-set when exact name miss."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Product
+    from src.backend.normalize_product_names import find_matching_product
+
+    user_id = _make_user(app, email="prod_tok@test.local", name="Prod Tok")
+    _, SF = _get_db()
+    session = SF()
+    try:
+        existing = Product(
+            name="Red Onions", display_name="Red Onions",
+            category="produce",
+        )
+        session.add(existing); session.commit()
+        existing_id = existing.id
+
+        # Lookup with permuted name + plural variant — should hit fallback
+        match = find_matching_product(session, "Onions Red", "produce")
+        assert match is not None
+        assert match.id == existing_id
+
+        match2 = find_matching_product(session, "Onion Red", "produce")
+        assert match2 is not None and match2.id == existing_id
+
+        # Different category → no match (safety guard)
+        match_cat = find_matching_product(session, "Onions Red", "household")
+        assert match_cat is None
+
+        # Single-token name → no fallback (token_key returns None)
+        single = Product(name="Apples", display_name="Apples", category="produce")
+        session.add(single); session.commit()
+        # Single-token search shouldn't accidentally match
+        single_match = find_matching_product(session, "Apple", "produce")
+        # exact matcher might still find Apples via plural — that's fine,
+        # we just verify token-set didn't cross categories
+        if single_match is not None:
+            assert single_match.category == "produce"
+    finally:
+        session.close()
+
+
+def _invoke_auto_dedup_products(app, user_id):
+    from flask import g
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import User
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        user = session.get(User, user_id)
+        path = "/products/auto-dedup-tokens"
+        with app.test_request_context(path, method="POST"):
+            g.current_user = user
+            g.db_session = session
+            endpoint, _args = app.url_map.bind("").match(path, method="POST")
+            fn = app.view_functions[endpoint]
+            while hasattr(fn, "__wrapped__"):
+                fn = fn.__wrapped__
+            resp = fn()
+            if hasattr(resp, "status_code"):
+                return resp.status_code, resp.get_json()
+            if isinstance(resp, tuple) and len(resp) >= 2:
+                obj = resp[0]
+                status = resp[1]
+                payload = obj.get_json() if hasattr(obj, "get_json") else obj
+                return status, payload
+            return 200, resp
+    finally:
+        session.close()
+
+
+def test_auto_dedup_products_merges_token_set_duplicates(app):
+    """Backfill: Red Onions + Onions Red → one row, image inherited."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Product, ProductSnapshot
+    from datetime import datetime as _dt
+
+    user_id = _make_user(app, email="prod_dedup@test.local", name="Prod Dedup")
+    unique_tag = uuid.uuid4().hex[:6]
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        # "Onions Red" — has image, less rich name
+        with_image = Product(
+            name=f"Onions Red {unique_tag}",
+            display_name=f"Onions Red {unique_tag}",
+            category="produce",
+        )
+        session.add(with_image); session.flush()
+        session.add(ProductSnapshot(
+            product_id=with_image.id,
+            source_context="auto_fetch",
+            status="auto",
+            image_path=f"/tmp/onions_{unique_tag}.jpg",
+            captured_at=_dt.utcnow(),
+        ))
+
+        # "Red Onions" — typed later, no image
+        no_image = Product(
+            name=f"Red Onions {unique_tag}",
+            display_name=f"Red Onions {unique_tag}",
+            category="produce",
+        )
+        session.add(no_image); session.commit()
+        with_image_id = with_image.id
+        no_image_id = no_image.id
+    finally:
+        session.close()
+
+    status, body = _invoke_auto_dedup_products(app, user_id)
+    assert status == 200
+    assert body["merged"] >= 1
+
+    # Find the group involving our products
+    relevant = [g for g in body["groups"]
+                if with_image_id in [g["keeper_id"]] + g["dropped_ids"]
+                or no_image_id in [g["keeper_id"]] + g["dropped_ids"]]
+    assert len(relevant) == 1
+    grp = relevant[0]
+    # Keeper should be the one with image (with_image_id)
+    assert grp["keeper_id"] == with_image_id
+    assert no_image_id in grp["dropped_ids"]
+
+    # Verify final state
+    session = SF()
+    try:
+        assert session.get(Product, no_image_id) is None
+        kept = session.get(Product, with_image_id)
+        assert kept is not None
+        # Image still attached to keeper
+        snaps = session.query(ProductSnapshot).filter_by(product_id=with_image_id).count()
+        assert snaps >= 1
+    finally:
+        session.close()
+
+
+def test_auto_dedup_products_skips_different_categories(app):
+    """Same tokens in different categories must NOT merge."""
+    from src.backend.create_flask_application import _get_db
+    from src.backend.initialize_database_schema import Product
+
+    user_id = _make_user(app, email="prod_cat@test.local", name="Prod Cat")
+    unique_tag = uuid.uuid4().hex[:6]
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        produce = Product(
+            name=f"Bell Pepper {unique_tag}", category="produce",
+        )
+        snack = Product(
+            name=f"Pepper Bell {unique_tag}", category="snacks",
+        )
+        session.add_all([produce, snack]); session.commit()
+        produce_id = produce.id
+        snack_id = snack.id
+    finally:
+        session.close()
+
+    status, body = _invoke_auto_dedup_products(app, user_id)
+    assert status == 200
+
+    session = SF()
+    try:
+        # Both still exist
+        assert session.get(Product, produce_id) is not None
+        assert session.get(Product, snack_id) is not None
+    finally:
+        session.close()

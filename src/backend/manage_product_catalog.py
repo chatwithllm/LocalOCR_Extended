@@ -33,7 +33,12 @@ def _require_admin():
 
 
 def _merge_products(session, keeper: Product, duplicate: Product):
-    """Move references from duplicate to keeper, then delete duplicate."""
+    """Move references from duplicate to keeper, then delete duplicate.
+
+    Transfers brand / barcode / enrichment / display_name to keeper when
+    keeper has none — so a freshly-typed "Onions Red" inheriting an
+    image-bearing "Red Onions" duplicate keeps the image.
+    """
     if keeper.id == duplicate.id:
         return keeper
 
@@ -48,6 +53,31 @@ def _merge_products(session, keeper: Product, duplicate: Product):
     adjustments = session.query(InventoryAdjustment).filter_by(product_id=duplicate.id).all()
     for adjustment in adjustments:
         adjustment.product_id = keeper.id
+
+    # Reparent product snapshots (the source-of-truth for product images)
+    # so the keeper inherits any image that was attached to the duplicate.
+    from src.backend.initialize_database_schema import ProductSnapshot
+    session.query(ProductSnapshot).filter_by(product_id=duplicate.id).update(
+        {"product_id": keeper.id}, synchronize_session=False
+    )
+
+    # Field-level upgrade: keeper "wins" identity, but inherits richer
+    # metadata from duplicate when keeper's slot is empty.
+    if not keeper.brand and duplicate.brand:
+        keeper.brand = duplicate.brand
+    if not keeper.barcode and duplicate.barcode:
+        keeper.barcode = duplicate.barcode
+    if not keeper.display_name and duplicate.display_name:
+        keeper.display_name = duplicate.display_name
+    if not keeper.size and duplicate.size:
+        keeper.size = duplicate.size
+    if not keeper.default_unit and duplicate.default_unit:
+        keeper.default_unit = duplicate.default_unit
+    if not keeper.default_size_label and duplicate.default_size_label:
+        keeper.default_size_label = duplicate.default_size_label
+    if keeper.enrichment_confidence is None and duplicate.enrichment_confidence is not None:
+        keeper.enrichment_confidence = duplicate.enrichment_confidence
+        keeper.enriched_at = duplicate.enriched_at
 
     from src.backend.initialize_database_schema import Inventory
 
@@ -527,4 +557,94 @@ def get_product_price_history(product_id):
         "avg_price": round(sum(price_values) / len(price_values), 2) if price_values else None,
         "min_price": min(price_values) if price_values else None,
         "max_price": max(price_values) if price_values else None,
+    }), 200
+
+
+@products_bp.route("/auto-dedup-tokens", methods=["POST"])
+@require_write_access
+def auto_dedup_products_by_token_key():
+    """Backfill: merge products that share a sorted-token fingerprint.
+
+    Groups Products by (token_key, normalized category). When a group
+    has 2+ rows, picks the keeper as the row with richest metadata
+    (image > enriched > earliest id) and merges the rest into it via
+    `_merge_products`. Same-tokens-different-category pairs are NEVER
+    merged.
+
+    Idempotent — running again finds no new groups (every duplicate
+    becomes the same product after first run).
+
+    Returns: { merged: N, scanned: M, groups: [{keeper_id, dropped_ids[]}] }
+    """
+    from src.backend.normalize_product_names import (
+        normalize_product_category,
+        product_token_key,
+    )
+    from src.backend.initialize_database_schema import ProductSnapshot
+
+    session = g.db_session
+    products = session.query(Product).order_by(Product.id.asc()).all()
+
+    # Group by (token_key, category). product_token_key returns None for
+    # single-token names — those are skipped (cannot safely auto-merge).
+    buckets: dict[tuple, list[Product]] = {}
+    for p in products:
+        key = product_token_key(p.name)
+        if not key and p.display_name:
+            key = product_token_key(p.display_name)
+        if not key:
+            continue
+        cat = normalize_product_category(p.category)
+        buckets.setdefault((key, cat), []).append(p)
+
+    # Pre-fetch which product ids have at least one snapshot — used to
+    # bias keeper selection toward the row that already has an image.
+    product_ids = [p.id for p in products]
+    has_image_ids: set[int] = set()
+    if product_ids:
+        for (pid,) in (
+            session.query(ProductSnapshot.product_id)
+            .filter(ProductSnapshot.product_id.in_(product_ids))
+            .filter(ProductSnapshot.image_path.isnot(None))
+            .filter(ProductSnapshot.image_path != "")
+            .distinct()
+            .all()
+        ):
+            has_image_ids.add(pid)
+
+    def _keeper_score(p: Product) -> tuple:
+        # Higher tuple wins. Image presence is dominant.
+        return (
+            1 if p.id in has_image_ids else 0,
+            1 if p.enriched_at else 0,
+            1 if p.brand else 0,
+            1 if p.display_name else 0,
+            -p.id,  # earlier id wins on ties
+        )
+
+    merged = 0
+    groups_log: list[dict] = []
+    for (_key, _cat), group in buckets.items():
+        if len(group) < 2:
+            continue
+        ranked = sorted(group, key=_keeper_score, reverse=True)
+        keeper = ranked[0]
+        dropped_ids: list[int] = []
+        for dup in ranked[1:]:
+            _merge_products(session, keeper, dup)
+            dropped_ids.append(dup.id)
+            merged += 1
+        groups_log.append({
+            "keeper_id": keeper.id,
+            "keeper_name": keeper.name,
+            "dropped_ids": dropped_ids,
+        })
+
+    if merged:
+        session.commit()
+
+    return jsonify({
+        "merged": merged,
+        "scanned": len(products),
+        "groups": groups_log,
     }), 200

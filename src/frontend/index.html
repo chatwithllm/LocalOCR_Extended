@@ -20607,7 +20607,29 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ============================================================
       // Inventory
       // ============================================================
+      let __productTokenDedupRan = false;
+      async function _autoDedupProductsByTokenOnce() {
+        if (__productTokenDedupRan) return 0;
+        __productTokenDedupRan = true;
+        try {
+          const res = await api("/products/auto-dedup-tokens", { method: "POST" });
+          if (!res.ok) return 0;
+          const body = await res.json().catch(() => ({}));
+          const merged = body.merged || 0;
+          if (merged > 0) {
+            toast(`Merged ${merged} duplicate product${merged === 1 ? "" : "s"}`, "success");
+          }
+          return merged;
+        } catch (_e) {
+          return 0;
+        }
+      }
+
       async function loadInventory() {
+        // Backfill: collapse Products that share a token-set fingerprint
+        // (e.g. "Red Onions" + "Onions Red"). Runs once per session,
+        // idempotent. Toast shows count when any merged.
+        await _autoDedupProductsByTokenOnce();
         // Cache-buster query param defeats any browser-level caching of
         // the /inventory response — used after photo mutations where
         // we need the freshest latest_snapshot data immediately.
