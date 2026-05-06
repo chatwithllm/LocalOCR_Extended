@@ -3284,7 +3284,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           <!-- Panel 0 — Card Usage -->
           <div class="card" id="card-usage-card">
             <div class="card-header accounts-card-header">
-              <span class="card-title">📊 Card Usage</span>
+              <span class="card-title" onclick="toggleAccountsSection('card-usage-card')" style="cursor:pointer;user-select:none" title="Click to collapse / expand">📊 Card Usage</span>
               <div class="accounts-toolbar">
                 <button
                   class="btn btn-ghost btn-sm"
@@ -14938,6 +14938,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // they care about. State persists in localStorage across reloads.
       const ACCOUNTS_COLLAPSED_KEY = "accounts_sections_collapsed_v1";
       const ACCOUNTS_SECTION_DEFAULTS = {
+        "card-usage-card": false,
         "accounts-connections-card": true,
         "accounts-breakdown-card": true,
         "dash-spend-by-person-card": true,
