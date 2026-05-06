@@ -628,6 +628,35 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 .loan-row .loan-edit-form button.save { background: #0a84ff; color: #fff; }
 .loan-row .loan-edit-form button.cancel { background: var(--surface2, #2c2c2e); color: var(--text, #fff); border: 1px solid var(--border, #3a3a3c); }
+
+/* True-inventory-status: subtle status fill behind the title row.
+   Width = remaining_pct (0-100); color = status (fresh/low/out).
+   Fill sits behind the text via a ::before pseudo and pointer-events:
+   none, so existing tap/long-press handlers are unaffected. */
+.inv-tile-title-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.inv-tile-title-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: var(--remaining-pct, 100%);
+  background: var(--status-fill, rgba(52, 199, 89, 0.18));
+  z-index: 0;
+  transition: width 240ms ease;
+  pointer-events: none;
+}
+.inv-tile-title-row > * { position: relative; z-index: 1; }
+
+.inv-tile-est-suffix {
+  font-size: 0.78em;
+  color: var(--muted, #888);
+  margin-left: 6px;
+  opacity: 0.75;
+}
     </style>
   </head>
 
@@ -21224,6 +21253,122 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         return "";
       }
 
+      // True-inventory-status helpers: status -> background tint, and a
+      // gate for the "~est" suffix so we only flag the auto-decay number
+      // as approximate when it's actually been a while since last
+      // purchase (otherwise the freshly-bought number is reliable).
+      function _invStatusFill(status) {
+        switch (status) {
+          case "fresh": return "rgba(52, 199, 89, 0.18)";
+          case "low":   return "rgba(255, 159, 10, 0.20)";
+          case "out":   return "rgba(255, 69, 58, 0.22)";
+          default:      return "rgba(52, 199, 89, 0.18)";
+        }
+      }
+
+      // Tap-to-cycle: each bucket maps to a remaining_pct midpoint we
+      // persist as consumed_pct_override = 100 - remaining.
+      const _INV_STATUS_BUCKET = { fresh: 80, low: 40, out: 10 };
+
+      async function _invCycleStatus(itemId, currentStatus) {
+        const order = ["fresh", "low", "out"];
+        const idx = Math.max(0, order.indexOf(currentStatus));
+        const next = order[(idx + 1) % order.length];
+        const nextRemaining = _INV_STATUS_BUCKET[next];
+        await _invSetOverride(itemId, 100 - nextRemaining);
+      }
+
+      async function _invSetOverride(itemId, consumedPct) {
+        try {
+          const res = await api(`/inventory/${itemId}/update`, {
+            method: "PUT",
+            body: JSON.stringify({ consumed_pct_override: consumedPct }),
+          });
+          if (!res || !res.ok) {
+            toast("Could not update status", "error");
+            return;
+          }
+          if (typeof loadInventory === "function") loadInventory();
+        } catch (e) {
+          toast("Update failed", "error");
+        }
+      }
+
+      // Long-press + drag state machine. Click handler short-circuits
+      // when a drag has been engaged so we don't double-fire.
+      let _invDragState = null;
+
+      function _invInitDragHandlers() {
+        document.addEventListener("touchstart", _invDragMaybeStart, { passive: true });
+        document.addEventListener("touchmove", _invDragMove, { passive: false });
+        document.addEventListener("touchend", _invDragEnd);
+        document.addEventListener("mousedown", _invDragMaybeStart);
+        document.addEventListener("mousemove", _invDragMove);
+        document.addEventListener("mouseup", _invDragEnd);
+      }
+
+      function _invDragMaybeStart(e) {
+        const target = (e.target && e.target.closest)
+          ? e.target.closest(".inv-tile-title-row")
+          : null;
+        if (!target) return;
+        const itemId = target.dataset.invId;
+        if (!itemId) return;
+        const longPressTimer = setTimeout(() => {
+          _invDragState = {
+            itemId: parseInt(itemId, 10),
+            el: target,
+            rect: target.getBoundingClientRect(),
+            active: true,
+          };
+          target.style.cursor = "ew-resize";
+        }, 450);
+        const cancel = () => clearTimeout(longPressTimer);
+        document.addEventListener("touchend", cancel, { once: true });
+        document.addEventListener("mouseup", cancel, { once: true });
+        // Cancel on first move so a scroll gesture doesn't accidentally
+        // engage the drag.
+        const onFirstMove = () => {
+          cancel();
+          document.removeEventListener("touchmove", onFirstMove);
+        };
+        document.addEventListener("touchmove", onFirstMove, { once: true, passive: true });
+      }
+
+      function _invDragMove(e) {
+        if (!_invDragState || !_invDragState.active) return;
+        if (e.preventDefault) e.preventDefault();
+        const point = e.touches ? e.touches[0] : e;
+        const rect = _invDragState.rect;
+        const ratio = (point.clientX - rect.left) / rect.width;
+        const remaining = Math.round(Math.max(0, Math.min(100, ratio * 100)) / 5) * 5;
+        _invDragState.el.style.setProperty("--remaining-pct", remaining + "%");
+        _invDragState.lastRemaining = remaining;
+      }
+
+      async function _invDragEnd() {
+        if (!_invDragState || !_invDragState.active) {
+          _invDragState = null;
+          return;
+        }
+        const finalRemaining = _invDragState.lastRemaining;
+        const itemId = _invDragState.itemId;
+        if (_invDragState.el) _invDragState.el.style.cursor = "";
+        _invDragState = null;
+        if (typeof finalRemaining === "number") {
+          await _invSetOverride(itemId, 100 - finalRemaining);
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", _invInitDragHandlers);
+
+      function _invShowEstSuffix(item) {
+        if (!item || !item.is_estimated) return false;
+        if (!item.last_purchased_at) return false;
+        const ageDays = (Date.now() - new Date(item.last_purchased_at).getTime()) / 86400000;
+        return ageDays > 7;
+      }
+
       function _invEnrich(items) {
         const today = new Date(); today.setHours(0,0,0,0);
         return items.map(function(i) {
@@ -21802,7 +21947,32 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           + (i.unit && i.unit !== "each" ? " " + i.unit : "");
         head.appendChild(_invElText("span", "inv-tile-qty", qtyText));
         content.appendChild(head);
-        content.appendChild(_invElText("div", "inv-tile-name", i.product_name || ""));
+        // True-inventory-status: subtle status tint behind the name row.
+        // Width = remaining_pct (clamped 0-100); color = status. Fill is
+        // a CSS ::before behind the text so click targets/handlers stay
+        // exactly as before. Name row was the cleanest single-row
+        // "title" element — countdown lives in head above with the qty
+        // pill, and dropping the fill on head would tint the qty too.
+        const titleRow = _invElText("div", "inv-tile-title-row");
+        // Inventory id (not product id) — that's what the update route
+        // takes. Also drives tap-to-cycle and long-press drag.
+        titleRow.dataset.invId = String(i.id == null ? "" : i.id);
+        titleRow.dataset.invStatus = i.status || "fresh";
+        const remPct = Math.max(0, Math.min(100, i.remaining_pct == null ? 100 : Number(i.remaining_pct)));
+        titleRow.style.setProperty("--remaining-pct", remPct + "%");
+        titleRow.style.setProperty("--status-fill", _invStatusFill(i.status));
+        titleRow.style.cursor = "pointer";
+        titleRow.addEventListener("click", function (_e) {
+          // Skip if a drag has engaged — the dragend path persists the value.
+          if (_invDragState && _invDragState.active) return;
+          if (i && i.id != null) _invCycleStatus(i.id, i.status || "fresh");
+        });
+        const nameSpan = _invElText("span", "inv-tile-name", i.product_name || "");
+        titleRow.appendChild(nameSpan);
+        if (_invShowEstSuffix(i)) {
+          titleRow.appendChild(_invElText("span", "inv-tile-est-suffix", "~est"));
+        }
+        content.appendChild(titleRow);
         const meta = _invElText("div", "inv-tile-meta");
         if (i.last_purchased_at) {
           meta.appendChild(_invElText("div", null, "📅 Bought " + String(i.last_purchased_at).slice(0, 10)));
