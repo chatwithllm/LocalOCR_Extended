@@ -1784,6 +1784,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <input type="checkbox" id="inventory-show-empty"> Show empty
                 </label>
                 <button type="button" id="inventory-restore-btn" onclick="invOpenRestoreModal()">↻ Recently used up</button>
+                <button type="button" id="inventory-find-dups-btn" onclick="findDuplicateProducts()" title="Merge products with same tokens (e.g. Red Onions + Onions Red)">🔗 Merge duplicates</button>
               </div>
             </div>
             <div id="inv-category-chips" class="filter-chip-row" style="padding:0 0 10px 0"></div>
@@ -20607,23 +20608,49 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ============================================================
       // Inventory
       // ============================================================
-      let __productTokenDedupRan = false;
-      async function _autoDedupProductsByTokenOnce() {
-        if (__productTokenDedupRan) return 0;
-        __productTokenDedupRan = true;
+      let __productTokenDedupLastRun = 0;
+      async function _autoDedupProductsByToken({ verbose = false } = {}) {
+        // Throttle: at most one run per 30 seconds. Drop the once-flag so
+        // a manual button can re-trigger if the user wants to.
+        const now = Date.now();
+        if (!verbose && (now - __productTokenDedupLastRun) < 30000) return 0;
+        __productTokenDedupLastRun = now;
         try {
           const res = await api("/products/auto-dedup-tokens", { method: "POST" });
-          if (!res.ok) return 0;
+          if (!res.ok) {
+            if (verbose) {
+              const detail = res.status === 404
+                ? "Endpoint missing — backend not redeployed yet?"
+                : `Failed: ${res.status}`;
+              toast(`Find duplicates: ${detail}`, "error");
+            }
+            return 0;
+          }
           const body = await res.json().catch(() => ({}));
           const merged = body.merged || 0;
+          const scanned = body.scanned || 0;
           if (merged > 0) {
             toast(`Merged ${merged} duplicate product${merged === 1 ? "" : "s"}`, "success");
+            // Re-render inventory so the user sees the collapsed row.
+            if (typeof loadInventory === "function") {
+              setTimeout(loadInventory, 200);
+            }
+          } else if (verbose) {
+            toast(`No duplicates found (scanned ${scanned})`, "info");
           }
           return merged;
-        } catch (_e) {
+        } catch (e) {
+          if (verbose) toast(`Find duplicates failed: ${e.message}`, "error");
           return 0;
         }
       }
+      // Public manual trigger (button binding)
+      window.findDuplicateProducts = function () {
+        __productTokenDedupLastRun = 0; // bypass throttle
+        return _autoDedupProductsByToken({ verbose: true });
+      };
+      // Backwards-compat alias for the once-style call
+      const _autoDedupProductsByTokenOnce = _autoDedupProductsByToken;
 
       async function loadInventory() {
         // Backfill: collapse Products that share a token-set fingerprint
