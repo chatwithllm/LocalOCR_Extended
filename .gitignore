@@ -56,3 +56,9 @@ alembic/__pycache__/
 .kanban/flush.log
 .kanban/pending-milestones.jsonl
 .superpowers/
+
+# Local agent + tool artifacts (not project source)
+.claude/
+.kanban/
+.planning/
+graphify-out/
