@@ -539,11 +539,84 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cu-chip-card .cu-chip-mask {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text, #fff);
+  letter-spacing: 0.02em;
+  margin-left: 4px;
+}
 .cu-chip-card .cu-chip-pct {
   color: var(--muted, #888);
   font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
   flex: 0 0 auto;
+}
+
+/* Tile head: name truncates, mask stays pinned visible on the right */
+.cu-tile-head .cu-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-tile-head .cu-mask {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text, #fff);
+  margin-left: 6px;
+}
+
+/* Genie-ish expand animation. When a tile is freshly added (after a
+   chip-click expand) it scales up from the chip's height with a
+   slight overshoot — feels like the macOS genie pop without a full
+   SVG morph. Trigger via .cu-genie-in class on render. */
+@keyframes cuGenieIn {
+  0% {
+    transform: scaleY(0.18) translateY(-8px);
+    opacity: 0;
+    clip-path: inset(45% 0 45% 0 round 5px);
+  }
+  60% {
+    transform: scaleY(1.04) translateY(0);
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 5px);
+  }
+  100% {
+    transform: scaleY(1) translateY(0);
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 5px);
+  }
+}
+.cu-tile.cu-genie-in {
+  animation: cuGenieIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: top center;
+}
+@keyframes cuGenieChipIn {
+  0% {
+    transform: scaleY(2) translateY(-10px);
+    opacity: 0;
+    clip-path: inset(0 35% 0 35% round 5px);
+  }
+  60% {
+    transform: scaleY(0.96) translateY(0);
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 5px);
+  }
+  100% {
+    transform: scaleY(1) translateY(0);
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 5px);
+  }
+}
+.cu-chip-card.cu-genie-in {
+  animation: cuGenieChipIn 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: top center;
 }
 .cu-tile {
   position: relative;
@@ -16033,11 +16106,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (override === false) return false;
         return _cuShouldCollapseDefault(account);
       }
+      // Tracks the account_id whose tile just toggled — drives the
+      // genie-style entry animation on the next render.
+      let __cuGenieTarget = null;
+
       function _cuToggleCollapsed(account, tileEl) {
         const state = _cuLoadCollapseState();
         const currentlyCollapsed = tileEl.classList.contains("cu-collapsed");
         state[account.plaid_account_id] = !currentlyCollapsed;
         _cuSaveCollapseState(state);
+        __cuGenieTarget = account.plaid_account_id;
         // Re-render the panel so the tile moves between Active grid
         // and the Other Cards strip cleanly. Avoids partial state mix.
         if (typeof loadCardsOverview === "function") loadCardsOverview();
@@ -16062,11 +16140,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           chip.className = "cu-chip-card";
           chip.style.setProperty("--issuer-color", _issuerColor(a.name));
           chip.title = "Click to expand";
+          if (__cuGenieTarget === a.plaid_account_id) {
+            chip.classList.add("cu-genie-in");
+            __cuGenieTarget = null;
+          }
 
           const name = document.createElement("span");
           name.className = "cu-chip-name";
-          name.textContent = (a.name || "Card") + " ····" + (a.mask || "");
+          name.textContent = a.name || "Card";
           chip.appendChild(name);
+
+          const mask = document.createElement("span");
+          mask.className = "cu-chip-mask";
+          mask.textContent = "····" + (a.mask || "");
+          chip.appendChild(mask);
 
           const pct = document.createElement("span");
           pct.className = "cu-chip-pct";
@@ -16092,6 +16179,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         tile.className = "cu-tile";
         tile.style.setProperty("--issuer-color", _issuerColor(a.name));
         if (_cuIsCollapsed(a)) tile.classList.add("cu-collapsed");
+        if (__cuGenieTarget === a.plaid_account_id) {
+          tile.classList.add("cu-genie-in");
+          __cuGenieTarget = null;
+        }
 
         // Click body → drill (when expanded) OR expand (when collapsed)
         tile.addEventListener("click", function (e) {
@@ -16104,16 +16195,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
         });
 
-        // Head: icon + name + mask + collapsed-meta + toggle
+        // Head: icon + name (truncates) + mask (pinned, never truncates) + collapsed-meta + toggle
         const head = document.createElement("div");
         head.className = "cu-tile-head";
         const icon = document.createElement("span");
         icon.textContent = "💳";
         const nameEl = document.createElement("span");
         nameEl.className = "cu-name";
-        nameEl.textContent = (a.name || "Card") + " ····" + (a.mask || "");
+        nameEl.textContent = a.name || "Card";
         head.appendChild(icon);
         head.appendChild(nameEl);
+        const maskEl = document.createElement("span");
+        maskEl.className = "cu-mask";
+        maskEl.textContent = "····" + (a.mask || "");
+        head.appendChild(maskEl);
 
         // Collapsed-only inline meta: util% + mini bar (hidden when expanded via CSS)
         const collapsedMeta = document.createElement("span");
