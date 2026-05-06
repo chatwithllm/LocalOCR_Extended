@@ -500,6 +500,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 /* When ONLY chips (no expanded), strip takes full row instead of partial */
 .card-usage-flex-row.cu-chips-only .card-usage-strip { flex-basis: 100%; }
+
+/* Mobile: drop chip strip to 1 column so name + mask + bar all fit */
+@media (max-width: 640px) {
+  .card-usage-flex-row { gap: 10px; }
+  .card-usage-strip {
+    grid-template-columns: 1fr !important;  /* override JS inline */
+    gap: 6px;
+  }
+  .card-usage-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .cu-tile { max-width: none; }
+}
 .cu-chip-card {
   display: flex;
   align-items: center;
