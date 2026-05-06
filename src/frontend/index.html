@@ -537,6 +537,97 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   text-align: center;
   padding: 20px 0;
 }
+.card-usage-loans-panel {
+  background: var(--surface, #1c1c1e);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 0 0 8px;
+  border: 1px solid var(--border, #3a3a3c);
+}
+.card-usage-loans-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.loan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border, #3a3a3c);
+}
+.loan-row:last-child { border-bottom: none; }
+.loan-row .mini-donut { flex: 0 0 100px; position: relative; }
+.loan-row .mini-donut svg { display: block; }
+.loan-row .mini-donut .donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text, #fff);
+  pointer-events: none;
+}
+.loan-row .loan-info {
+  flex: 1 1 220px;
+  min-width: 200px;
+  font-size: 0.9rem;
+}
+.loan-row .loan-info .loan-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.loan-row .loan-info .loan-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+.loan-row .loan-info .loan-line.paid-off-line { color: #34c759; }
+.loan-row .loan-info .loan-line.total-line {
+  color: var(--text, #fff);
+  font-weight: 600;
+  border-top: 1px solid var(--border, #3a3a3c);
+  padding-top: 4px;
+  margin-top: 4px;
+}
+.loan-row .loan-edit-btn {
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  color: var(--text, #fff);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.loan-row .loan-edit-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 220px;
+}
+.loan-row .loan-edit-form input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #3a3a3c);
+  font-size: 0.92rem;
+}
+.loan-row .loan-edit-form button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.loan-row .loan-edit-form button.save { background: #0a84ff; color: #fff; }
+.loan-row .loan-edit-form button.cancel { background: var(--surface2, #2c2c2e); color: var(--text, #fff); border: 1px solid var(--border, #3a3a3c); }
     </style>
   </head>
 
@@ -3310,6 +3401,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
               <div id="card-usage-pie-body" class="card-usage-pie-body">
                 <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
+              </div>
+            </div>
+            <div id="card-usage-loans-panel" class="card-usage-loans-panel" style="display:none">
+              <div class="card-usage-pie-head">
+                <span class="card-usage-pie-title">Loan Progress</span>
+              </div>
+              <div id="card-usage-loans-body" class="card-usage-loans-body">
+                <!-- per-loan rows rendered by _renderLoanProgressPanel() -->
               </div>
             </div>
             <div id="card-usage-body">
@@ -15517,6 +15616,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         _refreshCardUsageFilterOptions();
         const sel = document.getElementById("card-usage-pie-filter-select");
         _renderCardUsagePie(sel ? sel.value : "all");
+        _renderLoanProgressPanel();
       }
 
       function _renderCardRow(a, isCredit) {
@@ -15714,6 +15814,251 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           startAngle = endAngle;
         });
         return svg;
+      }
+
+      function _renderLoanMiniDonut(paidCents, totalCents) {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const size = 100, cx = size / 2, cy = size / 2;
+        const outerR = 44, innerR = 30;
+
+        const svg = document.createElementNS(SVG_NS, "svg");
+        svg.setAttribute("width", size);
+        svg.setAttribute("height", size);
+        svg.setAttribute("viewBox", "0 0 " + size + " " + size);
+        svg.setAttribute("role", "img");
+
+        if (!totalCents || totalCents <= 0) {
+          const ring = document.createElementNS(SVG_NS, "path");
+          const d = [
+            "M " + cx + " " + (cy - outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy + outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy - outerR),
+            "M " + cx + " " + (cy - innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy + innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy - innerR),
+            "Z"
+          ].join(" ");
+          ring.setAttribute("d", d);
+          ring.setAttribute("fill", "#3a3a3c");
+          ring.setAttribute("fill-rule", "evenodd");
+          svg.appendChild(ring);
+          return svg;
+        }
+
+        const paid = Math.max(0, Math.min(paidCents || 0, totalCents));
+        const frac = paid / totalCents;
+
+        if (frac >= 1) {
+          const ring = document.createElementNS(SVG_NS, "path");
+          const d = [
+            "M " + cx + " " + (cy - outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy + outerR),
+            "A " + outerR + " " + outerR + " 0 1 1 " + cx + " " + (cy - outerR),
+            "M " + cx + " " + (cy - innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy + innerR),
+            "A " + innerR + " " + innerR + " 0 1 0 " + cx + " " + (cy - innerR),
+            "Z"
+          ].join(" ");
+          ring.setAttribute("d", d);
+          ring.setAttribute("fill", "#34c759");
+          ring.setAttribute("fill-rule", "evenodd");
+          svg.appendChild(ring);
+          return svg;
+        }
+
+        const slices = [
+          { frac: frac, color: "#34c759" },
+          { frac: 1 - frac, color: "#8e8e93" },
+        ];
+        let startAngle = -Math.PI / 2;
+        slices.forEach(s => {
+          if (s.frac <= 0) return;
+          const endAngle = startAngle + s.frac * 2 * Math.PI;
+          const largeArc = s.frac > 0.5 ? 1 : 0;
+          const x1 = cx + outerR * Math.cos(startAngle);
+          const y1 = cy + outerR * Math.sin(startAngle);
+          const x2 = cx + outerR * Math.cos(endAngle);
+          const y2 = cy + outerR * Math.sin(endAngle);
+          const x3 = cx + innerR * Math.cos(endAngle);
+          const y3 = cy + innerR * Math.sin(endAngle);
+          const x4 = cx + innerR * Math.cos(startAngle);
+          const y4 = cy + innerR * Math.sin(startAngle);
+          const path = document.createElementNS(SVG_NS, "path");
+          const d = [
+            "M " + x1 + " " + y1,
+            "A " + outerR + " " + outerR + " 0 " + largeArc + " 1 " + x2 + " " + y2,
+            "L " + x3 + " " + y3,
+            "A " + innerR + " " + innerR + " 0 " + largeArc + " 0 " + x4 + " " + y4,
+            "Z"
+          ].join(" ");
+          path.setAttribute("d", d);
+          path.setAttribute("fill", s.color);
+          svg.appendChild(path);
+          startAngle = endAngle;
+        });
+        return svg;
+      }
+
+      function _renderLoanRow(account) {
+        const row = document.createElement("div");
+        row.className = "loan-row";
+        row.dataset.loanId = account.id;
+
+        const donutWrap = document.createElement("div");
+        donutWrap.className = "mini-donut";
+        const total = account.original_loan_amount_cents;
+        const paid = account.paid_off_cents;
+        donutWrap.appendChild(_renderLoanMiniDonut(paid, total));
+        if (total && total > 0) {
+          const center = document.createElement("div");
+          center.className = "donut-center";
+          const pct = Math.round(((paid || 0) / total) * 100);
+          center.textContent = pct + "%";
+          donutWrap.appendChild(center);
+        }
+        row.appendChild(donutWrap);
+
+        const info = document.createElement("div");
+        info.className = "loan-info";
+        const name = document.createElement("div");
+        name.className = "loan-name";
+        name.textContent = "🏦 " + (account.name || "Loan") + " ····" + (account.mask || "");
+        info.appendChild(name);
+
+        if (total) {
+          const paidLine = document.createElement("div");
+          paidLine.className = "loan-line paid-off-line";
+          const paidL = document.createElement("span"); paidL.textContent = "Paid off:";
+          const paidV = document.createElement("span");
+          const pct = Math.round(((paid || 0) / total) * 100);
+          paidV.textContent = _fmtMoneyCents(paid || 0, account.balance_currency) + " (" + pct + "%)";
+          paidLine.appendChild(paidL); paidLine.appendChild(paidV);
+          info.appendChild(paidLine);
+
+          const unpaidLine = document.createElement("div");
+          unpaidLine.className = "loan-line unpaid-line";
+          const unpL = document.createElement("span"); unpL.textContent = "Unpaid:";
+          const unpV = document.createElement("span");
+          unpV.textContent = _fmtMoneyCents(account.balance_cents || 0, account.balance_currency);
+          unpaidLine.appendChild(unpL); unpaidLine.appendChild(unpV);
+          info.appendChild(unpaidLine);
+
+          const totalLine = document.createElement("div");
+          totalLine.className = "loan-line total-line";
+          const totL = document.createElement("span"); totL.textContent = "Total:";
+          const totV = document.createElement("span");
+          totV.textContent = _fmtMoneyCents(total, account.balance_currency);
+          totalLine.appendChild(totL); totalLine.appendChild(totV);
+          info.appendChild(totalLine);
+        } else {
+          const placeholder = document.createElement("div");
+          placeholder.className = "loan-line";
+          placeholder.textContent = "Original amount not set.";
+          info.appendChild(placeholder);
+        }
+
+        row.appendChild(info);
+
+        const editBtn = document.createElement("button");
+        editBtn.type = "button";
+        editBtn.className = "loan-edit-btn";
+        editBtn.textContent = total ? "✏️ Edit" : "✏️ Set original amount";
+        editBtn.addEventListener("click", function () { _toggleLoanEditMode(account.id, true); });
+        row.appendChild(editBtn);
+
+        return row;
+      }
+
+      function _toggleLoanEditMode(accountId, on) {
+        const row = document.querySelector('.loan-row[data-loan-id="' + accountId + '"]');
+        if (!row) return;
+        const cache = __cardsOverviewCache;
+        const loanGroup = cache && (cache.groups || []).find(g => g.type === "loan");
+        const account = loanGroup && loanGroup.accounts.find(a => a.id === accountId);
+        if (!account) return;
+
+        if (!on) {
+          row.replaceWith(_renderLoanRow(account));
+          return;
+        }
+
+        const info = row.querySelector(".loan-info");
+        const btn = row.querySelector(".loan-edit-btn");
+        if (info) info.style.display = "none";
+        if (btn) btn.style.display = "none";
+
+        const form = document.createElement("div");
+        form.className = "loan-edit-form";
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.step = "0.01";
+        input.placeholder = "Original loan amount ($)";
+        if (account.original_loan_amount_cents) {
+          input.value = (account.original_loan_amount_cents / 100).toFixed(2);
+        }
+        const save = document.createElement("button");
+        save.type = "button";
+        save.className = "save";
+        save.textContent = "Save";
+        save.addEventListener("click", function () { _saveLoanOriginal(accountId, input.value); });
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "cancel";
+        cancel.textContent = "Cancel";
+        cancel.addEventListener("click", function () { _toggleLoanEditMode(accountId, false); });
+
+        form.appendChild(input);
+        form.appendChild(save);
+        form.appendChild(cancel);
+        row.appendChild(form);
+        input.focus();
+        input.select();
+      }
+
+      async function _saveLoanOriginal(accountId, rawValue) {
+        let cents = null;
+        const trimmed = String(rawValue || "").trim();
+        if (trimmed !== "") {
+          const num = Number(trimmed);
+          if (!isFinite(num) || num < 0) {
+            toast("Enter a non-negative number.", "error");
+            return;
+          }
+          cents = Math.round(num * 100);
+        }
+        try {
+          const res = await api("/plaid/accounts/" + accountId + "/loan-meta", {
+            method: "PUT",
+            body: JSON.stringify({ original_loan_amount_cents: cents }),
+          });
+          if (!res.ok) {
+            toast("Save failed.", "error");
+            return;
+          }
+          toast("Updated.", "success");
+          await loadCardsOverview();
+        } catch (e) {
+          toast("Save failed.", "error");
+        }
+      }
+
+      function _renderLoanProgressPanel() {
+        const panel = document.getElementById("card-usage-loans-panel");
+        const body = document.getElementById("card-usage-loans-body");
+        if (!panel || !body) return;
+        body.replaceChildren();
+
+        const cache = __cardsOverviewCache;
+        const loanGroup = cache && (cache.groups || []).find(g => g.type === "loan");
+        if (!loanGroup || loanGroup.accounts.length === 0) {
+          panel.style.display = "none";
+          return;
+        }
+        panel.style.display = "block";
+        loanGroup.accounts.forEach(a => {
+          body.appendChild(_renderLoanRow(a));
+        });
       }
 
       function _renderCardUsageLegend(slices, totalCents) {
