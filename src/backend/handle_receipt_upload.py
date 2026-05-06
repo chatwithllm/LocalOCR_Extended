@@ -2183,16 +2183,112 @@ def dedup_scan_receipts():
     }), 200
 
 
-@receipts_bp.route("/merge", methods=["POST"])
-@require_write_access
-def merge_receipts():
-    """Consolidate two Purchase rows into one.
+def _auto_merge_with_existing_match(session, new_purchase, user_id, *, new_image_path: str | None = None):
+    """If `new_purchase` matches an existing Purchase (±$0.02/±3d/merchant
+    alias), merge them and return (kept_purchase_id, True). Else return
+    (new_purchase.id, False).
 
-    Body: {"keep_id": int, "drop_id": int}
-    Both must be owned by the current user. Drop's nullable references
-    are reparented to keep; unique-constrained sidecars (BillMeta,
-    CashTransaction) are moved only if keep has none, else deleted;
-    drop Purchase is deleted.
+    Called from receipt-creation paths to auto-tie a freshly-created OCR
+    purchase to an already-existing Plaid-promoted purchase (or vice
+    versa). Heuristic prefers the row with more items / has-image / older
+    id. The other row's nullable FKs (including
+    plaid_staged_transactions.confirmed_purchase_id) reparent to the keep,
+    so the staged transaction stays linked.
+
+    `new_image_path` lets callers signal that the new purchase will get
+    an image once its TelegramReceipt is linked (TelegramReceipt may not
+    exist yet at this point). Treated as has_image=True for the keep/drop
+    heuristic.
+
+    Caller must call session.commit() afterwards.
+    """
+    from datetime import timedelta as _td
+    from src.backend.initialize_database_schema import (
+        Purchase,
+        ReceiptItem,
+        Store,
+        TelegramReceipt,
+    )
+    from src.backend.plaid_receipt_matcher import (
+        AMOUNT_EPSILON,
+        DATE_WINDOW_DAYS,
+        merchants_match,
+    )
+
+    if new_purchase is None or new_purchase.id is None:
+        return (None, False)
+
+    store = session.query(Store).filter_by(id=new_purchase.store_id).first() if new_purchase.store_id else None
+    merchant_name = store.name if store else None
+    target = abs(float(new_purchase.total_amount or 0))
+    if target <= 0:
+        return (new_purchase.id, False)
+    if new_purchase.date is None:
+        return (new_purchase.id, False)
+    lo = new_purchase.date - _td(days=DATE_WINDOW_DAYS)
+    hi = new_purchase.date + _td(days=DATE_WINDOW_DAYS + 1)
+
+    rows = (
+        session.query(Purchase, Store)
+        .outerjoin(Store, Purchase.store_id == Store.id)
+        .filter(Purchase.user_id == user_id)
+        .filter(Purchase.id != new_purchase.id)
+        .filter(Purchase.date >= lo)
+        .filter(Purchase.date < hi)
+        .order_by(Purchase.date.desc(), Purchase.id.desc())
+        .all()
+    )
+
+    chosen = None
+    for p, s in rows:
+        if abs((p.total_amount or 0) - target) > AMOUNT_EPSILON:
+            continue
+        s_name = s.name if s else None
+        if not merchants_match(merchant_name, s_name):
+            continue
+        chosen = p
+        break
+
+    if chosen is None:
+        return (new_purchase.id, False)
+
+    new_items = session.query(ReceiptItem).filter_by(purchase_id=new_purchase.id).count()
+    other_items = session.query(ReceiptItem).filter_by(purchase_id=chosen.id).count()
+    new_rec = session.query(TelegramReceipt).filter_by(purchase_id=new_purchase.id).first()
+    other_rec = session.query(TelegramReceipt).filter_by(purchase_id=chosen.id).first()
+    new_has_image = bool((new_rec and new_rec.image_path) or new_image_path)
+    other_has_image = bool(other_rec and other_rec.image_path)
+
+    keep, drop = _merge_pick_keep_drop(
+        new_purchase, chosen, new_items, other_items, new_has_image, other_has_image
+    )
+    _merge_purchase_pair(session, keep, drop)
+    session.flush()
+
+    # Post-merge cleanup: when the caller is about to attach an image
+    # (new_image_path provided), drop any image-less TelegramReceipt rows
+    # that ended up on the keep — typically the Plaid placeholder TR that
+    # was reparented during the merge. Otherwise the receipts list shows
+    # duplicate rows (Plaid + Upload) for the same Purchase.
+    if new_image_path:
+        placeholder_trs = (
+            session.query(TelegramReceipt)
+            .filter(TelegramReceipt.purchase_id == keep.id)
+            .filter((TelegramReceipt.image_path.is_(None)) | (TelegramReceipt.image_path == ""))
+            .all()
+        )
+        for tr in placeholder_trs:
+            session.delete(tr)
+        session.flush()
+    return (keep.id, True)
+
+
+def _merge_purchase_pair(session, keep, drop) -> None:
+    """Merge `drop` into `keep`: reparent nullable FKs, move unique-
+    constrained sidecars only when keep has none, delete drop Purchase.
+
+    Caller must commit. Caller is responsible for ownership/permission
+    checks; this is a pure data-plane helper.
     """
     from src.backend.initialize_database_schema import (
         BillAllocation,
@@ -2200,10 +2296,72 @@ def merge_receipts():
         CashTransaction,
         PlaidStagedTransaction,
         ProductSnapshot,
-        Purchase,
         ReceiptItem,
         TelegramReceipt,
     )
+
+    # --- Reparent nullable FKs drop → keep -----------------------------
+    session.query(ProductSnapshot).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+    session.query(PlaidStagedTransaction).filter_by(
+        confirmed_purchase_id=drop.id
+    ).update({"confirmed_purchase_id": keep.id}, synchronize_session=False)
+    session.query(PlaidStagedTransaction).filter_by(
+        duplicate_purchase_id=drop.id
+    ).update({"duplicate_purchase_id": keep.id}, synchronize_session=False)
+
+    # --- TelegramReceipt — keep keep's receipt, delete drop's ----------
+    keep_receipt = session.query(TelegramReceipt).filter_by(purchase_id=keep.id).first()
+    drop_receipts = session.query(TelegramReceipt).filter_by(purchase_id=drop.id).all()
+    for rec in drop_receipts:
+        if keep_receipt is None:
+            rec.purchase_id = keep.id
+            keep_receipt = rec
+        else:
+            session.delete(rec)
+
+    # --- ReceiptItem — reparent any drop items to keep -----------------
+    session.query(ReceiptItem).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+
+    # --- BillAllocation — reparent ------------------------------------
+    session.query(BillAllocation).filter_by(purchase_id=drop.id).update(
+        {"purchase_id": keep.id}, synchronize_session=False
+    )
+
+    # --- BillMeta — unique per purchase; move only if keep has none ----
+    keep_bm = session.query(BillMeta).filter_by(purchase_id=keep.id).first()
+    drop_bm = session.query(BillMeta).filter_by(purchase_id=drop.id).first()
+    if drop_bm is not None:
+        if keep_bm is None:
+            drop_bm.purchase_id = keep.id
+        else:
+            session.delete(drop_bm)
+
+    # --- CashTransaction — unique per purchase; move if keep has none --
+    keep_ct = session.query(CashTransaction).filter_by(purchase_id=keep.id).first()
+    drop_ct = session.query(CashTransaction).filter_by(purchase_id=drop.id).first()
+    if drop_ct is not None:
+        if keep_ct is None:
+            drop_ct.purchase_id = keep.id
+        else:
+            session.delete(drop_ct)
+
+    session.flush()
+    session.delete(drop)
+
+
+@receipts_bp.route("/merge", methods=["POST"])
+@require_write_access
+def merge_receipts():
+    """Consolidate two Purchase rows into one.
+
+    Body: {"keep_id": int, "drop_id": int}
+    Both must be owned by the current user.
+    """
+    from src.backend.initialize_database_schema import Purchase
 
     user = getattr(g, "current_user", None)
     if user is None:
@@ -2225,64 +2383,7 @@ def merge_receipts():
     if not keep or not drop:
         return jsonify({"error": "Purchase not found or not owned by you"}), 404
 
-    # --- Reparent nullable FKs drop → keep -----------------------------
-    # ProductSnapshot.purchase_id (nullable) — safe to reparent.
-    session.query(ProductSnapshot).filter_by(purchase_id=drop.id).update(
-        {"purchase_id": keep.id}, synchronize_session=False
-    )
-    # PlaidStagedTransaction.confirmed_purchase_id / duplicate_purchase_id.
-    session.query(PlaidStagedTransaction).filter_by(
-        confirmed_purchase_id=drop.id
-    ).update({"confirmed_purchase_id": keep.id}, synchronize_session=False)
-    session.query(PlaidStagedTransaction).filter_by(
-        duplicate_purchase_id=drop.id
-    ).update({"duplicate_purchase_id": keep.id}, synchronize_session=False)
-
-    # --- TelegramReceipt — keep keep's receipt, delete drop's ----------
-    # Reparenting would leave two receipts for one purchase, defeating
-    # the dedup. If keep has none but drop does, reparent; else delete.
-    keep_receipt = session.query(TelegramReceipt).filter_by(purchase_id=keep.id).first()
-    drop_receipts = session.query(TelegramReceipt).filter_by(purchase_id=drop.id).all()
-    for rec in drop_receipts:
-        if keep_receipt is None:
-            rec.purchase_id = keep.id
-            keep_receipt = rec
-        else:
-            session.delete(rec)
-
-    # --- ReceiptItem — reparent any drop items to keep -----------------
-    # Typical case: Plaid-drop has no items; OCR-keep has them. If both
-    # have items (unusual), we still reparent — duplicates in the item
-    # list are a separate cleanup concern.
-    session.query(ReceiptItem).filter_by(purchase_id=drop.id).update(
-        {"purchase_id": keep.id}, synchronize_session=False
-    )
-
-    # --- BillAllocation — reparent (bills can span multiple lines) -----
-    session.query(BillAllocation).filter_by(purchase_id=drop.id).update(
-        {"purchase_id": keep.id}, synchronize_session=False
-    )
-
-    # --- BillMeta — unique per purchase; move if keep has none ---------
-    keep_bm = session.query(BillMeta).filter_by(purchase_id=keep.id).first()
-    drop_bm = session.query(BillMeta).filter_by(purchase_id=drop.id).first()
-    if drop_bm is not None:
-        if keep_bm is None:
-            drop_bm.purchase_id = keep.id
-        else:
-            session.delete(drop_bm)
-
-    # --- CashTransaction — unique per purchase; move if keep has none --
-    keep_ct = session.query(CashTransaction).filter_by(purchase_id=keep.id).first()
-    drop_ct = session.query(CashTransaction).filter_by(purchase_id=drop.id).first()
-    if drop_ct is not None:
-        if keep_ct is None:
-            drop_ct.purchase_id = keep.id
-        else:
-            session.delete(drop_ct)
-
-    # --- Finally delete drop Purchase ----------------------------------
-    session.delete(drop)
+    _merge_purchase_pair(session, keep, drop)
     session.commit()
 
     return jsonify({

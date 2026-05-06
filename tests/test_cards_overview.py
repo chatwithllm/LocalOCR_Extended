@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1162,7 +1163,7 @@ def _seed_plaid_promoted_receipt(session, user_id, item_id, *, store_name="India
     staged = PlaidStagedTransaction(
         plaid_item_id=item_id,
         user_id=user_id,
-        plaid_transaction_id=f"plaidtxn_{purchase.id}",
+        plaid_transaction_id=f"plaidtxn_{plaid_account_id}_{purchase.id}_{uuid.uuid4().hex[:8]}",
         plaid_account_id=plaid_account_id,
         amount=amount,
         transaction_date=date_cls.today(),
@@ -1256,3 +1257,180 @@ def test_delete_plaid_sourced_receipt_clears_staged_fk(app):
         assert staged.confirmed_at is None
     finally:
         session.close()
+
+
+# ---------------------------------------------------------------------------
+# Auto-merge: OCR upload + existing Plaid-promoted Purchase
+# ---------------------------------------------------------------------------
+
+def test_auto_merge_links_ocr_upload_to_existing_plaid_purchase(app):
+    """When an OCR-uploaded receipt matches an existing Plaid-promoted
+    Purchase (same merchant, ±$0.02, ±3 days), they merge into one
+    Purchase. The plaid_staged_transactions FK reparents to the kept
+    Purchase, and the Plaid-placeholder TelegramReceipt is dropped in
+    favor of the OCR one (which has the image)."""
+    from datetime import date as date_cls, datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.handle_receipt_upload import _auto_merge_with_existing_match
+    from src.backend.initialize_database_schema import (
+        PlaidStagedTransaction, Purchase, ReceiptItem, Store, TelegramReceipt,
+    )
+
+    user_id = _make_user(app, email="auto_merge_a@test.local", name="Auto Merge A")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        # Existing Plaid-promoted Purchase (placeholder, no items, no image)
+        item = _seed_plaid_item_simple(session, user_id, item_token="item_amA", inst_id="ins_amA")
+        plaid_ids = _seed_plaid_promoted_receipt(session, user_id, item.id,
+                                                  store_name="India Bazar",
+                                                  amount=36.81)
+
+        # Now simulate a fresh OCR upload that creates a new Purchase for
+        # the same merchant + same amount + same day. We seed it manually
+        # the same way `_save_to_database` does (Store, Purchase,
+        # ReceiptItem rows committed before auto-merge fires).
+        ocr_store = Store(name="India Bazar Inc")  # alias-token match
+        session.add(ocr_store)
+        session.flush()
+
+        ocr_purchase = Purchase(
+            store_id=ocr_store.id,
+            total_amount=36.81,
+            date=_dt.utcnow(),
+            domain="grocery",
+            transaction_type="purchase",
+            default_spending_domain="grocery",
+            default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(ocr_purchase)
+        session.flush()
+
+        # OCR sees 5 items; Plaid placeholder has none. Merge heuristic
+        # should keep the OCR purchase.
+        from src.backend.initialize_database_schema import Product
+        for i in range(5):
+            product = Product(name=f"AutoMergeTestItem{i}", display_name=f"Item {i}")
+            session.add(product); session.flush()
+            session.add(ReceiptItem(
+                purchase_id=ocr_purchase.id,
+                product_id=product.id,
+                quantity=1,
+                unit_price=7.36,
+                unit="each",
+                kind="product",
+            ))
+        session.commit()
+
+        ocr_purchase_id = ocr_purchase.id
+        plaid_purchase_id = plaid_ids["purchase_id"]
+
+        # Trigger the auto-merge (this is what _save_to_database does)
+        kept_id, was_merged = _auto_merge_with_existing_match(
+            session, ocr_purchase, user_id, new_image_path="/tmp/fake_receipt.jpg"
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    assert was_merged is True
+    assert kept_id == ocr_purchase_id  # OCR (more items) kept
+
+    # Verify final state
+    session = SF()
+    try:
+        # Plaid placeholder Purchase is gone
+        assert session.get(Purchase, plaid_purchase_id) is None
+        # OCR Purchase remains
+        kept = session.get(Purchase, ocr_purchase_id)
+        assert kept is not None
+
+        # PlaidStagedTransaction FK reparented to kept (OCR) Purchase
+        staged = session.get(PlaidStagedTransaction, plaid_ids["staged_id"])
+        assert staged.confirmed_purchase_id == ocr_purchase_id
+
+        # ReceiptItems still on kept
+        items = session.query(ReceiptItem).filter_by(purchase_id=ocr_purchase_id).count()
+        assert items == 5
+
+        # Plaid placeholder TR (image-less) was dropped during cleanup
+        trs = session.query(TelegramReceipt).filter_by(purchase_id=ocr_purchase_id).all()
+        # At this point the OCR TR hasn't been created yet (caller does that
+        # after _save_to_database returns). So zero TRs is correct here:
+        # the placeholder was deleted, the OCR TR will be added next.
+        assert len(trs) == 0
+    finally:
+        session.close()
+
+
+def test_auto_merge_no_match_returns_unchanged(app):
+    """If no matching Purchase exists, auto-merge returns (id, False)."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.handle_receipt_upload import _auto_merge_with_existing_match
+    from src.backend.initialize_database_schema import Purchase, Store
+
+    user_id = _make_user(app, email="auto_merge_b@test.local", name="Auto Merge B")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        store = Store(name="Some Lonely Merchant")
+        session.add(store); session.flush()
+        new_purchase = Purchase(
+            store_id=store.id,
+            total_amount=12.34,
+            date=_dt.utcnow(),
+            domain="grocery",
+            transaction_type="purchase",
+            default_spending_domain="grocery",
+            default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(new_purchase); session.commit()
+
+        kept_id, was_merged = _auto_merge_with_existing_match(session, new_purchase, user_id)
+    finally:
+        session.close()
+
+    assert was_merged is False
+    assert kept_id == new_purchase.id
+
+
+def test_auto_merge_skips_when_amount_differs(app):
+    """Different amount → no merge even if merchant + date match."""
+    from datetime import datetime as _dt
+    from src.backend.create_flask_application import _get_db
+    from src.backend.handle_receipt_upload import _auto_merge_with_existing_match
+    from src.backend.initialize_database_schema import Purchase, Store
+
+    user_id = _make_user(app, email="auto_merge_c@test.local", name="Auto Merge C")
+
+    _, SF = _get_db()
+    session = SF()
+    try:
+        store = Store(name="Diff Amount Merchant")
+        session.add(store); session.flush()
+        old = Purchase(
+            store_id=store.id, total_amount=20.00, date=_dt.utcnow(),
+            domain="grocery", transaction_type="purchase",
+            default_spending_domain="grocery", default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(old); session.commit()
+
+        new = Purchase(
+            store_id=store.id, total_amount=99.99, date=_dt.utcnow(),
+            domain="grocery", transaction_type="purchase",
+            default_spending_domain="grocery", default_budget_category="grocery",
+            user_id=user_id,
+        )
+        session.add(new); session.commit()
+
+        kept_id, was_merged = _auto_merge_with_existing_match(session, new, user_id)
+    finally:
+        session.close()
+
+    assert was_merged is False
