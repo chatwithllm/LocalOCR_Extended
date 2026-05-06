@@ -554,6 +554,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   font-size: 0.78rem;
   flex: 0 0 auto;
 }
+/* Chip mini bar — red (used) on left, green (available) on right */
+.cu-chip-bar {
+  flex: 0 0 50px;
+  width: 50px;
+  height: 6px;
+  border-radius: 3px;
+  background: #34c759;       /* available track = green */
+  position: relative;
+  overflow: hidden;
+  margin-left: 4px;
+}
+.cu-chip-bar > span {
+  display: block;
+  height: 100%;
+  background: #ff453a;       /* used = red */
+  width: var(--used-pct, 0%);
+}
 
 /* Tile head: name truncates, mask stays pinned visible on the right */
 .cu-tile-head .cu-name {
@@ -16130,6 +16147,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       function _renderCreditCardStrip(accounts) {
         const strip = document.createElement("div");
         strip.className = "card-usage-strip";
+
+        // Dynamic column count → balance rows so layout doesn't look
+        // sparse on a wide viewport. Aim for 1-4 visual rows max.
+        const N = accounts.length;
+        let targetRows;
+        if (N <= 4) targetRows = 1;
+        else if (N <= 8) targetRows = 2;
+        else if (N <= 15) targetRows = 3;
+        else targetRows = 4;
+        const cols = Math.max(1, Math.ceil(N / targetRows));
+        strip.style.gridTemplateColumns = `repeat(${cols}, minmax(180px, 1fr))`;
+
         const label = document.createElement("div");
         label.className = "card-usage-strip-label";
         label.textContent = `Other Cards · ${accounts.length}`;
@@ -16139,11 +16168,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const chip = document.createElement("div");
           chip.className = "cu-chip-card";
           chip.style.setProperty("--issuer-color", _issuerColor(a.name));
-          chip.title = "Click to expand";
           if (__cuGenieTarget === a.plaid_account_id) {
             chip.classList.add("cu-genie-in");
             __cuGenieTarget = null;
           }
+
+          // Tooltip with exact $ amounts (better than cramming all
+          // 3 numbers into the chip body)
+          const balTxt = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+          const limTxt = a.credit_limit_cents == null
+            ? "—"
+            : _fmtMoneyCents(a.credit_limit_cents, a.balance_currency);
+          const availTxt = a.available_credit_cents == null
+            ? "—"
+            : _fmtMoneyCents(a.available_credit_cents, a.balance_currency);
+          chip.title = `Used ${balTxt} of ${limTxt} · Available ${availTxt}`;
 
           const name = document.createElement("span");
           name.className = "cu-chip-name";
@@ -16155,6 +16194,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           mask.textContent = "····" + (a.mask || "");
           chip.appendChild(mask);
 
+          // Two-color usage bar: red (used) left, green (available) right
+          if (a.utilization_pct != null) {
+            const bar = document.createElement("span");
+            bar.className = "cu-chip-bar";
+            const used = document.createElement("span");
+            const usedPct = Math.max(0, Math.min(100, a.utilization_pct));
+            used.style.setProperty("--used-pct", usedPct + "%");
+            used.style.width = usedPct + "%";
+            bar.appendChild(used);
+            chip.appendChild(bar);
+          }
+
           const pct = document.createElement("span");
           pct.className = "cu-chip-pct";
           pct.textContent = a.utilization_pct == null
@@ -16163,10 +16214,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           chip.appendChild(pct);
 
           chip.addEventListener("click", function () {
-            // Mark as expanded → reload the panel so card moves to grid
             const state = _cuLoadCollapseState();
             state[a.plaid_account_id] = false;
             _cuSaveCollapseState(state);
+            __cuGenieTarget = a.plaid_account_id;
             if (typeof loadCardsOverview === "function") loadCardsOverview();
           });
           strip.appendChild(chip);
