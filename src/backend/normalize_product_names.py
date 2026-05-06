@@ -38,6 +38,48 @@ def _normalized_product_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(value or "").strip().lower()).strip()
 
 
+# Tokens that don't carry identity — drop before computing the
+# token-set fingerprint so "Onions, Red" / "Red Onions" / "Red Onion"
+# all collapse to the same key.
+_PRODUCT_TOKEN_STOPWORDS = {
+    "a", "an", "the", "of", "with", "in", "on", "and", "or",
+    "for", "to", "by", "from",
+}
+# Singular ↔ plural collapse — naive but covers the common produce/grocery
+# cases that recur in receipts (onions/onion, tomatoes/tomato, apples/apple).
+def _stem_token(token: str) -> str:
+    if len(token) < 4:
+        return token
+    if token.endswith("ies"):
+        return token[:-3] + "y"
+    if token.endswith("es") and not token.endswith("ses"):
+        return token[:-2]
+    if token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+def product_token_key(name: str) -> str | None:
+    """Return a sorted-token fingerprint for product-name dedup.
+
+    Drops punctuation, casing, plural variants, and stopwords. Returns
+    None when the resulting key has fewer than 2 distinct tokens — those
+    are too generic to safely auto-merge across categories
+    (e.g. "Apple" should not silently collapse "Apple Inc" / "Apple
+    Fruit"). Two-token-or-more keys are the auto-merge sweet spot.
+    """
+    if not name:
+        return None
+    norm = _normalized_product_key(name)
+    if not norm:
+        return None
+    tokens = [_stem_token(t) for t in norm.split() if t and t not in _PRODUCT_TOKEN_STOPWORDS and len(t) >= 2]
+    unique = sorted(set(tokens))
+    if len(unique) < 2:
+        return None
+    return " ".join(unique)
+
+
 def canonicalize_product_identity(name: str, category: str | None = None) -> tuple[str, str]:
     """Return the best canonical shopping-friendly name/category pair."""
     normalized_name = canonicalize_product_name(name)
@@ -95,13 +137,20 @@ def normalize_product_category(category: str | None) -> str:
 
 
 def find_matching_product(session, name: str, category: str) -> Product | None:
-    """Look up a product by normalized, case-insensitive name within a category."""
+    """Look up a product by normalized name within a category.
+
+    Two-pass:
+    1. Exact normalized-name match (legacy behavior)
+    2. Token-set fingerprint match — handles word-order swaps and
+       plural variants ("Red Onions" ↔ "Onions Red" ↔ "Onion Red")
+    """
     from src.backend.initialize_database_schema import Product
 
     normalized_category = normalize_product_category(category)
     raw_candidate = canonicalize_product_name(name)
     normalized_name, _normalized_category = canonicalize_product_identity(name, category)
-    return (
+
+    exact = (
         session.query(Product)
         .filter(
             or_(
@@ -114,6 +163,28 @@ def find_matching_product(session, name: str, category: str) -> Product | None:
         .order_by(Product.id.asc())
         .first()
     )
+    if exact is not None:
+        return exact
+
+    # Token-set fallback — only when the candidate has ≥2 distinct
+    # non-stopword tokens (skips single-token products to avoid sloppy
+    # collapses across categories).
+    target_key = product_token_key(name)
+    if not target_key:
+        return None
+
+    same_category = (
+        session.query(Product)
+        .filter(func.lower(func.coalesce(Product.category, "other")) == normalized_category)
+        .all()
+    )
+    for p in same_category:
+        if product_token_key(p.name) == target_key:
+            return p
+        # Also check display_name in case storage normalized differently
+        if p.display_name and product_token_key(p.display_name) == target_key:
+            return p
+    return None
 
 
 def merge_case_variant_products(session) -> int:
