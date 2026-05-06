@@ -772,6 +772,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 .cu-popover .cu-pop-dot.used { background: #ff453a; }
 .cu-popover .cu-pop-dot.avail { background: #34c759; }
+
+/* Side-by-side panel row: Spend by Category + Loan Progress on desktop */
+.cu-side-panels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.cu-side-panels > .cu-section {
+  flex: 1 1 380px;
+  min-width: 0;
+  margin: 0 !important;   /* override per-panel margin */
+}
+@media (max-width: 720px) {
+  .cu-side-panels { flex-direction: column; gap: 10px; }
+  .cu-side-panels > .cu-section { flex: 1 1 auto; }
+}
 .cu-tile {
   position: relative;
   background: var(--surface2, #2c2c2e);
@@ -3890,28 +3907,30 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
             <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
             <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
-            <div id="card-usage-pie-panel" class="card-usage-pie-panel cu-section" style="display:none">
-              <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-pie-panel', event)">
-                <span class="card-usage-pie-title">Spend by Category (this month)</span>
-                <label class="card-usage-pie-filter" onclick="event.stopPropagation()">
-                  Filter:
-                  <select id="card-usage-pie-filter-select" onchange="_onCardUsageFilterChange(event)">
-                    <option value="all">All Cards</option>
-                  </select>
-                </label>
-                <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
+            <div class="cu-side-panels">
+              <div id="card-usage-pie-panel" class="card-usage-pie-panel cu-section" style="display:none">
+                <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-pie-panel', event)">
+                  <span class="card-usage-pie-title">Spend by Category (this month)</span>
+                  <label class="card-usage-pie-filter" onclick="event.stopPropagation()">
+                    Filter:
+                    <select id="card-usage-pie-filter-select" onchange="_onCardUsageFilterChange(event)">
+                      <option value="all">All Cards</option>
+                    </select>
+                  </label>
+                  <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
+                </div>
+                <div id="card-usage-pie-body" class="card-usage-pie-body cu-section-body">
+                  <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
+                </div>
               </div>
-              <div id="card-usage-pie-body" class="card-usage-pie-body cu-section-body">
-                <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
-              </div>
-            </div>
-            <div id="card-usage-loans-panel" class="card-usage-loans-panel cu-section" style="display:none">
-              <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-loans-panel', event)">
-                <span class="card-usage-pie-title">Loan Progress</span>
-                <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
-              </div>
-              <div id="card-usage-loans-body" class="card-usage-loans-body cu-section-body">
-                <!-- per-loan rows rendered by _renderLoanProgressPanel() -->
+              <div id="card-usage-loans-panel" class="card-usage-loans-panel cu-section" style="display:none">
+                <div class="card-usage-pie-head cu-section-head" onclick="_cuTogglePanel('card-usage-loans-panel', event)">
+                  <span class="card-usage-pie-title">Loan Progress</span>
+                  <button type="button" class="cu-section-toggle" aria-label="Toggle panel"><span class="cu-caret">▾</span></button>
+                </div>
+                <div id="card-usage-loans-body" class="card-usage-loans-body cu-section-body">
+                  <!-- per-loan rows rendered by _renderLoanProgressPanel() -->
+                </div>
               </div>
             </div>
             <div id="card-usage-body">
