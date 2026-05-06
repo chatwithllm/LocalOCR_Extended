@@ -516,14 +516,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
   /* Card Usage panel header — title + Refresh on one line */
   #card-usage-card .accounts-card-header {
-    flex-wrap: nowrap;
+    flex-wrap: nowrap !important;
     align-items: center;
+    gap: 8px;
+  }
+  #card-usage-card .accounts-card-header .card-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
   }
   #card-usage-card #card-usage-refresh-btn {
     padding: 6px 10px;
     font-size: 0.78rem;
     flex: 0 0 auto;
   }
+  #card-usage-card .accounts-toolbar { flex: 0 0 auto; }
 
   /* Summary stat grid: 2x2, tighter on mobile */
   #card-usage-summary {
@@ -547,14 +554,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     min-width: 0;
   }
 
-  /* Loan Progress mini-donut + info stack vertically on phone */
-  .loan-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-  .loan-row .loan-info { width: 100%; }
-  .loan-row .loan-edit-btn { align-self: flex-start; }
+  /* Loan-row compact on mobile — small donut, info inline if possible */
+  .loan-row { flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0; }
+  .loan-row .mini-donut { flex: 0 0 60px; width: 60px; height: 60px; }
+  .loan-row .mini-donut svg { width: 60px; height: 60px; }
+  .loan-row .mini-donut .donut-center { font-size: 0.82rem; }
+  .loan-row .loan-info { flex: 1 1 160px; min-width: 0; font-size: 0.84rem; }
+  .loan-row .loan-edit-btn {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    font-size: 0.76rem;
+  }
 
   /* Chip mini-bar: brighter empty track on phone so 'no data' state isn't invisible */
   .cu-chip-bar.cu-chip-bar-empty {
-    background: rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.22);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    box-sizing: border-box;
   }
 
   /* Credit Cards group label — drop padding clash with strip label */
@@ -565,6 +581,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   .cu-tile-hero { gap: 10px; margin: 2px 0 10px; }
   .cu-ring { flex: 0 0 76px; width: 76px; height: 76px; }
   .cu-ring .cu-ring-label { font-size: 1.15rem; }
+
+  /* Side-panels gap tighter on mobile */
+  .cu-side-panels { gap: 10px !important; margin-bottom: 10px; }
 }
 .cu-chip-card {
   display: flex;
