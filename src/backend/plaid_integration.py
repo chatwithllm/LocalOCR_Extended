@@ -1686,7 +1686,18 @@ def refresh_balances():
                 {"Retry-After": str(retry_after)},
             )
 
-    items = session.query(PlaidItem).filter_by(user_id=user_id, status="active").all()
+    # Refresh every active item the user can see — own items + items
+    # shared with them via household visibility — mirroring the same
+    # filter used by GET /plaid/cards-overview and /plaid/accounts.
+    visible_ids = _visible_plaid_item_ids(session, user_id)
+    items_q = session.query(PlaidItem).filter_by(status="active")
+    if visible_ids is not None:
+        if not visible_ids:
+            items = []
+        else:
+            items = items_q.filter(PlaidItem.id.in_(visible_ids)).all()
+    else:
+        items = items_q.all()
     if not items:
         return jsonify({"accounts": [], "refreshed_items": 0}), 200
 
