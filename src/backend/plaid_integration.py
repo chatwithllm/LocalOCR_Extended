@@ -22,6 +22,7 @@ from sqlalchemy import or_, false as sa_false
 
 from plaid.exceptions import ApiException
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
+from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.item_remove_request import ItemRemoveRequest
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -1694,8 +1695,27 @@ def refresh_balances():
     for item in items:
         try:
             access_token = decrypt_api_key(item.access_token_encrypted)
-            bal_req = AccountsBalanceGetRequest(access_token=access_token)
-            bal_res = client.accounts_balance_get(bal_req)
+            # Try the realtime balance endpoint first (requires the
+            # `balance` product). Many Production clients are not
+            # authorized for `balance` ("INVALID_PRODUCT" 400) — fall
+            # back to /accounts/get which returns Plaid's cached
+            # balances and is included with every product.
+            bal_res = None
+            try:
+                bal_req = AccountsBalanceGetRequest(access_token=access_token)
+                bal_res = client.accounts_balance_get(bal_req)
+            except ApiException as bal_exc:
+                body = getattr(bal_exc, "body", "") or ""
+                if "INVALID_PRODUCT" in body and "balance" in body:
+                    logger.info(
+                        "Balance product not authorized for item %s — "
+                        "falling back to /accounts/get cached balances",
+                        item.plaid_item_id,
+                    )
+                    acc_req = AccountsGetRequest(access_token=access_token)
+                    bal_res = client.accounts_get(acc_req)
+                else:
+                    raise
         except ApiException as exc:
             logger.warning(
                 "Balance refresh failed for item %s: %s", item.plaid_item_id, exc
