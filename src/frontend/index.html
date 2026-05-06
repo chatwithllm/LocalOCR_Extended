@@ -464,20 +464,70 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* ============================================================
    Card Usage — credit-card grid tile (new design)
    ============================================================ */
+/* Active credit-card tiles → uniform grid (only expanded ones live here) */
 .card-usage-grid {
-  /* CSS columns masonry: tiles flow vertically, no row-height gaps
-     between mixed expanded/collapsed cards. Browser auto-balances. */
-  column-width: 280px;
-  column-gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
   margin-top: 4px;
 }
-.card-usage-grid > .cu-tile {
-  display: block;
-  break-inside: avoid;
-  page-break-inside: avoid;       /* legacy support */
-  -webkit-column-break-inside: avoid;
-  margin: 0 0 14px;
+/* Dormant credit-card chip strip — compact horizontal wrap below the grid */
+.card-usage-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #3a3a3c);
+}
+.card-usage-strip-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   width: 100%;
+  margin-bottom: 2px;
+}
+.cu-chip-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 12px;
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text, #fff);
+  position: relative;
+  overflow: hidden;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cu-chip-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.cu-chip-card::before {
+  /* tiny issuer dot on the left */
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--issuer-color, #6b7280);
+  flex: 0 0 8px;
+}
+.cu-chip-card .cu-chip-name {
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-chip-card .cu-chip-pct {
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
 }
 .cu-tile {
   position: relative;
@@ -15816,14 +15866,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
           const isCredit = group.type === "credit_card";
           if (isCredit) {
-            // Credit cards → responsive grid of polished tiles.
-            // Server already sorts by util% desc.
-            const grid = document.createElement("div");
-            grid.className = "card-usage-grid";
+            // Credit cards → split into Active grid (expanded tiles)
+            // + Dormant chip strip below (collapsed tiles), so blank
+            // gaps between mixed-height cards never appear.
+            const expanded = [];
+            const dormant = [];
             group.accounts.forEach(a => {
-              grid.appendChild(_renderCreditCardTile(a));
+              if (_cuIsCollapsed(a)) dormant.push(a);
+              else expanded.push(a);
             });
-            wrap.appendChild(grid);
+
+            if (expanded.length) {
+              const grid = document.createElement("div");
+              grid.className = "card-usage-grid";
+              expanded.forEach(a => grid.appendChild(_renderCreditCardTile(a)));
+              wrap.appendChild(grid);
+            }
+            if (dormant.length) {
+              wrap.appendChild(_renderCreditCardStrip(dormant));
+            }
           } else {
             // Loans keep the existing list-row layout.
             group.accounts.forEach(a => {
@@ -15951,20 +16012,55 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       function _cuToggleCollapsed(account, tileEl) {
         const state = _cuLoadCollapseState();
         const currentlyCollapsed = tileEl.classList.contains("cu-collapsed");
-        if (currentlyCollapsed) {
-          tileEl.classList.remove("cu-collapsed");
-          state[account.plaid_account_id] = false;
-        } else {
-          tileEl.classList.add("cu-collapsed");
-          state[account.plaid_account_id] = true;
-        }
+        state[account.plaid_account_id] = !currentlyCollapsed;
         _cuSaveCollapseState(state);
+        // Re-render the panel so the tile moves between Active grid
+        // and the Other Cards strip cleanly. Avoids partial state mix.
+        if (typeof loadCardsOverview === "function") loadCardsOverview();
       }
       function _cuMiniBarColor(pct) {
         if (pct == null) return "rgba(255,255,255,0.25)";
         if (pct < 30) return "#34c759";
         if (pct < 70) return "#ff9f0a";
         return "#ff453a";
+      }
+
+      function _renderCreditCardStrip(accounts) {
+        const strip = document.createElement("div");
+        strip.className = "card-usage-strip";
+        const label = document.createElement("div");
+        label.className = "card-usage-strip-label";
+        label.textContent = `Other Cards · ${accounts.length}`;
+        strip.appendChild(label);
+
+        accounts.forEach(a => {
+          const chip = document.createElement("div");
+          chip.className = "cu-chip-card";
+          chip.style.setProperty("--issuer-color", _issuerColor(a.name));
+          chip.title = "Click to expand";
+
+          const name = document.createElement("span");
+          name.className = "cu-chip-name";
+          name.textContent = (a.name || "Card") + " ····" + (a.mask || "");
+          chip.appendChild(name);
+
+          const pct = document.createElement("span");
+          pct.className = "cu-chip-pct";
+          pct.textContent = a.utilization_pct == null
+            ? "—"
+            : a.utilization_pct.toFixed(0) + "%";
+          chip.appendChild(pct);
+
+          chip.addEventListener("click", function () {
+            // Mark as expanded → reload the panel so card moves to grid
+            const state = _cuLoadCollapseState();
+            state[a.plaid_account_id] = false;
+            _cuSaveCollapseState(state);
+            if (typeof loadCardsOverview === "function") loadCardsOverview();
+          });
+          strip.appendChild(chip);
+        });
+        return strip;
       }
 
       function _renderCreditCardTile(a) {
