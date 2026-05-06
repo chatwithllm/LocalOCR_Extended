@@ -565,6 +565,70 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   color: var(--muted, #888);
 }
 .cu-tile-foot .cu-spend.neg { color: #34c759; }
+
+/* Collapsed state — single-row chip layout, ~50px tall */
+.cu-tile.cu-collapsed {
+  padding: 12px 14px 12px;
+}
+.cu-tile.cu-collapsed .cu-tile-hero,
+.cu-tile.cu-collapsed .cu-tile-stats,
+.cu-tile.cu-collapsed .cu-tile-foot { display: none; }
+.cu-tile.cu-collapsed .cu-tile-head {
+  margin-bottom: 0;
+  align-items: center;
+  gap: 10px;
+}
+.cu-tile.cu-collapsed .cu-collapsed-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--muted, #888);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.cu-tile:not(.cu-collapsed) .cu-collapsed-meta { display: none; }
+.cu-tile .cu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted, #888);
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  margin-left: 2px;
+  transition: background 120ms ease, color 120ms ease;
+  flex: 0 0 auto;
+}
+.cu-tile .cu-toggle:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--text, #fff);
+}
+.cu-tile .cu-toggle .cu-caret {
+  display: inline-block;
+  transition: transform 180ms ease;
+}
+.cu-tile.cu-collapsed .cu-toggle .cu-caret { transform: rotate(-90deg); }
+.cu-tile-mini-bar {
+  display: inline-block;
+  width: 32px;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+.cu-tile-mini-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--mini-bar-color, #34c759);
+  border-radius: 2px;
+}
 .card-usage-pie-panel {
   background: var(--surface, #1c1c1e);
   border-radius: 12px;
@@ -15850,13 +15914,68 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         return svg;
       }
 
+      // Per-card collapse override stored in localStorage. Null /
+      // missing → fall back to default-rule (collapsed when balance == 0).
+      const _CU_COLLAPSE_LS_KEY = "card_usage_collapsed_v1";
+      function _cuLoadCollapseState() {
+        try {
+          return JSON.parse(localStorage.getItem(_CU_COLLAPSE_LS_KEY) || "{}") || {};
+        } catch (_) { return {}; }
+      }
+      function _cuSaveCollapseState(state) {
+        try {
+          localStorage.setItem(_CU_COLLAPSE_LS_KEY, JSON.stringify(state || {}));
+        } catch (_) {}
+      }
+      function _cuShouldCollapseDefault(account) {
+        // Default: zero balance → collapsed. Anything else → expanded.
+        const bal = account.balance_cents;
+        return bal == null || bal === 0;
+      }
+      function _cuIsCollapsed(account) {
+        const state = _cuLoadCollapseState();
+        const override = state[account.plaid_account_id];
+        if (override === true) return true;
+        if (override === false) return false;
+        return _cuShouldCollapseDefault(account);
+      }
+      function _cuToggleCollapsed(account, tileEl) {
+        const state = _cuLoadCollapseState();
+        const currentlyCollapsed = tileEl.classList.contains("cu-collapsed");
+        if (currentlyCollapsed) {
+          tileEl.classList.remove("cu-collapsed");
+          state[account.plaid_account_id] = false;
+        } else {
+          tileEl.classList.add("cu-collapsed");
+          state[account.plaid_account_id] = true;
+        }
+        _cuSaveCollapseState(state);
+      }
+      function _cuMiniBarColor(pct) {
+        if (pct == null) return "rgba(255,255,255,0.25)";
+        if (pct < 30) return "#34c759";
+        if (pct < 70) return "#ff9f0a";
+        return "#ff453a";
+      }
+
       function _renderCreditCardTile(a) {
         const tile = document.createElement("div");
         tile.className = "cu-tile";
         tile.style.setProperty("--issuer-color", _issuerColor(a.name));
-        tile.addEventListener("click", function () { _drillIntoAccount(a.plaid_account_id); });
+        if (_cuIsCollapsed(a)) tile.classList.add("cu-collapsed");
 
-        // Head: icon + name + mask
+        // Click body → drill (when expanded) OR expand (when collapsed)
+        tile.addEventListener("click", function (e) {
+          // Skip if click landed on the explicit toggle button
+          if (e.target.closest && e.target.closest(".cu-toggle")) return;
+          if (tile.classList.contains("cu-collapsed")) {
+            _cuToggleCollapsed(a, tile);
+          } else {
+            _drillIntoAccount(a.plaid_account_id);
+          }
+        });
+
+        // Head: icon + name + mask + collapsed-meta + toggle
         const head = document.createElement("div");
         head.className = "cu-tile-head";
         const icon = document.createElement("span");
@@ -15866,6 +15985,41 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         nameEl.textContent = (a.name || "Card") + " ····" + (a.mask || "");
         head.appendChild(icon);
         head.appendChild(nameEl);
+
+        // Collapsed-only inline meta: util% + mini bar (hidden when expanded via CSS)
+        const collapsedMeta = document.createElement("span");
+        collapsedMeta.className = "cu-collapsed-meta";
+        const utilTxt = a.utilization_pct == null
+          ? "—"
+          : a.utilization_pct.toFixed(0) + "%";
+        const utilSpan = document.createElement("span");
+        utilSpan.textContent = utilTxt;
+        const miniBar = document.createElement("span");
+        miniBar.className = "cu-tile-mini-bar";
+        miniBar.style.setProperty("--mini-bar-color", _cuMiniBarColor(a.utilization_pct));
+        const miniFill = document.createElement("span");
+        const w = a.utilization_pct == null ? 0 : Math.min(100, a.utilization_pct);
+        miniFill.style.width = w + "%";
+        miniBar.appendChild(miniFill);
+        collapsedMeta.appendChild(miniBar);
+        collapsedMeta.appendChild(utilSpan);
+        head.appendChild(collapsedMeta);
+
+        // Toggle button
+        const toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = "cu-toggle";
+        toggleBtn.setAttribute("aria-label", "Toggle card details");
+        const caret = document.createElement("span");
+        caret.className = "cu-caret";
+        caret.textContent = "▾";
+        toggleBtn.appendChild(caret);
+        toggleBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          _cuToggleCollapsed(a, tile);
+        });
+        head.appendChild(toggleBtn);
+
         tile.appendChild(head);
 
         // Hero: ring + status chip
