@@ -985,6 +985,34 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
 
         session.commit()
 
+        # Auto-tie this fresh purchase to a matching Plaid-promoted (or
+        # other OCR-uploaded) Purchase if one already exists. Same merchant
+        # alias / amount / date tolerances as the staged-confirm matcher.
+        # Only fires for brand-new purchases — edits (existing_purchase
+        # provided) are explicit user intent and must not auto-merge.
+        kept_purchase_id = purchase.id
+        if existing_purchase is None:
+            try:
+                from src.backend.handle_receipt_upload import _auto_merge_with_existing_match
+                kept_id, was_merged = _auto_merge_with_existing_match(
+                    session, purchase, user_id, new_image_path=image_path
+                )
+                if was_merged:
+                    session.commit()
+                    kept_purchase_id = kept_id
+                    logger.info(
+                        "Auto-merged fresh purchase into existing match: kept=%s",
+                        kept_id,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                # Auto-merge is best-effort. If it fails, fall back to
+                # the unmerged purchase id; user can still merge via the
+                # dedup-scan UI.
+                logger.warning("Auto-merge failed (non-fatal): %s", exc)
+                session.rollback()
+                # Re-commit the original save to restore state
+                session.commit()
+
         # Best-effort: append a human-readable line to <receipts_root>/_index.txt
         # so an operator SSH-ing in can grep store + date without touching the DB.
         try:
@@ -994,12 +1022,12 @@ def _save_to_database(ocr_data: dict, engine: str, image_path: str,
                 store=store_name,
                 date=ocr_data.get("date"),
                 total=ocr_data.get("total"),
-                purchase_id=purchase.id,
+                purchase_id=kept_purchase_id,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Receipt index append failed: %s", exc)
 
-        return purchase.id
+        return kept_purchase_id
 
     except Exception as e:
         logger.error(f"Failed to save receipt to database: {e}")
