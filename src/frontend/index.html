@@ -513,6 +513,58 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     width: 100%;
   }
   .cu-tile { max-width: none; }
+
+  /* Card Usage panel header — title + Refresh on one line */
+  #card-usage-card .accounts-card-header {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  #card-usage-card #card-usage-refresh-btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    flex: 0 0 auto;
+  }
+
+  /* Summary stat grid: 2x2, tighter on mobile */
+  #card-usage-summary {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #card-usage-summary .stat {
+    padding: 10px 12px;
+  }
+
+  /* Spend-by-Category filter shouldn't overflow */
+  .card-usage-pie-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .card-usage-pie-filter {
+    width: 100%;
+  }
+  .card-usage-pie-filter select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Loan Progress mini-donut + info stack vertically on phone */
+  .loan-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .loan-row .loan-info { width: 100%; }
+  .loan-row .loan-edit-btn { align-self: flex-start; }
+
+  /* Chip mini-bar: brighter empty track on phone so 'no data' state isn't invisible */
+  .cu-chip-bar.cu-chip-bar-empty {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  /* Credit Cards group label — drop padding clash with strip label */
+  .card-usage-group h3 { margin-bottom: 4px; }
+
+  /* Tile internals tighter on mobile */
+  .cu-tile { padding: 14px 14px 12px; }
+  .cu-tile-hero { gap: 10px; margin: 2px 0 10px; }
+  .cu-ring { flex: 0 0 76px; width: 76px; height: 76px; }
+  .cu-ring .cu-ring-label { font-size: 1.15rem; }
 }
 .cu-chip-card {
   display: flex;
@@ -16014,7 +16066,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               row.appendChild(grid);
             }
             if (dormant.length) {
-              row.appendChild(_renderCreditCardStrip(dormant));
+              row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
             }
             wrap.appendChild(row);
           } else {
@@ -16162,7 +16214,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         return "#ff453a";
       }
 
-      function _renderCreditCardStrip(accounts) {
+      function _renderCreditCardStrip(accounts, hasExpanded) {
         const strip = document.createElement("div");
         strip.className = "card-usage-strip";
 
@@ -16177,10 +16229,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const cols = Math.max(1, Math.ceil(N / targetRows));
         strip.style.gridTemplateColumns = `repeat(${cols}, minmax(180px, 1fr))`;
 
-        const label = document.createElement("div");
-        label.className = "card-usage-strip-label";
-        label.textContent = `Other Cards · ${accounts.length}`;
-        strip.appendChild(label);
+        // Only show the "Other Cards · N" label when there's also an
+        // expanded tile to disambiguate. Otherwise it duplicates the
+        // section title already above.
+        if (hasExpanded) {
+          const label = document.createElement("div");
+          label.className = "card-usage-strip-label";
+          label.textContent = `Other Cards · ${accounts.length}`;
+          strip.appendChild(label);
+        }
 
         accounts.forEach(a => {
           const chip = document.createElement("div");
