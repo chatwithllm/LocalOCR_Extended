@@ -460,6 +460,111 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   flex-wrap: wrap;
   gap: 12px;
 }
+
+/* ============================================================
+   Card Usage — credit-card grid tile (new design)
+   ============================================================ */
+.card-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+}
+.cu-tile {
+  position: relative;
+  background: var(--surface2, #2c2c2e);
+  border-radius: 14px;
+  padding: 18px 16px 14px;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+  overflow: hidden;
+  border: 1px solid var(--border, #3a3a3c);
+}
+.cu-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.cu-tile::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--issuer-color, #6b7280);
+}
+.cu-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text, #fff);
+}
+.cu-tile-head .cu-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-tile-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 4px 0 14px;
+}
+.cu-ring {
+  width: 88px;
+  height: 88px;
+  position: relative;
+  flex: 0 0 88px;
+}
+.cu-ring svg { display: block; }
+.cu-ring .cu-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #fff);
+  letter-spacing: -0.02em;
+}
+.cu-ring .cu-ring-label.muted { color: var(--muted, #888); font-size: 1rem; font-weight: 600; }
+.cu-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.cu-chip.cu-chip-good { background: rgba(52,199,89,0.14); color: #34c759; }
+.cu-chip.cu-chip-warn { background: rgba(255,159,10,0.16); color: #ff9f0a; }
+.cu-chip.cu-chip-bad  { background: rgba(255,69,58,0.18);  color: #ff453a; }
+.cu-tile-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 14px;
+  font-size: 0.86rem;
+  color: var(--muted, #888);
+  font-variant-numeric: tabular-nums;
+}
+.cu-tile-stats .cu-val { color: var(--text, #fff); font-weight: 500; text-align: right; }
+.cu-tile-foot {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border, #3a3a3c);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted, #888);
+}
+.cu-tile-foot .cu-spend.neg { color: #34c759; }
 .card-usage-pie-panel {
   background: var(--surface, #1c1c1e);
   border-radius: 12px;
@@ -15637,9 +15742,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           wrap.appendChild(h);
 
           const isCredit = group.type === "credit_card";
-          group.accounts.forEach(a => {
-            wrap.appendChild(_renderCardRow(a, isCredit));
-          });
+          if (isCredit) {
+            // Credit cards → responsive grid of polished tiles.
+            // Server already sorts by util% desc.
+            const grid = document.createElement("div");
+            grid.className = "card-usage-grid";
+            group.accounts.forEach(a => {
+              grid.appendChild(_renderCreditCardTile(a));
+            });
+            wrap.appendChild(grid);
+          } else {
+            // Loans keep the existing list-row layout.
+            group.accounts.forEach(a => {
+              wrap.appendChild(_renderCardRow(a, isCredit));
+            });
+          }
           body.appendChild(wrap);
         });
 
@@ -15647,6 +15764,185 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const sel = document.getElementById("card-usage-pie-filter-select");
         _renderCardUsagePie(sel ? sel.value : "all");
         _renderLoanProgressPanel();
+      }
+
+      // Issuer colors keyed by case-insensitive substring match on
+      // account.name. Order matters — first hit wins. Slate is the
+      // fallback for unknowns so every tile still gets a stripe.
+      const _CU_ISSUER_COLORS = [
+        ["chase",         "#0a4a8f"],
+        ["bank of america", "#cc1f1a"],
+        ["boa ",          "#cc1f1a"],
+        ["wells fargo",   "#d71e28"],
+        ["wells",         "#d71e28"],
+        ["costco",        "#005d9c"],
+        ["citi",          "#003b70"],
+        ["capital one",   "#d22f2f"],
+        ["discover",      "#ff6600"],
+        ["amex",          "#0066b2"],
+        ["american express", "#0066b2"],
+        ["rocket",        "#cc0000"],
+      ];
+      function _issuerColor(name) {
+        const n = String(name || "").toLowerCase();
+        for (const [needle, color] of _CU_ISSUER_COLORS) {
+          if (n.includes(needle)) return color;
+        }
+        return "#6b7280"; // slate fallback
+      }
+
+      // Status chip text + class from utilization %.
+      function _statusChipFor(pct) {
+        if (pct == null) return null;
+        if (pct < 30) return { text: "Healthy", cls: "cu-chip-good" };
+        if (pct < 70) return { text: "Watch",   cls: "cu-chip-warn" };
+        return                  { text: "High",    cls: "cu-chip-bad" };
+      }
+
+      // Two-arc circular ring SVG: filled arc = utilization, remaining
+      // arc = uncolored track. Returns an SVG element.
+      function _renderUtilRing(pct, sizePx) {
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const size = sizePx || 88;
+        const stroke = 8;
+        const r = (size - stroke) / 2;
+        const cx = size / 2;
+        const cy = size / 2;
+        const circumference = 2 * Math.PI * r;
+
+        const svg = document.createElementNS(SVG_NS, "svg");
+        svg.setAttribute("width", size);
+        svg.setAttribute("height", size);
+        svg.setAttribute("viewBox", "0 0 " + size + " " + size);
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", "Credit utilization");
+
+        // Track
+        const track = document.createElementNS(SVG_NS, "circle");
+        track.setAttribute("cx", cx);
+        track.setAttribute("cy", cy);
+        track.setAttribute("r", r);
+        track.setAttribute("fill", "none");
+        track.setAttribute("stroke", "rgba(255,255,255,0.08)");
+        track.setAttribute("stroke-width", stroke);
+        svg.appendChild(track);
+
+        if (pct == null) return svg;
+
+        // Filled arc — rotate so the start sits at 12 o'clock
+        const fillPct = Math.max(0, Math.min(100, pct));
+        const dashLen = (fillPct / 100) * circumference;
+        const arc = document.createElementNS(SVG_NS, "circle");
+        arc.setAttribute("cx", cx);
+        arc.setAttribute("cy", cy);
+        arc.setAttribute("r", r);
+        arc.setAttribute("fill", "none");
+        let strokeColor = "#34c759";
+        if (fillPct >= 70) strokeColor = "#ff453a";
+        else if (fillPct >= 30) strokeColor = "#ff9f0a";
+        arc.setAttribute("stroke", strokeColor);
+        arc.setAttribute("stroke-width", stroke);
+        arc.setAttribute("stroke-linecap", "round");
+        arc.setAttribute("stroke-dasharray", dashLen + " " + circumference);
+        arc.setAttribute("transform", "rotate(-90 " + cx + " " + cy + ")");
+        svg.appendChild(arc);
+
+        return svg;
+      }
+
+      function _renderCreditCardTile(a) {
+        const tile = document.createElement("div");
+        tile.className = "cu-tile";
+        tile.style.setProperty("--issuer-color", _issuerColor(a.name));
+        tile.addEventListener("click", function () { _drillIntoAccount(a.plaid_account_id); });
+
+        // Head: icon + name + mask
+        const head = document.createElement("div");
+        head.className = "cu-tile-head";
+        const icon = document.createElement("span");
+        icon.textContent = "💳";
+        const nameEl = document.createElement("span");
+        nameEl.className = "cu-name";
+        nameEl.textContent = (a.name || "Card") + " ····" + (a.mask || "");
+        head.appendChild(icon);
+        head.appendChild(nameEl);
+        tile.appendChild(head);
+
+        // Hero: ring + status chip
+        const hero = document.createElement("div");
+        hero.className = "cu-tile-hero";
+
+        const ringWrap = document.createElement("div");
+        ringWrap.className = "cu-ring";
+        ringWrap.appendChild(_renderUtilRing(a.utilization_pct, 88));
+        const ringLabel = document.createElement("div");
+        ringLabel.className = "cu-ring-label";
+        if (a.utilization_pct == null) {
+          ringLabel.classList.add("muted");
+          ringLabel.textContent = "—";
+        } else {
+          ringLabel.textContent = a.utilization_pct.toFixed(0) + "%";
+        }
+        ringWrap.appendChild(ringLabel);
+        hero.appendChild(ringWrap);
+
+        const chipInfo = _statusChipFor(a.utilization_pct);
+        if (chipInfo) {
+          const chip = document.createElement("span");
+          chip.className = "cu-chip " + chipInfo.cls;
+          chip.textContent = chipInfo.text;
+          hero.appendChild(chip);
+        }
+        tile.appendChild(hero);
+
+        // Stats grid
+        const stats = document.createElement("div");
+        stats.className = "cu-tile-stats";
+
+        const balanceL = document.createElement("span");
+        balanceL.textContent = "Balance";
+        const balanceV = document.createElement("span");
+        balanceV.className = "cu-val";
+        balanceV.textContent = _fmtMoneyCents(a.balance_cents || 0, a.balance_currency);
+        stats.appendChild(balanceL); stats.appendChild(balanceV);
+
+        const limitL = document.createElement("span");
+        limitL.textContent = "Limit";
+        const limitV = document.createElement("span");
+        limitV.className = "cu-val";
+        limitV.textContent = a.credit_limit_cents == null
+          ? "—"
+          : _fmtMoneyCents(a.credit_limit_cents, a.balance_currency);
+        stats.appendChild(limitL); stats.appendChild(limitV);
+
+        if (a.available_credit_cents != null) {
+          const availL = document.createElement("span");
+          availL.textContent = "Available";
+          const availV = document.createElement("span");
+          availV.className = "cu-val";
+          availV.textContent = _fmtMoneyCents(a.available_credit_cents, a.balance_currency);
+          stats.appendChild(availL); stats.appendChild(availV);
+        }
+        tile.appendChild(stats);
+
+        // Footer: spend + updated
+        const foot = document.createElement("div");
+        foot.className = "cu-tile-foot";
+        const spendCents = a.spend_mtd_cents || 0;
+        const spend = document.createElement("span");
+        spend.className = "cu-spend" + (spendCents < 0 ? " neg" : "");
+        spend.textContent = "MTD " + _fmtMoneyCents(spendCents, a.balance_currency) +
+          " · " + (a.txn_count_mtd || 0) + " txns";
+        foot.appendChild(spend);
+
+        const updated = document.createElement("span");
+        updated.textContent = a.balance_updated_at
+          ? _relativeTime(a.balance_updated_at)
+          : "Not refreshed";
+        foot.appendChild(updated);
+        tile.appendChild(foot);
+
+        return tile;
       }
 
       function _renderCardRow(a, isCredit) {
