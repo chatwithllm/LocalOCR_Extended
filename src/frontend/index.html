@@ -460,6 +460,83 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   flex-wrap: wrap;
   gap: 12px;
 }
+.card-usage-pie-panel {
+  background: var(--surface, #1c1c1e);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 16px 0 8px;
+  border: 1px solid var(--border, #3a3a3c);
+}
+.card-usage-pie-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.card-usage-pie-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.card-usage-pie-filter {
+  font-size: 0.84rem;
+  color: var(--muted, #888);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-usage-pie-filter select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #3a3a3c);
+  font-size: 0.88rem;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.card-usage-pie-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+.card-usage-pie-body svg.donut { flex: 0 0 160px; }
+.card-usage-pie-body .donut-legend {
+  flex: 1 1 220px;
+  min-width: 220px;
+  font-size: 0.88rem;
+}
+.card-usage-pie-body .donut-legend table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.card-usage-pie-body .donut-legend td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+.card-usage-pie-body .donut-legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.card-usage-pie-body .donut-legend .total-row td {
+  border-top: 1px solid var(--border, #3a3a3c);
+  font-weight: 600;
+  padding-top: 8px;
+}
+.card-usage-pie-body .donut-empty {
+  flex: 1;
+  color: var(--muted, #888);
+  font-size: 0.92rem;
+  text-align: center;
+  padding: 20px 0;
+}
     </style>
   </head>
 
@@ -3221,6 +3298,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
             <div id="card-usage-summary" class="card-usage-summary" style="display:none"></div>
             <div id="card-usage-banner" class="card-usage-banner" style="display:none"></div>
+            <div id="card-usage-pie-panel" class="card-usage-pie-panel" style="display:none">
+              <div class="card-usage-pie-head">
+                <span class="card-usage-pie-title">Spend by Category (this month)</span>
+                <label class="card-usage-pie-filter">
+                  Filter:
+                  <select id="card-usage-pie-filter-select" onchange="_onCardUsageFilterChange(event)">
+                    <option value="all">All Cards</option>
+                  </select>
+                </label>
+              </div>
+              <div id="card-usage-pie-body" class="card-usage-pie-body">
+                <!-- donut + legend rendered by _renderCardUsagePie() in Task 4 -->
+              </div>
+            </div>
             <div id="card-usage-body">
               <div class="empty-state"><p>Loading card usage…</p></div>
             </div>
