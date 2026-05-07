@@ -464,25 +464,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* ============================================================
    Card Usage — credit-card grid tile (new design)
    ============================================================ */
-/* Side-by-side layout: expanded tiles on the left, chip strip flexes
-   to fill the remaining width on the right. */
+/* Stacked layout: chip strip (collapsed cards) on top occupying the
+   full row, expanded tiles below in a wrapping grid. Tiles flow row-by-row
+   left-to-right and break to a new row when out of width. */
 .card-usage-flex-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 14px;
-  align-items: stretch;     /* strip matches tile-grid height — kills tail blank space */
   margin-top: 4px;
 }
 .card-usage-grid {
-  flex: 0 0 auto;
-  align-self: flex-start;   /* tiles keep natural height, no stretch */
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 360px));
   gap: 14px;
+  width: 100%;
 }
-/* Chip strip — uniform-width chip grid that fills available space */
+/* Chip strip — uniform-width chip grid that fills the full width */
 .card-usage-strip {
-  flex: 1 1 320px;
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 6px;
@@ -498,8 +497,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   grid-column: 1 / -1;
   margin: 0 0 4px;
 }
-/* When ONLY chips (no expanded), strip takes full row instead of partial */
-.card-usage-flex-row.cu-chips-only .card-usage-strip { flex-basis: 100%; }
+/* When ONLY chips (no expanded), strip already spans full row via stacked layout */
 
 /* Mobile: drop chip strip to 1 column so name + mask + bar all fit */
 @media (max-width: 640px) {
@@ -16420,14 +16418,17 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 row.classList.add("cu-chips-only");
               }
 
+              // Stacked: chip strip (collapsed) on top, expanded grid
+              // below. Expanded tiles flow into rows and wrap when out of
+              // width — no side-by-side flex with the chip strip.
+              if (dormant.length) {
+                row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
+              }
               if (expanded.length) {
                 const grid = document.createElement("div");
                 grid.className = "card-usage-grid";
                 expanded.forEach(a => grid.appendChild(_renderCreditCardTile(a)));
                 row.appendChild(grid);
-              }
-              if (dormant.length) {
-                row.appendChild(_renderCreditCardStrip(dormant, expanded.length > 0));
               }
               sgWrap.appendChild(row);
               wrap.appendChild(sgWrap);
@@ -16873,17 +16874,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       function _renderCreditCardStrip(accounts, hasExpanded) {
         const strip = document.createElement("div");
         strip.className = "card-usage-strip";
-
-        // Dynamic column count → balance rows so layout doesn't look
-        // sparse on a wide viewport. Aim for 1-4 visual rows max.
-        const N = accounts.length;
-        let targetRows;
-        if (N <= 4) targetRows = 1;
-        else if (N <= 8) targetRows = 2;
-        else if (N <= 15) targetRows = 3;
-        else targetRows = 4;
-        const cols = Math.max(1, Math.ceil(N / targetRows));
-        strip.style.gridTemplateColumns = `repeat(${cols}, minmax(180px, 1fr))`;
+        // Chips flow uniformly via CSS auto-fill — no JS column override.
+        // The grid template `auto-fill minmax(200px, 1fr)` packs as many
+        // chips as fit on each row and wraps naturally.
 
         // Only show the "Other Cards · N" label when there's also an
         // expanded tile to disambiguate. Otherwise it duplicates the
