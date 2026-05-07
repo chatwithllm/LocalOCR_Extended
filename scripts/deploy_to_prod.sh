@@ -14,11 +14,13 @@
 #
 # Override knobs (env vars):
 #   PROD_DIR        — repo path  (default /opt/extended/LocalOCR_Extended)
-#   COMPOSE_PROJECT — project    (default extended)
+#   COMPOSE_PROJECT — project    (auto-detected from running container)
 #   BACKEND_SVC     — service    (default backend)
 #   PORT            — health     (default 8090)
 #   SKIP_BACKUP     — set to 1 to skip pre-deploy backup (NOT recommended)
 #   SKIP_PULL       — set to 1 to deploy current working tree only
+#   VERBOSE         — set to 1 to stream all command output instead of spinner
+#   NO_SPINNER      — set to 1 to disable spinner (e.g. in CI/non-TTY)
 
 set -euo pipefail
 
@@ -39,12 +41,94 @@ fi
 PORT="${PORT:-8090}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
 
+DEPLOY_LOG="/tmp/deploy_to_prod_$$.log"
+trap 'rm -f "${DEPLOY_LOG}"' EXIT
+
+# ---------------------------------------------------------------------
+# Spinner helper. Shows an animated braille frame + step label while a
+# long-running command executes in the background. Output is captured
+# to ${DEPLOY_LOG}; on failure we tail the last 40 lines so the operator
+# sees what broke. On success the spinner replaces itself with a ✓ line
+# plus elapsed seconds.
+#
+# Skipped when:
+#   - VERBOSE=1            : output streams live, no spinner
+#   - NO_SPINNER=1         : use plain "..." dots
+#   - stdout is not a TTY  : same as NO_SPINNER (CI / piped to file)
+#
+# Usage:
+#   _run "Building image" docker compose build backend
+# ---------------------------------------------------------------------
+_run() {
+  local label="$1"; shift
+  local start=$(date +%s)
+
+  if [ "${VERBOSE:-0}" = "1" ]; then
+    echo "▶ ${label}"
+    if "$@"; then
+      local elapsed=$(( $(date +%s) - start ))
+      echo "  ✓ ${label} (${elapsed}s)"
+      return 0
+    else
+      local rc=$?
+      echo "  ✗ ${label} (exit ${rc})"
+      return $rc
+    fi
+  fi
+
+  if [ "${NO_SPINNER:-0}" = "1" ] || [ ! -t 1 ]; then
+    printf "▶ %s ..." "${label}"
+    if "$@" >>"${DEPLOY_LOG}" 2>&1; then
+      local elapsed=$(( $(date +%s) - start ))
+      printf " ✓ (%ds)\n" "${elapsed}"
+      return 0
+    else
+      local rc=$?
+      printf " ✗ (exit %d)\n" "${rc}"
+      echo "  Last 40 lines of output:"
+      tail -n 40 "${DEPLOY_LOG}" | sed 's/^/    /'
+      return $rc
+    fi
+  fi
+
+  # TTY spinner — braille frames, ~10fps.
+  local frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  ( "$@" >>"${DEPLOY_LOG}" 2>&1 ) &
+  local pid=$!
+  local i=0
+  # Hide cursor while spinning.
+  tput civis 2>/dev/null || true
+  while kill -0 "${pid}" 2>/dev/null; do
+    local frame="${frames:i++%${#frames}:1}"
+    local elapsed=$(( $(date +%s) - start ))
+    printf "\r  %s %s %s(%ds)%s    " \
+      "${frame}" "${label}" "$(tput dim 2>/dev/null)" "${elapsed}" "$(tput sgr0 2>/dev/null)"
+    sleep 0.1
+  done
+  tput cnorm 2>/dev/null || true
+
+  if wait "${pid}"; then
+    local elapsed=$(( $(date +%s) - start ))
+    # \r + clear-line so ✓ replaces spinner cleanly
+    printf "\r\033[K  ✓ %s (%ds)\n" "${label}" "${elapsed}"
+    return 0
+  else
+    local rc=$?
+    printf "\r\033[K  ✗ %s (exit %d)\n" "${label}" "${rc}"
+    echo "  Last 40 lines of output:"
+    tail -n 40 "${DEPLOY_LOG}" | sed 's/^/    /'
+    return $rc
+  fi
+}
+
 cd "${PROD_DIR}"
 
+DEPLOY_START=$(date +%s)
 echo "═══════════════════════════════════════════"
 echo "🚀 LocalOCR_Extended — production deploy"
 echo "    repo:    ${PROD_DIR}"
 echo "    project: ${COMPOSE_PROJECT}"
+echo "    log:     ${DEPLOY_LOG}"
 echo "    started: $(date -Is)"
 echo "═══════════════════════════════════════════"
 
@@ -72,10 +156,8 @@ PRE_SHA="$(git rev-parse --short HEAD)"
 # 1. Pull latest main (skippable for hotfix deploys)
 # ---------------------------------------------------------------------
 if [ "${SKIP_PULL:-0}" != "1" ]; then
-  echo "▶ Fetching origin/main..."
-  git fetch --prune origin
-  echo "▶ Fast-forwarding to origin/main..."
-  git merge --ff-only origin/main
+  _run "Fetching origin/main" git fetch --prune origin
+  _run "Fast-forwarding to origin/main" git merge --ff-only origin/main
 fi
 POST_SHA="$(git rev-parse --short HEAD)"
 
@@ -87,9 +169,11 @@ fi
 
 echo "▶ Will deploy: ${PRE_SHA} → ${POST_SHA}"
 echo
-echo "Commits in this deploy:"
-git log --oneline "${PRE_SHA}..${POST_SHA}" 2>/dev/null | sed 's/^/  /' || true
-echo
+if [ "${PRE_SHA}" != "${POST_SHA}" ]; then
+  echo "Commits in this deploy:"
+  git log --oneline "${PRE_SHA}..${POST_SHA}" 2>/dev/null | sed 's/^/  /' || true
+  echo
+fi
 
 # ---------------------------------------------------------------------
 # 2. Pre-deploy backup (DB + volumes + .env metadata)
@@ -99,11 +183,11 @@ echo
 #    is mounted on the `extended-backups` volume.
 # ---------------------------------------------------------------------
 if [ "${SKIP_BACKUP:-0}" != "1" ]; then
-  echo "▶ Pre-deploy backup (running inside ${BACKEND_SVC} container)..."
-  if docker compose -p "${COMPOSE_PROJECT}" ps --status running --services | grep -q "^${BACKEND_SVC}$"; then
-    docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
-      bash /app/scripts/backup_database_and_volumes.sh
-    echo "✓ Backup complete (in extended-backups volume)"
+  if docker compose -p "${COMPOSE_PROJECT}" ps --status running --services 2>/dev/null \
+       | grep -q "^${BACKEND_SVC}$"; then
+    _run "Pre-deploy backup (DB + volumes)" \
+      docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
+        bash /app/scripts/backup_database_and_volumes.sh
   else
     echo "⚠️  ${BACKEND_SVC} not running — skipping in-container backup."
     echo "   First-time deploy on this host? Migration alone is safe (idempotent)."
@@ -115,11 +199,10 @@ fi
 # ---------------------------------------------------------------------
 # 3. Build new image + recreate the backend service
 # ---------------------------------------------------------------------
-echo "▶ Building image..."
-docker compose -p "${COMPOSE_PROJECT}" build "${BACKEND_SVC}"
-
-echo "▶ Recreating ${BACKEND_SVC} (other services left untouched)..."
-docker compose -p "${COMPOSE_PROJECT}" up -d --no-deps "${BACKEND_SVC}"
+_run "Building backend image" \
+  docker compose -p "${COMPOSE_PROJECT}" build "${BACKEND_SVC}"
+_run "Recreating ${BACKEND_SVC} container" \
+  docker compose -p "${COMPOSE_PROJECT}" up -d --no-deps "${BACKEND_SVC}"
 
 # ---------------------------------------------------------------------
 # 4. Apply pending Alembic migrations.
@@ -127,40 +210,69 @@ docker compose -p "${COMPOSE_PROJECT}" up -d --no-deps "${BACKEND_SVC}"
 #    boot, but this explicit pass surfaces failures here in the deploy
 #    log instead of buried in container output.
 # ---------------------------------------------------------------------
-echo "▶ Verifying Alembic head..."
-docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
-  python -m alembic current
-
-echo "▶ Applying any pending migrations (idempotent)..."
-docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
-  python -m alembic upgrade head
+_run "Verifying Alembic head" \
+  docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
+    python -m alembic current
+_run "Applying pending migrations" \
+  docker compose -p "${COMPOSE_PROJECT}" exec -T "${BACKEND_SVC}" \
+    python -m alembic upgrade head
 
 # ---------------------------------------------------------------------
-# 5. Health check — wait up to HEALTH_TIMEOUT seconds for /health=200
+# 5. Health check — wait up to HEALTH_TIMEOUT seconds for /health=200.
+#    We spin manually here because the wait is a polling loop, not a
+#    single command we can wrap in _run.
 # ---------------------------------------------------------------------
-echo "▶ Waiting for /health on port ${PORT} (timeout ${HEALTH_TIMEOUT}s)..."
-start=$(date +%s)
-while true; do
-  if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
-    echo "✓ /health OK"
-    break
+_health_check() {
+  local start=$(date +%s)
+  local frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+  local i=0
+  local can_spin=1
+  if [ "${VERBOSE:-0}" = "1" ] || [ "${NO_SPINNER:-0}" = "1" ] || [ ! -t 1 ]; then
+    can_spin=0
   fi
-  now=$(date +%s)
-  if [ $((now - start)) -ge "${HEALTH_TIMEOUT}" ]; then
-    echo "❌ Health check did not pass within ${HEALTH_TIMEOUT}s."
-    echo "   Tailing last 80 lines of backend logs:"
-    docker compose -p "${COMPOSE_PROJECT}" logs --tail 80 "${BACKEND_SVC}" || true
-    exit 2
-  fi
-  sleep 2
-done
+  [ "${can_spin}" = "1" ] && tput civis 2>/dev/null || true
+  while true; do
+    if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+      [ "${can_spin}" = "1" ] && tput cnorm 2>/dev/null || true
+      local elapsed=$(( $(date +%s) - start ))
+      if [ "${can_spin}" = "1" ]; then
+        printf "\r\033[K  ✓ Health check passed (%ds)\n" "${elapsed}"
+      else
+        echo "  ✓ Health check passed (${elapsed}s)"
+      fi
+      return 0
+    fi
+    local now=$(date +%s)
+    local elapsed=$(( now - start ))
+    if [ "${elapsed}" -ge "${HEALTH_TIMEOUT}" ]; then
+      [ "${can_spin}" = "1" ] && tput cnorm 2>/dev/null || true
+      printf "\r\033[K  ✗ Health check timed out (%ds)\n" "${elapsed}"
+      echo "  Last 80 lines of backend logs:"
+      docker compose -p "${COMPOSE_PROJECT}" logs --tail 80 "${BACKEND_SVC}" 2>&1 \
+        | sed 's/^/    /' || true
+      return 2
+    fi
+    if [ "${can_spin}" = "1" ]; then
+      local frame="${frames:i++%${#frames}:1}"
+      printf "\r  %s Waiting for /health on :%s %s(%ds / %ds)%s    " \
+        "${frame}" "${PORT}" "$(tput dim 2>/dev/null)" "${elapsed}" "${HEALTH_TIMEOUT}" \
+        "$(tput sgr0 2>/dev/null)"
+      sleep 0.2
+    else
+      printf "."
+      sleep 2
+    fi
+  done
+}
+_health_check
 
 # ---------------------------------------------------------------------
 # 6. Summary
 # ---------------------------------------------------------------------
+TOTAL_ELAPSED=$(( $(date +%s) - DEPLOY_START ))
 echo
 echo "═══════════════════════════════════════════"
-echo "✅ Deploy complete"
+echo "✅ Deploy complete (${TOTAL_ELAPSED}s total)"
 echo "    SHA:     ${PRE_SHA} → ${POST_SHA}"
 echo "    health:  http://127.0.0.1:${PORT}/health"
 echo "    finished: $(date -Is)"
@@ -169,3 +281,6 @@ echo
 echo "Rollback command (if needed):"
 echo "  cd ${PROD_DIR} && git reset --hard ${PRE_SHA} && \\"
 echo "  docker compose -p ${COMPOSE_PROJECT} up -d --build --no-deps ${BACKEND_SVC}"
+echo
+echo "Full deploy log: ${DEPLOY_LOG} (auto-removed on script exit)."
+echo "Re-run with VERBOSE=1 to stream output instead of spinner."
