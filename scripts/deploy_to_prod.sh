@@ -23,8 +23,19 @@
 set -euo pipefail
 
 PROD_DIR="${PROD_DIR:-/opt/extended/LocalOCR_Extended}"
-COMPOSE_PROJECT="${COMPOSE_PROJECT:-extended}"
 BACKEND_SVC="${BACKEND_SVC:-backend}"
+
+# Auto-detect compose project name from the running container's labels.
+# Compose uses the directory name by default but operators sometimes
+# override via COMPOSE_PROJECT_NAME, so we look at the live state first.
+# Falls back to "extended" then directory basename.
+_DETECTED_PROJECT="$(docker inspect localocr-extended-backend \
+  --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null || true)"
+if [ -n "${_DETECTED_PROJECT}" ] && [ "${_DETECTED_PROJECT}" != "<no value>" ]; then
+  COMPOSE_PROJECT="${COMPOSE_PROJECT:-${_DETECTED_PROJECT}}"
+else
+  COMPOSE_PROJECT="${COMPOSE_PROJECT:-$(basename "${PROD_DIR}" | tr '[:upper:]' '[:lower:]' | tr -d '_-')}"
+fi
 PORT="${PORT:-8090}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
 
