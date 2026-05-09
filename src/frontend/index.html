@@ -1394,7 +1394,73 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   transition: width 240ms ease;
   pointer-events: none;
 }
+.inv-tile-title-row.inv-dragging::before {
+  transition: none;  /* live drag — no smoothing latency */
+}
 .inv-tile-title-row > * { position: relative; z-index: 1; }
+
+/* Drag handle: vertical grip parked at the right edge of the green
+   fill. Position is driven by --remaining-pct so the handle visually
+   tracks the boundary between "remaining" and "consumed". Tap/drag
+   the handle to slide. The handle absorbs its own pointer events so
+   the rest of the title row stays clickable for normal interactions. */
+.inv-tile-title-row .inv-drag-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Center the handle on the fill edge: shift left half its width. */
+  left: calc(var(--remaining-pct, 100%) - 9px);
+  width: 18px;
+  z-index: 2;
+  cursor: ew-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;  /* prevent scroll while dragging on touch */
+  transition: left 240ms ease;
+}
+.inv-tile-title-row.inv-dragging .inv-drag-handle {
+  transition: none;
+}
+.inv-tile-title-row .inv-drag-handle::before {
+  content: "";
+  width: 4px;
+  height: 60%;
+  border-radius: 2px;
+  background: var(--text, #fff);
+  opacity: 0.55;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.4);
+}
+.inv-tile-title-row .inv-drag-handle:hover::before,
+.inv-tile-title-row.inv-dragging .inv-drag-handle::before {
+  opacity: 1;
+  width: 5px;
+}
+/* Live percent label that floats above the handle while dragging */
+.inv-tile-title-row .inv-drag-bubble {
+  position: absolute;
+  top: -22px;
+  left: calc(var(--remaining-pct, 100%) - 22px);
+  width: 44px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface2, #2c2c2e);
+  color: var(--text, #fff);
+  border: 1px solid var(--border, #3a3a3c);
+  border-radius: 4px;
+  padding: 2px 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.inv-tile-title-row.inv-dragging .inv-drag-bubble {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 .inv-tile-est-suffix {
   font-size: 0.78em;
@@ -22978,27 +23044,50 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         document.addEventListener("mouseup", _invDragEnd);
       }
 
+      // Engage drag immediately when the press lands on the visible
+      // handle. Anywhere else on the title row still uses the legacy
+      // 450ms long-press fallback so the row remains a normal click
+      // target by default.
       function _invDragMaybeStart(e) {
-        const target = (e.target && e.target.closest)
+        const handle = (e.target && e.target.closest)
+          ? e.target.closest(".inv-drag-handle")
+          : null;
+        const row = (e.target && e.target.closest)
           ? e.target.closest(".inv-tile-title-row")
           : null;
-        if (!target) return;
-        const itemId = target.dataset.invId;
+        if (!row) return;
+        const itemId = row.dataset.invId;
         if (!itemId) return;
+
+        if (handle) {
+          if (e.preventDefault) e.preventDefault();
+          _invDragState = {
+            itemId: parseInt(itemId, 10),
+            el: row,
+            rect: row.getBoundingClientRect(),
+            active: true,
+            engaged: true,
+          };
+          row.classList.add("inv-dragging");
+          // Seed lastRemaining from the press position so a tap (no move)
+          // still snaps to that spot rather than reverting.
+          _invDragApply(e);
+          return;
+        }
+
+        // Long-press fallback for users who don't hit the handle.
         const longPressTimer = setTimeout(() => {
           _invDragState = {
             itemId: parseInt(itemId, 10),
-            el: target,
-            rect: target.getBoundingClientRect(),
+            el: row,
+            rect: row.getBoundingClientRect(),
             active: true,
           };
-          target.style.cursor = "ew-resize";
+          row.classList.add("inv-dragging");
         }, 450);
         const cancel = () => clearTimeout(longPressTimer);
         document.addEventListener("touchend", cancel, { once: true });
         document.addEventListener("mouseup", cancel, { once: true });
-        // Cancel on first move so a scroll gesture doesn't accidentally
-        // engage the drag.
         const onFirstMove = () => {
           cancel();
           document.removeEventListener("touchmove", onFirstMove);
@@ -23006,15 +23095,35 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         document.addEventListener("touchmove", onFirstMove, { once: true, passive: true });
       }
 
-      function _invDragMove(e) {
+      // Map remaining_pct (0-100) to the same fill color buckets the
+      // backend uses so the fill recolors live as the user crosses
+      // thresholds (drag past 60 → green; past 20 → amber; below → red).
+      function _invStatusForPct(remaining) {
+        if (remaining >= 60) return "fresh";
+        if (remaining >= 20) return "low";
+        return "out";
+      }
+
+      function _invDragApply(e) {
         if (!_invDragState || !_invDragState.active) return;
-        if (e.preventDefault) e.preventDefault();
         const point = e.touches ? e.touches[0] : e;
         const rect = _invDragState.rect;
         const ratio = (point.clientX - rect.left) / rect.width;
         const remaining = Math.round(Math.max(0, Math.min(100, ratio * 100)) / 5) * 5;
-        _invDragState.el.style.setProperty("--remaining-pct", remaining + "%");
+        const row = _invDragState.el;
+        row.style.setProperty("--remaining-pct", remaining + "%");
+        row.style.setProperty("--status-fill", _invStatusFill(_invStatusForPct(remaining)));
+        const bubble = row.querySelector(".inv-drag-bubble");
+        if (bubble) bubble.textContent = remaining + "%";
+        const handle = row.querySelector(".inv-drag-handle");
+        if (handle) handle.setAttribute("aria-valuenow", String(remaining));
         _invDragState.lastRemaining = remaining;
+      }
+
+      function _invDragMove(e) {
+        if (!_invDragState || !_invDragState.active) return;
+        if (e.preventDefault) e.preventDefault();
+        _invDragApply(e);
       }
 
       async function _invDragEnd() {
@@ -23024,8 +23133,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         const finalRemaining = _invDragState.lastRemaining;
         const itemId = _invDragState.itemId;
-        if (_invDragState.el) _invDragState.el.style.cursor = "";
+        const row = _invDragState.el;
+        if (row) row.classList.remove("inv-dragging");
         _invDragState = null;
+        // Suppression window for the synthetic click that follows mouseup.
+        window.__invLastDragAt = Date.now();
         if (typeof finalRemaining === "number") {
           await _invSetOverride(itemId, 100 - finalRemaining);
         }
@@ -23633,9 +23745,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         titleRow.style.setProperty("--remaining-pct", remPct + "%");
         titleRow.style.setProperty("--status-fill", _invStatusFill(i.status));
         titleRow.style.cursor = "pointer";
-        titleRow.addEventListener("click", function (_e) {
-          // Skip if a drag has engaged — the dragend path persists the value.
+        titleRow.addEventListener("click", function (e) {
+          // Skip if a drag has engaged — dragend path persists the value.
           if (_invDragState && _invDragState.active) return;
+          // Skip if the click landed on the drag handle. mousedown's
+          // preventDefault doesn't reliably suppress the synthetic click,
+          // so we filter explicitly to avoid drag-then-cycle conflicts.
+          if (e && e.target && e.target.closest && e.target.closest(".inv-drag-handle")) return;
+          // Also skip if a drag JUST finished (within ~250ms).
+          if (window.__invLastDragAt && (Date.now() - window.__invLastDragAt) < 250) return;
           if (i && i.id != null) _invCycleStatus(i.id, i.status || "fresh");
         });
         const nameSpan = _invElText("span", "inv-tile-name", i.product_name || "");
@@ -23643,6 +23761,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (_invShowEstSuffix(i)) {
           titleRow.appendChild(_invElText("span", "inv-tile-est-suffix", "~est"));
         }
+        // Drag bubble (live % readout while sliding) + handle. Handle
+        // sits at the right edge of the green fill via CSS calc; dragging
+        // it persists `consumed_pct_override`.
+        const bubble = _invElText("div", "inv-drag-bubble", remPct + "%");
+        titleRow.appendChild(bubble);
+        const handle = _invElText("div", "inv-drag-handle");
+        handle.setAttribute("role", "slider");
+        handle.setAttribute("aria-label", "Remaining quantity");
+        handle.setAttribute("aria-valuemin", "0");
+        handle.setAttribute("aria-valuemax", "100");
+        handle.setAttribute("aria-valuenow", String(remPct));
+        handle.title = "Drag to set how much is left";
+        titleRow.appendChild(handle);
         content.appendChild(titleRow);
         const meta = _invElText("div", "inv-tile-meta");
         if (i.last_purchased_at) {
