@@ -1468,6 +1468,40 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   margin-left: 6px;
   opacity: 0.75;
 }
+
+/* Mobile-only ±10% stepper row sits below the title row. Hidden on
+   desktop where the drag handle is the easier affordance. On phone
+   the tile's swipe gesture (-1 / remove) makes a thin drag handle
+   unreliable, so explicit tap targets win. */
+.inv-stepper-row {
+  display: none;
+  gap: 6px;
+  padding: 4px 8px 0;
+}
+.inv-stepper-btn {
+  flex: 1 1 auto;
+  background: var(--surface2, #2c2c2e);
+  border: 1px solid var(--border, #3a3a3c);
+  color: var(--text, #fff);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;  /* no double-tap zoom */
+}
+.inv-stepper-btn:active {
+  background: var(--surface3, #3a3a3c);
+  transform: scale(0.97);
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .inv-stepper-row { display: flex; }
+  /* Hide the thin desktop handle on touch-primary devices — steppers
+     replace it. The fill bar still indicates remaining %. */
+  .inv-tile-title-row .inv-drag-handle { display: none; }
+  .inv-tile-title-row .inv-drag-bubble { display: none; }
+}
     </style>
   </head>
 
@@ -23773,8 +23807,40 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         handle.setAttribute("aria-valuemax", "100");
         handle.setAttribute("aria-valuenow", String(remPct));
         handle.title = "Drag to set how much is left";
+        // Suppress event bubbling to the tile, which uses pointerdown
+        // to start its left/right swipe gesture (−1 / remove). Without
+        // this, a handle-drag on mobile would also trigger tile swipe.
+        const _stopProp = function (e) { e.stopPropagation(); };
+        handle.addEventListener("pointerdown", _stopProp);
+        handle.addEventListener("touchstart", _stopProp, { passive: true });
+        handle.addEventListener("mousedown", _stopProp);
         titleRow.appendChild(handle);
+
+        // Mobile-friendly steppers: ±10% tap buttons next to the handle.
+        // Visible only on phone (CSS @media). Each tap nudges remaining
+        // by 10% and persists immediately, so users who can't easily
+        // drag a 18px handle next to a swipe-active tile have a reliable
+        // alternative.
+        const steppers = _invElText("div", "inv-stepper-row");
+        const _applyStep = function (delta) {
+          const cur = parseFloat(titleRow.style.getPropertyValue("--remaining-pct")) || remPct;
+          const next = Math.max(0, Math.min(100, Math.round((cur + delta) / 5) * 5));
+          titleRow.style.setProperty("--remaining-pct", next + "%");
+          titleRow.style.setProperty("--status-fill", _invStatusFill(_invStatusForPct(next)));
+          if (i && i.id != null) _invSetOverride(i.id, 100 - next);
+        };
+        const minusBtn = _invElText("button", "inv-stepper-btn", "−10%");
+        minusBtn.type = "button";
+        minusBtn.addEventListener("click", function (e) { e.stopPropagation(); _applyStep(-10); });
+        minusBtn.addEventListener("pointerdown", _stopProp);
+        const plusBtn = _invElText("button", "inv-stepper-btn", "+10%");
+        plusBtn.type = "button";
+        plusBtn.addEventListener("click", function (e) { e.stopPropagation(); _applyStep(10); });
+        plusBtn.addEventListener("pointerdown", _stopProp);
+        steppers.appendChild(minusBtn);
+        steppers.appendChild(plusBtn);
         content.appendChild(titleRow);
+        content.appendChild(steppers);
         const meta = _invElText("div", "inv-tile-meta");
         if (i.last_purchased_at) {
           meta.appendChild(_invElText("div", null, "📅 Bought " + String(i.last_purchased_at).slice(0, 10)));
