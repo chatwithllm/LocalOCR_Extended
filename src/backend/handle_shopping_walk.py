@@ -576,3 +576,72 @@ def handle_add(session, chat_id: str, message_id: int | None) -> None:
     stats["added"] = stats.get("added", 0) + 1
     row.stats = stats
     _advance_or_end_category(session, row, message_id)
+
+
+def handle_add_detailed(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped + Add w/ qty+store. Render qty prompt, transition state."""
+    row = get_or_create_session(session, chat_id)
+    if row.cursor >= len(row.item_queue):
+        return
+    item = row.item_queue[row.cursor]
+    text, kb = render_qty_prompt(item.get("name", "Item"))
+    row.pending_prompt = "qty"
+    row.pending_action = "add_detailed"
+    row.last_item_id = item.get("product_id")
+    _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+def handle_qty(session, chat_id: str, qty_arg: str,
+               message_id: int | None) -> None:
+    """User tapped a qty button (1..5 or 'cu' for typed-text)."""
+    row = get_or_create_session(session, chat_id)
+    if qty_arg == "cu":
+        # Switch to typed-text qty state. Next inbound message text is the qty.
+        text = "Enter the quantity (number):"
+        kb = {"inline_keyboard": [[{"text": "← Back", "callback_data": "shop:back"}]]}
+        row.pending_action = (
+            "custom_add_qty_typed"
+            if row.pending_prompt == "custom_qty"
+            else "add_detailed_qty_typed"
+        )
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+        return
+
+    try:
+        qty = float(qty_arg)
+    except ValueError:
+        return  # malformed
+
+    row.pending_qty = qty
+
+    # Render store prompt — same for both recommendation and custom flows.
+    if row.pending_action == "custom_add":
+        product_name = row.pending_name or "Item"
+    else:
+        item = row.item_queue[row.cursor] if row.cursor < len(row.item_queue) else {}
+        product_name = item.get("name", "Item")
+
+    stores = top_stores(session, limit=3)
+    text, kb = render_store_prompt(product_name=product_name, qty=qty, stores=stores)
+    if row.pending_prompt == "custom_qty":
+        row.pending_prompt = "custom_store"
+    else:
+        row.pending_prompt = "store"
+    _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+def consume_typed_qty(session, chat_id: str, text: str,
+                      message_id: int | None) -> None:
+    """Called from webhook when row.pending_action is *_qty_typed and user sent text."""
+    row = get_or_create_session(session, chat_id)
+    try:
+        qty = float(text.strip())
+        if qty <= 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        send_telegram_message(
+            chat_id, "Couldn't parse that as a number. Try again:",
+        )
+        return
+    row.pending_action = "custom_add" if row.pending_prompt == "custom_qty" else "add_detailed"
+    handle_qty(session, chat_id, qty_arg=str(qty), message_id=message_id)

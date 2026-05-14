@@ -583,3 +583,104 @@ def test_handle_add_inserts_qty_one_and_advances(session, monkeypatch):
     assert items[0].quantity == 1
     assert items[0].preferred_store is None
     assert items[0].source == "telegram_shopping"
+
+
+def test_handle_add_detailed_transitions_to_qty_prompt(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_add_detailed, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        TelegramShoppingSession, Product,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": p.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_add_detailed(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "qty"
+    assert row.pending_action == "add_detailed"
+    assert "how many" in edits[-1][2].lower()
+
+
+def test_handle_qty_transitions_to_store_prompt(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_qty, handle_add_detailed, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        TelegramShoppingSession, Product, Store, Purchase,
+    )
+    from datetime import datetime
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    s_store = Store(name="Costco"); session.add(s_store); session.flush()
+    session.add(Purchase(store_id=s_store.id, total_amount=1.0,
+                         date=datetime.utcnow(), transaction_type="purchase"))
+    session.commit()
+
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": p.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_add_detailed(session, "abc", message_id=100); session.commit()
+
+    handle_qty(session, "abc", qty_arg="3", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "store"
+    assert row.pending_qty == 3.0
+    last = edits[-1][2]
+    assert "× 3" in last or "x 3" in last.lower()
+    callbacks = [b["callback_data"] for r in edits[-1][3]["inline_keyboard"] for b in r]
+    assert "shop:store:costco" in callbacks
+
+
+def test_handle_qty_custom_enters_typed_text_state(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_qty, handle_add_detailed, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        TelegramShoppingSession, Product,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_add_detailed(session, "abc", message_id=100); session.commit()
+
+    handle_qty(session, "abc", qty_arg="cu", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "qty"
+    assert row.pending_action == "add_detailed_qty_typed"
