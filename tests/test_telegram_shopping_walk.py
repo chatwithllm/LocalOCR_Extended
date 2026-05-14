@@ -883,3 +883,75 @@ def test_handle_done_ends_walk_with_summary(session, monkeypatch):
     assert row.status == "done"
     assert row.pending_prompt is None
     assert any("Shopping plan complete" in t for t in edits)
+
+
+def test_handle_cat_done_loads_next_category(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_cat_done, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    pa = Product(name="Olive oil", category="pantry"); session.add(pa); session.flush()
+    pb = Product(name="Milk", category="fridge"); session.add(pb); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": pa.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+            {"product_id": pb.id, "product_name": "Milk", "category": "fridge",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    # Simulate having reached category_end (pantry done).
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    row.cursor = len(row.item_queue)
+    row.pending_prompt = "category_end"
+    session.commit()
+
+    handle_cat_done(session, "abc", message_id=100); session.commit()
+
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.current_category == "fridge"
+    assert row.pending_prompt == "item"
+    assert row.cursor == 0
+    assert len(row.item_queue) == 1
+
+
+def test_handle_cat_done_ends_walk_when_no_more_categories(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_cat_done, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    row.cursor = len(row.item_queue)
+    row.pending_prompt = "category_end"
+    session.commit()
+
+    handle_cat_done(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert any("Shopping plan complete" in t for t in edits)

@@ -746,6 +746,31 @@ def _end_walk(row, message_id: int | None) -> None:
     row.pending_prompt = None
 
 
+def handle_cat_done(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped → Next category or → Finish at CATEGORY_END."""
+    row = get_or_create_session(session, chat_id)
+    if not row.category_queue:
+        _end_walk(row, message_id)
+        return
+
+    next_cat = row.category_queue[0]
+    recs = fetch_recommendations(session)
+    _, items_by = bucketize_by_category(recs)
+    bucket = items_by.get(next_cat, [])
+
+    row.current_category = next_cat
+    row.item_queue = bucket
+    row.cursor = 0
+    row.category_queue = [c for c in row.category_queue if c != next_cat]
+
+    if not bucket:
+        # Skip empty bucket and recurse.
+        handle_cat_done(session, chat_id, message_id)
+        return
+
+    _render_current_item(row, message_id)
+
+
 def consume_typed_store(session, chat_id: str, text: str,
                         message_id: int | None) -> None:
     """Webhook calls this when row.pending_action is *_store_typed and user sent text."""
