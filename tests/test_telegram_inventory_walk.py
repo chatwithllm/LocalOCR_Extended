@@ -1103,3 +1103,59 @@ def test_rerender_handles_resume_state(session, monkeypatch):
     # Send a stale verb (e.g., inv:lvl:0) while in resume state.
     dispatch_inv_callback(session, "abc", "inv:lvl:0", message_id=100); session.commit()
     assert any("progress" in t.lower() for t in sent), "should re-render the resume offer"
+
+
+def test_webhook_inventory_command_starts_walk(session, monkeypatch):
+    """Posting /inventory via the webhook command path dispatches start_walk."""
+    import flask
+    from src.backend.handle_telegram_messages import _handle_command
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_ENABLED", "1")
+    import importlib
+    import src.backend.handle_inventory_walk as m
+    importlib.reload(m)
+    # Patch AFTER reload so the substitution survives.
+    called = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.start_walk",
+        lambda s, chat_id: called.append(chat_id),
+    )
+
+    app = flask.Flask("test")
+    with app.app_context():
+        flask.g.db_session = session
+        out = _handle_command("/inventory", chat_id="abc")
+    assert called == ["abc"]
+    # _handle_command may return empty string when it side-channels via send_telegram_message.
+    assert out == "" or "abc" in (out or "")
+
+
+def test_webhook_routes_inv_callback_to_dispatch(session, monkeypatch):
+    """A callback_query with data='inv:cat:pantry' routes to dispatch_inv_callback."""
+    import flask
+    from src.backend.handle_telegram_messages import _handle_callback_query
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_ENABLED", "1")
+    import importlib
+    import src.backend.handle_inventory_walk as m
+    importlib.reload(m)
+    # Patch AFTER reload so the substitution survives.
+    called = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.dispatch_inv_callback",
+        lambda s, chat_id, data, message_id: called.append((chat_id, data, message_id)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_telegram_messages._answer_callback_query",
+        lambda _: None,
+    )
+
+    cb = {
+        "id": "cb1",
+        "data": "inv:cat:pantry",
+        "from": {"id": 42},
+        "message": {"chat": {"id": "abc"}, "message_id": 100},
+    }
+    app = flask.Flask("test")
+    with app.app_context():
+        flask.g.db_session = session
+        _handle_callback_query(cb)
+    assert called == [("abc", "inv:cat:pantry", 100)]
