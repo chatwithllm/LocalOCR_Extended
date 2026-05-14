@@ -496,3 +496,47 @@ def start_walk(session, chat_id: str) -> None:
     counts = [(c, len(items_by[c])) for c in cat_queue]
     text, kb = render_category_screen(counts)
     send_telegram_message(chat_id, text, reply_markup=kb)
+
+
+def _render_current_item(row, message_id: int | None) -> None:
+    """Edit the message to show the current item prompt."""
+    if row.cursor >= len(row.item_queue):
+        return
+    item = row.item_queue[row.cursor]
+    text, kb = render_item_prompt(
+        product_name=item.get("name", "Item"),
+        category=row.current_category or "other",
+        idx=row.cursor + 1,
+        total=len(row.item_queue),
+        reason_label=item.get("reason_label") or "Suggested",
+        stats=row.stats or {},
+    )
+    row.pending_prompt = "item"
+    row.last_item_id = item.get("product_id")
+    _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+
+
+def handle_category(session, chat_id: str, category: str,
+                    message_id: int | None) -> None:
+    """User picked a category — load that bucket, render first item."""
+    row = get_or_create_session(session, chat_id)
+    if not category:
+        row.pending_prompt = "category"
+        return
+
+    recs = fetch_recommendations(session)
+    _, items_by = bucketize_by_category(recs)
+    bucket = items_by.get(category, [])
+
+    row.current_category = category
+    row.item_queue = bucket
+    row.cursor = 0
+    row.stats = {"added": 0, "skipped": 0, "already_have": 0, "custom_added": 0}
+    row.category_queue = [c for c in (row.category_queue or []) if c != category]
+
+    if not row.item_queue:
+        send_telegram_message(chat_id, f"No recommendations in {category}.")
+        row.pending_prompt = "category"
+        return
+
+    _render_current_item(row, message_id)

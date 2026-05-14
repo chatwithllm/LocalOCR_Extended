@@ -504,3 +504,43 @@ def test_start_walk_offers_resume_when_active_mid_walk(session, monkeypatch):
     assert sent and "progress" in sent[0][1].lower()
     callbacks = [b["callback_data"] for r in sent[0][2]["inline_keyboard"] for b in r]
     assert "shop:resume" in callbacks
+
+
+def test_handle_category_loads_queue_and_renders_first_item(session, monkeypatch):
+    from src.backend.handle_shopping_walk import handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": 1, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock", "current_quantity": 1.0, "threshold": 5.0},
+            {"product_id": 2, "product_name": "Pepper", "category": "pantry",
+             "reason": "manual_low"},
+            {"product_id": 3, "product_name": "Milk", "category": "fridge",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+
+    handle_category(session, "abc", category="pantry", message_id=100)
+    session.commit()
+
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.current_category == "pantry"
+    assert row.pending_prompt == "item"
+    assert row.cursor == 0
+    assert len(row.item_queue) == 2  # two pantry items
+    # pantry should have been popped from category_queue
+    assert "pantry" not in row.category_queue
+    assert "fridge" in row.category_queue
+    last_text = edits[-1][2]
+    assert "1/2" in last_text
+    assert "Olive oil" in last_text
+    assert row.stats == {"added": 0, "skipped": 0, "already_have": 0, "custom_added": 0}
