@@ -570,3 +570,61 @@ def test_start_walk_offers_resume_when_active_session_mid_walk(session, monkeypa
     assert sent and "progress" in sent[0][1].lower()
     callbacks = [b["callback_data"] for r in sent[0][2]["inline_keyboard"] for b in r]
     assert "inv:resume" in callbacks
+
+
+def test_handle_category_loads_queue_and_renders_level(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil",   "pantry", 20),
+        ("Black pepper","pantry", 30),
+        ("Milk",         "fridge", 20),
+    ])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda chat_id, message_id, text, reply_markup=None:
+            edits.append((chat_id, message_id, text, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    # Set state to "category" first by running start_walk.
+    start_walk(session, "abc"); session.commit()
+
+    handle_category(session, "abc", category="pantry", message_id=100)
+    session.commit()
+
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.current_category == "pantry"
+    assert row.pending_prompt == "level"
+    assert row.cursor == 0
+    assert row.page == 1
+    assert len(row.item_queue) == 2  # two pantry items
+    assert row.stats == {"updated": 0, "skipped": 0, "removed": 0, "cart_added": 0}
+    assert edits, "should edit category message to level prompt"
+    last_text = edits[-1][2]
+    assert "1/2" in last_text
+    assert "Black pepper" in last_text  # oldest first (30 days > 20 days)
+
+
+def test_handle_category_empty_category_keeps_state_and_replies(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    # No seeds — the category has no stale items.
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda chat_id, text, reply_markup=None: sent.append(text),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+
+    handle_category(session, "abc", category="pantry", message_id=100)
+    session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "category"  # stays so user can pick another
+    assert any("No stale" in t or "no stale" in t.lower() for t in sent)

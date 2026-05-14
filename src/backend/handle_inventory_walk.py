@@ -439,3 +439,55 @@ def start_walk(session, chat_id: str) -> None:
     reset_for_start_over(row)
     text, kb = render_category_screen(counts)
     send_telegram_message(chat_id, text, reply_markup=kb)
+
+
+def _render_current_item(session, row, message_id: int | None) -> None:
+    """Re-render the LEVEL prompt for the item at row.cursor.
+
+    Advances cursor and recurses if the inventory row vanished.
+    """
+    from src.backend.initialize_database_schema import Inventory
+
+    if row.cursor >= len(row.item_queue):
+        return  # caller handles end-of-page
+
+    inv_id = row.item_queue[row.cursor]
+    inv = session.query(Inventory).filter_by(id=inv_id).one_or_none()
+    if inv is None:
+        row.cursor += 1
+        logger.warning("inventory %s vanished mid-walk for chat %s", inv_id, row.chat_id)
+        if row.cursor < len(row.item_queue):
+            return _render_current_item(session, row, message_id)
+        return
+
+    last_updated = inv.last_updated
+    if last_updated and last_updated.tzinfo is not None:
+        last_updated = last_updated.replace(tzinfo=None)
+    days_old = (datetime.utcnow() - last_updated).days if last_updated else INVENTORY_STALE_DAYS
+
+    text, kb = render_level_prompt(
+        product_name=inv.product.name,
+        category=row.current_category or "other",
+        idx=row.cursor + 1,
+        total=len(row.item_queue),
+        days_old=days_old,
+    )
+    row.pending_prompt = "level"
+    row.last_item_id = inv_id
+    _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+
+
+def handle_category(session, chat_id: str, category: str, message_id: int | None) -> None:
+    """User picked a category — load page 1 of stale items, render first level prompt."""
+    row = get_or_create_session(session, chat_id)
+    items = stale_items_in_category(session, category, page=1)
+    row.current_category = category
+    row.item_queue = [i.id for i in items]
+    row.cursor = 0
+    row.page = 1
+    row.stats = {"updated": 0, "skipped": 0, "removed": 0, "cart_added": 0}
+    if not row.item_queue:
+        send_telegram_message(chat_id, f"No stale items in {category}.")
+        row.pending_prompt = "category"
+        return
+    _render_current_item(session, row, message_id)
