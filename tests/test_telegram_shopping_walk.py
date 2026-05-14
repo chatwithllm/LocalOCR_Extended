@@ -310,3 +310,57 @@ def test_top_stores_returns_up_to_3_by_purchase_count(session):
     session.commit()
     stores = top_stores(session)
     assert stores[:3] == ["Costco", "Trader Joe's", "Sprouts"]
+
+
+def test_render_category_screen_lists_categories_with_counts():
+    from src.backend.handle_shopping_walk import render_category_screen
+    text, kb = render_category_screen([("pantry", 5), ("fridge", 4)])
+    assert "Plan shopping" in text
+    btns = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    assert any("Pantry" in b and "5" in b for b in btns)
+    assert any("Fridge" in b and "4" in b for b in btns)
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "shop:cat:pantry" in callbacks
+    assert "shop:cancel" in callbacks
+
+
+def test_render_nudge_has_three_buttons():
+    from src.backend.handle_shopping_walk import render_nudge
+    text, kb = render_nudge(rec_count=12, category_count=4)
+    assert "12" in text and "4" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "nudge:shop:yes" in callbacks
+    assert "nudge:shop:later" in callbacks
+    assert "nudge:shop:mute" in callbacks
+
+
+def test_render_resume_shows_progress():
+    from src.backend.handle_shopping_walk import render_resume
+    text, kb = render_resume(category="pantry", cursor=3, total=5)
+    assert "progress" in text.lower()
+    assert "3/5" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "shop:resume" in callbacks
+    assert "shop:restart" in callbacks
+
+
+def test_render_summary_shows_all_four_counts():
+    from src.backend.handle_shopping_walk import render_summary
+    text, kb = render_summary({
+        "added": 8, "skipped": 3, "already_have": 1, "custom_added": 2,
+    })
+    assert "Shopping plan complete" in text
+    for n in ("8", "3", "1", "2"):
+        assert n in text
+    callbacks = [b.get("callback_data") for row in kb["inline_keyboard"] for b in row]
+    assert "inv:restart" in callbacks  # bridge to inventory walk
+
+
+def test_render_summary_includes_shopping_list_url_when_env_set(monkeypatch):
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://example.test")
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    importlib.reload(m)
+    _, kb = m.render_summary({"added": 1, "skipped": 0, "already_have": 0, "custom_added": 0})
+    urls = [b.get("url") for row in kb["inline_keyboard"] for b in row]
+    assert any(u and "example.test" in u for u in urls)
