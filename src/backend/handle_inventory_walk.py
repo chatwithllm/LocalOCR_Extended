@@ -575,3 +575,30 @@ def handle_cart(session, chat_id: str, choice: str, message_id: int | None) -> N
             row.stats = stats
     # No/Already → no insert.
     _advance_or_end(session, row, message_id)
+
+
+def handle_skip(session, chat_id: str, message_id: int | None) -> None:
+    """User skipped the current item. No inventory write; advance."""
+    row = get_or_create_session(session, chat_id)
+    stats = dict(row.stats or {})
+    stats["skipped"] = stats.get("skipped", 0) + 1
+    row.stats = stats
+    _advance_or_end(session, row, message_id)
+
+
+def handle_nohave(session, chat_id: str, message_id: int | None) -> None:
+    """User said 'No longer have'. Deactivate the inventory row, advance."""
+    row = get_or_create_session(session, chat_id)
+    if row.cursor < len(row.item_queue):
+        inv_id = row.item_queue[row.cursor]
+        mark_no_longer_have(session, inv_id, user_id=row.user_id)
+    stats = dict(row.stats or {})
+    stats["removed"] = stats.get("removed", 0) + 1
+    row.stats = stats
+    _advance_or_end(session, row, message_id)
+
+
+def handle_done(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped Done for now. End the walk and render summary."""
+    row = get_or_create_session(session, chat_id)
+    _end_walk(session, row, message_id)

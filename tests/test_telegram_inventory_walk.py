@@ -786,3 +786,77 @@ def test_handle_cart_already_does_not_insert(session, monkeypatch):
 
     handle_cart(session, "abc", "a", message_id=100); session.commit()
     assert session.query(ShoppingListItem).count() == 0
+
+
+def test_handle_skip_advances_without_write(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_skip, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession, Inventory
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    monkeypatch.setattr("src.backend.handle_inventory_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row_before = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    inv_id = row_before.item_queue[0]
+
+    handle_skip(session, "abc", message_id=100); session.commit()
+
+    inv = session.query(Inventory).filter_by(id=inv_id).one()
+    assert inv.consumed_pct_override is None  # no write
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["skipped"] == 1
+
+
+def test_handle_nohave_deactivates_and_advances(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_nohave, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession, Inventory
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    monkeypatch.setattr("src.backend.handle_inventory_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row_before = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    inv_id = row_before.item_queue[0]
+
+    handle_nohave(session, "abc", message_id=100); session.commit()
+
+    inv = session.query(Inventory).filter_by(id=inv_id).one()
+    assert inv.is_active_window is False
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["removed"] == 1
+
+
+def test_handle_done_ends_walk_with_summary(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_done, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_done(session, "abc", message_id=100); session.commit()
+
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert any("Walk complete" in t for t in edits)
