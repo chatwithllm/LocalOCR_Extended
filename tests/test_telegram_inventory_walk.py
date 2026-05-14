@@ -347,3 +347,48 @@ def test_mark_no_longer_have_deactivates(session):
 def test_mark_no_longer_have_vanished_inventory_returns_none(session):
     from src.backend.handle_inventory_walk import mark_no_longer_have
     assert mark_no_longer_have(session, 99999, user_id=None) is None
+
+
+def test_add_empty_to_shopping_list_inserts_item(session):
+    from src.backend.handle_inventory_walk import add_empty_to_shopping_list
+    from src.backend.initialize_database_schema import (
+        Product, Inventory, ShoppingListItem,
+    )
+    p = Product(name="Olive oil", category="pantry")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=0, manual_low=True)
+    session.add(inv); session.commit()
+
+    item = add_empty_to_shopping_list(session, inv.id)
+    session.commit()
+
+    assert item is not None
+    fetched = session.query(ShoppingListItem).filter_by(product_id=p.id).all()
+    assert len(fetched) == 1
+    assert fetched[0].name == "Olive oil"
+    assert fetched[0].category == "pantry"
+    assert fetched[0].source == "telegram_walk"
+    assert fetched[0].status == "open"
+    assert fetched[0].shopping_session_id is not None
+
+
+def test_add_empty_to_shopping_list_dedups_existing_open_item(session):
+    """Second call for the same inventory must not create a duplicate row."""
+    from src.backend.handle_inventory_walk import add_empty_to_shopping_list
+    from src.backend.initialize_database_schema import (
+        Product, Inventory, ShoppingListItem,
+    )
+    p = Product(name="Olive oil", category="pantry")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=0, manual_low=True)
+    session.add(inv); session.commit()
+
+    first = add_empty_to_shopping_list(session, inv.id); session.commit()
+    second = add_empty_to_shopping_list(session, inv.id); session.commit()
+
+    assert first is not None and second is not None
+    assert first.id == second.id, "dedup should return the same row"
+    items = session.query(ShoppingListItem).filter_by(
+        product_id=p.id, status="open",
+    ).all()
+    assert len(items) == 1

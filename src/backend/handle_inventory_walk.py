@@ -191,3 +191,57 @@ def mark_no_longer_have(session, inventory_id: int, user_id: int | None):
         user_id=user_id,
     ))
     return inv
+
+
+def add_empty_to_shopping_list(session, inventory_id: int):
+    """Insert the product backing this inventory row into the active shopping session.
+
+    Reuses manage_shopping_list._ensure_current_session. De-duplicates: if an
+    OPEN ShoppingListItem already exists for this product in the active
+    shopping session, returns it without inserting again.
+
+    Called from the Telegram polling worker, which runs outside any Flask
+    request context. _ensure_current_session touches `flask.g`, so we push a
+    throwaway app context when none is active.
+    """
+    import flask
+    from src.backend.initialize_database_schema import (
+        Inventory, ShoppingListItem,
+    )
+    from src.backend.manage_shopping_list import _ensure_current_session
+
+    inv = session.query(Inventory).filter_by(id=inventory_id).one_or_none()
+    if inv is None or inv.product is None:
+        return None
+
+    if flask.has_app_context():
+        shop_session = _ensure_current_session(session)
+    else:
+        _ctx_app = flask.Flask("telegram_walk_ctx")
+        with _ctx_app.app_context():
+            shop_session = _ensure_current_session(session)
+
+    existing = (
+        session.query(ShoppingListItem)
+        .filter_by(
+            shopping_session_id=shop_session.id,
+            product_id=inv.product_id,
+            status="open",
+        )
+        .one_or_none()
+    )
+    if existing is not None:
+        return existing
+
+    item = ShoppingListItem(
+        shopping_session_id=shop_session.id,
+        product_id=inv.product_id,
+        name=inv.product.name,
+        category=inv.product.category,
+        quantity=1,
+        source="telegram_walk",
+        status="open",
+    )
+    session.add(item)
+    session.flush()
+    return item
