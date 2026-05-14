@@ -104,3 +104,80 @@ def test_module_re_exports_env_helpers():
     assert callable(m._bool_env)
     assert callable(m._csv_env)
     assert callable(m._int_env)
+
+
+def test_get_or_create_session_creates_row(session):
+    from src.backend.handle_shopping_walk import get_or_create_session
+    row = get_or_create_session(session, "abc")
+    assert row.chat_id == "abc"
+    assert row.status == "active"
+    assert row.category_queue == []
+    assert row.cursor == 0
+
+
+def test_get_or_create_session_returns_existing(session):
+    from src.backend.handle_shopping_walk import get_or_create_session
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    session.add(TelegramShoppingSession(
+        chat_id="abc", status="active", current_category="pantry", cursor=2,
+    ))
+    session.commit()
+    row = get_or_create_session(session, "abc")
+    assert row.current_category == "pantry"
+    assert row.cursor == 2
+
+
+def test_reset_for_start_over_preserves_nudge_prefs(session):
+    from src.backend.handle_shopping_walk import reset_for_start_over
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    nudge_until = datetime.utcnow() + timedelta(days=7)
+    row = TelegramShoppingSession(
+        chat_id="abc",
+        status="done",
+        category_queue=["pantry", "fridge"],
+        current_category="pantry",
+        item_queue=[{"product_id": 1}],
+        cursor=1,
+        pending_prompt="item",
+        pending_action="add_detailed",
+        last_item_id=5,
+        pending_name="Bay leaves",
+        pending_qty=2.0,
+        stats={"added": 3},
+        nudge_muted_until=nudge_until,
+    )
+    session.add(row); session.commit()
+    reset_for_start_over(row)
+    session.commit()
+    assert row.status == "active"
+    assert row.category_queue == []
+    assert row.current_category is None
+    assert row.item_queue == []
+    assert row.cursor == 0
+    assert row.pending_prompt == "category"
+    assert row.pending_action is None
+    assert row.last_item_id is None
+    assert row.pending_name is None
+    assert row.pending_qty is None
+    assert row.stats == {}
+    assert row.nudge_muted_until == nudge_until  # preserved
+
+
+def test_abandon_if_idle_marks_status(session):
+    from src.backend.handle_shopping_walk import abandon_if_idle
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    row = TelegramShoppingSession(chat_id="abc", status="active")
+    session.add(row); session.commit()
+    row.last_action_at = datetime.utcnow() - timedelta(minutes=45)
+    session.commit()
+    assert abandon_if_idle(row) is True
+    assert row.status == "abandoned"
+
+
+def test_abandon_if_idle_leaves_fresh_session_alone(session):
+    from src.backend.handle_shopping_walk import abandon_if_idle
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    row = TelegramShoppingSession(chat_id="abc", status="active")
+    session.add(row); session.commit()
+    assert abandon_if_idle(row) is False
+    assert row.status == "active"
