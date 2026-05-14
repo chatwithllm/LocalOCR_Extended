@@ -645,3 +645,130 @@ def consume_typed_qty(session, chat_id: str, text: str,
         return
     row.pending_action = "custom_add" if row.pending_prompt == "custom_qty" else "add_detailed"
     handle_qty(session, chat_id, qty_arg=str(qty), message_id=message_id)
+
+
+def _resolve_store_slug(session, slug: str) -> str | None:
+    """Map slug back to a Store.name. Returns None if no match."""
+    from src.backend.initialize_database_schema import Store
+    rows = session.query(Store.name).all()
+    for (name,) in rows:
+        if _slug_store(name) == slug:
+            return name
+    return None
+
+
+def handle_store(session, chat_id: str, store_arg: str,
+                 message_id: int | None) -> None:
+    """User picked store (slug, 'skip', or 'other')."""
+    row = get_or_create_session(session, chat_id)
+    is_custom = (row.pending_prompt == "custom_store" or
+                 (row.pending_action or "").startswith("custom_add"))
+
+    if store_arg == "other":
+        text = "Type the store name:"
+        kb = {"inline_keyboard": [[{"text": "← Back", "callback_data": "shop:back"}]]}
+        row.pending_action = "custom_add_store_typed" if is_custom else "add_detailed_store_typed"
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+        return
+
+    store_name = None if store_arg == "skip" else _resolve_store_slug(session, store_arg)
+    qty = row.pending_qty or 1.0
+
+    if is_custom:
+        name = row.pending_name or "Item"
+        insert_custom_item(
+            session,
+            name=name,
+            category=row.current_category,
+            quantity=qty,
+            preferred_store=store_name,
+        )
+        stats = dict(row.stats or {})
+        stats["custom_added"] = stats.get("custom_added", 0) + 1
+        row.stats = stats
+        row.pending_name = None
+        row.pending_qty = None
+        row.pending_action = None
+        next_cat = row.category_queue[0] if row.category_queue else None
+        text, kb = render_category_end(
+            category=row.current_category or "other",
+            next_category=next_cat,
+            stats=row.stats or {},
+        )
+        row.pending_prompt = "category_end"
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+        return
+
+    if row.cursor >= len(row.item_queue):
+        return
+    item = row.item_queue[row.cursor]
+    insert_recommendation(
+        session,
+        product_id=item.get("product_id"),
+        name=item.get("name", "Item"),
+        category=item.get("category"),
+        quantity=qty,
+        preferred_store=store_name,
+    )
+    stats = dict(row.stats or {})
+    stats["added"] = stats.get("added", 0) + 1
+    row.stats = stats
+    row.pending_qty = None
+    row.pending_action = None
+    _advance_or_end_category(session, row, message_id)
+
+
+def consume_typed_store(session, chat_id: str, text: str,
+                        message_id: int | None) -> None:
+    """Webhook calls this when row.pending_action is *_store_typed and user sent text."""
+    row = get_or_create_session(session, chat_id)
+    store_name = (text or "").strip()
+    if not store_name:
+        send_telegram_message(chat_id, "Store name can't be empty. Try again:")
+        return
+
+    qty = row.pending_qty or 1.0
+    is_custom = (row.pending_prompt == "custom_store" or
+                 (row.pending_action or "").startswith("custom_add"))
+
+    if is_custom:
+        insert_custom_item(
+            session,
+            name=row.pending_name or "Item",
+            category=row.current_category,
+            quantity=qty,
+            preferred_store=store_name,
+        )
+        stats = dict(row.stats or {})
+        stats["custom_added"] = stats.get("custom_added", 0) + 1
+        row.stats = stats
+        row.pending_name = None
+        row.pending_qty = None
+        row.pending_action = None
+        next_cat = row.category_queue[0] if row.category_queue else None
+        text_out, kb = render_category_end(
+            category=row.current_category or "other",
+            next_category=next_cat,
+            stats=row.stats or {},
+        )
+        row.pending_prompt = "category_end"
+        _edit_telegram_message(chat_id, message_id, text_out, reply_markup=kb)
+        return
+
+    if row.cursor >= len(row.item_queue):
+        return
+    item = row.item_queue[row.cursor]
+    insert_recommendation(
+        session,
+        product_id=item.get("product_id"),
+        name=item.get("name", "Item"),
+        category=item.get("category"),
+        quantity=qty,
+        preferred_store=store_name,
+    )
+    stats = dict(row.stats or {})
+    stats["added"] = stats.get("added", 0) + 1
+    row.stats = stats
+    row.pending_qty = None
+    row.pending_action = None
+    _advance_or_end_category(session, row, message_id)
