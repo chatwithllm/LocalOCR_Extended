@@ -165,6 +165,39 @@ def test_categories_with_stale_counts_ignores_inactive_rows(session):
     assert categories_with_stale_counts(session) == []
 
 
+def test_categories_with_stale_counts_normalizes_null_and_case(session):
+    """NULL category and mixed-case duplicates both map to a single bucket."""
+    from datetime import timedelta
+    from src.backend.handle_inventory_walk import (
+        categories_with_stale_counts, stale_items_in_category,
+    )
+    from src.backend.initialize_database_schema import Product, Inventory, utcnow
+
+    # Three stale rows: NULL category, literal "other", literal "Other".
+    # All three should collapse into one bucket keyed as "other".
+    for name, category in [("A", None), ("B", "other"), ("C", "Other")]:
+        p = Product(name=name, category=category)
+        session.add(p); session.flush()
+        inv = Inventory(product_id=p.id, quantity=1.0, is_active_window=True)
+        inv.last_updated = utcnow() - timedelta(days=30)
+        session.add(inv)
+    session.commit()
+
+    counts = categories_with_stale_counts(session)
+    assert counts == [("other", 3)]
+    # And stale_items_in_category finds all three via the same normalized key.
+    items = stale_items_in_category(session, "other", page=1)
+    assert len(items) == 3
+
+
+def test_stale_items_in_category_empty_inputs(session):
+    """category=None or unknown category returns empty list cleanly (no crash)."""
+    from src.backend.handle_inventory_walk import stale_items_in_category
+    assert stale_items_in_category(session, None) == []
+    assert stale_items_in_category(session, "") == []
+    assert stale_items_in_category(session, "nonexistent") == []
+
+
 def test_stale_items_in_category_returns_ordered_page(session):
     from src.backend.handle_inventory_walk import stale_items_in_category
     _seed_inventory(session, days_old_pairs=[

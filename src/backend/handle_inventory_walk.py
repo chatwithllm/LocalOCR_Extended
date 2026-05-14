@@ -9,6 +9,8 @@ import os
 from datetime import datetime, timedelta
 from typing import Any
 
+from sqlalchemy import func
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,33 +51,38 @@ def is_walk_enabled(chat_id: str) -> bool:
     return True
 
 
-from sqlalchemy import func
-
-
 def _stale_cutoff() -> datetime:
     return datetime.utcnow() - timedelta(days=INVENTORY_STALE_DAYS)
 
 
 def categories_with_stale_counts(session) -> list[tuple[str, int]]:
-    """Return [(category, n_stale_items), ...] sorted by count desc."""
+    """Return [(category, n_stale_items), ...] sorted by count desc.
+
+    Category is normalized: NULL and missing values map to "other", and
+    matching is case-insensitive. Returned category strings are lowercased.
+    """
     from src.backend.initialize_database_schema import Inventory, Product
 
     cutoff = _stale_cutoff()
+    norm = func.lower(func.coalesce(Product.category, "other"))
     rows = (
-        session.query(Product.category, func.count(Inventory.id))
+        session.query(norm.label("category"), func.count(Inventory.id))
         .join(Inventory, Inventory.product_id == Product.id)
         .filter(Inventory.is_active_window.is_(True))
         .filter(Inventory.last_updated < cutoff)
-        .group_by(Product.category)
+        .group_by(norm)
         .order_by(func.count(Inventory.id).desc())
         .all()
     )
-    return [(cat or "other", n) for cat, n in rows]
+    return [(cat, n) for cat, n in rows]
 
 
 def stale_items_in_category(session, category: str, page: int = 1):
     """Return Inventory rows for one page (oldest-first) in the given category."""
     from src.backend.initialize_database_schema import Inventory, Product
+
+    if not category:
+        return []
 
     cutoff = _stale_cutoff()
     offset = (page - 1) * PAGE_SIZE
