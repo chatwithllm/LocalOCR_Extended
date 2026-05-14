@@ -116,3 +116,63 @@ def test_bool_env_handles_truthy_strings(monkeypatch):
     assert m._bool_env("FOO") is False
     monkeypatch.delenv("FOO", raising=False)
     assert m._bool_env("FOO", default=True) is True
+
+
+def _seed_inventory(session, *, days_old_pairs):
+    """days_old_pairs: list[(product_name, category, days_old)].
+
+    Creates a Product + Inventory row per tuple, with `last_updated`
+    set to `now - days_old` days. Marks all rows is_active_window=True.
+    """
+    from src.backend.initialize_database_schema import Product, Inventory, utcnow
+    from datetime import timedelta
+    for name, category, days in days_old_pairs:
+        p = Product(name=name, category=category)
+        session.add(p)
+        session.flush()
+        inv = Inventory(
+            product_id=p.id,
+            quantity=1.0,
+            location="Pantry",
+            is_active_window=True,
+        )
+        inv.last_updated = utcnow() - timedelta(days=days)
+        session.add(inv)
+    session.commit()
+
+
+def test_categories_with_stale_counts_filters_threshold(session):
+    from src.backend.handle_inventory_walk import categories_with_stale_counts
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil",   "pantry", 20),  # stale
+        ("Black pepper","pantry", 30),  # stale
+        ("Milk",        "fridge", 15),  # stale
+        ("Fresh bread", "pantry",  2),  # NOT stale (under 14-day threshold)
+    ])
+    counts = categories_with_stale_counts(session)
+    assert counts == [("pantry", 2), ("fridge", 1)]
+
+
+def test_categories_with_stale_counts_ignores_inactive_rows(session):
+    from datetime import timedelta
+    from src.backend.handle_inventory_walk import categories_with_stale_counts
+    from src.backend.initialize_database_schema import Product, Inventory, utcnow
+    p = Product(name="Ghost", category="pantry")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=0, is_active_window=False)
+    inv.last_updated = utcnow() - timedelta(days=99)
+    session.add(inv); session.commit()
+    assert categories_with_stale_counts(session) == []
+
+
+def test_stale_items_in_category_returns_ordered_page(session):
+    from src.backend.handle_inventory_walk import stale_items_in_category
+    _seed_inventory(session, days_old_pairs=[
+        (f"Item {i}", "pantry", 14 + i) for i in range(12)
+    ])
+    page1 = stale_items_in_category(session, "pantry", page=1)
+    page2 = stale_items_in_category(session, "pantry", page=2)
+    assert len(page1) == 10
+    assert len(page2) == 2
+    # oldest first — Item 11 has the most days_old (14 + 11 = 25 days)
+    assert page1[0].product.name == "Item 11"

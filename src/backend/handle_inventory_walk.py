@@ -47,3 +47,46 @@ def is_walk_enabled(chat_id: str) -> bool:
     if PILOT_CHATS and chat_id not in PILOT_CHATS:
         return False
     return True
+
+
+from sqlalchemy import func
+
+
+def _stale_cutoff() -> datetime:
+    return datetime.utcnow() - timedelta(days=INVENTORY_STALE_DAYS)
+
+
+def categories_with_stale_counts(session) -> list[tuple[str, int]]:
+    """Return [(category, n_stale_items), ...] sorted by count desc."""
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    cutoff = _stale_cutoff()
+    rows = (
+        session.query(Product.category, func.count(Inventory.id))
+        .join(Inventory, Inventory.product_id == Product.id)
+        .filter(Inventory.is_active_window.is_(True))
+        .filter(Inventory.last_updated < cutoff)
+        .group_by(Product.category)
+        .order_by(func.count(Inventory.id).desc())
+        .all()
+    )
+    return [(cat or "other", n) for cat, n in rows]
+
+
+def stale_items_in_category(session, category: str, page: int = 1):
+    """Return Inventory rows for one page (oldest-first) in the given category."""
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    cutoff = _stale_cutoff()
+    offset = (page - 1) * PAGE_SIZE
+    return (
+        session.query(Inventory)
+        .join(Product, Product.id == Inventory.product_id)
+        .filter(Inventory.is_active_window.is_(True))
+        .filter(Inventory.last_updated < cutoff)
+        .filter(func.lower(func.coalesce(Product.category, "other")) == category.lower())
+        .order_by(Inventory.last_updated.asc())
+        .offset(offset)
+        .limit(PAGE_SIZE)
+        .all()
+    )
