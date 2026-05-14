@@ -67,3 +67,52 @@ def test_telegram_inventory_session_defaults(session):
     assert fetched.stats == {}
     assert fetched.nudge_muted_until is None
     assert fetched.last_nudge_sent_at is None
+
+
+def test_constants_have_safe_defaults(monkeypatch):
+    monkeypatch.delenv("INVENTORY_STALE_DAYS", raising=False)
+    monkeypatch.delenv("TELEGRAM_INVENTORY_WALK_ENABLED", raising=False)
+    monkeypatch.delenv("TELEGRAM_INVENTORY_WALK_PILOT_CHATS", raising=False)
+    monkeypatch.delenv("INVENTORY_WALK_PAGE_SIZE", raising=False)
+    monkeypatch.delenv("INVENTORY_WALK_IDLE_TIMEOUT_MIN", raising=False)
+    import importlib
+    import src.backend.handle_inventory_walk as m
+    importlib.reload(m)
+    assert m.INVENTORY_STALE_DAYS == 14
+    assert m.PAGE_SIZE == 10
+    assert m.IDLE_TIMEOUT_MIN == 30
+    assert m.WALK_ENABLED is False
+    assert m.PILOT_CHATS == set()
+
+
+def test_is_walk_enabled_respects_flags(monkeypatch):
+    import importlib
+    import src.backend.handle_inventory_walk as m
+
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_ENABLED", "1")
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_PILOT_CHATS", "")
+    importlib.reload(m)
+    assert m.is_walk_enabled("999") is True
+
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_PILOT_CHATS", "111,222")
+    importlib.reload(m)
+    assert m.is_walk_enabled("111") is True
+    assert m.is_walk_enabled("999") is False
+
+    monkeypatch.setenv("TELEGRAM_INVENTORY_WALK_ENABLED", "0")
+    importlib.reload(m)
+    assert m.is_walk_enabled("111") is False
+
+
+def test_bool_env_handles_truthy_strings(monkeypatch):
+    """Sanity check the env parsing helper."""
+    import importlib
+    import src.backend.handle_inventory_walk as m
+    importlib.reload(m)
+    assert m._bool_env.__call__ if False else True  # ensure attr exists
+    monkeypatch.setenv("FOO", "true")
+    assert m._bool_env("FOO") is True
+    monkeypatch.setenv("FOO", "0")
+    assert m._bool_env("FOO") is False
+    monkeypatch.delenv("FOO", raising=False)
+    assert m._bool_env("FOO", default=True) is True
