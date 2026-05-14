@@ -239,5 +239,6 @@ def test_reason_label_for_each_kind():
     from src.backend.handle_shopping_walk import _reason_label
     assert "Low stock" in _reason_label({"reason": "low_stock", "current_quantity": 1.0, "threshold": 5.0})
     assert "Low stock" in _reason_label({"reason": "manual_low"})
-    assert "Seasonal" in _reason_label({"reason": "seasonal_purchase"})
-    assert "Price" in _reason_label({"reason": "price_deal", "regular_price": 8.99, "deal_price": 6.49})
+    assert "Seasonal" in _reason_label({"reason": "seasonal"})
+    assert "Price" in _reason_label({"reason": "deal", "avg_price": 8.99, "current_price": 6.49})
+    assert "Suggested" in _reason_label({"reason": "unknown_kind"})

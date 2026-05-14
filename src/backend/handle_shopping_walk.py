@@ -109,20 +109,15 @@ def _reason_label(rec: dict) -> str:
         if qty is not None and thr is not None:
             return f"Low stock · {qty:g} left (threshold {thr:g})"
         return "Low stock"
-    if kind == "seasonal_purchase" or kind == "seasonal":
+    if kind == "seasonal":
         return "Seasonal pick"
-    if kind == "price_deal":
-        reg = rec.get("regular_price")
-        deal = rec.get("deal_price")
-        if reg and deal:
-            return f"Price drop · was ${reg:.2f} now ${deal:.2f}"
+    if kind == "deal":
+        avg = rec.get("avg_price")
+        cur = rec.get("current_price")
+        if avg is not None and cur is not None:
+            return f"Price drop · was ${avg:.2f} now ${cur:.2f}"
         return "Price drop"
-    if kind == "regular_use":
-        days = rec.get("days_since_last_buy")
-        if days is not None:
-            return f"Regular item · {days} days since last buy"
-        return "Regular item"
-    return kind or "Suggested"
+    return "Suggested"
 
 
 def _to_item_dict(rec: dict) -> dict:
