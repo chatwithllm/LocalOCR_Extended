@@ -444,3 +444,55 @@ def render_custom_qty_prompt(product_name: str) -> tuple[str, dict]:
         {"text": "← Back",       "callback_data": "shop:back"},
     ]
     return text, {"inline_keyboard": [row1, row2]}
+
+
+def send_telegram_message(chat_id: str, text: str, reply_markup: dict | None = None):
+    """Thin wrapper so tests can monkeypatch this symbol in this module."""
+    from src.backend.handle_telegram_messages import (
+        send_telegram_message as _send,
+    )
+    return _send(chat_id, text, reply_markup=reply_markup)
+
+
+def _edit_telegram_message(chat_id: str, message_id: int | None, text: str,
+                           reply_markup: dict | None = None):
+    """Thin wrapper for editMessageText so tests can monkeypatch."""
+    from src.backend.handle_telegram_messages import (
+        _edit_telegram_message as _edit,
+    )
+    return _edit(chat_id, message_id, text, reply_markup=reply_markup)
+
+
+def start_walk(session, chat_id: str) -> None:
+    """Entry point for /shopping. Sends category screen, resume offer, or 'nothing to suggest'."""
+    row = get_or_create_session(session, chat_id)
+    if abandon_if_idle(row):
+        reset_for_start_over(row)
+
+    # Resume offer if active mid-walk.
+    if (row.status == "active"
+            and row.current_category
+            and row.item_queue
+            and row.cursor < len(row.item_queue)):
+        total = len(row.item_queue)
+        text, kb = render_resume(row.current_category, row.cursor, total)
+        row.pending_prompt = "resume"
+        send_telegram_message(chat_id, text, reply_markup=kb)
+        return
+
+    recs = fetch_recommendations(session)
+    if not recs:
+        row.status = "done"
+        row.pending_prompt = None
+        send_telegram_message(
+            chat_id,
+            "🎉 Nothing to suggest right now — shopping list looks good.",
+        )
+        return
+
+    cat_queue, items_by = bucketize_by_category(recs)
+    reset_for_start_over(row)
+    row.category_queue = cat_queue
+    counts = [(c, len(items_by[c])) for c in cat_queue]
+    text, kb = render_category_screen(counts)
+    send_telegram_message(chat_id, text, reply_markup=kb)

@@ -441,3 +441,66 @@ def test_render_category_end_last_category_says_finish():
                                        "already_have": 0, "custom_added": 0})
     labels = [b["text"] for row in kb["inline_keyboard"] for b in row]
     assert any("Finish" in lbl for lbl in labels)
+
+
+def test_start_walk_with_no_recommendations(session, monkeypatch):
+    from src.backend.handle_shopping_walk import start_walk
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [],
+    )
+    start_walk(session, "abc"); session.commit()
+    assert sent and "Nothing to suggest" in sent[0]
+
+
+def test_start_walk_with_recommendations_renders_category_screen(session, monkeypatch):
+    from src.backend.handle_shopping_walk import start_walk
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append((c, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": 1, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+            {"product_id": 2, "product_name": "Milk", "category": "fridge",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    assert sent and "Plan shopping" in sent[0][1]
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "category"
+    assert row.status == "active"
+    # Tie on count (1 each) → alpha tie-break locks order to ["fridge", "pantry"].
+    assert sorted(row.category_queue) == ["fridge", "pantry"]
+
+
+def test_start_walk_offers_resume_when_active_mid_walk(session, monkeypatch):
+    from src.backend.handle_shopping_walk import start_walk
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    row = TelegramShoppingSession(
+        chat_id="abc", status="active",
+        category_queue=["pantry"], current_category="pantry",
+        item_queue=[{"product_id": 1, "name": "A", "category": "pantry",
+                     "reason_label": "Low stock"}],
+        cursor=0, pending_prompt="item",
+    )
+    session.add(row); session.commit()
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append((c, t, reply_markup)),
+    )
+    start_walk(session, "abc"); session.commit()
+    assert sent and "progress" in sent[0][1].lower()
+    callbacks = [b["callback_data"] for r in sent[0][2]["inline_keyboard"] for b in r]
+    assert "shop:resume" in callbacks
