@@ -242,3 +242,71 @@ def test_reason_label_for_each_kind():
     assert "Seasonal" in _reason_label({"reason": "seasonal"})
     assert "Price" in _reason_label({"reason": "deal", "avg_price": 8.99, "current_price": 6.49})
     assert "Suggested" in _reason_label({"reason": "unknown_kind"})
+
+
+def test_insert_recommendation_inserts_with_qty_and_store(session):
+    from src.backend.handle_shopping_walk import insert_recommendation
+    from src.backend.initialize_database_schema import Product, ShoppingListItem
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    item = insert_recommendation(session, product_id=p.id, name="Olive oil",
+                                 category="pantry", quantity=3.0,
+                                 preferred_store="Costco")
+    session.commit()
+    assert item is not None
+    fetched = session.query(ShoppingListItem).filter_by(product_id=p.id).all()
+    assert len(fetched) == 1
+    assert fetched[0].quantity == 3.0
+    assert fetched[0].preferred_store == "Costco"
+    assert fetched[0].source == "telegram_shopping"
+    assert fetched[0].status == "open"
+
+
+def test_insert_recommendation_dedups_open_item(session):
+    from src.backend.handle_shopping_walk import insert_recommendation
+    from src.backend.initialize_database_schema import Product, ShoppingListItem
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    first = insert_recommendation(session, product_id=p.id, name="Olive oil",
+                                  category="pantry", quantity=1.0,
+                                  preferred_store=None)
+    session.commit()
+    second = insert_recommendation(session, product_id=p.id, name="Olive oil",
+                                   category="pantry", quantity=2.0,
+                                   preferred_store="Sprouts")
+    session.commit()
+    assert first.id == second.id, "dedup must return existing OPEN row"
+    items = session.query(ShoppingListItem).filter_by(
+        product_id=p.id, status="open",
+    ).all()
+    assert len(items) == 1
+
+
+def test_insert_custom_item_uses_null_product_id(session):
+    from src.backend.handle_shopping_walk import insert_custom_item
+    from src.backend.initialize_database_schema import ShoppingListItem
+    item = insert_custom_item(session, name="Bay leaves", category="pantry",
+                              quantity=1.0, preferred_store="Sprouts")
+    session.commit()
+    assert item is not None
+    fetched = session.query(ShoppingListItem).filter_by(name="Bay leaves").one()
+    assert fetched.product_id is None
+    assert fetched.category == "pantry"
+    assert fetched.quantity == 1.0
+    assert fetched.preferred_store == "Sprouts"
+    assert fetched.source == "telegram_shopping"
+    assert fetched.status == "open"
+
+
+def test_top_stores_returns_up_to_3_by_purchase_count(session):
+    from src.backend.handle_shopping_walk import top_stores
+    from src.backend.initialize_database_schema import Store, Purchase
+    from datetime import datetime
+    for nm, n in [("Costco", 5), ("Sprouts", 3), ("Trader Joe's", 4), ("Walgreens", 1)]:
+        s = Store(name=nm); session.add(s); session.flush()
+        for _ in range(n):
+            session.add(Purchase(
+                store_id=s.id, total_amount=1.0,
+                date=datetime.utcnow(), transaction_type="purchase",
+            ))
+    session.commit()
+    stores = top_stores(session)
+    assert stores[:3] == ["Costco", "Trader Joe's", "Sprouts"]

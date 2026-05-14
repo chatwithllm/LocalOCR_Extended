@@ -163,3 +163,88 @@ def bucketize_by_category(recs: list[dict]) -> tuple[list[str], dict[str, list[d
         items_by.setdefault(item["category"], []).append(item)
     cat_queue = sorted(items_by.keys(), key=lambda c: (-len(items_by[c]), c))
     return cat_queue, items_by
+
+
+def _active_shopping_session(session):
+    """Get or create the active shopping session, handling Flask context.
+
+    Production path is inside a Flask request context. Tests call this
+    helper without one, so we push a throwaway app context just like
+    fetch_recommendations does.
+    """
+    import flask
+    from src.backend.manage_shopping_list import _ensure_current_session
+    if flask.has_app_context():
+        return _ensure_current_session(session)
+    _ctx_app = flask.Flask("shopping_walk_ctx")
+    with _ctx_app.app_context():
+        return _ensure_current_session(session)
+
+
+def insert_recommendation(session, *, product_id: int, name: str,
+                          category: str | None, quantity: float = 1.0,
+                          preferred_store: str | None = None):
+    """Insert a ShoppingListItem for an existing Product. Dedups against
+    existing OPEN item in the same shopping session for this product_id.
+    """
+    from src.backend.initialize_database_schema import ShoppingListItem
+    shop_session = _active_shopping_session(session)
+    existing = (
+        session.query(ShoppingListItem)
+        .filter_by(
+            shopping_session_id=shop_session.id,
+            product_id=product_id,
+            status="open",
+        )
+        .one_or_none()
+    )
+    if existing is not None:
+        return existing
+    item = ShoppingListItem(
+        shopping_session_id=shop_session.id,
+        product_id=product_id,
+        name=name,
+        category=category,
+        quantity=quantity,
+        preferred_store=preferred_store,
+        source="telegram_shopping",
+        status="open",
+    )
+    session.add(item)
+    session.flush()
+    return item
+
+
+def insert_custom_item(session, *, name: str, category: str | None,
+                       quantity: float = 1.0, preferred_store: str | None = None):
+    """Insert a free-text ShoppingListItem (product_id=NULL)."""
+    from src.backend.initialize_database_schema import ShoppingListItem
+    shop_session = _active_shopping_session(session)
+    item = ShoppingListItem(
+        shopping_session_id=shop_session.id,
+        product_id=None,
+        name=name,
+        category=category,
+        quantity=quantity,
+        preferred_store=preferred_store,
+        source="telegram_shopping",
+        status="open",
+    )
+    session.add(item)
+    session.flush()
+    return item
+
+
+def top_stores(session, limit: int = 3) -> list[str]:
+    """Return up to `limit` most-frequent store names from purchases."""
+    from src.backend.initialize_database_schema import Store, Purchase
+    rows = (
+        session.query(Store.name, func.count(Purchase.id))
+        .join(Purchase, Purchase.store_id == Store.id)
+        .filter(func.coalesce(Store.is_payment_artifact, 0) == 0)
+        .group_by(Store.id, Store.name)
+        .order_by(func.count(Purchase.id).desc(), Store.name.asc())
+        .limit(limit)
+        .all()
+    )
+    return [name for name, _cnt in rows]
