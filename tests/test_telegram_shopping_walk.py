@@ -1315,3 +1315,81 @@ def test_consume_typed_text_returns_false_when_not_in_typed_state(session, monke
     session.add(row); session.commit()
     handled = consume_typed_text(session, "abc", "anything", message_id=100)
     assert handled is False
+
+
+def test_webhook_shopping_command_starts_walk(session, monkeypatch):
+    import flask
+    from src.backend.handle_telegram_messages import _handle_command
+    called = []
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "1")
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    importlib.reload(m)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.start_walk",
+        lambda s, chat_id: called.append(chat_id),
+    )
+    app = flask.Flask("test")
+    with app.app_context():
+        flask.g.db_session = session
+        out = _handle_command("/shopping", chat_id="abc")
+    assert called == ["abc"]
+    assert out == "" or "abc" in (out or "")
+
+
+def test_webhook_routes_shop_callback(session, monkeypatch):
+    import flask
+    from src.backend.handle_telegram_messages import _handle_callback_query
+    called = []
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "1")
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    importlib.reload(m)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.dispatch_shop_callback",
+        lambda s, c, d, mid: called.append((c, d, mid)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_telegram_messages._answer_callback_query",
+        lambda _: None,
+    )
+    cb = {
+        "id": "cb1",
+        "data": "shop:cat:pantry",
+        "from": {"id": 42},
+        "message": {"chat": {"id": "abc"}, "message_id": 100},
+    }
+    app = flask.Flask("test")
+    with app.app_context():
+        flask.g.db_session = session
+        _handle_callback_query(cb)
+    assert called == [("abc", "shop:cat:pantry", 100)]
+
+
+def test_webhook_routes_nudge_shop_callback(session, monkeypatch):
+    import flask
+    from src.backend.handle_telegram_messages import _handle_callback_query
+    called = []
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "1")
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    importlib.reload(m)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.dispatch_nudge_callback",
+        lambda s, c, d, mid: called.append((c, d, mid)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_telegram_messages._answer_callback_query",
+        lambda _: None,
+    )
+    cb = {
+        "id": "cb2",
+        "data": "nudge:shop:mute",
+        "from": {"id": 42},
+        "message": {"chat": {"id": "abc"}, "message_id": 100},
+    }
+    app = flask.Flask("test")
+    with app.app_context():
+        flask.g.db_session = session
+        _handle_callback_query(cb)
+    assert called == [("abc", "nudge:shop:mute", 100)]
