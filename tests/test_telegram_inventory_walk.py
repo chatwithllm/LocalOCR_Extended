@@ -860,3 +860,102 @@ def test_handle_done_ends_walk_with_summary(session, monkeypatch):
     row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
     assert row.status == "done"
     assert any("Walk complete" in t for t in edits)
+
+
+def test_handle_continue_loads_next_page(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_continue, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[
+        (f"Item {i}", "pantry", 14 + i) for i in range(12)
+    ])
+    monkeypatch.setattr("src.backend.handle_inventory_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    # simulate finishing page 1
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    row.cursor = 10
+    row.pending_prompt = "continue"
+    session.commit()
+
+    handle_continue(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.page == 2
+    assert row.cursor == 0
+    assert len(row.item_queue) == 2
+    assert row.pending_prompt == "level"
+
+
+def test_handle_cancel_marks_abandoned(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_cancel, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+
+    handle_cancel(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "abandoned"
+    assert any("ancel" in t for t in edits)
+
+
+def test_handle_resume_re_renders_current_prompt(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_resume
+    from src.backend.initialize_database_schema import (
+        TelegramInventorySession, Product, Inventory,
+    )
+    from src.backend.initialize_database_schema import utcnow as schema_utcnow
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=1.0, is_active_window=True)
+    inv.last_updated = schema_utcnow() - timedelta(days=30)
+    session.add(inv); session.commit()
+
+    row = TelegramInventorySession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[inv.id], cursor=0, pending_prompt="resume",
+    )
+    session.add(row); session.commit()
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+
+    handle_resume(session, "abc", message_id=100); session.commit()
+    assert any("Olive oil" in t for t in edits)
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "level"
+
+
+def test_handle_restart_resets_and_shows_categories(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_restart
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[("Olive oil", "pantry", 30)])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    row = TelegramInventorySession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[1, 2], cursor=1, pending_prompt="level",
+    )
+    session.add(row); session.commit()
+
+    handle_restart(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.cursor == 0
+    assert row.current_category is None
+    assert row.pending_prompt == "category"
+    assert any("Update inventory" in t for t in edits)

@@ -602,3 +602,46 @@ def handle_done(session, chat_id: str, message_id: int | None) -> None:
     """User tapped Done for now. End the walk and render summary."""
     row = get_or_create_session(session, chat_id)
     _end_walk(session, row, message_id)
+
+
+def handle_continue(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped Continue at end of page. Load next page."""
+    row = get_or_create_session(session, chat_id)
+    row.page += 1
+    row.cursor = 0
+    items = stale_items_in_category(session, row.current_category or "", page=row.page)
+    row.item_queue = [i.id for i in items]
+    if not row.item_queue:
+        _end_walk(session, row, message_id)
+        return
+    _render_current_item(session, row, message_id)
+
+
+def handle_cancel(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped Cancel on category screen. Mark abandoned, edit message."""
+    row = get_or_create_session(session, chat_id)
+    row.status = "abandoned"
+    row.pending_prompt = None
+    _edit_telegram_message(chat_id, message_id, "Cancelled.")
+
+
+def handle_resume(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped Resume on the resume-offer screen. Re-render current item."""
+    row = get_or_create_session(session, chat_id)
+    if not row.item_queue or row.cursor >= len(row.item_queue):
+        # Nothing to resume; fall back to fresh start.
+        start_walk(session, chat_id)
+        return
+    _render_current_item(session, row, message_id)
+
+
+def handle_restart(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped Start Over (or Another Category). Reset + render category screen."""
+    row = get_or_create_session(session, chat_id)
+    reset_for_start_over(row)
+    counts = categories_with_stale_counts(session)
+    if not counts:
+        _edit_telegram_message(chat_id, message_id, "🎉 All caught up — nothing stale.")
+        return
+    text, kb = render_category_screen(counts)
+    _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
