@@ -96,3 +96,75 @@ def abandon_if_idle(row) -> bool:
         row.status = "abandoned"
         return True
     return False
+
+
+def _reason_label(rec: dict) -> str:
+    """Short human label for the per-item reason."""
+    kind = rec.get("reason", "")
+    if kind == "manual_low":
+        return "Low stock — marked manually"
+    if kind == "low_stock":
+        qty = rec.get("current_quantity")
+        thr = rec.get("threshold")
+        if qty is not None and thr is not None:
+            return f"Low stock · {qty:g} left (threshold {thr:g})"
+        return "Low stock"
+    if kind == "seasonal_purchase" or kind == "seasonal":
+        return "Seasonal pick"
+    if kind == "price_deal":
+        reg = rec.get("regular_price")
+        deal = rec.get("deal_price")
+        if reg and deal:
+            return f"Price drop · was ${reg:.2f} now ${deal:.2f}"
+        return "Price drop"
+    if kind == "regular_use":
+        days = rec.get("days_since_last_buy")
+        if days is not None:
+            return f"Regular item · {days} days since last buy"
+        return "Regular item"
+    return kind or "Suggested"
+
+
+def _to_item_dict(rec: dict) -> dict:
+    """Compact representation stored in item_queue JSON."""
+    return {
+        "product_id": rec.get("product_id"),
+        "name": rec.get("product_name") or rec.get("name") or "Item",
+        "category": (rec.get("category") or "other"),
+        "reason_label": _reason_label(rec),
+    }
+
+
+def fetch_recommendations(session) -> list[dict]:
+    """Call generate_all_recommendations under a Flask app context.
+
+    Production path is always inside a Flask request context (Telegram webhook
+    is a Flask route). The no-context fallback below pushes a throwaway context
+    and binds g.db_session=session so unit tests can call this helper directly.
+    """
+    import flask
+    from src.backend.generate_recommendations import generate_all_recommendations
+
+    if flask.has_app_context():
+        if not hasattr(flask.g, "db_session"):
+            flask.g.db_session = session
+        return generate_all_recommendations()
+
+    _ctx_app = flask.Flask("shopping_walk_ctx")
+    with _ctx_app.app_context():
+        flask.g.db_session = session
+        return generate_all_recommendations()
+
+
+def bucketize_by_category(recs: list[dict]) -> tuple[list[str], dict[str, list[dict]]]:
+    """Split recs into per-category lists, return (ordered_categories, items_by_category).
+
+    Categories sorted by item-count desc, ties broken by alpha. NULL/empty
+    category → "other" bucket.
+    """
+    items_by: dict[str, list[dict]] = {}
+    for rec in recs:
+        item = _to_item_dict(rec)
+        items_by.setdefault(item["category"], []).append(item)
+    cat_queue = sorted(items_by.keys(), key=lambda c: (-len(items_by[c]), c))
+    return cat_queue, items_by

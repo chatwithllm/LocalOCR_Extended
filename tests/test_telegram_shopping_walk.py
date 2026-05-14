@@ -181,3 +181,63 @@ def test_abandon_if_idle_leaves_fresh_session_alone(session):
     session.add(row); session.commit()
     assert abandon_if_idle(row) is False
     assert row.status == "active"
+
+
+def _seed_low_inventory(session, *, pairs):
+    """pairs: list[(product_name, category, quantity, threshold, manual_low)]."""
+    from src.backend.initialize_database_schema import Product, Inventory
+    for name, category, qty, threshold, manual_low in pairs:
+        p = Product(name=name, category=category); session.add(p); session.flush()
+        inv = Inventory(
+            product_id=p.id, quantity=qty, threshold=threshold,
+            manual_low=manual_low, is_active_window=True,
+        )
+        session.add(inv)
+    session.commit()
+
+
+def test_fetch_recommendations_calls_engine_via_flask_shim(session):
+    """Engine reads g.db_session, so the helper must push an app context with g.db_session=session."""
+    from src.backend.handle_shopping_walk import fetch_recommendations
+    # Single-token names so the engine's family-grouping pass returns them as-is
+    # (generate_all_recommendations rewrites product_name → family last token).
+    _seed_low_inventory(session, pairs=[
+        ("Oil",    "pantry", 1.0, 5.0, False),  # low_stock (qty < threshold)
+        ("Pepper", "pantry", 0.0, None, True),  # manual_low
+        ("Milk",   "fridge", 0.0, None, True),
+    ])
+    recs = fetch_recommendations(session)
+    names = sorted(r["product_name"] for r in recs)
+    cats = sorted(set(r["category"] for r in recs))
+    assert "Oil" in names
+    assert "Pepper" in names
+    assert "Milk" in names
+    assert cats == ["fridge", "pantry"]
+
+
+def test_bucketize_by_category_orders_by_count_desc():
+    from src.backend.handle_shopping_walk import bucketize_by_category
+    recs = [
+        {"product_id": 1, "product_name": "A", "category": "pantry",  "reason": "low_stock"},
+        {"product_id": 2, "product_name": "B", "category": "pantry",  "reason": "manual_low"},
+        {"product_id": 3, "product_name": "C", "category": "fridge",  "reason": "low_stock"},
+        {"product_id": 4, "product_name": "D", "category": None,       "reason": "low_stock"},
+    ]
+    cat_queue, item_map = bucketize_by_category(recs)
+    assert cat_queue == ["pantry", "fridge", "other"]   # pantry first (2 items)
+    assert len(item_map["pantry"]) == 2
+    assert len(item_map["fridge"]) == 1
+    assert len(item_map["other"]) == 1
+    item = item_map["pantry"][0]
+    assert "product_id" in item
+    assert "name" in item
+    assert "category" in item
+    assert "reason_label" in item
+
+
+def test_reason_label_for_each_kind():
+    from src.backend.handle_shopping_walk import _reason_label
+    assert "Low stock" in _reason_label({"reason": "low_stock", "current_quantity": 1.0, "threshold": 5.0})
+    assert "Low stock" in _reason_label({"reason": "manual_low"})
+    assert "Seasonal" in _reason_label({"reason": "seasonal_purchase"})
+    assert "Price" in _reason_label({"reason": "price_deal", "regular_price": 8.99, "deal_price": 6.49})
