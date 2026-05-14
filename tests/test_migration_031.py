@@ -79,7 +79,7 @@ def _install_op_patches(sa_conn):
 def test_031_module_loads():
     mig = _load_migration()
     assert mig.revision == "031_telegram_inventory_session"
-    assert mig.down_revision == "030_account_display_name_and_owner"
+    assert mig.down_revision == "030_acct_identity"
 
 
 def test_031_downgrade_drops_table_when_present(tmp_path):

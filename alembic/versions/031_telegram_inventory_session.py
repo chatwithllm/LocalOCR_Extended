@@ -1,7 +1,7 @@
 """telegram_inventory_session: per-chat walk state for /inventory Telegram flow.
 
 Revision ID: 031_telegram_inventory_session
-Revises: 030_account_display_name_and_owner
+Revises: 030_acct_identity
 Create Date: 2026-05-13
 
 Additive: creates one new table. Idempotent: re-running upgrade is a no-op.
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 revision: str = "031_telegram_inventory_session"
-down_revision: Union[str, None] = "030_account_display_name_and_owner"
+down_revision: Union[str, None] = "030_acct_identity"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
