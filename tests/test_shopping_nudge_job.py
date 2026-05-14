@@ -172,3 +172,17 @@ def test_register_skips_when_disabled(monkeypatch):
     m.register_daily_shopping_nudge_job(sched)
     jobs = sched.get_jobs()
     assert not any(j.id == "shopping_daily_nudge" for j in jobs)
+
+
+def test_eligibility_respects_walk_enabled_gate(session, monkeypatch):
+    """If is_walk_enabled returns False for a chat, nudge job must skip it."""
+    monkeypatch.setenv("SHOPPING_NUDGE_MIN_RECS", "8")
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "1")
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_PILOT_CHATS", "999")
+    import importlib
+    import src.backend.handle_shopping_walk as walk_mod
+    importlib.reload(walk_mod)
+    import src.backend.shopping_nudge_job as m
+    importlib.reload(m)
+    _seed_chat_with_recs(session, "abc", n_recs=10)
+    assert "abc" not in m.eligible_chat_ids(session)

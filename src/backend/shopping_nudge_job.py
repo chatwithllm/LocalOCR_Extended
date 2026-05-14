@@ -41,7 +41,13 @@ def eligible_chat_ids(session) -> list[str]:
     rec_count = len(recs)
     if rec_count < NUDGE_MIN_RECS:
         return out
+    from src.backend.handle_shopping_walk import is_walk_enabled
+
     for chat_id in _candidate_chat_ids(session):
+        # Skip chats that can't actually use the walk — sending them a nudge
+        # leads to a dead-end "Starting walk…" edit with nothing after.
+        if not is_walk_enabled(chat_id):
+            continue
         sess_row = (
             session.query(TelegramShoppingSession)
             .filter_by(chat_id=chat_id)

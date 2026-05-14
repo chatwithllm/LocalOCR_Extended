@@ -171,14 +171,19 @@ def _active_shopping_session(session):
     Production path is inside a Flask request context. Tests call this
     helper without one, so we push a throwaway app context just like
     fetch_recommendations does.
+
+    Uses `_get_or_create_active_session` (the write-path variant) so that if
+    the current session is in `ready_to_bill` reconcile mode, it gets demoted
+    back to `active` before the new item piles on. Otherwise the telegram add
+    would dump items onto a list the user thinks is closed.
     """
     import flask
-    from src.backend.manage_shopping_list import _ensure_current_session
+    from src.backend.manage_shopping_list import _get_or_create_active_session
     if flask.has_app_context():
-        return _ensure_current_session(session)
+        return _get_or_create_active_session(session)
     _ctx_app = flask.Flask("shopping_walk_ctx")
     with _ctx_app.app_context():
-        return _ensure_current_session(session)
+        return _get_or_create_active_session(session)
 
 
 def insert_recommendation(session, *, product_id: int, name: str,
