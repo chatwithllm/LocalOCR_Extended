@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, DateTime, Date,
-    ForeignKey, Text, Boolean, UniqueConstraint, Index, event
+    ForeignKey, Text, Boolean, JSON, UniqueConstraint, Index, event
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy.pool import StaticPool
@@ -662,6 +662,30 @@ class TelegramReceipt(Base):
     last_reprocessed_at = Column(DateTime, nullable=True)  # Timestamp of last retry
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class TelegramInventorySession(Base):
+    __tablename__ = "telegram_inventory_session"
+
+    chat_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(20), nullable=False, default="active")
+    current_category = Column(String(40), nullable=True)
+    item_queue = Column(JSON, nullable=False, default=list)
+    cursor = Column(Integer, nullable=False, default=0)
+    page = Column(Integer, nullable=False, default=1)
+    pending_prompt = Column(String(30), nullable=True)
+    last_item_id = Column(Integer, nullable=True)
+    stats = Column(JSON, nullable=False, default=dict)
+    nudge_muted_until = Column(DateTime, nullable=True)
+    last_nudge_sent_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, default=utcnow)
+    last_action_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_tg_inv_status", "status"),
+        Index("ix_tg_inv_last_action", "last_action_at"),
+    )
 
 
 class ApiUsage(Base):
