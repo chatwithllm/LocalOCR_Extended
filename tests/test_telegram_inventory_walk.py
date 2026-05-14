@@ -1033,3 +1033,73 @@ def test_dispatch_correct_verb_routes_to_handler(session, monkeypatch):
     dispatch_inv_callback(session, "abc", "inv:skip", message_id=100); session.commit()
     row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
     assert row.stats["skipped"] == 1
+
+
+def test_dispatch_restart_from_summary_works(session, monkeypatch):
+    """Bug regression: tapping 'Another category' on the summary screen must
+    route to handle_restart, not the stale-verb branch."""
+    from src.backend.handle_inventory_walk import (
+        dispatch_inv_callback, handle_done, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[("Olive oil", "pantry", 30)])
+    sent = []
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    # Drive to end-of-walk state.
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_done(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert row.pending_prompt is None
+
+    # Tap "Another category" — should reset + show category screen, NOT show "stale".
+    dispatch_inv_callback(session, "abc", "inv:restart", message_id=100); session.commit()
+
+    combined = " ".join(edits + sent)
+    # The stale-verb guard message would be "That button is stale."
+    assert "That button is stale" not in combined
+    assert "Update inventory" in combined
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "category"
+
+
+def test_rerender_handles_resume_state(session, monkeypatch):
+    """A stale verb while in pending_prompt='resume' should re-render the resume offer."""
+    from src.backend.handle_inventory_walk import dispatch_inv_callback
+    from src.backend.initialize_database_schema import (
+        TelegramInventorySession, Product, Inventory,
+    )
+    from src.backend.initialize_database_schema import utcnow as schema_utcnow
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=1.0, is_active_window=True)
+    inv.last_updated = schema_utcnow() - timedelta(days=30)
+    session.add(inv); session.commit()
+
+    row = TelegramInventorySession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[inv.id], cursor=0, pending_prompt="resume",
+    )
+    session.add(row); session.commit()
+
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+
+    # Send a stale verb (e.g., inv:lvl:0) while in resume state.
+    dispatch_inv_callback(session, "abc", "inv:lvl:0", message_id=100); session.commit()
+    assert any("progress" in t.lower() for t in sent), "should re-render the resume offer"

@@ -656,8 +656,8 @@ _VERB_TO_EXPECTED_PROMPT: dict[str, "str | set[str] | None"] = {
     "cont":    "continue",
     "cart":    "cart",
     "resume":  "resume",
-    "restart": {"resume", "category", "continue", "level"},
-    "cancel":  {"category", "resume", "continue"},
+    "restart": {None, "resume"},
+    "cancel":  {"category"},
 }
 
 
@@ -710,6 +710,28 @@ def _rerender_current_prompt(session, row, message_id: int | None) -> None:
         remaining = max(0, total_left - (row.page - 1) * PAGE_SIZE - row.cursor)
         text, kb = render_continue(row.current_category or "other", done=row.cursor, remaining=remaining)
         send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif prompt == "resume":
+        if row.current_category and row.item_queue:
+            text, kb = render_resume(row.current_category, row.cursor, len(row.item_queue))
+            send_telegram_message(row.chat_id, text, reply_markup=kb)
+        else:
+            # Stale resume state; show fresh category screen.
+            counts = categories_with_stale_counts(session)
+            if counts:
+                text, kb = render_category_screen(counts)
+                send_telegram_message(row.chat_id, text, reply_markup=kb)
+            else:
+                send_telegram_message(row.chat_id, "🎉 All caught up — nothing stale.")
+    elif prompt is None:
+        # End-of-walk summary state, or freshly abandoned. Offer fresh category screen.
+        counts = categories_with_stale_counts(session)
+        if counts:
+            text, kb = render_category_screen(counts)
+            send_telegram_message(row.chat_id, text, reply_markup=kb)
+            # Re-enter the category state.
+            row.pending_prompt = "category"
+        else:
+            send_telegram_message(row.chat_id, "🎉 All caught up — nothing stale.")
 
 
 def dispatch_inv_callback(session, chat_id: str, data: str, message_id: int | None) -> None:
