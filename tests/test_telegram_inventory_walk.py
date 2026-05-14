@@ -283,3 +283,67 @@ def test_abandon_if_idle_leaves_fresh_session_alone(session):
     session.add(row); session.commit()
     assert abandon_if_idle(row) is False
     assert row.status == "active"
+
+
+@pytest.mark.parametrize("level_idx,expected_pct,expected_low", [
+    (0, 1.0,  True),
+    (1, 0.75, False),
+    (2, 0.50, False),
+    (3, 0.25, False),
+    (4, 0.0,  False),
+])
+def test_apply_level_writes_pct_and_low_flag(session, level_idx, expected_pct, expected_low):
+    from src.backend.handle_inventory_walk import apply_level
+    from src.backend.initialize_database_schema import Product, Inventory, InventoryAdjustment
+    p = Product(name="Olive oil", category="pantry")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=1.0, manual_low=False, is_active_window=True)
+    session.add(inv); session.commit()
+
+    result = apply_level(session, inv.id, level_idx, user_id=None)
+    session.commit()
+
+    assert result is not None
+    session.refresh(inv)
+    assert inv.consumed_pct_override == expected_pct
+    assert inv.manual_low is expected_low
+
+    adj = session.query(InventoryAdjustment).filter_by(product_id=p.id).all()
+    assert len(adj) == 1
+    assert adj[0].reason == "telegram_walk"
+
+
+def test_apply_level_invalid_idx_raises(session):
+    from src.backend.handle_inventory_walk import apply_level
+    from src.backend.initialize_database_schema import Product, Inventory
+    p = Product(name="Olive oil", category="pantry")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=1.0); session.add(inv); session.commit()
+    with pytest.raises(ValueError):
+        apply_level(session, inv.id, 9, user_id=None)
+
+
+def test_apply_level_vanished_inventory_returns_none(session):
+    from src.backend.handle_inventory_walk import apply_level
+    assert apply_level(session, 99999, 0, user_id=None) is None
+
+
+def test_mark_no_longer_have_deactivates(session):
+    from src.backend.handle_inventory_walk import mark_no_longer_have
+    from src.backend.initialize_database_schema import Product, Inventory, InventoryAdjustment
+    p = Product(name="Old soap", category="bathroom")
+    session.add(p); session.flush()
+    inv = Inventory(product_id=p.id, quantity=0.2, is_active_window=True)
+    session.add(inv); session.commit()
+
+    mark_no_longer_have(session, inv.id, user_id=None)
+    session.commit()
+    session.refresh(inv)
+    assert inv.is_active_window is False
+    adj = session.query(InventoryAdjustment).filter_by(product_id=p.id).one()
+    assert adj.reason == "telegram_walk_remove"
+
+
+def test_mark_no_longer_have_vanished_inventory_returns_none(session):
+    from src.backend.handle_inventory_walk import mark_no_longer_have
+    assert mark_no_longer_have(session, 99999, user_id=None) is None

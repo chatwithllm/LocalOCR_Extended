@@ -137,3 +137,57 @@ def abandon_if_idle(row) -> bool:
         row.status = "abandoned"
         return True
     return False
+
+
+_LEVEL_TO_PCT = {0: 1.0, 1: 0.75, 2: 0.50, 3: 0.25, 4: 0.0}
+
+
+def apply_level(session, inventory_id: int, level_idx: int, user_id: int | None):
+    """Write consumed_pct_override + manual_low for a level button.
+
+    level_idx 0..4 maps to Empty / ¼ / ½ / ¾ / Full.
+    Empty (0) sets manual_low=True; other levels clear manual_low.
+    Returns the Inventory row, or None if the row vanished.
+    """
+    from src.backend.initialize_database_schema import Inventory, InventoryAdjustment
+
+    if level_idx not in _LEVEL_TO_PCT:
+        raise ValueError(f"invalid level_idx {level_idx}")
+
+    inv = session.query(Inventory).filter_by(id=inventory_id).one_or_none()
+    if inv is None:
+        logger.warning("apply_level: inventory %s vanished", inventory_id)
+        return None
+
+    inv.consumed_pct_override = _LEVEL_TO_PCT[level_idx]
+    inv.manual_low = (level_idx == 0)
+    inv.last_updated = datetime.utcnow()
+
+    session.add(InventoryAdjustment(
+        product_id=inv.product_id,
+        quantity_delta=0.0,
+        reason="telegram_walk",
+        user_id=user_id,
+    ))
+    return inv
+
+
+def mark_no_longer_have(session, inventory_id: int, user_id: int | None):
+    """Deactivate an inventory row (is_active_window=False) + audit row.
+
+    Returns the Inventory row, or None if the row vanished.
+    """
+    from src.backend.initialize_database_schema import Inventory, InventoryAdjustment
+
+    inv = session.query(Inventory).filter_by(id=inventory_id).one_or_none()
+    if inv is None:
+        return None
+    inv.is_active_window = False
+    inv.last_updated = datetime.utcnow()
+    session.add(InventoryAdjustment(
+        product_id=inv.product_id,
+        quantity_delta=0.0,
+        reason="telegram_walk_remove",
+        user_id=user_id,
+    ))
+    return inv
