@@ -919,3 +919,177 @@ def handle_restart(session, chat_id: str, message_id: int | None) -> None:
     counts = [(c, len(items_by[c])) for c in cat_queue]
     text, kb = render_category_screen(counts)
     _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+_VERB_TO_EXPECTED_PROMPT: dict[str, "str | set[str] | None"] = {
+    "cat":      "category",
+    "add":      "item",
+    "add+":     "item",
+    "skip":     "item",
+    "have":     "item",
+    "done":     {"item", "category_end"},
+    "qty":      {"qty", "custom_qty"},
+    "store":    {"store", "custom_store"},
+    "custom":   "category_end",
+    "cat_done": "category_end",
+    "back":     {"qty", "store", "custom_name", "custom_qty", "custom_store"},
+    "cancel":   "category",
+    "resume":   "resume",
+    "restart":  {"resume", None, "category"},
+}
+
+
+def _matches_expected(prompt, expected) -> bool:
+    if isinstance(expected, set):
+        return prompt in expected
+    return prompt == expected
+
+
+def _rerender_current_prompt(session, row, message_id: int | None) -> None:
+    """Send a fresh prompt matching row.pending_prompt."""
+    p = row.pending_prompt
+    if p == "category":
+        recs = fetch_recommendations(session)
+        cat_queue, items_by = bucketize_by_category(recs)
+        counts = [(c, len(items_by[c])) for c in cat_queue]
+        if counts:
+            text, kb = render_category_screen(counts)
+            send_telegram_message(row.chat_id, text, reply_markup=kb)
+        else:
+            send_telegram_message(row.chat_id, "🎉 Nothing to suggest right now — shopping list looks good.")
+    elif p == "item":
+        _render_current_item(row, None)
+    elif p == "qty":
+        item = row.item_queue[row.cursor] if row.cursor < len(row.item_queue) else {}
+        text, kb = render_qty_prompt(item.get("name", "Item"))
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "store":
+        item = row.item_queue[row.cursor] if row.cursor < len(row.item_queue) else {}
+        stores = top_stores(session, limit=3)
+        text, kb = render_store_prompt(
+            product_name=item.get("name", "Item"),
+            qty=row.pending_qty or 1.0, stores=stores,
+        )
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "category_end":
+        next_cat = row.category_queue[0] if row.category_queue else None
+        text, kb = render_category_end(
+            category=row.current_category or "other",
+            next_category=next_cat, stats=row.stats or {},
+        )
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "custom_name":
+        text, kb = render_custom_name_prompt()
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "custom_qty":
+        text, kb = render_custom_qty_prompt(product_name=row.pending_name or "Item")
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "custom_store":
+        stores = top_stores(session, limit=3)
+        text, kb = render_store_prompt(
+            product_name=row.pending_name or "Item",
+            qty=row.pending_qty or 1.0, stores=stores,
+        )
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif p == "resume":
+        total = len(row.item_queue)
+        text, kb = render_resume(row.current_category or "other", row.cursor, total)
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+
+
+def dispatch_shop_callback(session, chat_id: str, data: str,
+                           message_id: int | None) -> None:
+    """Route an `shop:*` callback."""
+    row = get_or_create_session(session, chat_id)
+    if abandon_if_idle(row):
+        send_telegram_message(chat_id, "Session timed out. /shopping to restart.")
+        return
+
+    parts = data.split(":", 2)
+    if len(parts) < 2 or parts[0] != "shop":
+        return
+    verb = parts[1]
+    arg = parts[2] if len(parts) == 3 else ""
+
+    expected = _VERB_TO_EXPECTED_PROMPT.get(verb)
+    if expected is not None and not _matches_expected(row.pending_prompt, expected):
+        _edit_telegram_message(chat_id, message_id, "That button is stale. Showing current step:")
+        _rerender_current_prompt(session, row, None)
+        return
+
+    if verb == "cat":
+        handle_category(session, chat_id, arg, message_id)
+    elif verb == "add":
+        handle_add(session, chat_id, message_id)
+    elif verb == "add+":
+        handle_add_detailed(session, chat_id, message_id)
+    elif verb == "qty":
+        handle_qty(session, chat_id, arg, message_id)
+    elif verb == "store":
+        handle_store(session, chat_id, arg, message_id)
+    elif verb == "skip":
+        handle_skip(session, chat_id, message_id)
+    elif verb == "have":
+        handle_have(session, chat_id, message_id)
+    elif verb == "done":
+        handle_done(session, chat_id, message_id)
+    elif verb == "custom":
+        handle_custom(session, chat_id, message_id)
+    elif verb == "cat_done":
+        handle_cat_done(session, chat_id, message_id)
+    elif verb == "back":
+        handle_back(session, chat_id, message_id)
+    elif verb == "cancel":
+        handle_cancel(session, chat_id, message_id)
+    elif verb == "resume":
+        handle_resume(session, chat_id, message_id)
+    elif verb == "restart":
+        handle_restart(session, chat_id, message_id)
+
+
+def dispatch_nudge_callback(session, chat_id: str, data: str,
+                            message_id: int | None) -> None:
+    """Route nudge:shop:yes / :later / :mute."""
+    row = get_or_create_session(session, chat_id)
+    if data == "nudge:shop:yes":
+        _edit_telegram_message(chat_id, message_id, "Starting walk…")
+        start_walk(session, chat_id)
+    elif data == "nudge:shop:later":
+        row.nudge_muted_until = datetime.utcnow() + timedelta(days=3)
+        _edit_telegram_message(chat_id, message_id, "OK, I'll ask again in a few days.")
+    elif data == "nudge:shop:mute":
+        row.nudge_muted_until = datetime.utcnow() + timedelta(days=7)
+        _edit_telegram_message(chat_id, message_id, "Muted for a week.")
+
+
+_TYPED_STATES = {"custom_name", "custom_qty", "custom_store", "qty", "store"}
+
+
+def consume_typed_text(session, chat_id: str, text: str,
+                       message_id: int | None) -> bool:
+    """Webhook helper: if the row is in a typed-text state, consume the message.
+
+    Returns True if handled (caller should NOT route to receipt-photo flow).
+    Returns False if the row isn't in a typed-text state (caller continues).
+    """
+    row = get_or_create_session(session, chat_id)
+    p = row.pending_prompt
+    if p not in _TYPED_STATES:
+        return False
+
+    if p == "custom_name":
+        consume_typed_name(session, chat_id, text, message_id)
+        return True
+    if p in ("qty", "custom_qty"):
+        action = row.pending_action or ""
+        if action.endswith("_qty_typed"):
+            consume_typed_qty(session, chat_id, text, message_id)
+            return True
+        return False
+    if p in ("store", "custom_store"):
+        action = row.pending_action or ""
+        if action.endswith("_store_typed"):
+            consume_typed_store(session, chat_id, text, message_id)
+            return True
+        return False
+    return False
