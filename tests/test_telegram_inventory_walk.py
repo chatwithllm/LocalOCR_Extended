@@ -512,3 +512,61 @@ def test_render_nudge_has_yes_later_mute():
     assert "nudge:yes" in callbacks
     assert "nudge:later" in callbacks
     assert "nudge:mute" in callbacks
+
+
+def test_start_walk_with_no_stale_items_sends_caught_up(session, monkeypatch):
+    from src.backend.handle_inventory_walk import start_walk
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda chat_id, text, reply_markup=None: sent.append((chat_id, text, reply_markup)),
+    )
+    start_walk(session, "abc")
+    session.commit()
+    assert len(sent) == 1
+    assert "caught up" in sent[0][1].lower() or "nothing stale" in sent[0][1].lower()
+
+
+def test_start_walk_with_stale_items_renders_category_screen(session, monkeypatch):
+    from src.backend.handle_inventory_walk import start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil",  "pantry",  20),
+        ("Milk",        "fridge", 20),
+    ])
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda chat_id, text, reply_markup=None: sent.append((chat_id, text, reply_markup)),
+    )
+    start_walk(session, "abc")
+    session.commit()
+    assert sent and "Update inventory" in sent[0][1]
+
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "category"
+    assert row.status == "active"
+
+
+def test_start_walk_offers_resume_when_active_session_mid_walk(session, monkeypatch):
+    from src.backend.handle_inventory_walk import start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    row = TelegramInventorySession(
+        chat_id="abc",
+        status="active",
+        current_category="pantry",
+        item_queue=[1, 2, 3, 4, 5, 6, 7, 8],
+        cursor=3,
+        pending_prompt="level",
+    )
+    session.add(row); session.commit()
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda chat_id, text, reply_markup=None: sent.append((chat_id, text, reply_markup)),
+    )
+    start_walk(session, "abc")
+    session.commit()
+    assert sent and "progress" in sent[0][1].lower()
+    callbacks = [b["callback_data"] for r in sent[0][2]["inline_keyboard"] for b in r]
+    assert "inv:resume" in callbacks

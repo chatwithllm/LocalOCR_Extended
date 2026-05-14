@@ -133,7 +133,12 @@ def abandon_if_idle(row) -> bool:
     if row.last_action_at is None:
         return False
     cutoff = datetime.utcnow() - timedelta(minutes=IDLE_TIMEOUT_MIN)
-    if row.last_action_at < cutoff:
+    last_action = row.last_action_at
+    # Normalize tz-aware values (fresh in-memory rows use tz-aware defaults;
+    # rows reloaded from SQLite come back naive) so the compare is consistent.
+    if last_action.tzinfo is not None:
+        last_action = last_action.replace(tzinfo=None)
+    if last_action < cutoff:
         row.status = "abandoned"
         return True
     return False
@@ -376,3 +381,61 @@ def render_nudge(stale_count: int) -> tuple[str, dict]:
         [{"text": "🔕 Mute 7d",              "callback_data": "nudge:mute"}],
     ]}
     return text, kb
+
+
+def send_telegram_message(chat_id: str, text: str, reply_markup: dict | None = None):
+    """Thin wrapper so tests can monkeypatch this symbol in this module.
+
+    Delegates to handle_telegram_messages.send_telegram_message.
+    """
+    from src.backend.handle_telegram_messages import (
+        send_telegram_message as _send,
+    )
+    return _send(chat_id, text, reply_markup=reply_markup)
+
+
+def _edit_telegram_message(chat_id: str, message_id: int | None, text: str,
+                           reply_markup: dict | None = None):
+    """Thin wrapper for editMessageText so tests can monkeypatch.
+
+    Delegates to handle_telegram_messages._edit_telegram_message. The
+    underlying function may not yet accept `reply_markup` (Task 16 will
+    extend it); fall back to a positional-only call on TypeError so this
+    wrapper stays inert until that lands.
+    """
+    from src.backend.handle_telegram_messages import (
+        _edit_telegram_message as _edit,
+    )
+    try:
+        return _edit(chat_id, message_id, text, reply_markup=reply_markup)
+    except TypeError:
+        # Underlying function doesn't yet support reply_markup; Task 16 will extend it.
+        return _edit(chat_id, message_id, text)
+
+
+def start_walk(session, chat_id: str) -> None:
+    """Entry point for `/inventory`. Sends category screen, resume offer, or 'all caught up'."""
+    row = get_or_create_session(session, chat_id)
+    if abandon_if_idle(row):
+        # Treat as fresh start once idle-abandoned.
+        reset_for_start_over(row)
+
+    # Resume offer if active mid-walk.
+    if (row.status == "active"
+            and row.current_category
+            and row.item_queue
+            and row.cursor < len(row.item_queue)):
+        total = len(row.item_queue)
+        text, kb = render_resume(row.current_category, row.cursor, total)
+        row.pending_prompt = "resume"
+        send_telegram_message(chat_id, text, reply_markup=kb)
+        return
+
+    counts = categories_with_stale_counts(session)
+    if not counts:
+        send_telegram_message(chat_id, "🎉 All caught up — nothing stale.")
+        return
+
+    reset_for_start_over(row)
+    text, kb = render_category_screen(counts)
+    send_telegram_message(chat_id, text, reply_markup=kb)
