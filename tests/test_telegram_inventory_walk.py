@@ -392,3 +392,123 @@ def test_add_empty_to_shopping_list_dedups_existing_open_item(session):
         product_id=p.id, status="open",
     ).all()
     assert len(items) == 1
+
+
+def test_render_category_screen_shows_counts():
+    from src.backend.handle_inventory_walk import render_category_screen
+    text, kb = render_category_screen([("pantry", 8), ("fridge", 4)])
+    assert "Update inventory" in text
+    btns = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    assert any("Pantry" in b and "8" in b for b in btns)
+    assert any("Fridge" in b and "4" in b for b in btns)
+    assert any("Cancel" in b for b in btns)
+    # Cancel callback present
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "inv:cancel" in callbacks
+    assert "inv:cat:pantry" in callbacks
+
+
+def test_render_level_prompt_includes_progress_and_buttons():
+    from src.backend.handle_inventory_walk import render_level_prompt
+    text, kb = render_level_prompt(
+        product_name="Olive oil",
+        category="pantry",
+        idx=2,
+        total=8,
+        days_old=23,
+    )
+    assert "2/8" in text
+    assert "Olive oil" in text
+    assert "23 days ago" in text
+    labels = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    for expected in ("Empty", "¼", "½", "¾", "Full", "Skip", "No longer have", "Done"):
+        assert any(expected in lbl for lbl in labels), f"missing button: {expected}"
+    # Level callbacks
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    for i in range(5):
+        assert f"inv:lvl:{i}" in callbacks
+    assert "inv:skip" in callbacks
+    assert "inv:nohave" in callbacks
+    assert "inv:done" in callbacks
+
+
+def test_render_level_prompt_days_phrasing():
+    from src.backend.handle_inventory_walk import render_level_prompt
+    text_short, _ = render_level_prompt(
+        product_name="X", category="pantry", idx=1, total=1, days_old=14,
+    )
+    text_long, _ = render_level_prompt(
+        product_name="X", category="pantry", idx=1, total=1, days_old=75,
+    )
+    assert "14 days ago" in text_short
+    assert "2+ months ago" in text_long
+
+
+def test_render_cart_prompt_has_three_buttons():
+    from src.backend.handle_inventory_walk import render_cart_prompt
+    text, kb = render_cart_prompt("Olive oil")
+    assert "Olive oil" in text
+    assert "Add to shopping list" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "inv:cart:y" in callbacks
+    assert "inv:cart:n" in callbacks
+    assert "inv:cart:a" in callbacks
+
+
+def test_render_continue_shows_remaining_and_buttons():
+    from src.backend.handle_inventory_walk import render_continue
+    text, kb = render_continue("pantry", done=10, remaining=13)
+    assert "10" in text
+    assert "13" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "inv:cont" in callbacks
+    assert "inv:done" in callbacks
+
+
+def test_render_summary_shows_stats(monkeypatch):
+    # Hermetic: .env may have set PUBLIC_BASE_URL during the test session.
+    monkeypatch.delenv("PUBLIC_BASE_URL", raising=False)
+    from src.backend.handle_inventory_walk import render_summary
+    text, kb = render_summary(
+        category="pantry",
+        stats={"updated": 6, "skipped": 1, "removed": 1, "cart_added": 2},
+    )
+    assert "Walk complete" in text
+    assert "6" in text
+    assert "Skipped" in text and "1" in text
+    assert "Removed" in text
+    assert "shopping list" in text.lower()
+    # Always-on Another Category button
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "inv:restart" in callbacks
+
+
+def test_render_summary_includes_url_when_public_base_url_set(monkeypatch):
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://example.test")
+    import importlib
+    import src.backend.handle_inventory_walk as m
+    importlib.reload(m)
+    text, kb = m.render_summary("pantry", {"updated": 1, "skipped": 0, "removed": 0, "cart_added": 0})
+    urls = [b.get("url") for row in kb["inline_keyboard"] for b in row]
+    assert any(u and "example.test" in u for u in urls)
+
+
+def test_render_resume_shows_progress():
+    from src.backend.handle_inventory_walk import render_resume
+    text, kb = render_resume(category="pantry", cursor=3, total=8)
+    assert "progress" in text.lower()
+    assert "3/8" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "inv:resume" in callbacks
+    assert "inv:restart" in callbacks
+
+
+def test_render_nudge_has_yes_later_mute():
+    from src.backend.handle_inventory_walk import render_nudge
+    text, kb = render_nudge(8)
+    assert "8" in text
+    assert "weeks" in text.lower() or "2+" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "nudge:yes" in callbacks
+    assert "nudge:later" in callbacks
+    assert "nudge:mute" in callbacks

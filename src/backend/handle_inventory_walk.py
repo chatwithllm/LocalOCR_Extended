@@ -245,3 +245,134 @@ def add_empty_to_shopping_list(session, inventory_id: int):
     session.add(item)
     session.flush()
     return item
+
+
+_CATEGORY_EMOJI = {
+    "pantry": "🥫", "fridge": "🥶", "freezer": "🧊", "bathroom": "🧴",
+    "household": "🧹", "personal_care": "🧴", "produce": "🥦",
+    "dairy": "🥛", "meat": "🥩", "snacks": "🍿", "beverages": "🥤",
+    "frozen": "🧊", "bakery": "🍞", "canned": "🥫", "condiments": "🧂",
+}
+
+
+def _cat_emoji(category: str | None) -> str:
+    return _CATEGORY_EMOJI.get((category or "").lower(), "📦")
+
+
+def _days_ago_phrase(days: int) -> str:
+    if days >= 60:
+        return "2+ months ago"
+    return f"{days} days ago"
+
+
+def render_category_screen(counts: list[tuple[str, int]]) -> tuple[str, dict]:
+    n = len(counts)
+    lines = [
+        "📦 Update inventory",
+        "",
+        f"{n} categories have stale items (>{INVENTORY_STALE_DAYS} days):",
+    ]
+    rows: list[list[dict]] = []
+    pair: list[dict] = []
+    for category, count in counts:
+        label = f"{_cat_emoji(category)} {category.title()} · {count}"
+        pair.append({"text": label, "callback_data": f"inv:cat:{category}"})
+        if len(pair) == 2:
+            rows.append(pair)
+            pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([{"text": "Cancel", "callback_data": "inv:cancel"}])
+    return "\n".join(lines), {"inline_keyboard": rows}
+
+
+def render_level_prompt(
+    *, product_name: str, category: str, idx: int, total: int, days_old: int
+) -> tuple[str, dict]:
+    text = (
+        f"{_cat_emoji(category)} {category.title()} · {idx}/{total}\n\n"
+        f"{product_name}\n"
+        f"Last updated {_days_ago_phrase(days_old)}\n\n"
+        "How much left?"
+    )
+    kb = {"inline_keyboard": [
+        [
+            {"text": "Empty", "callback_data": "inv:lvl:0"},
+            {"text": "¼",     "callback_data": "inv:lvl:1"},
+            {"text": "½",     "callback_data": "inv:lvl:2"},
+            {"text": "¾",     "callback_data": "inv:lvl:3"},
+            {"text": "Full",  "callback_data": "inv:lvl:4"},
+        ],
+        [
+            {"text": "Skip",            "callback_data": "inv:skip"},
+            {"text": "No longer have",  "callback_data": "inv:nohave"},
+        ],
+        [{"text": "✓ Done for now", "callback_data": "inv:done"}],
+    ]}
+    return text, kb
+
+
+def render_cart_prompt(product_name: str) -> tuple[str, dict]:
+    text = (
+        f"{product_name} → empty.\n\n"
+        "Add to shopping list?"
+    )
+    kb = {"inline_keyboard": [[
+        {"text": "✓ Yes",            "callback_data": "inv:cart:y"},
+        {"text": "✗ No",             "callback_data": "inv:cart:n"},
+        {"text": "Already have it",  "callback_data": "inv:cart:a"},
+    ]]}
+    return text, kb
+
+
+def render_continue(category: str, done: int, remaining: int) -> tuple[str, dict]:
+    text = (
+        f"{_cat_emoji(category)} {category.title()} · {done} done\n\n"
+        f"{remaining} more stale items left. Continue?"
+    )
+    kb = {"inline_keyboard": [[
+        {"text": "▶ Continue",     "callback_data": "inv:cont"},
+        {"text": "✓ Done for now", "callback_data": "inv:done"},
+    ]]}
+    return text, kb
+
+
+def render_summary(category: str, stats: dict[str, int]) -> tuple[str, dict]:
+    updated = stats.get("updated", 0)
+    skipped = stats.get("skipped", 0)
+    removed = stats.get("removed", 0)
+    cart_added = stats.get("cart_added", 0)
+    text = (
+        f"✅ Walk complete · {category.title()}\n\n"
+        f"Updated: {updated}\n"
+        f"Skipped: {skipped}\n"
+        f"Removed: {removed}\n"
+        f"Added to shopping list: {cart_added}"
+    )
+    rows = [[{"text": "📦 Another category", "callback_data": "inv:restart"}]]
+    public_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    if public_url:
+        rows[0].append({"text": "📋 View shopping list", "url": f"{public_url}/shopping/list"})
+    return text, {"inline_keyboard": rows}
+
+
+def render_resume(category: str, cursor: int, total: int) -> tuple[str, dict]:
+    text = (
+        "You have a walk in progress.\n\n"
+        f"{category.title()} · {cursor}/{total} done"
+    )
+    kb = {"inline_keyboard": [[
+        {"text": "▶ Resume",     "callback_data": "inv:resume"},
+        {"text": "↻ Start over", "callback_data": "inv:restart"},
+    ]]}
+    return text, kb
+
+
+def render_nudge(stale_count: int) -> tuple[str, dict]:
+    text = f"📦 {stale_count} items haven't been counted in 2+ weeks. Update now?"
+    kb = {"inline_keyboard": [
+        [{"text": "▶ Yes, walk me through", "callback_data": "nudge:yes"}],
+        [{"text": "⏰ Later",                "callback_data": "nudge:later"}],
+        [{"text": "🔕 Mute 7d",              "callback_data": "nudge:mute"}],
+    ]}
+    return text, kb
