@@ -61,8 +61,9 @@ def telegram_webhook():
     # Handle commands
     text = message.get("text", "")
     if text.startswith("/"):
-        response_text = _handle_command(text)
-        send_telegram_message(chat_id, response_text)
+        response_text = _handle_command(text, chat_id=chat_id)
+        if response_text:
+            send_telegram_message(chat_id, response_text)
         return jsonify({"status": "ok"}), 200
 
     # Handle photos and PDF documents
@@ -106,19 +107,32 @@ def telegram_webhook():
     return jsonify({"status": "ok"}), 200
 
 
-def _handle_command(command: str) -> str:
+def _handle_command(command: str, chat_id: str = "") -> str:
     """Handle bot commands."""
     cmd = command.split()[0].lower()
+    if cmd == "/inventory":
+        from src.backend.handle_inventory_walk import is_walk_enabled, start_walk
+        if not is_walk_enabled(chat_id):
+            return "Inventory walk is not enabled for this chat."
+        start_walk(g.db_session, chat_id)
+        # Persist the freshly-created/updated TelegramInventorySession row so
+        # the next webhook (a callback tap) can find it. Without this commit
+        # the row stays in the request-scoped session and the next request
+        # falls back to creating a new row with pending_prompt=None — which
+        # the stale-prompt guard then rejects.
+        g.db_session.commit()
+        return ""  # start_walk side-channels via send_telegram_message
     commands = {
         "/start": "👋 Welcome to Grocery Manager! Send me a receipt photo or PDF to get started.",
         "/help": (
             "📸 Send a receipt photo or PDF → I'll extract items and update your inventory.\n"
+            "📦 /inventory → Walk through stale items and update what's left\n"
             "📊 /status → Check system status\n"
             "❓ /help → Show this message"
         ),
         "/status": "✅ System is running. Send a receipt photo or PDF to test!",
     }
-    return commands.get(cmd, "❓ Unknown command. Try /help")
+    return commands.get(cmd, "❓ Unknown command. Type /help for available commands.")
 
 
 def send_telegram_message(chat_id: str, text: str, reply_markup: dict[str, Any] | None = None):
@@ -221,7 +235,28 @@ def _handle_callback_query(callback_query: dict):
 
     _answer_callback_query(callback_id)
 
-    if not chat_id or ":" not in data:
+    if not chat_id or not data:
+        return jsonify({"status": "ok"}), 200
+
+    if data.startswith("inv:"):
+        from src.backend.handle_inventory_walk import (
+            is_walk_enabled, dispatch_inv_callback,
+        )
+        if is_walk_enabled(chat_id):
+            dispatch_inv_callback(g.db_session, chat_id, data, callback_message_id)
+            g.db_session.commit()
+        return jsonify({"status": "ok"}), 200
+
+    if data.startswith("nudge:"):
+        from src.backend.handle_inventory_walk import (
+            is_walk_enabled, dispatch_nudge_callback,
+        )
+        if is_walk_enabled(chat_id):
+            dispatch_nudge_callback(g.db_session, chat_id, data, callback_message_id)
+            g.db_session.commit()
+        return jsonify({"status": "ok"}), 200
+
+    if ":" not in data:
         return jsonify({"status": "ok"}), 200
 
     action, record_id = data.split(":", 1)
@@ -293,23 +328,27 @@ def _answer_callback_query(callback_id: str | None):
         logger.warning(f"Failed to answer Telegram callback query: {e}")
 
 
-def _edit_telegram_message(chat_id: str, message_id: int | None, text: str):
+def _edit_telegram_message(chat_id: str, message_id: int | None, text: str,
+                           reply_markup: dict | None = None):
     if not message_id:
-        send_telegram_message(chat_id, text)
+        send_telegram_message(chat_id, text, reply_markup=reply_markup)
         return
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
     try:
         response = http_requests.post(
             f"{TELEGRAM_API_BASE}/editMessageText",
-            json={
-                "chat_id": chat_id,
-                "message_id": message_id,
-                "text": text,
-                "parse_mode": "HTML",
-            },
+            json=payload,
             timeout=10,
         )
         if response.status_code != 200:
-            send_telegram_message(chat_id, text)
+            send_telegram_message(chat_id, text, reply_markup=reply_markup)
     except Exception as e:
         logger.warning(f"Failed to edit Telegram message: {e}")
-        send_telegram_message(chat_id, text)
+        send_telegram_message(chat_id, text, reply_markup=reply_markup)

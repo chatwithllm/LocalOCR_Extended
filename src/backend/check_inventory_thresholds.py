@@ -33,6 +33,11 @@ def start_threshold_checker():
         id="threshold_check",
         name="Low-Stock Threshold Check",
     )
+    try:
+        from src.backend.inventory_nudge_job import register_daily_nudge_job
+        register_daily_nudge_job(_scheduler)
+    except Exception:
+        logger.exception("failed to register inventory nudge job")
     _scheduler.start()
     logger.info("Threshold checking scheduler started (every 5 minutes).")
 
