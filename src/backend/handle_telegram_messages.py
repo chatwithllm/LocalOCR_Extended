@@ -115,6 +115,12 @@ def _handle_command(command: str, chat_id: str = "") -> str:
         if not is_walk_enabled(chat_id):
             return "Inventory walk is not enabled for this chat."
         start_walk(g.db_session, chat_id)
+        # Persist the freshly-created/updated TelegramInventorySession row so
+        # the next webhook (a callback tap) can find it. Without this commit
+        # the row stays in the request-scoped session and the next request
+        # falls back to creating a new row with pending_prompt=None — which
+        # the stale-prompt guard then rejects.
+        g.db_session.commit()
         return ""  # start_walk side-channels via send_telegram_message
     commands = {
         "/start": "👋 Welcome to Grocery Manager! Send me a receipt photo or PDF to get started.",
