@@ -364,3 +364,80 @@ def test_render_summary_includes_shopping_list_url_when_env_set(monkeypatch):
     _, kb = m.render_summary({"added": 1, "skipped": 0, "already_have": 0, "custom_added": 0})
     urls = [b.get("url") for row in kb["inline_keyboard"] for b in row]
     assert any(u and "example.test" in u for u in urls)
+
+
+def test_render_item_prompt_includes_progress_and_reason():
+    from src.backend.handle_shopping_walk import render_item_prompt
+    text, kb = render_item_prompt(
+        product_name="Olive Oil",
+        category="pantry",
+        idx=1,
+        total=5,
+        reason_label="Low stock · 1 left (threshold 5)",
+        stats={"added": 0, "skipped": 0, "already_have": 0, "custom_added": 0},
+    )
+    assert "1/5" in text
+    assert "Olive Oil" in text
+    assert "Low stock" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    for v in ("shop:add", "shop:add+", "shop:skip", "shop:have", "shop:done"):
+        assert v in callbacks
+
+
+def test_render_qty_prompt_has_1_to_5_plus_custom():
+    from src.backend.handle_shopping_walk import render_qty_prompt
+    text, kb = render_qty_prompt(product_name="Olive Oil")
+    assert "how many" in text.lower()
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    for n in range(1, 6):
+        assert f"shop:qty:{n}" in callbacks
+    assert "shop:qty:cu" in callbacks
+    assert "shop:back" in callbacks
+
+
+def test_render_store_prompt_shows_top_stores_skip_other():
+    from src.backend.handle_shopping_walk import render_store_prompt
+    text, kb = render_store_prompt(
+        product_name="Olive Oil", qty=3, stores=["Costco", "Sprouts", "Trader Joe's"],
+    )
+    assert "Olive Oil" in text
+    assert "3" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "shop:store:skip" in callbacks
+    assert "shop:store:costco" in callbacks
+    assert "shop:store:sprouts" in callbacks
+    assert "shop:store:trader_joes" in callbacks  # slugified
+    assert "shop:store:other" in callbacks
+    assert "shop:back" in callbacks
+
+
+def test_render_store_prompt_works_when_no_stores():
+    from src.backend.handle_shopping_walk import render_store_prompt
+    _, kb = render_store_prompt(product_name="X", qty=1, stores=[])
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "shop:store:skip" in callbacks
+    assert "shop:store:other" in callbacks
+
+
+def test_render_category_end_offers_custom_next_done():
+    from src.backend.handle_shopping_walk import render_category_end
+    text, kb = render_category_end(
+        category="pantry", next_category="fridge",
+        stats={"added": 3, "skipped": 1, "already_have": 1, "custom_added": 0},
+    )
+    assert "Pantry" in text
+    callbacks = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]
+    assert "shop:custom" in callbacks
+    assert "shop:cat_done" in callbacks
+    assert "shop:done" in callbacks
+    labels = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    assert any("Fridge" in lbl for lbl in labels)
+
+
+def test_render_category_end_last_category_says_finish():
+    from src.backend.handle_shopping_walk import render_category_end
+    _, kb = render_category_end(category="pantry", next_category=None,
+                                stats={"added": 1, "skipped": 0,
+                                       "already_have": 0, "custom_added": 0})
+    labels = [b["text"] for row in kb["inline_keyboard"] for b in row]
+    assert any("Finish" in lbl for lbl in labels)

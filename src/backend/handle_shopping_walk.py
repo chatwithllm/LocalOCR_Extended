@@ -330,3 +330,117 @@ def render_summary(stats: dict[str, int]) -> tuple[str, dict]:
         ])
     rows.append(bottom)
     return text, {"inline_keyboard": rows}
+
+
+def _slug_store(name: str) -> str:
+    """URL-safe lowercase slug for callback_data.
+
+    Drops apostrophes (so "Trader Joe's" -> "trader_joes"); spaces/hyphens
+    become "_".
+    """
+    out = []
+    for ch in (name or "").lower():
+        if ch.isalnum():
+            out.append(ch)
+        elif ch in (" ", "-"):
+            out.append("_")
+        # apostrophes and everything else: drop silently
+    slug = "".join(out).strip("_")
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+    return slug or "store"
+
+
+_QTY_BTNS = (1, 2, 3, 4, 5)
+
+
+def render_item_prompt(*, product_name: str, category: str, idx: int,
+                       total: int, reason_label: str,
+                       stats: dict[str, int]) -> tuple[str, dict]:
+    added = stats.get("added", 0)
+    banner = f" (added: {added})" if added else ""
+    text = (
+        f"{_cat_emoji(category)} {category.title()} · {idx}/{total}{banner}\n\n"
+        f"{product_name}\n"
+        f"{reason_label}"
+    )
+    kb = {"inline_keyboard": [
+        [
+            {"text": "+ Add",            "callback_data": "shop:add"},
+            {"text": "+ Add w/ qty+store","callback_data": "shop:add+"},
+        ],
+        [
+            {"text": "⏭ Skip",            "callback_data": "shop:skip"},
+            {"text": "✓ Already have",    "callback_data": "shop:have"},
+        ],
+        [{"text": "✓ Done for now", "callback_data": "shop:done"}],
+    ]}
+    return text, kb
+
+
+def render_qty_prompt(product_name: str) -> tuple[str, dict]:
+    text = f"{product_name} — how many?"
+    row1 = [{"text": str(n), "callback_data": f"shop:qty:{n}"} for n in _QTY_BTNS]
+    row2 = [
+        {"text": "✏ Custom qty", "callback_data": "shop:qty:cu"},
+        {"text": "← Back",       "callback_data": "shop:back"},
+    ]
+    return text, {"inline_keyboard": [row1, row2]}
+
+
+def render_store_prompt(*, product_name: str, qty: float,
+                        stores: list[str]) -> tuple[str, dict]:
+    text = f"{product_name} × {qty:g} — where?"
+    rows = [[{"text": "⏭ Skip store", "callback_data": "shop:store:skip"}]]
+    store_btns = []
+    for s in stores[:3]:
+        store_btns.append({
+            "text": f"🛒 {s}",
+            "callback_data": f"shop:store:{_slug_store(s)}",
+        })
+    if store_btns:
+        rows.append(store_btns)
+    rows.append([
+        {"text": "✏ Other store", "callback_data": "shop:store:other"},
+        {"text": "← Back",        "callback_data": "shop:back"},
+    ])
+    return text, {"inline_keyboard": rows}
+
+
+def render_category_end(*, category: str, next_category: str | None,
+                        stats: dict[str, int]) -> tuple[str, dict]:
+    added = stats.get("added", 0)
+    skipped = stats.get("skipped", 0)
+    have = stats.get("already_have", 0)
+    text = (
+        f"{_cat_emoji(category)} {category.title()} — done.\n"
+        f"Added {added} · skipped {skipped} · already had {have}\n\n"
+        "Anything else?"
+    )
+    next_btn = (
+        {"text": f"→ Next: {next_category.title()}",
+         "callback_data": "shop:cat_done"}
+        if next_category
+        else {"text": "✓ Finish shopping plan", "callback_data": "shop:cat_done"}
+    )
+    kb = {"inline_keyboard": [
+        [{"text": "+ Add custom item", "callback_data": "shop:custom"}],
+        [next_btn, {"text": "✓ Done for now", "callback_data": "shop:done"}],
+    ]}
+    return text, kb
+
+
+def render_custom_name_prompt() -> tuple[str, dict]:
+    text = "What's the item name?\n(type and send)"
+    kb = {"inline_keyboard": [[{"text": "← Cancel", "callback_data": "shop:back"}]]}
+    return text, kb
+
+
+def render_custom_qty_prompt(product_name: str) -> tuple[str, dict]:
+    text = f"{product_name} — how many?"
+    row1 = [{"text": str(n), "callback_data": f"shop:qty:{n}"} for n in _QTY_BTNS]
+    row2 = [
+        {"text": "✏ Custom qty", "callback_data": "shop:qty:cu"},
+        {"text": "← Back",       "callback_data": "shop:back"},
+    ]
+    return text, {"inline_keyboard": [row1, row2]}
