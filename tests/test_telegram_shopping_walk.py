@@ -955,3 +955,103 @@ def test_handle_cat_done_ends_walk_when_no_more_categories(session, monkeypatch)
     row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
     assert row.status == "done"
     assert any("Shopping plan complete" in t for t in edits)
+
+
+def test_handle_custom_transitions_to_custom_name(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_custom, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    row.cursor = len(row.item_queue)
+    row.pending_prompt = "category_end"
+    session.commit()
+
+    handle_custom(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "custom_name"
+    assert row.pending_action == "custom_add"
+
+
+def test_consume_typed_name_transitions_to_custom_qty(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        consume_typed_name, handle_custom,
+        handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((t, reply_markup)),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    row.cursor = len(row.item_queue)
+    row.pending_prompt = "category_end"
+    session.commit()
+    handle_custom(session, "abc", message_id=100); session.commit()
+
+    consume_typed_name(session, "abc", "Bay Leaves", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "custom_qty"
+    assert row.pending_name == "Bay Leaves"
+    assert "Bay Leaves" in edits[-1][0]
+
+
+def test_consume_typed_name_rejects_empty(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        consume_typed_name, handle_custom, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    row.cursor = len(row.item_queue)
+    row.pending_prompt = "category_end"
+    session.commit()
+    handle_custom(session, "abc", message_id=100); session.commit()
+
+    consume_typed_name(session, "abc", "   ", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "custom_name"  # stays in name state
+    assert any("can't be empty" in t for t in sent)

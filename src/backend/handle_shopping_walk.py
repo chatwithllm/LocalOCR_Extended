@@ -718,6 +718,31 @@ def handle_store(session, chat_id: str, store_arg: str,
     _advance_or_end_category(session, row, message_id)
 
 
+def handle_custom(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped + Add custom item. Transition to typed-name state."""
+    row = get_or_create_session(session, chat_id)
+    row.pending_prompt = "custom_name"
+    row.pending_action = "custom_add"
+    row.pending_name = None
+    row.pending_qty = None
+    text, kb = render_custom_name_prompt()
+    _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+def consume_typed_name(session, chat_id: str, text: str,
+                       message_id: int | None) -> None:
+    """Webhook calls this when row.pending_prompt == 'custom_name' and user sent text."""
+    row = get_or_create_session(session, chat_id)
+    name = (text or "").strip()
+    if not name:
+        send_telegram_message(chat_id, "Name can't be empty. Try again:")
+        return
+    row.pending_name = name
+    row.pending_prompt = "custom_qty"
+    text_out, kb = render_custom_qty_prompt(product_name=name)
+    _edit_telegram_message(chat_id, message_id, text_out, reply_markup=kb)
+
+
 def handle_skip(session, chat_id: str, message_id: int | None) -> None:
     row = get_or_create_session(session, chat_id)
     stats = dict(row.stats or {})
