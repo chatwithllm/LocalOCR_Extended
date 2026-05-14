@@ -688,6 +688,33 @@ class TelegramInventorySession(Base):
     )
 
 
+class TelegramShoppingSession(Base):
+    __tablename__ = "telegram_shopping_session"
+
+    chat_id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(20), nullable=False, default="active")
+    category_queue = Column(JSON, nullable=False, default=list)
+    current_category = Column(String(40), nullable=True)
+    item_queue = Column(JSON, nullable=False, default=list)
+    cursor = Column(Integer, nullable=False, default=0)
+    pending_prompt = Column(String(30), nullable=True)
+    pending_action = Column(String(20), nullable=True)
+    last_item_id = Column(Integer, nullable=True)
+    pending_name = Column(String(255), nullable=True)
+    pending_qty = Column(Float, nullable=True)
+    stats = Column(JSON, nullable=False, default=dict)
+    nudge_muted_until = Column(DateTime, nullable=True)
+    last_nudge_sent_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, default=utcnow)
+    last_action_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_tg_shop_status", "status"),
+        Index("ix_tg_shop_last_action", "last_action_at"),
+    )
+
+
 class ApiUsage(Base):
     __tablename__ = "api_usage"
 

@@ -66,6 +66,21 @@ def telegram_webhook():
             send_telegram_message(chat_id, response_text)
         return jsonify({"status": "ok"}), 200
 
+    if text:
+        try:
+            from src.backend.handle_shopping_walk import (
+                consume_typed_text, is_walk_enabled,
+            )
+            if is_walk_enabled(chat_id):
+                if consume_typed_text(
+                    g.db_session, chat_id, text,
+                    int(message.get("message_id") or 0) or None,
+                ):
+                    g.db_session.commit()
+                    return jsonify({"status": "ok"}), 200
+        except Exception as e:
+            logger.warning(f"shopping walk typed-text consume failed: {e}")
+
     # Handle photos and PDF documents
     photos = message.get("photo", [])
     document = message.get("document") or {}
@@ -122,11 +137,23 @@ def _handle_command(command: str, chat_id: str = "") -> str:
         # the stale-prompt guard then rejects.
         g.db_session.commit()
         return ""  # start_walk side-channels via send_telegram_message
+    if cmd == "/shopping":
+        from src.backend.handle_shopping_walk import is_walk_enabled, start_walk
+        if not is_walk_enabled(chat_id):
+            return "Shopping walk is not enabled for this chat."
+        start_walk(g.db_session, chat_id)
+        # Mirror the /inventory branch: persist the freshly-created
+        # TelegramShoppingSession row so the next webhook (a callback tap)
+        # finds the right pending_prompt, otherwise the stale-prompt guard
+        # in dispatch_shop_callback rejects the click.
+        g.db_session.commit()
+        return ""
     commands = {
         "/start": "👋 Welcome to Grocery Manager! Send me a receipt photo or PDF to get started.",
         "/help": (
             "📸 Send a receipt photo or PDF → I'll extract items and update your inventory.\n"
             "📦 /inventory → Walk through stale items and update what's left\n"
+            "🛒 /shopping → Walk through recommended shopping items\n"
             "📊 /status → Check system status\n"
             "❓ /help → Show this message"
         ),
@@ -244,6 +271,24 @@ def _handle_callback_query(callback_query: dict):
         )
         if is_walk_enabled(chat_id):
             dispatch_inv_callback(g.db_session, chat_id, data, callback_message_id)
+            g.db_session.commit()
+        return jsonify({"status": "ok"}), 200
+
+    if data.startswith("shop:"):
+        from src.backend.handle_shopping_walk import (
+            is_walk_enabled, dispatch_shop_callback,
+        )
+        if is_walk_enabled(chat_id):
+            dispatch_shop_callback(g.db_session, chat_id, data, callback_message_id)
+            g.db_session.commit()
+        return jsonify({"status": "ok"}), 200
+
+    if data.startswith("nudge:shop:"):
+        from src.backend.handle_shopping_walk import (
+            is_walk_enabled, dispatch_nudge_callback,
+        )
+        if is_walk_enabled(chat_id):
+            dispatch_nudge_callback(g.db_session, chat_id, data, callback_message_id)
             g.db_session.commit()
         return jsonify({"status": "ok"}), 200
 

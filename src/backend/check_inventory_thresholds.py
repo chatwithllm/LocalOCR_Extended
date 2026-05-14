@@ -38,6 +38,11 @@ def start_threshold_checker():
         register_daily_nudge_job(_scheduler)
     except Exception:
         logger.exception("failed to register inventory nudge job")
+    try:
+        from src.backend.shopping_nudge_job import register_daily_shopping_nudge_job
+        register_daily_shopping_nudge_job(_scheduler)
+    except Exception:
+        logger.exception("failed to register shopping nudge job")
     _scheduler.start()
     logger.info("Threshold checking scheduler started (every 5 minutes).")
 
