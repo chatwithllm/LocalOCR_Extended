@@ -142,6 +142,11 @@ def _handle_command(command: str, chat_id: str = "") -> str:
         if not is_walk_enabled(chat_id):
             return "Shopping walk is not enabled for this chat."
         start_walk(g.db_session, chat_id)
+        # Mirror the /inventory branch: persist the freshly-created
+        # TelegramShoppingSession row so the next webhook (a callback tap)
+        # finds the right pending_prompt, otherwise the stale-prompt guard
+        # in dispatch_shop_callback rejects the click.
+        g.db_session.commit()
         return ""
     commands = {
         "/start": "👋 Welcome to Grocery Manager! Send me a receipt photo or PDF to get started.",
