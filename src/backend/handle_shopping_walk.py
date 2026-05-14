@@ -718,6 +718,34 @@ def handle_store(session, chat_id: str, store_arg: str,
     _advance_or_end_category(session, row, message_id)
 
 
+def handle_skip(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    stats = dict(row.stats or {})
+    stats["skipped"] = stats.get("skipped", 0) + 1
+    row.stats = stats
+    _advance_or_end_category(session, row, message_id)
+
+
+def handle_have(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    stats = dict(row.stats or {})
+    stats["already_have"] = stats.get("already_have", 0) + 1
+    row.stats = stats
+    _advance_or_end_category(session, row, message_id)
+
+
+def handle_done(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    _end_walk(row, message_id)
+
+
+def _end_walk(row, message_id: int | None) -> None:
+    text, kb = render_summary(row.stats or {})
+    _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+    row.status = "done"
+    row.pending_prompt = None
+
+
 def consume_typed_store(session, chat_id: str, text: str,
                         message_id: int | None) -> None:
     """Webhook calls this when row.pending_action is *_store_typed and user sent text."""

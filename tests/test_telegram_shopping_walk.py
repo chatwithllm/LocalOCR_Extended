@@ -789,3 +789,97 @@ def test_handle_store_other_enters_typed_text_state(session, monkeypatch):
     row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
     assert row.pending_prompt == "store"
     assert row.pending_action == "add_detailed_store_typed"
+
+
+def test_handle_skip_advances_no_write(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_skip, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, ShoppingListItem, TelegramShoppingSession,
+    )
+    p1 = Product(name="Olive oil", category="pantry"); session.add(p1); session.flush()
+    p2 = Product(name="Pepper", category="pantry"); session.add(p2); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": p1.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+            {"product_id": p2.id, "product_name": "Pepper", "category": "pantry",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_skip(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["skipped"] == 1
+    assert session.query(ShoppingListItem).count() == 0
+
+
+def test_handle_have_advances_no_write(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_have, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, ShoppingListItem, TelegramShoppingSession,
+    )
+    p1 = Product(name="Olive oil", category="pantry"); session.add(p1); session.flush()
+    p2 = Product(name="Pepper", category="pantry"); session.add(p2); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": p1.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock"},
+            {"product_id": p2.id, "product_name": "Pepper", "category": "pantry",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_have(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["already_have"] == 1
+    assert session.query(ShoppingListItem).count() == 0
+
+
+def test_handle_done_ends_walk_with_summary(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_done, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_done(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert row.pending_prompt is None
+    assert any("Shopping plan complete" in t for t in edits)
