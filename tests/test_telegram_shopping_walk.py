@@ -67,3 +67,40 @@ def test_telegram_shopping_session_defaults(session):
     assert fetched.last_nudge_sent_at is None
     assert fetched.started_at is not None
     assert fetched.last_action_at is not None
+
+
+def test_constants_have_safe_defaults(monkeypatch):
+    monkeypatch.delenv("TELEGRAM_SHOPPING_WALK_ENABLED", raising=False)
+    monkeypatch.delenv("TELEGRAM_SHOPPING_WALK_PILOT_CHATS", raising=False)
+    monkeypatch.delenv("SHOPPING_WALK_IDLE_TIMEOUT_MIN", raising=False)
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    importlib.reload(m)
+    assert m.WALK_ENABLED is False
+    assert m.PILOT_CHATS == set()
+    assert m.IDLE_TIMEOUT_MIN == 30
+
+
+def test_is_walk_enabled_respects_flags(monkeypatch):
+    import importlib
+    import src.backend.handle_shopping_walk as m
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "1")
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_PILOT_CHATS", "")
+    importlib.reload(m)
+    assert m.is_walk_enabled("999") is True
+
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_PILOT_CHATS", "111,222")
+    importlib.reload(m)
+    assert m.is_walk_enabled("111") is True
+    assert m.is_walk_enabled("999") is False
+
+    monkeypatch.setenv("TELEGRAM_SHOPPING_WALK_ENABLED", "0")
+    importlib.reload(m)
+    assert m.is_walk_enabled("111") is False
+
+
+def test_module_re_exports_env_helpers():
+    import src.backend.handle_shopping_walk as m
+    assert callable(m._bool_env)
+    assert callable(m._csv_env)
+    assert callable(m._int_env)
