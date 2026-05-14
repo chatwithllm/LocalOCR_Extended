@@ -491,3 +491,70 @@ def handle_category(session, chat_id: str, category: str, message_id: int | None
         row.pending_prompt = "category"
         return
     _render_current_item(session, row, message_id)
+
+
+def _advance_or_end(session, row, message_id: int | None) -> None:
+    """After a non-Empty action: cursor+1 then either render next, prompt continue, or end."""
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    row.cursor += 1
+    if row.cursor < len(row.item_queue):
+        _render_current_item(session, row, message_id)
+        return
+
+    # End of current page. Are there more stale items in this category?
+    cutoff = _stale_cutoff()
+    total_stale = (
+        session.query(func.count(Inventory.id))
+        .join(Product, Product.id == Inventory.product_id)
+        .filter(Inventory.is_active_window.is_(True))
+        .filter(Inventory.last_updated < cutoff)
+        .filter(func.lower(func.coalesce(Product.category, "other")) == (row.current_category or "").lower())
+        .scalar()
+    ) or 0
+    done_on_page = row.cursor  # cursor == len(item_queue) here
+    remaining_after = max(0, total_stale - (row.page - 1) * PAGE_SIZE - done_on_page)
+
+    if remaining_after > 0:
+        text, kb = render_continue(row.current_category or "other", done=done_on_page, remaining=remaining_after)
+        row.pending_prompt = "continue"
+        _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+        return
+
+    _end_walk(session, row, message_id)
+
+
+def _end_walk(session, row, message_id: int | None) -> None:
+    text, kb = render_summary(row.current_category or "other", row.stats or {})
+    _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+    row.status = "done"
+    row.pending_prompt = None
+
+
+def handle_level(session, chat_id: str, level_idx: int, message_id: int | None) -> None:
+    """User tapped Empty/¼/½/¾/Full for the current item.
+
+    Empty (level_idx=0) → cart prompt. Other levels → advance to next item.
+    """
+    row = get_or_create_session(session, chat_id)
+    if row.cursor >= len(row.item_queue):
+        return  # Defensive — shouldn't happen if dispatch is correct.
+
+    inv_id = row.item_queue[row.cursor]
+    apply_level(session, inv_id, level_idx, user_id=row.user_id)
+    stats = dict(row.stats or {})
+    stats["updated"] = stats.get("updated", 0) + 1
+    row.stats = stats
+
+    if level_idx == 0:
+        # Show cart prompt before advancing.
+        from src.backend.initialize_database_schema import Inventory
+        inv = session.query(Inventory).filter_by(id=inv_id).one_or_none()
+        product_name = inv.product.name if (inv and inv.product) else "Item"
+        text, kb = render_cart_prompt(product_name)
+        row.pending_prompt = "cart"
+        row.last_item_id = inv_id
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+        return
+
+    _advance_or_end(session, row, message_id)

@@ -628,3 +628,78 @@ def test_handle_category_empty_category_keeps_state_and_replies(session, monkeyp
     row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
     assert row.pending_prompt == "category"  # stays so user can pick another
     assert any("No stale" in t or "no stale" in t.lower() for t in sent)
+
+
+def test_handle_level_full_advances_to_next_item(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_level, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_level(session, "abc", level_idx=4, message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["updated"] == 1
+    # next item rendered with 2/2
+    assert any("2/2" in e[2] for e in edits)
+
+
+def test_handle_level_empty_transitions_to_cart_prompt(session, monkeypatch):
+    from src.backend.handle_inventory_walk import handle_level, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[("Olive oil", "pantry", 20)])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_level(session, "abc", level_idx=0, message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "cart"
+    assert row.stats["updated"] == 1
+    last_kb = edits[-1][3]
+    callbacks = [b["callback_data"] for r in last_kb["inline_keyboard"] for b in r]
+    assert "inv:cart:y" in callbacks
+
+
+def test_handle_level_last_item_in_last_page_ends_walk(session, monkeypatch):
+    """When level button is pressed on the last item and no more pages remain → end walk."""
+    from src.backend.handle_inventory_walk import handle_level, handle_category, start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[("Only one", "pantry", 25)])
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append((c, m, t, reply_markup)),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_level(session, "abc", level_idx=4, message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert any("Walk complete" in e[2] for e in edits)
