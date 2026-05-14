@@ -1055,3 +1055,110 @@ def test_consume_typed_name_rejects_empty(session, monkeypatch):
     row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
     assert row.pending_prompt == "custom_name"  # stays in name state
     assert any("can't be empty" in t for t in sent)
+
+
+def test_handle_back_from_qty_returns_to_item(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_back, handle_add_detailed, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_add_detailed(session, "abc", message_id=100); session.commit()
+
+    handle_back(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "item"
+    assert row.pending_action is None
+
+
+def test_handle_cancel_marks_abandoned(session, monkeypatch):
+    from src.backend.handle_shopping_walk import handle_cancel, start_walk
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [],
+    )
+    start_walk(session, "abc"); session.commit()
+
+    handle_cancel(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.status == "abandoned"
+    assert any("ancel" in t for t in edits)
+
+
+def test_handle_restart_resets_state(session, monkeypatch):
+    from src.backend.handle_shopping_walk import handle_restart
+    from src.backend.initialize_database_schema import (
+        Product, TelegramShoppingSession,
+    )
+    p = Product(name="Olive oil", category="pantry"); session.add(p); session.flush()
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [{"product_id": p.id, "product_name": "Olive oil",
+                     "category": "pantry", "reason": "low_stock"}],
+    )
+    row = TelegramShoppingSession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[{"product_id": 1, "name": "X", "category": "pantry",
+                     "reason_label": "Low stock"}],
+        cursor=1, pending_prompt="item",
+    )
+    session.add(row); session.commit()
+
+    handle_restart(session, "abc", message_id=100); session.commit()
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.cursor == 0
+    assert row.current_category is None
+    assert row.pending_prompt == "category"
+    assert any("Plan shopping" in t for t in edits)
+
+
+def test_handle_resume_re_renders_current(session, monkeypatch):
+    from src.backend.handle_shopping_walk import handle_resume
+    from src.backend.initialize_database_schema import TelegramShoppingSession
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    row = TelegramShoppingSession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[{"product_id": 1, "name": "Olive oil", "category": "pantry",
+                     "reason_label": "Low stock"}],
+        cursor=0, pending_prompt="resume",
+    )
+    session.add(row); session.commit()
+
+    handle_resume(session, "abc", message_id=100); session.commit()
+    assert any("Olive oil" in t for t in edits)
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.pending_prompt == "item"

@@ -850,3 +850,72 @@ def consume_typed_store(session, chat_id: str, text: str,
     row.pending_qty = None
     row.pending_action = None
     _advance_or_end_category(session, row, message_id)
+
+
+def handle_back(session, chat_id: str, message_id: int | None) -> None:
+    """← Back from sub-prompt. State-table:
+    qty → item, store → qty, custom_name → category_end,
+    custom_qty → custom_name, custom_store → custom_qty.
+    """
+    row = get_or_create_session(session, chat_id)
+    p = row.pending_prompt
+    if p == "qty":
+        row.pending_action = None
+        _render_current_item(row, message_id)
+    elif p == "store":
+        item = row.item_queue[row.cursor] if row.cursor < len(row.item_queue) else {}
+        text, kb = render_qty_prompt(item.get("name", "Item"))
+        row.pending_prompt = "qty"
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+    elif p == "custom_name":
+        next_cat = row.category_queue[0] if row.category_queue else None
+        text, kb = render_category_end(
+            category=row.current_category or "other",
+            next_category=next_cat,
+            stats=row.stats or {},
+        )
+        row.pending_prompt = "category_end"
+        row.pending_action = None
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+    elif p == "custom_qty":
+        text, kb = render_custom_name_prompt()
+        row.pending_prompt = "custom_name"
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+    elif p == "custom_store":
+        text, kb = render_custom_qty_prompt(product_name=row.pending_name or "Item")
+        row.pending_prompt = "custom_qty"
+        _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+def handle_cancel(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    row.status = "abandoned"
+    row.pending_prompt = None
+    _edit_telegram_message(chat_id, message_id, "Cancelled.")
+
+
+def handle_resume(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    if not row.item_queue or row.cursor >= len(row.item_queue):
+        start_walk(session, chat_id)
+        return
+    _render_current_item(row, message_id)
+
+
+def handle_restart(session, chat_id: str, message_id: int | None) -> None:
+    row = get_or_create_session(session, chat_id)
+    reset_for_start_over(row)
+    recs = fetch_recommendations(session)
+    if not recs:
+        row.status = "done"
+        row.pending_prompt = None
+        _edit_telegram_message(
+            chat_id, message_id,
+            "🎉 Nothing to suggest right now — shopping list looks good.",
+        )
+        return
+    cat_queue, items_by = bucketize_by_category(recs)
+    row.category_queue = cat_queue
+    counts = [(c, len(items_by[c])) for c in cat_queue]
+    text, kb = render_category_screen(counts)
+    _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
