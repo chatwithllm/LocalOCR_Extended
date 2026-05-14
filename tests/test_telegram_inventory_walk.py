@@ -703,3 +703,86 @@ def test_handle_level_last_item_in_last_page_ends_walk(session, monkeypatch):
     row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
     assert row.status == "done"
     assert any("Walk complete" in e[2] for e in edits)
+
+
+def test_handle_cart_yes_inserts_shopping_list_item(session, monkeypatch):
+    from src.backend.handle_inventory_walk import (
+        handle_cart, handle_level, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        TelegramInventorySession, ShoppingListItem,
+    )
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_level(session, "abc", 0, message_id=100); session.commit()  # Empty → cart prompt
+
+    handle_cart(session, "abc", "y", message_id=100); session.commit()
+
+    items = session.query(ShoppingListItem).all()
+    assert len(items) == 1
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.stats["cart_added"] == 1
+    assert row.pending_prompt == "level"  # advanced to next item
+    assert row.cursor == 1
+
+
+def test_handle_cart_no_does_not_insert(session, monkeypatch):
+    from src.backend.handle_inventory_walk import (
+        handle_cart, handle_level, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import ShoppingListItem
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_level(session, "abc", 0, message_id=100); session.commit()
+
+    handle_cart(session, "abc", "n", message_id=100); session.commit()
+    assert session.query(ShoppingListItem).count() == 0
+
+
+def test_handle_cart_already_does_not_insert(session, monkeypatch):
+    from src.backend.handle_inventory_walk import (
+        handle_cart, handle_level, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import ShoppingListItem
+    _seed_inventory(session, days_old_pairs=[
+        ("Olive oil", "pantry", 20),
+        ("Pepper",     "pantry", 30),
+    ])
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    handle_level(session, "abc", 0, message_id=100); session.commit()
+
+    handle_cart(session, "abc", "a", message_id=100); session.commit()
+    assert session.query(ShoppingListItem).count() == 0

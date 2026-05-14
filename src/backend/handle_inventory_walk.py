@@ -558,3 +558,20 @@ def handle_level(session, chat_id: str, level_idx: int, message_id: int | None) 
         return
 
     _advance_or_end(session, row, message_id)
+
+
+def handle_cart(session, chat_id: str, choice: str, message_id: int | None) -> None:
+    """User answered the cart prompt: 'y' (Yes), 'n' (No), or 'a' (Already have it).
+
+    On Yes: insert ShoppingListItem for last_item_id, bump stats.cart_added.
+    Then advance to next item regardless of choice.
+    """
+    row = get_or_create_session(session, chat_id)
+    if choice == "y" and row.last_item_id is not None:
+        added = add_empty_to_shopping_list(session, row.last_item_id)
+        if added is not None:
+            stats = dict(row.stats or {})
+            stats["cart_added"] = stats.get("cart_added", 0) + 1
+            row.stats = stats
+    # No/Already → no insert.
+    _advance_or_end(session, row, message_id)
