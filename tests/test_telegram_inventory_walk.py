@@ -1159,3 +1159,46 @@ def test_webhook_routes_inv_callback_to_dispatch(session, monkeypatch):
         flask.g.db_session = session
         _handle_callback_query(cb)
     assert called == [("abc", "inv:cat:pantry", 100)]
+
+
+def test_handle_category_empty_arg_is_defensive_noop(session, monkeypatch):
+    """Malformed `inv:cat:` callback shouldn't mutate inventory state."""
+    from src.backend.handle_inventory_walk import handle_category
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+
+    handle_category(session, "abc", category="", message_id=100)
+    session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.current_category is None
+    assert row.item_queue == []
+    assert row.pending_prompt == "category"
+    assert sent == []  # no spurious "No stale items in ." message
+
+
+def test_start_walk_caught_up_parks_row_state(session, monkeypatch):
+    """`/inventory` with no stale items leaves the row in a clean terminal state."""
+    from src.backend.handle_inventory_walk import start_walk
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda *a, **kw: None,
+    )
+    row = TelegramInventorySession(
+        chat_id="abc", status="active", current_category="pantry",
+        item_queue=[], cursor=0, pending_prompt="level",
+    )
+    session.add(row); session.commit()
+
+    start_walk(session, "abc"); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "done"
+    assert row.pending_prompt is None

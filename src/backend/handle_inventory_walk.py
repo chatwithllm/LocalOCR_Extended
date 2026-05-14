@@ -205,9 +205,10 @@ def add_empty_to_shopping_list(session, inventory_id: int):
     OPEN ShoppingListItem already exists for this product in the active
     shopping session, returns it without inserting again.
 
-    Called from the Telegram polling worker, which runs outside any Flask
-    request context. _ensure_current_session touches `flask.g`, so we push a
-    throwaway app context when none is active.
+    Production path is always inside a Flask request context (the Telegram
+    webhook is a Flask route), so `_ensure_current_session` reads `flask.g`
+    cleanly. The no-context fallback below exists only for direct unit-test
+    invocations of this helper.
     """
     import flask
     from src.backend.initialize_database_schema import (
@@ -222,6 +223,10 @@ def add_empty_to_shopping_list(session, inventory_id: int):
     if flask.has_app_context():
         shop_session = _ensure_current_session(session)
     else:
+        # Test-only fallback: tests call this helper directly without
+        # pushing a Flask request context. `_ensure_current_session` only
+        # needs `g` for an optional `current_user.id`, which resolves to
+        # None under a fresh app context — same as an unauthenticated webhook.
         _ctx_app = flask.Flask("telegram_walk_ctx")
         with _ctx_app.app_context():
             shop_session = _ensure_current_session(session)
@@ -396,21 +401,11 @@ def send_telegram_message(chat_id: str, text: str, reply_markup: dict | None = N
 
 def _edit_telegram_message(chat_id: str, message_id: int | None, text: str,
                            reply_markup: dict | None = None):
-    """Thin wrapper for editMessageText so tests can monkeypatch.
-
-    Delegates to handle_telegram_messages._edit_telegram_message. The
-    underlying function may not yet accept `reply_markup` (Task 16 will
-    extend it); fall back to a positional-only call on TypeError so this
-    wrapper stays inert until that lands.
-    """
+    """Thin wrapper for editMessageText so tests can monkeypatch."""
     from src.backend.handle_telegram_messages import (
         _edit_telegram_message as _edit,
     )
-    try:
-        return _edit(chat_id, message_id, text, reply_markup=reply_markup)
-    except TypeError:
-        # Underlying function doesn't yet support reply_markup; Task 16 will extend it.
-        return _edit(chat_id, message_id, text)
+    return _edit(chat_id, message_id, text, reply_markup=reply_markup)
 
 
 def start_walk(session, chat_id: str) -> None:
@@ -433,6 +428,10 @@ def start_walk(session, chat_id: str) -> None:
 
     counts = categories_with_stale_counts(session)
     if not counts:
+        # Park the row in a clean terminal state so future taps don't trip
+        # the stale-verb guard against a half-set pending_prompt.
+        row.status = "done"
+        row.pending_prompt = None
         send_telegram_message(chat_id, "🎉 All caught up — nothing stale.")
         return
 
@@ -480,6 +479,10 @@ def _render_current_item(session, row, message_id: int | None) -> None:
 def handle_category(session, chat_id: str, category: str, message_id: int | None) -> None:
     """User picked a category — load page 1 of stale items, render first level prompt."""
     row = get_or_create_session(session, chat_id)
+    if not category:
+        # Malformed `inv:cat:` callback. Don't mutate state; leave the category screen up.
+        row.pending_prompt = "category"
+        return
     items = stale_items_in_category(session, category, page=1)
     row.current_category = category
     row.item_queue = [i.id for i in items]
@@ -781,7 +784,14 @@ def dispatch_inv_callback(session, chat_id: str, data: str, message_id: int | No
 
 
 def dispatch_nudge_callback(session, chat_id: str, data: str, message_id: int | None) -> None:
-    """Route `nudge:yes` / `nudge:later` / `nudge:mute` callbacks."""
+    """Route `nudge:yes` / `nudge:later` / `nudge:mute` callbacks.
+
+    Unlike `dispatch_inv_callback`, this handler intentionally does NOT validate
+    `pending_prompt`. Nudges arrive out-of-band so the user's state can
+    legitimately be anything (None after a summary, "level" mid-walk, etc.),
+    and all three actions are state-independent: Yes restarts via start_walk
+    (which has its own resume logic), Later/Mute only adjust nudge_muted_until.
+    """
     row = get_or_create_session(session, chat_id)
     if data == "nudge:yes":
         _edit_telegram_message(chat_id, message_id, "Starting walk…")
