@@ -209,3 +209,77 @@ def test_stale_items_in_category_returns_ordered_page(session):
     assert len(page2) == 2
     # oldest first — Item 11 has the most days_old (14 + 11 = 25 days)
     assert page1[0].product.name == "Item 11"
+
+
+def test_get_or_create_session_creates_row(session):
+    from src.backend.handle_inventory_walk import get_or_create_session
+    row = get_or_create_session(session, "abc")
+    assert row.chat_id == "abc"
+    assert row.status == "active"
+    assert row.item_queue == []
+    assert row.cursor == 0
+
+
+def test_get_or_create_session_returns_existing(session):
+    from src.backend.handle_inventory_walk import get_or_create_session
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    session.add(TelegramInventorySession(
+        chat_id="abc", status="active", current_category="pantry", cursor=3,
+    ))
+    session.commit()
+    row = get_or_create_session(session, "abc")
+    assert row.current_category == "pantry"
+    assert row.cursor == 3
+
+
+def test_reset_for_start_over_preserves_nudge_prefs(session):
+    from datetime import timedelta
+    from src.backend.handle_inventory_walk import reset_for_start_over
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    nudge_until = datetime.utcnow() + timedelta(days=7)
+    row = TelegramInventorySession(
+        chat_id="abc",
+        status="done",
+        current_category="pantry",
+        item_queue=[1, 2, 3],
+        cursor=2,
+        page=2,
+        stats={"updated": 5},
+        nudge_muted_until=nudge_until,
+    )
+    session.add(row); session.commit()
+
+    reset_for_start_over(row)
+    session.commit()
+
+    assert row.status == "active"
+    assert row.current_category is None
+    assert row.item_queue == []
+    assert row.cursor == 0
+    assert row.page == 1
+    assert row.pending_prompt == "category"
+    assert row.stats == {}
+    assert row.last_item_id is None
+    assert row.nudge_muted_until == nudge_until  # preserved
+
+
+def test_abandon_if_idle_marks_status(session):
+    from datetime import timedelta
+    from src.backend.handle_inventory_walk import abandon_if_idle
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    row = TelegramInventorySession(chat_id="abc", status="active")
+    session.add(row); session.commit()
+    row.last_action_at = datetime.utcnow() - timedelta(minutes=45)
+    session.commit()
+
+    assert abandon_if_idle(row) is True
+    assert row.status == "abandoned"
+
+
+def test_abandon_if_idle_leaves_fresh_session_alone(session):
+    from src.backend.handle_inventory_walk import abandon_if_idle
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    row = TelegramInventorySession(chat_id="abc", status="active")
+    session.add(row); session.commit()
+    assert abandon_if_idle(row) is False
+    assert row.status == "active"

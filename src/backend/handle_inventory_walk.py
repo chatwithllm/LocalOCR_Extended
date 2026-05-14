@@ -97,3 +97,43 @@ def stale_items_in_category(session, category: str, page: int = 1):
         .limit(PAGE_SIZE)
         .all()
     )
+
+
+def get_or_create_session(session, chat_id: str):
+    """Fetch the TelegramInventorySession row for chat_id, creating one if absent."""
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    row = (
+        session.query(TelegramInventorySession)
+        .filter_by(chat_id=chat_id)
+        .one_or_none()
+    )
+    if row is None:
+        row = TelegramInventorySession(chat_id=chat_id, status="active")
+        session.add(row)
+        session.flush()
+    return row
+
+
+def reset_for_start_over(row) -> None:
+    """Reset walk state in place, preserving nudge prefs."""
+    row.status = "active"
+    row.current_category = None
+    row.item_queue = []
+    row.cursor = 0
+    row.page = 1
+    row.pending_prompt = "category"
+    row.last_item_id = None
+    row.stats = {}
+
+
+def abandon_if_idle(row) -> bool:
+    """Return True if session was just marked abandoned due to idle timeout."""
+    if row.status != "active":
+        return False
+    if row.last_action_at is None:
+        return False
+    cutoff = datetime.utcnow() - timedelta(minutes=IDLE_TIMEOUT_MIN)
+    if row.last_action_at < cutoff:
+        row.status = "abandoned"
+        return True
+    return False
