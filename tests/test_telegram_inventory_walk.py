@@ -109,7 +109,7 @@ def test_bool_env_handles_truthy_strings(monkeypatch):
     import importlib
     import src.backend.handle_inventory_walk as m
     importlib.reload(m)
-    assert m._bool_env.__call__ if False else True  # ensure attr exists
+    assert callable(m._bool_env)
     monkeypatch.setenv("FOO", "true")
     assert m._bool_env("FOO") is True
     monkeypatch.setenv("FOO", "0")
