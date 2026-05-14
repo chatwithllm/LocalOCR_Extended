@@ -115,3 +115,34 @@ def run_daily_nudge(session) -> None:
             session.add(row)
             session.flush()
         row.last_nudge_sent_at = datetime.utcnow()
+
+
+def register_daily_nudge_job(scheduler) -> None:
+    """Register the daily 09:00 nudge job. No-op when INVENTORY_NUDGES_ENABLED is off."""
+    if not _bool_env("INVENTORY_NUDGES_ENABLED", False):
+        return
+    from apscheduler.triggers.cron import CronTrigger
+
+    def _job_wrapper():
+        from src.backend.initialize_database_schema import (
+            create_db_engine, create_session_factory,
+        )
+        engine = create_db_engine()
+        Session = create_session_factory(engine)
+        sess = Session()
+        try:
+            run_daily_nudge(sess)
+            sess.commit()
+        except Exception:
+            sess.rollback()
+            logger.exception("daily nudge job failed")
+        finally:
+            sess.close()
+
+    scheduler.add_job(
+        _job_wrapper,
+        trigger=CronTrigger(hour=9, minute=0),
+        id="inventory_daily_nudge",
+        name="Daily Inventory Nudge",
+        replace_existing=True,
+    )

@@ -188,3 +188,29 @@ def test_nudge_later_callback_sets_3_day_mute(session, monkeypatch):
     now = datetime.utcnow()
     assert row.nudge_muted_until > now + timedelta(days=2)
     assert row.nudge_muted_until < now + timedelta(days=4)
+
+
+def test_nudge_job_registers_when_enabled(monkeypatch):
+    from apscheduler.schedulers.background import BackgroundScheduler
+    monkeypatch.setenv("INVENTORY_NUDGES_ENABLED", "1")
+    import importlib
+    import src.backend.inventory_nudge_job as m
+    importlib.reload(m)
+
+    sched = BackgroundScheduler()
+    m.register_daily_nudge_job(sched)
+    jobs = sched.get_jobs()
+    assert any(j.id == "inventory_daily_nudge" for j in jobs)
+
+
+def test_nudge_job_skips_registration_when_disabled(monkeypatch):
+    from apscheduler.schedulers.background import BackgroundScheduler
+    monkeypatch.setenv("INVENTORY_NUDGES_ENABLED", "0")
+    import importlib
+    import src.backend.inventory_nudge_job as m
+    importlib.reload(m)
+
+    sched = BackgroundScheduler()
+    m.register_daily_nudge_job(sched)
+    jobs = sched.get_jobs()
+    assert not any(j.id == "inventory_daily_nudge" for j in jobs)
