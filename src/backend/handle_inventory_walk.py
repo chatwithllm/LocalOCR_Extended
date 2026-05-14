@@ -778,3 +778,17 @@ def dispatch_inv_callback(session, chat_id: str, data: str, message_id: int | No
         handle_restart(session, chat_id, message_id)
     elif verb == "cancel":
         handle_cancel(session, chat_id, message_id)
+
+
+def dispatch_nudge_callback(session, chat_id: str, data: str, message_id: int | None) -> None:
+    """Route `nudge:yes` / `nudge:later` / `nudge:mute` callbacks."""
+    row = get_or_create_session(session, chat_id)
+    if data == "nudge:yes":
+        _edit_telegram_message(chat_id, message_id, "Starting walk…")
+        start_walk(session, chat_id)
+    elif data == "nudge:later":
+        row.nudge_muted_until = datetime.utcnow() + timedelta(days=3)
+        _edit_telegram_message(chat_id, message_id, "OK, I'll ask again in a few days.")
+    elif data == "nudge:mute":
+        row.nudge_muted_until = datetime.utcnow() + timedelta(days=7)
+        _edit_telegram_message(chat_id, message_id, "Muted for a week.")
