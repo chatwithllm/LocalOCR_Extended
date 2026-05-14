@@ -540,3 +540,39 @@ def handle_category(session, chat_id: str, category: str,
         return
 
     _render_current_item(row, message_id)
+
+
+def _advance_or_end_category(session, row, message_id: int | None) -> None:
+    """After per-item action: cursor+1; render next or transition to CATEGORY_END."""
+    row.cursor += 1
+    if row.cursor < len(row.item_queue):
+        _render_current_item(row, message_id)
+        return
+    next_cat = row.category_queue[0] if row.category_queue else None
+    text, kb = render_category_end(
+        category=row.current_category or "other",
+        next_category=next_cat,
+        stats=row.stats or {},
+    )
+    row.pending_prompt = "category_end"
+    _edit_telegram_message(row.chat_id, message_id, text, reply_markup=kb)
+
+
+def handle_add(session, chat_id: str, message_id: int | None) -> None:
+    """User tapped + Add (qty=1, no store). Insert + advance."""
+    row = get_or_create_session(session, chat_id)
+    if row.cursor >= len(row.item_queue):
+        return
+    item = row.item_queue[row.cursor]
+    insert_recommendation(
+        session,
+        product_id=item.get("product_id"),
+        name=item.get("name", "Item"),
+        category=item.get("category"),
+        quantity=1.0,
+        preferred_store=None,
+    )
+    stats = dict(row.stats or {})
+    stats["added"] = stats.get("added", 0) + 1
+    row.stats = stats
+    _advance_or_end_category(session, row, message_id)

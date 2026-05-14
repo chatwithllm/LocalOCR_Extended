@@ -544,3 +544,42 @@ def test_handle_category_loads_queue_and_renders_first_item(session, monkeypatch
     assert "1/2" in last_text
     assert "Olive oil" in last_text
     assert row.stats == {"added": 0, "skipped": 0, "already_have": 0, "custom_added": 0}
+
+
+def test_handle_add_inserts_qty_one_and_advances(session, monkeypatch):
+    from src.backend.handle_shopping_walk import (
+        handle_add, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import (
+        TelegramShoppingSession, ShoppingListItem, Product,
+    )
+    p1 = Product(name="Olive oil", category="pantry"); session.add(p1); session.flush()
+    p2 = Product(name="Pepper", category="pantry"); session.add(p2); session.flush()
+
+    monkeypatch.setattr("src.backend.handle_shopping_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_shopping_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        "src.backend.handle_shopping_walk.fetch_recommendations",
+        lambda _s: [
+            {"product_id": p1.id, "product_name": "Olive oil", "category": "pantry",
+             "reason": "low_stock", "current_quantity": 1.0, "threshold": 5.0},
+            {"product_id": p2.id, "product_name": "Pepper", "category": "pantry",
+             "reason": "manual_low"},
+        ],
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+
+    handle_add(session, "abc", message_id=100); session.commit()
+
+    row = session.query(TelegramShoppingSession).filter_by(chat_id="abc").one()
+    assert row.cursor == 1
+    assert row.stats["added"] == 1
+    items = session.query(ShoppingListItem).all()
+    assert len(items) == 1
+    assert items[0].name == "Olive oil"
+    assert items[0].quantity == 1
+    assert items[0].preferred_store is None
+    assert items[0].source == "telegram_shopping"
