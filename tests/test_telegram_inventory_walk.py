@@ -959,3 +959,77 @@ def test_handle_restart_resets_and_shows_categories(session, monkeypatch):
     assert row.current_category is None
     assert row.pending_prompt == "category"
     assert any("Update inventory" in t for t in edits)
+
+
+def test_dispatch_rejects_stale_verb_and_rerenders(session, monkeypatch):
+    from src.backend.handle_inventory_walk import (
+        dispatch_inv_callback, handle_category, start_walk,
+    )
+    _seed_inventory(session, days_old_pairs=[("Olive oil", "pantry", 30)])
+    sent = []
+    edits = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda c, m, t, reply_markup=None: edits.append(t),
+    )
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    # pending_prompt is now 'level'. Sending a cart verb should be rejected.
+
+    dispatch_inv_callback(session, "abc", "inv:cart:y", message_id=100); session.commit()
+    # Stale-message + re-rendered level prompt should appear.
+    combined = " ".join(edits) + " " + " ".join(sent)
+    assert "stale" in combined.lower()
+    assert "Olive oil" in combined
+
+
+def test_dispatch_idle_session_auto_abandons(session, monkeypatch):
+    from datetime import timedelta
+    from src.backend.handle_inventory_walk import dispatch_inv_callback
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    row = TelegramInventorySession(
+        chat_id="abc", status="active",
+        current_category="pantry", item_queue=[1], cursor=0,
+        pending_prompt="level",
+    )
+    session.add(row); session.commit()
+    row.last_action_at = datetime.utcnow() - timedelta(minutes=60)
+    session.commit()
+    sent = []
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk.send_telegram_message",
+        lambda c, t, reply_markup=None: sent.append(t),
+    )
+    monkeypatch.setattr(
+        "src.backend.handle_inventory_walk._edit_telegram_message",
+        lambda *a, **kw: None,
+    )
+
+    dispatch_inv_callback(session, "abc", "inv:lvl:4", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.status == "abandoned"
+    assert any("timed out" in t.lower() for t in sent)
+
+
+def test_dispatch_correct_verb_routes_to_handler(session, monkeypatch):
+    """Sanity: a well-formed callback fires the right handler."""
+    from src.backend.handle_inventory_walk import (
+        dispatch_inv_callback, handle_category, start_walk,
+    )
+    from src.backend.initialize_database_schema import TelegramInventorySession
+    _seed_inventory(session, days_old_pairs=[("Olive oil", "pantry", 30)])
+    monkeypatch.setattr("src.backend.handle_inventory_walk._edit_telegram_message",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("src.backend.handle_inventory_walk.send_telegram_message",
+                        lambda *a, **kw: None)
+    start_walk(session, "abc"); session.commit()
+    handle_category(session, "abc", "pantry", message_id=100); session.commit()
+    # pending_prompt == 'level' now; route a valid skip verb.
+
+    dispatch_inv_callback(session, "abc", "inv:skip", message_id=100); session.commit()
+    row = session.query(TelegramInventorySession).filter_by(chat_id="abc").one()
+    assert row.stats["skipped"] == 1

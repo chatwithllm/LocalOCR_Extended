@@ -645,3 +645,114 @@ def handle_restart(session, chat_id: str, message_id: int | None) -> None:
         return
     text, kb = render_category_screen(counts)
     _edit_telegram_message(chat_id, message_id, text, reply_markup=kb)
+
+
+_VERB_TO_EXPECTED_PROMPT: dict[str, "str | set[str] | None"] = {
+    "cat":     "category",
+    "lvl":     "level",
+    "skip":    "level",
+    "nohave":  "level",
+    "done":    {"level", "continue"},
+    "cont":    "continue",
+    "cart":    "cart",
+    "resume":  "resume",
+    "restart": {"resume", "category", "continue", "level"},
+    "cancel":  {"category", "resume", "continue"},
+}
+
+
+def _matches_expected(prompt: str | None, expected) -> bool:
+    if isinstance(expected, set):
+        return prompt in expected
+    return prompt == expected
+
+
+def _rerender_current_prompt(session, row, message_id: int | None) -> None:
+    """Send a fresh prompt matching row.pending_prompt (not an edit — Telegram message may be gone)."""
+    from src.backend.initialize_database_schema import Inventory, Product
+
+    prompt = row.pending_prompt
+    if prompt == "category":
+        counts = categories_with_stale_counts(session)
+        text, kb = render_category_screen(counts)
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif prompt == "level":
+        if row.cursor < len(row.item_queue):
+            inv = session.query(Inventory).filter_by(id=row.item_queue[row.cursor]).one_or_none()
+            if inv is not None and inv.product is not None:
+                last_updated = inv.last_updated
+                if last_updated and last_updated.tzinfo is not None:
+                    last_updated = last_updated.replace(tzinfo=None)
+                days_old = (datetime.utcnow() - last_updated).days if last_updated else 0
+                text, kb = render_level_prompt(
+                    product_name=inv.product.name,
+                    category=row.current_category or "other",
+                    idx=row.cursor + 1,
+                    total=len(row.item_queue),
+                    days_old=days_old,
+                )
+                send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif prompt == "cart":
+        if row.last_item_id is not None:
+            inv = session.query(Inventory).filter_by(id=row.last_item_id).one_or_none()
+            if inv is not None and inv.product is not None:
+                text, kb = render_cart_prompt(inv.product.name)
+                send_telegram_message(row.chat_id, text, reply_markup=kb)
+    elif prompt == "continue":
+        cutoff = _stale_cutoff()
+        total_left = session.query(func.count(Inventory.id)).join(
+            Product, Product.id == Inventory.product_id
+        ).filter(
+            Inventory.is_active_window.is_(True),
+            Inventory.last_updated < cutoff,
+            func.lower(func.coalesce(Product.category, "other")) == (row.current_category or "").lower(),
+        ).scalar() or 0
+        remaining = max(0, total_left - (row.page - 1) * PAGE_SIZE - row.cursor)
+        text, kb = render_continue(row.current_category or "other", done=row.cursor, remaining=remaining)
+        send_telegram_message(row.chat_id, text, reply_markup=kb)
+
+
+def dispatch_inv_callback(session, chat_id: str, data: str, message_id: int | None) -> None:
+    """Route an `inv:*` callback. `data` is the raw callback_data."""
+    row = get_or_create_session(session, chat_id)
+
+    if abandon_if_idle(row):
+        send_telegram_message(chat_id, "Session timed out. /inventory to restart.")
+        return
+
+    parts = data.split(":", 2)
+    if len(parts) < 2 or parts[0] != "inv":
+        return
+    verb = parts[1]
+    arg = parts[2] if len(parts) == 3 else ""
+
+    expected = _VERB_TO_EXPECTED_PROMPT.get(verb)
+    if expected is not None and not _matches_expected(row.pending_prompt, expected):
+        _edit_telegram_message(chat_id, message_id, "That button is stale. Showing current step:")
+        _rerender_current_prompt(session, row, message_id=None)
+        return
+
+    if verb == "cat":
+        handle_category(session, chat_id, arg, message_id)
+    elif verb == "lvl":
+        try:
+            level = int(arg)
+        except ValueError:
+            return
+        handle_level(session, chat_id, level, message_id)
+    elif verb == "skip":
+        handle_skip(session, chat_id, message_id)
+    elif verb == "nohave":
+        handle_nohave(session, chat_id, message_id)
+    elif verb == "done":
+        handle_done(session, chat_id, message_id)
+    elif verb == "cont":
+        handle_continue(session, chat_id, message_id)
+    elif verb == "cart":
+        handle_cart(session, chat_id, arg, message_id)
+    elif verb == "resume":
+        handle_resume(session, chat_id, message_id)
+    elif verb == "restart":
+        handle_restart(session, chat_id, message_id)
+    elif verb == "cancel":
+        handle_cancel(session, chat_id, message_id)
