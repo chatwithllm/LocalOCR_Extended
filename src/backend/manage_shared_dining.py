@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from src.backend.initialize_database_schema import (
-    Purchase, SharedExpense, SharedParticipant, SharedDebt,
+    Purchase, SharedExpense, SharedParticipant, SharedDebt, DiningContact,
 )
 
 
@@ -110,3 +110,156 @@ def create_shared_expense(
     session.commit()
     session.refresh(expense)
     return expense
+
+
+def update_split(
+    session,
+    shared_expense_id: int,
+    participant_id: int,
+    new_amount: float,
+) -> object:
+    """Change one participant's share_amount, adjusting others proportionally.
+
+    After the update, all debt records for the expense are regenerated.
+    """
+    expense = session.get(SharedExpense, shared_expense_id)
+    if expense is None:
+        raise SplitValidationError(f"SharedExpense {shared_expense_id} not found")
+
+    target = session.get(SharedParticipant, participant_id)
+    if target is None or target.shared_expense_id != shared_expense_id:
+        raise SplitValidationError(f"Participant {participant_id} not in expense {shared_expense_id}")
+
+    old_amount = target.share_amount
+    delta = new_amount - old_amount
+    others = [p for p in expense.participants if p.id != participant_id]
+    if not others:
+        raise SplitValidationError("Cannot update: no other participants")
+
+    target.share_amount = new_amount
+    others_total = sum(p.share_amount for p in others)
+    if others_total > 0.001:
+        for p in others:
+            p.share_amount = round(p.share_amount - delta * (p.share_amount / others_total), 2)
+
+    new_sum = sum(p.share_amount for p in expense.participants)
+    if abs(new_sum - expense.total_amount) > 0.01:
+        raise SplitValidationError(
+            f"Amounts don't balance to {expense.total_amount:.2f} after update (got {new_sum:.2f})"
+        )
+
+    self_row = next((p for p in expense.participants if p.is_self), None)
+    if self_row:
+        expense.my_amount = self_row.share_amount
+
+    for debt in list(expense.debts):
+        session.delete(debt)
+    session.flush()
+
+    if expense.payment_scenario == "PAID_ALL":
+        for p in expense.participants:
+            if not p.is_self:
+                session.add(SharedDebt(
+                    shared_expense_id=expense.id,
+                    participant_id=p.id,
+                    direction="THEY_OWE_ME",
+                    amount=p.share_amount,
+                ))
+    elif expense.payment_scenario == "OWED":
+        payer = next(
+            (p for p in expense.participants
+             if any(d.direction == "I_OWE_THEM" for d in p.debts)),
+            None,
+        )
+        if payer:
+            session.add(SharedDebt(
+                shared_expense_id=expense.id,
+                participant_id=payer.id,
+                direction="I_OWE_THEM",
+                amount=expense.my_amount,
+            ))
+
+    session.commit()
+    session.refresh(expense)
+    return expense
+
+
+def settle_debt(session, debt_id: int, note: str | None = None) -> object:
+    """Mark a single debt as settled."""
+    debt = session.get(SharedDebt, debt_id)
+    if debt is None:
+        raise SplitValidationError(f"Debt {debt_id} not found")
+    debt.settled = True
+    debt.settled_at = _utcnow()
+    debt.settled_note = note
+    session.commit()
+    return debt
+
+
+def settle_all_with_contact(session, contact_id: int) -> int:
+    """Settle all unsettled debts linked to a contact. Returns count settled."""
+    debts = (
+        session.query(SharedDebt)
+        .join(SharedParticipant, SharedDebt.participant_id == SharedParticipant.id)
+        .filter(SharedParticipant.contact_id == contact_id, SharedDebt.settled == False)  # noqa: E712
+        .all()
+    )
+    now = _utcnow()
+    for debt in debts:
+        debt.settled = True
+        debt.settled_at = now
+    session.commit()
+    return len(debts)
+
+
+def get_balance_with_contact(session, contact_id: int) -> float:
+    """Net unsettled balance with a contact.
+
+    Returns: positive = they owe you, negative = you owe them.
+    """
+    debts = (
+        session.query(SharedDebt)
+        .join(SharedParticipant, SharedDebt.participant_id == SharedParticipant.id)
+        .filter(SharedParticipant.contact_id == contact_id, SharedDebt.settled == False)  # noqa: E712
+        .all()
+    )
+    balance = 0.0
+    for debt in debts:
+        if debt.direction == "THEY_OWE_ME":
+            balance += debt.amount
+        else:
+            balance -= debt.amount
+    return round(balance, 2)
+
+
+def get_all_balances(session) -> list[dict]:
+    """Return [{contact_id, name, net_amount}] for contacts with non-zero unsettled balance."""
+    contacts = session.query(DiningContact).all()
+    result = []
+    for contact in contacts:
+        balance = get_balance_with_contact(session, contact.id)
+        if abs(balance) >= 0.01:
+            result.append({
+                "contact_id": contact.id,
+                "name": contact.name,
+                "net_amount": balance,
+            })
+    return sorted(result, key=lambda x: abs(x["net_amount"]), reverse=True)
+
+
+def merge_contact(session, ad_hoc_participant_id: int, contact_id: int) -> object:
+    """Promote an ad-hoc participant to a saved contact. Debts follow automatically."""
+    participant = session.get(SharedParticipant, ad_hoc_participant_id)
+    if participant is None:
+        raise SplitValidationError(f"Participant {ad_hoc_participant_id} not found")
+    if participant.contact_id is not None:
+        raise SplitValidationError("Participant already linked to a saved contact")
+
+    contact = session.get(DiningContact, contact_id)
+    if contact is None:
+        raise SplitValidationError(f"Contact {contact_id} not found")
+
+    participant.contact_id = contact_id
+    participant.ad_hoc_name = None
+    session.commit()
+    return participant

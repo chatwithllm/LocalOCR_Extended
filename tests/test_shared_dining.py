@@ -170,3 +170,97 @@ def test_create_raises_on_duplicate(session, purchase):
     create_shared_expense(session, purchase.id, "PAID_ALL", participants)
     with pytest.raises(SplitValidationError, match="already has"):
         create_shared_expense(session, purchase.id, "PAID_ALL", participants)
+
+
+@pytest.fixture
+def paid_all_expense(session, purchase):
+    from src.backend.manage_shared_dining import create_shared_expense
+    from src.backend.initialize_database_schema import DiningContact
+
+    contact = DiningContact(name="John Smith")
+    session.add(contact)
+    session.flush()
+
+    participants = [
+        {"is_self": True,  "share_amount": 92.55, "ad_hoc_name": None,  "contact_id": None},
+        {"is_self": False, "share_amount": 92.55, "ad_hoc_name": None,  "contact_id": contact.id},
+        {"is_self": False, "share_amount": 92.55, "ad_hoc_name": "Ali", "contact_id": None},
+        {"is_self": False, "share_amount": 92.55, "ad_hoc_name": "Sam", "contact_id": None},
+    ]
+    exp = create_shared_expense(session, purchase.id, "PAID_ALL", participants)
+    return exp, contact
+
+
+def test_settle_debt_marks_settled(session, paid_all_expense):
+    from src.backend.manage_shared_dining import settle_debt
+    from src.backend.initialize_database_schema import SharedDebt
+
+    expense, _ = paid_all_expense
+    debt = session.query(SharedDebt).filter_by(shared_expense_id=expense.id).first()
+    assert debt.settled is False
+
+    settle_debt(session, debt.id, note="Cash paid")
+    session.expire_all()
+
+    updated = session.get(SharedDebt, debt.id)
+    assert updated.settled is True
+    assert updated.settled_note == "Cash paid"
+    assert updated.settled_at is not None
+
+
+def test_get_balance_with_contact(session, paid_all_expense):
+    from src.backend.manage_shared_dining import get_balance_with_contact
+
+    expense, contact = paid_all_expense
+    balance = get_balance_with_contact(session, contact.id)
+    assert balance == pytest.approx(92.55)
+
+
+def test_get_balance_after_settle(session, paid_all_expense):
+    from src.backend.manage_shared_dining import get_balance_with_contact, settle_all_with_contact
+
+    expense, contact = paid_all_expense
+    count = settle_all_with_contact(session, contact.id)
+    assert count == 1
+
+    balance = get_balance_with_contact(session, contact.id)
+    assert balance == 0.0
+
+
+def test_get_all_balances_excludes_zero(session, paid_all_expense):
+    from src.backend.manage_shared_dining import get_all_balances, settle_all_with_contact
+
+    expense, contact = paid_all_expense
+    balances = get_all_balances(session)
+    assert any(b["contact_id"] == contact.id for b in balances)
+
+    settle_all_with_contact(session, contact.id)
+    balances_after = get_all_balances(session)
+    assert not any(b["contact_id"] == contact.id for b in balances_after)
+
+
+def test_merge_contact_repoints_participant(session, purchase):
+    from src.backend.manage_shared_dining import create_shared_expense, merge_contact
+    from src.backend.initialize_database_schema import DiningContact, SharedParticipant
+
+    participants = [
+        {"is_self": True,  "share_amount": 185.10, "ad_hoc_name": None,  "contact_id": None},
+        {"is_self": False, "share_amount": 185.10, "ad_hoc_name": "Bob", "contact_id": None},
+    ]
+    expense = create_shared_expense(session, purchase.id, "PAID_ALL", participants)
+
+    ad_hoc = session.query(SharedParticipant).filter_by(
+        shared_expense_id=expense.id, is_self=False
+    ).one()
+    assert ad_hoc.contact_id is None
+
+    contact = DiningContact(name="Bob Jones")
+    session.add(contact)
+    session.commit()
+
+    merge_contact(session, ad_hoc.id, contact.id)
+    session.expire_all()
+
+    updated = session.get(SharedParticipant, ad_hoc.id)
+    assert updated.contact_id == contact.id
+    assert updated.ad_hoc_name is None
