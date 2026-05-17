@@ -1017,6 +1017,100 @@ class Medication(Base):
     created_by = relationship("User", foreign_keys=[created_by_id])
 
 
+class DiningContact(Base):
+    __tablename__ = "dining_contacts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_dining_contacts_name", "name"),
+    )
+
+
+class SharedExpense(Base):
+    __tablename__ = "shared_expenses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False, unique=True)
+    total_amount = Column(Float, nullable=False)
+    my_amount = Column(Float, nullable=False)
+    payment_scenario = Column(String(20), nullable=False)  # PAID_ALL | PAID_OWN | OWED
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_shared_expenses_purchase_id", "purchase_id"),
+    )
+
+    purchase = relationship("Purchase", backref="shared_expense", uselist=False)
+    participants = relationship(
+        "SharedParticipant", back_populates="shared_expense", cascade="all, delete-orphan"
+    )
+    debts = relationship(
+        "SharedDebt", back_populates="shared_expense", cascade="all, delete-orphan"
+    )
+
+
+class SharedParticipant(Base):
+    __tablename__ = "shared_participants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    shared_expense_id = Column(Integer, ForeignKey("shared_expenses.id"), nullable=False)
+    contact_id = Column(Integer, ForeignKey("dining_contacts.id"), nullable=True)
+    ad_hoc_name = Column(String(200), nullable=True)
+    is_self = Column(Boolean, nullable=False, default=False)
+    share_amount = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_shared_participants_expense_id", "shared_expense_id"),
+        Index("ix_shared_participants_contact_id", "contact_id"),
+    )
+
+    shared_expense = relationship("SharedExpense", back_populates="participants")
+    contact = relationship("DiningContact")
+    debts = relationship("SharedDebt", back_populates="participant")
+
+
+class SharedDebt(Base):
+    __tablename__ = "shared_debts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    shared_expense_id = Column(Integer, ForeignKey("shared_expenses.id"), nullable=False)
+    participant_id = Column(Integer, ForeignKey("shared_participants.id"), nullable=False)
+    direction = Column(String(20), nullable=False)  # THEY_OWE_ME | I_OWE_THEM
+    amount = Column(Float, nullable=False)
+    settled = Column(Boolean, nullable=False, default=False)
+    settled_at = Column(DateTime, nullable=True)
+    settled_note = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_shared_debts_expense_id", "shared_expense_id"),
+        Index("ix_shared_debts_participant_id", "participant_id"),
+        Index("ix_shared_debts_settled", "settled"),
+    )
+
+    shared_expense = relationship("SharedExpense", back_populates="debts")
+    participant = relationship("SharedParticipant", back_populates="debts")
+
+
+class TelegramSplitSession(Base):
+    """Transient in-progress /split conversation state per chat."""
+
+    __tablename__ = "telegram_split_session"
+
+    chat_id = Column(String(64), primary_key=True)
+    state = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 # ---------------------------------------------------------------------------
 # Schema Initialization
 # ---------------------------------------------------------------------------
