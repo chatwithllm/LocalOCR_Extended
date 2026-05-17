@@ -129,6 +129,8 @@ def test_create_paid_own_creates_no_debts(session, purchase):
 
     debts = session.query(SharedDebt).filter_by(shared_expense_id=expense.id).all()
     assert len(debts) == 0
+    assert expense.payment_scenario == "PAID_OWN"
+    assert expense.my_amount == 92.55
 
 
 def test_create_owed_creates_i_owe_them_debt(session, purchase):

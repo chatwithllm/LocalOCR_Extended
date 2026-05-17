@@ -7,13 +7,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from src.backend.initialize_database_schema import (
+    Purchase, SharedExpense, SharedParticipant, SharedDebt,
+)
+
 
 class SplitValidationError(ValueError):
     pass
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(timezone.utc)  # used by Task 4 settlement functions
 
 
 def create_shared_expense(
@@ -31,10 +35,6 @@ def create_shared_expense(
 
     Raises SplitValidationError for bad input.
     """
-    from src.backend.initialize_database_schema import (
-        Purchase, SharedExpense, SharedParticipant, SharedDebt,
-    )
-
     if payment_scenario not in ("PAID_ALL", "PAID_OWN", "OWED"):
         raise SplitValidationError(f"Invalid payment_scenario: {payment_scenario!r}")
 
@@ -57,6 +57,8 @@ def create_shared_expense(
         payers = [p for p in participants if p.get("payer")]
         if len(payers) != 1:
             raise SplitValidationError("OWED scenario requires exactly one participant marked payer=True")
+        if payers[0].get("is_self"):
+            raise SplitValidationError("Payer must not be the self participant")
 
     existing = session.query(SharedExpense).filter_by(purchase_id=purchase_id).one_or_none()
     if existing:
