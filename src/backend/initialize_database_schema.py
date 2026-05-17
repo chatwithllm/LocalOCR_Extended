@@ -1043,10 +1043,7 @@ class SharedExpense(Base):
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
-    __table_args__ = (
-        Index("ix_shared_expenses_purchase_id", "purchase_id"),
-    )
-
+    # Relationships
     purchase = relationship("Purchase", backref="shared_expense", uselist=False)
     participants = relationship(
         "SharedParticipant", back_populates="shared_expense", cascade="all, delete-orphan"
@@ -1072,9 +1069,10 @@ class SharedParticipant(Base):
         Index("ix_shared_participants_contact_id", "contact_id"),
     )
 
+    # Relationships
     shared_expense = relationship("SharedExpense", back_populates="participants")
     contact = relationship("DiningContact")
-    debts = relationship("SharedDebt", back_populates="participant")
+    debts = relationship("SharedDebt", back_populates="participant", cascade="all, delete-orphan")
 
 
 class SharedDebt(Base):
@@ -1096,6 +1094,7 @@ class SharedDebt(Base):
         Index("ix_shared_debts_settled", "settled"),
     )
 
+    # Relationships
     shared_expense = relationship("SharedExpense", back_populates="debts")
     participant = relationship("SharedParticipant", back_populates="debts")
 
