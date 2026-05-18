@@ -24,6 +24,20 @@ def _serialize(ob) -> dict:
     }
 
 
+def _summary_row(ob, this_actual, last_actual, delta, status) -> dict:
+    return {
+        "id": ob.id,
+        "label": ob.label,
+        "expected_monthly_amount": ob.expected_monthly_amount,
+        "is_active": ob.is_active,
+        "source": "bill_provider" if ob.bill_provider_id else "manual",
+        "this_month_actual": this_actual,
+        "last_month_actual": last_actual,
+        "delta": delta,
+        "status": status,
+    }
+
+
 @floor_obligations_bp.route("/", methods=["GET"])
 @require_auth
 def list_obligations():
@@ -155,17 +169,17 @@ def obligations_summary():
     for ob in obligations:
         floor_total += ob.expected_monthly_amount or 0.0
         if ob.bill_provider_id is None:
-            result.append({**_serialize(ob), "this_month_actual": None, "last_month_actual": None, "delta": None, "status": "manual"})
+            result.append(_summary_row(ob, None, None, None, "manual"))
             continue
         this_actual = _month_actual(ob.bill_provider_id, this_start, this_end)
         last_actual = _month_actual(ob.bill_provider_id, prev_start, prev_end)
         delta = round(this_actual - last_actual, 2) if this_actual is not None and last_actual is not None else None
         if this_actual is None:
             status = "not_recorded"
-        elif this_actual <= (ob.expected_monthly_amount or 0) * 1.05:
+        elif this_actual <= (ob.expected_monthly_amount or 0):
             status = "paid"
         else:
             status = "paid_over"
-        result.append({**_serialize(ob), "this_month_actual": this_actual, "last_month_actual": last_actual, "delta": delta, "status": status})
+        result.append(_summary_row(ob, this_actual, last_actual, delta, status))
 
     return jsonify({"month": month_str, "floor_total": round(floor_total, 2), "obligations": result}), 200
