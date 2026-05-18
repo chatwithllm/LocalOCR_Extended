@@ -1053,6 +1053,26 @@ class SharedExpense(Base):
     )
 
 
+class FloorObligation(Base):
+    """A must-pay monthly expense tracked for the household floor calculation."""
+
+    __tablename__ = "floor_obligations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    label = Column(String(255), nullable=False)
+    expected_monthly_amount = Column(Float, nullable=False, default=0.0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    bill_provider_id = Column(Integer, ForeignKey("bill_providers.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    __table_args__ = (
+        Index("ix_floor_obligations_is_active", "is_active"),
+    )
+
+    provider = relationship("BillProvider", foreign_keys=[bill_provider_id])
+
+
 class SharedParticipant(Base):
     __tablename__ = "shared_participants"
 
@@ -1731,6 +1751,23 @@ def _ensure_runtime_columns(engine):
             "CREATE INDEX IF NOT EXISTS ix_inventory_adjustment_created_at "
             "ON inventory_adjustments (created_at)"
         ))
+
+        if "floor_obligations" not in existing_tables:
+            conn.execute(text(
+                """CREATE TABLE IF NOT EXISTS floor_obligations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label VARCHAR(255) NOT NULL,
+                    expected_monthly_amount FLOAT NOT NULL DEFAULT 0.0,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    bill_provider_id INTEGER REFERENCES bill_providers(id),
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )"""
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_floor_obligations_is_active "
+                "ON floor_obligations (is_active)"
+            ))
 
 
 def _seed_default_ai_model_configs(SessionFactory):
