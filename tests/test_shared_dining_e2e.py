@@ -168,7 +168,7 @@ def test_get_or_create_split_session(tg_session):
     assert row2.chat_id == "chat_abc"
 
 
-def test_build_receipt_keyboard(tg_session):
+def test_build_split_receipt_keyboard(tg_session):
     from src.backend.handle_shared_dining_walk import build_receipt_keyboard
     from src.backend.initialize_database_schema import Purchase
     from datetime import datetime, timezone

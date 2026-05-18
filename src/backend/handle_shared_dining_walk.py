@@ -19,7 +19,7 @@ import logging
 import os
 
 from src.backend.initialize_database_schema import (
-    TelegramSplitSession, DiningContact, Purchase,
+    TelegramSplitSession, DiningContact, Purchase, SharedExpense,
 )
 from src.backend.manage_shared_dining import (
     create_shared_expense, get_all_balances, settle_all_with_contact,
@@ -69,6 +69,8 @@ def build_receipt_keyboard(session) -> list[dict]:
     """Return up to 5 recent purchases as inline buttons."""
     purchases = (
         session.query(Purchase)
+        .outerjoin(SharedExpense, SharedExpense.purchase_id == Purchase.id)
+        .filter(SharedExpense.id.is_(None))
         .order_by(Purchase.date.desc())
         .limit(5)
         .all()
@@ -143,6 +145,7 @@ def handle_split_callback(session, chat_id: str, data: str) -> bool:
             "step": "select_scenario",
             "purchase_id": purchase_id,
             "total_amount": total,
+            "purchase_label": f"${total:.2f}",
             "participants": [],
         })
         _send(
@@ -214,8 +217,9 @@ def consume_split_text(session, chat_id: str, text: str) -> bool:
 
     count = len(participants)
     equal_share = round(total / count, 2) if count else 0.0
-    for p in state["participants"]:
-        p["share_amount"] = equal_share
+    remainder = round(total - equal_share * count, 2) if count else 0.0
+    for i, p in enumerate(state["participants"]):
+        p["share_amount"] = round(equal_share + (remainder if i == 0 else 0.0), 2)
 
     save_split_state(session, chat_id, state)
 
