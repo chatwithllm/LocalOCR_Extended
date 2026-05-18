@@ -1532,6 +1532,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       #floor-obligations-section .floor-tab-btn.active { background:var(--accent,#3b82f6); color:#fff; border-color:var(--accent,#3b82f6); }
       #floor-obligations-section .floor-add-inline { display:flex; gap:6px; align-items:center; }
       #floor-obligations-section .floor-add-inline input { padding:3px 6px; border-radius:4px; border:1px solid var(--border,#444); background:var(--surface2,#2c2c2e); color:var(--text,#fff); font-size:0.8rem; width:80px; }
+      #floor-obligations-section .floor-chip { padding:3px 10px; border-radius:12px; border:1px solid var(--border,#444); background:transparent; color:var(--muted,#aaa); cursor:pointer; font-size:0.78rem; }
+      #floor-obligations-section .floor-chip.active { background:var(--accent,#3b82f6); color:#fff; border-color:var(--accent,#3b82f6); }
+      #floor-obligations-section .floor-search { padding:5px 10px; border-radius:6px; border:1px solid var(--border,#444); background:var(--surface2,#2c2c2e); color:var(--text,#fff); font-size:0.82rem; width:180px; }
 /* Shared Dining: Split Panel */
 .split-panel { border: 1px solid var(--border, #333); border-radius: 12px; padding: 16px; background: var(--surface2, #2c2c2e); }
 .split-panel__title { font-weight: 700; font-size: 1rem; margin-bottom: 14px; }
@@ -39314,7 +39317,59 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
       }
 
+      function _floorFilterControls(items, categoryKey) {
+        const catLabel = { all: 'All', utility: 'Utility', subscription: 'Subscription', other: 'Other', manual: 'Manual' };
+        const currentCat = window._floorCategoryFilter || 'all';
+        const currentSearch = window._floorSearch || '';
+        const seen = new Set();
+        const cats = ['all'];
+        items.forEach(function(item) {
+          const c = item[categoryKey] || 'other';
+          if (!seen.has(c)) { seen.add(c); cats.push(c); }
+        });
+        const chips = cats.map(function(c) {
+          const active = c === currentCat;
+          return '<button class="floor-chip' + (active ? ' active' : '') + '" onclick="updateFloorCategory(\'' + c + '\')">' + (catLabel[c] || c.charAt(0).toUpperCase() + c.slice(1)) + '</button>';
+        }).join('');
+        return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
+          + '<input id="floor-search-input" class="floor-search" type="text" placeholder="Search…" value="' + escHtml(currentSearch) + '" oninput="updateFloorSearch(this.value)">'
+          + '<div style="display:flex;gap:5px;flex-wrap:wrap">' + chips + '</div>'
+          + '</div>';
+      }
+
+      function _applyFloorFilters(items, labelKey, categoryKey) {
+        const search = (window._floorSearch || '').toLowerCase().trim();
+        const cat = window._floorCategoryFilter || 'all';
+        return items.filter(function(item) {
+          if (search && !((item[labelKey] || '').toLowerCase().includes(search))) return false;
+          if (cat !== 'all' && (item[categoryKey] || 'other') !== cat) return false;
+          return true;
+        });
+      }
+
+      function updateFloorSearch(val) {
+        window._floorSearch = val || '';
+        _reRenderCurrentFloorTab();
+      }
+
+      function updateFloorCategory(cat) {
+        window._floorCategoryFilter = cat || 'all';
+        _reRenderCurrentFloorTab();
+      }
+
+      function _reRenderCurrentFloorTab() {
+        if (window._floorActiveTab === 'selected') {
+          _renderSelectedTab(window._floorObligations || []);
+        } else {
+          _renderAvailableTab(window._floorAvailableAll || []);
+        }
+        var inp = document.getElementById('floor-search-input');
+        if (inp) { inp.focus(); var len = inp.value.length; inp.setSelectionRange(len, len); }
+      }
+
       function showFloorTab(tab) {
+        window._floorSearch = '';
+        window._floorCategoryFilter = 'all';
         window._floorActiveTab = tab;
         document.querySelectorAll('#floor-obligations-section .floor-tab-btn').forEach(function(b, i) {
           b.classList.toggle('active', (tab === 'selected' && i === 0) || (tab === 'available' && i === 1));
@@ -39335,7 +39390,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const content = document.getElementById('floor-tab-content');
         if (!content) return;
 
-        const rows = active.map(function(ob) {
+        const filtered = _applyFloorFilters(active, 'label', 'provider_category');
+
+        const rows = filtered.map(function(ob) {
           const avg = ob.avg_6mo != null
             ? '<span style="color:var(--muted,#888)">' + formatMoney(ob.avg_6mo) + '</span>'
             : '<span style="color:var(--border,#555)">—</span>';
@@ -39359,15 +39416,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + '</tr>';
         }).join('');
 
-        content.innerHTML = (active.length === 0
-          ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">No obligations on floor yet. Add one below or pick from Available.</p>'
-          : '<table class="floor-table"><thead><tr>'
-            + '<th>Name</th><th>Expected/mo</th>'
-            + '<th style="text-align:right">Avg (6mo)</th>'
-            + '<th style="text-align:right">Latest</th>'
-            + '<th style="text-align:center">Source</th>'
-            + '<th></th>'
-            + '</tr></thead><tbody>' + rows + '</tbody></table>')
+        const noResults = filtered.length === 0 && active.length > 0
+          ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">No items match your filter.</p>'
+          : '';
+
+        content.innerHTML = _floorFilterControls(active, 'provider_category')
+          + (active.length === 0
+            ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">No obligations on floor yet. Add one below or pick from Available.</p>'
+            : noResults || '<table class="floor-table"><thead><tr>'
+              + '<th>Name</th><th>Expected/mo</th>'
+              + '<th style="text-align:right">Avg (6mo)</th>'
+              + '<th style="text-align:right">Latest</th>'
+              + '<th style="text-align:center">Source</th>'
+              + '<th></th>'
+              + '</tr></thead><tbody>' + rows + '</tbody></table>')
           + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">'
           + '<input id="floor-new-label" type="text" placeholder="Label (e.g. Car Loan)" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem;width:160px">'
           + '<input id="floor-new-amount" type="number" step="0.01" min="0" placeholder="$/mo" style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem">'
@@ -39384,7 +39446,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           return;
         }
 
-        const rows = available.map(function(item) {
+        window._floorAvailableAll = available;
+
+        const filtered = _applyFloorFilters(available, 'label', 'provider_category');
+
+        const rows = filtered.map(function(item) {
           const avg = item.avg_6mo != null ? formatMoney(item.avg_6mo) : '—';
           const latest = item.latest_actual != null ? formatMoney(item.latest_actual) : '—';
           const prefill = item.avg_6mo != null ? parseFloat(item.avg_6mo).toFixed(2) : '';
@@ -39399,14 +39465,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + '</tr>';
         }).join('');
 
-        content.innerHTML = available.length === 0
-          ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">All bill providers are already on your floor.</p>'
-          : '<table class="floor-table"><thead><tr>'
-            + '<th>Name</th>'
-            + '<th style="text-align:right">Avg (6mo)</th>'
-            + '<th style="text-align:right">Latest</th>'
-            + '<th></th>'
-            + '</tr></thead><tbody>' + rows + '</tbody></table>';
+        const noResults = filtered.length === 0 && available.length > 0
+          ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">No items match your filter.</p>'
+          : '';
+
+        content.innerHTML = _floorFilterControls(available, 'provider_category')
+          + (available.length === 0
+            ? '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">All bill providers are already on your floor.</p>'
+            : noResults || '<table class="floor-table"><thead><tr>'
+              + '<th>Name</th>'
+              + '<th style="text-align:right">Avg (6mo)</th>'
+              + '<th style="text-align:right">Latest</th>'
+              + '<th></th>'
+              + '</tr></thead><tbody>' + rows + '</tbody></table>');
       }
 
       function showAddFromAvailable(providerId, sourceEl) {
