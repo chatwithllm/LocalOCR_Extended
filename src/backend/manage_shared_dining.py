@@ -152,6 +152,14 @@ def update_split(
     if self_row:
         expense.my_amount = self_row.share_amount
 
+    # Capture payer identity before deleting debts
+    owed_payer_id: int | None = None
+    if expense.payment_scenario == "OWED":
+        for p in expense.participants:
+            if any(d.direction == "I_OWE_THEM" for d in p.debts):
+                owed_payer_id = p.id
+                break
+
     for debt in list(expense.debts):
         session.delete(debt)
     session.flush()
@@ -165,19 +173,13 @@ def update_split(
                     direction="THEY_OWE_ME",
                     amount=p.share_amount,
                 ))
-    elif expense.payment_scenario == "OWED":
-        payer = next(
-            (p for p in expense.participants
-             if any(d.direction == "I_OWE_THEM" for d in p.debts)),
-            None,
-        )
-        if payer:
-            session.add(SharedDebt(
-                shared_expense_id=expense.id,
-                participant_id=payer.id,
-                direction="I_OWE_THEM",
-                amount=expense.my_amount,
-            ))
+    elif expense.payment_scenario == "OWED" and owed_payer_id is not None:
+        session.add(SharedDebt(
+            shared_expense_id=expense.id,
+            participant_id=owed_payer_id,
+            direction="I_OWE_THEM",
+            amount=expense.my_amount,
+        ))
 
     session.commit()
     session.refresh(expense)
