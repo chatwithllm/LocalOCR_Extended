@@ -2375,6 +2375,7 @@ def _merge_purchase_pair(session, keep, drop) -> None:
         PlaidStagedTransaction,
         ProductSnapshot,
         ReceiptItem,
+        SharedExpense,
         TelegramReceipt,
     )
 
@@ -2435,6 +2436,15 @@ def _merge_purchase_pair(session, keep, drop) -> None:
             drop_ct.purchase_id = keep.id
         else:
             session.delete(drop_ct)
+
+    # --- SharedExpense — unique per purchase; move if keep has none ----
+    keep_se = session.query(SharedExpense).filter_by(purchase_id=keep.id).first()
+    drop_se = session.query(SharedExpense).filter_by(purchase_id=drop.id).first()
+    if drop_se is not None:
+        if keep_se is None:
+            drop_se.purchase_id = keep.id
+        else:
+            session.delete(drop_se)
 
     session.flush()
     session.delete(drop)
