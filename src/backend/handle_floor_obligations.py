@@ -170,6 +170,51 @@ def delete_obligation(ob_id: int):
     return jsonify({"deleted": ob_id}), 200
 
 
+@floor_obligations_bp.route("/available", methods=["GET"])
+@require_auth
+def list_available():
+    """Bill providers that have no active FloorObligation."""
+    from src.backend.initialize_database_schema import BillProvider, FloorObligation
+
+    active_provider_ids = {
+        row.bill_provider_id
+        for row in g.db_session.query(FloorObligation)
+        .filter(FloorObligation.is_active == True, FloorObligation.bill_provider_id.isnot(None))
+        .all()
+    }
+
+    inactive_by_provider = {
+        row.bill_provider_id: row.id
+        for row in g.db_session.query(FloorObligation)
+        .filter(FloorObligation.is_active == False, FloorObligation.bill_provider_id.isnot(None))
+        .all()
+    }
+
+    providers = (
+        g.db_session.query(BillProvider)
+        .filter(BillProvider.is_active == True)
+        .order_by(BillProvider.canonical_name)
+        .all()
+    )
+
+    result = []
+    for p in providers:
+        if p.id in active_provider_ids:
+            continue
+        avg_6mo, latest_actual = _compute_history(g.db_session, p.id)
+        entry = {
+            "bill_provider_id": p.id,
+            "label": p.canonical_name,
+            "avg_6mo": avg_6mo,
+            "latest_actual": latest_actual,
+        }
+        if p.id in inactive_by_provider:
+            entry["existing_obligation_id"] = inactive_by_provider[p.id]
+        result.append(entry)
+
+    return jsonify({"available": result}), 200
+
+
 @floor_obligations_bp.route("/summary", methods=["GET"])
 @require_auth
 def obligations_summary():

@@ -256,3 +256,49 @@ def test_list_bill_linked_no_history_returns_null(client, app):
     assert entry is not None
     assert entry["avg_6mo"] is None
     assert entry["latest_actual"] is None
+
+
+def test_available_returns_unlinked_providers(client, app):
+    """Providers with no active FloorObligation appear in /available."""
+    provider_id = _create_provider_and_purchase(app, "AvailProv", 75.0, 1)
+    r = client.get("/floor-obligations/available", headers=_auth(client))
+    assert r.status_code == 200
+    available = r.get_json()["available"]
+    ids = [a["bill_provider_id"] for a in available]
+    assert provider_id in ids
+    entry = next(a for a in available if a["bill_provider_id"] == provider_id)
+    assert entry["avg_6mo"] == 75.0
+    assert entry["latest_actual"] == 75.0
+    assert "label" in entry
+
+
+def test_available_excludes_active_floor_item(client, app):
+    """Provider linked to an active FloorObligation does NOT appear in /available."""
+    provider_id = _create_provider_and_purchase(app, "ActiveProv", 50.0, 1)
+    client.post("/floor-obligations/", json={
+        "label": "ActiveProv",
+        "expected_monthly_amount": 50,
+        "bill_provider_id": provider_id,
+    }, headers=_auth(client))
+    r = client.get("/floor-obligations/available", headers=_auth(client))
+    assert r.status_code == 200
+    ids = [a["bill_provider_id"] for a in r.get_json()["available"]]
+    assert provider_id not in ids
+
+
+def test_available_includes_inactive_floor_item_with_ob_id(client, app):
+    """Provider with inactive FloorObligation appears in /available with existing_obligation_id."""
+    provider_id = _create_provider_and_purchase(app, "InactiveProv", 60.0, 2)
+    cr = client.post("/floor-obligations/", json={
+        "label": "InactiveProv",
+        "expected_monthly_amount": 60,
+        "bill_provider_id": provider_id,
+    }, headers=_auth(client))
+    ob_id = cr.get_json()["obligation"]["id"]
+    client.patch(f"/floor-obligations/{ob_id}", json={"is_active": False}, headers=_auth(client))
+    r = client.get("/floor-obligations/available", headers=_auth(client))
+    assert r.status_code == 200
+    available = r.get_json()["available"]
+    entry = next((a for a in available if a["bill_provider_id"] == provider_id), None)
+    assert entry is not None
+    assert entry["existing_obligation_id"] == ob_id
