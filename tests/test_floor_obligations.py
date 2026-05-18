@@ -124,3 +124,9 @@ def test_summary_inactive_excluded(client):
     assert res.status_code == 200
     labels = [o["label"] for o in res.get_json()["obligations"]]
     assert "Gym" not in labels
+
+
+def test_summary_invalid_month_returns_400(client):
+    res = client.get("/floor-obligations/summary?month=2026-13", headers=_auth(client))
+    assert res.status_code == 400
+    assert "month" in res.get_json().get("error", "").lower()

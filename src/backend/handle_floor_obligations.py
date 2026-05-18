@@ -140,10 +140,12 @@ def obligations_summary():
         return jsonify({"error": "month must be YYYY-MM"}), 400
 
     year, mon = int(month_str[:4]), int(month_str[5:7])
-    this_start = datetime(year, mon, 1, tzinfo=timezone.utc)
-    this_end = datetime(year + 1, 1, 1, tzinfo=timezone.utc) if mon == 12 else datetime(year, mon + 1, 1, tzinfo=timezone.utc)
+    if not (1 <= mon <= 12) or year < 1:
+        return jsonify({"error": "month must be a valid calendar month"}), 400
+    this_start = datetime(year, mon, 1)
+    this_end = datetime(year + 1, 1, 1) if mon == 12 else datetime(year, mon + 1, 1)
     prev_end = this_start
-    prev_start = datetime(year - 1, 12, 1, tzinfo=timezone.utc) if mon == 1 else datetime(year, mon - 1, 1, tzinfo=timezone.utc)
+    prev_start = datetime(year - 1, 12, 1) if mon == 1 else datetime(year, mon - 1, 1)
 
     session = g.db_session
     obligations = (
