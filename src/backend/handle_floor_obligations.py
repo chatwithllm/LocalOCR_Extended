@@ -140,7 +140,7 @@ def obligations_summary():
         return jsonify({"error": "month must be YYYY-MM"}), 400
 
     year, mon = int(month_str[:4]), int(month_str[5:7])
-    if not (1 <= mon <= 12) or year < 1:
+    if not (1 <= mon <= 12) or year < 2 or year > 9998:
         return jsonify({"error": "month must be a valid calendar month"}), 400
     this_start = datetime(year, mon, 1)
     this_end = datetime(year + 1, 1, 1) if mon == 12 else datetime(year, mon + 1, 1)
