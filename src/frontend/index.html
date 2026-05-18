@@ -1502,6 +1502,39 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   .inv-tile-title-row .inv-drag-handle { display: none; }
   .inv-tile-title-row .inv-drag-bubble { display: none; }
 }
+
+/* Shared Dining: Balances */
+.balances-table { width: 100%; border-collapse: collapse; }
+.balances-table th,
+.balances-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border, #333); font-size: 0.9rem; }
+.balances-table th { font-weight: 600; color: var(--muted, #aaa); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.balances-table td:last-child { text-align: right; }
+.balances-amount--owe { color: var(--danger, #ff453a); font-weight: 600; }
+.balances-amount--owed { color: var(--success, #32d74b); font-weight: 600; }
+.balances-settle-btn { font-size: 0.78rem; padding: 3px 8px; }
+/* Shared Dining: Split Panel */
+.split-panel { border: 1px solid var(--border, #333); border-radius: 12px; padding: 16px; background: var(--surface2, #2c2c2e); }
+.split-panel__title { font-weight: 700; font-size: 1rem; margin-bottom: 14px; }
+.split-scenario-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.split-scenario-btn { flex: 1; min-width: 90px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border, #444); background: transparent; color: var(--text, #fff); cursor: pointer; font-size: 0.84rem; text-align: center; }
+.split-scenario-btn.active { background: var(--accent, #0a84ff); border-color: var(--accent, #0a84ff); color: #fff; font-weight: 600; }
+.split-participants { display: grid; gap: 8px; margin-bottom: 12px; }
+.split-participant-row { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; }
+.split-participant-row input[type="number"] { text-align: right; }
+.split-total-check { font-size: 0.84rem; padding: 6px 0; }
+.split-total-check.ok { color: var(--success, #32d74b); }
+.split-total-check.bad { color: var(--danger, #ff453a); }
+.split-panel-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.split-contact-select { font-size: 0.84rem; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border, #444); background: var(--surface3, #3a3a3c); color: var(--text, #fff); width: 100%; }
+/* Shared Dining: Contacts */
+.contacts-list { display: grid; gap: 10px; }
+.contacts-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface2, #2c2c2e); border-radius: 10px; }
+.contacts-card__avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent, #0a84ff); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+.contacts-card__info { flex: 1; min-width: 0; }
+.contacts-card__name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contacts-card__meta { font-size: 0.8rem; color: var(--muted, #aaa); margin-top: 2px; }
+.contacts-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+@media (max-width: 640px) { .contacts-add-form { grid-template-columns: 1fr; } }
     </style>
   </head>
 
@@ -1603,6 +1636,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           onclick="nav('restaurant', this)"
         >
           <span class="nav-icon">🍽️</span> Restaurant
+        </div>
+        <div class="nav-item" id="nav-balances" onclick="nav('balances', this)">
+          <span class="nav-icon">💸</span> Balances
+        </div>
+        <div class="nav-item" id="nav-contacts" onclick="nav('contacts', this)">
+          <span class="nav-icon">👥</span> Contacts
         </div>
         <div class="nav-item" id="nav-expenses" onclick="nav('expenses', this)">
           <span class="nav-icon">🧾</span> Expenses
@@ -2906,6 +2945,64 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <p>No restaurant line items yet.</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-balances">
+          <div class="page-header">
+            <div>
+              <h1>Balances</h1>
+              <p>Outstanding debts across all shared receipts</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadBalances()" aria-label="Refresh">🔄</button>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Who Owes What</span>
+            </div>
+            <div id="balances-body">
+              <div class="empty-state"><p>Loading…</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-contacts">
+          <div class="page-header">
+            <div>
+              <h1>Dining Contacts</h1>
+              <p>Saved contacts for splitting restaurant receipts</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadContacts()" aria-label="Refresh">🔄</button>
+          </div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span class="card-title">Add Contact</span>
+            </div>
+            <div class="contacts-add-form">
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-name-input">Name *</label>
+                <input id="contact-name-input" type="text" placeholder="Full name" autocomplete="off" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-phone-input">Phone (optional)</label>
+                <input id="contact-phone-input" type="tel" placeholder="+1 555 000 0000" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-email-input">Email (optional)</label>
+                <input id="contact-email-input" type="email" placeholder="name@example.com" />
+              </div>
+              <div class="form-group" style="margin-bottom:0; display:flex; align-items:flex-end">
+                <button class="btn btn-primary" style="width:100%" onclick="saveContact()">Add Contact</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Saved Contacts</span>
+            </div>
+            <div id="contacts-body">
+              <div class="empty-state"><p>Loading…</p></div>
             </div>
           </div>
         </div>
@@ -9986,6 +10083,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           "analytics",
           "contributions",
           "settings",
+          "balances",
+          "contacts",
         ]);
         return allowed.has(page) ? page : "dashboard";
       }
@@ -14194,6 +14293,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         if (page === "kitchen") loadKitchen();
         if (page === "restaurant") loadRestaurant();
+        if (page === "balances") loadBalances();
+        if (page === "contacts" && typeof loadContacts === "function") loadContacts();
         if (page === "expenses") {
           loadExpenses();
           repositionExpenseDetailForMobile();
@@ -32293,6 +32394,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     <div class="receipt-detail-stats">
       <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(formatLabel(receipt.store || "", "Unknown"))}</div><div class="stat-sub">${escHtml(formatPrettyDate(receipt.date))}</div></div>
       <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
+      ${receipt.my_amount != null ? '<div class="stat-card"><div class="stat-label">Your Share</div><div class="stat-value" style="font-size:1.2rem">👥 ' + formatMoney(receipt.my_amount) + '</div><div class="stat-sub">of ' + formatMoney(receiptDisplayTotal(receipt)) + ' total</div></div>' : ''}
     </div>`;
         const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -32305,6 +32407,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           : ""
       }
       <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSplitPanel(${receipt.purchase_id || receipt.id}, ${receipt.total || 0})">💸 Split Receipt</button>
       ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
     </div>`;
         const billSummaryHtml = billReceipt
@@ -32535,6 +32638,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button></div>
     <div class="contrib-meta">Status: ${escHtml(formatLabel(receipt.status, "Unknown"))} · Loaded ${escHtml(formatDateTime(receipt.created_at, "Unknown"))}</div>`;
 
+        const splitPanelHtml = `<div id="split-panel-${receipt.purchase_id || receipt.id}" style="display:none"></div>`;
         if (inlineLayout) {
           return `
       <div class="receipt-inline-detail-wrap">
@@ -32551,6 +32655,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               ${statsHtml}
               ${billSummaryHtml}
               ${actionsHtml}
+              ${splitPanelHtml}
               ${extractedHtml}
               ${reprocessHtml}
             </div>
@@ -32568,6 +32673,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     ${statsHtml}
     ${billSummaryHtml}
     ${actionsHtml}
+    ${splitPanelHtml}
     ${extractedHtml}
     ${reprocessHtml}
     ${editHtml}
@@ -34294,7 +34400,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
           </div>
-          <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
+          <div class="summary-row__value">${receipt.my_amount != null ? '<span title="Your share" style="font-size:0.82rem;color:var(--muted,#aaa)">👥 ' + formatMoney(receipt.my_amount) + '</span>' : formatMoney(receiptDisplayTotal(receipt))}</div>
           <span class="summary-row__chevron" aria-hidden="true">›</span>
         </button>
         ${includeDelete ? `<button type="button" class="summary-row-delete" onclick="event.stopPropagation(); deleteReceipt(${receipt.purchase_id || receipt.id})" aria-label="Delete receipt">×</button>` : ""}
@@ -39075,6 +39181,259 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         toast("Store updated", "success");
         await loadManageStores();
+      }
+
+      // Shared Dining: Balances
+      async function loadBalances() {
+        const body = document.getElementById("balances-body");
+        if (!body) return;
+        body.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+        const res = await api("/shared-dining/balances");
+        if (!res.ok) {
+          body.innerHTML = '<div class="empty-state"><p>Could not load balances.</p></div>';
+          return;
+        }
+        const rows = await res.json().catch(function() { return []; });
+        if (!rows.length) {
+          body.innerHTML = '<div class="empty-state"><p>No outstanding balances — all settled! 🎉</p></div>';
+          return;
+        }
+        let html = '<table class="balances-table"><thead><tr><th>Contact</th><th>Direction</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody>';
+        rows.forEach(function(r) {
+          const owes = r.net_amount > 0;
+          const amtClass = owes ? "balances-amount--owed" : "balances-amount--owe";
+          const direction = owes ? "Owes you" : "You owe";
+          const display = formatMoney(Math.abs(r.net_amount));
+          html += '<tr><td>' + escHtml(r.name) + '</td><td>' + escHtml(direction) + '</td>';
+          html += '<td class="' + amtClass + '">' + escHtml(display) + '</td>';
+          html += '<td><button class="btn btn-ghost btn-sm balances-settle-btn" onclick="settleAllWithContact(' + r.contact_id + ', ' + JSON.stringify(r.name) + ')">Settle all</button></td></tr>';
+        });
+        html += '</tbody></table>';
+        body.innerHTML = html;
+      }
+
+      async function settleAllWithContact(contactId, name) {
+        if (!confirm('Mark all debts with ' + name + ' as settled?')) return;
+        const res = await api('/shared-dining/contacts/' + contactId + '/settle-all', { method: 'POST' });
+        if (!res.ok) { toast('Could not settle debts', 'error'); return; }
+        const data = await res.json().catch(function() { return {}; });
+        toast('Settled ' + (data.settled || 0) + ' debt' + ((data.settled || 0) === 1 ? '' : 's') + ' with ' + name, 'success');
+        await loadBalances();
+      }
+
+      // Shared Dining: Contacts
+      var _diningContacts = [];
+
+      async function loadContacts() {
+        const body = document.getElementById('contacts-body');
+        if (!body) return;
+        body.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+        const res = await api('/shared-dining/contacts');
+        if (!res.ok) {
+          body.innerHTML = '<div class="empty-state"><p>Could not load contacts.</p></div>';
+          return;
+        }
+        _diningContacts = await res.json().catch(function() { return []; });
+        if (!_diningContacts.length) {
+          body.innerHTML = '<div class="empty-state"><p>No saved contacts yet. Add one above.</p></div>';
+          return;
+        }
+        let html = '<div class="contacts-list">';
+        _diningContacts.forEach(function(c) {
+          const initial = (c.name || '?').trim().charAt(0).toUpperCase();
+          const meta = [c.phone, c.email].filter(Boolean).join(' · ');
+          html += '<div class="contacts-card">';
+          html += '<div class="contacts-card__avatar">' + escHtml(initial) + '</div>';
+          html += '<div class="contacts-card__info">';
+          html += '<div class="contacts-card__name">' + escHtml(c.name || '?') + '</div>';
+          if (meta) html += '<div class="contacts-card__meta">' + escHtml(meta) + '</div>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+      }
+
+      async function saveContact() {
+        const name = (document.getElementById('contact-name-input')?.value || '').trim();
+        if (!name) { toast('Name is required', 'error'); return; }
+        const phone = (document.getElementById('contact-phone-input')?.value || '').trim() || null;
+        const email = (document.getElementById('contact-email-input')?.value || '').trim() || null;
+        const res = await api('/shared-dining/contacts', {
+          method: 'POST',
+          body: JSON.stringify({ name, phone, email }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(function() { return {}; });
+          toast(err.error || 'Could not save contact', 'error');
+          return;
+        }
+        toast(name + ' added', 'success');
+        document.getElementById('contact-name-input').value = '';
+        document.getElementById('contact-phone-input').value = '';
+        document.getElementById('contact-email-input').value = '';
+        await loadContacts();
+      }
+
+      // Shared Dining: Split Panel
+      var _sp = null;
+
+      function toggleSplitPanel(purchaseId, total) {
+        const el = document.getElementById('split-panel-' + purchaseId);
+        if (!el) return;
+        if (el.style.display !== 'none') { el.style.display = 'none'; el.innerHTML = ''; _sp = null; return; }
+        _sp = {
+          purchaseId: purchaseId,
+          total: Number(total) || 0,
+          scenario: 'PAID_ALL',
+          participants: [{ isSelf: true, name: 'You', contactId: null, shareAmount: Number(total) || 0, isPayer: false }],
+        };
+        _spRecalc();
+        _spRender(el);
+        el.style.display = '';
+      }
+
+      function _spRecalc() {
+        if (!_sp) return;
+        const n = _sp.participants.length;
+        if (!n) return;
+        const each = Math.floor((_sp.total / n) * 100) / 100;
+        const rem = Math.round((_sp.total - each * n) * 100) / 100;
+        _sp.participants.forEach(function(p, i) { p.shareAmount = i === 0 ? Math.round((each + rem) * 100) / 100 : each; });
+      }
+
+      function _spRender(el) {
+        if (!_sp) return;
+        const contactOpts = _diningContacts.map(function(c) {
+          return '<option value="' + c.id + '">' + escHtml(c.name || '?') + '</option>';
+        }).join('');
+
+        let pRows = '';
+        _sp.participants.forEach(function(p, i) {
+          if (p.isSelf) {
+            pRows += '<div class="split-participant-row">';
+            pRows += '<span style="font-size:0.88rem;font-weight:600">You</span>';
+            pRows += '<input type="number" step="0.01" min="0" value="' + p.shareAmount.toFixed(2) + '" onchange="_spSetAmt(' + i + ',this.value)" />';
+            pRows += '<span></span></div>';
+          } else {
+            const payerCtl = _sp.scenario === 'OWED'
+              ? '<label style="font-size:0.78rem;white-space:nowrap"><input type="checkbox" ' + (p.isPayer ? 'checked' : '') + ' onchange="_spSetPayer(' + i + ',this.checked)" /> Payer</label>'
+              : '<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick="_spRemove(' + i + ')">×</button>';
+            pRows += '<div class="split-participant-row">';
+            pRows += '<select class="split-contact-select" onchange="_spSetContact(' + i + ',this.value)">';
+            pRows += '<option value="">— Ad-hoc name —</option>' + contactOpts;
+            pRows += '</select>';
+            pRows += '<input type="number" step="0.01" min="0" value="' + p.shareAmount.toFixed(2) + '" onchange="_spSetAmt(' + i + ',this.value)" />';
+            pRows += payerCtl + '</div>';
+          }
+        });
+
+        const sum = _sp.participants.reduce(function(s, p) { return s + (p.shareAmount || 0); }, 0);
+        const diff = Math.round((sum - _sp.total) * 100) / 100;
+        const ok = Math.abs(diff) <= 0.01;
+        const totalClass = ok ? 'ok' : 'bad';
+        const totalMsg = ok
+          ? '✓ ' + formatMoney(_sp.total)
+          : formatMoney(sum) + ' (' + (diff > 0 ? '+' : '') + formatMoney(diff) + ' vs ' + formatMoney(_sp.total) + ')';
+
+        const scenarios = [
+          { key: 'PAID_ALL', label: 'I Paid All' },
+          { key: 'PAID_OWN', label: 'Paid Own' },
+          { key: 'OWED', label: 'I Owe' },
+        ];
+        let scenHtml = '';
+        scenarios.forEach(function(s) {
+          scenHtml += '<button type="button" class="split-scenario-btn' + (_sp.scenario === s.key ? ' active' : '') + '" onclick="_spSetScenario(\'' + s.key + '\')">' + s.label + '</button>';
+        });
+
+        let html = '<div class="split-panel">';
+        html += '<div class="split-panel__title">💸 Split ' + formatMoney(_sp.total) + '</div>';
+        html += '<div class="split-scenario-row">' + scenHtml + '</div>';
+        html += '<div class="split-participants">' + pRows + '</div>';
+        html += '<button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="_spAdd()">+ Add person</button>';
+        html += '<div class="split-total-check ' + totalClass + '">' + totalMsg + '</div>';
+        html += '<div class="split-panel-actions">';
+        html += '<button type="button" class="btn btn-ghost btn-sm" onclick="_spCancel()">Cancel</button>';
+        html += '<button type="button" class="btn btn-primary btn-sm" onclick="_spSave()"' + (ok ? '' : ' disabled') + '>Save Split</button>';
+        html += '</div></div>';
+        el.innerHTML = html;
+      }
+
+      function _spSetScenario(s) {
+        if (!_sp) return;
+        _sp.scenario = s;
+        if (s !== 'OWED') _sp.participants.forEach(function(p) { p.isPayer = false; });
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spAdd() {
+        if (!_sp) return;
+        _sp.participants.push({ isSelf: false, name: '', contactId: null, shareAmount: 0, isPayer: false });
+        _spRecalc();
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spRemove(idx) {
+        if (!_sp || idx === 0) return;
+        _sp.participants.splice(idx, 1);
+        _spRecalc();
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetAmt(idx, val) {
+        if (!_sp) return;
+        _sp.participants[idx].shareAmount = Math.round(Number(val) * 100) / 100 || 0;
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetContact(idx, val) {
+        if (!_sp) return;
+        const cid = Number(val) || null;
+        _sp.participants[idx].contactId = cid;
+        if (cid) {
+          const c = _diningContacts.find(function(x) { return x.id === cid; });
+          if (c) _sp.participants[idx].name = c.name;
+        }
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetPayer(idx, checked) {
+        if (!_sp) return;
+        _sp.participants.forEach(function(p, i) { p.isPayer = (i === idx && checked); });
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spCancel() {
+        if (!_sp) return;
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+        _sp = null;
+      }
+
+      async function _spSave() {
+        if (!_sp) return;
+        const participants = _sp.participants.map(function(p) {
+          const obj = { is_self: p.isSelf, share_amount: p.shareAmount };
+          if (!p.isSelf) {
+            if (p.contactId) { obj.contact_id = p.contactId; }
+            else { obj.ad_hoc_name = p.name || 'Guest'; }
+            if (_sp.scenario === 'OWED' && p.isPayer) obj.payer = true;
+          }
+          return obj;
+        });
+        const res = await api('/shared-dining/purchases/' + _sp.purchaseId, {
+          method: 'POST',
+          body: JSON.stringify({ payment_scenario: _sp.scenario, participants: participants }),
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok) { toast(data.error || 'Could not save split', 'error'); return; }
+        toast('Split saved — your share: ' + formatMoney(data.my_amount), 'success');
+        _spCancel();
       }
     </script>
 
