@@ -1101,6 +1101,7 @@ def list_receipts():
         ReceiptItem,
         Product,
         Store,
+        SharedExpense as _SE,
     )
     from src.backend.normalize_store_names import canonicalize_store_name
 
@@ -1117,9 +1118,10 @@ def list_receipts():
     upload_date_to = _parse_filter_date(request.args.get("upload_date_to"))
 
     query = (
-        session.query(TelegramReceipt, Purchase, Store)
+        session.query(TelegramReceipt, Purchase, Store, _SE)
         .outerjoin(Purchase, TelegramReceipt.purchase_id == Purchase.id)
         .outerjoin(Store, Purchase.store_id == Store.id)
+        .outerjoin(_SE, _SE.purchase_id == Purchase.id)
     )
 
     if store_filter:
@@ -1260,7 +1262,7 @@ def list_receipts():
     # auto-merged receipt rows so users see both sources without
     # duplicate rows.
     from src.backend.initialize_database_schema import PlaidStagedTransaction as _PST
-    _purchase_ids_seen = [p.id for _r, p, _s in records if p and p.id]
+    _purchase_ids_seen = [p.id for _r, p, _s, _se in records if p and p.id]
     plaid_linked_purchase_ids: set[int] = set()
     if _purchase_ids_seen:
         for (pid,) in (
@@ -1283,7 +1285,7 @@ def list_receipts():
     refund_count = 0
     purchase_count = 0
     refund_total = 0.0
-    for record, purchase, store in records:
+    for record, purchase, store, _shared_exp in records:
         store_name = canonicalize_store_name(store.name) if store and store.name else "Unknown"
         store_counts[store_name] = store_counts.get(store_name, 0) + 1
         if purchase:
@@ -1322,7 +1324,7 @@ def list_receipts():
 
     purchase_ids = sorted({
         purchase.id
-        for _record, purchase, _store in records
+        for _record, purchase, _store, _se in records
         if purchase and purchase.id
     })
 
@@ -1366,7 +1368,7 @@ def list_receipts():
     from src.backend.initialize_database_schema import User as _AttrUser
     attr_user_ids = sorted({
         p.attribution_user_id
-        for _r, p, _s in limited_records
+        for _r, p, _s, _se in limited_records
         if p and getattr(p, "attribution_user_id", None)
     })
     attr_user_names = {}
@@ -1410,8 +1412,10 @@ def list_receipts():
             "last_reprocessed_at": record.last_reprocessed_at.isoformat() if record.last_reprocessed_at else None,
             "_has_image": bool(record.image_path),
             "_source_raw": _receipt_source_label(record),
+            "my_amount": float(shared_exp.my_amount) if shared_exp and shared_exp.my_amount is not None else None,
+            "shared_expense_id": shared_exp.id if shared_exp else None,
         }
-        for record, purchase, store in limited_records
+        for record, purchase, store, shared_exp in limited_records
     ]
 
     # Group by (store, date, total-cents). Singletons pass through.

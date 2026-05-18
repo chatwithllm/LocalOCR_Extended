@@ -32394,6 +32394,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     <div class="receipt-detail-stats">
       <div class="stat-card"><div class="stat-label">Store</div><div class="stat-value" style="font-size:1.2rem">${escHtml(formatLabel(receipt.store || "", "Unknown"))}</div><div class="stat-sub">${escHtml(formatPrettyDate(receipt.date))}</div></div>
       <div class="stat-card ${normalizeReceiptTransactionType(receipt.transaction_type) === "refund" ? "warning" : "success"}"><div class="stat-label">Total</div><div class="stat-value" style="font-size:1.2rem">${formatMoney(receiptDisplayTotal(receipt))}</div><div class="stat-sub">${escHtml(formatLabel(receipt.receipt_type, "Unknown"))} · ${escHtml(formatReceiptTransactionLabel(receipt.transaction_type))}${refundMeta ? ` · ${escHtml(refundMeta)}` : ""}</div></div>
+      ${receipt.my_amount != null ? '<div class="stat-card"><div class="stat-label">Your Share</div><div class="stat-value" style="font-size:1.2rem">👥 ' + formatMoney(receipt.my_amount) + '</div><div class="stat-sub">of ' + formatMoney(receiptDisplayTotal(receipt)) + ' total</div></div>' : ''}
     </div>`;
         const actionsHtml = `
     <div class="receipt-detail-actions">
@@ -34399,7 +34400,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
           </div>
-          <div class="summary-row__value">${formatMoney(receiptDisplayTotal(receipt))}</div>
+          <div class="summary-row__value">${receipt.my_amount != null ? '<span title="Your share" style="font-size:0.82rem;color:var(--muted,#aaa)">👥 ' + formatMoney(receipt.my_amount) + '</span>' : formatMoney(receiptDisplayTotal(receipt))}</div>
           <span class="summary-row__chevron" aria-hidden="true">›</span>
         </button>
         ${includeDelete ? `<button type="button" class="summary-row-delete" onclick="event.stopPropagation(); deleteReceipt(${receipt.purchase_id || receipt.id})" aria-label="Delete receipt">×</button>` : ""}
