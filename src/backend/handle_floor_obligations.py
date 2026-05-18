@@ -29,13 +29,11 @@ def _serialize(ob, avg_6mo=None, latest_actual=None) -> dict:
 def _compute_history(session, provider_id):
     """Return (avg_6mo, latest_actual) from last 6 complete calendar months (naïve datetimes)."""
     from datetime import datetime, timezone
+    from dateutil.relativedelta import relativedelta
     from src.backend.initialize_database_schema import BillMeta, Purchase
     now = datetime.now(timezone.utc)
-    window_end = datetime(now.year, now.month, 1)  # first of this month (exclusive)
-    if now.month <= 6:
-        window_start = datetime(now.year - 1, now.month + 6, 1)
-    else:
-        window_start = datetime(now.year, now.month - 6, 1)
+    window_end = datetime(now.year, now.month, 1)
+    window_start = window_end - relativedelta(months=6)
 
     rows = (
         session.query(Purchase)
@@ -183,12 +181,15 @@ def list_available():
         .all()
     }
 
-    inactive_by_provider = {
-        row.bill_provider_id: row.id
-        for row in g.db_session.query(FloorObligation)
+    inactive_by_provider: dict = {}
+    for row in (
+        g.db_session.query(FloorObligation)
         .filter(FloorObligation.is_active == False, FloorObligation.bill_provider_id.isnot(None))
+        .order_by(FloorObligation.id.desc())
         .all()
-    }
+    ):
+        if row.bill_provider_id not in inactive_by_provider:
+            inactive_by_provider[row.bill_provider_id] = row.id
 
     providers = (
         g.db_session.query(BillProvider)
