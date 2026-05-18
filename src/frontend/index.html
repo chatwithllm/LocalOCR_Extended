@@ -39406,8 +39406,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             ? '<button class="btn btn-ghost btn-sm" onclick="removeFloorObligation(' + ob.id + ')" style="font-size:0.78rem">Remove</button>'
             : '<button class="btn btn-ghost btn-sm" onclick="deleteFloorObligation(' + ob.id + ')" style="color:var(--danger,#ef4444);padding:2px 6px">&#xd7;</button>';
           const amt = '<input type="number" step="0.01" min="0" value="' + ob.expected_monthly_amount + '" style="width:90px;padding:4px 6px;border-radius:5px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem" onblur="saveFloorObligationAmount(' + ob.id + ', this.value)" title="Expected $/mo">';
+          const labelEl = '<input type="text" value="' + escAttr(ob.label) + '" style="width:100%;min-width:120px;padding:4px 6px;border-radius:5px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem;box-sizing:border-box" onblur="saveFloorObligationLabel(' + ob.id + ', this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" title="Click to rename">';
           return '<tr>'
-            + '<td style="padding:7px 10px">' + escHtml(ob.label) + '</td>'
+            + '<td style="padding:7px 10px">' + labelEl + '</td>'
             + '<td style="padding:7px 10px">' + amt + '</td>'
             + '<td style="padding:7px 10px;text-align:right">' + avg + '</td>'
             + '<td style="padding:7px 10px;text-align:right">' + latest + '</td>'
@@ -39521,6 +39522,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const amount = parseFloat(value);
         if (isNaN(amount) || amount < 0) { toast('Invalid amount', 'error'); return; }
         const res = await api('/floor-obligations/' + id, { method: 'PATCH', body: JSON.stringify({ expected_monthly_amount: amount }) });
+        if (!res.ok) { toast('Save failed', 'error'); loadFloorObligations(); }
+      }
+
+      async function saveFloorObligationLabel(id, value) {
+        const label = value.trim();
+        if (!label) { toast('Label cannot be empty', 'error'); loadFloorObligations(); return; }
+        const res = await api('/floor-obligations/' + id, { method: 'PATCH', body: JSON.stringify({ label: label }) });
         if (!res.ok) { toast('Save failed', 'error'); loadFloorObligations(); }
       }
 
