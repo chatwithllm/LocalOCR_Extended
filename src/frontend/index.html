@@ -10017,6 +10017,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           "analytics",
           "contributions",
           "settings",
+          "balances",
         ]);
         return allowed.has(page) ? page : "dashboard";
       }
@@ -14226,7 +14227,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (page === "kitchen") loadKitchen();
         if (page === "restaurant") loadRestaurant();
         if (page === "balances") loadBalances();
-        if (page === "contacts") loadContacts();
+        if (page === "contacts" && typeof loadContacts === "function") loadContacts();
         if (page === "expenses") {
           loadExpenses();
           repositionExpenseDetailForMobile();
@@ -39120,7 +39121,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           body.innerHTML = '<div class="empty-state"><p>Could not load balances.</p></div>';
           return;
         }
-        const rows = await res.json();
+        const rows = await res.json().catch(function() { return []; });
         if (!rows.length) {
           body.innerHTML = '<div class="empty-state"><p>No outstanding balances — all settled! 🎉</p></div>';
           return;
@@ -39133,7 +39134,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const display = formatMoney(Math.abs(r.net_amount));
           html += '<tr><td>' + escHtml(r.name) + '</td><td>' + escHtml(direction) + '</td>';
           html += '<td class="' + amtClass + '">' + escHtml(display) + '</td>';
-          html += '<td><button class="btn btn-ghost btn-sm balances-settle-btn" onclick="settleAllWithContact(' + r.contact_id + ', '' + escAttr(r.name) + '')">' + 'Settle all</button></td></tr>';
+          html += '<td><button class="btn btn-ghost btn-sm balances-settle-btn" onclick="settleAllWithContact(' + r.contact_id + ', ' + JSON.stringify(r.name) + ')">Settle all</button></td></tr>';
         });
         html += '</tbody></table>';
         body.innerHTML = html;
@@ -39145,7 +39146,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!res.ok) { toast('Could not settle debts', 'error'); return; }
         const data = await res.json();
         toast('Settled ' + data.settled + ' debt' + (data.settled === 1 ? '' : 's') + ' with ' + name, 'success');
-        loadBalances();
+        await loadBalances();
       }
     </script>
 
