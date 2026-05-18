@@ -11,7 +11,7 @@ floor_obligations_bp = Blueprint(
 )
 
 
-def _serialize(ob, avg_6mo=None, latest_actual=None) -> dict:
+def _serialize(ob, avg_6mo=None, latest_actual=None, provider_category=None) -> dict:
     return {
         "id": ob.id,
         "label": ob.label,
@@ -23,6 +23,7 @@ def _serialize(ob, avg_6mo=None, latest_actual=None) -> dict:
         "updated_at": ob.updated_at.isoformat() if ob.updated_at else None,
         "avg_6mo": avg_6mo,
         "latest_actual": latest_actual,
+        "provider_category": provider_category if ob.bill_provider_id else "manual",
     }
 
 
@@ -77,19 +78,29 @@ def _summary_row(ob, this_actual, last_actual, delta, status) -> dict:
 @floor_obligations_bp.route("/", methods=["GET"])
 @require_auth
 def list_obligations():
-    from src.backend.initialize_database_schema import FloorObligation
+    from src.backend.initialize_database_schema import FloorObligation, BillProvider
     rows = (
         g.db_session.query(FloorObligation)
         .order_by(FloorObligation.is_active.desc(), FloorObligation.label)
         .all()
     )
+    provider_ids = [r.bill_provider_id for r in rows if r.bill_provider_id is not None]
+    providers = {}
+    if provider_ids:
+        providers = {
+            p.id: p
+            for p in g.db_session.query(BillProvider).filter(BillProvider.id.in_(provider_ids)).all()
+        }
     result = []
     for r in rows:
         if r.bill_provider_id is not None:
             avg_6mo, latest_actual = _compute_history(g.db_session, r.bill_provider_id)
+            prov = providers.get(r.bill_provider_id)
+            provider_category = prov.provider_category if prov else "other"
         else:
             avg_6mo, latest_actual = None, None
-        result.append(_serialize(r, avg_6mo=avg_6mo, latest_actual=latest_actual))
+            provider_category = None
+        result.append(_serialize(r, avg_6mo=avg_6mo, latest_actual=latest_actual, provider_category=provider_category))
     return jsonify({"obligations": result}), 200
 
 
@@ -208,6 +219,7 @@ def list_available():
             "label": p.canonical_name,
             "avg_6mo": avg_6mo,
             "latest_actual": latest_actual,
+            "provider_category": p.provider_category or "other",
         }
         if p.id in inactive_by_provider:
             entry["existing_obligation_id"] = inactive_by_provider[p.id]

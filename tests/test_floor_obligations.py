@@ -302,3 +302,55 @@ def test_available_includes_inactive_floor_item_with_ob_id(client, app):
     entry = next((a for a in available if a["bill_provider_id"] == provider_id), None)
     assert entry is not None
     assert entry["existing_obligation_id"] == ob_id
+
+
+def test_list_includes_provider_category(client, app):
+    """List response: manual → 'manual', bill-linked → provider's category."""
+    r = client.post("/floor-obligations/", json={"label": "RentCat", "expected_monthly_amount": 900}, headers=_auth(client))
+    assert r.status_code == 201
+    r2 = client.get("/floor-obligations/", headers=_auth(client))
+    assert r2.status_code == 200
+    obs = r2.get_json()["obligations"]
+    rent = next(o for o in obs if o["label"] == "RentCat")
+    assert rent["provider_category"] == "manual"
+
+    provider_id = _create_provider_and_purchase(app, "CatElec", 50.0, 1)
+    with app.app_context():
+        from src.backend.initialize_database_schema import BillProvider, FloorObligation
+        from src.backend.create_flask_application import _get_db
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        try:
+            p = session.query(BillProvider).filter_by(id=provider_id).first()
+            p.provider_category = "utility"
+            ob = FloorObligation(label="CatElec", expected_monthly_amount=50, is_active=True, bill_provider_id=provider_id)
+            session.add(ob)
+            session.commit()
+        finally:
+            session.close()
+    r3 = client.get("/floor-obligations/", headers=_auth(client))
+    obs3 = r3.get_json()["obligations"]
+    elec = next(o for o in obs3 if o["label"] == "CatElec")
+    assert elec["provider_category"] == "utility"
+
+
+def test_available_includes_provider_category(client, app):
+    """/available response includes provider_category for each entry."""
+    provider_id = _create_provider_and_purchase(app, "AvailCatProv", 40.0, 1)
+    with app.app_context():
+        from src.backend.initialize_database_schema import BillProvider
+        from src.backend.create_flask_application import _get_db
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        try:
+            p = session.query(BillProvider).filter_by(id=provider_id).first()
+            p.provider_category = "subscription"
+            session.commit()
+        finally:
+            session.close()
+    r = client.get("/floor-obligations/available", headers=_auth(client))
+    assert r.status_code == 200
+    available = r.get_json()["available"]
+    entry = next((a for a in available if a["bill_provider_id"] == provider_id), None)
+    assert entry is not None
+    assert entry["provider_category"] == "subscription"
