@@ -32637,6 +32637,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button></div>
     <div class="contrib-meta">Status: ${escHtml(formatLabel(receipt.status, "Unknown"))} · Loaded ${escHtml(formatDateTime(receipt.created_at, "Unknown"))}</div>`;
 
+        const splitPanelHtml = `<div id="split-panel-${receipt.id}" style="display:none"></div>`;
         if (inlineLayout) {
           return `
       <div class="receipt-inline-detail-wrap">
@@ -32653,6 +32654,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               ${statsHtml}
               ${billSummaryHtml}
               ${actionsHtml}
+              ${splitPanelHtml}
               ${extractedHtml}
               ${reprocessHtml}
             </div>
@@ -32665,7 +32667,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       </div>`;
         }
 
-        const splitPanelHtml = `<div id="split-panel-${receipt.id}" style="display:none"></div>`;
         return `<div class="receipt-detail-stack" style="display:grid;gap:16px">
     <div>${imageHtml}</div>
     ${statsHtml}
