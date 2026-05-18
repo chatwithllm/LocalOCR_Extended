@@ -2636,9 +2636,22 @@ def merge_receipts():
     if keep_id == drop_id:
         return jsonify({"error": "keep_id and drop_id must differ"}), 400
 
+    from sqlalchemy import or_ as _or
+
     session = g.db_session
-    keep = session.query(Purchase).filter_by(id=keep_id, user_id=user_id).first()
-    drop = session.query(Purchase).filter_by(id=drop_id, user_id=user_id).first()
+
+    def _get_purchase(pid):
+        return (
+            session.query(Purchase)
+            .filter(
+                Purchase.id == pid,
+                _or(Purchase.user_id == user_id, Purchase.user_id.is_(None)),
+            )
+            .first()
+        )
+
+    keep = _get_purchase(keep_id)
+    drop = _get_purchase(drop_id)
     if not keep or not drop:
         return jsonify({"error": "Purchase not found or not owned by you"}), 404
 
