@@ -43,3 +43,52 @@ def test_floor_obligation_table_exists(app):
     from sqlalchemy import inspect
     insp = inspect(_engine)
     assert "floor_obligations" in insp.get_table_names()
+
+
+def test_list_floor_obligations_empty(client):
+    res = client.get("/floor-obligations/", headers=_auth(client))
+    assert res.status_code == 200
+    assert res.get_json()["obligations"] == []
+
+
+def test_create_manual_obligation(client):
+    res = client.post(
+        "/floor-obligations/",
+        json={"label": "Rent", "expected_monthly_amount": 1500.0},
+        headers=_auth(client),
+    )
+    assert res.status_code == 201
+    ob = res.get_json()["obligation"]
+    assert ob["label"] == "Rent"
+    assert ob["expected_monthly_amount"] == 1500.0
+    assert ob["is_active"] is True
+    assert ob["source"] == "manual"
+
+
+def test_patch_obligation_toggle(client):
+    create_res = client.post(
+        "/floor-obligations/",
+        json={"label": "Car Loan", "expected_monthly_amount": 450.0},
+        headers=_auth(client),
+    )
+    oid = create_res.get_json()["obligation"]["id"]
+    patch_res = client.patch(
+        f"/floor-obligations/{oid}",
+        json={"is_active": False},
+        headers=_auth(client),
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.get_json()["obligation"]["is_active"] is False
+
+
+def test_delete_manual_obligation(client):
+    create_res = client.post(
+        "/floor-obligations/",
+        json={"label": "Allowance", "expected_monthly_amount": 200.0},
+        headers=_auth(client),
+    )
+    oid = create_res.get_json()["obligation"]["id"]
+    del_res = client.delete(f"/floor-obligations/{oid}", headers=_auth(client))
+    assert del_res.status_code == 200
+    ids = [o["id"] for o in client.get("/floor-obligations/", headers=_auth(client)).get_json()["obligations"]]
+    assert oid not in ids
