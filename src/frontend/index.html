@@ -2305,6 +2305,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
           </div>
 
+          <!-- Row 1.5: Fixed Obligations floor widget -->
+          <div class="card" id="dashboard-floor-card" style="display:none">
+            <div class="card-header">
+              <span class="card-title">&#128204; Fixed Obligations</span>
+              <span class="card-header-inline-stat" id="dashboard-floor-total"></span>
+            </div>
+            <div id="dashboard-floor-body" style="overflow-x:auto"></div>
+          </div>
+
           <!-- Row 2: Spending by Category — all categories desc. Top 5
                shown; Show-more button reveals the rest. Whole card is
                click-to-collapse. -->
@@ -22124,6 +22133,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           // Spend-by-Person moved to the Accounts page — don't load here.
           loadReceiptsActivity();
           loadSpendingByCategory();
+          loadFloorWidget();
           refreshAttributionStats();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");
@@ -39349,6 +39359,68 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (added === 0) { toast('Sync failed — no providers could be added', 'error'); }
         else { toast('Added ' + added + ' provider' + (added === 1 ? '' : 's'), added < toAdd.length ? 'warning' : 'success'); }
         loadFloorObligations();
+      }
+
+      async function loadFloorWidget() {
+        const card = document.getElementById('dashboard-floor-card');
+        const body = document.getElementById('dashboard-floor-body');
+        const totalEl = document.getElementById('dashboard-floor-total');
+        if (!card || !body) return;
+        const now = new Date();
+        const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        try {
+          const res = await api('/floor-obligations/summary?month=' + encodeURIComponent(ym));
+          const data = await res.json().catch(function() { return {}; });
+          if (!res.ok || !data.obligations || data.obligations.length === 0) { card.style.display = 'none'; return; }
+          card.style.display = '';
+          if (totalEl) totalEl.textContent = 'Floor: ' + formatMoney(data.floor_total);
+          body.innerHTML = _renderFloorWidget(data.obligations);
+        } catch (e) { card.style.display = 'none'; }
+      }
+
+      function _renderFloorWidget(obligations) {
+        const statusIcon = { paid: '&#9989;', paid_over: '&#9888;&#65039;', not_recorded: '&#128308;', manual: '&#128221;' };
+        const statusLabel = { paid: 'paid', paid_over: 'paid (over)', not_recorded: 'not recorded', manual: 'manual' };
+        const rows = obligations.map(function(ob) {
+          const thisMo = ob.this_month_actual != null ? formatMoney(ob.this_month_actual) : '&#8212;';
+          const lastMo = ob.last_month_actual != null ? formatMoney(ob.last_month_actual) : '&#8212;';
+          var deltaHtml = '&#8212;';
+          if (ob.delta != null) {
+            const sign = ob.delta > 0 ? '+' : '';
+            const color = ob.delta > 0 ? 'var(--warning,#d97706)' : 'var(--success,#16a34a)';
+            deltaHtml = '<span style="color:' + color + '">' + sign + formatMoney(ob.delta) + '</span>';
+          }
+          const icon = statusIcon[ob.status] || '';
+          const lbl = statusLabel[ob.status] || ob.status;
+          return '<tr>'
+            + '<td style="padding:6px 10px;font-size:0.88rem">' + escHtml(ob.label) + '</td>'
+            + '<td style="padding:6px 10px;font-size:0.88rem;text-align:right">' + thisMo + '</td>'
+            + '<td style="padding:6px 10px;font-size:0.88rem;text-align:right;color:var(--muted,#aaa)">' + lastMo + '</td>'
+            + '<td style="padding:6px 10px;font-size:0.88rem;text-align:right">' + deltaHtml + '</td>'
+            + '<td style="padding:6px 10px;font-size:0.82rem">' + icon + ' ' + lbl + '</td>'
+            + '</tr>';
+        }).join('');
+        const totalRecorded = obligations.reduce(function(s, ob) { return s + (ob.this_month_actual != null ? ob.this_month_actual : 0); }, 0);
+        const lastTotal = obligations.reduce(function(s, ob) { return s + (ob.last_month_actual != null ? ob.last_month_actual : 0); }, 0);
+        const totalDelta = totalRecorded - lastTotal;
+        const totalDeltaHtml = totalRecorded > 0
+          ? '<span style="color:' + (totalDelta > 0 ? 'var(--warning,#d97706)' : 'var(--success,#16a34a)') + '">' + (totalDelta > 0 ? '+' : '') + formatMoney(totalDelta) + '</span>'
+          : '&#8212;';
+        return '<table style="width:100%;border-collapse:collapse;font-size:0.88rem">'
+          + '<thead><tr style="border-bottom:1px solid var(--border,#333)">'
+          + '<th style="padding:5px 10px;text-align:left;color:var(--muted,#aaa);font-weight:500">Obligation</th>'
+          + '<th style="padding:5px 10px;text-align:right;color:var(--muted,#aaa);font-weight:500">This mo.</th>'
+          + '<th style="padding:5px 10px;text-align:right;color:var(--muted,#aaa);font-weight:500">Last mo.</th>'
+          + '<th style="padding:5px 10px;text-align:right;color:var(--muted,#aaa);font-weight:500">&#916;</th>'
+          + '<th style="padding:5px 10px;color:var(--muted,#aaa);font-weight:500">Status</th>'
+          + '</tr></thead><tbody>' + rows
+          + '<tr style="border-top:1px solid var(--border,#333);font-weight:600">'
+          + '<td style="padding:6px 10px">Total recorded</td>'
+          + '<td style="padding:6px 10px;text-align:right">' + (totalRecorded > 0 ? formatMoney(totalRecorded) : '&#8212;') + '</td>'
+          + '<td style="padding:6px 10px;text-align:right;color:var(--muted,#aaa)">' + (lastTotal > 0 ? formatMoney(lastTotal) : '&#8212;') + '</td>'
+          + '<td style="padding:6px 10px;text-align:right">' + totalDeltaHtml + '</td>'
+          + '<td></td></tr>'
+          + '</tbody></table>';
       }
 
       async function settleAllWithContact(contactId, name) {
