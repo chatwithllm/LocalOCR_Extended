@@ -109,3 +109,63 @@ def delete_obligation(ob_id: int):
     g.db_session.delete(ob)
     g.db_session.commit()
     return jsonify({"deleted": ob_id}), 200
+
+
+@floor_obligations_bp.route("/summary", methods=["GET"])
+@require_auth
+def obligations_summary():
+    """Monthly floor summary with this-month and last-month actuals."""
+    import re
+    from datetime import datetime, timezone
+    from src.backend.initialize_database_schema import FloorObligation, BillMeta, Purchase
+
+    month_str = (request.args.get("month") or "").strip()
+    if not month_str:
+        month_str = datetime.now(timezone.utc).strftime("%Y-%m")
+    if not re.match(r"^\d{4}-\d{2}$", month_str):
+        return jsonify({"error": "month must be YYYY-MM"}), 400
+
+    year, mon = int(month_str[:4]), int(month_str[5:7])
+    this_start = datetime(year, mon, 1, tzinfo=timezone.utc)
+    this_end = datetime(year + 1, 1, 1, tzinfo=timezone.utc) if mon == 12 else datetime(year, mon + 1, 1, tzinfo=timezone.utc)
+    prev_end = this_start
+    prev_start = datetime(year - 1, 12, 1, tzinfo=timezone.utc) if mon == 1 else datetime(year, mon - 1, 1, tzinfo=timezone.utc)
+
+    session = g.db_session
+    obligations = (
+        session.query(FloorObligation)
+        .filter_by(is_active=True)
+        .order_by(FloorObligation.label)
+        .all()
+    )
+
+    def _month_actual(provider_id, start, end):
+        rows = (
+            session.query(Purchase)
+            .join(BillMeta, BillMeta.purchase_id == Purchase.id)
+            .filter(BillMeta.provider_id == provider_id, Purchase.date >= start, Purchase.date < end)
+            .all()
+        )
+        if not rows:
+            return None
+        return round(sum(float(p.total_amount or 0) for p in rows), 2)
+
+    result = []
+    floor_total = 0.0
+    for ob in obligations:
+        floor_total += ob.expected_monthly_amount or 0.0
+        if ob.bill_provider_id is None:
+            result.append({**_serialize(ob), "this_month_actual": None, "last_month_actual": None, "delta": None, "status": "manual"})
+            continue
+        this_actual = _month_actual(ob.bill_provider_id, this_start, this_end)
+        last_actual = _month_actual(ob.bill_provider_id, prev_start, prev_end)
+        delta = round(this_actual - last_actual, 2) if this_actual is not None and last_actual is not None else None
+        if this_actual is None:
+            status = "not_recorded"
+        elif this_actual <= (ob.expected_monthly_amount or 0) * 1.05:
+            status = "paid"
+        else:
+            status = "paid_over"
+        result.append({**_serialize(ob), "this_month_actual": this_actual, "last_month_actual": last_actual, "delta": delta, "status": status})
+
+    return jsonify({"month": month_str, "floor_total": round(floor_total, 2), "obligations": result}), 200

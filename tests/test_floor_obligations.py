@@ -92,3 +92,35 @@ def test_delete_manual_obligation(client):
     assert del_res.status_code == 200
     ids = [o["id"] for o in client.get("/floor-obligations/", headers=_auth(client)).get_json()["obligations"]]
     assert oid not in ids
+
+
+def test_summary_manual_obligation_shows_expected(client):
+    client.post(
+        "/floor-obligations/",
+        json={"label": "Internet", "expected_monthly_amount": 80.0},
+        headers=_auth(client),
+    )
+    res = client.get("/floor-obligations/summary?month=2026-05", headers=_auth(client))
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["floor_total"] == 80.0
+    assert len(data["obligations"]) == 1
+    ob = data["obligations"][0]
+    assert ob["label"] == "Internet"
+    assert ob["this_month_actual"] is None
+    assert ob["last_month_actual"] is None
+    assert ob["status"] == "manual"
+
+
+def test_summary_inactive_excluded(client):
+    create_res = client.post(
+        "/floor-obligations/",
+        json={"label": "Gym", "expected_monthly_amount": 50.0},
+        headers=_auth(client),
+    )
+    oid = create_res.get_json()["obligation"]["id"]
+    client.patch(f"/floor-obligations/{oid}", json={"is_active": False}, headers=_auth(client))
+    res = client.get("/floor-obligations/summary?month=2026-05", headers=_auth(client))
+    assert res.status_code == 200
+    labels = [o["label"] for o in res.get_json()["obligations"]]
+    assert "Gym" not in labels
