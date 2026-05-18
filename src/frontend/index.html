@@ -39379,7 +39379,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function _renderFloorWidget(obligations) {
-        const statusIcon = { paid: '&#9989;', paid_over: '&#9888;&#65039;', not_recorded: '&#128308;', manual: '&#128221;' };
+        const statusIcon = { paid: '&#9989;', paid_over: '&#9989;', not_recorded: '&#9888;&#65039;', manual: '&#128221;' };
         const statusLabel = { paid: 'paid', paid_over: 'paid (over)', not_recorded: 'not recorded', manual: 'manual' };
         const rows = obligations.map(function(ob) {
           const thisMo = ob.this_month_actual != null ? formatMoney(ob.this_month_actual) : '&#8212;';
@@ -39387,11 +39387,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           var deltaHtml = '&#8212;';
           if (ob.delta != null) {
             const sign = ob.delta > 0 ? '+' : '';
-            const color = ob.delta > 0 ? 'var(--warning,#d97706)' : 'var(--success,#16a34a)';
+            const color = ob.delta > 0 ? 'var(--warning,#d97706)' : ob.delta < 0 ? 'var(--success,#16a34a)' : 'var(--muted,#aaa)';
             deltaHtml = '<span style="color:' + color + '">' + sign + formatMoney(ob.delta) + '</span>';
           }
           const icon = statusIcon[ob.status] || '';
-          const lbl = statusLabel[ob.status] || ob.status;
+          const lbl = statusLabel[ob.status] || escHtml(String(ob.status || ''));
           return '<tr>'
             + '<td style="padding:6px 10px;font-size:0.88rem">' + escHtml(ob.label) + '</td>'
             + '<td style="padding:6px 10px;font-size:0.88rem;text-align:right">' + thisMo + '</td>'
@@ -39403,8 +39403,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const totalRecorded = obligations.reduce(function(s, ob) { return s + (ob.this_month_actual != null ? ob.this_month_actual : 0); }, 0);
         const lastTotal = obligations.reduce(function(s, ob) { return s + (ob.last_month_actual != null ? ob.last_month_actual : 0); }, 0);
         const totalDelta = totalRecorded - lastTotal;
-        const totalDeltaHtml = totalRecorded > 0
-          ? '<span style="color:' + (totalDelta > 0 ? 'var(--warning,#d97706)' : 'var(--success,#16a34a)') + '">' + (totalDelta > 0 ? '+' : '') + formatMoney(totalDelta) + '</span>'
+        const totalDeltaColor = totalDelta > 0 ? 'var(--warning,#d97706)' : totalDelta < 0 ? 'var(--success,#16a34a)' : 'var(--muted,#aaa)';
+        const totalDeltaHtml = (totalRecorded > 0 || lastTotal > 0)
+          ? '<span style="color:' + totalDeltaColor + '">' + (totalDelta > 0 ? '+' : '') + formatMoney(totalDelta) + '</span>'
           : '&#8212;';
         return '<table style="width:100%;border-collapse:collapse;font-size:0.88rem">'
           + '<thead><tr style="border-bottom:1px solid var(--border,#333)">'
@@ -39415,7 +39416,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           + '<th style="padding:5px 10px;color:var(--muted,#aaa);font-weight:500">Status</th>'
           + '</tr></thead><tbody>' + rows
           + '<tr style="border-top:1px solid var(--border,#333);font-weight:600">'
-          + '<td style="padding:6px 10px">Total recorded</td>'
+          + '<td style="padding:6px 10px">Total this month</td>'
           + '<td style="padding:6px 10px;text-align:right">' + (totalRecorded > 0 ? formatMoney(totalRecorded) : '&#8212;') + '</td>'
           + '<td style="padding:6px 10px;text-align:right;color:var(--muted,#aaa)">' + (lastTotal > 0 ? formatMoney(lastTotal) : '&#8212;') + '</td>'
           + '<td style="padding:6px 10px;text-align:right">' + totalDeltaHtml + '</td>'
