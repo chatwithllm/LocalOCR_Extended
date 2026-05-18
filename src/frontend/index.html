@@ -39329,7 +39329,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         });
         const chips = cats.map(function(c) {
           const active = c === currentCat;
-          return '<button class="floor-chip' + (active ? ' active' : '') + '" onclick="updateFloorCategory(\'' + c + '\')">' + (catLabel[c] || c.charAt(0).toUpperCase() + c.slice(1)) + '</button>';
+          return '<button class="floor-chip' + (active ? ' active' : '') + '" onclick="updateFloorCategory(\'' + escAttr(c) + '\')">' + escHtml(catLabel[c] || c.charAt(0).toUpperCase() + c.slice(1)) + '</button>';
         }).join('');
         return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
           + '<input id="floor-search-input" class="floor-search" type="text" placeholder="Search…" value="' + escHtml(currentSearch) + '" oninput="updateFloorSearch(this.value)">'
@@ -39441,12 +39441,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const content = document.getElementById('floor-tab-content');
         if (!content) return;
 
+        window._floorAvailableAll = available;
+
         if (available === null) {
           content.innerHTML = '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">Could not load available providers.</p>';
           return;
         }
-
-        window._floorAvailableAll = available;
 
         const filtered = _applyFloorFilters(available, 'label', 'provider_category');
 
@@ -39460,7 +39460,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + '<td style="padding:7px 10px;text-align:right;color:var(--muted,#aaa)">' + avg + '</td>'
             + '<td style="padding:7px 10px;text-align:right;color:var(--muted,#aaa)">' + latest + '</td>'
             + '<td style="padding:7px 10px;text-align:right" id="avail-action-' + item.bill_provider_id + '">'
-            + '<button class="btn btn-ghost btn-sm" style="font-size:0.78rem;color:var(--accent,#3b82f6)" data-label="' + escHtml(item.label) + '" data-prefill="' + escHtml(prefill) + '" data-ob-id="' + obId + '" onclick="showAddFromAvailable(' + item.bill_provider_id + ', this)">+ Add</button>'
+            + '<button class="btn btn-ghost btn-sm" style="font-size:0.78rem;color:var(--accent,#3b82f6)" data-label="' + escAttr(item.label) + '" data-prefill="' + escHtml(prefill) + '" data-ob-id="' + obId + '" onclick="showAddFromAvailable(' + item.bill_provider_id + ', this)">+ Add</button>'
             + '</td>'
             + '</tr>';
         }).join('');
