@@ -1512,6 +1512,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .balances-amount--owe { color: var(--danger, #ff453a); font-weight: 600; }
 .balances-amount--owed { color: var(--success, #32d74b); font-weight: 600; }
 .balances-settle-btn { font-size: 0.78rem; padding: 3px 8px; }
+/* Fixed Monthly Obligations */
+      #floor-obligations-section .floor-table {
+        width: 100%; border-collapse: collapse; font-size: 0.88rem;
+      }
+      #floor-obligations-section .floor-table th {
+        text-align: left; padding: 6px 10px;
+        color: var(--muted, #aaa); font-weight: 500;
+        border-bottom: 1px solid var(--border, #333);
+      }
+      #floor-obligations-section .floor-table td {
+        padding: 7px 10px; border-bottom: 1px solid var(--border, #2a2a2a);
+        vertical-align: middle;
+      }
 /* Shared Dining: Split Panel */
 .split-panel { border: 1px solid var(--border, #333); border-radius: 12px; padding: 16px; background: var(--surface2, #2c2c2e); }
 .split-panel__title { font-weight: 700; font-size: 1rem; margin-bottom: 14px; }
@@ -4193,6 +4206,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           </div>
 
           <div id="bills-body" class="workspace-scroll">
+            <div id="floor-obligations-section" style="margin-bottom:16px"></div>
             <div
               class="bills-ptr"
               id="bills-ptr"
@@ -37259,6 +37273,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const monthInput = document.getElementById("bills-filter-month");
         const monthLabel = document.getElementById("bills-month-label");
         if (!monthInput) return;
+        loadFloorObligations();
 
         try {
           const sweepRes = await api(`/receipts/bills/sync-autopay`, {
@@ -39238,6 +39253,99 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         });
         html += '</tbody></table>';
         body.innerHTML = html;
+      }
+
+      async function loadFloorObligations() {
+        const el = document.getElementById('floor-obligations-section');
+        if (!el) return;
+        el.innerHTML = '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">Loading…</p>';
+        try {
+          const res = await api('/floor-obligations/');
+          const data = await res.json().catch(function() { return {}; });
+          if (!res.ok) { el.innerHTML = ''; return; }
+          el.innerHTML = _renderFloorObligationsTable(data.obligations || []);
+        } catch (e) { el.innerHTML = ''; }
+      }
+
+      function _renderFloorObligationsTable(obligations) {
+        const rows = obligations.map(function(ob) {
+          const chk = '<input type="checkbox" ' + (ob.is_active ? 'checked' : '') + ' onchange="toggleFloorObligation(' + ob.id + ', this.checked)" title="Include in monthly floor">';
+          const amt = '<input type="number" step="0.01" min="0" value="' + ob.expected_monthly_amount + '" style="width:90px;padding:4px 6px;border-radius:5px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem" onblur="saveFloorObligationAmount(' + ob.id + ', this.value)" title="Expected $/mo">';
+          const src = ob.source === 'bill_provider'
+            ? '<span style="font-size:0.75rem;color:var(--muted,#aaa)">Bills</span>'
+            : '<span style="font-size:0.75rem;color:var(--info,#60a5fa)">Manual</span>';
+          const del = ob.source === 'manual'
+            ? '<button class="btn btn-ghost btn-sm" onclick="deleteFloorObligation(' + ob.id + ')" style="color:var(--danger,#ef4444);padding:2px 6px" title="Remove">&#xd7;</button>'
+            : '';
+          return '<tr><td style="width:32px">' + chk + '</td><td>' + escHtml(ob.label) + '</td><td>' + amt + '</td><td>' + src + '</td><td style="width:32px">' + del + '</td></tr>';
+        }).join('');
+
+        const table = obligations.length === 0
+          ? '<p style="color:var(--muted,#aaa);font-size:0.85rem">No obligations yet. Add one below or sync from Bills.</p>'
+          : '<table class="floor-table"><thead><tr><th></th><th>Name</th><th>Expected/mo</th><th>Source</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+
+        return '<div style="padding:4px 0 8px">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+          + '<h4 style="margin:0;font-size:0.95rem">&#128204; Fixed Monthly Obligations</h4></div>'
+          + table
+          + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">'
+          + '<input id="floor-new-label" type="text" placeholder="Label (e.g. Car Loan)" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem;width:160px">'
+          + '<input id="floor-new-amount" type="number" step="0.01" min="0" placeholder="$/mo" style="width:80px;padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem">'
+          + '<button class="btn btn-primary btn-sm" onclick="addFloorObligation()">&#xff0b; Add</button>'
+          + '<button class="btn btn-ghost btn-sm" onclick="syncFloorFromBillProviders()" title="Import bill providers not yet in your floor list">Sync from Bills</button>'
+          + '</div></div>';
+      }
+
+      async function toggleFloorObligation(id, isActive) {
+        const res = await api('/floor-obligations/' + id, { method: 'PATCH', body: JSON.stringify({ is_active: isActive }) });
+        if (!res.ok) { toast('Save failed', 'error'); loadFloorObligations(); }
+      }
+
+      async function saveFloorObligationAmount(id, value) {
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount < 0) { toast('Invalid amount', 'error'); return; }
+        const res = await api('/floor-obligations/' + id, { method: 'PATCH', body: JSON.stringify({ expected_monthly_amount: amount }) });
+        if (!res.ok) toast('Save failed', 'error');
+      }
+
+      async function deleteFloorObligation(id) {
+        if (!confirm('Remove this obligation?')) return;
+        const res = await api('/floor-obligations/' + id, { method: 'DELETE' });
+        if (res.ok) { toast('Removed', 'success'); loadFloorObligations(); }
+        else toast('Delete failed', 'error');
+      }
+
+      async function addFloorObligation() {
+        const label = (document.getElementById('floor-new-label') ? document.getElementById('floor-new-label').value : '').trim();
+        const amount = parseFloat(document.getElementById('floor-new-amount') ? document.getElementById('floor-new-amount').value : '0');
+        if (!label) { toast('Enter a label', 'error'); return; }
+        if (isNaN(amount) || amount < 0) { toast('Enter a valid amount', 'error'); return; }
+        const res = await api('/floor-obligations/', { method: 'POST', body: JSON.stringify({ label: label, expected_monthly_amount: amount }) });
+        if (res.ok) {
+          document.getElementById('floor-new-label').value = '';
+          document.getElementById('floor-new-amount').value = '';
+          toast('Added', 'success');
+          loadFloorObligations();
+        } else {
+          const d = await res.json().catch(function() { return {}; });
+          toast(d.error || 'Add failed', 'error');
+        }
+      }
+
+      async function syncFloorFromBillProviders() {
+        const obligRes = await api('/floor-obligations/').then(function(r) { return r.json().catch(function() { return {}; }); });
+        const provRes = await api('/receipts/bill-providers').then(function(r) { return r.json().catch(function() { return {}; }); });
+        const existingIds = new Set((obligRes.obligations || []).filter(function(o) { return o.bill_provider_id != null; }).map(function(o) { return o.bill_provider_id; }));
+        const toAdd = (provRes.providers || []).filter(function(p) { return !existingIds.has(p.id); });
+        if (toAdd.length === 0) { toast('All bill providers already in your floor list', 'info'); return; }
+        var added = 0;
+        for (var i = 0; i < toAdd.length; i++) {
+          const p = toAdd[i];
+          const res = await api('/floor-obligations/', { method: 'POST', body: JSON.stringify({ label: p.canonical_name || p.name || 'Unknown', expected_monthly_amount: p.typical_amount_max || p.typical_amount_min || 0, bill_provider_id: p.id }) });
+          if (res.ok) added++;
+        }
+        toast('Added ' + added + ' provider' + (added === 1 ? '' : 's'), 'success');
+        loadFloorObligations();
       }
 
       async function settleAllWithContact(contactId, name) {
