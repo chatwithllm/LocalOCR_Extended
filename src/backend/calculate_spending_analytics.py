@@ -1523,11 +1523,15 @@ def spending_by_category():
     prev_start = (month_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def _agg(start, end):
+        from src.backend.initialize_database_schema import SharedExpense as _SE
         rows = (
             session.query(
                 Purchase.default_budget_category,
-                _sa.func.sum(Purchase.total_amount).label("amt"),
+                _sa.func.sum(
+                    _sa.func.coalesce(_SE.my_amount, Purchase.total_amount)
+                ).label("amt"),
             )
+            .outerjoin(_SE, _SE.purchase_id == Purchase.id)
             .filter(Purchase.date >= start, Purchase.date < end)
             .filter(
                 _sa.or_(
@@ -1625,9 +1629,11 @@ def spending_by_category_items():
         else _sa.func.lower(Purchase.default_budget_category) == category
     )
 
+    from src.backend.initialize_database_schema import SharedExpense as _SE
     rows = (
-        session.query(Purchase, Store.name)
+        session.query(Purchase, Store.name, _SE)
         .outerjoin(Store, Store.id == Purchase.store_id)
+        .outerjoin(_SE, _SE.purchase_id == Purchase.id)
         .filter(Purchase.date >= month_start, Purchase.date < next_start)
         .filter(cat_filter)
         .filter(
@@ -1642,12 +1648,13 @@ def spending_by_category_items():
     )
 
     items = []
-    for purchase, store_name in rows:
+    for purchase, store_name, shared_exp in rows:
         items.append({
             "id": purchase.id,
             "date": purchase.date.isoformat() if purchase.date else None,
             "store_name": store_name or None,
             "total_amount": float(purchase.total_amount or 0.0),
+            "my_amount": float(shared_exp.my_amount) if shared_exp else None,
             "transaction_type": purchase.transaction_type or "purchase",
             "domain": purchase.domain,
         })

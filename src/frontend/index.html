@@ -21597,7 +21597,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           panel.innerHTML = `<div class="spending-drill__empty">No receipts in this category for the month.</div>`;
           return;
         }
-        const total = items.reduce((s, it) => s + Number(it.total_amount || 0), 0);
+        const total = items.reduce((s, it) => s + Number(it.my_amount != null ? it.my_amount : (it.total_amount || 0)), 0);
         const rows = items
           .map((it) => {
             const dateStr = it.date
@@ -21615,7 +21615,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <button type="button" class="spending-drill__row${isRefund ? " is-refund" : ""}" onclick="openReceiptDetail(${Number(it.id)}, '${escAttr(isoDay)}')" title="Open receipt #${Number(it.id)}">
                 <span class="spending-drill__date">${escHtml(dateStr)}</span>
                 <span class="spending-drill__store">${escHtml(store)}</span>
-                <span class="spending-drill__amount">${formatMoney(it.total_amount || 0)}</span>
+                <span class="spending-drill__amount">${formatMoney(it.my_amount != null ? it.my_amount : (it.total_amount || 0))}</span>
               </button>`;
           })
           .join("");
