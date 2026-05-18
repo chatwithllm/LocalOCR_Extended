@@ -82,8 +82,8 @@ def test_receipt_without_split_has_no_my_amount(client):
     receipts = res.get_json().get("receipts", [])
     # At least one receipt should be present
     assert len(receipts) > 0
-    # All seeded receipts without a SharedExpense row should have my_amount == None
-    assert any(r.get("my_amount") is None for r in receipts)
+    # All receipts in this isolated DB have no SharedExpense — all must have my_amount == None
+    assert all(r.get("my_amount") is None for r in receipts)
 
 
 def test_receipt_with_split_has_my_amount(client):
