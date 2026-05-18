@@ -4009,6 +4009,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 Click <strong>Scan for duplicates</strong> to find receipts that look like the same charge (e.g. a photo upload and a Plaid-imported transaction). Merging drops one and keeps the other — the link from any staged transaction is reparented automatically.
               </div>
             </div>
+            <div style="padding:8px 12px;border-top:1px solid var(--border,#333)">
+              <div style="font-size:0.82rem;color:var(--muted,#aaa);margin-bottom:6px">Manual merge by receipt ID (hover a receipt row to see its ID)</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input id="dedup-keep-id" type="number" placeholder="Keep ID" style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem" />
+                <input id="dedup-drop-id" type="number" placeholder="Drop ID" style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border,#444);background:var(--surface2,#2c2c2e);color:var(--text,#fff);font-size:0.84rem" />
+                <button class="btn btn-ghost btn-sm" onclick="manualMergeReceipts()">Merge</button>
+              </div>
+            </div>
           </div>
           <div class="receipt-detail-grid">
             <div class="card">
@@ -32086,6 +32094,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           console.error("dismissDedupPair failed", err);
           toast("Dismiss failed", "error");
         }
+      }
+
+      async function manualMergeReceipts() {
+        const keepId = Number(document.getElementById('dedup-keep-id')?.value);
+        const dropId = Number(document.getElementById('dedup-drop-id')?.value);
+        if (!keepId || !dropId) { toast('Enter both receipt IDs', 'error'); return; }
+        if (keepId === dropId) { toast('IDs must differ', 'error'); return; }
+        if (!confirm('Merge receipt #' + dropId + ' into #' + keepId + '? The drop receipt will be deleted.')) return;
+        const res = await api('/receipts/merge', {
+          method: 'POST',
+          body: JSON.stringify({ keep_id: keepId, drop_id: dropId }),
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok) { toast(data.error || 'Merge failed', 'error'); return; }
+        toast('Merged — receipt #' + dropId + ' removed', 'success');
+        document.getElementById('dedup-keep-id').value = '';
+        document.getElementById('dedup-drop-id').value = '';
+        if (typeof loadReceipts === 'function') loadReceipts();
+        if (typeof loadSpendingByCategory === 'function') loadSpendingByCategory();
       }
 
       // ============================================================
