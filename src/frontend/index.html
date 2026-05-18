@@ -34240,6 +34240,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                       ${escHtml(receipt.date || "—")}
                       ${receipt.source ? ` · ${escHtml(formatLabel(receipt.source, "Upload"))}` : ""}
                       ${receipt.linked_to_plaid && receipt.source !== "plaid" ? ` · <span class="badge badge--info" title="Linked to a Plaid transaction">🔗 Plaid</span>` : ""}
+                      <span style="color:var(--muted,#aaa);font-size:0.75rem;margin-left:2px">#${rid}</span>
                     </div>
                     <div class="result-card__amount" style="margin-top: 2px">
                       ${receipt.my_amount != null ? '<span title="Your share (split)" style="font-size:0.88em;color:var(--muted,#aaa)">👥 </span>' + formatMoney(receipt.my_amount) : formatMoney(receiptDisplayTotal(receipt))}
