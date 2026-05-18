@@ -301,6 +301,7 @@ class BillProvider(Base):
 
     service_lines = relationship("BillServiceLine", back_populates="provider")
     bill_meta_records = relationship("BillMeta", back_populates="provider")
+    floor_obligations = relationship("FloorObligation", back_populates="provider")
 
 
 class BillServiceLine(Base):
@@ -1070,7 +1071,7 @@ class FloorObligation(Base):
         Index("ix_floor_obligations_is_active", "is_active"),
     )
 
-    provider = relationship("BillProvider", foreign_keys=[bill_provider_id])
+    provider = relationship("BillProvider", foreign_keys=[bill_provider_id], back_populates="floor_obligations")
 
 
 class SharedParticipant(Base):
