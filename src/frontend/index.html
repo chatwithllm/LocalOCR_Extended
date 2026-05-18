@@ -39144,8 +39144,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!confirm('Mark all debts with ' + name + ' as settled?')) return;
         const res = await api('/shared-dining/contacts/' + contactId + '/settle-all', { method: 'POST' });
         if (!res.ok) { toast('Could not settle debts', 'error'); return; }
-        const data = await res.json();
-        toast('Settled ' + data.settled + ' debt' + (data.settled === 1 ? '' : 's') + ' with ' + name, 'success');
+        const data = await res.json().catch(function() { return {}; });
+        toast('Settled ' + (data.settled || 0) + ' debt' + ((data.settled || 0) === 1 ? '' : 's') + ' with ' + name, 'success');
         await loadBalances();
       }
     </script>
