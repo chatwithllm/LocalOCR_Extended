@@ -204,7 +204,6 @@ def list_available():
 
     providers = (
         g.db_session.query(BillProvider)
-        .filter(BillProvider.is_active == True)
         .order_by(BillProvider.canonical_name)
         .all()
     )
