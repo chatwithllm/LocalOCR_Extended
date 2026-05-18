@@ -139,8 +139,13 @@ def handle_split_callback(session, chat_id: str, data: str) -> bool:
     sub = parts[1] if len(parts) > 1 else ""
 
     if sub == "receipt":
-        purchase_id = int(parts[2])
-        total = float(parts[3]) if len(parts) > 3 else 0.0
+        if len(parts) < 4:
+            return False
+        try:
+            purchase_id = int(parts[2])
+            total = float(parts[3])
+        except (ValueError, IndexError):
+            return False
         save_split_state(session, chat_id, {
             "step": "select_scenario",
             "purchase_id": purchase_id,
@@ -156,6 +161,8 @@ def handle_split_callback(session, chat_id: str, data: str) -> bool:
         return True
 
     if sub == "scenario":
+        if len(parts) < 3:
+            return False
         scenario = parts[2]
         row = get_or_create_split_session(session, chat_id)
         state = dict(row.state)
@@ -249,7 +256,7 @@ def handle_splitdone_command(session, chat_id: str) -> None:
         _send(chat_id, "No split in progress. Use /split to start.")
         return
 
-    state = row.state
+    state = dict(row.state)
     participants = state.get("participants", [])
     if len(participants) < 2:
         _send(chat_id, "Add at least one other person before confirming.")
@@ -285,13 +292,13 @@ def _finalize_split(session, chat_id: str) -> None:
         _send(chat_id, "No split in progress.")
         return
 
-    state = row.state
+    state = dict(row.state)
     purchase_id = state.get("purchase_id")
     payment_scenario = state.get("payment_scenario", "PAID_OWN")
-    participants = state.get("participants", [])
+    participants = list(state.get("participants", []))
 
     if payment_scenario == "OWED" and len(participants) >= 2:
-        participants[1]["payer"] = True
+        participants[1] = {**participants[1], "payer": True}
 
     try:
         expense = create_shared_expense(session, purchase_id, payment_scenario, participants)

@@ -192,9 +192,7 @@ def test_save_split_state(tg_session):
     row = get_or_create_split_session(tg_session, "chat_xyz")
     save_split_state(tg_session, "chat_xyz", {"step": "select_scenario", "purchase_id": 5})
     tg_session.expire_all()
-    row2 = tg_session.get(
-        __import__("src.backend.initialize_database_schema", fromlist=["TelegramSplitSession"]).TelegramSplitSession,
-        "chat_xyz",
-    )
+    from src.backend.initialize_database_schema import TelegramSplitSession
+    row2 = tg_session.get(TelegramSplitSession, "chat_xyz")
     assert row2.state["step"] == "select_scenario"
     assert row2.state["purchase_id"] == 5
