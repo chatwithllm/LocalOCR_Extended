@@ -39276,7 +39276,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const el = document.getElementById('floor-obligations-section');
         if (!el) return;
         const res = await api('/floor-obligations/');
-        if (!res.ok) return;
+        if (!res.ok) { toast('Failed to load obligations', 'error'); return; }
         const data = await res.json().catch(function() { return {}; });
         _renderFloorTabPanel(data.obligations || [], window._floorActiveTab || 'selected');
       }
@@ -39288,16 +39288,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const section = document.getElementById('floor-obligations-section');
         if (!section) return;
 
-        const avRes = await api('/floor-obligations/available');
-        const avData = avRes.ok ? await avRes.json().catch(function() { return {}; }) : {};
-        const available = avData.available || [];
+        var available = [];
+        var avFetchOk = true;
+        if (activeTab === 'available') {
+          const avRes = await api('/floor-obligations/available');
+          avFetchOk = avRes.ok;
+          const avData = avRes.ok ? await avRes.json().catch(function() { return null; }) : null;
+          available = avData ? (avData.available || []) : null;
+        }
 
         section.innerHTML = '<div style="padding:4px 0 8px">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
           + '<h4 style="margin:0;font-size:0.95rem">&#128204; Fixed Monthly Obligations</h4></div>'
           + '<div class="floor-tabs">'
           + '<button class="floor-tab-btn' + (activeTab === 'selected' ? ' active' : '') + '" onclick="showFloorTab(\'selected\')">Selected (' + selectedCount + ')</button>'
-          + '<button class="floor-tab-btn' + (activeTab === 'available' ? ' active' : '') + '" onclick="showFloorTab(\'available\')">Available (' + available.length + ')</button>'
+          + '<button class="floor-tab-btn' + (activeTab === 'available' ? ' active' : '') + '" onclick="showFloorTab(\'available\')">Available</button>'
           + '</div>'
           + '<div id="floor-tab-content"></div>'
           + '</div>';
@@ -39318,9 +39323,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           _renderSelectedTab(window._floorObligations || []);
         } else {
           api('/floor-obligations/available').then(function(r) {
-            return r.ok ? r.json().catch(function() { return {}; }) : {};
+            return r.ok ? r.json().catch(function() { return null; }) : null;
           }).then(function(d) {
-            _renderAvailableTab(d.available || []);
+            _renderAvailableTab(d ? (d.available || []) : null);
           });
         }
       }
@@ -39374,6 +39379,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const content = document.getElementById('floor-tab-content');
         if (!content) return;
 
+        if (available === null) {
+          content.innerHTML = '<p style="color:var(--muted,#aaa);font-size:0.85rem;padding:8px 0">Could not load available providers.</p>';
+          return;
+        }
+
         const rows = available.map(function(item) {
           const avg = item.avg_6mo != null ? formatMoney(item.avg_6mo) : '—';
           const latest = item.latest_actual != null ? formatMoney(item.latest_actual) : '—';
@@ -39384,7 +39394,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + '<td style="padding:7px 10px;text-align:right;color:var(--muted,#aaa)">' + avg + '</td>'
             + '<td style="padding:7px 10px;text-align:right;color:var(--muted,#aaa)">' + latest + '</td>'
             + '<td style="padding:7px 10px;text-align:right" id="avail-action-' + item.bill_provider_id + '">'
-            + '<button class="btn btn-ghost btn-sm" style="font-size:0.78rem;color:var(--accent,#3b82f6)" onclick="showAddFromAvailable(' + item.bill_provider_id + ',' + JSON.stringify(item.label) + ',\'' + escHtml(prefill) + '\',' + obId + ')">+ Add</button>'
+            + '<button class="btn btn-ghost btn-sm" style="font-size:0.78rem;color:var(--accent,#3b82f6)" data-label="' + escHtml(item.label) + '" data-prefill="' + escHtml(prefill) + '" data-ob-id="' + obId + '" onclick="showAddFromAvailable(' + item.bill_provider_id + ', this)">+ Add</button>'
             + '</td>'
             + '</tr>';
         }).join('');
@@ -39399,19 +39409,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             + '</tr></thead><tbody>' + rows + '</tbody></table>';
       }
 
-      function showAddFromAvailable(providerId, label, prefillAmount, existingObId) {
+      function showAddFromAvailable(providerId, sourceEl) {
+        const label = sourceEl ? (sourceEl.getAttribute('data-label') || '') : '';
+        const prefillAmount = sourceEl ? (sourceEl.getAttribute('data-prefill') || '') : '';
+        const existingObIdStr = sourceEl ? sourceEl.getAttribute('data-ob-id') : 'null';
+        const existingObId = (existingObIdStr == null || existingObIdStr === 'null') ? null : parseInt(existingObIdStr, 10);
         const cell = document.getElementById('avail-action-' + providerId);
         if (!cell) return;
         cell.innerHTML = '<div class="floor-add-inline">'
           + '<input id="avail-amt-' + providerId + '" type="number" step="0.01" min="0" value="' + escHtml(prefillAmount) + '" placeholder="$/mo">'
-          + '<button class="btn btn-primary btn-sm" style="font-size:0.78rem" onclick="addFromAvailable(' + providerId + ',' + JSON.stringify(label) + ',' + (existingObId != null ? existingObId : 'null') + ')">Save</button>'
+          + '<button class="btn btn-primary btn-sm" style="font-size:0.78rem" data-label="' + escHtml(label) + '" onclick="addFromAvailable(' + providerId + ', this, ' + (existingObId != null ? existingObId : 'null') + ')">Save</button>'
           + '<button class="btn btn-ghost btn-sm" style="font-size:0.78rem" onclick="loadFloorObligations()">Cancel</button>'
           + '</div>';
         var inp = document.getElementById('avail-amt-' + providerId);
         if (inp) inp.focus();
       }
 
-      async function addFromAvailable(providerId, label, existingObId) {
+      async function addFromAvailable(providerId, btn, existingObId) {
+        const label = btn ? (btn.getAttribute('data-label') || '') : '';
         const inp = document.getElementById('avail-amt-' + providerId);
         const amount = parseFloat(inp ? inp.value : '0');
         if (isNaN(amount) || amount < 0) { toast('Enter a valid amount', 'error'); return; }
