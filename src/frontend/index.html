@@ -1512,6 +1512,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .balances-amount--owe { color: var(--danger, #ff453a); font-weight: 600; }
 .balances-amount--owed { color: var(--success, #32d74b); font-weight: 600; }
 .balances-settle-btn { font-size: 0.78rem; padding: 3px 8px; }
+/* Shared Dining: Contacts */
+.contacts-list { display: grid; gap: 10px; }
+.contacts-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface2, #2c2c2e); border-radius: 10px; }
+.contacts-card__avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent, #0a84ff); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+.contacts-card__info { flex: 1; min-width: 0; }
+.contacts-card__name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contacts-card__meta { font-size: 0.8rem; color: var(--muted, #aaa); margin-top: 2px; }
+.contacts-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+@media (max-width: 640px) { .contacts-add-form { grid-template-columns: 1fr; } }
     </style>
   </head>
 
@@ -1616,6 +1625,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         </div>
         <div class="nav-item" id="nav-balances" onclick="nav('balances', this)">
           <span class="nav-icon">💸</span> Balances
+        </div>
+        <div class="nav-item" id="nav-contacts" onclick="nav('contacts', this)">
+          <span class="nav-icon">👥</span> Contacts
         </div>
         <div class="nav-item" id="nav-expenses" onclick="nav('expenses', this)">
           <span class="nav-icon">🧾</span> Expenses
@@ -2936,6 +2948,46 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <span class="card-title">Who Owes What</span>
             </div>
             <div id="balances-body">
+              <div class="empty-state"><p>Loading…</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-contacts">
+          <div class="page-header">
+            <div>
+              <h1>Dining Contacts</h1>
+              <p>Saved contacts for splitting restaurant receipts</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadContacts()" aria-label="Refresh">🔄</button>
+          </div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header">
+              <span class="card-title">Add Contact</span>
+            </div>
+            <div class="contacts-add-form">
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-name-input">Name *</label>
+                <input id="contact-name-input" type="text" placeholder="Full name" autocomplete="off" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-phone-input">Phone (optional)</label>
+                <input id="contact-phone-input" type="tel" placeholder="+1 555 000 0000" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label for="contact-email-input">Email (optional)</label>
+                <input id="contact-email-input" type="email" placeholder="name@example.com" />
+              </div>
+              <div class="form-group" style="margin-bottom:0; display:flex; align-items:flex-end">
+                <button class="btn btn-primary" style="width:100%" onclick="saveContact()">Add Contact</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Saved Contacts</span>
+            </div>
+            <div id="contacts-body">
               <div class="empty-state"><p>Loading…</p></div>
             </div>
           </div>
@@ -10018,6 +10070,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           "contributions",
           "settings",
           "balances",
+          "contacts",
         ]);
         return allowed.has(page) ? page : "dashboard";
       }
@@ -39147,6 +39200,59 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const data = await res.json().catch(function() { return {}; });
         toast('Settled ' + (data.settled || 0) + ' debt' + ((data.settled || 0) === 1 ? '' : 's') + ' with ' + name, 'success');
         await loadBalances();
+      }
+
+      // Shared Dining: Contacts
+      var _diningContacts = [];
+
+      async function loadContacts() {
+        const body = document.getElementById('contacts-body');
+        if (!body) return;
+        body.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+        const res = await api('/shared-dining/contacts');
+        if (!res.ok) {
+          body.innerHTML = '<div class="empty-state"><p>Could not load contacts.</p></div>';
+          return;
+        }
+        _diningContacts = await res.json().catch(function() { return []; });
+        if (!_diningContacts.length) {
+          body.innerHTML = '<div class="empty-state"><p>No saved contacts yet. Add one above.</p></div>';
+          return;
+        }
+        let html = '<div class="contacts-list">';
+        _diningContacts.forEach(function(c) {
+          const initial = (c.name || '?').trim().charAt(0).toUpperCase();
+          const meta = [c.phone, c.email].filter(Boolean).join(' · ');
+          html += '<div class="contacts-card">';
+          html += '<div class="contacts-card__avatar">' + escHtml(initial) + '</div>';
+          html += '<div class="contacts-card__info">';
+          html += '<div class="contacts-card__name">' + escHtml(c.name) + '</div>';
+          if (meta) html += '<div class="contacts-card__meta">' + escHtml(meta) + '</div>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+      }
+
+      async function saveContact() {
+        const name = (document.getElementById('contact-name-input')?.value || '').trim();
+        if (!name) { toast('Name is required', 'error'); return; }
+        const phone = (document.getElementById('contact-phone-input')?.value || '').trim() || null;
+        const email = (document.getElementById('contact-email-input')?.value || '').trim() || null;
+        const res = await api('/shared-dining/contacts', {
+          method: 'POST',
+          body: JSON.stringify({ name, phone, email }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(function() { return {}; });
+          toast(err.error || 'Could not save contact', 'error');
+          return;
+        }
+        toast(name + ' added', 'success');
+        document.getElementById('contact-name-input').value = '';
+        document.getElementById('contact-phone-input').value = '';
+        document.getElementById('contact-email-input').value = '';
+        await loadContacts();
       }
     </script>
 
