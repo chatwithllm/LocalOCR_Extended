@@ -39305,7 +39305,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const amount = parseFloat(value);
         if (isNaN(amount) || amount < 0) { toast('Invalid amount', 'error'); return; }
         const res = await api('/floor-obligations/' + id, { method: 'PATCH', body: JSON.stringify({ expected_monthly_amount: amount }) });
-        if (!res.ok) toast('Save failed', 'error');
+        if (!res.ok) { toast('Save failed', 'error'); loadFloorObligations(); }
       }
 
       async function deleteFloorObligation(id) {
@@ -39333,8 +39333,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       async function syncFloorFromBillProviders() {
-        const obligRes = await api('/floor-obligations/').then(function(r) { return r.json().catch(function() { return {}; }); });
-        const provRes = await api('/receipts/bill-providers').then(function(r) { return r.json().catch(function() { return {}; }); });
+        const [obligRaw, provRaw] = await Promise.all([api('/floor-obligations/'), api('/receipts/bill-providers')]);
+        if (!obligRaw.ok || !provRaw.ok) { toast('Could not load data', 'error'); return; }
+        const obligRes = await obligRaw.json().catch(function() { return {}; });
+        const provRes = await provRaw.json().catch(function() { return {}; });
         const existingIds = new Set((obligRes.obligations || []).filter(function(o) { return o.bill_provider_id != null; }).map(function(o) { return o.bill_provider_id; }));
         const toAdd = (provRes.providers || []).filter(function(p) { return !existingIds.has(p.id); });
         if (toAdd.length === 0) { toast('All bill providers already in your floor list', 'info'); return; }
@@ -39344,7 +39346,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const res = await api('/floor-obligations/', { method: 'POST', body: JSON.stringify({ label: p.canonical_name || p.name || 'Unknown', expected_monthly_amount: p.typical_amount_max || p.typical_amount_min || 0, bill_provider_id: p.id }) });
           if (res.ok) added++;
         }
-        toast('Added ' + added + ' provider' + (added === 1 ? '' : 's'), 'success');
+        if (added === 0) { toast('Sync failed — no providers could be added', 'error'); }
+        else { toast('Added ' + added + ' provider' + (added === 1 ? '' : 's'), added < toAdd.length ? 'warning' : 'success'); }
         loadFloorObligations();
       }
 
