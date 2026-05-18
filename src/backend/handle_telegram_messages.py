@@ -81,6 +81,14 @@ def telegram_webhook():
         except Exception as e:
             logger.warning(f"shopping walk typed-text consume failed: {e}")
 
+        try:
+            from src.backend.handle_shared_dining_walk import consume_split_text
+            if consume_split_text(g.db_session, chat_id, text):
+                g.db_session.commit()
+                return jsonify({"status": "ok"}), 200
+        except Exception as e:
+            logger.warning(f"split typed-text consume failed: {e}")
+
     # Handle photos and PDF documents
     photos = message.get("photo", [])
     document = message.get("document") or {}
@@ -148,6 +156,35 @@ def _handle_command(command: str, chat_id: str = "") -> str:
         # in dispatch_shop_callback rejects the click.
         g.db_session.commit()
         return ""
+
+    if cmd == "/split":
+        from src.backend.handle_shared_dining_walk import start_split
+        start_split(g.db_session, chat_id)
+        g.db_session.commit()
+        return ""
+
+    if cmd == "/splitdone":
+        from src.backend.handle_shared_dining_walk import handle_splitdone_command
+        handle_splitdone_command(g.db_session, chat_id)
+        g.db_session.commit()
+        return ""
+
+    if cmd == "/balances":
+        from src.backend.handle_shared_dining_walk import handle_balances_command
+        handle_balances_command(g.db_session, chat_id)
+        return ""
+
+    if cmd.startswith("/settle"):
+        args = command[len("/settle"):].strip()
+        from src.backend.handle_shared_dining_walk import handle_settle_command
+        handle_settle_command(g.db_session, chat_id, args)
+        return ""
+
+    if cmd == "/owed":
+        from src.backend.handle_shared_dining_walk import handle_owed_command
+        handle_owed_command(g.db_session, chat_id)
+        return ""
+
     commands = {
         "/start": "👋 Welcome to Grocery Manager! Send me a receipt photo or PDF to get started.",
         "/help": (
@@ -155,7 +192,11 @@ def _handle_command(command: str, chat_id: str = "") -> str:
             "📦 /inventory → Walk through stale items and update what's left\n"
             "🛒 /shopping → Walk through recommended shopping items\n"
             "📊 /status → Check system status\n"
-            "❓ /help → Show this message"
+            "❓ /help → Show this message\n"
+            "💸 /split → Split a restaurant receipt with friends\n"
+            "💰 /balances → See who owes what\n"
+            "📤 /settle <name> → Settle debts with someone\n"
+            "📥 /owed → See what you owe"
         ),
         "/status": "✅ System is running. Send a receipt photo or PDF to test!",
     }
@@ -299,6 +340,15 @@ def _handle_callback_query(callback_query: dict):
         if is_walk_enabled(chat_id):
             dispatch_nudge_callback(g.db_session, chat_id, data, callback_message_id)
             g.db_session.commit()
+        return jsonify({"status": "ok"}), 200
+
+    if data.startswith("split:"):
+        try:
+            from src.backend.handle_shared_dining_walk import handle_split_callback
+            handle_split_callback(g.db_session, chat_id, data)
+            g.db_session.commit()
+        except Exception as e:
+            logger.warning(f"split callback failed: {e}")
         return jsonify({"status": "ok"}), 200
 
     if ":" not in data:
