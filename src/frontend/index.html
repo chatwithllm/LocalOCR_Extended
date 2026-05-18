@@ -1512,6 +1512,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .balances-amount--owe { color: var(--danger, #ff453a); font-weight: 600; }
 .balances-amount--owed { color: var(--success, #32d74b); font-weight: 600; }
 .balances-settle-btn { font-size: 0.78rem; padding: 3px 8px; }
+/* Shared Dining: Split Panel */
+.split-panel { border: 1px solid var(--border, #333); border-radius: 12px; padding: 16px; background: var(--surface2, #2c2c2e); }
+.split-panel__title { font-weight: 700; font-size: 1rem; margin-bottom: 14px; }
+.split-scenario-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.split-scenario-btn { flex: 1; min-width: 90px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border, #444); background: transparent; color: var(--text, #fff); cursor: pointer; font-size: 0.84rem; text-align: center; }
+.split-scenario-btn.active { background: var(--accent, #0a84ff); border-color: var(--accent, #0a84ff); color: #fff; font-weight: 600; }
+.split-participants { display: grid; gap: 8px; margin-bottom: 12px; }
+.split-participant-row { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; }
+.split-participant-row input[type="number"] { text-align: right; }
+.split-total-check { font-size: 0.84rem; padding: 6px 0; }
+.split-total-check.ok { color: var(--success, #32d74b); }
+.split-total-check.bad { color: var(--danger, #ff453a); }
+.split-panel-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.split-contact-select { font-size: 0.84rem; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border, #444); background: var(--surface3, #3a3a3c); color: var(--text, #fff); width: 100%; }
 /* Shared Dining: Contacts */
 .contacts-list { display: grid; gap: 10px; }
 .contacts-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface2, #2c2c2e); border-radius: 10px; }
@@ -32392,6 +32406,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           : ""
       }
       <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSplitPanel(${receipt.id}, ${receipt.total || 0})">💸 Split Receipt</button>
       ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
     </div>`;
         const billSummaryHtml = billReceipt
@@ -32650,11 +32665,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       </div>`;
         }
 
+        const splitPanelHtml = `<div id="split-panel-${receipt.id}" style="display:none"></div>`;
         return `<div class="receipt-detail-stack" style="display:grid;gap:16px">
     <div>${imageHtml}</div>
     ${statsHtml}
     ${billSummaryHtml}
     ${actionsHtml}
+    ${splitPanelHtml}
     ${extractedHtml}
     ${reprocessHtml}
     ${editHtml}
@@ -39253,6 +39270,168 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         document.getElementById('contact-phone-input').value = '';
         document.getElementById('contact-email-input').value = '';
         await loadContacts();
+      }
+
+      // Shared Dining: Split Panel
+      var _sp = null;
+
+      function toggleSplitPanel(purchaseId, total) {
+        const el = document.getElementById('split-panel-' + purchaseId);
+        if (!el) return;
+        if (el.style.display !== 'none') { el.style.display = 'none'; el.innerHTML = ''; _sp = null; return; }
+        _sp = {
+          purchaseId: purchaseId,
+          total: Number(total) || 0,
+          scenario: 'PAID_ALL',
+          participants: [{ isSelf: true, name: 'You', contactId: null, shareAmount: Number(total) || 0, isPayer: false }],
+        };
+        _spRecalc();
+        _spRender(el);
+        el.style.display = '';
+      }
+
+      function _spRecalc() {
+        if (!_sp) return;
+        const n = _sp.participants.length;
+        if (!n) return;
+        const each = Math.floor((_sp.total / n) * 100) / 100;
+        const rem = Math.round((_sp.total - each * n) * 100) / 100;
+        _sp.participants.forEach(function(p, i) { p.shareAmount = i === 0 ? Math.round((each + rem) * 100) / 100 : each; });
+      }
+
+      function _spRender(el) {
+        if (!_sp) return;
+        const contactOpts = _diningContacts.map(function(c) {
+          return '<option value="' + c.id + '">' + escHtml(c.name || '?') + '</option>';
+        }).join('');
+
+        let pRows = '';
+        _sp.participants.forEach(function(p, i) {
+          if (p.isSelf) {
+            pRows += '<div class="split-participant-row">';
+            pRows += '<span style="font-size:0.88rem;font-weight:600">You</span>';
+            pRows += '<input type="number" step="0.01" min="0" value="' + p.shareAmount.toFixed(2) + '" onchange="_spSetAmt(' + i + ',this.value)" />';
+            pRows += '<span></span></div>';
+          } else {
+            const payerCtl = _sp.scenario === 'OWED'
+              ? '<label style="font-size:0.78rem;white-space:nowrap"><input type="checkbox" ' + (p.isPayer ? 'checked' : '') + ' onchange="_spSetPayer(' + i + ',this.checked)" /> Payer</label>'
+              : '<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick="_spRemove(' + i + ')">×</button>';
+            pRows += '<div class="split-participant-row">';
+            pRows += '<select class="split-contact-select" onchange="_spSetContact(' + i + ',this.value)">';
+            pRows += '<option value="">— Ad-hoc name —</option>' + contactOpts;
+            pRows += '</select>';
+            pRows += '<input type="number" step="0.01" min="0" value="' + p.shareAmount.toFixed(2) + '" onchange="_spSetAmt(' + i + ',this.value)" />';
+            pRows += payerCtl + '</div>';
+          }
+        });
+
+        const sum = _sp.participants.reduce(function(s, p) { return s + (p.shareAmount || 0); }, 0);
+        const diff = Math.round((sum - _sp.total) * 100) / 100;
+        const ok = Math.abs(diff) <= 0.01;
+        const totalClass = ok ? 'ok' : 'bad';
+        const totalMsg = ok
+          ? '✓ ' + formatMoney(_sp.total)
+          : formatMoney(sum) + ' (' + (diff > 0 ? '+' : '') + formatMoney(diff) + ' vs ' + formatMoney(_sp.total) + ')';
+
+        const scenarios = [
+          { key: 'PAID_ALL', label: 'I Paid All' },
+          { key: 'PAID_OWN', label: 'Paid Own' },
+          { key: 'OWED', label: 'I Owe' },
+        ];
+        let scenHtml = '';
+        scenarios.forEach(function(s) {
+          scenHtml += '<button type="button" class="split-scenario-btn' + (_sp.scenario === s.key ? ' active' : '') + '" onclick="_spSetScenario(\'' + s.key + '\')">' + s.label + '</button>';
+        });
+
+        let html = '<div class="split-panel">';
+        html += '<div class="split-panel__title">💸 Split ' + formatMoney(_sp.total) + '</div>';
+        html += '<div class="split-scenario-row">' + scenHtml + '</div>';
+        html += '<div class="split-participants">' + pRows + '</div>';
+        html += '<button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="_spAdd()">+ Add person</button>';
+        html += '<div class="split-total-check ' + totalClass + '">' + totalMsg + '</div>';
+        html += '<div class="split-panel-actions">';
+        html += '<button type="button" class="btn btn-ghost btn-sm" onclick="_spCancel()">Cancel</button>';
+        html += '<button type="button" class="btn btn-primary btn-sm" onclick="_spSave()"' + (ok ? '' : ' disabled') + '>Save Split</button>';
+        html += '</div></div>';
+        el.innerHTML = html;
+      }
+
+      function _spSetScenario(s) {
+        if (!_sp) return;
+        _sp.scenario = s;
+        if (s !== 'OWED') _sp.participants.forEach(function(p) { p.isPayer = false; });
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spAdd() {
+        if (!_sp) return;
+        _sp.participants.push({ isSelf: false, name: '', contactId: null, shareAmount: 0, isPayer: false });
+        _spRecalc();
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spRemove(idx) {
+        if (!_sp || idx === 0) return;
+        _sp.participants.splice(idx, 1);
+        _spRecalc();
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetAmt(idx, val) {
+        if (!_sp) return;
+        _sp.participants[idx].shareAmount = Math.round(Number(val) * 100) / 100 || 0;
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetContact(idx, val) {
+        if (!_sp) return;
+        const cid = Number(val) || null;
+        _sp.participants[idx].contactId = cid;
+        if (cid) {
+          const c = _diningContacts.find(function(x) { return x.id === cid; });
+          if (c) _sp.participants[idx].name = c.name;
+        }
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spSetPayer(idx, checked) {
+        if (!_sp) return;
+        _sp.participants.forEach(function(p, i) { p.isPayer = (i === idx && checked); });
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) _spRender(el);
+      }
+
+      function _spCancel() {
+        if (!_sp) return;
+        const el = document.getElementById('split-panel-' + _sp.purchaseId);
+        if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+        _sp = null;
+      }
+
+      async function _spSave() {
+        if (!_sp) return;
+        const participants = _sp.participants.map(function(p) {
+          const obj = { is_self: p.isSelf, share_amount: p.shareAmount };
+          if (!p.isSelf) {
+            if (p.contactId) { obj.contact_id = p.contactId; }
+            else { obj.ad_hoc_name = p.name || 'Guest'; }
+            if (_sp.scenario === 'OWED' && p.isPayer) obj.payer = true;
+          }
+          return obj;
+        });
+        const res = await api('/shared-dining/purchases/' + _sp.purchaseId, {
+          method: 'POST',
+          body: JSON.stringify({ payment_scenario: _sp.scenario, participants: participants }),
+        });
+        const data = await res.json().catch(function() { return {}; });
+        if (!res.ok) { toast(data.error || 'Could not save split', 'error'); return; }
+        toast('Split saved — your share: ' + formatMoney(data.my_amount), 'success');
+        _spCancel();
       }
     </script>
 
