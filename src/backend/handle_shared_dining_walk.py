@@ -297,6 +297,7 @@ def _finalize_split(session, chat_id: str) -> None:
     payment_scenario = state.get("payment_scenario", "PAID_OWN")
     participants = list(state.get("participants", []))
 
+    # OWED with 3+ participants: first non-self person is assumed payer (spec gap)
     if payment_scenario == "OWED" and len(participants) >= 2:
         participants[1] = {**participants[1], "payer": True}
 
