@@ -174,7 +174,7 @@ def _handle_command(command: str, chat_id: str = "") -> str:
         handle_balances_command(g.db_session, chat_id)
         return ""
 
-    if cmd.startswith("/settle"):
+    if cmd == "/settle":
         args = command[len("/settle"):].strip()
         from src.backend.handle_shared_dining_walk import handle_settle_command
         handle_settle_command(g.db_session, chat_id, args)

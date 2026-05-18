@@ -196,3 +196,87 @@ def test_save_split_state(tg_session):
     row2 = tg_session.get(TelegramSplitSession, "chat_xyz")
     assert row2.state["step"] == "select_scenario"
     assert row2.state["purchase_id"] == 5
+
+
+# --- Dispatcher wiring tests ---
+
+def test_webhook_split_command_routes_to_start_split(monkeypatch, client, auth_headers):
+    calls = []
+
+    def mock_start_split(session, chat_id):
+        calls.append(chat_id)
+
+    monkeypatch.setattr(
+        "src.backend.handle_shared_dining_walk.start_split",
+        mock_start_split,
+    )
+
+    payload = {
+        "update_id": 1,
+        "message": {
+            "message_id": 1,
+            "chat": {"id": 99999},
+            "text": "/split",
+        },
+    }
+    resp = client.post(
+        "/telegram/webhook",
+        json=payload,
+        headers={"X-Telegram-Bot-Api-Secret-Token": ""},
+    )
+    assert resp.status_code == 200
+    assert 99999 in calls or "99999" in calls
+
+
+def test_webhook_routes_split_receipt_callback(monkeypatch, client, auth_headers):
+    calls = []
+
+    def mock_handle_split_callback(session, chat_id, data):
+        calls.append(data)
+        return True
+
+    monkeypatch.setattr(
+        "src.backend.handle_shared_dining_walk.handle_split_callback",
+        mock_handle_split_callback,
+    )
+
+    payload = {
+        "update_id": 2,
+        "callback_query": {
+            "id": "cq1",
+            "data": "split:receipt:42:100.00",
+            "message": {"message_id": 1, "chat": {"id": 99999}},
+        },
+    }
+    resp = client.post(
+        "/telegram/webhook",
+        json=payload,
+        headers={"X-Telegram-Bot-Api-Secret-Token": ""},
+    )
+    assert resp.status_code == 200
+    assert any("split:receipt:42" in c for c in calls)
+
+
+def test_webhook_split_typed_text_consumed(monkeypatch, client, auth_headers):
+    def mock_consume(session, chat_id, text):
+        return True
+
+    monkeypatch.setattr(
+        "src.backend.handle_shared_dining_walk.consume_split_text",
+        mock_consume,
+    )
+
+    payload = {
+        "update_id": 3,
+        "message": {
+            "message_id": 2,
+            "chat": {"id": 99999},
+            "text": "John Smith",
+        },
+    }
+    resp = client.post(
+        "/telegram/webhook",
+        json=payload,
+        headers={"X-Telegram-Bot-Api-Secret-Token": ""},
+    )
+    assert resp.status_code == 200
