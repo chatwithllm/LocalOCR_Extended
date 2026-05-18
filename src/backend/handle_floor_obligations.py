@@ -20,6 +20,7 @@ def _serialize(ob) -> dict:
         "bill_provider_id": ob.bill_provider_id,
         "source": "bill_provider" if ob.bill_provider_id else "manual",
         "created_at": ob.created_at.isoformat() if ob.created_at else None,
+        "updated_at": ob.updated_at.isoformat() if ob.updated_at else None,
     }
 
 
@@ -47,12 +48,17 @@ def create_obligation():
         amount = float(payload.get("expected_monthly_amount") or 0)
     except (TypeError, ValueError):
         return jsonify({"error": "expected_monthly_amount must be a number"}), 400
+    if amount < 0:
+        return jsonify({"error": "expected_monthly_amount must be >= 0"}), 400
     bill_provider_id = payload.get("bill_provider_id")
     if bill_provider_id is not None:
         try:
             bill_provider_id = int(bill_provider_id)
         except (TypeError, ValueError):
             return jsonify({"error": "bill_provider_id must be an integer"}), 400
+        from src.backend.initialize_database_schema import BillProvider
+        if not g.db_session.get(BillProvider, bill_provider_id):
+            return jsonify({"error": "bill_provider not found"}), 400
     ob = FloorObligation(
         label=label,
         expected_monthly_amount=amount,
@@ -76,9 +82,12 @@ def update_obligation(ob_id: int):
         ob.is_active = bool(payload["is_active"])
     if "expected_monthly_amount" in payload:
         try:
-            ob.expected_monthly_amount = float(payload["expected_monthly_amount"])
+            new_amount = float(payload["expected_monthly_amount"])
         except (TypeError, ValueError):
             return jsonify({"error": "expected_monthly_amount must be a number"}), 400
+        if new_amount < 0:
+            return jsonify({"error": "expected_monthly_amount must be >= 0"}), 400
+        ob.expected_monthly_amount = new_amount
     if "label" in payload:
         label = (payload["label"] or "").strip()
         if not label:
