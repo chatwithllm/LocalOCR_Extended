@@ -32406,7 +32406,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           : ""
       }
       <button type="button" class="btn btn-ghost btn-sm" onclick="markReceiptEditorAsRestaurant(${receipt.id})">🍽️ Mark as Restaurant</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSplitPanel(${receipt.id}, ${receipt.total || 0})">💸 Split Receipt</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSplitPanel(${receipt.purchase_id || receipt.id}, ${receipt.total || 0})">💸 Split Receipt</button>
       ${!canReprocess ? `<button type="button" class="btn btn-ghost btn-sm" data-reprocess-btn="${receipt.id}" onclick="reprocessReceipt(${receipt.id})">Re-run OCR</button>` : ""}
     </div>`;
         const billSummaryHtml = billReceipt
@@ -32637,7 +32637,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
     <div style="display:flex;justify-content:flex-end"><button class="btn btn-danger btn-sm" onclick="deleteReceipt(${receipt.id})">Delete Receipt</button></div>
     <div class="contrib-meta">Status: ${escHtml(formatLabel(receipt.status, "Unknown"))} · Loaded ${escHtml(formatDateTime(receipt.created_at, "Unknown"))}</div>`;
 
-        const splitPanelHtml = `<div id="split-panel-${receipt.id}" style="display:none"></div>`;
+        const splitPanelHtml = `<div id="split-panel-${receipt.purchase_id || receipt.id}" style="display:none"></div>`;
         if (inlineLayout) {
           return `
       <div class="receipt-inline-detail-wrap">
