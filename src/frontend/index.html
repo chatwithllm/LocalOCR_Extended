@@ -34215,7 +34215,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                       ${receipt.linked_to_plaid && receipt.source !== "plaid" ? ` · <span class="badge badge--info" title="Linked to a Plaid transaction">🔗 Plaid</span>` : ""}
                     </div>
                     <div class="result-card__amount" style="margin-top: 2px">
-                      ${formatMoney(receiptDisplayTotal(receipt))}
+                      ${receipt.my_amount != null ? '<span title="Your share (split)" style="font-size:0.88em;color:var(--muted,#aaa)">👥 </span>' + formatMoney(receipt.my_amount) : formatMoney(receiptDisplayTotal(receipt))}
                     </div>
                   </div>
                   <div class="result-card__actions">
@@ -39434,6 +39434,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!res.ok) { toast(data.error || 'Could not save split', 'error'); return; }
         toast('Split saved — your share: ' + formatMoney(data.my_amount), 'success');
         _spCancel();
+        if (typeof loadReceipts === 'function') loadReceipts();
+        if (typeof loadSpendingByCategory === 'function') loadSpendingByCategory();
       }
     </script>
 
