@@ -130,3 +130,73 @@ def test_summary_invalid_month_returns_400(client):
     res = client.get("/floor-obligations/summary?month=2026-13", headers=_auth(client))
     assert res.status_code == 400
     assert "month" in res.get_json().get("error", "").lower()
+
+
+# --- helpers for v2 tests ---
+
+def _create_provider_and_purchase(app, provider_name, amount, months_ago):
+    """Create BillProvider + Purchase + BillMeta dated `months_ago` calendar months before now."""
+    from datetime import datetime, timezone
+    from dateutil.relativedelta import relativedelta
+    from src.backend.initialize_database_schema import BillProvider, BillMeta, Purchase
+    now = datetime.now(timezone.utc).replace(day=15, hour=0, minute=0, second=0, microsecond=0)
+    target = now - relativedelta(months=months_ago)
+    purchase_date = target.replace(tzinfo=None)  # naïve, matches DB convention
+    with app.app_context():
+        from src.backend.create_flask_application import _get_db
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        try:
+            provider = BillProvider(
+                canonical_name=provider_name,
+                normalized_key=provider_name.lower(),
+            )
+            session.add(provider)
+            session.flush()
+            purchase = Purchase(
+                date=purchase_date,
+                total_amount=amount,
+            )
+            session.add(purchase)
+            session.flush()
+            meta = BillMeta(purchase_id=purchase.id, provider_id=provider.id)
+            session.add(meta)
+            session.commit()
+            return provider.id
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+
+def test_list_includes_avg_and_latest_for_manual(client, app):
+    """Manual obligations have null avg_6mo and latest_actual."""
+    r = client.post("/floor-obligations/", json={"label": "Rent", "expected_monthly_amount": 1200}, headers=_auth(client))
+    assert r.status_code == 201
+    r2 = client.get("/floor-obligations/", headers=_auth(client))
+    assert r2.status_code == 200
+    obs = r2.get_json()["obligations"]
+    rent = next(o for o in obs if o["label"] == "Rent")
+    assert rent["avg_6mo"] is None
+    assert rent["latest_actual"] is None
+
+
+def test_list_includes_avg_and_latest_for_bill_provider(client, app):
+    """Bill-linked obligations surface avg_6mo and latest_actual from purchase history."""
+    provider_id = _create_provider_and_purchase(app, "TestElectric", 100.0, 1)
+    with app.app_context():
+        from src.backend.create_flask_application import _get_db
+        from src.backend.initialize_database_schema import FloorObligation
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        ob = FloorObligation(label="TestElectric", expected_monthly_amount=95, is_active=True, bill_provider_id=provider_id)
+        session.add(ob)
+        session.commit()
+        session.close()
+    r = client.get("/floor-obligations/", headers=_auth(client))
+    assert r.status_code == 200
+    obs = r.get_json()["obligations"]
+    te = next(o for o in obs if o["label"] == "TestElectric")
+    assert te["avg_6mo"] == 100.0
+    assert te["latest_actual"] == 100.0

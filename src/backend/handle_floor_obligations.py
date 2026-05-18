@@ -11,7 +11,7 @@ floor_obligations_bp = Blueprint(
 )
 
 
-def _serialize(ob) -> dict:
+def _serialize(ob, avg_6mo=None, latest_actual=None) -> dict:
     return {
         "id": ob.id,
         "label": ob.label,
@@ -21,7 +21,45 @@ def _serialize(ob) -> dict:
         "source": "bill_provider" if ob.bill_provider_id else "manual",
         "created_at": ob.created_at.isoformat() if ob.created_at else None,
         "updated_at": ob.updated_at.isoformat() if ob.updated_at else None,
+        "avg_6mo": avg_6mo,
+        "latest_actual": latest_actual,
     }
+
+
+def _compute_history(session, provider_id):
+    """Return (avg_6mo, latest_actual) from last 6 complete calendar months (naïve datetimes)."""
+    from datetime import datetime, timezone
+    from src.backend.initialize_database_schema import BillMeta, Purchase
+    now = datetime.now(timezone.utc)
+    window_end = datetime(now.year, now.month, 1)  # first of this month (exclusive)
+    if now.month <= 6:
+        window_start = datetime(now.year - 1, now.month + 6, 1)
+    else:
+        window_start = datetime(now.year, now.month - 6, 1)
+
+    rows = (
+        session.query(Purchase)
+        .join(BillMeta, BillMeta.purchase_id == Purchase.id)
+        .filter(
+            BillMeta.provider_id == provider_id,
+            Purchase.date >= window_start,
+            Purchase.date < window_end,
+        )
+        .all()
+    )
+    if not rows:
+        return None, None
+
+    by_month: dict = {}
+    for p in rows:
+        key = (p.date.year, p.date.month)
+        by_month[key] = by_month.get(key, 0.0) + float(p.total_amount or 0)
+
+    monthly_totals = list(by_month.values())
+    avg_6mo = round(sum(monthly_totals) / len(monthly_totals), 2)
+    latest_key = max(by_month.keys())
+    latest_actual = round(by_month[latest_key], 2)
+    return avg_6mo, latest_actual
 
 
 def _summary_row(ob, this_actual, last_actual, delta, status) -> dict:
@@ -47,7 +85,14 @@ def list_obligations():
         .order_by(FloorObligation.is_active.desc(), FloorObligation.label)
         .all()
     )
-    return jsonify({"obligations": [_serialize(r) for r in rows]}), 200
+    result = []
+    for r in rows:
+        if r.bill_provider_id is not None:
+            avg_6mo, latest_actual = _compute_history(g.db_session, r.bill_provider_id)
+        else:
+            avg_6mo, latest_actual = None, None
+        result.append(_serialize(r, avg_6mo=avg_6mo, latest_actual=latest_actual))
+    return jsonify({"obligations": result}), 200
 
 
 @floor_obligations_bp.route("/", methods=["POST"])
