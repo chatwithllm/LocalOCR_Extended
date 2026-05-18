@@ -183,20 +183,76 @@ def test_list_includes_avg_and_latest_for_manual(client, app):
 
 
 def test_list_includes_avg_and_latest_for_bill_provider(client, app):
-    """Bill-linked obligations surface avg_6mo and latest_actual from purchase history."""
+    """Bill-linked obligations surface correct avg_6mo and latest_actual from purchase history."""
+    # Two purchases in different months: 1 month ago = 100, 2 months ago = 80
+    # avg = (100 + 80) / 2 = 90.0; latest = 100.0 (most recent month)
     provider_id = _create_provider_and_purchase(app, "TestElectric", 100.0, 1)
+    # Add a second purchase for same provider in an older month
     with app.app_context():
+        from datetime import datetime, timezone
+        from dateutil.relativedelta import relativedelta
+        from src.backend.initialize_database_schema import BillMeta, Purchase
         from src.backend.create_flask_application import _get_db
-        from src.backend.initialize_database_schema import FloorObligation
         _, SessionFactory = _get_db()
         session = SessionFactory()
-        ob = FloorObligation(label="TestElectric", expected_monthly_amount=95, is_active=True, bill_provider_id=provider_id)
-        session.add(ob)
-        session.commit()
-        session.close()
+        try:
+            now = datetime.now(timezone.utc).replace(day=15, hour=0, minute=0, second=0, microsecond=0)
+            target = (now - relativedelta(months=2)).replace(tzinfo=None)
+            p2 = Purchase(date=target, total_amount=80.0)
+            session.add(p2)
+            session.flush()
+            session.add(BillMeta(purchase_id=p2.id, provider_id=provider_id))
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    with app.app_context():
+        from src.backend.initialize_database_schema import FloorObligation
+        from src.backend.create_flask_application import _get_db
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        try:
+            ob = FloorObligation(label="TestElectric", expected_monthly_amount=95, is_active=True, bill_provider_id=provider_id)
+            session.add(ob)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
     r = client.get("/floor-obligations/", headers=_auth(client))
     assert r.status_code == 200
     obs = r.get_json()["obligations"]
     te = next(o for o in obs if o["label"] == "TestElectric")
-    assert te["avg_6mo"] == 100.0
+    assert te["avg_6mo"] == 90.0
     assert te["latest_actual"] == 100.0
+
+
+def test_list_bill_linked_no_history_returns_null(client, app):
+    """Bill-linked obligation with no purchases in window → avg_6mo and latest_actual are null."""
+    with app.app_context():
+        from src.backend.initialize_database_schema import BillProvider, FloorObligation
+        from src.backend.create_flask_application import _get_db
+        _, SessionFactory = _get_db()
+        session = SessionFactory()
+        try:
+            provider = BillProvider(canonical_name="NoHistProv", normalized_key="nohistprov", is_active=True)
+            session.add(provider)
+            session.flush()
+            ob = FloorObligation(label="NoHistProv", expected_monthly_amount=50, is_active=True, bill_provider_id=provider.id)
+            session.add(ob)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    r = client.get("/floor-obligations/", headers=_auth(client))
+    assert r.status_code == 200
+    obs = r.get_json()["obligations"]
+    entry = next((o for o in obs if o["label"] == "NoHistProv"), None)
+    assert entry is not None
+    assert entry["avg_6mo"] is None
+    assert entry["latest_actual"] is None
