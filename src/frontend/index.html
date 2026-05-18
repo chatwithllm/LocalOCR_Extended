@@ -1502,6 +1502,16 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   .inv-tile-title-row .inv-drag-handle { display: none; }
   .inv-tile-title-row .inv-drag-bubble { display: none; }
 }
+
+/* Shared Dining: Balances */
+.balances-table { width: 100%; border-collapse: collapse; }
+.balances-table th,
+.balances-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border, #333); font-size: 0.9rem; }
+.balances-table th { font-weight: 600; color: var(--muted, #aaa); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.balances-table td:last-child { text-align: right; }
+.balances-amount--owe { color: var(--danger, #ff453a); font-weight: 600; }
+.balances-amount--owed { color: var(--success, #32d74b); font-weight: 600; }
+.balances-settle-btn { font-size: 0.78rem; padding: 3px 8px; }
     </style>
   </head>
 
@@ -1603,6 +1613,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           onclick="nav('restaurant', this)"
         >
           <span class="nav-icon">🍽️</span> Restaurant
+        </div>
+        <div class="nav-item" id="nav-balances" onclick="nav('balances', this)">
+          <span class="nav-icon">💸</span> Balances
         </div>
         <div class="nav-item" id="nav-expenses" onclick="nav('expenses', this)">
           <span class="nav-icon">🧾</span> Expenses
@@ -2906,6 +2919,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <p>No restaurant line items yet.</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-balances">
+          <div class="page-header">
+            <div>
+              <h1>Balances</h1>
+              <p>Outstanding debts across all shared receipts</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadBalances()" aria-label="Refresh">🔄</button>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Who Owes What</span>
+            </div>
+            <div id="balances-body">
+              <div class="empty-state"><p>Loading…</p></div>
             </div>
           </div>
         </div>
@@ -14194,6 +14225,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         if (page === "kitchen") loadKitchen();
         if (page === "restaurant") loadRestaurant();
+        if (page === "balances") loadBalances();
+        if (page === "contacts") loadContacts();
         if (page === "expenses") {
           loadExpenses();
           repositionExpenseDetailForMobile();
@@ -39075,6 +39108,44 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         toast("Store updated", "success");
         await loadManageStores();
+      }
+
+      // Shared Dining: Balances
+      async function loadBalances() {
+        const body = document.getElementById("balances-body");
+        if (!body) return;
+        body.innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+        const res = await api("/shared-dining/balances");
+        if (!res.ok) {
+          body.innerHTML = '<div class="empty-state"><p>Could not load balances.</p></div>';
+          return;
+        }
+        const rows = await res.json();
+        if (!rows.length) {
+          body.innerHTML = '<div class="empty-state"><p>No outstanding balances — all settled! 🎉</p></div>';
+          return;
+        }
+        let html = '<table class="balances-table"><thead><tr><th>Contact</th><th>Direction</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody>';
+        rows.forEach(function(r) {
+          const owes = r.net_amount > 0;
+          const amtClass = owes ? "balances-amount--owed" : "balances-amount--owe";
+          const direction = owes ? "Owes you" : "You owe";
+          const display = formatMoney(Math.abs(r.net_amount));
+          html += '<tr><td>' + escHtml(r.name) + '</td><td>' + escHtml(direction) + '</td>';
+          html += '<td class="' + amtClass + '">' + escHtml(display) + '</td>';
+          html += '<td><button class="btn btn-ghost btn-sm balances-settle-btn" onclick="settleAllWithContact(' + r.contact_id + ', '' + escAttr(r.name) + '')">' + 'Settle all</button></td></tr>';
+        });
+        html += '</tbody></table>';
+        body.innerHTML = html;
+      }
+
+      async function settleAllWithContact(contactId, name) {
+        if (!confirm('Mark all debts with ' + name + ' as settled?')) return;
+        const res = await api('/shared-dining/contacts/' + contactId + '/settle-all', { method: 'POST' });
+        if (!res.ok) { toast('Could not settle debts', 'error'); return; }
+        const data = await res.json();
+        toast('Settled ' + data.settled + ' debt' + (data.settled === 1 ? '' : 's') + ' with ' + name, 'success');
+        loadBalances();
       }
     </script>
 
