@@ -1,10 +1,13 @@
 """Flask blueprint for shared dining / receipt splitting REST API."""
 from __future__ import annotations
 
+import logging
+
 from flask import Blueprint, jsonify, request, g
 
 from src.backend.create_flask_application import require_auth, require_write_access
 from src.backend.manage_shared_dining import (
+    SplitNotFoundError,
     SplitValidationError,
     create_shared_expense,
     update_split,
@@ -15,6 +18,8 @@ from src.backend.manage_shared_dining import (
     merge_contact,
 )
 from src.backend.initialize_database_schema import DiningContact
+
+logger = logging.getLogger(__name__)
 
 shared_dining_bp = Blueprint("shared_dining", __name__, url_prefix="/shared-dining")
 
@@ -31,12 +36,14 @@ def create_expense(purchase_id: int):
             participants=data.get("participants", []),
             notes=data.get("notes"),
         )
+    except SplitNotFoundError:
+        return jsonify({"error": "not found"}), 404
     except SplitValidationError as exc:
         return jsonify({"error": str(exc)}), 422
     return jsonify({"id": expense.id, "my_amount": expense.my_amount}), 201
 
 
-@shared_dining_bp.route("/<int:expense_id>/participants/<int:participant_id>", methods=["PATCH"])
+@shared_dining_bp.route("/expenses/<int:expense_id>/participants/<int:participant_id>", methods=["PATCH"])
 @require_write_access
 def patch_participant(expense_id: int, participant_id: int):
     data = request.get_json(silent=True) or {}
@@ -45,6 +52,8 @@ def patch_participant(expense_id: int, participant_id: int):
         return jsonify({"error": "share_amount required"}), 400
     try:
         update_split(g.db_session, expense_id, participant_id, float(new_amount))
+    except SplitNotFoundError:
+        return jsonify({"error": "not found"}), 404
     except SplitValidationError as exc:
         return jsonify({"error": str(exc)}), 422
     return jsonify({"ok": True}), 200
@@ -56,6 +65,8 @@ def settle(debt_id: int):
     data = request.get_json(silent=True) or {}
     try:
         settle_debt(g.db_session, debt_id, note=data.get("note"))
+    except SplitNotFoundError:
+        return jsonify({"error": "not found"}), 404
     except SplitValidationError as exc:
         return jsonify({"error": str(exc)}), 422
     return jsonify({"ok": True}), 200
@@ -108,8 +119,12 @@ def create_contact():
 @require_write_access
 def merge():
     data = request.get_json(silent=True) or {}
+    if data.get("participant_id") is None or data.get("contact_id") is None:
+        return jsonify({"error": "participant_id and contact_id required"}), 400
     try:
         merge_contact(g.db_session, data.get("participant_id"), data.get("contact_id"))
+    except SplitNotFoundError:
+        return jsonify({"error": "not found"}), 404
     except (SplitValidationError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 422
     return jsonify({"ok": True}), 200

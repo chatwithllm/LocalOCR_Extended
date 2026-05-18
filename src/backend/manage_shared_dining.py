@@ -16,6 +16,10 @@ class SplitValidationError(ValueError):
     pass
 
 
+class SplitNotFoundError(SplitValidationError):
+    pass
+
+
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)  # used by Task 4 settlement functions
 
@@ -40,7 +44,7 @@ def create_shared_expense(
 
     purchase = session.get(Purchase, purchase_id)
     if purchase is None:
-        raise SplitValidationError(f"Purchase {purchase_id} not found")
+        raise SplitNotFoundError(f"Purchase {purchase_id} not found")
 
     self_rows = [p for p in participants if p.get("is_self")]
     if len(self_rows) != 1:
@@ -124,11 +128,11 @@ def update_split(
     """
     expense = session.get(SharedExpense, shared_expense_id)
     if expense is None:
-        raise SplitValidationError(f"SharedExpense {shared_expense_id} not found")
+        raise SplitNotFoundError(f"SharedExpense {shared_expense_id} not found")
 
     target = session.get(SharedParticipant, participant_id)
     if target is None or target.shared_expense_id != shared_expense_id:
-        raise SplitValidationError(f"Participant {participant_id} not in expense {shared_expense_id}")
+        raise SplitNotFoundError(f"Participant {participant_id} not in expense {shared_expense_id}")
 
     old_amount = target.share_amount
     delta = new_amount - old_amount
@@ -190,7 +194,7 @@ def settle_debt(session, debt_id: int, note: str | None = None) -> object:
     """Mark a single debt as settled."""
     debt = session.get(SharedDebt, debt_id)
     if debt is None:
-        raise SplitValidationError(f"Debt {debt_id} not found")
+        raise SplitNotFoundError(f"Debt {debt_id} not found")
     debt.settled = True
     debt.settled_at = _utcnow()
     debt.settled_note = note
@@ -253,13 +257,13 @@ def merge_contact(session, ad_hoc_participant_id: int, contact_id: int) -> objec
     """Promote an ad-hoc participant to a saved contact. Debts follow automatically."""
     participant = session.get(SharedParticipant, ad_hoc_participant_id)
     if participant is None:
-        raise SplitValidationError(f"Participant {ad_hoc_participant_id} not found")
+        raise SplitNotFoundError(f"Participant {ad_hoc_participant_id} not found")
     if participant.contact_id is not None:
         raise SplitValidationError("Participant already linked to a saved contact")
 
     contact = session.get(DiningContact, contact_id)
     if contact is None:
-        raise SplitValidationError(f"Contact {contact_id} not found")
+        raise SplitNotFoundError(f"Contact {contact_id} not found")
 
     participant.contact_id = contact_id
     participant.ad_hoc_name = None
