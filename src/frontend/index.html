@@ -32013,12 +32013,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <div style="border-right:1px solid var(--border,#eee);padding-right:12px">
                 <div style="font-size:0.7rem;text-transform:uppercase;color:var(--success,#16a34a);letter-spacing:0.05em">Keep</div>
                 <div style="font-weight:600">${escHtml(keep.store || "Unknown store")}</div>
-                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(keep.total_amount)} · ${escHtml(dateStr(keep.date))} · ${itemLabel(keep.item_count || 0)}${imgBadge}</div>
+                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(keep.total_amount)} · ${escHtml(dateStr(keep.date))} · ${itemLabel(keep.item_count || 0)}${imgBadge} · <span style="font-size:0.75rem">#${pair.keep_id}</span></div>
               </div>
               <div>
                 <div style="font-size:0.7rem;text-transform:uppercase;color:var(--warning,#d97706);letter-spacing:0.05em">Drop</div>
                 <div style="font-weight:600">${escHtml(drop.store || "Unknown store")}</div>
-                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(drop.total_amount)} · ${escHtml(dateStr(drop.date))} · ${itemLabel(drop.item_count || 0)}</div>
+                <div style="color:var(--muted);font-size:0.85rem">${formatMoney(drop.total_amount)} · ${escHtml(dateStr(drop.date))} · ${itemLabel(drop.item_count || 0)} · <span style="font-size:0.75rem">#${pair.drop_id}</span></div>
               </div>
               <div style="display:flex;flex-direction:column;gap:4px">
                 <button type="button" class="btn btn-primary btn-sm" onclick="mergeReceiptsPair(${pair.keep_id}, ${pair.drop_id})">Merge</button>
@@ -34425,7 +34425,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}" title="Receipt ID: ${id}">
           <div class="summary-row__main">
             <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
-            <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
+            <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}<span style="color:var(--muted,#aaa);font-size:0.75rem;margin-left:4px">#${id}</span></div>
           </div>
           <div class="summary-row__value">${receipt.my_amount != null ? '<span title="Your share" style="font-size:0.82rem;color:var(--muted,#aaa)">👥 ' + formatMoney(receipt.my_amount) + '</span>' : formatMoney(receiptDisplayTotal(receipt))}</div>
           <span class="summary-row__chevron" aria-hidden="true">›</span>
