@@ -39226,7 +39226,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           html += '<div class="contacts-card">';
           html += '<div class="contacts-card__avatar">' + escHtml(initial) + '</div>';
           html += '<div class="contacts-card__info">';
-          html += '<div class="contacts-card__name">' + escHtml(c.name) + '</div>';
+          html += '<div class="contacts-card__name">' + escHtml(c.name || '?') + '</div>';
           if (meta) html += '<div class="contacts-card__meta">' + escHtml(meta) + '</div>';
           html += '</div></div>';
         });
