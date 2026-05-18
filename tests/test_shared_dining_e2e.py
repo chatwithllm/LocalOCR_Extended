@@ -140,3 +140,61 @@ def test_settle_debt_via_api(client, auth_headers, purchase_id):
         headers=auth_headers,
     )
     assert settle_resp.status_code == 200
+
+
+# --- Telegram split flow tests ---
+
+@pytest.fixture
+def tg_session(tmp_path):
+    from src.backend.initialize_database_schema import (
+        Base, create_db_engine, create_session_factory,
+    )
+    db = tmp_path / "tg.db"
+    eng = create_db_engine(f"sqlite:///{db}")
+    Base.metadata.create_all(eng)
+    SessionFactory = create_session_factory(eng)
+    s = SessionFactory()
+    yield s
+    s.close()
+
+
+def test_get_or_create_split_session(tg_session):
+    from src.backend.handle_shared_dining_walk import get_or_create_split_session
+    row = get_or_create_split_session(tg_session, "chat_abc")
+    assert row.chat_id == "chat_abc"
+    assert row.state == {}
+    # idempotent
+    row2 = get_or_create_split_session(tg_session, "chat_abc")
+    assert row2.chat_id == "chat_abc"
+
+
+def test_build_receipt_keyboard(tg_session):
+    from src.backend.handle_shared_dining_walk import build_receipt_keyboard
+    from src.backend.initialize_database_schema import Purchase
+    from datetime import datetime, timezone
+
+    for i in range(3):
+        tg_session.add(Purchase(
+            total_amount=float(10 * (i + 1)),
+            date=datetime.now(timezone.utc),
+            domain="restaurant",
+        ))
+    tg_session.commit()
+
+    kb = build_receipt_keyboard(tg_session)
+    assert len(kb) <= 5
+    assert all("callback_data" in btn for btn in kb)
+    assert all(btn["callback_data"].startswith("split:receipt:") for btn in kb)
+
+
+def test_save_split_state(tg_session):
+    from src.backend.handle_shared_dining_walk import get_or_create_split_session, save_split_state
+    row = get_or_create_split_session(tg_session, "chat_xyz")
+    save_split_state(tg_session, "chat_xyz", {"step": "select_scenario", "purchase_id": 5})
+    tg_session.expire_all()
+    row2 = tg_session.get(
+        __import__("src.backend.initialize_database_schema", fromlist=["TelegramSplitSession"]).TelegramSplitSession,
+        "chat_xyz",
+    )
+    assert row2.state["step"] == "select_scenario"
+    assert row2.state["purchase_id"] == 5
