@@ -34422,7 +34422,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const txnPart = receipt.transaction_type ? ` · ${formatReceiptTransactionLabel(receipt.transaction_type)}` : "";
         return `
       <li class="summary-row-host">
-        <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}">
+        <button type="button" class="summary-row is-tappable" onclick="${onClick(id)}" title="Receipt ID: ${id}">
           <div class="summary-row__main">
             <div class="summary-row__title" title="${escAttr(storeName)}">${escHtml(storeName)}${renderAttributionBadge(receipt)}</div>
             <div class="summary-row__meta">${escHtml(datePart)}${escHtml(txnPart)}</div>
