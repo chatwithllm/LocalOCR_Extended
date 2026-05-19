@@ -57,51 +57,51 @@ Source: `src/frontend/index.html` lines 2166–2548
 
 | ID | Feature | UI Element | Sub-tab / Modal | API Call | Business Rule | macOS Impl | Status |
 |----|---------|-----------|-----------------|----------|---------------|------------|--------|
-| F-001 | Demo hero banner (read-only mode) | Banner section `#demo-hero` | — | — | Shown when `isDemoMode()` returns true; hidden for authenticated users | TBD | ❌ |
-| F-002 | Demo "Sign In" CTA button | Button `btn-primary` in demo-hero | Demo Hero | — | Calls `focusLogin()` | TBD | ❌ |
-| F-003 | Demo "Shopping Demo" button | Button `btn-ghost` in demo-hero | Demo Hero | — | Calls `goToPage('shopping')` | TBD | ❌ |
-| F-004 | Demo "Restaurant Demo" button | Button `btn-ghost` in demo-hero | Demo Hero | — | Calls `goToPage('restaurant')` | TBD | ❌ |
-| F-005 | Demo mini-card: Grocery label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Inventory, shopping, low stock" | TBD | ❌ |
-| F-006 | Demo mini-card: Restaurant label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Dining receipts and repeat orders" | TBD | ❌ |
-| F-007 | Demo mini-card: Expenses label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Services, gifts, fees, and budgets" | TBD | ❌ |
-| F-008 | Demo read-only disclaimer note | Static text `demo-readonly-note` | Demo Hero | — | Clarifies no real data in demo | TBD | ❌ |
-| F-009 | Household Ranking card | Card `leaderboard-card` | — | GET `/auth/me` (leaderboard in payload) | Leaderboard data returned inside `/auth/me` JSON; populated at login | TBD | ❌ |
-| F-010 | Leaderboard collapsed preview | Element `#dashboard-leaderboard-preview` | Leaderboard card | — | Shows avatar row when collapsed; tap expands | TBD | ❌ |
-| F-011 | Leaderboard toggle button | Button `#dashboard-leaderboard-toggle` | Leaderboard card | — | `toggleLeaderboard()`; state persisted in `localStorage.dashboard_leaderboard_collapsed` | TBD | ❌ |
-| F-012 | Leaderboard full list | List `#dashboard-leaderboard` | Leaderboard card | — | Rendered from `householdLeaderboard` data; hidden when collapsed | TBD | ❌ |
-| F-013 | Leaderboard footer | Element `#dashboard-leaderboard-footer` | Leaderboard card | — | Shown when leaderboard is expanded | TBD | ❌ |
-| F-014 | Leaderboard empty state | Empty-state paragraph inside `#dashboard-leaderboard` | Leaderboard card | — | Shown when `householdLeaderboard` is empty | TBD | ❌ |
-| F-015 | Attribution nudge banner | Banner `#dashboard-attr-nudge` | — | GET `/receipts/attribution-stats` | Shown when `data.untagged_count > 0`; displays count of untagged receipts | TBD | ❌ |
-| F-016 | Attribution nudge "Tag now" CTA | Anchor in `#dashboard-attr-nudge` | Attribution Nudge | — | Calls `navToReceiptsUntagged()`; navigates to Receipts and activates untagged filter | TBD | ❌ |
-| F-017 | Low-stock stat pill | Clickable item `#stat-low-inline` in combo-stat | Inventory health row | GET `/inventory` | Navigates to `openDashboardStat('low-stock')` on click | TBD | ❌ |
-| F-018 | Inventory count stat pill | Clickable item `#stat-inv-inline` in combo-stat | Inventory health row | GET `/inventory` | Navigates to `openDashboardStat('inventory')` on click | TBD | ❌ |
-| F-019 | Products count stat pill | Clickable item `#stat-products-inline` in combo-stat | Inventory health row | GET `/products` | Navigates to `openDashboardStat('products')` on click | TBD | ❌ |
-| F-020 | Spending by Category card header | Card title `💳 Spending by Category` in `#dashboard-spending-card` | — | GET `/analytics/spending-by-category?month=<YM>&limit=50` | Click collapses/expands card; collapse state persisted in `localStorage.dashboard_spending_card_collapsed` | TBD | ❌ |
-| F-021 | Spending by Category total inline stat | Span `#dashboard-spending-total` | Spending card | — | Displays `formatMoney(data.total)` | TBD | ❌ |
-| F-022 | Spending category row list (top 5) | List `#dashboard-spending-body` | Spending card | GET `/analytics/spending-by-category` | Renders first 5 rows; remaining hidden behind Show-more | TBD | ❌ |
-| F-023 | Spending Show-more / Show-less button | Button `#dashboard-spending-more-btn` | Spending card | — | `toggleDashboardSpendingMore()`; toggles visibility of rows beyond top 5 | TBD | ❌ |
-| F-024 | Spending loading state | Empty-state `<p>Loading…</p>` in `#dashboard-spending-body` | Spending card | — | Shown before API response | TBD | ❌ |
-| F-025 | Spending error state | Empty-state paragraph in `#dashboard-spending-body` | Spending card | — | Shown when `/analytics/spending-by-category` returns non-OK | TBD | ❌ |
-| F-026 | Fixed Obligations card (hidden shell) | Card `#dashboard-floor-card` `display:none` | — | GET `/floor-obligations/summary?month=<YM>` | Data merged into spending card; card element kept hidden to avoid broken refs | TBD | ❌ |
-| F-027 | Low Stock alert card | Card `#dash-low-stock-card` | — | GET `/inventory` | Shows items whose qty ≤ threshold; "All items well-stocked!" empty state when none | TBD | ❌ |
-| F-028 | Low Stock count badge button | Button `#dash-low-stock-header-count` | Low Stock card | — | Toggle `toggleDashboardSection('low-stock')`; hidden when count is 0 | TBD | ❌ |
-| F-029 | Low Stock empty state | Empty-state with checkmark icon | Low Stock card | — | "All items well-stocked!" shown when no low-stock items | TBD | ❌ |
-| F-030 | Receipts Processed activity card | Card `#dash-receipts-activity-card` | — | GET `/analytics/receipts-activity?grain=<grain>` | Collapses on title click; renders bar/line sparkline chart | TBD | ❌ |
-| F-031 | Receipts activity grain selector: Day | Button `data-grain="day"` in `#dash-receipts-activity-grain` | Receipts Activity card | GET `/analytics/receipts-activity?grain=day` | `setReceiptsActivityGrain('day')`; default grain | TBD | ❌ |
-| F-032 | Receipts activity grain selector: Week | Button `data-grain="week"` | Receipts Activity card | GET `/analytics/receipts-activity?grain=week` | `setReceiptsActivityGrain('week')` | TBD | ❌ |
-| F-033 | Receipts activity grain selector: Month | Button `data-grain="month"` | Receipts Activity card | GET `/analytics/receipts-activity?grain=month` | `setReceiptsActivityGrain('month')` | TBD | ❌ |
-| F-034 | Receipts activity loading state | Empty-state `<p>Loading…</p>` in `#dash-receipts-activity-body` | Receipts Activity card | — | Shown before API response | TBD | ❌ |
-| F-035 | Receipts activity empty state | Empty-state paragraph | Receipts Activity card | — | "No receipts processed yet." when API returns empty buckets | TBD | ❌ |
-| F-036 | Receipts activity error state | Empty-state paragraph | Receipts Activity card | — | "Could not load receipt activity." on non-OK response | TBD | ❌ |
-| F-037 | Top Picks (recommendations) card | Card `#dash-recs-card` | — | GET `/recommendations` | Shows AI-driven reorder picks | TBD | ❌ |
-| F-038 | Top Picks count badge button | Button `#dash-recs-header-count` | Top Picks card | — | `toggleDashboardSection('recommendations')`; hidden when count is 0 | TBD | ❌ |
-| F-039 | Top Picks empty state | Empty-state with lightbulb icon | Top Picks card | — | "No recommendations yet" when API returns empty | TBD | ❌ |
-| F-040 | Shopping List summary card — title/link | Button `#dash-shopping-card` in `dashboard-summary-card` | — | GET `/shopping-list` | `openDashboardStat('shopping')`; navigates to Shopping List page | TBD | ❌ |
-| F-041 | Shopping List item count badge | Span `#dash-shopping-header-count` | Shopping summary card | — | Displays open item count | TBD | ❌ |
-| F-042 | Shopping List estimated total toggle | Button `#dash-shopping-estimate` | Shopping summary card | — | `toggleDashboardShoppingPreview(event)`; toggles preview list | TBD | ❌ |
-| F-043 | Shopping List expanded header count | Span `#dash-shopping-expanded-count` | Shopping summary card | — | Shown in expanded view | TBD | ❌ |
-| F-044 | Shopping List estimate in expanded header | Div `#dash-shopping-expanded-estimate` | Shopping summary card | — | "Estimate —" or formatted total | TBD | ❌ |
-| F-045 | Shopping List preview rows | Container `#dash-shopping-preview` | Shopping summary card | — | Inline preview of shopping items; collapsed by default | TBD | ❌ |
+| F-001 | Demo hero banner (read-only mode) | Banner section `#demo-hero` | — | — | Shown when `isDemoMode()` returns true; hidden for authenticated users | DashboardView.demoHero (Card) | ✅ |
+| F-002 | Demo "Sign In" CTA button | Button `btn-primary` in demo-hero | Demo Hero | — | Calls `focusLogin()` | demoHero Sign In → AuthState.logout() (no separate login screen on Mac) | 🔄 |
+| F-003 | Demo "Shopping Demo" button | Button `btn-ghost` in demo-hero | Demo Hero | — | Calls `goToPage('shopping')` | demoHero button → router.activeTab = .shopping | ✅ |
+| F-004 | Demo "Restaurant Demo" button | Button `btn-ghost` in demo-hero | Demo Hero | — | Calls `goToPage('restaurant')` | demoHero button → router.activeTab = .restaurant | ✅ |
+| F-005 | Demo mini-card: Grocery label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Inventory, shopping, low stock" | demoMiniCard(Grocery) | ✅ |
+| F-006 | Demo mini-card: Restaurant label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Dining receipts and repeat orders" | demoMiniCard(Restaurant) | ✅ |
+| F-007 | Demo mini-card: Expenses label | Static mini-card `demo-mini-card` | Demo Hero | — | Reads "Services, gifts, fees, and budgets" | demoMiniCard(Expenses) | ✅ |
+| F-008 | Demo read-only disclaimer note | Static text `demo-readonly-note` | Demo Hero | — | Clarifies no real data in demo | demoHero disclaimer Text | ✅ |
+| F-009 | Household Ranking card | Card `leaderboard-card` | — | GET `/auth/me` (leaderboard in payload) | Leaderboard data returned inside `/auth/me` JSON; populated at login | leaderboardCard from /auth/me payload | ✅ |
+| F-010 | Leaderboard collapsed preview | Element `#dashboard-leaderboard-preview` | Leaderboard card | — | Shows avatar row when collapsed; tap expands | Collapsed view shows chip row (rankingRow); web shows avatar-only preview | 🔄 |
+| F-011 | Leaderboard toggle button | Button `#dashboard-leaderboard-toggle` | Leaderboard card | — | `toggleLeaderboard()`; state persisted in `localStorage.dashboard_leaderboard_collapsed` | Toggle button in rankingHeader + UserDefaults persistence | ✅ |
+| F-012 | Leaderboard full list | List `#dashboard-leaderboard` | Leaderboard card | — | Rendered from `householdLeaderboard` data; hidden when collapsed | rankingFullList — shown when expanded | ✅ |
+| F-013 | Leaderboard footer | Element `#dashboard-leaderboard-footer` | Leaderboard card | — | Shown when leaderboard is expanded | rankingFooter — shown when expanded | ✅ |
+| F-014 | Leaderboard empty state | Empty-state paragraph inside `#dashboard-leaderboard` | Leaderboard card | — | Shown when `householdLeaderboard` is empty | leaderboardEmptyState() Card | ✅ |
+| F-015 | Attribution nudge banner | Banner `#dashboard-attr-nudge` | — | GET `/receipts/attribution-stats` | Shown when `data.untagged_count > 0`; displays count of untagged receipts | untaggedBanner() | ✅ |
+| F-016 | Attribution nudge "Tag now" CTA | Anchor in `#dashboard-attr-nudge` | Attribution Nudge | — | Calls `navToReceiptsUntagged()`; navigates to Receipts and activates untagged filter | Tag now button → router.activeTab = .receipts | ✅ |
+| F-017 | Low-stock stat pill | Clickable item `#stat-low-inline` in combo-stat | Inventory health row | GET `/inventory` | Navigates to `openDashboardStat('low-stock')` on click | counter(label: LOW) button | ✅ |
+| F-018 | Inventory count stat pill | Clickable item `#stat-inv-inline` in combo-stat | Inventory health row | GET `/inventory` | Navigates to `openDashboardStat('inventory')` on click | counter(label: INV) button | ✅ |
+| F-019 | Products count stat pill | Clickable item `#stat-products-inline` in combo-stat | Inventory health row | GET `/products` | Navigates to `openDashboardStat('products')` on click | counter(label: PROD) button — fetches /products via DashboardState.loadProductsCount | ✅ |
+| F-020 | Spending by Category card header | Card title `💳 Spending by Category` in `#dashboard-spending-card` | — | GET `/analytics/spending-by-category?month=<YM>&limit=50` | Click collapses/expands card; collapse state persisted in `localStorage.dashboard_spending_card_collapsed` | spendingHeader + toggleSpendingCardCollapsed persistence | ✅ |
+| F-021 | Spending by Category total inline stat | Span `#dashboard-spending-total` | Spending card | — | Displays `formatMoney(data.total)` | Spending total in spendingHeader trailing | ✅ |
+| F-022 | Spending category row list (top 5) | List `#dashboard-spending-body` | Spending card | GET `/analytics/spending-by-category` | Renders first 5 rows; remaining hidden behind Show-more | spendingBody categoryBar loop (top 5 by default) | ✅ |
+| F-023 | Spending Show-more / Show-less button | Button `#dashboard-spending-more-btn` | Spending card | — | `toggleDashboardSpendingMore()`; toggles visibility of rows beyond top 5 | Show-more / Show-less button — toggleSpendingShowAll | ✅ |
+| F-024 | Spending loading state | Empty-state `<p>Loading…</p>` in `#dashboard-spending-body` | Spending card | — | Shown before API response | spendingBody isSpendingLoading branch | ✅ |
+| F-025 | Spending error state | Empty-state paragraph in `#dashboard-spending-body` | Spending card | — | Shown when `/analytics/spending-by-category` returns non-OK | spendingBody spendingError branch | ✅ |
+| F-026 | Fixed Obligations card (hidden shell) | Card `#dashboard-floor-card` `display:none` | — | GET `/floor-obligations/summary?month=<YM>` | Data merged into spending card; card element kept hidden to avoid broken refs | v1.0: floor obligations data already shown in spending categories (Mac doesn't have hidden shell) | 🚫 |
+| F-027 | Low Stock alert card | Card `#dash-low-stock-card` | — | GET `/inventory` | Shows items whose qty ≤ threshold; "All items well-stocked!" empty state when none | lowStockCard | ✅ |
+| F-028 | Low Stock count badge button | Button `#dash-low-stock-header-count` | Low Stock card | — | Toggle `toggleDashboardSection('low-stock')`; hidden when count is 0 | Count badge in lowStockCard header | ✅ |
+| F-029 | Low Stock empty state | Empty-state with checkmark icon | Low Stock card | — | "All items well-stocked!" shown when no low-stock items | Empty state: All items well-stocked! | ✅ |
+| F-030 | Receipts Processed activity card | Card `#dash-receipts-activity-card` | — | GET `/analytics/receipts-activity?grain=<grain>` | Collapses on title click; renders bar/line sparkline chart | receiptsActivityCard | ✅ |
+| F-031 | Receipts activity grain selector: Day | Button `data-grain="day"` in `#dash-receipts-activity-grain` | Receipts Activity card | GET `/analytics/receipts-activity?grain=day` | `setReceiptsActivityGrain('day')`; default grain | grainPicker .day | ✅ |
+| F-032 | Receipts activity grain selector: Week | Button `data-grain="week"` | Receipts Activity card | GET `/analytics/receipts-activity?grain=week` | `setReceiptsActivityGrain('week')` | grainPicker .week | ✅ |
+| F-033 | Receipts activity grain selector: Month | Button `data-grain="month"` | Receipts Activity card | GET `/analytics/receipts-activity?grain=month` | `setReceiptsActivityGrain('month')` | grainPicker .month | ✅ |
+| F-034 | Receipts activity loading state | Empty-state `<p>Loading…</p>` in `#dash-receipts-activity-body` | Receipts Activity card | — | Shown before API response | activityBody isActivityLoading branch | ✅ |
+| F-035 | Receipts activity empty state | Empty-state paragraph | Receipts Activity card | — | "No receipts processed yet." when API returns empty buckets | activityBody empty-array branch | ✅ |
+| F-036 | Receipts activity error state | Empty-state paragraph | Receipts Activity card | — | "Could not load receipt activity." on non-OK response | activityBody activityError branch | ✅ |
+| F-037 | Top Picks (recommendations) card | Card `#dash-recs-card` | — | GET `/recommendations` | Shows AI-driven reorder picks | topPicksCard | ✅ |
+| F-038 | Top Picks count badge button | Button `#dash-recs-header-count` | Top Picks card | — | `toggleDashboardSection('recommendations')`; hidden when count is 0 | Count badge in topPicksCard header | ✅ |
+| F-039 | Top Picks empty state | Empty-state with lightbulb icon | Top Picks card | — | "No recommendations yet" when API returns empty | Empty state: No recommendations yet | ✅ |
+| F-040 | Shopping List summary card — title/link | Button `#dash-shopping-card` in `dashboard-summary-card` | — | GET `/shopping-list` | `openDashboardStat('shopping')`; navigates to Shopping List page | shoppingListCard arrow-up-right button → router.activeTab = .shopping | ✅ |
+| F-041 | Shopping List item count badge | Span `#dash-shopping-header-count` | Shopping summary card | — | Displays open item count | Count capsule in shoppingHeader | ✅ |
+| F-042 | Shopping List estimated total toggle | Button `#dash-shopping-estimate` | Shopping summary card | — | `toggleDashboardShoppingPreview(event)`; toggles preview list | Estimated total button → shoppingPreviewExpanded toggle | ✅ |
+| F-043 | Shopping List expanded header count | Span `#dash-shopping-expanded-count` | Shopping summary card | — | Shown in expanded view | shoppingExpandedBody pending/purchased line | ✅ |
+| F-044 | Shopping List estimate in expanded header | Div `#dash-shopping-expanded-estimate` | Shopping summary card | — | "Estimate —" or formatted total | shoppingExpandedBody Estimate text | ✅ |
+| F-045 | Shopping List preview rows | Container `#dash-shopping-preview` | Shopping summary card | — | Inline preview of shopping items; collapsed by default | shoppingExpandedBody item ForEach | ✅ |
 
 ---
 

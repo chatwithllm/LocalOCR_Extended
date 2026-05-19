@@ -8,32 +8,84 @@ final class DashboardState: ObservableObject {
 
     static let shared = DashboardState()
 
+    enum ActivityGrain: String, CaseIterable, Identifiable {
+        case day, week, month
+        var id: String { rawValue }
+        var label: String {
+            switch self { case .day: return "Day"; case .week: return "Week"; case .month: return "Month" }
+        }
+    }
+
     @Published private(set) var leaderboard: Leaderboard?
     @Published private(set) var untagged: AttributionStats?
     @Published private(set) var recommendations: [Recommendation] = []
-    @Published private(set) var receiptsProcessedDaily: [MonthlySpend] = []   // reused as daily-totals shape
-    @Published private(set) var isLoading = false
+    @Published private(set) var receiptsActivity: [MonthlySpend] = []
+    @Published private(set) var productsCount: Int = 0
+    @Published var activityGrain: ActivityGrain = .day
+    @Published private(set) var leaderboardCollapsed: Bool = false
+    @Published private(set) var spendingCardCollapsed: Bool = false
+    @Published private(set) var spendingShowAll: Bool = false
+    @Published private(set) var isSpendingLoading: Bool = false
+    @Published private(set) var spendingError: String?
+    @Published private(set) var isActivityLoading: Bool = false
+    @Published private(set) var activityError: String?
     @Published var lastError: String?
 
     private let api: APIClient
     private let logger = Logger(subsystem: AppConstants.Keychain.credentialsService, category: "dashboard")
 
+    // UserDefaults persistence keys (mirrors web localStorage keys).
+    private let kLeaderboardCollapsed = "LocalOCR.dashboard_leaderboard_collapsed"
+    private let kSpendingCardCollapsed = "LocalOCR.dashboard_spending_card_collapsed"
+    private let kSpendingShowAll = "LocalOCR.dashboard_spending_show_all"
+    private let kActivityGrain = "LocalOCR.dashboard_activity_grain"
+
     init(api: APIClient = .shared) {
         self.api = api
+        leaderboardCollapsed = UserDefaults.standard.bool(forKey: kLeaderboardCollapsed)
+        spendingCardCollapsed = UserDefaults.standard.bool(forKey: kSpendingCardCollapsed)
+        spendingShowAll = UserDefaults.standard.bool(forKey: kSpendingShowAll)
+        if let grainStr = UserDefaults.standard.string(forKey: kActivityGrain),
+           let grain = ActivityGrain(rawValue: grainStr) {
+            activityGrain = grain
+        }
     }
 
+    // MARK: - Toggle persistence
+
+    func toggleLeaderboardCollapsed() {
+        leaderboardCollapsed.toggle()
+        UserDefaults.standard.set(leaderboardCollapsed, forKey: kLeaderboardCollapsed)
+    }
+
+    func toggleSpendingCardCollapsed() {
+        spendingCardCollapsed.toggle()
+        UserDefaults.standard.set(spendingCardCollapsed, forKey: kSpendingCardCollapsed)
+    }
+
+    func toggleSpendingShowAll() {
+        spendingShowAll.toggle()
+        UserDefaults.standard.set(spendingShowAll, forKey: kSpendingShowAll)
+    }
+
+    func setActivityGrain(_ grain: ActivityGrain) {
+        activityGrain = grain
+        UserDefaults.standard.set(grain.rawValue, forKey: kActivityGrain)
+        Task { await loadReceiptsActivity() }
+    }
+
+    // MARK: - Loads
+
     func loadAll() async {
-        isLoading = true
-        defer { isLoading = false }
         async let _ = loadLeaderboard()
         async let _ = loadUntagged()
         async let _ = loadRecommendations()
-        async let _ = loadReceiptsProcessed()
+        async let _ = loadReceiptsActivity()
+        async let _ = loadProductsCount()
     }
 
     func loadLeaderboard() async {
         do {
-            // /auth/me carries the leaderboard envelope.
             let me = try await api.request(.get, path: AuthEndpoint.me.path, as: AuthMeWithLeaderboard.self)
             leaderboard = me.leaderboard
         } catch {
@@ -66,28 +118,60 @@ final class DashboardState: ObservableObject {
         }
     }
 
-    /// Pulls /analytics/spending?period=daily&months=1 to fuel the
-    /// "Receipts Processed" line chart over the last ~30 days.
-    func loadReceiptsProcessed() async {
+    /// Pulls /analytics/spending with the current ActivityGrain to fuel the
+    /// "Receipts Processed" sparkline.
+    func loadReceiptsActivity() async {
+        isActivityLoading = true
+        activityError = nil
+        defer { isActivityLoading = false }
         do {
+            let serverPeriod: String
+            switch activityGrain {
+            case .day:    serverPeriod = "daily"
+            case .week:   serverPeriod = "weekly"
+            case .month:  serverPeriod = "monthly"
+            }
+            let monthsBack: String = (activityGrain == .month) ? "6" : "1"
             let data = try await api.rawRequest(
                 .get,
                 path: "/analytics/spending",
                 query: [
-                    URLQueryItem(name: "period", value: "daily"),
-                    URLQueryItem(name: "months", value: "1")
+                    URLQueryItem(name: "period", value: serverPeriod),
+                    URLQueryItem(name: "months", value: monthsBack)
                 ]
             )
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let dict = json["spending_by_period"] as? [String: [String: Any]] else { return }
-            receiptsProcessedDaily = dict
+                  let dict = json["spending_by_period"] as? [String: [String: Any]] else {
+                receiptsActivity = []
+                return
+            }
+            receiptsActivity = dict
                 .map { key, payload -> MonthlySpend in
                     let total = (payload["total"] as? Double) ?? Double(payload["total"] as? Int ?? 0)
                     return MonthlySpend(month: key, total: total)
                 }
                 .sorted { $0.month < $1.month }
         } catch {
-            logger.warning("receiptsProcessed: \(error.localizedDescription, privacy: .public)")
+            activityError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            logger.warning("activity: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Loads product catalog count for the LOW / INV / PROD strip.
+    func loadProductsCount() async {
+        do {
+            let data = try await api.rawRequest(.get, path: "/products")
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let arr = json["products"] as? [Any] {
+                    productsCount = arr.count
+                } else if let count = json["count"] as? Int {
+                    productsCount = count
+                }
+            } else if let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+                productsCount = arr.count
+            }
+        } catch {
+            logger.warning("productsCount: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
