@@ -1,8 +1,6 @@
 import SwiftUI
 
 /// LocalOCR macOS — @main entry point.
-///
-/// Phase 2: RootView wired (LoginView ↔ MainSplitView based on auth state).
 @main
 struct LocalOCRApp: App {
 
@@ -16,12 +14,13 @@ struct LocalOCRApp: App {
                 .environmentObject(appState)
                 .environmentObject(router)
                 .frame(minWidth: 1100, minHeight: 700)
+                .onReceive(NotificationCenter.default.publisher(for: .globalShortcutReceiptUpload)) { _ in
+                    router.openOCRUpload()
+                }
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1200, height: 800)
-        .commands {
-            // TODO Phase 5: full AppMenuCommands per §5.4 / §3.3.
-        }
+        .commands { AppMenuCommands(router: router) }
 
         Settings {
             SettingsView()

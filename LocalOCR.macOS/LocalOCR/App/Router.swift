@@ -2,26 +2,13 @@ import Foundation
 import SwiftUI
 
 /// Coordinates tab selection, deep-link routing, and window-opening intents.
-///
-/// Phase 1: enum + empty methods. Real routing logic lands in Phase 5
-/// (when URL scheme handling + global shortcuts are wired in).
 @MainActor
 final class Router: ObservableObject {
 
     static let shared = Router()
 
-    // MARK: - Sidebar / tab destination
-
     enum TabDestination: String, CaseIterable, Identifiable {
-        case dashboard
-        case inventory
-        case receipts
-        case shopping
-        case finance
-        case restaurant
-        case chat
-        case medications
-
+        case dashboard, inventory, receipts, shopping, finance, restaurant, chat, medications
         var id: String { rawValue }
     }
 
@@ -35,6 +22,7 @@ final class Router: ObservableObject {
     @Published var activeTab: TabDestination = .dashboard
     @Published var activeDetailDestination: DetailDestination = .none
     @Published var activeSheet: Sheet?
+    @Published var pendingDropFiles: [URL] = []
 
     enum Sheet: Identifiable {
         case ocrUpload
@@ -54,17 +42,49 @@ final class Router: ObservableObject {
 
     private init() {}
 
-    // MARK: - Deep-link entry point — wired in Phase 5
+    // MARK: - Deep-link entry point
 
     /// Handle `localocr://` URL invocations from Info.plist URL types.
-    /// Phase 1: no-op stub.
     func handleURL(_ url: URL) {
-        // TODO Phase 5: pattern-match url.host against AppConstants.URLHost cases.
+        guard url.scheme == AppConstants.urlScheme else { return }
+
+        switch url.host {
+        case AppConstants.URLHost.receipt:
+            // localocr://receipt/<id>
+            let pathParts = url.pathComponents.filter { $0 != "/" }
+            if let first = pathParts.first, let id = Int(first) {
+                activeTab = .receipts
+                activeDetailDestination = .receipt(id)
+            }
+        case AppConstants.URLHost.upload:
+            openOCRUpload()
+        case AppConstants.URLHost.shopping:
+            activeTab = .shopping
+        case AppConstants.URLHost.inventory:
+            activeTab = .inventory
+        case AppConstants.URLHost.oauthCallback:
+            // localocr://oauth/google?state=...&code=...
+            let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let state = comps?.queryItems?.first(where: { $0.name == "state" })?.value
+            let code  = comps?.queryItems?.first(where: { $0.name == "code"  })?.value
+            if let state, let code {
+                Task { await AuthState.shared.completeGoogleOAuth(state: state, code: code) }
+            }
+        default:
+            break
+        }
     }
 
-    /// Open the OCR Upload sheet over the main window, or as standalone panel
-    /// if the main window is hidden. Phase 1: no-op stub.
+    func handleDroppedFiles(_ urls: [URL]) {
+        let accepted = FileDropHandler.filter(urls)
+        guard !accepted.isEmpty else { return }
+        pendingDropFiles = accepted
+        openOCRUpload()
+    }
+
     func openOCRUpload() {
-        // TODO Phase 5.
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first(where: { $0.title == "LocalOCR" })?.makeKeyAndOrderFront(nil)
+        activeSheet = .ocrUpload
     }
 }

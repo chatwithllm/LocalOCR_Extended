@@ -1,0 +1,87 @@
+import SwiftUI
+
+/// Application menu commands per §3.3 + §5.4. Wires keyboard shortcuts to
+/// Router actions. Phase 5 covers the highest-value subset; remaining
+/// domain-specific menus land in later phase passes.
+struct AppMenuCommands: Commands {
+    @ObservedObject var router: Router
+
+    var body: some Commands {
+        // File menu
+        CommandGroup(replacing: .newItem) {
+            Button("New Receipt Upload…") { router.openOCRUpload() }
+                .keyboardShortcut("n", modifiers: .command)
+
+            Button("New Cash Transaction") { router.activeSheet = .cashTransaction }
+                .keyboardShortcut("n", modifiers: [.command, .control])
+
+            Divider()
+
+            Button("Open Receipt File…") {
+                openReceiptFile()
+            }
+            .keyboardShortcut("o", modifiers: .command)
+        }
+
+        // View menu — tab navigation shortcuts
+        CommandGroup(after: .toolbar) {
+            Button("Dashboard")     { router.activeTab = .dashboard   }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("Inventory")     { router.activeTab = .inventory   }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("Receipts")      { router.activeTab = .receipts    }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("Shopping")      { router.activeTab = .shopping    }
+                .keyboardShortcut("4", modifiers: .command)
+            Button("Finance")       { router.activeTab = .finance     }
+                .keyboardShortcut("5", modifiers: .command)
+            Button("Restaurants")   { router.activeTab = .restaurant  }
+                .keyboardShortcut("6", modifiers: .command)
+            Button("AI Chat")       { router.activeTab = .chat        }
+                .keyboardShortcut("7", modifiers: .command)
+            Button("Medications")   { router.activeTab = .medications }
+                .keyboardShortcut("8", modifiers: .command)
+
+            Divider()
+
+            Button("Reload Data") {
+                Task { await reloadCurrentTab() }
+            }
+            .keyboardShortcut("r", modifiers: .command)
+        }
+
+        // Help menu — features doc link
+        CommandGroup(replacing: .help) {
+            Button("LocalOCR Help") {
+                if let url = URL(string: "\(UserDefaults.standard.string(forKey: AppConstants.Defaults.apiBaseURL) ?? AppConstants.defaultAPIBaseURL)/features") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .keyboardShortcut("?", modifiers: .command)
+        }
+    }
+
+    private func openReceiptFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.jpeg, .png, .heic, .heif, .pdf]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url {
+            router.handleDroppedFiles([url])
+        }
+    }
+
+    @MainActor
+    private func reloadCurrentTab() async {
+        switch router.activeTab {
+        case .dashboard:    async let _ = InventoryState.shared.loadInventory()
+                            async let _ = ShoppingState.shared.loadList()
+                            async let _ = FinanceState.shared.loadBills()
+        case .inventory:    await InventoryState.shared.loadInventory()
+        case .receipts:     await ReceiptsState.shared.loadList()
+        case .shopping:     await ShoppingState.shared.loadList()
+        case .finance:      await FinanceState.shared.loadBills()
+        case .restaurant, .chat, .medications: break
+        }
+    }
+}

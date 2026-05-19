@@ -1,15 +1,20 @@
 import AppKit
+import os.log
 
-/// NSApplicationDelegate for LocalOCR macOS.
-///
-/// Phase 1: empty method stubs that compile. Concrete wiring:
-///   - Phase 3 (auth): foreground session refresh
-///   - Phase 5 (native): global shortcut registration, Dock drop handling,
-///                       menu bar item, hide-instead-of-quit behaviour
+/// NSApplicationDelegate. Full impl wires Phase 5 native integrations.
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
+    private let logger = Logger(subsystem: AppConstants.Keychain.credentialsService, category: "lifecycle")
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // TODO Phase 5: register GlobalShortcutManager, MenuBarController.
+        Task { @MainActor in
+            // Native integrations (§4.6)
+            MenuBarController.shared.install()
+            GlobalShortcutManager.shared.register()
+            DockBadge.shared.start()
+            await NotificationManager.shared.requestAuthorizationIfNeeded()
+            await NotificationManager.shared.scheduleShoppingNudge()
+        }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -19,8 +24,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Files dropped onto the Dock icon arrive here.
+    /// Also handles `localocr://` URL invocations.
     func application(_ application: NSApplication, open urls: [URL]) {
-        // TODO Phase 5: forward to Router (file drops → OCR upload sheet; localocr:// → handleURL).
+        Task { @MainActor in
+            var schemeURLs: [URL] = []
+            var fileURLs: [URL] = []
+            for url in urls {
+                if url.scheme == AppConstants.urlScheme {
+                    schemeURLs.append(url)
+                } else if url.isFileURL {
+                    fileURLs.append(url)
+                }
+            }
+            for url in schemeURLs {
+                Router.shared.handleURL(url)
+            }
+            if !fileURLs.isEmpty {
+                Router.shared.handleDroppedFiles(fileURLs)
+            }
+        }
     }
 
     /// Return false so closing the last window hides the app rather than quitting
