@@ -424,7 +424,11 @@ window.FEATURES_DATA = [
     tagline: "Log general expense receipts — merchants, amounts, categories",
     platforms: ["Web"],
     where: "Nav -> Upload -> pick Expense type",
-    flow: "Upload expense receipt -> Categorize (auto or manual) -> Analytics (spend trends)",
+    flow: [
+      { icon: "📷", label: "Upload",     sub: "expense receipt" },
+      { icon: "💸", label: "Categorize", sub: "auto or manual" },
+      { icon: "📊", label: "Analytics",  sub: "spend trends" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Recent Expenses</div>'
       + '<div style="display:flex;justify-content:space-between;color:#fff;padding:3px 0">Amazon<span style="color:#4ade80">$89.99</span></div>'
@@ -448,7 +452,12 @@ window.FEATURES_DATA = [
     tagline: "Tag expenses by category — view breakdown, drill into any category",
     platforms: ["Web"],
     where: "Nav -> Analytics -> Spending by Category",
-    flow: "Expense (recorded) -> Tag (category) -> Pie (breakdown) -> Drill (see receipts)",
+    flow: [
+      { icon: "💸", label: "Expense recorded", sub: "receipt or cash" },
+      { icon: "🏷",  label: "Tag category",    sub: "auto or manual" },
+      { icon: "📊", label: "Breakdown",        sub: "pie by category" },
+      { icon: "🔍", label: "Drill",            sub: "see receipts" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Category Breakdown</div>'
       + '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
@@ -481,7 +490,11 @@ window.FEATURES_DATA = [
     tagline: "Spend trends by week/month, merchant frequency chart, category breakdown",
     platforms: ["Web"],
     where: "Nav -> Analytics",
-    flow: "All spend (receipts + cash) -> Trends (week/month) -> Merchants (frequency)",
+    flow: [
+      { icon: "📊", label: "All spend",  sub: "receipts + cash" },
+      { icon: "📈", label: "Trends",     sub: "week / month" },
+      { icon: "🏪", label: "Merchants",  sub: "frequency chart" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:6px">Monthly Spend</div>'
       + '<div style="display:flex;align-items:flex-end;gap:6px;height:50px">'
@@ -519,7 +532,11 @@ window.FEATURES_DATA = [
     tagline: "Dashboard tile — every spend category in one place, expandable drill panel",
     platforms: ["Web"],
     where: "Nav -> Dashboard -> Spending tile",
-    flow: "Dashboard (tile) -> Expand (tap category) -> Drill (see receipts)",
+    flow: [
+      { icon: "📊", label: "Dashboard tile", sub: "all categories" },
+      { icon: "🔍", label: "Expand",         sub: "tap category" },
+      { icon: "📋", label: "Drill receipts", sub: "see line items" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Spending</div>'
       + '<div style="padding:3px 0">'
@@ -550,7 +567,12 @@ window.FEATURES_DATA = [
     tagline: "Track floor obligations (rent, subscriptions) — paid vs expected, inline rename",
     platforms: ["Web"],
     where: "Nav -> Bills",
-    flow: "Add bill (provider + amount) -> Plaid match (auto-link) -> Track (paid vs expected) -> Dashboard (Fixed row)",
+    flow: [
+      { icon: "➕", label: "Add bill",   sub: "provider + amount" },
+      { icon: "🏦", label: "Plaid match", sub: "auto-link transaction" },
+      { icon: "📌", label: "Track",       sub: "paid vs expected" },
+      { icon: "📊", label: "Dashboard",   sub: "Fixed row" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="display:flex;gap:6px;margin-bottom:6px">'
       + '<span style="background:#3b82f6;color:#fff;border-radius:4px;padding:1px 8px;font-size:0.7rem">Selected</span>'
@@ -579,7 +601,12 @@ window.FEATURES_DATA = [
     tagline: "Sync bank transactions and auto-match to receipts you've already scanned",
     platforms: ["Web"],
     where: "Nav -> Accounts",
-    flow: "Link bank (via Plaid) -> Sync txns (daily) -> Auto-match (to receipts) -> Reconciled (matched)",
+    flow: [
+      { icon: "🏦", label: "Link bank",    sub: "via Plaid OAuth" },
+      { icon: "🔄", label: "Sync txns",    sub: "daily automatic" },
+      { icon: "🔍", label: "Auto-match",   sub: "amount + date" },
+      { icon: "✅", label: "Reconciled",   sub: "matched to receipt" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Bank Transactions</div>'
       + '<div style="padding:3px 0;border-bottom:1px solid #2a2a2e">'
@@ -597,7 +624,7 @@ window.FEATURES_DATA = [
       "Auto-match to scanned receipts by amount+date",
       "Link unmatched transactions to floor obligations",
     ],
-    tip: "Plaid matching uses amount + date ±2 days. If a receipt total was edited, it may not auto-match — link manually.",
+    tip: "Plaid matching uses amount + date ±3 days. If a receipt total was edited, it may not auto-match — link manually.",
   },
 
   {
@@ -608,7 +635,11 @@ window.FEATURES_DATA = [
     tagline: "Manually log cash spend with no receipt — feeds into spending analytics",
     platforms: ["Web"],
     where: "Nav -> Analytics -> Cash tab",
-    flow: "Log cash (amount + note) -> Category (tag it) -> Analytics (included)",
+    flow: [
+      { icon: "💵", label: "Log cash",   sub: "amount + note" },
+      { icon: "🏷",  label: "Category",  sub: "tag it" },
+      { icon: "📊", label: "Analytics",  sub: "included in spend" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Log Cash Spend</div>'
       + '<input style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:3px 6px;font-size:0.72rem;width:100%;margin-bottom:4px;box-sizing:border-box" placeholder="Farmer\'s market" />'
@@ -636,7 +667,12 @@ window.FEATURES_DATA = [
     tagline: "Split restaurant receipts by person — tracks who owes what",
     platforms: ["Web", "Telegram"],
     where: "Nav -> Dining -> Split tab",
-    flow: "Restaurant (receipt) -> Add diners (pick contacts) -> Split (even or custom) -> Debts (who owes who)",
+    flow: [
+      { icon: "🍽",  label: "Restaurant receipt", sub: "scan or upload" },
+      { icon: "👥", label: "Add diners",          sub: "pick contacts" },
+      { icon: "➗", label: "Split",               sub: "even or custom" },
+      { icon: "⚖️", label: "Debts",               sub: "who owes who" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#fff;font-weight:bold;margin-bottom:4px">Nobu &middot; $120.00 &middot; 4 people</div>'
       + '<div style="display:flex;justify-content:space-between;padding:3px 0">'
@@ -666,7 +702,11 @@ window.FEATURES_DATA = [
     tagline: "Dining contacts list — per-contact balance and meal history",
     platforms: ["Web"],
     where: "Nav -> Dining -> Contacts tab",
-    flow: "Add contact (name) -> Share meals (split bills) -> Balance (running total)",
+    flow: [
+      { icon: "➕", label: "Add contact",  sub: "by name" },
+      { icon: "🍽",  label: "Share meals", sub: "split bills together" },
+      { icon: "⚖️", label: "Balance",      sub: "running total" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Dining Contacts</div>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #2a2a2e">'
@@ -695,7 +735,11 @@ window.FEATURES_DATA = [
     tagline: "Outstanding debt view across all contacts — settle-all with one tap",
     platforms: ["Web"],
     where: "Nav -> Dining -> Balances tab",
-    flow: "View debts (all contacts) -> Settle (mark paid) -> Cleared (balance reset)",
+    flow: [
+      { icon: "⚖️", label: "View debts", sub: "all contacts" },
+      { icon: "💸", label: "Settle",     sub: "mark paid" },
+      { icon: "✅", label: "Cleared",    sub: "balance reset" },
+    ],
     mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
       + '<div style="color:#aaa;margin-bottom:4px">Balances</div>'
       + '<div style="text-align:center;padding:4px 0">'
