@@ -537,7 +537,7 @@ function renderDetail(f) {
     parts.push('<div class="flow-wrap">' + flowItems + '</div>');
   }
 
-  /* 4 — Mockup */
+  /* 4 — Mockup (f.mockup is developer-authored HTML from the auth-guarded data file — intentionally unescaped) */
   if (f.mockup) {
     parts.push(
       '<div class="mockup-section">' +
