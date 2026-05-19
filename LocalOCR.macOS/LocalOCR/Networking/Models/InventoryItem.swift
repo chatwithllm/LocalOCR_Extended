@@ -52,6 +52,7 @@ struct InventoryItem: Codable, Identifiable, Equatable, Hashable {
 struct LatestPrice: Codable, Equatable, Hashable {
     let price: Double?
     let date: String?
+    let store: String?
 }
 
 /// Backend `_latest_snapshot_for_product` → `{id, image_url, created_at}`.

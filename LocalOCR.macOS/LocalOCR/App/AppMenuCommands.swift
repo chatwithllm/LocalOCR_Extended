@@ -79,9 +79,15 @@ struct AppMenuCommands: Commands {
     @MainActor
     private func reloadCurrentTab() async {
         switch router.activeTab {
-        case .dashboard:    async let _ = InventoryState.shared.loadInventory()
-                            async let _ = ShoppingState.shared.loadList()
-                            async let _ = FinanceState.shared.loadBills()
+        case .dashboard:
+            // RULE 3: `async let _ =` cancels its children on scope exit (I-6).
+            // Use `withTaskGroup` so every reload actually completes before we
+            // hand control back to the menu command.
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in await InventoryState.shared.loadInventory() }
+                group.addTask { @MainActor in await ShoppingState.shared.loadList() }
+                group.addTask { @MainActor in await FinanceState.shared.loadBills() }
+            }
         case .inventory:    await InventoryState.shared.loadInventory()
         case .receipts:     await ReceiptsState.shared.loadList()
         case .shopping:     await ShoppingState.shared.loadList()

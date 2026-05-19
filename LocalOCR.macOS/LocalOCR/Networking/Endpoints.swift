@@ -164,41 +164,106 @@ enum ReceiptEndpoint {
 struct ReprocessBody: Encodable { let modelId: Int? }
 
 // MARK: - Shopping (backend prefix: /shopping-list)
+//
+// Routes mirror manage_shopping_list.py — verified by Rule 1 pre-flight grep
+// (see SHOPPING-PARITY work in this commit). Bodies mirror request keys read by
+// `add_shopping_item` and `update_shopping_item`.
 
 enum ShoppingEndpoint {
-    case list
-    case addItem(name: String, quantity: Double, source: String, productId: Int?)
-    case updateItem(id: Int, status: String?)
+    case list(statusFilter: String?)
+    case addItem
+    case updateItem(id: Int)
     case deleteItem(id: Int)
+    case sessionReadyToBill
+    case sessionFinalize
+    case sessionReopen
+    case sessionsList(statusFilter: String?)
+    case sessionDetail(id: Int)
+    case confirmRecommendation(productId: Int)
+    case shareLink
+    case identifyPhoto
 
     var path: String {
         switch self {
-        case .list:                  return "/shopping-list"
-        case .addItem:               return "/shopping-list/items"
-        case .updateItem(let id, _): return "/shopping-list/items/\(id)"
-        case .deleteItem(let id):    return "/shopping-list/items/\(id)"
+        case .list:                              return "/shopping-list"
+        case .addItem:                           return "/shopping-list/items"
+        case .updateItem(let id):                return "/shopping-list/items/\(id)"
+        case .deleteItem(let id):                return "/shopping-list/items/\(id)"
+        case .sessionReadyToBill:                return "/shopping-list/session/ready-to-bill"
+        case .sessionFinalize:                   return "/shopping-list/session/finalize"
+        case .sessionReopen:                     return "/shopping-list/session/reopen"
+        case .sessionsList:                      return "/shopping-list/sessions"
+        case .sessionDetail(let id):             return "/shopping-list/sessions/\(id)"
+        case .confirmRecommendation(let pid):    return "/shopping-list/products/\(pid)/confirm-recommendation"
+        case .shareLink:                         return "/shopping-list/share-link"
+        case .identifyPhoto:                     return "/shopping-list/identify-product-photo"
         }
     }
+
     var method: HTTPMethod {
         switch self {
-        case .list:                  return .get
-        case .addItem:               return .post
-        case .updateItem:            return .put
-        case .deleteItem:            return .delete
+        case .list, .sessionsList, .sessionDetail:                                     return .get
+        case .addItem, .sessionReadyToBill, .sessionFinalize, .sessionReopen,
+             .confirmRecommendation, .shareLink, .identifyPhoto:                       return .post
+        case .updateItem:                                                              return .put
+        case .deleteItem:                                                              return .delete
         }
     }
+
+    var query: [URLQueryItem] {
+        switch self {
+        case .list(let status):
+            guard let status, !status.isEmpty else { return [] }
+            return [.init(name: "status", value: status)]
+        case .sessionsList(let status):
+            guard let status, !status.isEmpty else { return [] }
+            return [.init(name: "status", value: status)]
+        default:
+            return []
+        }
+    }
+
     var isMutating: Bool { method != .get }
 }
 
+/// POST /shopping-list/items — keys read by `add_shopping_item` in
+/// src/backend/manage_shopping_list.py.
 struct ShoppingAddBody: Encodable {
     let name: String
     let quantity: Double
     let source: String?
     let productId: Int?
+    let category: String?
+    let unit: String?
+    let sizeLabel: String?
+    let note: String?
+    let preferredStore: String?
+    let manualEstimatedPrice: Double?
+    let snapshotId: Int?
 }
 
+/// PUT /shopping-list/items/<id> — keys read by `update_shopping_item`.
+/// Server only writes a key when it is present in the JSON body, so all fields
+/// are optional. Pass `nil` to skip; pass a value to write.
 struct ShoppingUpdateBody: Encodable {
+    let name: String?
+    let category: String?
+    let quantity: Double?
     let status: String?
+    let note: String?
+    let preferredStore: String?
+    let manualEstimatedPrice: Double?
+    let actualPrice: Double?
+    let unit: String?
+    let sizeLabel: String?
+    let persistLatestPrice: Bool?
+    let priceStore: String?
+}
+
+/// POST /shopping-list/session/reopen — optional `session_id` reopens a specific
+/// closed trip; omit to reopen the latest closed session.
+struct ShoppingReopenBody: Encodable {
+    let sessionId: Int?
 }
 
 // MARK: - Floor obligations (backend prefix: /floor-obligations, trailing slash on list)
