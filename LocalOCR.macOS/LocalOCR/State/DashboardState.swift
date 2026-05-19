@@ -82,6 +82,7 @@ final class DashboardState: ObservableObject {
         async let _ = loadRecommendations()
         async let _ = loadReceiptsActivity()
         async let _ = loadProductsCount()
+        async let _ = loadSpendingByCategory()
     }
 
     func loadLeaderboard() async {
@@ -151,18 +152,89 @@ final class DashboardState: ObservableObject {
                     return MonthlySpend(month: key, total: total)
                 }
                 .sorted { $0.month < $1.month }
+        } catch is CancellationError {
+            // Race condition during view refresh — silently ignore.
         } catch {
+            // Don't surface URLSession cancellation as an error either.
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                return
+            }
             activityError = (error as? APIError)?.errorDescription ?? error.localizedDescription
             logger.warning("activity: \(error.localizedDescription, privacy: .public)")
         }
     }
 
+    /// Loads spending-by-category data — proper /analytics/spending-by-category
+    /// endpoint (not /analytics/spending — that's a different rollup).
+    /// Decodes into FinanceState.spending so the Dashboard card renders.
+    func loadSpendingByCategory(month: String? = nil) async {
+        isSpendingLoading = true
+        spendingError = nil
+        defer { isSpendingLoading = false }
+
+        let ym: String
+        if let month {
+            ym = month
+        } else {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM"
+            fmt.timeZone = TimeZone(identifier: "UTC")
+            ym = fmt.string(from: Date())
+        }
+
+        do {
+            let data = try await api.rawRequest(
+                .get,
+                path: "/analytics/spending-by-category",
+                query: [
+                    URLQueryItem(name: "month", value: ym),
+                    URLQueryItem(name: "limit", value: "50")
+                ]
+            )
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return
+            }
+            let rawCategories = (json["categories"] as? [[String: Any]]) ?? []
+            let categories: [SpendingCategoryTotal] = rawCategories.compactMap { row in
+                guard let cat = row["category"] as? String else { return nil }
+                let amount = (row["amount"] as? Double) ?? Double(row["amount"] as? Int ?? 0)
+                // backend doesn't emit receipt_count for this rollup; pass 0
+                return SpendingCategoryTotal(category: cat.capitalized, total: amount, receiptCount: 0)
+            }
+            let total = (json["total"] as? Double) ?? categories.reduce(0) { $0 + $1.total }
+            await MainActor.run {
+                FinanceState.shared.injectSpending(
+                    SpendingAnalytics(
+                        categories: categories,
+                        topMerchants: [],
+                        monthlyTimeline: [],
+                        periodLabel: (json["month"] as? String) ?? ym
+                    ),
+                    grandTotal: total
+                )
+            }
+        } catch is CancellationError {
+            // ignore
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+                return
+            }
+            spendingError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+            logger.warning("spendingByCategory: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     /// Loads product catalog count for the LOW / INV / PROD strip.
+    /// Endpoint returns `{products: [...], total: N, page, per_page}` — use `total`.
     func loadProductsCount() async {
         do {
             let data = try await api.rawRequest(.get, path: "/products")
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if let arr = json["products"] as? [Any] {
+                if let total = json["total"] as? Int {
+                    productsCount = total
+                } else if let arr = json["products"] as? [Any] {
                     productsCount = arr.count
                 } else if let count = json["count"] as? Int {
                     productsCount = count
@@ -170,6 +242,7 @@ final class DashboardState: ObservableObject {
             } else if let arr = try? JSONSerialization.jsonObject(with: data) as? [Any] {
                 productsCount = arr.count
             }
+        } catch is CancellationError {
         } catch {
             logger.warning("productsCount: \(error.localizedDescription, privacy: .public)")
         }

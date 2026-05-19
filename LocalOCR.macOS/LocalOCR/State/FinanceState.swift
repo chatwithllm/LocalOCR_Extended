@@ -21,6 +21,12 @@ final class FinanceState: ObservableObject {
         self.api = api
     }
 
+    /// Inject a pre-built SpendingAnalytics (used by DashboardState which
+    /// computes via the /analytics/spending-by-category rollup).
+    func injectSpending(_ s: SpendingAnalytics, grandTotal: Double? = nil) {
+        spending = s
+    }
+
     // MARK: - Loads
 
     func loadBills() async {

@@ -65,11 +65,12 @@ struct DashboardView: View {
     }
 
     private func refreshAll() async {
+        // dashboard.loadAll() now owns spending-by-category — don't double-fetch
+        // via finance.loadSpending() which uses a different rollup endpoint.
         async let _ = dashboard.loadAll()
         async let _ = inventory.loadInventory()
         async let _ = shopping.loadList()
         async let _ = finance.loadBills()
-        async let _ = finance.loadSpending()
     }
 
     // MARK: - F-001 … F-008  Demo hero card
