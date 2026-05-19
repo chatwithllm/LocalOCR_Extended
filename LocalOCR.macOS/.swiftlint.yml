@@ -1,0 +1,44 @@
+# SwiftLint config for LocalOCR macOS.
+# Install: brew install swiftlint
+# Run:     cd LocalOCR.macOS && swiftlint
+
+included:
+  - LocalOCR
+  - LocalOCRTests
+  - LocalOCRUITests
+
+excluded:
+  - LocalOCR.xcodeproj
+  - build
+  - DerivedData
+  - .build
+
+disabled_rules:
+  - todo
+  - line_length
+
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - implicit_return
+  - sorted_imports
+  - vertical_whitespace_closing_braces
+
+custom_rules:
+  no_observable_without_availability_guard:
+    name: "@Observable requires macOS 14 availability guard"
+    # Bans bare `@Observable` on a class. Catches both `@Observable class X` and the
+    # macro applied alone on its own line. To use @Observable correctly, wrap the
+    # type in @available(macOS 14, *) and provide an ObservableObject fallback for
+    # macOS 13.3+ (see VETO_RESOLUTION_PATCH risk R-06, §7.3).
+    regex: '^\s*@Observable\b'
+    message: "Bare @Observable crashes on macOS 13 (R-06). Use @available(macOS 14, *) guard + ObservableObject fallback, or stick to @Published / ObservableObject until min deployment target is raised to 14."
+    severity: error
+
+  no_innerhtml:
+    # Carryover guard from the web codebase — prevents accidental WKWebView injection of raw HTML strings.
+    name: "No raw innerHTML in WKWebView bridge code"
+    regex: '\.innerHTML\s*='
+    message: "Use createContextualFragment + selectNodeContents, not innerHTML (project security rule)."
+    severity: error

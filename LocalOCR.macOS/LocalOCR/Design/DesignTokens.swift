@@ -18,7 +18,9 @@ enum DesignTokens {
     static let background = Color(nsColor: NSColor.windowBackgroundColor)
     static let sidebarBackground = Color(nsColor: dynamic(light: 0xf5f5f7, dark: 0x1a1a1e))
     static let surface = Color(nsColor: NSColor.controlBackgroundColor)
-    static let surface2 = Color(nsColor: NSColor.quaternarySystemFill)
+    // §3.1 surface2 maps to .quaternarySystemFill, but that semantic color is macOS 14+.
+    // Hardcode the dynamic light/dark hex pair from §3.1 to stay on min target 13.3.
+    static let surface2 = Color(nsColor: dynamic(light: 0xf2f2f7, dark: 0x222226))
 
     // MARK: - Borders / labels
 
