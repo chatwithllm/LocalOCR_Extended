@@ -7,6 +7,11 @@ struct AppMenuCommands: Commands {
     @ObservedObject var router: Router
 
     var body: some Commands {
+        // App menu — replace About with our custom panel
+        CommandGroup(replacing: .appInfo) {
+            Button("About LocalOCR") { AboutPanel.show() }
+        }
+
         // File menu
         CommandGroup(replacing: .newItem) {
             Button("New Receipt Upload…") { router.openOCRUpload() }

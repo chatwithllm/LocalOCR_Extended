@@ -32,13 +32,21 @@ struct RootView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(DesignTokens.background.ignoresSafeArea())
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingSheet()
+        }
         .task {
             // Phase 3: probe session on first appear. ImageCache configured here too
             // so Kingfisher downloader shares the cookie jar.
             ImageCache.configureSharedCookies()
+            if !PreferencesStore.shared.hasCompletedOnboarding {
+                showOnboarding = true
+            }
             await auth.checkSession()
         }
     }
+
+    @State private var showOnboarding = false
 }
 
 #Preview("RootView / Unauthenticated") {
