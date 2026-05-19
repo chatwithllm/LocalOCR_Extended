@@ -16,9 +16,7 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.space5) {
-                Text("Dashboard")
-                    .font(.appLargeTitle)
-                    .foregroundStyle(DesignTokens.label)
+                headerWithSubtitle                                // F-000 — Dashboard title + subtitle
 
                 if appState.isDemoMode {
                     demoHero                                      // F-001 … F-008
@@ -36,17 +34,12 @@ struct DashboardView: View {
 
                 countersStrip                                     // F-017, F-018, F-019
 
-                spendingByCategoryCard                            // F-020 … F-025
+                spendingByCategoryCard                            // F-020 … F-026
 
-                lowStockCard                                      // F-027, F-028, F-029
+                threeTileRow                                      // F-027/028, F-037/038, F-040/041
+                                                                  // (combined Low Stock + Top Picks + Shopping)
 
                 receiptsActivityCard                              // F-030 … F-036
-
-                topPicksCard                                      // F-037, F-038, F-039
-
-                shoppingListCard                                  // F-040 … F-045
-
-                dropZone
             }
             .padding(DesignTokens.Spacing.space5)
         }
@@ -88,6 +81,88 @@ struct DashboardView: View {
         async let _ = inventory.loadInventory()
         async let _ = shopping.loadList()
         async let _ = finance.loadBills()
+    }
+
+    // MARK: - Header with subtitle (web parity)
+
+    private var headerWithSubtitle: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.space2) {
+                Text("Dashboard")
+                    .font(.appLargeTitle)
+                    .foregroundStyle(DesignTokens.label)
+                Text("Track groceries, dining out, and household expenses in one place")
+                    .font(.appBody)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+        }
+    }
+
+    // MARK: - 3-tile row (Low Stock / Top Picks / Shopping List)
+
+    private var threeTileRow: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: DesignTokens.Spacing.space3),
+                GridItem(.flexible(), spacing: DesignTokens.Spacing.space3),
+                GridItem(.flexible(), spacing: DesignTokens.Spacing.space3)
+            ],
+            spacing: DesignTokens.Spacing.space3
+        ) {
+            tileButton(
+                title: "Low Stock",
+                systemImage: "exclamationmark.triangle.fill",
+                tint: DesignTokens.warning,
+                badge: "\(inventory.lowStockItems.count)"
+            ) { router.activeTab = .inventory }
+
+            tileButton(
+                title: "Top Picks",
+                systemImage: "lightbulb.fill",
+                tint: DesignTokens.accent,
+                badge: "\(dashboard.recommendations.count)"
+            ) { router.activeTab = .shopping }
+
+            tileButton(
+                title: "Shopping List",
+                systemImage: "cart.fill",
+                tint: DesignTokens.secondaryLabel,
+                badge: "\(shopping.pendingCount)",
+                trailing: shopping.estimatedTotal > 0 ? String(format: "$%.2f", shopping.estimatedTotal) : nil
+            ) { router.activeTab = .shopping }
+        }
+    }
+
+    private func tileButton(title: String, systemImage: String, tint: Color, badge: String, trailing: String? = nil, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage).foregroundStyle(tint)
+                Text(title)
+                    .font(.appHeadline)
+                    .foregroundStyle(DesignTokens.label)
+                Spacer()
+                if let trailing {
+                    Text(trailing)
+                        .font(.appCaption1.monospaced())
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                }
+                Text(badge)
+                    .font(.appMonoCaption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(tint.opacity(0.15))
+                    .foregroundStyle(tint)
+                    .clipShape(Capsule())
+            }
+            .padding(DesignTokens.Spacing.space3)
+            .background(DesignTokens.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
+                    .stroke(DesignTokens.border, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - F-001 … F-008  Demo hero card
@@ -422,6 +497,9 @@ struct DashboardView: View {
             ForEach(Array(displayed.enumerated()), id: \.element.id) { idx, cat in
                 categoryBar(category: cat, total: total, color: palette[idx % palette.count])
             }
+            if dashboard.fixedExpectedTotal > 0 {
+                fixedObligationsRow()
+            }
             if s.categories.count > 5 {
                 Button(dashboard.spendingShowAll ? "Show less" : "Show more (\(s.categories.count - 5))") {
                     dashboard.toggleSpendingShowAll()
@@ -477,6 +555,37 @@ struct DashboardView: View {
         Text("\(arrow) \(absVal)% vs last")
             .font(.appCaption2.monospaced())
             .foregroundStyle(isDown ? DesignTokens.success : DesignTokens.error)
+    }
+
+    /// Fixed obligations row — appended below regular categories, with
+    /// 'X% paid' badge instead of 'vs last' delta.
+    private func fixedObligationsRow() -> some View {
+        let pct = Double(dashboard.fixedPaidPct) / 100.0
+        let color = paletteColor(for: "fixed")
+        return HStack(spacing: DesignTokens.Spacing.space3) {
+            HStack(spacing: 6) {
+                Text("📌").font(.system(size: 14))
+                Text("Fixed").font(.appBody)
+            }
+            .frame(width: 160, alignment: .leading)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6).fill(DesignTokens.surface2)
+                    RoundedRectangle(cornerRadius: 6).fill(color).frame(width: proxy.size.width * pct)
+                }
+            }
+            .frame(height: 14)
+            Spacer().frame(width: 36)
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(String(format: "$%.2f", dashboard.fixedExpectedTotal))
+                    .font(.appMonoBody.weight(.medium))
+                    .foregroundStyle(DesignTokens.label)
+                Text("\(dashboard.fixedPaidPct)% paid")
+                    .font(.appCaption2.monospaced())
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+            .frame(width: 110, alignment: .trailing)
+        }
     }
 
     private func paletteColor(for category: String) -> Color {

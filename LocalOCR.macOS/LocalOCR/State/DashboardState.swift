@@ -21,6 +21,8 @@ final class DashboardState: ObservableObject {
     @Published private(set) var recommendations: [Recommendation] = []
     @Published private(set) var receiptsActivity: [MonthlySpend] = []
     @Published private(set) var productsCount: Int = 0
+    @Published private(set) var fixedExpectedTotal: Double = 0
+    @Published private(set) var fixedPaidPct: Int = 0
     @Published var activityGrain: ActivityGrain = .day
     @Published private(set) var leaderboardCollapsed: Bool = false
     @Published private(set) var spendingCardCollapsed: Bool = false
@@ -83,7 +85,7 @@ final class DashboardState: ObservableObject {
     // MARK: - Loads
 
     func loadAll() async {
-        // Run all six dashboard fetches in parallel via a TaskGroup so each
+        // Run all seven dashboard fetches in parallel via a TaskGroup so each
         // child is properly awaited. `async let _ = …` discards the binding
         // which leaves the child task unawaited — the parent function then
         // exits and the children get cancelled before their URLSession
@@ -96,6 +98,47 @@ final class DashboardState: ObservableObject {
             group.addTask { @MainActor in await self.loadReceiptsActivity() }
             group.addTask { @MainActor in await self.loadProductsCount() }
             group.addTask { @MainActor in await self.loadSpendingByCategory() }
+            group.addTask { @MainActor in await self.loadFloorObligationsSummary() }
+        }
+    }
+
+    /// /floor-obligations/summary?month=YYYY-MM — drives the Fixed row +
+    /// 'X% paid' badge appended to the Spending by Category card.
+    func loadFloorObligationsSummary() async {
+        let ym: String = {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM"
+            fmt.timeZone = TimeZone(identifier: "UTC")
+            return fmt.string(from: Date())
+        }()
+        do {
+            let data = try await api.rawRequest(
+                .get,
+                path: "/floor-obligations/summary",
+                query: [URLQueryItem(name: "month", value: ym)]
+            )
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            // Backend returns { obligations: [{expected_monthly_amount, this_actual, last_actual, status}], totals: {...} } typically.
+            // Use totals if present, else compute from obligations array.
+            if let totals = json["totals"] as? [String: Any] {
+                fixedExpectedTotal = (totals["expected"] as? Double) ?? Double(totals["expected"] as? Int ?? 0)
+                let paid = (totals["paid"] as? Double) ?? Double(totals["paid"] as? Int ?? 0)
+                fixedPaidPct = fixedExpectedTotal > 0 ? Int(round(paid / fixedExpectedTotal * 100)) : 0
+            } else if let obs = json["obligations"] as? [[String: Any]] {
+                let expected = obs.reduce(0.0) { acc, row in
+                    acc + ((row["expected_monthly_amount"] as? Double) ?? Double(row["expected_monthly_amount"] as? Int ?? 0))
+                }
+                let actual = obs.reduce(0.0) { acc, row in
+                    acc + ((row["this_actual"] as? Double) ?? Double(row["this_actual"] as? Int ?? 0))
+                }
+                fixedExpectedTotal = expected
+                fixedPaidPct = expected > 0 ? Int(round(actual / expected * 100)) : 0
+            }
+        } catch is CancellationError {
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled { return }
+            logger.warning("floorObligations: \(error.localizedDescription, privacy: .public)")
         }
     }
 
