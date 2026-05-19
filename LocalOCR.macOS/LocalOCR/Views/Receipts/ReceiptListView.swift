@@ -137,7 +137,7 @@ private struct ReceiptRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(receipt.storeName ?? "Unknown store").font(.appBody.weight(.medium))
                 HStack(spacing: 6) {
-                    if let d = receipt.date {
+                    if let d = receipt.dateValue {
                         Text(d.formatted(date: .abbreviated, time: .omitted))
                             .font(.appCaption1)
                             .foregroundStyle(DesignTokens.secondaryLabel)
@@ -145,15 +145,15 @@ private struct ReceiptRow: View {
                     if let domain = receipt.domain {
                         CategoryChip(domain: CategoryChip.Domain(rawValue: domain) ?? .unknown)
                     }
-                    if receipt.isConfirmed == true {
-                        Badge(text: "Confirmed", style: .success)
+                    if receipt.isConfirmed {
+                        Badge(text: "Approved", style: .success)
                     }
                 }
             }
             Spacer()
             Text(String(format: "$%.2f", receipt.totalAmount))
                 .font(.appMonoBody.weight(.semibold))
-                .foregroundStyle(receipt.isConfirmed == true ? DesignTokens.success : DesignTokens.label)
+                .foregroundStyle(receipt.isConfirmed ? DesignTokens.success : DesignTokens.label)
         }
         .padding(.vertical, 4)
     }

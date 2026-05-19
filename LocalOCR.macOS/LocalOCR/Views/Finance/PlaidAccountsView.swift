@@ -87,7 +87,7 @@ struct PlaidAccountsView: View {
                             .font(.appMonoBody.weight(.semibold))
                     }
                 }
-                if let synced = account.lastSyncedAt {
+                if let synced = account.lastSyncedAtDate {
                     Text("Last synced \(synced.formatted(date: .abbreviated, time: .shortened))")
                         .font(.appCaption2).foregroundStyle(DesignTokens.tertiaryLabel)
                 }
@@ -108,7 +108,7 @@ struct PlaidAccountsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(tx.merchantName ?? "Unknown merchant").font(.appBody)
-                            Text(tx.transactionDate.formatted(date: .abbreviated, time: .omitted))
+                            Text(tx.transactionDateValue.formatted(date: .abbreviated, time: .omitted))
                                 .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
                         }
                         Spacer()

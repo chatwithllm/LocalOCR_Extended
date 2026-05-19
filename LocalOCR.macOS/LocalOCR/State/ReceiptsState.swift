@@ -24,7 +24,12 @@ final class ReceiptsState: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            receipts = try await api.request(.get, path: ReceiptEndpoint.list.path, as: [Receipt].self)
+            let response = try await api.request(
+                .get,
+                path: ReceiptEndpoint.list.path,
+                as: ReceiptsListResponse.self
+            )
+            receipts = response.receipts
         } catch {
             lastError = (error as? APIError)?.errorDescription
             logger.error("loadList: \(error.localizedDescription, privacy: .public)")
@@ -33,13 +38,13 @@ final class ReceiptsState: ObservableObject {
 
     func loadDetail(id: Int) async {
         do {
-            struct DetailResponse: Codable {
-                let receipt: Receipt
-                let items: [ReceiptItem]
-            }
-            let resp = try await api.request(.get, path: ReceiptEndpoint.detail(id: id).path, as: DetailResponse.self)
-            detail = resp.receipt
-            detailItems = resp.items
+            let response = try await api.request(
+                .get,
+                path: ReceiptEndpoint.detail(id: id).path,
+                as: ReceiptDetailResponse.self
+            )
+            detail = response.receipt
+            detailItems = response.items ?? []
         } catch {
             lastError = (error as? APIError)?.errorDescription
         }
@@ -48,9 +53,9 @@ final class ReceiptsState: ObservableObject {
     func confirm(id: Int) async {
         do {
             try DemoModeGate.guardMutation()
-            try await api.request(.post, path: ReceiptEndpoint.confirm(id: id).path)
+            try await api.request(.post, path: ReceiptEndpoint.approve(id: id).path)
             await loadList()
-            ToastQueue.shared.push(Toast(message: "Receipt confirmed", severity: .success))
+            ToastQueue.shared.push(Toast(message: "Receipt approved", severity: .success))
         } catch APIError.demoModeReadOnly {
             ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
         } catch {
@@ -70,7 +75,7 @@ final class ReceiptsState: ObservableObject {
                 fileName: fileURL.lastPathComponent,
                 mimeType: mimeType,
                 fields: [
-                    "receipt_type": receiptType,
+                    "receipt_intent": receiptType,
                     "model_id": modelId.map(String.init) ?? ""
                 ]
             )
@@ -90,8 +95,8 @@ final class ReceiptsState: ObservableObject {
             try DemoModeGate.guardMutation()
             try await api.request(
                 .post,
-                path: ReceiptEndpoint.rerunOCR(id: id, modelId: modelId).path,
-                jsonBody: RerunOCRBody(modelId: modelId)
+                path: ReceiptEndpoint.reprocess(id: id).path,
+                jsonBody: ReprocessBody(modelId: modelId)
             )
             await loadDetail(id: id)
         } catch APIError.demoModeReadOnly {
@@ -101,7 +106,7 @@ final class ReceiptsState: ObservableObject {
         }
     }
 
-    // MARK: - Multipart helper
+    // MARK: - Multipart helper (image field, not generic "file")
 
     private func mimeTypeFor(fileURL: URL) -> String {
         switch fileURL.pathExtension.lowercased() {
@@ -128,8 +133,10 @@ final class ReceiptsState: ObservableObject {
             body.append("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(value)\r\n".data(using: .utf8)!)
         }
+        // Backend expects the file under field name "image" per
+        // handle_receipt_upload.py docstring.
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
         body.append(fileData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
@@ -155,7 +162,6 @@ final class ReceiptsState: ObservableObject {
         }
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(T.self, from: data)
     }
 }

@@ -89,7 +89,7 @@ struct InventoryView: View {
                     HStack {
                         Text(cat)
                         Spacer()
-                        Text("\(state.items.filter { $0.product?.category == cat }.count)")
+                        Text("\(state.items.filter { $0.category == cat }.count)")
                             .font(.appCaption1.monospaced())
                             .foregroundStyle(DesignTokens.tertiaryLabel)
                     }
@@ -118,8 +118,8 @@ struct InventoryView: View {
                     InventoryRow(
                         item: item,
                         onAddToShopping: { Task { await addToShopping(item) } },
-                        onAdjust: { delta in Task { await state.adjustQuantity(id: item.id, delta: delta) } },
-                        onMarkLow: { Task { await state.markLowStock(id: item.id) } }
+                        onAdjust: { delta in Task { await state.consume(itemId: item.id, delta: delta) } },
+                        onMarkLow: { Task { await state.markLow(productId: item.productId) } }
                     )
                     .tag(item.id as Int?)
                 }
@@ -133,19 +133,17 @@ struct InventoryView: View {
         state.items.filter { item in
             if lowStockOnly && !item.isLowStock { return false }
             if let cat = selectedCategory {
-                if item.product?.category != cat { return false }
+                if item.category != cat { return false }
             }
             if !search.isEmpty {
-                let n = item.product?.displayName ?? item.product?.name ?? ""
-                if n.localizedCaseInsensitiveContains(search) == false { return false }
+                if !item.displayName.localizedCaseInsensitiveContains(search) { return false }
             }
             return true
         }
     }
 
     private func addToShopping(_ item: InventoryItem) async {
-        let name = item.product?.displayName ?? item.product?.name ?? "Item #\(item.productId)"
-        await shopping.add(productName: name, quantity: 1, source: "manual", productId: item.productId)
+        await shopping.add(productName: item.displayName, quantity: 1, source: "manual", productId: item.productId)
     }
 }
 
@@ -159,18 +157,21 @@ private struct InventoryRow: View {
         HStack(spacing: DesignTokens.Spacing.space3) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(item.product?.displayName ?? item.product?.name ?? "Item #\(item.productId)")
+                    Text(item.displayName)
                         .font(.appBody)
                     if item.isLowStock {
                         LowStockPill(severity: item.quantity <= 0 ? .critical : .low)
                     }
                 }
                 HStack(spacing: 6) {
-                    if let cat = item.product?.category {
+                    if let cat = item.category {
                         Text(cat).font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
                     }
                     if let loc = item.location {
                         Text("• \(loc)").font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
+                    }
+                    if let unit = item.unit, unit != "each" {
+                        Text("• \(unit)").font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
                     }
                 }
             }

@@ -17,6 +17,10 @@ final class HouseholdState: ObservableObject {
         self.api = api
     }
 
+    struct MembersResponse: Codable { let members: [HouseholdMember]? }
+    struct UsersResponse: Codable { let users: [User]? }
+    struct AIModelsResponse: Codable { let models: [AIModelConfig]? }
+
     func loadAll() async {
         async let m: () = loadMembers()
         async let u: () = loadUsers()
@@ -26,7 +30,15 @@ final class HouseholdState: ObservableObject {
 
     func loadMembers() async {
         do {
-            members = try await api.request(.get, path: HouseholdEndpoint.members.path, as: [HouseholdMember].self)
+            // Try the envelope-wrapped shape first; fall back to bare array.
+            let data = try await api.rawRequest(.get, path: AuthEndpoint.householdMembers.path)
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let wrapped = try? decoder.decode(MembersResponse.self, from: data), let arr = wrapped.members {
+                members = arr
+            } else if let bare = try? decoder.decode([HouseholdMember].self, from: data) {
+                members = bare
+            }
         } catch {
             logger.error("loadMembers: \(error.localizedDescription, privacy: .public)")
         }
@@ -34,17 +46,32 @@ final class HouseholdState: ObservableObject {
 
     func loadUsers() async {
         do {
-            users = try await api.request(.get, path: HouseholdEndpoint.users.path, as: [User].self)
+            let data = try await api.rawRequest(.get, path: AuthEndpoint.householdUsers.path)
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let wrapped = try? decoder.decode(UsersResponse.self, from: data), let arr = wrapped.users {
+                users = arr
+            } else if let bare = try? decoder.decode([User].self, from: data) {
+                users = bare
+            }
         } catch {
             logger.error("loadUsers: \(error.localizedDescription, privacy: .public)")
         }
     }
 
     func loadAIModels() async {
+        // Backend's AI-models endpoint shape varies — best-effort decode.
         do {
-            aiModels = try await api.request(.get, path: HouseholdEndpoint.aiModels.path, as: [AIModelConfig].self)
+            let data = try await api.rawRequest(.get, path: "/ai-models")
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let wrapped = try? decoder.decode(AIModelsResponse.self, from: data), let arr = wrapped.models {
+                aiModels = arr
+            } else if let bare = try? decoder.decode([AIModelConfig].self, from: data) {
+                aiModels = bare
+            }
         } catch {
-            logger.error("loadAIModels: \(error.localizedDescription, privacy: .public)")
+            // Non-fatal — leave aiModels empty
         }
     }
 }

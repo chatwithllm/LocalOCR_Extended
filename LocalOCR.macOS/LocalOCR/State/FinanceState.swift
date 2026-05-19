@@ -25,7 +25,12 @@ final class FinanceState: ObservableObject {
 
     func loadBills() async {
         do {
-            bills = try await api.request(.get, path: FixedBillsEndpoint.list.path, as: [FixedBill].self)
+            let response = try await api.request(
+                .get,
+                path: FixedBillsEndpoint.list.path,
+                as: ObligationsListResponse.self
+            )
+            bills = response.obligations
         } catch {
             lastError = (error as? APIError)?.errorDescription
             logger.error("loadBills: \(error.localizedDescription, privacy: .public)")
@@ -34,7 +39,12 @@ final class FinanceState: ObservableObject {
 
     func loadCash() async {
         do {
-            cashTransactions = try await api.request(.get, path: CashEndpoint.list.path, as: [CashTransaction].self)
+            let response = try await api.request(
+                .get,
+                path: CashEndpoint.list.path,
+                as: CashTransactionsResponse.self
+            )
+            cashTransactions = response.transactions
         } catch {
             lastError = (error as? APIError)?.errorDescription
         }
@@ -42,31 +52,70 @@ final class FinanceState: ObservableObject {
 
     func loadPlaid() async {
         do {
-            async let accounts = api.request(.get, path: PlaidEndpoint.accounts.path, as: [PlaidAccount].self)
-            async let staged = api.request(.get, path: PlaidEndpoint.stagedTransactions.path, as: [PlaidTransaction].self)
-            plaidAccounts = try await accounts
-            stagedTransactions = try await staged
+            async let accountsResponse = api.request(.get, path: PlaidEndpoint.accounts.path, as: PlaidAccountsResponse.self)
+            async let stagedResponse = api.request(.get, path: PlaidEndpoint.stagedTransactions.path, as: PlaidStagedResponse.self)
+            plaidAccounts = try await accountsResponse.accounts
+            stagedTransactions = try await stagedResponse.rows
         } catch {
             lastError = (error as? APIError)?.errorDescription
+            logger.error("loadPlaid: \(error.localizedDescription, privacy: .public)")
         }
     }
 
+    /// Loads analytics — backend `/analytics/spending` returns a rich envelope.
+    /// Phase 4 polish: decode loosely with JSON, extract the slice we use.
     func loadSpending(month: String? = nil) async {
         do {
             var query: [URLQueryItem] = []
             if let month { query.append(URLQueryItem(name: "month", value: month)) }
-            spending = try await api.request(
+
+            // Use raw JSON to be forgiving of the rich/changing analytics shape.
+            let data = try await api.rawRequest(
                 .get,
-                path: AnalyticsEndpoint.spendingByCategory(month: month).path,
-                query: query,
-                as: SpendingAnalytics.self
+                path: AnalyticsEndpoint.spending(month: month).path,
+                query: query
             )
+            spending = parseSpending(data)
         } catch {
             lastError = (error as? APIError)?.errorDescription
         }
     }
 
-    // MARK: - Mutations (bills)
+    private func parseSpending(_ data: Data) -> SpendingAnalytics? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let categoriesRaw = (json["categories"] as? [[String: Any]]) ?? []
+        let categories: [SpendingCategoryTotal] = categoriesRaw.compactMap { row in
+            guard let cat = row["category"] as? String else { return nil }
+            let total = (row["total"] as? Double) ?? Double(row["total"] as? Int ?? 0)
+            let count = (row["receipt_count"] as? Int) ?? (row["count"] as? Int) ?? 0
+            return SpendingCategoryTotal(category: cat, total: total, receiptCount: count)
+        }
+
+        let merchantsRaw = (json["top_merchants"] as? [[String: Any]]) ?? []
+        let merchants: [MerchantFrequency] = merchantsRaw.compactMap { row in
+            guard let name = row["name"] as? String else { return nil }
+            let visits = (row["visit_count"] as? Int) ?? (row["count"] as? Int) ?? 0
+            let avg = (row["avg_amount"] as? Double) ?? 0
+            return MerchantFrequency(name: name, visitCount: visits, avgAmount: avg)
+        }
+
+        let monthlyRaw = (json["monthly_timeline"] as? [[String: Any]]) ?? []
+        let monthly: [MonthlySpend] = monthlyRaw.compactMap { row in
+            guard let month = row["month"] as? String else { return nil }
+            let total = (row["total"] as? Double) ?? Double(row["total"] as? Int ?? 0)
+            return MonthlySpend(month: month, total: total)
+        }
+
+        let period = (json["period_label"] as? String) ?? (json["period"] as? String) ?? ""
+        return SpendingAnalytics(
+            categories: categories,
+            topMerchants: merchants,
+            monthlyTimeline: monthly,
+            periodLabel: period
+        )
+    }
+
+    // MARK: - Mutations
 
     func renameBill(id: Int, label: String) async {
         do {
@@ -84,45 +133,23 @@ final class FinanceState: ObservableObject {
         }
     }
 
+    /// Bill mark-paid isn't a single backend endpoint — it routes through a cash
+    /// transaction tied to the bill provider. Phase 4 surfaces an info toast
+    /// rather than a broken POST.
     func markBillPaid(id: Int, amount: Double, date: Date = Date()) async {
-        do {
-            try DemoModeGate.guardMutation()
-            try await api.request(
-                .post,
-                path: FixedBillsEndpoint.markPaid(id: id, amount: amount, date: date).path,
-                jsonBody: BillMarkPaidBody(amount: amount, paidAt: date)
-            )
-            await loadBills()
-            ToastQueue.shared.push(Toast(message: "Bill marked paid", severity: .success))
-        } catch APIError.demoModeReadOnly {
-            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
-        } catch {
-            lastError = (error as? APIError)?.errorDescription
-        }
+        ToastQueue.shared.push(Toast(
+            message: "Mark Paid is handled through cash transactions on the web app.",
+            severity: .info
+        ))
     }
 
-    // MARK: - Mutations (cash)
-
-    func addCash(amount: Double, description: String, category: String?, date: Date) async {
-        do {
-            try DemoModeGate.guardMutation()
-            let body = CashCreateBody(amount: amount, description: description, category: category, transactionDate: date)
-            let created: CashTransaction = try await api.request(.post, path: CashEndpoint.list.path, jsonBody: body)
-            cashTransactions.insert(created, at: 0)
-            ToastQueue.shared.push(Toast(message: "Cash transaction added", severity: .success))
-        } catch APIError.demoModeReadOnly {
-            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
-        } catch {
-            lastError = (error as? APIError)?.errorDescription
-        }
-    }
-
-    // MARK: - Plaid
+    // Cash + Plaid mutations preserved as no-ops until matching backend
+    // endpoints are wired. (Web app handles linking flow + transaction confirm.)
 
     func syncPlaid() async {
         do {
             try DemoModeGate.guardMutation()
-            try await api.request(.post, path: PlaidEndpoint.syncNow.path)
+            try await api.request(.post, path: PlaidEndpoint.refreshBalances.path)
             await loadPlaid()
         } catch APIError.demoModeReadOnly {
             ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
@@ -134,7 +161,7 @@ final class FinanceState: ObservableObject {
     func confirmStagedTransaction(id: Int) async {
         do {
             try DemoModeGate.guardMutation()
-            try await api.request(.post, path: PlaidEndpoint.confirmTransaction(id: id).path)
+            try await api.request(.post, path: PlaidEndpoint.confirmStaged(id: id).path)
             stagedTransactions.removeAll { $0.id == id }
         } catch APIError.demoModeReadOnly {
             ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
@@ -146,12 +173,19 @@ final class FinanceState: ObservableObject {
     func dismissStagedTransaction(id: Int) async {
         do {
             try DemoModeGate.guardMutation()
-            try await api.request(.post, path: PlaidEndpoint.dismissTransaction(id: id).path)
+            try await api.request(.post, path: PlaidEndpoint.dismissStaged(id: id).path)
             stagedTransactions.removeAll { $0.id == id }
         } catch APIError.demoModeReadOnly {
             ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
         } catch {
             lastError = (error as? APIError)?.errorDescription
         }
+    }
+
+    func addCash(amount: Double, description: String, category: String?, date: Date) async {
+        ToastQueue.shared.push(Toast(
+            message: "Cash entries are managed under bill providers on the web app.",
+            severity: .info
+        ))
     }
 }

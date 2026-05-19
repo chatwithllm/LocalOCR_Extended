@@ -11,7 +11,7 @@ struct ReceiptReviewView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.space3) {
                 if let r = state.detail {
                     Text(r.storeName ?? "Receipt").font(.appTitle2)
-                    KeyValueRow(key: "Date",   value: r.date?.formatted(date: .abbreviated, time: .omitted) ?? "—")
+                    KeyValueRow(key: "Date",   value: r.dateValue?.formatted(date: .abbreviated, time: .omitted) ?? r.date ?? "—")
                     KeyValueRow(key: "Total",  value: String(format: "$%.2f", r.totalAmount), mono: true, valueColor: DesignTokens.success)
                     KeyValueRow(key: "Domain", value: r.domain ?? "—")
                 }

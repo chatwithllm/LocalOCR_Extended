@@ -136,13 +136,16 @@ private struct BillRow: View {
                 )
                 HStack(spacing: 6) {
                     Badge(text: bill.paymentStatus.capitalized, style: paymentStyle(bill.paymentStatus))
-                    Text(bill.billingCycle.capitalized).font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
-                    if let d = bill.nextDueDate {
-                        Text("• Due \(d.formatted(date: .abbreviated, time: .omitted))")
+                    if let cat = bill.providerCategory {
+                        Text(cat.capitalized).font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                    }
+                    if let avg = bill.avg6mo {
+                        Text("• avg $\(String(format: "%.0f", avg))/mo")
                             .font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
                     }
-                    if let provider = bill.providerName {
-                        Text("• \(provider)").font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
+                    if let latest = bill.latestActual {
+                        Text("• last $\(String(format: "%.0f", latest))")
+                            .font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
                     }
                 }
             }

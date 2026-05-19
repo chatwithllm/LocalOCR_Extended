@@ -33,7 +33,7 @@ struct CashTransactionsView: View {
         HStack(spacing: DesignTokens.Spacing.space3) {
             summaryChip(label: "Entries", value: "\(state.cashTransactions.count)", color: DesignTokens.label)
             if let last = state.cashTransactions.first?.transactionDate {
-                Text("Most recent: \(last.formatted(date: .abbreviated, time: .omitted))")
+                Text("Most recent: \(last)")
                     .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
             }
             Spacer()
@@ -110,10 +110,10 @@ struct CashTransactionsView: View {
     private var groupedByMonth: [(String, [CashTransaction])] {
         let fmt = DateFormatter()
         fmt.dateFormat = "LLLL yyyy"
-        let groups = Dictionary(grouping: state.cashTransactions) { fmt.string(from: $0.transactionDate) }
+        let groups = Dictionary(grouping: state.cashTransactions) { fmt.string(from: $0.transactionDateValue) }
         return groups
-            .map { ($0.key, $0.value.sorted { $0.transactionDate > $1.transactionDate }) }
-            .sorted { ($0.1.first?.transactionDate ?? .distantPast) > ($1.1.first?.transactionDate ?? .distantPast) }
+            .map { ($0.key, $0.value.sorted { $0.transactionDateValue > $1.transactionDateValue }) }
+            .sorted { ($0.1.first?.transactionDateValue ?? .distantPast) > ($1.1.first?.transactionDateValue ?? .distantPast) }
     }
 
     private func submit() async {
@@ -137,7 +137,7 @@ private struct CashRow: View {
                     if let c = transaction.category {
                         Text(c).font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
                     }
-                    Text("• \(transaction.transactionDate.formatted(date: .abbreviated, time: .omitted))")
+                    Text("• \(transaction.transactionDateValue.formatted(date: .abbreviated, time: .omitted))")
                         .font(.appCaption1).foregroundStyle(DesignTokens.tertiaryLabel)
                 }
             }

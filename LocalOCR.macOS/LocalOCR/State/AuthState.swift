@@ -126,7 +126,8 @@ final class AuthState: ObservableObject {
                 URLQueryItem(name: "state", value: state),
                 URLQueryItem(name: "code", value: code)
             ]
-            try await api.request(.get, path: AuthEndpoint.oauthGoogleCallback(state: state, code: code).path, query: q)
+            // Backend OAuth callback path — inline string since it's not a frequent client invocation.
+            try await api.request(.get, path: "/auth/google/callback", query: q)
             let me = try await api.request(.get, path: AuthEndpoint.me.path, as: AuthMeResponse.self)
             appState.applyAuthenticatedUser(me)
         } catch {

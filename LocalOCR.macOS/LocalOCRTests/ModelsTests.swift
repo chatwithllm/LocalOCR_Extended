@@ -47,27 +47,36 @@ final class ModelsTests: XCTestCase {
 
     func testReceiptDecodesISODate() throws {
         let json = #"""
-        {"id":99,"store_id":3,"store_name":"Whole Foods","total_amount":47.23,
-         "date":"2026-05-19T00:00:00Z","domain":"grocery","transaction_type":"card",
-         "user_id":1,"attribution_user_id":2,"image_url":null,"is_confirmed":true}
+        {"id":99,"store":"Whole Foods","total":47.23,
+         "date":"2026-05-19","receipt_type":"grocery","transaction_type":"purchase",
+         "attribution_user_id":2,"image_url":null,"status":"approved"}
         """#.data(using: .utf8)!
         let receipt = try decoder.decode(Receipt.self, from: json)
         XCTAssertEqual(receipt.totalAmount, 47.23, accuracy: 0.001)
-        XCTAssertNotNil(receipt.date)
-        XCTAssertEqual(receipt.isConfirmed, true)
+        XCTAssertNotNil(receipt.dateValue)
+        XCTAssertTrue(receipt.isConfirmed)
     }
 
     func testShoppingListItemIsPending() throws {
-        let pending = ShoppingListItem(id: 1, productId: nil, productName: "Milk",
-                                       quantity: 1, status: "pending", source: "manual",
-                                       note: nil, manualEstimatedPrice: nil, actualPrice: nil,
-                                       createdAt: nil)
-        XCTAssertTrue(pending.isPending)
+        // Backend status: "open" → pending; "purchased" → not pending.
+        let open = ShoppingListItem(
+            id: 1, productId: nil, shoppingSessionId: nil, name: "Milk",
+            productDisplayName: nil, productFullName: nil, category: nil,
+            quantity: 1, unit: nil, sizeLabel: nil,
+            status: "open", source: "manual", note: nil, preferredStore: nil,
+            manualEstimatedPrice: nil, actualPrice: nil,
+            createdAt: nil, updatedAt: nil
+        )
+        XCTAssertTrue(open.isPending)
 
-        let purchased = ShoppingListItem(id: 2, productId: nil, productName: "Bread",
-                                         quantity: 1, status: "purchased", source: "manual",
-                                         note: nil, manualEstimatedPrice: nil, actualPrice: nil,
-                                         createdAt: nil)
+        let purchased = ShoppingListItem(
+            id: 2, productId: nil, shoppingSessionId: nil, name: "Bread",
+            productDisplayName: nil, productFullName: nil, category: nil,
+            quantity: 1, unit: nil, sizeLabel: nil,
+            status: "purchased", source: "manual", note: nil, preferredStore: nil,
+            manualEstimatedPrice: nil, actualPrice: nil,
+            createdAt: nil, updatedAt: nil
+        )
         XCTAssertFalse(purchased.isPending)
     }
 

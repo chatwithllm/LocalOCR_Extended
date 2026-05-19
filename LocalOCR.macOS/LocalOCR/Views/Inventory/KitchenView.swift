@@ -10,7 +10,7 @@ struct KitchenView: View {
                     Card {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(cat).font(.appHeadline)
-                            Text("\(state.items.filter { $0.product?.category == cat }.count) items")
+                            Text("\(state.items.filter { $0.category == cat }.count) items")
                                 .font(.appCaption1)
                                 .foregroundStyle(DesignTokens.secondaryLabel)
                         }

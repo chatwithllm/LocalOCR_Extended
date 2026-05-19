@@ -7,7 +7,7 @@ struct ProductDetailSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.space4) {
             HStack {
-                Text(item.product?.displayName ?? item.product?.name ?? "Item")
+                Text(item.displayName)
                     .font(.appTitle2)
                 Spacer()
                 Button("Done") { dismiss() }
@@ -16,14 +16,20 @@ struct ProductDetailSheet: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 8) {
-                    KeyValueRow(key: "Category", value: item.product?.category ?? "—")
+                    KeyValueRow(key: "Category", value: item.category ?? "—")
                     KeyValueRow(key: "Location", value: item.location ?? "—")
                     KeyValueRow(key: "Quantity", value: String(format: "%.0f", item.quantity), mono: true)
                     if let t = item.threshold {
                         KeyValueRow(key: "Threshold", value: String(format: "%.0f", t), mono: true)
                     }
                     if let exp = item.expiresAt {
-                        KeyValueRow(key: "Expires", value: exp.formatted(date: .abbreviated, time: .omitted))
+                        KeyValueRow(key: "Expires", value: exp)
+                    }
+                    if let brand = item.brand {
+                        KeyValueRow(key: "Brand", value: brand)
+                    }
+                    if let size = item.size {
+                        KeyValueRow(key: "Size", value: size)
                     }
                 }
             }
