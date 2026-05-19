@@ -23,17 +23,8 @@ struct LocalOCRApp: App {
         }
 
         Settings {
-            SettingsPlaceholderView()
+            SettingsView()
+                .environmentObject(appState)
         }
-    }
-}
-
-/// Phase 2 placeholder for the Preferences window. Replaced in Phase 6 by full
-/// Settings panes (§3.8, §5.2).
-private struct SettingsPlaceholderView: View {
-    var body: some View {
-        Text("Settings — implemented in Phase 6")
-            .padding(DesignTokens.Spacing.space6)
-            .frame(width: 480, height: 320)
     }
 }
