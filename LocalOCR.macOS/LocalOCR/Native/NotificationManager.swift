@@ -21,9 +21,32 @@ final class NotificationManager: NSObject {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         guard settings.authorizationStatus == .notDetermined else { return }
+
+        // Unsigned macOS builds cannot request notification permission — the
+        // system rejects the call with UNError code 1 ('notificationsNotAllowed')
+        // BEFORE showing the user a prompt, so authorizationStatus stays
+        // .notDetermined forever. Without a guard we'd retry on every launch
+        // and spam Console.app with red error lines. Track the rejection in
+        // UserDefaults and skip subsequent attempts.
+        let rejectionKey = "LocalOCR.notificationRequestRejected"
+        if UserDefaults.standard.bool(forKey: rejectionKey) {
+            logger.info("notification request previously rejected — skipping")
+            return
+        }
+
         do {
             _ = try await center.requestAuthorization(options: [.alert, .sound, .badge])
-        } catch {
+            // Cleared by a successful prompt — clear any stale rejection flag.
+            UserDefaults.standard.removeObject(forKey: rejectionKey)
+        } catch let error as NSError {
+            // UNError.notificationsNotAllowed = 1 — expected for unsigned local
+            // builds. Log at .info, latch the rejection so we don't retry, and
+            // surface it as a one-time hint instead of a recurring red error.
+            if error.domain == "UNErrorDomain", error.code == 1 {
+                UserDefaults.standard.set(true, forKey: rejectionKey)
+                logger.info("notifications unavailable (unsigned build or system-blocked) — silenced for future launches")
+                return
+            }
             logger.warning("requestAuthorization failed: \(error.localizedDescription, privacy: .public)")
         }
     }

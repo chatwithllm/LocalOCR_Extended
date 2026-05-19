@@ -108,6 +108,17 @@ This file is the institutional memory. Future agents read it on session start (o
 
 ---
 
+### I-10: Recurring red error on every launch — system-rejected API treated as caller error
+- **Symptom**: `requestAuthorization failed: The operation couldn't be completed. (UNErrorDomain error 1.)` fired on every launch. The error count grew with every reinstall, polluting Console.app and obscuring real errors during log validation (Rule 6).
+- **Root cause**: Unsigned macOS builds cannot request notification permission — the system rejects `UNUserNotificationCenter.requestAuthorization` with `UNError code 1` (`notificationsNotAllowed`) BEFORE prompting the user. `authorizationStatus` stays `.notDetermined` forever, so the `guard` in `requestAuthorizationIfNeeded` keeps letting the call through on every launch. The code logged at `.warning` level — a system-environment limitation surfaced as if it were a caller bug.
+- **Promoted from §10**: had been on the open-scar list for 3+ sessions before being locked in.
+- **User prompt that exposed it**:
+  > "promote UNErrorDomain first"
+- **Fix**: latch the rejection in UserDefaults (`LocalOCR.notificationRequestRejected`). On `UNErrorDomain 1`, set the flag, log at `.info`, and skip the call on every subsequent launch until the binary is signed or the user clears the flag. A successful prompt clears the flag.
+- **Rule locked in**: **When a system framework rejects a call with a code that means "the environment forbids this", don't log it as an error and don't retry every launch. Latch the rejection in UserDefaults, log at .info, gate the next attempt behind a state change.** Generalize: distinguish *transient caller errors* (retry next time) from *environmental capability errors* (latch + don't retry).
+
+---
+
 ### I-9: Marked registry rows ✅ without verifying the actual behavior
 - **Symptom**: Registry F-028 "Low Stock count badge button" and F-038 "Top Picks count badge button" were both marked ✅ (implemented). But the badges were just static `Text` views — clicking did nothing.
 - **Root cause**: I implemented "the badge is rendered" and assumed that met the row. The row's literal description includes "button" and "toggle `toggleDashboardSection`". I marked ✅ without re-reading the row's verb.
@@ -317,4 +328,4 @@ These are gaps not yet promoted to rules because they need one more incident to 
 
 - **PROD count still 0 sometimes** — `/products` returns `{total}` but in some sessions returns nothing. Suspect a session/scope issue. Watch for the next time it fails and capture the request/response then.
 - **Receipts Processed sparkline often empty** — `/analytics/spending?period=daily&months=1` returns empty `spending_by_period` even when receipts exist. Need to confirm whether this is a backend bug (no receipts in the current daily buckets) or a client query issue.
-- **`requestAuthorization failed: UNErrorDomain error 1`** — notification permission denied silently on every launch. Should distinguish "denied" from "not determined" and only retry once.
+- **(Promoted to I-10)** ~~`requestAuthorization failed: UNErrorDomain error 1`~~ — locked in as RULE 10 (system-environment capability errors must latch in UserDefaults, not retry every launch).

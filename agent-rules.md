@@ -271,6 +271,7 @@ If any failure condition → debug, fix, re-run from Step 1. Never skip to "done
 | "Standard CRUD / all fields" | Misses sub-fields, modals, states | Atomic registry — one row per element |
 | Skip pre-flight to save time | Guarantees wrong path/shape | Rule 1 — no exceptions |
 | Read plan for endpoint path | Plan can be wrong | Read blueprint + grep index.html |
+| Log system-rejection as `.warning` and retry next launch | Pollutes logs, breaks Rule 6 validation | Rule 10 — latch in UserDefaults, log at `.info` |
 
 ---
 
@@ -284,8 +285,7 @@ These have happened once but not yet ruled. Next incident locks in the rule.
 - **Receipts Processed sparkline empty** — `/analytics/spending?period=daily&months=1`
   returns empty `spending_by_period`. Confirm: backend bug vs wrong query params.
 
-- **`UNErrorDomain error 1` on every launch** — notification permission denied silently.
-  Should distinguish "denied" from "not determined" and only request once.
+- ~~**`UNErrorDomain error 1` on every launch**~~ — **PROMOTED TO RULE 10 (I-10)**.
 
 When any of these hits a second time → promote to a numbered Rule here.
 
@@ -330,6 +330,66 @@ interactively. If you cannot demo it, it is ❌.**
 | Mark ✅ because "it renders" | Rendering ≠ behavior — re-read verbs, verify interactivity |
 
 ---
+
+## RULE 10 — System Capability Errors Must Latch, Not Repeat
+
+**Source: I-10** — `UNUserNotificationCenter.requestAuthorization` threw `UNErrorDomain code 1` on every launch (unsigned builds can't request notification permission). The code logged `.warning` every time. Errors accumulated in Console.app and broke Rule 6 validation (Rule 6 says "ZERO `failed:` log lines" — but a baseline rejection that re-fires every launch makes that check meaningless).
+
+### The mistake pattern
+
+```swift
+// ❌ Wrong — keeps calling, keeps logging .warning forever
+do {
+    _ = try await center.requestAuthorization(options: [.alert])
+} catch {
+    logger.warning("requestAuthorization failed: \(error.localizedDescription)")
+}
+```
+
+The error is the **environment** saying "this capability isn't available in this build."
+It is not a caller bug. Retrying gains nothing; logging it as `.warning` poisons the log.
+
+### The correct pattern
+
+```swift
+// ✅ Latch the rejection in UserDefaults, log at .info, skip future attempts
+let rejectionKey = "App.notificationRequestRejected"
+if UserDefaults.standard.bool(forKey: rejectionKey) { return }
+
+do {
+    _ = try await center.requestAuthorization(options: [.alert])
+    UserDefaults.standard.removeObject(forKey: rejectionKey)   // clear on success
+} catch let error as NSError {
+    if error.domain == "UNErrorDomain", error.code == 1 {
+        UserDefaults.standard.set(true, forKey: rejectionKey)
+        logger.info("notifications unavailable in this build — silenced for future launches")
+        return
+    }
+    logger.warning("\(error.localizedDescription)")
+}
+```
+
+### Categorize errors before logging
+
+| Error kind | Behavior | Log level |
+|-----------|----------|-----------|
+| **Transient** (network blip, timeout) | Retry next time | `.warning` |
+| **Caller bug** (wrong payload, missing field) | Fix the call site | `.error` |
+| **Environmental capability** (unsigned, no entitlement, hardware missing) | Latch in UserDefaults; skip future launches | `.info` |
+| **Cancellation** (user-driven, view re-render) | Silent return | `.debug` or none (Rule 3) |
+
+### Rule of thumb
+
+If the SAME error fires on EVERY launch and retrying changes nothing, it's an **environmental capability error**. Latch it. Don't retry. Don't pollute the log.
+
+### Compliance check before merge
+
+```bash
+# After 5+ launches, the same error pattern should appear AT MOST once.
+/usr/bin/log show --last 10m --predicate 'subsystem == "<bundle>"' --info --debug | \
+  grep -cE "failed:|UNErrorDomain"
+# If count > 1 for the same error pattern → Rule 10 violated.
+```
 
 ---
 
