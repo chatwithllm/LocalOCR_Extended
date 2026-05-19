@@ -2315,7 +2315,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>
           </div>
 
-          <!-- Row 1.5: Fixed Obligations floor widget -->
+          <!-- Floor widget merged into Spending by Category — kept as hidden shell to avoid broken refs -->
           <div class="card" id="dashboard-floor-card" style="display:none">
             <div class="card-header">
               <span class="card-title">&#128204; Fixed Obligations</span>
@@ -21492,6 +21492,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let _spendingExpanded = false;
       const _spendingDrillCache = new Map();
       const _spendingDrillOpen = new Set();
+      let _floorSummaryData = null;
+      let _floorDrillOpen = false;
 
       function toggleDashboardSpendingCard() {
         const card = document.getElementById("dashboard-spending-card");
@@ -21539,6 +21541,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
         const visible = _spendingExpanded ? all : all.slice(0, _SPENDING_INITIAL_LIMIT);
         const maxAmt = Math.max(...all.map((r) => r.amount || 0), 1);
+        const floorRowHtml = _buildFloorRowHtml();
         body.innerHTML = visible
           .map((r, idx) => {
             const widthPct = Math.round(((r.amount || 0) / maxAmt) * 100);
@@ -21576,9 +21579,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <div class="spending-row__drill" id="spending-row-drill-${escAttr(cat)}" ${isOpen ? "" : "hidden"}></div>
               </div>`;
           })
-          .join("");
+          .join("") + floorRowHtml;
         // Repopulate any drill panels that were open before the rerender.
         _spendingDrillOpen.forEach((cat) => _renderSpendingDrillPanel(cat));
+        if (_floorDrillOpen) _renderFloorDrillPanel();
         if (moreWrap && moreBtn) {
           const hidden = all.length - _SPENDING_INITIAL_LIMIT;
           if (hidden > 0) {
@@ -21590,6 +21594,74 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             moreWrap.style.display = "none";
           }
         }
+      }
+
+      function _buildFloorRowHtml() {
+        const d = _floorSummaryData;
+        if (!d || !(d.obligations || []).filter(function(o) { return o.is_active !== false; }).length) return '';
+        const floorTotal = d.floor_total || 0;
+        const obs = d.obligations || [];
+        const paidTotal = obs.reduce(function(s, ob) { return s + (ob.this_month_actual != null ? ob.this_month_actual : 0); }, 0);
+        const paidPct = floorTotal > 0 ? Math.min(100, Math.round(paidTotal / floorTotal * 100)) : 0;
+        const chevron = _floorDrillOpen ? '&#9662;' : '&#9658;';
+        const isOpen = _floorDrillOpen;
+        return '<div class="spending-row-wrap ' + (isOpen ? 'is-open' : '') + '" id="floor-row-wrap">'
+          + '<button type="button" class="spending-row spending-row--floor" onclick="toggleFloorDrill()" aria-expanded="' + (isOpen ? 'true' : 'false') + '" title="Fixed monthly obligations">'
+          + '<div class="spending-row__label">'
+          + '<span class="spending-row__chevron">' + chevron + '</span>'
+          + '<span class="spending-row__icon">&#128204;</span>'
+          + '<span class="spending-row__name">Fixed</span>'
+          + '</div>'
+          + '<div class="spending-row__bar"><div class="spending-row__fill" style="width:' + paidPct + '%"></div></div>'
+          + '<div class="spending-row__amount">'
+          + '<span class="spending-row__amount-value">' + formatMoney(floorTotal) + '</span>'
+          + '<span class="spending-row__amount-delta">' + paidPct + '% paid</span>'
+          + '</div>'
+          + '</button>'
+          + '<div class="spending-row__drill" id="spending-row-drill-floor" ' + (isOpen ? '' : 'hidden') + '></div>'
+          + '</div>';
+      }
+
+      function toggleFloorDrill() {
+        _floorDrillOpen = !_floorDrillOpen;
+        _renderSpendingCategoryRows();
+        if (_floorDrillOpen) _renderFloorDrillPanel();
+      }
+
+      function _renderFloorDrillPanel() {
+        const panel = document.getElementById('spending-row-drill-floor');
+        if (!panel || !_floorSummaryData) return;
+        const obs = (_floorSummaryData.obligations || []);
+        if (!obs.length) {
+          panel.innerHTML = '<div class="spending-drill__empty">No active obligations.</div>';
+          return;
+        }
+        const paidTotal = obs.reduce(function(s, ob) { return s + (ob.this_month_actual != null ? ob.this_month_actual : 0); }, 0);
+        const paidCount = obs.filter(function(ob) { return ob.status === 'paid' || ob.status === 'paid_over'; }).length;
+        const rows = obs.map(function(ob) {
+          const expected = ob.expected_monthly_amount || 0;
+          const paid = ob.this_month_actual;
+          const fillClass = paid == null ? '' : paid > expected ? 'floor-drill-fill--over' : 'floor-drill-fill--paid';
+          const fillPct = expected > 0 && paid != null ? Math.min(100, Math.round(paid / expected * 100)) : 0;
+          const paidHtml = paid != null
+            ? '<span class="floor-drill-paid">' + formatMoney(paid) + '</span>'
+            : '<span style="color:var(--muted)">&#8212;</span>';
+          return '<div class="floor-drill-row">'
+            + '<div class="floor-drill-main">'
+            + '<div class="floor-drill-label" title="' + escAttr(ob.label) + '">' + escHtml(ob.label) + '</div>'
+            + '<div class="floor-drill-bar-wrap"><div class="floor-drill-fill ' + fillClass + '" style="width:' + fillPct + '%"></div></div>'
+            + '</div>'
+            + '<div class="floor-drill-amounts">'
+            + paidHtml
+            + '<span style="color:var(--muted);font-size:0.76rem"> / ' + formatMoney(expected) + '</span>'
+            + '</div>'
+            + '</div>';
+        }).join('');
+        panel.innerHTML = '<div class="spending-drill__header">'
+          + '<span>' + paidCount + ' of ' + obs.length + ' paid</span>'
+          + '<span>' + formatMoney(paidTotal) + '</span>'
+          + '</div>'
+          + '<div style="display:flex;flex-direction:column">' + rows + '</div>';
       }
 
       async function toggleSpendingCategoryDrill(category) {
@@ -21734,16 +21806,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         try {
           const now = new Date();
           const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          const res = await api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=50`);
+          const [res, floorRes] = await Promise.all([
+            api(`/analytics/spending-by-category?month=${encodeURIComponent(ym)}&limit=50`),
+            api(`/floor-obligations/summary?month=${encodeURIComponent(ym)}`),
+          ]);
           if (!res.ok) {
             body.innerHTML = '<div class="empty-state"><p>Could not load spending.</p></div>';
             if (totalEl) totalEl.textContent = "";
             return;
           }
+          _floorSummaryData = floorRes.ok ? await floorRes.json().catch(() => null) : null;
           const data = await res.json();
           const rows = data.categories || [];
           if (totalEl) totalEl.textContent = formatMoney(data.total || 0);
           _spendingAllRows = rows;
+          _floorDrillOpen = false;
           _spendingDrillCache.clear();
           _renderSpendingCategoryRows();
         } catch (err) {
@@ -22143,7 +22220,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           // Spend-by-Person moved to the Accounts page — don't load here.
           loadReceiptsActivity();
           loadSpendingByCategory();
-          loadFloorWidget();
           refreshAttributionStats();
           const demo = isDemoMode();
           const userChip = document.getElementById("dashboard-user-chip");

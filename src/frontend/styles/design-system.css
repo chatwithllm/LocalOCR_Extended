@@ -3080,6 +3080,57 @@ button.spending-row:hover {
 }
 .spending-drill__error { color: #e0803a; }
 
+/* ---------- Floor obligations drill (inside Spending by Category) --- */
+.spending-row--floor .spending-row__fill {
+  background: linear-gradient(90deg, #7b8cde 0%, #4f63c8 100%);
+}
+.floor-drill-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 2px;
+  font-size: 0.83rem;
+}
+.floor-drill-row + .floor-drill-row {
+  border-top: 1px solid var(--border);
+}
+.floor-drill-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.floor-drill-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.floor-drill-bar-wrap {
+  height: 5px;
+  background: var(--border, #333);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.floor-drill-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-brand, #4f63c8);
+}
+.floor-drill-fill--paid { background: #2fa36b; }
+.floor-drill-fill--over { background: #e0a134; }
+.floor-drill-amounts {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.floor-drill-paid {
+  font-weight: 700;
+  color: var(--text);
+}
+
 /* ---------- Spending Flow (Sankey-style) -------------------- */
 .spending-flow {
   width: 100%;
