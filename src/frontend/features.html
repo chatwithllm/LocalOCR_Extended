@@ -628,8 +628,10 @@ function initFeatures() {
    Bootstrap: inject <script src="/features/data"> to load data.
    Using dynamic script injection avoids eval / new Function while
    still allowing the server to serve the JS file that sets
-   window.FEATURES_DATA.  A 401 response causes a network error
-   which we catch and redirect to /.
+   window.FEATURES_DATA.  A 401 from a <script src> tag does NOT
+   fire onerror — the browser silently discards the response and
+   onload never fires, leaving the page broken.  The fetch lets us
+   catch 401 explicitly and redirect to /.
    =========================== */
 (function bootstrap() {
   /* First probe auth — a lightweight HEAD isn't guaranteed for this

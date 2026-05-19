@@ -133,7 +133,7 @@ def keyword_match_feature(text):
         "contacts":           ["contact"],
     }
 
-    # Try exact phrase matches first, then individual keywords
+    # Return the first feature whose keyword list has any match (insertion order)
     for feature_id, keywords in keywords_map.items():
         for keyword in keywords:
             if keyword in text_lower:
@@ -201,23 +201,24 @@ def generate_feature_stubs():
         js_lines.append("  {")
         js_lines.append(f'    id: "{feature["id"]}", ')
         js_lines.append(f'    group: "{feature["group"]}", ')
-        js_lines.append(f'    icon: "{feature["icon"]}", ')
-        js_lines.append(f'    title: "{feature["title"]}", ')
-        # Escape quotes in tagline
-        tagline_escaped = feature["tagline"].replace('"', '\\"')
-        js_lines.append(f'    tagline: "{tagline_escaped}", ')
+        def esc(s):
+            return s.replace('\\', '\\\\').replace('"', '\\"')
+
+        js_lines.append(f'    icon: "{esc(feature["icon"])}", ')
+        js_lines.append(f'    title: "{esc(feature["title"])}", ')
+        js_lines.append(f'    tagline: "{esc(feature["tagline"])}", ')
         js_lines.append(f'    platforms: {repr(feature["platforms"]).replace("'", '"')}, ')
-        js_lines.append(f'    where: "{feature["where"]}", ')
+        js_lines.append(f'    where: "{esc(feature["where"])}", ')
 
         # Flow array
         js_lines.append("    flow: [")
         for flow_item in feature["flow"]:
-            js_lines.append(f'      {{ icon: "{flow_item["icon"]}", label: "{flow_item["label"]}", sub: "{flow_item["sub"]}" }},')
+            js_lines.append(f'      {{ icon: "{esc(flow_item["icon"])}", label: "{esc(flow_item["label"])}", sub: "{esc(flow_item["sub"])}" }},')
         js_lines.append("    ],")
 
         js_lines.append(f'    mockup: "{feature["mockup"]}", ')
         js_lines.append(f'    interactions: {repr(feature["interactions"]).replace("'", '"')}, ')
-        js_lines.append(f'    tip: "{feature["tip"]}", ')
+        js_lines.append(f'    tip: "{esc(feature["tip"])}", ')
 
         if i < len(features_array) - 1:
             js_lines.append("  },")
