@@ -40,6 +40,8 @@ struct DashboardView: View {
                                                                   // (combined Low Stock + Top Picks + Shopping)
 
                 receiptsActivityCard                              // F-030 … F-036
+
+                PageNavStrip()                                    // web parity — prev/next footer
             }
             .padding(DesignTokens.Spacing.space5)
         }
