@@ -754,4 +754,294 @@ window.FEATURES_DATA = [
     ],
     tip: "Settle-all marks all outstanding debts as paid — it doesn't send notifications. Tell people externally.",
   },
+
+  // ── Telegram Bot ──────────────────────────────────────────────────────────
+  {
+    id: "shopping-walk",
+    group: "Telegram Bot",
+    icon: "🛍",
+    title: "Shopping Walk",
+    tagline: "Guided Telegram session — item-by-item confirmation while you're at the store",
+    platforms: ["Telegram"],
+    where: "Telegram -> /shopping or nudge tap",
+    flow: [
+      { icon: "📱", label: "Start walk", sub: "/shopping" },
+      { icon: "🛍", label: "Item-by-item", sub: "bot guides you" },
+      { icon: "✅", label: "Confirm", sub: "got it or skip" },
+      { icon: "📦", label: "Stock updated", sub: "auto" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="font-size:0.65rem;color:#aaa;margin-bottom:4px">ShopBot</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px;margin-bottom:8px">'
+      + '<div style="font-weight:bold;margin-bottom:4px">🛒 Shopping Walk</div>'
+      + '<div style="color:#fff;margin-bottom:2px">Next: Organic Milk 1gal</div>'
+      + '<div style="color:#aaa;font-size:0.7rem">Last price: $5.49 · Low stock ⚠️</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px">'
+      + '<div style="background:#16a34a;color:#fff;border-radius:6px;padding:4px 10px;font-size:0.72rem;text-align:center;flex:1">✅ Got it</div>'
+      + '<div style="background:#3a1a1a;color:#f87171;border-radius:6px;padding:4px 10px;font-size:0.72rem;text-align:center;flex:1">❌ Skip</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Start with /shopping in Telegram",
+      "Got it to add to cart / Skip to pass",
+      "Resume a paused walk with /resume",
+      "Stock levels update after each confirmation",
+    ],
+    tip: "If you close Telegram mid-walk, send /resume to pick up where you left off.",
+  },
+  {
+    id: "inventory-walk",
+    group: "Telegram Bot",
+    icon: "📦",
+    title: "Inventory Walk",
+    tagline: "Update inventory quantities via Telegram — bot asks, you reply with count",
+    platforms: ["Telegram"],
+    where: "Telegram -> /inventory",
+    flow: [
+      { icon: "📱", label: "Start", sub: "/inventory" },
+      { icon: "📦", label: "Item prompt", sub: "bot asks qty" },
+      { icon: "🔢", label: "Reply qty", sub: "type number" },
+      { icon: "✅", label: "Saved", sub: "inventory updated" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="font-size:0.65rem;color:#aaa;margin-bottom:4px">ShopBot</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px;margin-bottom:6px">'
+      + '<div style="color:#fff">How many Organic Milk 1gal do you have?</div>'
+      + '<div style="color:#aaa;font-size:0.7rem;margin-top:2px">Current: 2 · Reply with new count</div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'
+      + '<div style="background:#1e3a5f;color:#fff;border-radius:8px;padding:5px 10px;font-size:0.75rem">3</div>'
+      + '</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px">'
+      + '<div style="color:#4ade80">✅ Updated to 3. Next: Sourdough Bread...</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Start with /inventory in Telegram",
+      "Reply with current quantity for each item",
+      "Type 'skip' to leave an item unchanged",
+      "Walk ends when all items counted",
+    ],
+    tip: "Use Inventory Walk after a big restock. Faster than editing counts one-by-one in the web UI.",
+  },
+  {
+    id: "dining-walk",
+    group: "Telegram Bot",
+    icon: "🍽",
+    title: "Dining Walk",
+    tagline: "Split a restaurant bill via Telegram — photo the bill, assign items per person",
+    platforms: ["Telegram"],
+    where: "Telegram -> /dining",
+    flow: [
+      { icon: "📷", label: "Photo bill", sub: "send to bot" },
+      { icon: "🤖", label: "OCR", sub: "extracts items" },
+      { icon: "👥", label: "Assign", sub: "who had what" },
+      { icon: "⚖️", label: "Splits", sub: "calculated" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="font-size:0.65rem;color:#aaa;margin-bottom:4px">ShopBot</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px;margin-bottom:6px">'
+      + '<div style="color:#fff;margin-bottom:2px">Who had Pad Thai $14.50?</div>'
+      + '<div style="color:#aaa;font-size:0.7rem">Reply: me / alex / sam / all</div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:flex-end">'
+      + '<div style="background:#1e3a5f;color:#fff;border-radius:8px;padding:5px 10px;font-size:0.75rem">me and alex</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Send receipt photo to bot in Telegram",
+      "Bot extracts line items via OCR",
+      "Assign each item to person(s)",
+      "Bot calculates final split per person",
+    ],
+    tip: "Assign an item to multiple people — the bot splits that item's cost evenly among them.",
+  },
+  {
+    id: "nudges",
+    group: "Telegram Bot",
+    icon: "🔔",
+    title: "Nudges",
+    tagline: "Scheduled Telegram reminders — shopping nudge at 09:30 when low-stock items exist",
+    platforms: ["Telegram"],
+    where: "Telegram -> auto-sent at scheduled time",
+    flow: [
+      { icon: "⚙️", label: "Configure", sub: "time + type" },
+      { icon: "🔔", label: "Nudge sent", sub: "at schedule" },
+      { icon: "📱", label: "Tap CTA", sub: "start walk" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="font-size:0.65rem;color:#aaa;margin-bottom:4px">ShopBot · 9:30 AM</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px;margin-bottom:8px">'
+      + '<div style="font-weight:bold;margin-bottom:4px">🛒 Shopping reminder</div>'
+      + '<div style="color:#fff;margin-bottom:2px">You have 5 low-stock items.</div>'
+      + '<div style="color:#aaa;font-size:0.7rem">Ready to walk the store?</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px">'
+      + '<div style="background:#3b82f6;color:#fff;border-radius:6px;padding:4px 10px;font-size:0.72rem;text-align:center;flex:1">Start walk</div>'
+      + '<div style="background:#333;color:#aaa;border-radius:6px;padding:4px 10px;font-size:0.72rem;text-align:center;flex:1">Later</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Fires daily at 09:30 if low-stock items exist",
+      "Tap 'Start walk' to begin Shopping Walk inline",
+      "Tap 'Later' to dismiss for today",
+    ],
+    tip: "Nudge only fires when there are actual low-stock items — you won't get reminders on a fully-stocked week.",
+  },
+
+  // ── Household ─────────────────────────────────────────────────────────────
+  {
+    id: "auth-members",
+    group: "Household",
+    icon: "🔑",
+    title: "Auth and Members",
+    tagline: "Login, household roles (admin/member), invite flow for new members",
+    platforms: ["Web", "Mobile"],
+    where: "/ (login page) · Nav -> Settings -> Members",
+    flow: [
+      { icon: "🔑", label: "Login", sub: "email + pass" },
+      { icon: "🏠", label: "Household", sub: "join or create" },
+      { icon: "👥", label: "Invite", sub: "share code" },
+      { icon: "✅", label: "Member", sub: "full access" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div><div style="font-weight:bold">You (admin)</div><div style="color:#888;font-size:0.7rem">chatwithllm@gmail.com</div></div>'
+      + '<div style="background:#1e3a5f;color:#60a5fa;border-radius:4px;padding:2px 8px;font-size:0.65rem;font-weight:bold">admin</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div><div style="font-weight:bold">Alex</div><div style="color:#888;font-size:0.7rem">alex@example.com</div></div>'
+      + '<div style="background:#2a2a2e;color:#aaa;border-radius:4px;padding:2px 8px;font-size:0.65rem">member</div>'
+      + '</div>'
+      + '<div style="background:#3b82f6;color:#fff;border-radius:6px;padding:5px 10px;font-size:0.72rem;text-align:center;margin-top:8px">+ Invite member</div>'
+      + '</div>',
+    interactions: [
+      "Email + password login",
+      "Create new household or join with invite code",
+      "Admin can invite and remove members",
+      "All members share the same data",
+    ],
+    tip: "All household members share inventory, receipts, and analytics. Contributions track who scanned what.",
+  },
+  {
+    id: "contributions",
+    group: "Household",
+    icon: "🏅",
+    title: "Contributions",
+    tagline: "Who scanned what — per-member contribution ledger and monthly leaderboard",
+    platforms: ["Web"],
+    where: "Nav -> Contribution",
+    flow: [
+      { icon: "📸", label: "Member scans", sub: "receipt" },
+      { icon: "🏅", label: "Credit", sub: "auto-recorded" },
+      { icon: "📊", label: "Leaderboard", sub: "monthly" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div style="display:flex;align-items:center;gap:6px"><span>🥇</span><div><div style="font-weight:bold;color:#4ade80">You</div><div style="color:#888;font-size:0.7rem">42 receipts this month</div></div></div>'
+      + '<div style="color:#4ade80;font-weight:bold">1,240 pts</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">'
+      + '<div style="display:flex;align-items:center;gap:6px"><span>🥈</span><div><div style="color:#aaa">Alex</div><div style="color:#888;font-size:0.7rem">18 receipts</div></div></div>'
+      + '<div style="color:#aaa">540 pts</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Monthly leaderboard by receipts scanned",
+      "Drill into any member's contribution list",
+      "Points reset each month",
+    ],
+    tip: "Points are just for fun — no app behavior changes based on rank.",
+  },
+  {
+    id: "demo-mode",
+    group: "Household",
+    icon: "👁",
+    title: "Demo Mode",
+    tagline: "Read-only guest mode with seeded sample data — safe to show anyone",
+    platforms: ["Web"],
+    where: "/ (login page) -> Try Demo",
+    flow: [
+      { icon: "👁", label: "Open demo", sub: "no login" },
+      { icon: "🔒", label: "Read-only", sub: "no mutations" },
+      { icon: "📊", label: "Full UI", sub: "seeded data" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="background:#e0a134;color:#000;border-radius:6px;padding:5px 8px;font-size:0.72rem;margin-bottom:8px;font-weight:bold">'
+      + '👁 Demo Mode — read-only. Data is sample data only.'
+      + '</div>'
+      + '<div style="color:#aaa;font-size:0.7rem;margin-bottom:6px">All features visible. Write actions show:</div>'
+      + '<div style="color:#e0a134;font-size:0.72rem">Demo mode — sign in to save</div>'
+      + '</div>',
+    interactions: [
+      "Click 'Try Demo' on the login page",
+      "Browse full UI with realistic sample data",
+      "Write actions prompt you to sign in",
+      "Exit demo by clicking Sign In",
+    ],
+    tip: "Demo mode is perfect for showing the app to a potential new household member before they create an account.",
+  },
+  {
+    id: "ai-chat",
+    group: "Household",
+    icon: "🤖",
+    title: "AI Chat",
+    tagline: "Natural language questions about your spending and inventory",
+    platforms: ["Web"],
+    where: "Nav -> Chat",
+    flow: [
+      { icon: "💬", label: "Ask question", sub: "plain English" },
+      { icon: "🤖", label: "AI queries", sub: "your data" },
+      { icon: "📊", label: "Answer", sub: "with context" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="display:flex;justify-content:flex-end;margin-bottom:6px">'
+      + '<div style="background:#1e3a5f;color:#fff;border-radius:8px;padding:5px 10px;font-size:0.72rem;max-width:80%">How much did I spend on groceries last month?</div>'
+      + '</div>'
+      + '<div style="background:#2a2a2e;border-radius:8px;padding:8px;font-size:0.72rem">'
+      + '<div style="color:#60a5fa;font-size:0.65rem;margin-bottom:4px">AI</div>'
+      + '<div style="color:#fff">In April you spent <span style="color:#4ade80;font-weight:bold">$342</span> on groceries across 8 receipts.</div>'
+      + '<div style="color:#aaa;margin-top:4px">Whole Foods was your most visited ($210).</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Ask anything about your spending history",
+      "Ask about inventory ('do I have eggs?')",
+      "Get summaries ('biggest expense category?')",
+      "Switch AI model in Settings",
+    ],
+    tip: "Chat has access to receipts, inventory, and analytics — not bank transaction details.",
+  },
+  {
+    id: "medications",
+    group: "Household",
+    icon: "💊",
+    title: "Medications",
+    tagline: "Medication tracking workspace — log medications, track stock, set refill alerts",
+    platforms: ["Web"],
+    where: "Nav -> Medications",
+    flow: [
+      { icon: "➕", label: "Add med", sub: "name + dose" },
+      { icon: "💊", label: "Track", sub: "stock count" },
+      { icon: "🔔", label: "Remind", sub: "refill alert" },
+    ],
+    mockup: '<div style="max-width:260px;background:#1a1a1e;border-radius:10px;padding:10px;font-size:0.75rem;color:#fff">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div><div style="font-weight:bold">Vitamin D 2000IU</div><div style="color:#888;font-size:0.7rem">Daily · 45 remaining</div></div>'
+      + '<div style="color:#4ade80;font-size:0.8rem">✓</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">'
+      + '<div><div style="font-weight:bold">Magnesium</div><div style="color:#e0a134;font-size:0.7rem">⚠️ 5 remaining — refill soon</div></div>'
+      + '<div style="color:#e0a134;font-size:0.8rem">⚠️</div>'
+      + '</div>'
+      + '</div>',
+    interactions: [
+      "Add medications with name, dose, frequency",
+      "Track remaining pill count",
+      "Get refill alerts when stock is low",
+      "View medication history",
+    ],
+    tip: "Medication stock doesn't auto-decrement — update count manually when you open a new bottle.",
+  },
 ];
