@@ -61,12 +61,29 @@ struct DashboardView: View {
                 .keyboardShortcut("r", modifiers: .command)
             }
         }
-        .task { await refreshAll() }
+        .onAppear { triggerRefresh() }
+    }
+
+    /// Fire-and-forget refresh — NOT bound to view lifecycle so SwiftUI can't
+    /// cancel the in-flight URLSession requests when the view's identity
+    /// changes. (Using `.task { ... }` caused a 200ms cancel-and-retry loop
+    /// because the closure was being re-invoked on every body re-evaluation.)
+    private func triggerRefresh() {
+        Task.detached(priority: .userInitiated) {
+            await dashboard.loadAll()
+        }
+        Task.detached(priority: .userInitiated) {
+            await inventory.loadInventory()
+        }
+        Task.detached(priority: .userInitiated) {
+            await shopping.loadList()
+        }
+        Task.detached(priority: .userInitiated) {
+            await finance.loadBills()
+        }
     }
 
     private func refreshAll() async {
-        // dashboard.loadAll() now owns spending-by-category — don't double-fetch
-        // via finance.loadSpending() which uses a different rollup endpoint.
         async let _ = dashboard.loadAll()
         async let _ = inventory.loadInventory()
         async let _ = shopping.loadList()
