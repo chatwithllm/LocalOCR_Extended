@@ -15,9 +15,10 @@ struct LocalOCRApp: App {
             RootView()
                 .environmentObject(appState)
                 .environmentObject(router)
-                .frame(minWidth: 900, minHeight: 600)
+                .frame(minWidth: 1100, minHeight: 700)
         }
         .windowResizability(.contentMinSize)
+        .defaultSize(width: 1200, height: 800)
         .commands {
             // TODO Phase 5: full AppMenuCommands per §5.4 / §3.3.
         }

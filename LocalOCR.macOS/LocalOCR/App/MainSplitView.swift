@@ -8,8 +8,7 @@ struct MainSplitView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $sidebarVisibility) {
             SidebarView(active: $router.activeTab)
-                .frame(minWidth: 180, idealWidth: 220, maxWidth: 340)
-                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 340)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 340)
         } detail: {
             tabContent
         }
