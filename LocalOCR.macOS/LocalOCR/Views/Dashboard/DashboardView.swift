@@ -107,60 +107,179 @@ struct DashboardView: View {
                 GridItem(.flexible(), spacing: DesignTokens.Spacing.space3),
                 GridItem(.flexible(), spacing: DesignTokens.Spacing.space3)
             ],
+            alignment: .leading,
             spacing: DesignTokens.Spacing.space3
         ) {
-            tileButton(
-                title: "Low Stock",
-                systemImage: "exclamationmark.triangle.fill",
-                tint: DesignTokens.warning,
-                badge: "\(inventory.lowStockItems.count)"
-            ) { router.activeTab = .inventory }
-
-            tileButton(
-                title: "Top Picks",
-                systemImage: "lightbulb.fill",
-                tint: DesignTokens.accent,
-                badge: "\(dashboard.recommendations.count)"
-            ) { router.activeTab = .shopping }
-
-            tileButton(
-                title: "Shopping List",
-                systemImage: "cart.fill",
-                tint: DesignTokens.secondaryLabel,
-                badge: "\(shopping.pendingCount)",
-                trailing: shopping.estimatedTotal > 0 ? String(format: "$%.2f", shopping.estimatedTotal) : nil
-            ) { router.activeTab = .shopping }
+            lowStockTile
+            topPicksTile
+            shoppingListTile
         }
     }
 
-    private func tileButton(title: String, systemImage: String, tint: Color, badge: String, trailing: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: systemImage).foregroundStyle(tint)
-                Text(title)
-                    .font(.appHeadline)
-                    .foregroundStyle(DesignTokens.label)
-                Spacer()
-                if let trailing {
-                    Text(trailing)
-                        .font(.appCaption1.monospaced())
-                        .foregroundStyle(DesignTokens.secondaryLabel)
+    // Each tile shows a header (icon + name + count) AND a vertical item list
+    // with per-item action buttons. Mirrors the web's expanded-tile layout.
+    private var lowStockTile: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                tileHeader(title: "Low Stock",
+                           systemImage: "exclamationmark.triangle.fill",
+                           tint: DesignTokens.warning,
+                           badge: "\(inventory.lowStockItems.count)")
+
+                if inventory.lowStockItems.isEmpty {
+                    Text("All items well-stocked!")
+                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                } else {
+                    ForEach(inventory.lowStockItems.prefix(6)) { item in
+                        lowStockRow(item)
+                    }
+                    if inventory.lowStockItems.count > 6 {
+                        Button("View all (\(inventory.lowStockItems.count))") {
+                            router.activeTab = .inventory
+                        }
+                        .buttonStyle(GhostButtonStyle())
+                    }
                 }
-                Text(badge)
-                    .font(.appMonoCaption.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(tint.opacity(0.15))
-                    .foregroundStyle(tint)
-                    .clipShape(Capsule())
             }
-            .padding(DesignTokens.Spacing.space3)
-            .background(DesignTokens.surface)
-            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
-            .overlay(
-                RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
-                    .stroke(DesignTokens.border, lineWidth: 0.5)
-            )
+        }
+    }
+
+    private func lowStockRow(_ item: InventoryItem) -> some View {
+        HStack(spacing: 6) {
+            LowStockPill(severity: item.quantity <= 0 ? .critical : .low)
+            Text(truncate(item.displayName, length: 14))
+                .font(.appCaption1).foregroundStyle(DesignTokens.label)
+            Spacer()
+            actionChip(text: "Confirm", systemImage: "checkmark") {
+                Task { await inventory.markLow(productId: item.productId) }
+            }
+            actionChip(text: "Cart", systemImage: "cart.fill") {
+                Task { await shopping.add(productName: item.displayName, quantity: 1, source: "low_stock", productId: item.productId) }
+            }
+        }
+    }
+
+    private var topPicksTile: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                tileHeader(title: "Top Picks",
+                           systemImage: "lightbulb.fill",
+                           tint: DesignTokens.accent,
+                           badge: "\(dashboard.recommendations.count)")
+
+                if dashboard.recommendations.isEmpty {
+                    Text("No recommendations yet")
+                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                } else {
+                    ForEach(dashboard.recommendations.prefix(5)) { rec in
+                        topPickRow(rec)
+                    }
+                    if dashboard.recommendations.count > 5 {
+                        Button("View all (\(dashboard.recommendations.count))") {
+                            router.activeTab = .shopping
+                        }
+                        .buttonStyle(GhostButtonStyle())
+                    }
+                }
+            }
+        }
+    }
+
+    private func topPickRow(_ rec: Recommendation) -> some View {
+        HStack(spacing: 6) {
+            Text(categoryEmoji(for: rec.category ?? "")).font(.system(size: 12))
+            Text(truncate(rec.label, length: 14))
+                .font(.appCaption1).foregroundStyle(DesignTokens.label)
+            Spacer()
+            actionChip(text: "Add", systemImage: "cart.fill") {
+                Task { await shopping.add(productName: rec.label, quantity: 1, source: "recommendation", productId: rec.productId) }
+            }
+            actionChip(text: "Confirm", systemImage: "checkmark") {
+                // Phase: mark recommendation applied (server endpoint exists, can wire later)
+            }
+        }
+    }
+
+    private var shoppingListTile: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                tileHeader(
+                    title: "Shopping List",
+                    systemImage: "cart.fill",
+                    tint: DesignTokens.secondaryLabel,
+                    badge: "\(shopping.pendingCount)",
+                    trailing: shopping.estimatedTotal > 0 ? String(format: "$%.2f", shopping.estimatedTotal) : nil
+                )
+
+                if shopping.items.isEmpty {
+                    Text("List is empty")
+                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                } else {
+                    ForEach(shopping.items.filter(\.isPending).prefix(5)) { item in
+                        shoppingListRowInline(item)
+                    }
+                    if shopping.pendingCount > 5 {
+                        Button("View all (\(shopping.pendingCount))") {
+                            router.activeTab = .shopping
+                        }
+                        .buttonStyle(GhostButtonStyle())
+                    }
+                }
+            }
+        }
+    }
+
+    private func shoppingListRowInline(_ item: ShoppingListItem) -> some View {
+        HStack(spacing: 6) {
+            Text(truncate(item.productName, length: 16))
+                .font(.appCaption1).foregroundStyle(DesignTokens.label)
+            if item.quantity > 1 {
+                Text("×\(Int(item.quantity))")
+                    .font(.appCaption2.monospaced())
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
+            }
+            Spacer()
+            if let price = item.manualEstimatedPrice ?? item.actualPrice, price > 0 {
+                Text(String(format: "$%.2f", price))
+                    .font(.appMonoCaption.weight(.medium))
+                    .foregroundStyle(DesignTokens.label)
+            }
+        }
+    }
+
+    /// Shared tile header — icon + title + count pill (+ optional trailing $).
+    private func tileHeader(title: String, systemImage: String, tint: Color, badge: String, trailing: String? = nil) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage).foregroundStyle(tint)
+            Text(title).font(.appHeadline)
+            Spacer()
+            if let trailing {
+                Text(trailing)
+                    .font(.appCaption1.monospaced())
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+            Text(badge)
+                .font(.appMonoCaption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(tint.opacity(0.15))
+                .foregroundStyle(tint)
+                .clipShape(Capsule())
+        }
+    }
+
+    /// Compact action chip — icon + tiny label. Used inside Low Stock + Top Picks rows.
+    private func actionChip(text: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: systemImage).font(.system(size: 9, weight: .semibold))
+                Text(text).font(.appCaption2.weight(.medium))
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(DesignTokens.accentDim)
+            .foregroundStyle(DesignTokens.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)
     }
@@ -520,7 +639,10 @@ struct DashboardView: View {
         }()
         let categoryColor = paletteColor(for: category.category)
         return HStack(spacing: DesignTokens.Spacing.space3) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
                 Text(categoryEmoji(for: category.category)).font(.system(size: 14))
                 Text(category.category).font(.appBody)
             }
@@ -563,7 +685,10 @@ struct DashboardView: View {
         let pct = Double(dashboard.fixedPaidPct) / 100.0
         let color = paletteColor(for: "fixed")
         return HStack(spacing: DesignTokens.Spacing.space3) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
                 Text("📌").font(.system(size: 14))
                 Text("Fixed").font(.appBody)
             }
