@@ -4,8 +4,6 @@ import SwiftUI
 
 /// Global app state. Owns auth status, household identity, server reachability,
 /// and derived counters used by Dock badge + menu bar.
-///
-/// Phase 1: stubs only — `@Published` fields declared; methods land in Phase 3 (Networking + Auth).
 @MainActor
 final class AppState: ObservableObject {
 
@@ -22,12 +20,8 @@ final class AppState: ObservableObject {
 
     @Published private(set) var authStatus: AuthStatus = .unauthenticated
 
-    // MARK: - Household identity (placeholder — real types in Phase 3)
-
-    @Published private(set) var currentUserId: Int? = nil
-    @Published private(set) var currentUserEmail: String? = nil
-    @Published private(set) var currentHouseholdId: Int? = nil
-    @Published private(set) var currentHouseholdName: String? = nil
+    @Published private(set) var currentUser: User? = nil
+    @Published private(set) var currentHousehold: Household? = nil
 
     // MARK: - Server reachability
 
@@ -43,4 +37,39 @@ final class AppState: ObservableObject {
     @Published private(set) var isDemoMode: Bool = false
 
     private init() {}
+
+    // MARK: - Mutators (called by AuthState)
+
+    func setAuthStatus(_ status: AuthStatus) {
+        authStatus = status
+    }
+
+    func setDemoMode(_ enabled: Bool) {
+        isDemoMode = enabled
+    }
+
+    func applyAuthenticatedUser(_ me: AuthMeResponse) {
+        currentUser = me.user
+        currentHousehold = me.household
+        isServerReachable = true
+        authStatus = .authenticated
+    }
+
+    func applyLoggedOut() {
+        currentUser = nil
+        currentHousehold = nil
+        authStatus = .unauthenticated
+    }
+
+    func setServerReachable(_ reachable: Bool) {
+        isServerReachable = reachable
+    }
+
+    func setLowStockCount(_ count: Int) {
+        lowStockCount = max(0, count)
+    }
+
+    func setPendingWriteCount(_ count: Int) {
+        pendingWriteCount = max(0, count)
+    }
 }

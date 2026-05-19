@@ -1,19 +1,14 @@
 import SwiftUI
 
-/// Static login form. Wires to AuthState in Phase 3 (Networking + Auth).
-///
-/// Form:
-///   - Server URL (shown only when no URL persisted in UserDefaults)
-///   - Email
-///   - Password
-///   - Sign In (PrimaryButtonStyle)
-///   - Sign in with Google (SecondaryButtonStyle, triggers GoogleOAuthSheet in Phase 3)
-///   - Try Demo Mode (GhostButtonStyle)
+/// Login form wired to AuthState (Phase 3).
 struct LoginView: View {
+    @StateObject private var auth = AuthState.shared
+    @StateObject private var prefs = PreferencesStore.shared
+
     @State private var email = ""
     @State private var password = ""
-    @State private var serverURL = ""
-    @State private var showServerURL = true   // Phase 3 reads from PreferencesStore
+    @State private var serverURLText = ""
+    @State private var showServerURL = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,6 +19,9 @@ struct LoginView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignTokens.background.ignoresSafeArea())
+        .onAppear {
+            serverURLText = prefs.apiBaseURL.absoluteString
+        }
     }
 
     private var container: some View {
@@ -36,8 +34,9 @@ struct LoginView: View {
                         labeledField(
                             label: "Server URL",
                             placeholder: AppConstants.defaultAPIBaseURL,
-                            text: $serverURL,
-                            isSecure: false
+                            text: $serverURLText,
+                            isSecure: false,
+                            commit: applyServerURL
                         )
                     }
                     labeledField(
@@ -53,20 +52,41 @@ struct LoginView: View {
                         isSecure: true
                     )
 
+                    if let errorMessage = auth.lastError {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(DesignTokens.error)
+                            Text(errorMessage)
+                                .font(.appCaption1)
+                                .foregroundStyle(DesignTokens.error)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     VStack(spacing: DesignTokens.Spacing.space2) {
-                        Button("Sign In") {
-                            // Phase 3: AuthState.shared.login(email:password:)
+                        Button {
+                            Task { await signIn() }
+                        } label: {
+                            HStack {
+                                if auth.isBusy {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Text("Sign In")
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle())
-                        .frame(maxWidth: .infinity)
                         .keyboardShortcut(.defaultAction)
-                        .disabled(email.isEmpty || password.isEmpty)
+                        .disabled(email.isEmpty || password.isEmpty || auth.isBusy)
 
                         Button("Sign in with Google") {
-                            // Phase 3: AuthState.shared.loginWithGoogle()
+                            // Phase 3: GoogleOAuthSheet driven by AuthState.loginWithGoogle()
+                            // — sheet host wires the completion to AuthState.completeGoogleOAuth.
                         }
                         .buttonStyle(SecondaryButtonStyle())
                         .frame(maxWidth: .infinity)
+                        .disabled(auth.isBusy)
                     }
                     .padding(.top, DesignTokens.Spacing.space2)
                 }
@@ -93,7 +113,7 @@ struct LoginView: View {
     private var footer: some View {
         HStack {
             Button("Try Demo Mode") {
-                // Phase 3: AuthState.shared.setDemoMode()
+                auth.setDemoMode()
             }
             .buttonStyle(GhostButtonStyle())
 
@@ -110,7 +130,26 @@ struct LoginView: View {
         .frame(maxWidth: 460)
     }
 
-    private func labeledField(label: String, placeholder: String, text: Binding<String>, isSecure: Bool) -> some View {
+    // MARK: - Actions
+
+    private func signIn() async {
+        applyServerURL()
+        await auth.login(email: email, password: password)
+    }
+
+    private func applyServerURL() {
+        let trimmed = serverURLText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return }
+        prefs.apiBaseURL = url
+    }
+
+    private func labeledField(
+        label: String,
+        placeholder: String,
+        text: Binding<String>,
+        isSecure: Bool,
+        commit: (() -> Void)? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.space1) {
             Text(label)
                 .font(.appCaption1.weight(.semibold))
@@ -119,7 +158,7 @@ struct LoginView: View {
                 if isSecure {
                     SecureField(placeholder, text: text)
                 } else {
-                    TextField(placeholder, text: text)
+                    TextField(placeholder, text: text, onCommit: { commit?() })
                 }
             }
             .textFieldStyle(.roundedBorder)
@@ -129,12 +168,9 @@ struct LoginView: View {
 }
 
 #Preview("LoginView / Light") {
-    LoginView()
-        .frame(width: 900, height: 640)
+    LoginView().frame(width: 900, height: 640)
 }
 
 #Preview("LoginView / Dark") {
-    LoginView()
-        .frame(width: 900, height: 640)
-        .preferredColorScheme(.dark)
+    LoginView().frame(width: 900, height: 640).preferredColorScheme(.dark)
 }

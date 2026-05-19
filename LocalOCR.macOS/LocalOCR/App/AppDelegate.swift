@@ -13,7 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        // TODO Phase 3: trigger BackgroundFetchScheduler foreground refresh.
+        Task { @MainActor in
+            BackgroundFetchScheduler.shared.foregroundRefresh()
+        }
     }
 
     /// Files dropped onto the Dock icon arrive here.

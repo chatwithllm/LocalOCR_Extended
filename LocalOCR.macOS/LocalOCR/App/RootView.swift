@@ -7,6 +7,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var router: Router
+    @StateObject private var auth = AuthState.shared
 
     var body: some View {
         ZStack {
@@ -31,6 +32,12 @@ struct RootView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(DesignTokens.background.ignoresSafeArea())
+        .task {
+            // Phase 3: probe session on first appear. ImageCache configured here too
+            // so Kingfisher downloader shares the cookie jar.
+            ImageCache.configureSharedCookies()
+            await auth.checkSession()
+        }
     }
 }
 
