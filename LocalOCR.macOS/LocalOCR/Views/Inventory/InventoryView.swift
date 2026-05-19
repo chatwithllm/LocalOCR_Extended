@@ -655,9 +655,27 @@ private struct InventoryRow: View {
                 .frame(width: 44, height: 44)
 
             VStack(alignment: .leading, spacing: 3) {
-                // F-156 — name with status fill bar behind (remaining_pct visualization).
-                ZStack(alignment: .leading) {
-                    StatusFillBar(remainingPct: item.remainingPct, status: item.status)
+                // F-156 / F-159 — draggable remaining-% slider with tap-to-cycle on the
+                // name area. The whole row body is the slider; the visible handle sits
+                // at the right edge of the fill. Tap (no drag) on the title area cycles
+                // status (fresh → low → out → fresh, buckets 80/40/10).
+                RemainingSlider(
+                    remainingPct: item.remainingPct,
+                    status: item.status,
+                    onCommit: { newPct in
+                        let id = item.id
+                        Task.detached(priority: .userInitiated) {
+                            await state.setRemainingOverride(itemId: id, remainingPct: newPct)
+                        }
+                    },
+                    onTapCycle: {
+                        let id = item.id
+                        let status = item.status
+                        Task.detached(priority: .userInitiated) {
+                            await state.cycleStatus(itemId: id, currentStatus: status)
+                        }
+                    }
+                ) {
                     HStack(spacing: 6) {
                         Text(item.displayName).font(.appBody)
                         if item.isLowStock {
@@ -718,101 +736,83 @@ private struct InventoryRow: View {
 
             Spacer()
 
-            // F-133 — inline consume (- / +)
-            HStack(spacing: 4) {
-                Button {
-                    Task.detached(priority: .userInitiated) {
-                        await state.consume(itemId: item.id, amount: 1)
-                    }
-                } label: { Image(systemName: "minus") }
-                    .keyboardShortcut(.downArrow, modifiers: .option)
-                    .help("Consume 1")
-                Text(String(format: "%.0f", item.quantity))
-                    .font(.appMonoBody)
-                    .frame(minWidth: 28)
-                Button {
-                    Task.detached(priority: .userInitiated) {
-                        await state.updateItem(itemId: item.id, quantity: item.quantity + 1)
-                    }
-                } label: { Image(systemName: "plus") }
-                    .keyboardShortcut(.upArrow, modifiers: .option)
-                    .help("Increase by 1")
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(DesignTokens.secondaryLabel)
+            // Action button row — order matches web verbatim: ✎ | +3d | 🛒 | −1 | ✓
+            // (See `_invBuildTile` in src/frontend/index.html line 24094-24124.)
+            //
+            // The mac-only −/qty/+ stepper that lived here in v0 was removed:
+            // web's quantity stepper has no inline equivalent. Quantity edits
+            // happen via the edit sheet (pencil) or via −1 (which patches
+            // quantity directly), matching web behavior 1:1.
 
-            // F-146 — per-row defer (matches web's per-tile +3d button; option-click → +7d)
+            // F-153 — inline edit (web ✎)
+            Button {
+                editingItem = item
+            } label: { Image(systemName: "pencil") }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Edit qty / location / threshold")
+
+            // F-146 — +3d defer (⌥-click → +7d, mirrors web's hold-press)
             Button {
                 let days = NSEvent.modifierFlags.contains(.option) ? 7 : 3
+                let pid = item.productId
                 Task.detached(priority: .userInitiated) {
-                    await state.deferExpiry(productId: item.productId, days: days)
+                    await state.deferExpiry(productId: pid, days: days)
                 }
             } label: {
-                Text("+3d")
-                    .font(.appCaption1.weight(.medium))
+                Text("+3d").font(.appCaption1.weight(.medium))
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .help("Push expiry forward 3 days (hold ⌥ for +7d)")
 
-            // F-153 — inline edit button (web ✎)
+            // F-154 — add-to-shopping (web 🛒)
             Button {
-                editingItem = item
-            } label: {
-                Image(systemName: "pencil")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .help("Edit qty / location / threshold")
-
-            // F-154 — inline add-to-shopping (web 🛒). Reflects on-list state via tint.
-            Button {
+                let pid = item.productId
+                let name = item.displayName
                 Task.detached(priority: .userInitiated) {
                     await ShoppingState.shared.add(
-                        productName: item.displayName,
-                        quantity: 1,
-                        source: "manual",
-                        productId: item.productId
+                        productName: name, quantity: 1,
+                        source: "manual", productId: pid
                     )
                 }
-            } label: {
-                Image(systemName: "cart")
-            }
+            } label: { Image(systemName: "cart") }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .help("Add to shopping list")
 
-            // F-155 — inline ✓ (used-up / clear-low). Like web: clears low signals
-            // when item is currently low; otherwise marks used-up (qty → 0).
-            // Option-click = "✓ + 🛒" (long-press equivalent).
+            // F-160 — −1 single-tap decrement. Matches web's `invDecrement`:
+            // PATCH /inventory/products/<pid> { quantity: max(0, q-1) }.
+            // Hitting 0 deletes the inventory row server-side (used-up path).
+            Button {
+                let pid = item.productId
+                Task.detached(priority: .userInitiated) {
+                    await state.decrementOne(productId: pid)
+                }
+            } label: {
+                Text("−1").font(.appCaption1.weight(.medium).monospacedDigit())
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .keyboardShortcut(.downArrow, modifiers: .option)
+            .help("Subtract 1 from quantity")
+
+            // F-155 — ✓ dual-mode (clear-low when low, else used-up). ⌥-click adds
+            // to shopping + marks used-up (mirrors web's long-press "✓ + 🛒").
             Button {
                 let isLow = item.isLowStock
-                let modifier = NSEvent.modifierFlags.contains(.option)
+                let useShortcut = NSEvent.modifierFlags.contains(.option)
+                let captured = item
                 Task.detached(priority: .userInitiated) {
                     if isLow {
-                        if item.manualLow == true {
-                            await state.markLow(productId: item.productId, manualLow: false)
-                        } else if let t = item.threshold, t > 0 {
-                            // Clear threshold so qty no longer trips low.
-                            await state.patch(productId: item.productId, body: InventoryPatchBody(
-                                displayName: nil, unit: nil, sizeLabel: nil,
-                                quantity: nil, location: nil, threshold: 0,
-                                expiresAt: nil, deferDays: nil
-                            ))
-                        }
+                        await state.clearLow(item: captured)
                     } else {
-                        await state.patch(productId: item.productId, body: InventoryPatchBody(
-                            displayName: nil, unit: nil, sizeLabel: nil,
-                            quantity: 0, location: nil, threshold: nil,
-                            expiresAt: nil, deferDays: nil
-                        ))
+                        await state.markUsedUp(productId: captured.productId)
                     }
-                    if modifier {
+                    if useShortcut {
                         await ShoppingState.shared.add(
-                            productName: item.displayName,
-                            quantity: 1,
-                            source: "auto_used_up",
-                            productId: item.productId
+                            productName: captured.displayName, quantity: 1,
+                            source: "auto_used_up", productId: captured.productId
                         )
                     }
                 }
@@ -941,28 +941,125 @@ private extension Color {
     static var userTint: Color  { Color(red: 0.42, green: 0.62, blue: 0.85) }
 }
 
-/// Horizontal fill bar visualising `remaining_pct` behind the name row.
-/// Color tracks `status` (fresh/expiring/expired). Width is clamped 0..100.
-private struct StatusFillBar: View {
+/// Draggable remaining-quantity slider used as the name-row background
+/// (F-156 + F-159). Mirrors web's `inv-tile-title-row`: a horizontal fill
+/// whose width is `remaining_pct` and whose color buckets per `status`,
+/// with a thin handle at the fill edge the user can drag to set
+/// `consumed_pct_override`. Tapping the title area (no drag) cycles status.
+///
+/// Color thresholds match web's `_invStatusForPct` (≥60 fresh / ≥20 low / out)
+/// AND web's `_invStatusFill` opacities (0.18 / 0.20 / 0.22).
+private struct RemainingSlider<Title: View>: View {
     let remainingPct: Double?
     let status: String?
+    let onCommit: (Double) -> Void
+    let onTapCycle: () -> Void
+    @ViewBuilder let title: () -> Title
+
+    @State private var dragPct: Double? = nil
+    @State private var isDragging = false
+
+    private var displayPct: Double {
+        max(0, min(100, dragPct ?? remainingPct ?? 100))
+    }
+
+    private var fillColor: Color {
+        switch statusForPct(displayPct) {
+        case "fresh": return DesignTokens.success
+        case "low":   return DesignTokens.warning
+        default:      return DesignTokens.error
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let pct = max(0, min(100, remainingPct ?? 100)) / 100.0
-            RoundedRectangle(cornerRadius: 4)
-                .fill(fillColor.opacity(0.18))
-                .frame(width: geo.size.width * pct)
+            let width = max(1, geo.size.width)
+            let fillW = width * (displayPct / 100.0)
+
+            ZStack(alignment: .leading) {
+                // Background track (subtle so the fill reads as the value).
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(DesignTokens.surface2.opacity(0.4))
+                // Filled portion (status-tinted).
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(fillColor.opacity(statusFillOpacity()))
+                    .frame(width: fillW)
+                // Title content (name + days label etc).
+                title()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // Only fire cycle if we didn't just finish a drag.
+                        guard !isDragging else { return }
+                        onTapCycle()
+                    }
+                // Drag handle at right edge of fill — slim vertical capsule with
+                // a live-% bubble above while dragging. The handle hosts the
+                // DragGesture; the title's tap gesture is separate so a click on
+                // the name area cycles status without engaging the slider.
+                handle(at: fillW)
+            }
+            .frame(height: 22)
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        isDragging = true
+                        let ratio = value.location.x / width
+                        let snapped = (max(0, min(100, ratio * 100)) / 5).rounded() * 5
+                        dragPct = snapped
+                    }
+                    .onEnded { _ in
+                        if let final = dragPct {
+                            onCommit(final)
+                        }
+                        // Hold isDragging true for a beat so the synthetic tap
+                        // that follows a drag end doesn't trigger cycleStatus
+                        // (matches web's __invLastDragAt suppression window).
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            isDragging = false
+                            dragPct = nil
+                        }
+                    }
+            )
         }
         .frame(height: 22)
     }
 
-    private var fillColor: Color {
-        switch status {
-        case "expired":  return DesignTokens.error
-        case "expiring": return DesignTokens.warning
-        case "fresh":    return DesignTokens.success
-        default:         return DesignTokens.success
+    @ViewBuilder
+    private func handle(at x: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            if isDragging {
+                Text("\(Int(displayPct))%")
+                    .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                    .padding(.horizontal, 5).padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.black.opacity(0.7))
+                    )
+                    .foregroundStyle(.white)
+                    .offset(y: -18)
+                    .transition(.opacity)
+            }
+            Capsule()
+                .fill(fillColor.opacity(0.9))
+                .frame(width: 4, height: 18)
+                .overlay(Capsule().stroke(Color.white.opacity(0.6), lineWidth: 0.5))
+                .help("Drag to set remaining quantity (\(Int(displayPct))%)")
+        }
+        .frame(width: 14, height: 22)
+        .offset(x: max(0, x - 7))
+    }
+
+    private func statusForPct(_ pct: Double) -> String {
+        if pct >= 60 { return "fresh" }
+        if pct >= 20 { return "low" }
+        return "out"
+    }
+
+    private func statusFillOpacity() -> Double {
+        switch statusForPct(displayPct) {
+        case "fresh": return 0.18
+        case "low":   return 0.20
+        default:      return 0.22
         }
     }
 }
@@ -1038,6 +1135,9 @@ private struct ProductSnapshotThumb: View {
     let snapshot: LatestSnapshot?
     let fallbackInitials: String
 
+    @State private var isHovering = false
+    @State private var showPopover = false
+
     private var resolvedURL: URL? {
         guard let path = snapshot?.imageUrl, !path.isEmpty else { return nil }
         let base = UserDefaults.standard.string(forKey: AppConstants.Defaults.apiBaseURL)
@@ -1060,6 +1160,27 @@ private struct ProductSnapshotThumb: View {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(DesignTokens.border, lineWidth: 0.5)
                 )
+                // F-158 — hover preview popup (web `.inv-tile-img:hover` scale 2.6×).
+                // Hover delay (~250 ms) keeps a cursor swept past the row from
+                // flashing every popover on the way through.
+                .onHover { hovering in
+                    isHovering = hovering
+                    if hovering {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            if isHovering { showPopover = true }
+                        }
+                    } else {
+                        showPopover = false
+                    }
+                }
+                .popover(isPresented: $showPopover, arrowEdge: .leading) {
+                    KFImage(url)
+                        .requestModifier(ImageCache.tokenModifier)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 320, height: 320)
+                        .padding(8)
+                }
         } else {
             placeholder
         }

@@ -348,6 +348,87 @@ final class InventoryState: ObservableObject {
         }
     }
 
+    /// PUT /inventory/<id>/update { consumed_pct_override: 100 - remainingPct }
+    /// — backs the draggable RemainingSlider (F-156) and tap-cycle (F-159).
+    /// `remainingPct` is what the user just set in the UI (0...100); the
+    /// backend stores its inverse as the consumed override.
+    func setRemainingOverride(itemId: Int, remainingPct: Double) async {
+        let clamped = max(0, min(100, remainingPct))
+        let consumed = 100 - clamped
+        do {
+            try DemoModeGate.guardMutation()
+            _ = try await api.request(
+                .put,
+                path: InventoryEndpoint.updateItem(itemId: itemId).path,
+                jsonBody: InventoryUpdateBody(
+                    quantity: nil, location: nil, threshold: nil,
+                    consumedPctOverride: consumed
+                ),
+                as: InventoryUpdateResponse.self
+            )
+            await loadInventory()
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            lastError = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// Tap-cycle the row's status (F-159). Mirrors web's `_invCycleStatus`:
+    /// fresh → low → out → fresh, with remaining-pct buckets 80 / 40 / 10.
+    func cycleStatus(itemId: Int, currentStatus: String?) async {
+        let order = ["fresh", "low", "out"]
+        let bucket: [String: Double] = ["fresh": 80, "low": 40, "out": 10]
+        let curIdx = order.firstIndex(of: currentStatus ?? "fresh") ?? 0
+        let next = order[(curIdx + 1) % order.count]
+        await setRemainingOverride(itemId: itemId, remainingPct: bucket[next] ?? 80)
+    }
+
+    /// Per-row `−1` (F-160). PATCH /inventory/products/<pid> { quantity: q-1 }.
+    /// Mirrors web's `invDecrement`: optimistic local update, then server PATCH.
+    /// Quantity floors at 0; reaching 0 makes the backend delete the row.
+    func decrementOne(productId: Int) async {
+        let cur = items.first(where: { $0.productId == productId })?.quantity ?? 0
+        let next = max(0, cur - 1)
+        await patch(productId: productId, body: InventoryPatchBody(
+            displayName: nil, unit: nil, sizeLabel: nil,
+            quantity: next, location: nil, threshold: nil,
+            expiresAt: nil, deferDays: nil
+        ))
+    }
+
+    /// Per-row `✓` used-up (F-155 used-up path). PATCH `{ quantity: 0 }` — backend
+    /// deletes the inventory row and preserves an audit trail.
+    func markUsedUp(productId: Int) async {
+        await patch(productId: productId, body: InventoryPatchBody(
+            displayName: nil, unit: nil, sizeLabel: nil,
+            quantity: 0, location: nil, threshold: nil,
+            expiresAt: nil, deferDays: nil
+        ))
+    }
+
+    /// Per-row `✓` clear-low path (F-155). When the row is `manual_low`, clear the
+    /// flag via /low-status. When it's threshold-low, zero the threshold via the
+    /// per-row PUT /inventory/<id>/update endpoint — backend's `apply_manual_patch`
+    /// (PATCH /products) ignores threshold entirely, so we must hit the item-level
+    /// route which handles `threshold` at manage_inventory.py:388-389. A threshold
+    /// of 0 is falsy in `(item.threshold and qty < threshold)` → effectively cleared.
+    func clearLow(item: InventoryItem) async {
+        var jobs: [@Sendable () async -> Void] = []
+        if item.manualLow == true {
+            jobs.append { [weak self] in await self?.markLow(productId: item.productId, manualLow: false) }
+        }
+        if item.manualLow != true, item.threshold != nil {
+            let itemId = item.id
+            jobs.append { [weak self] in
+                await self?.updateItem(itemId: itemId, threshold: 0)
+            }
+        }
+        await withTaskGroup(of: Void.self) { group in
+            for job in jobs { group.addTask { await job() } }
+        }
+    }
+
     /// Per-row defer — PATCH /inventory/products/<pid> { defer_days: N }.
     /// Same backend path the bulk action uses, but for a single row (F-146).
     func deferExpiry(productId: Int, days: Int) async {
