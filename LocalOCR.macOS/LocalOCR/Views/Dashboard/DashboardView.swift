@@ -144,19 +144,64 @@ struct DashboardView: View {
     // MARK: - F-009 … F-014  Household leaderboard
 
     private func leaderboardCard(_ lb: Leaderboard) -> some View {
+        // Match web: horizontal top-3 cards by default, "Show full ranking"
+        // button toggles into vertical full list.
         let collapsed = dashboard.leaderboardCollapsed
         let leaders = lb.leaders ?? Array(lb.rankings.prefix(3))
         return Card {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
-                rankingHeader(lb)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space3) {
                 if collapsed {
-                    rankingRow(leaders: leaders, lb: lb)
+                    leaderboardCollapsedRow(leaders: leaders, lb: lb)
                 } else {
+                    rankingHeader(lb)
                     rankingFullList(lb)
                     rankingFooter(lb)
                 }
             }
         }
+    }
+
+    /// Web-style collapsed row: HOUSEHOLD RANKING label + top 3 cards + Show-full button.
+    private func leaderboardCollapsedRow(leaders: [LeaderboardRow], lb: Leaderboard) -> some View {
+        HStack(spacing: DesignTokens.Spacing.space3) {
+            Text("HOUSEHOLD RANKING")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(DesignTokens.secondaryLabel)
+                .frame(width: 160, alignment: .leading)
+            ForEach(Array(leaders.prefix(3).enumerated()), id: \.element.id) { idx, row in
+                leaderTopCard(rank: idx + 1, row: row)
+            }
+            Spacer()
+            Button("Show full ranking") {
+                dashboard.toggleLeaderboardCollapsed()
+            }
+            .buttonStyle(SecondaryButtonStyle())
+        }
+    }
+
+    /// Top-3 card pill — matches web design.
+    private func leaderTopCard(rank: Int, row: LeaderboardRow) -> some View {
+        HStack(spacing: 8) {
+            Text("\(rank)\(ordinalSuffix(rank))")
+                .font(.appCaption1.weight(.semibold))
+                .foregroundStyle(rank == 1 ? DesignTokens.warning : DesignTokens.secondaryLabel)
+            Text(row.avatarEmoji ?? "👤").font(.system(size: 18))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(truncate(row.displayName, length: 8))
+                    .font(.appBody.weight(.medium))
+                    .foregroundStyle(DesignTokens.label)
+                Text("\(Int(row.score ?? 0))")
+                    .font(.appMonoCaption.weight(.semibold))
+                    .foregroundStyle(DesignTokens.label)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(DesignTokens.surface2)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(rank == 1 ? DesignTokens.accent.opacity(0.5) : Color.clear, lineWidth: 1)
+        )
     }
 
     private func leaderboardEmptyState() -> some View {
@@ -390,22 +435,73 @@ struct DashboardView: View {
     }
 
     private func categoryBar(category: SpendingCategoryTotal, total: Double, color: Color) -> some View {
-        let pct = total > 0 ? category.total / total : 0
+        // backend's share_pct preferred; fallback to computed.
+        let pct: Double = {
+            if let s = category.sharePct { return Double(s) / 100.0 }
+            return total > 0 ? category.total / total : 0
+        }()
+        let categoryColor = paletteColor(for: category.category)
         return HStack(spacing: DesignTokens.Spacing.space3) {
-            Text(category.category).font(.appBody).frame(width: 120, alignment: .leading)
+            HStack(spacing: 6) {
+                Text(categoryEmoji(for: category.category)).font(.system(size: 14))
+                Text(category.category).font(.appBody)
+            }
+            .frame(width: 160, alignment: .leading)
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 6).fill(DesignTokens.surface2)
-                    RoundedRectangle(cornerRadius: 6).fill(color).frame(width: proxy.size.width * pct)
+                    RoundedRectangle(cornerRadius: 6).fill(categoryColor).frame(width: proxy.size.width * pct)
                 }
             }
             .frame(height: 14)
             Text("\(Int(pct * 100))%")
                 .font(.appCaption1.monospaced()).foregroundStyle(DesignTokens.tertiaryLabel)
                 .frame(width: 36, alignment: .trailing)
-            Text(String(format: "$%.2f", category.total))
-                .font(.appMonoBody.weight(.medium)).foregroundStyle(DesignTokens.label)
-                .frame(width: 90, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(String(format: "$%.2f", category.total))
+                    .font(.appMonoBody.weight(.medium))
+                    .foregroundStyle(DesignTokens.label)
+                if let delta = category.deltaPct {
+                    deltaLabel(delta)
+                }
+            }
+            .frame(width: 110, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private func deltaLabel(_ pct: Int) -> some View {
+        let isDown = pct < 0
+        let arrow = isDown ? "↓" : "↑"
+        let absVal = abs(pct)
+        Text("\(arrow) \(absVal)% vs last")
+            .font(.appCaption2.monospaced())
+            .foregroundStyle(isDown ? DesignTokens.success : DesignTokens.error)
+    }
+
+    private func paletteColor(for category: String) -> Color {
+        switch category.lowercased() {
+        case "grocery":       return Color(red: 0.27, green: 0.55, blue: 0.95)
+        case "other":         return Color(red: 0.95, green: 0.55, blue: 0.27)
+        case "dining":        return Color(red: 0.27, green: 0.78, blue: 0.55)
+        case "subscriptions": return Color(red: 0.95, green: 0.78, blue: 0.27)
+        case "fixed":         return Color(red: 0.58, green: 0.55, blue: 0.95)
+        case "household":     return Color(red: 0.95, green: 0.42, blue: 0.55)
+        case "utilities":     return Color(red: 0.27, green: 0.78, blue: 0.78)
+        default:              return DesignTokens.secondaryLabel
+        }
+    }
+
+    private func categoryEmoji(for category: String) -> String {
+        switch category.lowercased() {
+        case "grocery":       return "🛒"
+        case "other":         return "📦"
+        case "dining":        return "🍽"
+        case "subscriptions": return "🔁"
+        case "fixed":         return "📌"
+        case "household":     return "🏠"
+        case "utilities":     return "💡"
+        default:              return "💸"
         }
     }
 

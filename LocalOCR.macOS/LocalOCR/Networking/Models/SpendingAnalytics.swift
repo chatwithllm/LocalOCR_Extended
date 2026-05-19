@@ -1,11 +1,23 @@
 import Foundation
 
-/// Spending category total — derived from /analytics/spending response.
+/// Spending category total — derived from /analytics/spending-by-category.
 struct SpendingCategoryTotal: Codable, Identifiable, Equatable, Hashable {
     var id: String { category }
     let category: String
     let total: Double
     let receiptCount: Int
+    /// `↑/↓ N% vs last month` delta (signed). nil when prev month had no data.
+    let deltaPct: Int?
+    /// `share_pct` from backend — pre-computed % of grand total.
+    let sharePct: Int?
+
+    init(category: String, total: Double, receiptCount: Int, deltaPct: Int? = nil, sharePct: Int? = nil) {
+        self.category = category
+        self.total = total
+        self.receiptCount = receiptCount
+        self.deltaPct = deltaPct
+        self.sharePct = sharePct
+    }
 }
 
 struct MerchantFrequency: Codable, Identifiable, Equatable, Hashable {

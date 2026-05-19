@@ -35,7 +35,11 @@ final class PreferencesStore: ObservableObject {
     }
 
     var appearance: Appearance {
-        get { Appearance(rawValue: defaults.string(forKey: AppConstants.Defaults.appearance) ?? "system") ?? .system }
+        get {
+            // Default to dark to match the web app's default theme.
+            let raw = defaults.string(forKey: AppConstants.Defaults.appearance) ?? "dark"
+            return Appearance(rawValue: raw) ?? .dark
+        }
         set {
             defaults.set(newValue.rawValue, forKey: AppConstants.Defaults.appearance)
             objectWillChange.send()

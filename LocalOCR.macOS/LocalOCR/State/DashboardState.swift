@@ -42,7 +42,13 @@ final class DashboardState: ObservableObject {
 
     init(api: APIClient = .shared) {
         self.api = api
-        leaderboardCollapsed = UserDefaults.standard.bool(forKey: kLeaderboardCollapsed)
+        // Default to collapsed (top-3 cards) to match the web app's default.
+        // UserDefaults returns false for missing keys; flip via "has-been-set" check.
+        if UserDefaults.standard.object(forKey: kLeaderboardCollapsed) == nil {
+            leaderboardCollapsed = true
+        } else {
+            leaderboardCollapsed = UserDefaults.standard.bool(forKey: kLeaderboardCollapsed)
+        }
         spendingCardCollapsed = UserDefaults.standard.bool(forKey: kSpendingCardCollapsed)
         spendingShowAll = UserDefaults.standard.bool(forKey: kSpendingShowAll)
         if let grainStr = UserDefaults.standard.string(forKey: kActivityGrain),
@@ -207,8 +213,15 @@ final class DashboardState: ObservableObject {
             let categories: [SpendingCategoryTotal] = rawCategories.compactMap { row in
                 guard let cat = row["category"] as? String else { return nil }
                 let amount = (row["amount"] as? Double) ?? Double(row["amount"] as? Int ?? 0)
-                // backend doesn't emit receipt_count for this rollup; pass 0
-                return SpendingCategoryTotal(category: cat.capitalized, total: amount, receiptCount: 0)
+                let delta = (row["delta_pct"] as? Int)
+                let share = (row["share_pct"] as? Int)
+                return SpendingCategoryTotal(
+                    category: cat.capitalized,
+                    total: amount,
+                    receiptCount: 0,
+                    deltaPct: delta,
+                    sharePct: share
+                )
             }
             // Both DashboardState and FinanceState are @MainActor — direct call, no hop.
             FinanceState.shared.injectSpending(
