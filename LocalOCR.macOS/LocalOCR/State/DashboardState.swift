@@ -77,12 +77,20 @@ final class DashboardState: ObservableObject {
     // MARK: - Loads
 
     func loadAll() async {
-        async let _ = loadLeaderboard()
-        async let _ = loadUntagged()
-        async let _ = loadRecommendations()
-        async let _ = loadReceiptsActivity()
-        async let _ = loadProductsCount()
-        async let _ = loadSpendingByCategory()
+        // Run all six dashboard fetches in parallel via a TaskGroup so each
+        // child is properly awaited. `async let _ = …` discards the binding
+        // which leaves the child task unawaited — the parent function then
+        // exits and the children get cancelled before their URLSession
+        // requests even complete (~2 ms after start). TaskGroup forces an
+        // explicit await on every child.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in await self.loadLeaderboard() }
+            group.addTask { @MainActor in await self.loadUntagged() }
+            group.addTask { @MainActor in await self.loadRecommendations() }
+            group.addTask { @MainActor in await self.loadReceiptsActivity() }
+            group.addTask { @MainActor in await self.loadProductsCount() }
+            group.addTask { @MainActor in await self.loadSpendingByCategory() }
+        }
     }
 
     func loadLeaderboard() async {
