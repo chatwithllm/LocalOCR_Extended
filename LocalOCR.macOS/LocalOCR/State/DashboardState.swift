@@ -202,18 +202,17 @@ final class DashboardState: ObservableObject {
                 // backend doesn't emit receipt_count for this rollup; pass 0
                 return SpendingCategoryTotal(category: cat.capitalized, total: amount, receiptCount: 0)
             }
-            let total = (json["total"] as? Double) ?? categories.reduce(0) { $0 + $1.total }
-            await MainActor.run {
-                FinanceState.shared.injectSpending(
-                    SpendingAnalytics(
-                        categories: categories,
-                        topMerchants: [],
-                        monthlyTimeline: [],
-                        periodLabel: (json["month"] as? String) ?? ym
-                    ),
-                    grandTotal: total
-                )
-            }
+            // Both DashboardState and FinanceState are @MainActor — direct call, no hop.
+            FinanceState.shared.injectSpending(
+                SpendingAnalytics(
+                    categories: categories,
+                    topMerchants: [],
+                    monthlyTimeline: [],
+                    periodLabel: (json["month"] as? String) ?? ym
+                ),
+                grandTotal: (json["total"] as? Double) ?? categories.reduce(0) { $0 + $1.total }
+            )
+            logger.info("spendingByCategory loaded \(categories.count, privacy: .public) categories")
         } catch is CancellationError {
             // ignore
         } catch {
