@@ -414,4 +414,300 @@ window.FEATURES_DATA = [
     ],
     tip: "Only Restaurant-type receipts count toward the dining budget. Expense receipts (coffee, snacks) are excluded.",
   },
+
+  // ── Expenses ──────────────────────────────────────────────────────────────
+  {
+    id: "expense-tracking",
+    group: "Expenses",
+    icon: "💸",
+    title: "Expense Tracking",
+    tagline: "Log general expense receipts — merchants, amounts, categories",
+    platforms: ["Web"],
+    where: "Nav -> Upload -> pick Expense type",
+    flow: "Upload expense receipt -> Categorize (auto or manual) -> Analytics (spend trends)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Recent Expenses</div>'
+      + '<div style="display:flex;justify-content:space-between;color:#fff;padding:3px 0">Amazon<span style="color:#4ade80">$89.99</span></div>'
+      + '<div style="display:flex;justify-content:space-between;color:#fff;padding:3px 0">Starbucks<span style="color:#4ade80">$6.75</span></div>'
+      + '<div style="display:flex;justify-content:space-between;color:#fff;padding:3px 0">CVS Pharmacy<span style="color:#4ade80">$23.40</span></div>'
+      + '</div>',
+    interactions: [
+      "Upload any non-grocery non-restaurant receipt",
+      "Tag by category (Shopping/Health/Transport)",
+      "See merchant frequency in analytics",
+      "Log cash expenses manually",
+    ],
+    tip: "Expense receipts feed analytics but don't affect grocery inventory.",
+  },
+
+  {
+    id: "category-tagging",
+    group: "Expenses",
+    icon: "🏷",
+    title: "Category Tagging",
+    tagline: "Tag expenses by category — view breakdown, drill into any category",
+    platforms: ["Web"],
+    where: "Nav -> Analytics -> Spending by Category",
+    flow: "Expense (recorded) -> Tag (category) -> Pie (breakdown) -> Drill (see receipts)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Category Breakdown</div>'
+      + '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block"></span>'
+      + '<span style="color:#fff;flex:1">Grocery</span><span style="color:#fff">$342</span>'
+      + '<span style="background:#3b82f6;color:#fff;border-radius:4px;padding:0 4px;font-size:0.65rem">41%</span></div>'
+      + '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:#e0a134;display:inline-block"></span>'
+      + '<span style="color:#fff;flex:1">Dining</span><span style="color:#fff">$210</span>'
+      + '<span style="background:#e0a134;color:#fff;border-radius:4px;padding:0 4px;font-size:0.65rem">25%</span></div>'
+      + '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block"></span>'
+      + '<span style="color:#fff;flex:1">Health</span><span style="color:#fff">$89</span>'
+      + '<span style="background:#a855f7;color:#fff;border-radius:4px;padding:0 4px;font-size:0.65rem">11%</span></div>'
+      + '</div>',
+    interactions: [
+      "Auto-tag from merchant name (editable)",
+      "Category breakdown with % of total",
+      "Tap category to drill into receipts",
+      "Filter by month",
+    ],
+    tip: "You can retag any receipt from its detail page. Categories are inferred from merchant names initially.",
+  },
+
+  {
+    id: "expense-analytics",
+    group: "Expenses",
+    icon: "📉",
+    title: "Expense Analytics",
+    tagline: "Spend trends by week/month, merchant frequency chart, category breakdown",
+    platforms: ["Web"],
+    where: "Nav -> Analytics",
+    flow: "All spend (receipts + cash) -> Trends (week/month) -> Merchants (frequency)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:6px">Monthly Spend</div>'
+      + '<div style="display:flex;align-items:flex-end;gap:6px;height:50px">'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex:1">'
+      + '<div style="background:#3b82f6;width:100%;height:60%;border-radius:2px 2px 0 0"></div>'
+      + '<span style="color:#888;font-size:0.65rem;margin-top:2px">Jan</span></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex:1">'
+      + '<div style="background:#3b82f6;width:100%;height:80%;border-radius:2px 2px 0 0"></div>'
+      + '<span style="color:#888;font-size:0.65rem;margin-top:2px">Feb</span></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex:1">'
+      + '<div style="background:#3b82f6;width:100%;height:45%;border-radius:2px 2px 0 0"></div>'
+      + '<span style="color:#888;font-size:0.65rem;margin-top:2px">Mar</span></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex:1">'
+      + '<div style="background:#3b82f6;width:100%;height:90%;border-radius:2px 2px 0 0"></div>'
+      + '<span style="color:#888;font-size:0.65rem;margin-top:2px">Apr</span></div>'
+      + '<div style="display:flex;flex-direction:column;align-items:center;flex:1">'
+      + '<div style="background:#3b82f6;width:100%;height:55%;border-radius:2px 2px 0 0"></div>'
+      + '<span style="color:#888;font-size:0.65rem;margin-top:2px">May</span></div>'
+      + '</div></div>',
+    interactions: [
+      "Switch between weekly and monthly view",
+      "Bar chart for spend over time",
+      "Merchant frequency — who you spend most at",
+      "Category pie for current month",
+    ],
+    tip: "Analytics excludes fixed bill payments (floor obligations) to avoid double-counting.",
+  },
+
+  // ── Finance ───────────────────────────────────────────────────────────────
+  {
+    id: "spending-by-category",
+    group: "Finance",
+    icon: "📊",
+    title: "Spending by Category",
+    tagline: "Dashboard tile — every spend category in one place, expandable drill panel",
+    platforms: ["Web"],
+    where: "Nav -> Dashboard -> Spending tile",
+    flow: "Dashboard (tile) -> Expand (tap category) -> Drill (see receipts)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Spending</div>'
+      + '<div style="padding:3px 0">'
+      + '<div style="display:flex;justify-content:space-between;color:#fff;margin-bottom:2px">'
+      + '<span>Grocery</span><span>$342</span></div>'
+      + '<div style="background:#333;border-radius:4px;height:6px">'
+      + '<div style="background:#3b82f6;width:68%;height:6px;border-radius:4px"></div></div></div>'
+      + '<div style="padding:3px 0;margin-top:4px">'
+      + '<div style="display:flex;justify-content:space-between;color:#fff;margin-bottom:2px">'
+      + '<span>Fixed</span><span>$850</span></div>'
+      + '<div style="background:#333;border-radius:4px;height:6px">'
+      + '<div style="background:#a855f7;width:85%;height:6px;border-radius:4px"></div></div></div>'
+      + '</div>',
+    interactions: [
+      "All categories ranked by spend",
+      "Fixed row shows total paid vs expected obligations",
+      "Tap any row to drill into receipts",
+      "Filter by month",
+    ],
+    tip: "Fixed obligations appear as a separate 'Fixed' row and are excluded from other categories to prevent double-counting.",
+  },
+
+  {
+    id: "fixed-bills",
+    group: "Finance",
+    icon: "📌",
+    title: "Fixed Bills",
+    tagline: "Track floor obligations (rent, subscriptions) — paid vs expected, inline rename",
+    platforms: ["Web"],
+    where: "Nav -> Bills",
+    flow: "Add bill (provider + amount) -> Plaid match (auto-link) -> Track (paid vs expected) -> Dashboard (Fixed row)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="display:flex;gap:6px;margin-bottom:6px">'
+      + '<span style="background:#3b82f6;color:#fff;border-radius:4px;padding:1px 8px;font-size:0.7rem">Selected</span>'
+      + '<span style="color:#888;border-radius:4px;padding:1px 8px;font-size:0.7rem">Available</span>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;color:#fff">'
+      + '<input style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:2px 4px;font-size:0.7rem" value="Rent" />'
+      + '<span style="color:#4ade80">$1200 ✓</span><span style="color:#888">/ $1200</span>'
+      + '<input style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:2px 4px;font-size:0.7rem" value="Netflix" />'
+      + '<span style="color:#e0a134">$0</span><span style="color:#888">/ $18</span>'
+      + '</div></div>',
+    interactions: [
+      "Add floor obligation (name + expected amount)",
+      "Click Name column to rename inline (saves on blur/Enter)",
+      "Link to Plaid transaction for auto-matching",
+      "Appears as Fixed row in Spending dashboard",
+    ],
+    tip: "Name column is an editable text input — click it and type a friendlier label (e.g. 'Streaming' instead of the merchant code).",
+  },
+
+  {
+    id: "plaid-integration",
+    group: "Finance",
+    icon: "🏦",
+    title: "Plaid Integration",
+    tagline: "Sync bank transactions and auto-match to receipts you've already scanned",
+    platforms: ["Web"],
+    where: "Nav -> Accounts",
+    flow: "Link bank (via Plaid) -> Sync txns (daily) -> Auto-match (to receipts) -> Reconciled (matched)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Bank Transactions</div>'
+      + '<div style="padding:3px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div style="display:flex;justify-content:space-between;color:#fff">'
+      + '<span>Whole Foods</span><span>-$47.23</span></div>'
+      + '<div style="color:#4ade80;font-size:0.7rem">✓ Matched to receipt May 18</div></div>'
+      + '<div style="padding:3px 0">'
+      + '<div style="display:flex;justify-content:space-between;color:#fff">'
+      + '<span>Netflix</span><span>-$18.00</span></div>'
+      + '<div style="color:#888;font-size:0.7rem">Unmatched</div></div>'
+      + '</div>',
+    interactions: [
+      "Link bank account via Plaid OAuth",
+      "Transactions sync daily automatically",
+      "Auto-match to scanned receipts by amount+date",
+      "Link unmatched transactions to floor obligations",
+    ],
+    tip: "Plaid matching uses amount + date ±2 days. If a receipt total was edited, it may not auto-match — link manually.",
+  },
+
+  {
+    id: "cash-transactions",
+    group: "Finance",
+    icon: "💵",
+    title: "Cash Transactions",
+    tagline: "Manually log cash spend with no receipt — feeds into spending analytics",
+    platforms: ["Web"],
+    where: "Nav -> Analytics -> Cash tab",
+    flow: "Log cash (amount + note) -> Category (tag it) -> Analytics (included)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Log Cash Spend</div>'
+      + '<input style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:3px 6px;font-size:0.72rem;width:100%;margin-bottom:4px;box-sizing:border-box" placeholder="Farmer\'s market" />'
+      + '<div style="display:flex;gap:4px;margin-bottom:4px">'
+      + '<input style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:3px 6px;font-size:0.72rem;flex:1" placeholder="$0.00" />'
+      + '<select style="background:#2a2a2e;border:none;border-radius:3px;color:#fff;padding:3px 6px;font-size:0.72rem;flex:1">'
+      + '<option>Grocery</option><option>Dining</option></select></div>'
+      + '<button style="background:#3b82f6;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:0.72rem;width:100%">Log Cash Spend</button>'
+      + '</div>',
+    interactions: [
+      "Enter amount and description",
+      "Assign to a spending category",
+      "Back-date if you forgot same day",
+      "Appears in analytics alongside receipt spend",
+    ],
+    tip: "Cash transactions don't affect inventory — analytics only.",
+  },
+
+  // ── Shared Dining ─────────────────────────────────────────────────────────
+  {
+    id: "split-bills",
+    group: "Shared Dining",
+    icon: "➗",
+    title: "Split Bills",
+    tagline: "Split restaurant receipts by person — tracks who owes what",
+    platforms: ["Web", "Telegram"],
+    where: "Nav -> Dining -> Split tab",
+    flow: "Restaurant (receipt) -> Add diners (pick contacts) -> Split (even or custom) -> Debts (who owes who)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#fff;font-weight:bold;margin-bottom:4px">Nobu &middot; $120.00 &middot; 4 people</div>'
+      + '<div style="display:flex;justify-content:space-between;padding:3px 0">'
+      + '<span style="color:#fff">You</span>'
+      + '<span style="color:#4ade80">$30.00 paid</span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:3px 0">'
+      + '<span style="color:#fff">Alex</span>'
+      + '<span style="color:#e0a134">$30.00 owes you</span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:3px 0">'
+      + '<span style="color:#fff">Sam</span>'
+      + '<span style="color:#e0a134">$30.00 owes you</span></div>'
+      + '</div>',
+    interactions: [
+      "Select contacts who joined the meal",
+      "Even split or custom amounts per person",
+      "Split via Telegram Dining Walk bot",
+      "Debts tracked in Balances view",
+    ],
+    tip: "You can split via Telegram too — use the Dining Walk bot to photograph the bill and assign items per person in chat.",
+  },
+
+  {
+    id: "contacts",
+    group: "Shared Dining",
+    icon: "👥",
+    title: "Contacts",
+    tagline: "Dining contacts list — per-contact balance and meal history",
+    platforms: ["Web"],
+    where: "Nav -> Dining -> Contacts tab",
+    flow: "Add contact (name) -> Share meals (split bills) -> Balance (running total)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Dining Contacts</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #2a2a2e">'
+      + '<div><div style="color:#fff">Alex</div>'
+      + '<div style="color:#888;font-size:0.7rem">12 shared meals</div></div>'
+      + '<span style="color:#e0a134">owes you $45</span></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0">'
+      + '<div><div style="color:#fff">Sam</div>'
+      + '<div style="color:#888;font-size:0.7rem">5 shared meals</div></div>'
+      + '<span style="color:#4ade80">you owe $12</span></div>'
+      + '</div>',
+    interactions: [
+      "Add dining contacts by name",
+      "View meal history per contact",
+      "See running balance",
+      "Mark settled from Balances view",
+    ],
+    tip: "Contacts are separate from household members — they're external friends you split bills with.",
+  },
+
+  {
+    id: "balances-settle",
+    group: "Shared Dining",
+    icon: "⚖️",
+    title: "Balances and Settle",
+    tagline: "Outstanding debt view across all contacts — settle-all with one tap",
+    platforms: ["Web"],
+    where: "Nav -> Dining -> Balances tab",
+    flow: "View debts (all contacts) -> Settle (mark paid) -> Cleared (balance reset)",
+    mockup: '<div style="background:#1a1a1e;border-radius:6px;padding:6px 10px;font-size:0.75rem">'
+      + '<div style="color:#aaa;margin-bottom:4px">Balances</div>'
+      + '<div style="text-align:center;padding:4px 0">'
+      + '<div style="color:#4ade80;font-weight:bold;font-size:0.8rem">Total owed to you $75</div>'
+      + '<div style="color:#e0a134;font-weight:bold;font-size:0.8rem;margin-top:2px">You owe $12</div></div>'
+      + '<button style="background:#4ade80;color:#000;border:none;border-radius:4px;padding:4px 10px;font-size:0.72rem;width:100%;margin-top:6px;font-weight:bold">Settle All</button>'
+      + '</div>',
+    interactions: [
+      "See net position across all contacts",
+      "Settle individual or settle-all",
+      "Debt history per contact",
+    ],
+    tip: "Settle-all marks all outstanding debts as paid — it doesn't send notifications. Tell people externally.",
+  },
 ];
