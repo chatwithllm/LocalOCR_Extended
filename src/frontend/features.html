@@ -382,7 +382,7 @@ html, body {
 function safeSetHTML(el, html) {
   el.textContent = '';
   var range = document.createRange();
-  range.selectNode(el);
+  range.selectNodeContents(el);
   el.appendChild(range.createContextualFragment(html));
 }
 
