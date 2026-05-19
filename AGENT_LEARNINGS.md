@@ -108,6 +108,16 @@ This file is the institutional memory. Future agents read it on session start (o
 
 ---
 
+### I-9: Marked registry rows ✅ without verifying the actual behavior
+- **Symptom**: Registry F-028 "Low Stock count badge button" and F-038 "Top Picks count badge button" were both marked ✅ (implemented). But the badges were just static `Text` views — clicking did nothing.
+- **Root cause**: I implemented "the badge is rendered" and assumed that met the row. The row's literal description includes "button" and "toggle `toggleDashboardSection`". I marked ✅ without re-reading the row's verb.
+- **User prompt that exposed it**:
+  > "these tiles expand and collapse on clicking number on web app, why is that we did not find that feature?"
+- **Fix**: Each tile header now has `onBadgeTap` closure. Badge renders as a `Button` that toggles per-tile `*TileCollapsed` state on `DashboardState`, persisted to UserDefaults. Tile body conditionally hides when collapsed.
+- **Rule locked in**: **When marking a registry row ✅, re-read the row's verbs (button, toggle, expand, swipe, drag) and verify the implementation supports each verb interactively.** If the row says "button" and the impl is a Text, that's ❌ not ✅. A registry-status update is a claim — be ready to demo every claim.
+
+---
+
 ### I-8: Validation entirely user-driven
 - **Symptom**: After every change, the agent said "build verified" but the actual on-screen result was broken. User had to relaunch, screenshot, and report.
 - **Root cause**: The agent's "verification" was `xcodebuild build` returning SUCCEEDED. That only proves the code compiles, not that it works at runtime.

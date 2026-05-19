@@ -27,6 +27,11 @@ final class DashboardState: ObservableObject {
     @Published private(set) var leaderboardCollapsed: Bool = false
     @Published private(set) var spendingCardCollapsed: Bool = false
     @Published private(set) var spendingShowAll: Bool = false
+    /// Per-tile collapse state — clicking the count badge toggles.
+    /// Default: all three expanded (matches web).
+    @Published private(set) var lowStockTileCollapsed: Bool = false
+    @Published private(set) var topPicksTileCollapsed: Bool = false
+    @Published private(set) var shoppingTileCollapsed: Bool = false
     @Published private(set) var isSpendingLoading: Bool = false
     @Published private(set) var spendingError: String?
     @Published private(set) var isActivityLoading: Bool = false
@@ -41,6 +46,9 @@ final class DashboardState: ObservableObject {
     private let kSpendingCardCollapsed = "LocalOCR.dashboard_spending_card_collapsed"
     private let kSpendingShowAll = "LocalOCR.dashboard_spending_show_all"
     private let kActivityGrain = "LocalOCR.dashboard_activity_grain"
+    private let kLowStockTileCollapsed = "LocalOCR.dashboard_low_stock_tile_collapsed"
+    private let kTopPicksTileCollapsed = "LocalOCR.dashboard_top_picks_tile_collapsed"
+    private let kShoppingTileCollapsed = "LocalOCR.dashboard_shopping_tile_collapsed"
 
     init(api: APIClient = .shared) {
         self.api = api
@@ -53,10 +61,28 @@ final class DashboardState: ObservableObject {
         }
         spendingCardCollapsed = UserDefaults.standard.bool(forKey: kSpendingCardCollapsed)
         spendingShowAll = UserDefaults.standard.bool(forKey: kSpendingShowAll)
+        lowStockTileCollapsed = UserDefaults.standard.bool(forKey: kLowStockTileCollapsed)
+        topPicksTileCollapsed = UserDefaults.standard.bool(forKey: kTopPicksTileCollapsed)
+        shoppingTileCollapsed = UserDefaults.standard.bool(forKey: kShoppingTileCollapsed)
         if let grainStr = UserDefaults.standard.string(forKey: kActivityGrain),
            let grain = ActivityGrain(rawValue: grainStr) {
             activityGrain = grain
         }
+    }
+
+    // MARK: - Per-tile toggles
+
+    func toggleLowStockTile() {
+        lowStockTileCollapsed.toggle()
+        UserDefaults.standard.set(lowStockTileCollapsed, forKey: kLowStockTileCollapsed)
+    }
+    func toggleTopPicksTile() {
+        topPicksTileCollapsed.toggle()
+        UserDefaults.standard.set(topPicksTileCollapsed, forKey: kTopPicksTileCollapsed)
+    }
+    func toggleShoppingTile() {
+        shoppingTileCollapsed.toggle()
+        UserDefaults.standard.set(shoppingTileCollapsed, forKey: kShoppingTileCollapsed)
     }
 
     // MARK: - Toggle persistence

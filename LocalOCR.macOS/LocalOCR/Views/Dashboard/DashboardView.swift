@@ -124,20 +124,23 @@ struct DashboardView: View {
                 tileHeader(title: "Low Stock",
                            systemImage: "exclamationmark.triangle.fill",
                            tint: DesignTokens.warning,
-                           badge: "\(inventory.lowStockItems.count)")
+                           badge: "\(inventory.lowStockItems.count)",
+                           onBadgeTap: { dashboard.toggleLowStockTile() })
 
-                if inventory.lowStockItems.isEmpty {
-                    Text("All items well-stocked!")
-                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
-                } else {
-                    ForEach(inventory.lowStockItems.prefix(6)) { item in
-                        lowStockRow(item)
-                    }
-                    if inventory.lowStockItems.count > 6 {
-                        Button("View all (\(inventory.lowStockItems.count))") {
-                            router.activeTab = .inventory
+                if !dashboard.lowStockTileCollapsed {
+                    if inventory.lowStockItems.isEmpty {
+                        Text("All items well-stocked!")
+                            .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                    } else {
+                        ForEach(inventory.lowStockItems.prefix(6)) { item in
+                            lowStockRow(item)
                         }
-                        .buttonStyle(GhostButtonStyle())
+                        if inventory.lowStockItems.count > 6 {
+                            Button("View all (\(inventory.lowStockItems.count))") {
+                                router.activeTab = .inventory
+                            }
+                            .buttonStyle(GhostButtonStyle())
+                        }
                     }
                 }
             }
@@ -165,20 +168,23 @@ struct DashboardView: View {
                 tileHeader(title: "Top Picks",
                            systemImage: "lightbulb.fill",
                            tint: DesignTokens.accent,
-                           badge: "\(dashboard.recommendations.count)")
+                           badge: "\(dashboard.recommendations.count)",
+                           onBadgeTap: { dashboard.toggleTopPicksTile() })
 
-                if dashboard.recommendations.isEmpty {
-                    Text("No recommendations yet")
-                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
-                } else {
-                    ForEach(dashboard.recommendations.prefix(5)) { rec in
-                        topPickRow(rec)
-                    }
-                    if dashboard.recommendations.count > 5 {
-                        Button("View all (\(dashboard.recommendations.count))") {
-                            router.activeTab = .shopping
+                if !dashboard.topPicksTileCollapsed {
+                    if dashboard.recommendations.isEmpty {
+                        Text("No recommendations yet")
+                            .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                    } else {
+                        ForEach(dashboard.recommendations.prefix(5)) { rec in
+                            topPickRow(rec)
                         }
-                        .buttonStyle(GhostButtonStyle())
+                        if dashboard.recommendations.count > 5 {
+                            Button("View all (\(dashboard.recommendations.count))") {
+                                router.activeTab = .shopping
+                            }
+                            .buttonStyle(GhostButtonStyle())
+                        }
                     }
                 }
             }
@@ -208,21 +214,24 @@ struct DashboardView: View {
                     systemImage: "cart.fill",
                     tint: DesignTokens.secondaryLabel,
                     badge: "\(shopping.pendingCount)",
-                    trailing: shopping.estimatedTotal > 0 ? String(format: "$%.2f", shopping.estimatedTotal) : nil
+                    trailing: shopping.estimatedTotal > 0 ? String(format: "$%.2f", shopping.estimatedTotal) : nil,
+                    onBadgeTap: { dashboard.toggleShoppingTile() }
                 )
 
-                if shopping.items.isEmpty {
-                    Text("List is empty")
-                        .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
-                } else {
-                    ForEach(shopping.items.filter(\.isPending).prefix(5)) { item in
-                        shoppingListRowInline(item)
-                    }
-                    if shopping.pendingCount > 5 {
-                        Button("View all (\(shopping.pendingCount))") {
-                            router.activeTab = .shopping
+                if !dashboard.shoppingTileCollapsed {
+                    if shopping.items.isEmpty {
+                        Text("List is empty")
+                            .font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                    } else {
+                        ForEach(shopping.items.filter(\.isPending).prefix(5)) { item in
+                            shoppingListRowInline(item)
                         }
-                        .buttonStyle(GhostButtonStyle())
+                        if shopping.pendingCount > 5 {
+                            Button("View all (\(shopping.pendingCount))") {
+                                router.activeTab = .shopping
+                            }
+                            .buttonStyle(GhostButtonStyle())
+                        }
                     }
                 }
             }
@@ -248,7 +257,16 @@ struct DashboardView: View {
     }
 
     /// Shared tile header — icon + title + count pill (+ optional trailing $).
-    private func tileHeader(title: String, systemImage: String, tint: Color, badge: String, trailing: String? = nil) -> some View {
+    /// The count badge is tappable: passing `onBadgeTap` makes the badge a
+    /// Button that toggles tile collapse (matches the web's behavior).
+    private func tileHeader(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        badge: String,
+        trailing: String? = nil,
+        onBadgeTap: (() -> Void)? = nil
+    ) -> some View {
         HStack(spacing: 8) {
             Image(systemName: systemImage).foregroundStyle(tint)
             Text(title).font(.appHeadline)
@@ -258,13 +276,27 @@ struct DashboardView: View {
                     .font(.appCaption1.monospaced())
                     .foregroundStyle(DesignTokens.secondaryLabel)
             }
-            Text(badge)
-                .font(.appMonoCaption.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(tint.opacity(0.15))
-                .foregroundStyle(tint)
-                .clipShape(Capsule())
+            if let onBadgeTap {
+                Button(action: onBadgeTap) {
+                    Text(badge)
+                        .font(.appMonoCaption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(tint.opacity(0.15))
+                        .foregroundStyle(tint)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Click to expand/collapse")
+            } else {
+                Text(badge)
+                    .font(.appMonoCaption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(tint.opacity(0.15))
+                    .foregroundStyle(tint)
+                    .clipShape(Capsule())
+            }
         }
     }
 
