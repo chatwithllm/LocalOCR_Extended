@@ -816,6 +816,12 @@ private struct ShoppingItemRow: View {
     let onEditNote: () -> Void
     let onDelete: () -> Void
 
+    /// Backend unit set — kept in sync with src/frontend/index.html `UNIT_OPTIONS`.
+    static let unitOptions: [String] = [
+        "each", "bottle", "can", "bag", "box", "pack", "roll",
+        "gal", "oz", "lb", "count", "dozen", "bunch",
+    ]
+
     @State private var expanded: Bool = false
     @State private var unitInput: String = ""
     @State private var sizeInput: String = ""
@@ -829,22 +835,41 @@ private struct ShoppingItemRow: View {
                 // F-259 thumbnail (F-145 mirror)
                 ShoppingSnapshotThumb(snapshot: item.latestSnapshot, fallbackInitials: item.productName)
 
+                // Explicit Button so SwiftUI hit-testing reliably fires the
+                // expand toggle even with sibling Buttons later in the HStack.
+                // `.onTapGesture` on the parent was unreliable when nested
+                // Buttons consumed the tap pipeline. The actual-price field is
+                // kept OUTSIDE the Button so its TextField stays focusable.
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.productName)
-                        .font(.appBody.weight(.semibold))
-                        .strikethrough(item.isPurchased, color: DesignTokens.tertiaryLabel)
-                        .foregroundStyle(item.isPurchased ? DesignTokens.secondaryLabel : DesignTokens.label)
-                    metaLine
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(item.productName)
+                                    .font(.appBody.weight(.semibold))
+                                    .strikethrough(item.isPurchased, color: DesignTokens.tertiaryLabel)
+                                    .foregroundStyle(item.isPurchased ? DesignTokens.secondaryLabel : DesignTokens.label)
+                                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                                    .font(.appCaption2)
+                                    .foregroundStyle(DesignTokens.tertiaryLabel)
+                            }
+                            metaLine
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(expanded ? "Hide details" : "Edit unit, size, price")
+
                     if item.isReadyToBillEditable(session: state.session) {
                         actualPriceField
                     }
                 }
-                Spacer(minLength: 8)
+
                 rowTrailing
             }
             .padding(.vertical, 4)
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { expanded.toggle() } }
             .contextMenu { rowContextMenu }
 
             if expanded {
@@ -864,7 +889,8 @@ private struct ShoppingItemRow: View {
     }
 
     private func syncInputs() {
-        unitInput = item.unit ?? "each"
+        let rawUnit = (item.unit ?? "each").lowercased()
+        unitInput = Self.unitOptions.contains(rawUnit) ? rawUnit : "each"
         sizeInput = item.sizeLabel ?? ""
         if let p = item.latestPrice?.price {
             priceInput = String(format: "%g", p)
@@ -969,8 +995,12 @@ private struct ShoppingItemRow: View {
                     .labelsHidden()
                 }
                 LabeledField(label: "Unit") {
-                    TextField("each", text: $unitInput)
-                        .textFieldStyle(.roundedBorder)
+                    // Web UNIT_OPTIONS (index.html line 8252) — must match the
+                    // backend's accepted unit set used by `update_shopping_item`.
+                    Picker("", selection: $unitInput) {
+                        ForEach(ShoppingItemRow.unitOptions, id: \.self) { Text($0).tag($0) }
+                    }
+                    .labelsHidden()
                 }
                 LabeledField(label: "Size") {
                     TextField("e.g. 1 gal", text: $sizeInput)
