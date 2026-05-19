@@ -1,0 +1,1 @@
+window.FEATURES_DATA = [];

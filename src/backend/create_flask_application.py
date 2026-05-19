@@ -220,6 +220,7 @@ def register_blueprints(app):
     from src.backend.manage_medications import medications_bp
     from src.backend.shared_dining_endpoints import shared_dining_bp
     from src.backend.handle_floor_obligations import floor_obligations_bp
+    from src.backend.handle_features import features_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(telegram_bp)
@@ -246,6 +247,7 @@ def register_blueprints(app):
     app.register_blueprint(medications_bp)
     app.register_blueprint(shared_dining_bp)
     app.register_blueprint(floor_obligations_bp)
+    app.register_blueprint(features_bp)
 
     logger.info("All blueprints registered.")
 
