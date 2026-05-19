@@ -3,6 +3,7 @@ import SwiftUI
 struct InventoryView: View {
     @StateObject private var state = InventoryState.shared
     @StateObject private var shopping = ShoppingState.shared
+    @EnvironmentObject private var router: Router
 
     @State private var search = ""
     @State private var selectedCategory: String? = nil
@@ -10,40 +11,95 @@ struct InventoryView: View {
     @State private var selectedItemId: Int? = nil
 
     var body: some View {
-        HSplitView {
-            categoriesPanel
-                .frame(minWidth: 180, idealWidth: 220, maxWidth: 320)
-            itemsPanel
-                .frame(minWidth: 480)
+        Group {
+            if state.isLoading && state.items.isEmpty {
+                loadingView
+            } else if state.items.isEmpty {
+                // Empty inventory — full-width centered empty state with an
+                // Upload Receipt CTA. Skips the split shell so the user doesn't
+                // see a barely-populated Categories sidebar with just "All".
+                emptyStateView
+            } else {
+                HSplitView {
+                    categoriesPanel
+                        .frame(minWidth: 200, idealWidth: 240, maxWidth: 320)
+                    itemsPanel
+                        .frame(minWidth: 480)
+                }
+            }
         }
         .navigationTitle("Inventory")
         .searchable(text: $search, placement: .toolbar, prompt: "Search inventory")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Toggle(isOn: $lowStockOnly) {
                     Label("Low stock", systemImage: "exclamationmark.circle")
                 }
                 .toggleStyle(.button)
-            }
-            ToolbarItem(placement: .primaryAction) {
+                .help("Show only low-stock items")
+                .disabled(state.items.isEmpty)
+
                 Button {
                     Task { await state.loadInventory() }
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .help("Refresh inventory")
+                .keyboardShortcut("r", modifiers: .command)
             }
         }
         .task { await state.loadInventory() }
     }
 
+    // MARK: - State subviews
+
+    private var loadingView: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+            ForEach(0..<6, id: \.self) { _ in
+                SkeletonView(width: nil, height: 56, cornerRadius: DesignTokens.Radius.card)
+            }
+        }
+        .padding(DesignTokens.Spacing.space4)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private var emptyStateView: some View {
+        EmptyStateView(
+            systemImage: "tray",
+            title: "No inventory yet",
+            subtitle: "Upload a receipt — items will be extracted automatically and added here.",
+            ctaTitle: "Upload Receipt"
+        ) {
+            router.activeSheet = .ocrUpload
+        }
+    }
+
     private var categoriesPanel: some View {
         List(selection: $selectedCategory) {
-            Section("Categories") {
-                Text("All")
-                    .tag(String?.none)
-                ForEach(state.categories, id: \.self) { cat in
-                    Text(cat).tag(String?.some(cat))
+            Section {
+                HStack {
+                    Text("All")
+                    Spacer()
+                    Text("\(state.items.count)")
+                        .font(.appCaption1.monospaced())
+                        .foregroundStyle(DesignTokens.tertiaryLabel)
                 }
+                .tag(String?.none)
+                ForEach(state.categories, id: \.self) { cat in
+                    HStack {
+                        Text(cat)
+                        Spacer()
+                        Text("\(state.items.filter { $0.product?.category == cat }.count)")
+                            .font(.appCaption1.monospaced())
+                            .foregroundStyle(DesignTokens.tertiaryLabel)
+                    }
+                    .tag(String?.some(cat))
+                }
+            } header: {
+                Text("CATEGORIES")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+                    .padding(.leading, 4)
             }
         }
         .listStyle(.sidebar)
@@ -51,20 +107,11 @@ struct InventoryView: View {
 
     private var itemsPanel: some View {
         Group {
-            if state.isLoading && state.items.isEmpty {
-                VStack(spacing: DesignTokens.Spacing.space2) {
-                    SkeletonView(width: nil, height: 56, cornerRadius: DesignTokens.Radius.card)
-                    SkeletonView(width: nil, height: 56, cornerRadius: DesignTokens.Radius.card)
-                    SkeletonView(width: nil, height: 56, cornerRadius: DesignTokens.Radius.card)
-                }
-                .padding(DesignTokens.Spacing.space4)
-            } else if filtered.isEmpty {
+            if filtered.isEmpty {
                 EmptyStateView(
-                    systemImage: "tray",
-                    title: state.items.isEmpty ? "No inventory yet" : "No matches",
-                    subtitle: state.items.isEmpty
-                        ? "Upload receipts to start tracking inventory."
-                        : "Try clearing search or the low-stock filter."
+                    systemImage: "magnifyingglass",
+                    title: "No matches",
+                    subtitle: "Try clearing search or the low-stock filter."
                 )
             } else {
                 List(filtered, selection: $selectedItemId) { item in
@@ -154,5 +201,7 @@ private struct InventoryRow: View {
 }
 
 #Preview("InventoryView") {
-    InventoryView().frame(width: 900, height: 600)
+    InventoryView()
+        .environmentObject(Router.shared)
+        .frame(width: 900, height: 600)
 }
