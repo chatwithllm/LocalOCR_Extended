@@ -1,1 +1,674 @@
-<!DOCTYPE html><html><head><title>Features</title></head><body><p>Coming soon</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Features — LocalOCR Extended</title>
+<style>
+/* ===== CSS Variables — dark theme ===== */
+:root {
+  --bg: #111113;
+  --surface: #1a1a1e;
+  --surface2: #222226;
+  --border: #2a2a2e;
+  --accent: #3b82f6;
+  --accent-dim: #1e3a5f;
+  --accent-text: #60a5fa;
+  --success: #2fa36b;
+  --success-dim: #162820;
+  --success-text: #4ade80;
+  --warning: #f59e0b;
+  --warning-dim: #1a1500;
+  --warning-border: #78350f;
+  --warning-text: #fcd34d;
+  --text: #f0f0f0;
+  --muted: #888;
+  --muted2: #555;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ===== Top bar ===== */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  z-index: 100;
+}
+
+#topbar a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.15s;
+}
+#topbar a:hover { color: var(--text); }
+
+#topbar .sep { color: var(--muted2); }
+
+#topbar .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-left: 4px;
+}
+
+/* ===== Layout ===== */
+#shell {
+  display: flex;
+  height: 100vh;
+  padding-top: 48px;
+}
+
+/* ===== Sidebar ===== */
+#sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#search-wrap {
+  padding: 12px 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+#search-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+#search-input::placeholder { color: var(--muted2); }
+#search-input:focus { border-color: var(--accent); }
+
+#sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+#sidebar-list::-webkit-scrollbar { width: 4px; }
+#sidebar-list::-webkit-scrollbar-track { background: transparent; }
+#sidebar-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  padding: 10px 12px 4px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 0 6px;
+  transition: background 0.1s;
+}
+.feature-item:hover { background: var(--surface2); }
+.feature-item.active {
+  background: var(--accent-dim);
+  color: var(--accent-text);
+}
+
+.feature-item .fi-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+.feature-item .fi-text { overflow: hidden; }
+.feature-item .fi-title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feature-item .fi-tagline {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feature-item.active .fi-tagline { color: var(--accent-text); opacity: 0.7; }
+
+#no-results {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  display: none;
+}
+
+/* ===== Detail pane ===== */
+#detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 40px;
+}
+#detail::-webkit-scrollbar { width: 6px; }
+#detail::-webkit-scrollbar-track { background: transparent; }
+#detail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+#detail-inner { max-width: 760px; }
+
+/* Empty / load state */
+#empty-state, #load-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--muted);
+  gap: 12px;
+  text-align: center;
+}
+#empty-state .es-icon { font-size: 40px; }
+#empty-state .es-msg, #load-state { font-size: 15px; }
+
+/* ===== Detail sections ===== */
+
+/* Header */
+.d-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.d-header-icon {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.d-header-body { flex: 1; }
+.d-title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.d-tagline {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+.badge-web      { background: #1e3a5f; border-color: #2563eb; color: #93c5fd; }
+.badge-mobile   { background: #1a2e1a; border-color: #16a34a; color: #86efac; }
+.badge-telegram { background: #1a2040; border-color: #2563eb; color: #93c5fd; }
+
+/* Where box */
+.where-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.where-pin { font-size: 14px; flex-shrink: 0; }
+.crumb { font-size: 13px; font-weight: 500; color: var(--text); }
+.crumb-sep { color: var(--muted2); font-size: 13px; }
+
+/* Section labels */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* Flow diagram */
+.flow-wrap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: 32px;
+}
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid;
+  min-width: 80px;
+  text-align: center;
+}
+.flow-node.start { background: var(--accent-dim); border-color: var(--accent); }
+.flow-node.end   { background: var(--success-dim); border-color: var(--success); }
+.flow-node.mid   { background: var(--surface2); border-color: var(--border); }
+.flow-node .fn-icon  { font-size: 18px; }
+.flow-node .fn-label { font-size: 12px; font-weight: 600; }
+.flow-node.start .fn-label { color: var(--accent-text); }
+.flow-node.end .fn-label   { color: var(--success-text); }
+.flow-node.mid .fn-label   { color: var(--text); }
+.flow-node .fn-sub { font-size: 10px; color: var(--muted); }
+.flow-arrow { color: var(--muted2); font-size: 16px; padding: 0 6px; flex-shrink: 0; }
+
+/* Mockup */
+.mockup-section { margin-bottom: 32px; }
+.mockup-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+/* Interactions grid */
+.interactions-section { margin-bottom: 32px; }
+.interactions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.interaction-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* Tip box */
+.tip-box {
+  background: var(--warning-dim);
+  border: 1px solid var(--warning-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 28px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.tip-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.tip-text { font-size: 13px; color: var(--warning-text); line-height: 1.5; }
+
+@media (max-width: 640px) {
+  #sidebar { width: 180px; }
+  #detail { padding: 20px 16px; }
+  .interactions-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header id="topbar">
+  <a href="/">&#8592; Home</a>
+  <span class="sep">/</span>
+  <span class="title">Features</span>
+</header>
+
+<!-- Shell -->
+<div id="shell">
+
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div id="search-wrap">
+      <input
+        id="search-input"
+        type="search"
+        placeholder="Search features…"
+        autocomplete="off"
+        aria-label="Search features"
+      >
+    </div>
+    <div id="sidebar-list">
+      <div id="no-results">No matches</div>
+    </div>
+  </nav>
+
+  <!-- Detail pane -->
+  <main id="detail">
+    <div id="detail-inner">
+      <div id="load-state">Loading…</div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+/* ===========================
+   safeSetHTML — project security requirement:
+   never use el.innerHTML = html directly
+   =========================== */
+function safeSetHTML(el, html) {
+  el.textContent = '';
+  var range = document.createRange();
+  range.selectNode(el);
+  el.appendChild(range.createContextualFragment(html));
+}
+
+/* ===========================
+   State
+   =========================== */
+var FEATURES = [];
+var activeId = null;
+
+/* ===========================
+   HTML escape
+   =========================== */
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ===========================
+   Platform badge CSS class
+   =========================== */
+function badgeClass(platform) {
+  var p = (platform || '').toLowerCase();
+  if (p === 'mobile') return 'badge-mobile';
+  if (p === 'telegram') return 'badge-telegram';
+  return 'badge-web';
+}
+
+/* ===========================
+   Build sidebar items
+   =========================== */
+function buildSidebar(filter) {
+  var list = document.getElementById('sidebar-list');
+  var noRes = document.getElementById('no-results');
+  var q = (filter || '').toLowerCase();
+
+  // Remove old items
+  var old = list.querySelectorAll('.group-label, .feature-item');
+  for (var i = 0; i < old.length; i++) old[i].remove();
+
+  // Group features
+  var groups = {};
+  var groupOrder = [];
+  FEATURES.forEach(function (f) {
+    if (q) {
+      var match = (f.title || '').toLowerCase().indexOf(q) !== -1 ||
+                  (f.tagline || '').toLowerCase().indexOf(q) !== -1;
+      if (!match) return;
+    }
+    var g = f.group || 'Features';
+    if (!groups[g]) { groups[g] = []; groupOrder.push(g); }
+    groups[g].push(f);
+  });
+
+  var totalShown = 0;
+
+  groupOrder.forEach(function (groupName) {
+    var features = groups[groupName];
+
+    var labelEl = document.createElement('div');
+    labelEl.className = 'group-label';
+    labelEl.textContent = groupName;
+    list.appendChild(labelEl);
+
+    features.forEach(function (f) {
+      totalShown++;
+      var item = document.createElement('div');
+      item.className = 'feature-item' + (String(f.id) === String(activeId) ? ' active' : '');
+      item.dataset.id = f.id;
+      safeSetHTML(item,
+        '<span class="fi-icon">' + escHtml(f.icon || '') + '</span>' +
+        '<span class="fi-text">' +
+          '<div class="fi-title">' + escHtml(f.title || '') + '</div>' +
+          '<div class="fi-tagline">' + escHtml(f.tagline || '') + '</div>' +
+        '</span>'
+      );
+      item.addEventListener('click', function () { selectFeature(f.id); });
+      list.appendChild(item);
+    });
+  });
+
+  noRes.style.display = totalShown === 0 ? 'block' : 'none';
+}
+
+/* ===========================
+   Render detail pane
+   =========================== */
+function renderDetail(f) {
+  var inner = document.getElementById('detail-inner');
+
+  if (!f) {
+    safeSetHTML(inner,
+      '<div id="empty-state">' +
+        '<div class="es-icon">&#128269;</div>' +
+        '<div class="es-msg">Select a feature from the sidebar</div>' +
+      '</div>'
+    );
+    return;
+  }
+
+  var parts = [];
+
+  /* 1 — Header */
+  var badgesHtml = (f.platforms || []).map(function (p) {
+    return '<span class="badge ' + badgeClass(p) + '">' + escHtml(p) + '</span>';
+  }).join('');
+
+  parts.push(
+    '<div class="d-header">' +
+      '<div class="d-header-icon">' + escHtml(f.icon || '') + '</div>' +
+      '<div class="d-header-body">' +
+        '<div class="d-title">' + escHtml(f.title || '') + '</div>' +
+        '<div class="d-tagline">' + escHtml(f.tagline || '') + '</div>' +
+        '<div class="badges">' + badgesHtml + '</div>' +
+      '</div>' +
+    '</div>'
+  );
+
+  /* 2 — Where box */
+  if (f.where) {
+    var crumbs = f.where.split(/→|->/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var crumbsHtml = crumbs.map(function (c, i) {
+      return (i > 0 ? '<span class="crumb-sep">&#8250;</span>' : '') +
+             '<span class="crumb">' + escHtml(c) + '</span>';
+    }).join('');
+    parts.push(
+      '<div class="where-box">' +
+        '<span class="where-pin">&#128205;</span>' +
+        crumbsHtml +
+      '</div>'
+    );
+  }
+
+  /* 3 — Flow diagram */
+  if (f.flow && f.flow.length > 0) {
+    parts.push('<div class="section-label">How it works</div>');
+    var flowItems = f.flow.map(function (node, i) {
+      var cls = (i === 0) ? 'start' : (i === f.flow.length - 1) ? 'end' : 'mid';
+      var subHtml = node.sub ? '<div class="fn-sub">' + escHtml(node.sub) + '</div>' : '';
+      var arrowHtml = (i < f.flow.length - 1) ? '<span class="flow-arrow">&#8594;</span>' : '';
+      return (
+        '<div class="flow-node ' + cls + '">' +
+          '<span class="fn-icon">' + escHtml(node.icon || '') + '</span>' +
+          '<span class="fn-label">' + escHtml(node.label || '') + '</span>' +
+          subHtml +
+        '</div>' +
+        arrowHtml
+      );
+    }).join('');
+    parts.push('<div class="flow-wrap">' + flowItems + '</div>');
+  }
+
+  /* 4 — Mockup */
+  if (f.mockup) {
+    parts.push(
+      '<div class="mockup-section">' +
+        '<div class="section-label">What you see</div>' +
+        '<div class="mockup-wrap">' + f.mockup + '</div>' +
+      '</div>'
+    );
+  }
+
+  /* 5 — Interactions grid */
+  if (f.interactions && f.interactions.length > 0) {
+    var itemsHtml = f.interactions.map(function (s) {
+      return '<div class="interaction-item">' + escHtml(s) + '</div>';
+    }).join('');
+    parts.push(
+      '<div class="interactions-section">' +
+        '<div class="section-label">Key interactions</div>' +
+        '<div class="interactions-grid">' + itemsHtml + '</div>' +
+      '</div>'
+    );
+  }
+
+  /* 6 — Tip box */
+  if (f.tip) {
+    parts.push(
+      '<div class="tip-box">' +
+        '<span class="tip-icon">&#128161;</span>' +
+        '<span class="tip-text">' + escHtml(f.tip) + '</span>' +
+      '</div>'
+    );
+  }
+
+  safeSetHTML(inner, parts.join(''));
+
+  /* Scroll detail pane to top */
+  document.getElementById('detail').scrollTop = 0;
+}
+
+/* ===========================
+   Select a feature by id
+   =========================== */
+function selectFeature(id) {
+  activeId = id;
+  var f = null;
+  for (var i = 0; i < FEATURES.length; i++) {
+    if (String(FEATURES[i].id) === String(id)) { f = FEATURES[i]; break; }
+  }
+
+  /* Update sidebar highlight */
+  var items = document.querySelectorAll('.feature-item');
+  for (var j = 0; j < items.length; j++) {
+    items[j].classList.toggle('active', items[j].dataset.id === String(id));
+  }
+
+  renderDetail(f);
+}
+
+/* ===========================
+   Search handler
+   =========================== */
+document.getElementById('search-input').addEventListener('input', function () {
+  buildSidebar(this.value);
+});
+
+/* ===========================
+   initFeatures — called once data is loaded
+   =========================== */
+function initFeatures() {
+  FEATURES = window.FEATURES_DATA || [];
+
+  if (FEATURES.length === 0) {
+    var inner = document.getElementById('detail-inner');
+    safeSetHTML(inner,
+      '<div id="empty-state">' +
+        '<div class="es-icon">&#128203;</div>' +
+        '<div class="es-msg">No feature data loaded.</div>' +
+      '</div>'
+    );
+    buildSidebar('');
+    return;
+  }
+
+  buildSidebar('');
+  selectFeature(FEATURES[0].id);
+}
+
+/* ===========================
+   Bootstrap: inject <script src="/features/data"> to load data.
+   Using dynamic script injection avoids eval / new Function while
+   still allowing the server to serve the JS file that sets
+   window.FEATURES_DATA.  A 401 response causes a network error
+   which we catch and redirect to /.
+   =========================== */
+(function bootstrap() {
+  /* First probe auth — a lightweight HEAD isn't guaranteed for this
+     route, so use a fetch to detect 401 before injecting a script tag. */
+  fetch('/features/data', { credentials: 'same-origin' })
+    .then(function (res) {
+      if (res.status === 401) {
+        window.location.href = '/';
+        return null;
+      }
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status);
+      }
+      /* Auth passed — inject a script tag so the JS sets the global. */
+      return 'ok';
+    })
+    .then(function (ok) {
+      if (!ok) return;
+      var s = document.createElement('script');
+      s.src = '/features/data';
+      s.onload = function () { initFeatures(); };
+      s.onerror = function () {
+        var inner = document.getElementById('detail-inner');
+        safeSetHTML(inner,
+          '<div id="load-state">Failed to load feature data. ' +
+          '<a href="/" style="color:var(--accent-text)">Go home</a></div>'
+        );
+      };
+      document.head.appendChild(s);
+    })
+    .catch(function (err) {
+      console.error('features/data fetch failed:', err);
+      var inner = document.getElementById('detail-inner');
+      safeSetHTML(inner,
+        '<div id="load-state">Failed to load feature data. ' +
+        '<a href="/" style="color:var(--accent-text)">Go home</a></div>'
+      );
+    });
+})();
+</script>
+</body>
+</html>
