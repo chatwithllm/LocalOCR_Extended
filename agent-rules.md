@@ -19,6 +19,8 @@ It is **not** done. Done means all of the following are true:
 - [ ] App reinstalled, launched, logs tailed (Rule 6)
 - [ ] Zero failure log lines found (Rule 6, failure conditions)
 - [ ] "loaded N <thing>" line found for every new endpoint within 5s of launch
+- [ ] Screenshot of macOS screen taken and compared against web app (Rule 11)
+- [ ] Every element visible on web is present on macOS or explicitly justified as 🔄/🚫
 
 If any of those is not true → NOT done. Debug, fix, repeat. Do not report done.
 
@@ -271,7 +273,7 @@ If any failure condition → debug, fix, re-run from Step 1. Never skip to "done
 | "Standard CRUD / all fields" | Misses sub-fields, modals, states | Atomic registry — one row per element |
 | Skip pre-flight to save time | Guarantees wrong path/shape | Rule 1 — no exceptions |
 | Read plan for endpoint path | Plan can be wrong | Read blueprint + grep index.html |
-| Log system-rejection as `.warning` and retry next launch | Pollutes logs, breaks Rule 6 validation | Rule 10 — latch in UserDefaults, log at `.info` |
+| Mutate `URLSessionConfiguration` sub-fields after session creation | Session captured the old config; writes are no-ops; auth/cookies/cache never apply | Build fresh `URLSessionConfiguration`, assign whole `sessionConfiguration` property in one statement (Rule 12) |
 
 ---
 
@@ -285,7 +287,8 @@ These have happened once but not yet ruled. Next incident locks in the rule.
 - **Receipts Processed sparkline empty** — `/analytics/spending?period=daily&months=1`
   returns empty `spending_by_period`. Confirm: backend bug vs wrong query params.
 
-- ~~**`UNErrorDomain error 1` on every launch**~~ — **PROMOTED TO RULE 10 (I-10)**.
+- **`UNErrorDomain error 1` on every launch** — notification permission denied silently.
+  Should distinguish "denied" from "not determined" and only request once.
 
 When any of these hits a second time → promote to a numbered Rule here.
 
@@ -328,68 +331,9 @@ interactively. If you cannot demo it, it is ❌.**
 
 ### Updated anti-pattern for section 3:
 | Mark ✅ because "it renders" | Rendering ≠ behavior — re-read verbs, verify interactivity |
+| Mark ✅ because log is clean | Log clean ≠ visual parity — images, buttons, counts can be missing silently | Rule 11 screenshot diff vs web before every screen ✅ |
 
 ---
-
-## RULE 10 — System Capability Errors Must Latch, Not Repeat
-
-**Source: I-10** — `UNUserNotificationCenter.requestAuthorization` threw `UNErrorDomain code 1` on every launch (unsigned builds can't request notification permission). The code logged `.warning` every time. Errors accumulated in Console.app and broke Rule 6 validation (Rule 6 says "ZERO `failed:` log lines" — but a baseline rejection that re-fires every launch makes that check meaningless).
-
-### The mistake pattern
-
-```swift
-// ❌ Wrong — keeps calling, keeps logging .warning forever
-do {
-    _ = try await center.requestAuthorization(options: [.alert])
-} catch {
-    logger.warning("requestAuthorization failed: \(error.localizedDescription)")
-}
-```
-
-The error is the **environment** saying "this capability isn't available in this build."
-It is not a caller bug. Retrying gains nothing; logging it as `.warning` poisons the log.
-
-### The correct pattern
-
-```swift
-// ✅ Latch the rejection in UserDefaults, log at .info, skip future attempts
-let rejectionKey = "App.notificationRequestRejected"
-if UserDefaults.standard.bool(forKey: rejectionKey) { return }
-
-do {
-    _ = try await center.requestAuthorization(options: [.alert])
-    UserDefaults.standard.removeObject(forKey: rejectionKey)   // clear on success
-} catch let error as NSError {
-    if error.domain == "UNErrorDomain", error.code == 1 {
-        UserDefaults.standard.set(true, forKey: rejectionKey)
-        logger.info("notifications unavailable in this build — silenced for future launches")
-        return
-    }
-    logger.warning("\(error.localizedDescription)")
-}
-```
-
-### Categorize errors before logging
-
-| Error kind | Behavior | Log level |
-|-----------|----------|-----------|
-| **Transient** (network blip, timeout) | Retry next time | `.warning` |
-| **Caller bug** (wrong payload, missing field) | Fix the call site | `.error` |
-| **Environmental capability** (unsigned, no entitlement, hardware missing) | Latch in UserDefaults; skip future launches | `.info` |
-| **Cancellation** (user-driven, view re-render) | Silent return | `.debug` or none (Rule 3) |
-
-### Rule of thumb
-
-If the SAME error fires on EVERY launch and retrying changes nothing, it's an **environmental capability error**. Latch it. Don't retry. Don't pollute the log.
-
-### Compliance check before merge
-
-```bash
-# After 5+ launches, the same error pattern should appear AT MOST once.
-/usr/bin/log show --last 10m --predicate 'subsystem == "<bundle>"' --info --debug | \
-  grep -cE "failed:|UNErrorDomain"
-# If count > 1 for the same error pattern → Rule 10 violated.
-```
 
 ---
 
@@ -469,6 +413,103 @@ skill version becomes the baseline for the next project — carrying all rules f
 
 This means every new app you build starts with the full institutional memory of every
 previous app. Mistakes that cost hours on project 1 never appear on project 2.
+
+
+---
+
+## RULE 12 — `URLSessionConfiguration` Sub-Property Mutation Is Silently Ignored
+
+**Source: I-12** — Kingfisher image loads silently fell back to placeholders for every authenticated thumbnail because `ImageCache.configureSharedCookies()` mutated `KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage` in place. Kingfisher had already created its `URLSession` from the original config; in-place writes were no-ops; cookies never flowed → 401 → placeholder.
+
+### The mistake
+
+```swift
+// ❌ Wrong — session already captured the OLD config; these writes go nowhere
+KingfisherManager.shared.downloader.sessionConfiguration.httpCookieAcceptPolicy = .always
+KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage = HTTPCookieStorage.shared
+```
+
+### Why it fails
+
+`URLSession` snapshots its `URLSessionConfiguration` at session-creation time. Any framework that exposes a `sessionConfiguration` property is presumed to back it with a *setter* that rebuilds the session. Mutating sub-fields of the captured object never reaches the live session — the session keeps using the config it was born with.
+
+### The correct pattern
+
+Always build a *fresh* `URLSessionConfiguration`, populate every knob you care about, and assign the whole property in one statement (going through the setter):
+
+```swift
+// ✅ Correct — full re-assignment forces Kingfisher's setter to rebuild the session
+let config = URLSessionConfiguration.default
+config.httpCookieAcceptPolicy = .always
+config.httpShouldSetCookies = true
+config.httpCookieStorage = HTTPCookieStorage.shared
+config.requestCachePolicy = .useProtocolCachePolicy
+config.timeoutIntervalForRequest = 30
+config.timeoutIntervalForResource = 60
+KingfisherManager.shared.downloader.sessionConfiguration = config
+```
+
+For your *own* `URLSession`: same rule — set every knob on a fresh config first, then pass it into `URLSession(configuration:)`. Mutating the config after the session is created does nothing.
+
+### How to verify compliance before marking ✅
+
+If a screen depends on authenticated remote images:
+1. `curl -sS -b <cookie-jar> <image-url> -o /tmp/t -w "%{http_code} %{size_download}\n"` — confirm the backend serves the image with the same cookie the app holds.
+2. Reinstall + open the screen + screencap.
+3. Read the screencap — items the backend reports as having `image_url`/`latest_snapshot` MUST render the real image. Initials/placeholder chips appearing for those rows = ❌, regardless of how the code "looks".
+4. Cross-check a second screen that uses the same image loader (e.g. Receipts thumbnails) — if both render placeholders, the cookie/session sharing is the bug, not the per-screen wiring.
+
+### One-sentence rule
+
+**Never mutate `URLSessionConfiguration` after the session has been created — build a fresh config, set every property, and assign the whole `sessionConfiguration` in one statement so the framework's setter rebuilds the session.**
+
+---
+
+## RULE 11 — Visual Parity Check Before Every Screen ✅
+
+**Source: Post-Inventory observation** — agent reported Inventory complete with 0 ❌.
+Side-by-side with the web app revealed missing product images, missing defer button,
+missing expiry counts in section headers. Log validation cannot catch visual gaps.
+
+### Required before marking ANY screen complete
+
+After post-build log validation (Rule 6), run a visual parity check:
+
+```bash
+# 1. Screenshot the macOS screen
+screencapture -x /tmp/macos_[screenname].png
+
+# 2. Screenshot the equivalent web screen
+# Open the prod URL in the background, screenshot that window
+screencapture -l $(GetWindowID "Google Chrome" "*[screen feature]*") /tmp/web_[screenname].png
+
+# 3. Read both screenshots using the Read tool (image)
+# Compare visually — list every element present in web but absent in macOS
+```
+
+### What to look for in the diff
+
+| Element | Where to check | Common miss |
+|---------|---------------|-------------|
+| Product/item images | Any list or card view | Agent skips image loading as "non-functional" |
+| Action buttons | Each row/card | defer, archive, share often missed |
+| Counts in headers | Section headers | "N expiring soon", "N low stock" subtitles |
+| Color indicators | Status badges | Web uses color + icon, macOS may have icon only |
+| Empty sub-sections | Collapsed areas | Web may show sub-category counts |
+| Toolbar items | Top of screen | Web toolbar has more actions than macOS |
+
+### Fix protocol
+
+For every visual gap found:
+1. Find the registry row — it will be ❌ or incorrectly marked 🔄/🚫
+2. If 🔄 or 🚫 — re-read the justification. If the web shows it, it needs a reason to skip.
+3. Implement missing elements
+4. Re-screenshot, re-compare
+5. Only mark ✅ when macOS screenshot matches web screenshot feature-for-feature
+
+### The rule in one sentence
+**A screenshot diff against the web app is required before any screen is marked complete.
+Log clean + 0 ❌ registry rows + screenshot matches web = done. All three, not two.**
 
 
 ## SESSION START CHECKLIST

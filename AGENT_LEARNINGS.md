@@ -119,6 +119,28 @@ This file is the institutional memory. Future agents read it on session start (o
 
 ---
 
+### I-12: Kingfisher image cookies never shared — in-place URLSessionConfiguration mutation is silently ignored
+- **Symptom**: After F-145 was implemented (per-row product snapshot via Kingfisher) and the build looked correct, side-by-side with the web app showed **every** mac row falling back to the initials chip — even for items whose backend payload included `latest_snapshot.image_url`. Backend `curl` with the same session cookie returned the JPEGs fine (HTTP 200). The Receipts tab also showed only placeholders, proving the bug was global to Kingfisher, not specific to inventory.
+- **Root cause**: `ImageCache.configureSharedCookies()` was written as three in-place mutations on `KingfisherManager.shared.downloader.sessionConfiguration` (`httpCookieAcceptPolicy`, `httpShouldSetCookies`, `httpCookieStorage`). `URLSession` snapshots its `URLSessionConfiguration` at session-creation time — Kingfisher creates its downloader session lazily on first image load, and from that moment onward later in-place writes to the captured config object do nothing. Cookies stayed in Kingfisher's private cookie jar (empty), so requests went out unauthenticated, the server returned 401, and KFImage fell through to the `placeholder` view forever.
+- **User prompt that exposed it**: (caught by self-audit during the Rule 11 screenshot diff against the web app, before user had to step in — Rule 11 working as intended)
+- **Fix**: Build a *fresh* `URLSessionConfiguration`, populate it with the shared cookie jar + the same cache/timeout knobs APIClient uses, then assign the whole `sessionConfiguration` property in one shot. Kingfisher's property setter rebuilds the session, so the new cookie storage actually takes effect. Verified by reinstalling, re-screenshotting Inventory, and confirming real product photos render for the rows the backend reports as having snapshots — and the initials chip still appears for rows whose backend response carries `latest_snapshot: null`.
+- **Rule locked in**: **`URLSession` captures its `URLSessionConfiguration` at session-creation time — mutating sub-properties of an already-attached config does nothing. Always build a fresh config locally, set every knob you care about, and assign the whole property in a single statement (or pass it into `URLSession(configuration:)` before the session is ever used).** Anti-pattern: `KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage = HTTPCookieStorage.shared`. Correct: `let cfg = URLSessionConfiguration.default; cfg.httpCookieStorage = HTTPCookieStorage.shared; KingfisherManager.shared.downloader.sessionConfiguration = cfg`. Generalize: any framework that exposes a `sessionConfiguration` property is presumed to back it with a setter that rebuilds the session — go through the setter, not the captured object's sub-fields.
+
+---
+
+### I-11: Coarse registry rows hide visible web behaviors that never get their own ❌
+- **Symptom**: Inventory screen passed RULE 9 verb-check (all F-100..F-144 marked ✅/🔄/🚫). User opened it side-by-side with the web and found three visible features missing: per-tile product photos, per-tile +3d defer button, and "N expiring soon" tail on every section header. None of these had a dedicated registry row — they were rolled up inside F-132 "Inventory tile groups container (Rendered by `renderInventory()`)" and F-133 "Inventory tile — consume action (inline)".
+- **Root cause**: The deep-audit registry treats one DOM function call as one row. `renderInventory()` and `_invBuildTile()` each render half a dozen sub-elements (image, status pill, defer button, expiry tag, etc.), but the registry only enumerates them when they have their own `id=` or are referenced by name in JS. Anything assembled inline by the renderer is invisible to the registry — and therefore invisible to RULE 9. The agent dutifully checked every verb that appeared in a row; the missing rows had no verbs to check.
+- **User prompt that exposed it**:
+  > "Product images missing on every inventory card / 'defer' button missing from row actions / Expiring count missing from section headers"
+- **Fix**:
+  1. Added F-145 (per-tile product snapshot image), F-146 (per-tile defer), F-147 (group-header expiring count) to FEATURE_PARITY_REGISTRY.md.
+  2. Implemented Kingfisher-backed `ProductSnapshotThumb`, "+3d / ⌥+7d" Button in `InventoryRow`, and `groupHeader(title:rows:)` with `InventoryState.expiringSoonCount` (threshold matches web's `_invClassifyExpiry`: `daysLeft <= 3`).
+  3. New rows added 2026-05-19 with explicit justification linking back to this incident.
+- **Rule locked in**: **Before marking a parent "renderX()" row ✅, do a literal pixel-diff against the running web app — open both apps side by side, screenshot each section, and itemize every visible element in the web that the mac is missing. Every missing element becomes its own F-row first; only then verb-check.** The implicit promise of a registry row labelled "Rendered by `renderFoo()`" is "all of foo's outputs are visible here" — that promise can't be kept without an explicit per-element audit.
+
+---
+
 ### I-9: Marked registry rows ✅ without verifying the actual behavior
 - **Symptom**: Registry F-028 "Low Stock count badge button" and F-038 "Top Picks count badge button" were both marked ✅ (implemented). But the badges were just static `Text` views — clicking did nothing.
 - **Root cause**: I implemented "the badge is rendered" and assumed that met the row. The row's literal description includes "button" and "toggle `toggleDashboardSection`". I marked ✅ without re-reading the row's verb.
