@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened Runtime: required for notarization -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+
+    <!-- Network access: talk to the Flask server (per §4.6 Integration list) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- File access: NSOpenPanel / NSSavePanel / Finder drops -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Camera: Continuity Camera via AVFoundation -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+
+    <!-- App Sandbox: NOT enabled for Developer ID direct distribution (§2.1, §4.6) -->
+    <!-- com.apple.security.app-sandbox is intentionally absent -->
+</dict>
+</plist>
