@@ -218,6 +218,22 @@ enum AnalyticsEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Dashboard helpers
+
+enum DashboardEndpoint {
+    case attributionStats
+    case recommendations
+
+    var path: String {
+        switch self {
+        case .attributionStats:   return "/receipts/attribution-stats"
+        case .recommendations:    return "/recommendations"
+        }
+    }
+    var method: HTTPMethod { .get }
+    var isMutating: Bool { false }
+}
+
 // MARK: - Receipt upload (multipart)
 
 struct ReceiptUploadFields {
