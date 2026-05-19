@@ -81,37 +81,47 @@ final class FinanceState: ObservableObject {
         }
     }
 
+    /// `/analytics/spending` shape (from calculate_spending_analytics.py):
+    /// {
+    ///   "period": "monthly",
+    ///   "domain": "all",
+    ///   "months_back": 6,
+    ///   "grand_total": 12345.67,
+    ///   "spending_by_period": { "2026-05": {total, count, purchase_count, refund_count, purchase_total, refund_total}, ... },
+    ///   "category_breakdown": { "Grocery": {total, count}, "Other": {total, count}, ... }
+    /// }
     private func parseSpending(_ data: Data) -> SpendingAnalytics? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        let categoriesRaw = (json["categories"] as? [[String: Any]]) ?? []
-        let categories: [SpendingCategoryTotal] = categoriesRaw.compactMap { row in
-            guard let cat = row["category"] as? String else { return nil }
-            let total = (row["total"] as? Double) ?? Double(row["total"] as? Int ?? 0)
-            let count = (row["receipt_count"] as? Int) ?? (row["count"] as? Int) ?? 0
-            return SpendingCategoryTotal(category: cat, total: total, receiptCount: count)
-        }
 
-        let merchantsRaw = (json["top_merchants"] as? [[String: Any]]) ?? []
-        let merchants: [MerchantFrequency] = merchantsRaw.compactMap { row in
-            guard let name = row["name"] as? String else { return nil }
-            let visits = (row["visit_count"] as? Int) ?? (row["count"] as? Int) ?? 0
-            let avg = (row["avg_amount"] as? Double) ?? 0
-            return MerchantFrequency(name: name, visitCount: visits, avgAmount: avg)
-        }
+        // Categories — sort by total desc.
+        let categoryDict = (json["category_breakdown"] as? [String: [String: Any]]) ?? [:]
+        let categories: [SpendingCategoryTotal] = categoryDict
+            .map { name, payload in
+                let total = (payload["total"] as? Double) ?? Double(payload["total"] as? Int ?? 0)
+                let count = (payload["count"] as? Int) ?? 0
+                return SpendingCategoryTotal(category: name.capitalized, total: total, receiptCount: count)
+            }
+            .sorted { $0.total > $1.total }
 
-        let monthlyRaw = (json["monthly_timeline"] as? [[String: Any]]) ?? []
-        let monthly: [MonthlySpend] = monthlyRaw.compactMap { row in
-            guard let month = row["month"] as? String else { return nil }
-            let total = (row["total"] as? Double) ?? Double(row["total"] as? Int ?? 0)
-            return MonthlySpend(month: month, total: total)
-        }
+        // Monthly timeline — keys are "YYYY-MM" strings.
+        let periodDict = (json["spending_by_period"] as? [String: [String: Any]]) ?? [:]
+        let monthly: [MonthlySpend] = periodDict
+            .map { key, payload in
+                let total = (payload["total"] as? Double) ?? Double(payload["total"] as? Int ?? 0)
+                return MonthlySpend(month: key, total: total)
+            }
+            .sorted { $0.month < $1.month }
 
-        let period = (json["period_label"] as? String) ?? (json["period"] as? String) ?? ""
+        // Build period label. Prefer months-back range.
+        let periodKey = (json["period"] as? String) ?? "monthly"
+        let monthsBack = (json["months_back"] as? Int) ?? 6
+        let label = "Last \(monthsBack) \(periodKey == "monthly" ? "months" : periodKey)"
+
         return SpendingAnalytics(
             categories: categories,
-            topMerchants: merchants,
+            topMerchants: [],       // `/analytics/spending` doesn't expose merchants
             monthlyTimeline: monthly,
-            periodLabel: period
+            periodLabel: label
         )
     }
 
