@@ -7,11 +7,19 @@ import Kingfisher
 enum ImageCache {
 
     static func configureSharedCookies() {
-        // Kingfisher's downloader uses URLSession.shared.configuration by default.
-        // We point its modifier at HTTPCookieStorage.shared (already shared with APIClient).
-        KingfisherManager.shared.downloader.sessionConfiguration.httpCookieAcceptPolicy = .always
-        KingfisherManager.shared.downloader.sessionConfiguration.httpShouldSetCookies = true
-        KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage = HTTPCookieStorage.shared
+        // Mutating sub-properties on `sessionConfiguration` in place does NOT rebuild
+        // Kingfisher's URLSession — the session is created lazily from the config object
+        // captured at first access, so later in-place writes are ignored. Build a fresh
+        // config and assign the whole property so Kingfisher's setter rebuilds the session
+        // with our shared cookie jar.
+        let config = URLSessionConfiguration.default
+        config.httpCookieAcceptPolicy = .always
+        config.httpShouldSetCookies = true
+        config.httpCookieStorage = HTTPCookieStorage.shared
+        config.requestCachePolicy = .useProtocolCachePolicy
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        KingfisherManager.shared.downloader.sessionConfiguration = config
     }
 
     /// Modifier that attaches `X-Trusted-Device-Token` if available. Apply to KFImage

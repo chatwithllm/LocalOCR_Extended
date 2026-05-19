@@ -44,29 +44,97 @@ struct DevicePairingStatusResponse: Codable, Equatable { let status: String; let
 // MARK: - Inventory
 
 enum InventoryEndpoint {
-    case list
-    case consume(itemId: Int, delta: Double)
+    case list(location: String?, lowStockOnly: Bool)
+    case addItem
+    case consume(itemId: Int)
+    case updateItem(itemId: Int)
+    case delete(itemId: Int)
+    case patchProduct(productId: Int)
+    case deleteExpiryOverride(productId: Int)
     case markLow(productId: Int)
+    case regularUse(productId: Int)
+    case confirmLow(productId: Int)
+    case recentlyUsedUp(days: Int)
+    case restore(productId: Int)
 
     var path: String {
         switch self {
-        case .list:                       return "/inventory"
-        case .consume(let id, _):         return "/inventory/\(id)/consume"
-        case .markLow(let productId):     return "/inventory/products/\(productId)/low-status"
+        case .list:                                return "/inventory"
+        case .addItem:                             return "/inventory/add-item"
+        case .consume(let id):                     return "/inventory/\(id)/consume"
+        case .updateItem(let id):                  return "/inventory/\(id)/update"
+        case .delete(let id):                      return "/inventory/\(id)"
+        case .patchProduct(let pid):               return "/inventory/products/\(pid)"
+        case .deleteExpiryOverride(let pid):       return "/inventory/products/\(pid)/expiry-override"
+        case .markLow(let pid):                    return "/inventory/products/\(pid)/low-status"
+        case .regularUse(let pid):                 return "/inventory/products/\(pid)/regular-use"
+        case .confirmLow(let pid):                 return "/inventory/products/\(pid)/confirm-low"
+        case .recentlyUsedUp:                      return "/inventory/recently-used-up"
+        case .restore(let pid):                    return "/inventory/products/\(pid)/restore"
         }
     }
+
     var method: HTTPMethod {
         switch self {
-        case .list:        return .get
-        case .consume:     return .put
-        case .markLow:     return .put
+        case .list, .recentlyUsedUp:                                   return .get
+        case .addItem, .confirmLow, .restore:                          return .post
+        case .consume, .updateItem, .markLow, .regularUse:             return .put
+        case .patchProduct:                                            return .patch
+        case .delete, .deleteExpiryOverride:                           return .delete
         }
     }
+
+    var query: [URLQueryItem] {
+        switch self {
+        case .list(let location, let lowStockOnly):
+            var items: [URLQueryItem] = []
+            if let location { items.append(.init(name: "location", value: location)) }
+            if lowStockOnly { items.append(.init(name: "low_stock", value: "true")) }
+            return items
+        case .recentlyUsedUp(let days):
+            return [.init(name: "days", value: String(days))]
+        default:
+            return []
+        }
+    }
+
     var isMutating: Bool { method != .get }
 }
 
-struct ConsumeBody: Encodable { let delta: Double }
+struct InventoryAddBody: Encodable {
+    let productName: String
+    let quantity: Double
+    let location: String
+    let threshold: Double?
+    let category: String?
+    let size: String?
+}
+
+struct ConsumeBody: Encodable { let amount: Double }
 struct MarkLowBody: Encodable { let manualLow: Bool }
+struct RegularUseBody: Encodable { let isRegularUse: Bool }
+struct InventoryRestoreBody: Encodable { let quantity: Double? }
+
+/// PUT /inventory/<id>/update — backend reads any subset of these keys.
+struct InventoryUpdateBody: Encodable {
+    let quantity: Double?
+    let location: String?
+    let threshold: Double?
+    let consumedPctOverride: Double?
+}
+
+/// PATCH /inventory/products/<id> — product-level edits (rename, unit, size, expiry, defer, used-up).
+/// Pass `quantity: 0` to mark used-up; backend deletes the row and returns `{deleted: true, ...}`.
+struct InventoryPatchBody: Encodable {
+    let displayName: String?
+    let unit: String?
+    let sizeLabel: String?
+    let quantity: Double?
+    let location: String?
+    let threshold: Double?
+    let expiresAt: String?
+    let deferDays: Int?
+}
 
 // MARK: - Receipts
 
