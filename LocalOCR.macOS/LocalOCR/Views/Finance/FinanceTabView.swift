@@ -35,8 +35,10 @@ struct FinanceTabView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .padding(DesignTokens.Spacing.space3)
-            .background(DesignTokens.surface2)
+            .padding(.horizontal, DesignTokens.Spacing.space4)
+            .padding(.vertical, DesignTokens.Spacing.space2)
+            // Inherit window background — no grey panel behind the picker.
+            .background(DesignTokens.background)
 
             Divider()
 
