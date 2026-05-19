@@ -18,7 +18,7 @@ from flask import Blueprint, request, jsonify, g
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Purchase, ReceiptItem, Product, Store, PriceHistory, BillMeta, BillProvider, BillServiceLine, CashTransaction,
-    TelegramReceipt,
+    TelegramReceipt, FloorObligation,
 )
 from src.backend.budgeting_domains import normalize_spending_domain
 from src.backend.budgeting_rollups import normalize_transaction_type, signed_purchase_total, purchase_amount_sign
@@ -1522,6 +1522,14 @@ def spending_by_category():
         next_start = month_start.replace(month=month_start.month + 1)
     prev_start = (month_start - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
+    # Purchases linked to an active floor obligation — excluded from categories.
+    floor_purchase_ids = (
+        session.query(BillMeta.purchase_id)
+        .join(FloorObligation, FloorObligation.bill_provider_id == BillMeta.provider_id)
+        .filter(FloorObligation.is_active == True)
+        .subquery()
+    )
+
     def _agg(start, end):
         from src.backend.initialize_database_schema import SharedExpense as _SE
         rows = (
@@ -1533,6 +1541,7 @@ def spending_by_category():
             )
             .outerjoin(_SE, _SE.purchase_id == Purchase.id)
             .filter(Purchase.date >= start, Purchase.date < end)
+            .filter(Purchase.id.notin_(floor_purchase_ids))
             .filter(
                 _sa.or_(
                     Purchase.transaction_type.is_(None),
@@ -1630,12 +1639,19 @@ def spending_by_category_items():
     )
 
     from src.backend.initialize_database_schema import SharedExpense as _SE
+    floor_purchase_ids_sub = (
+        session.query(BillMeta.purchase_id)
+        .join(FloorObligation, FloorObligation.bill_provider_id == BillMeta.provider_id)
+        .filter(FloorObligation.is_active == True)
+        .subquery()
+    )
     rows = (
         session.query(Purchase, Store.name, _SE)
         .outerjoin(Store, Store.id == Purchase.store_id)
         .outerjoin(_SE, _SE.purchase_id == Purchase.id)
         .filter(Purchase.date >= month_start, Purchase.date < next_start)
         .filter(cat_filter)
+        .filter(Purchase.id.notin_(floor_purchase_ids_sub))
         .filter(
             _sa.or_(
                 Purchase.transaction_type.is_(None),
