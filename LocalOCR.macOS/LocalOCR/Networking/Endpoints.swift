@@ -367,6 +367,101 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Medications (backend prefix: /medications)
+//
+// Verified by Rule 1 grep against src/backend/manage_medications.py.
+// Household roster comes from AuthEndpoint.householdMembers (/auth/household-members)
+// — the web's POST/DELETE /household-members endpoints don't exist server-side.
+
+enum MedicationEndpoint {
+    case list(status: String?, userId: Int?, memberId: String?)
+    case create
+    case detail(id: Int)
+    case update(id: Int)
+    case delete(id: Int)
+    case barcodeLookup
+    case uploadPhoto(id: Int)
+
+    var path: String {
+        switch self {
+        case .list:                  return "/medications"
+        case .create:                return "/medications"
+        case .detail(let id):        return "/medications/\(id)"
+        case .update(let id):        return "/medications/\(id)"
+        case .delete(let id):        return "/medications/\(id)"
+        case .barcodeLookup:         return "/medications/barcode-lookup"
+        case .uploadPhoto(let id):   return "/medications/\(id)/photo"
+        }
+    }
+
+    var method: HTTPMethod {
+        switch self {
+        case .list, .detail:                       return .get
+        case .create, .barcodeLookup, .uploadPhoto: return .post
+        case .update:                              return .put
+        case .delete:                              return .delete
+        }
+    }
+
+    var query: [URLQueryItem] {
+        switch self {
+        case .list(let status, let userId, let memberId):
+            var items: [URLQueryItem] = []
+            if let status, !status.isEmpty { items.append(.init(name: "status", value: status)) }
+            if let userId { items.append(.init(name: "user_id", value: String(userId))) }
+            if let memberId, !memberId.isEmpty { items.append(.init(name: "member_id", value: memberId)) }
+            return items
+        default:
+            return []
+        }
+    }
+
+    var isMutating: Bool { method != .get }
+}
+
+/// POST /medications + PUT /medications/<id> body — every field optional.
+/// Backend `_MUTABLE_FIELDS` accepts every key here when present.
+struct MedicationBody: Encodable {
+    let name: String?
+    let brand: String?
+    let strength: String?
+    let activeIngredient: String?
+    let dosageForm: String?
+    let ageGroup: String?
+    let belongsTo: String?
+    let memberId: Int?
+    let userId: Int?
+    let quantity: Double?
+    let unit: String?
+    let lowThreshold: Double?
+    let expiryDate: String?
+    let manufactureDate: String?
+    let barcode: String?
+    let notes: String?
+    let status: String?
+}
+
+struct BarcodeLookupBody: Encodable {
+    let barcode: String?
+    let name: String?
+}
+
+struct BarcodeLookupResponse: Codable, Equatable {
+    let found: Bool
+    let fields: MedicationLookupFields?
+}
+
+/// Subset of medication fields returned by /medications/barcode-lookup.
+struct MedicationLookupFields: Codable, Equatable {
+    let name: String?
+    let brand: String?
+    let strength: String?
+    let activeIngredient: String?
+    let dosageForm: String?
+    let ageGroup: String?
+    let barcode: String?
+}
+
 // MARK: - Products (backend prefix: /products)
 //
 // Verified by Rule 1 grep against src/backend/manage_product_catalog.py.
