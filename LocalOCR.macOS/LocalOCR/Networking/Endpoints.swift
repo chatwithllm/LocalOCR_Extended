@@ -482,6 +482,22 @@ struct PlaidFlagDuplicateBody: Encodable {
     }
 }
 
+// MARK: - Contributions (/contributions)
+
+enum ContributionsEndpoint {
+    case summary
+    case userDetail(userId: Int)
+
+    var path: String {
+        switch self {
+        case .summary:               return "/contributions/summary"
+        case .userDetail(let id):    return "/contributions/users/\(id)"
+        }
+    }
+    var method: HTTPMethod { .get }
+    var isMutating: Bool { false }
+}
+
 // MARK: - Cash transactions
 
 enum CashEndpoint {

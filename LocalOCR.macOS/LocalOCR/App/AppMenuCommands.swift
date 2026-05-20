@@ -108,6 +108,7 @@ struct AppMenuCommands: Commands {
         case .balances:     await SharedDiningState.shared.loadBalances()
         case .contacts:     await SharedDiningState.shared.loadContacts()
         case .expenses:     await ExpensesState.shared.refresh()
+        case .contributions: await ContributionsState.shared.refresh()
         case .restaurant, .chat, .medications: break
         }
     }
