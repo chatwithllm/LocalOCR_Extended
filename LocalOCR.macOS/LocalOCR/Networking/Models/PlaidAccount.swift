@@ -16,6 +16,7 @@ struct PlaidAccount: Codable, Identifiable, Equatable, Hashable {
     let balanceCents: Int?
     let creditLimitCents: Int?
     let availableCreditCents: Int?
+    let originalLoanAmountCents: Int?
     let aprBps: Int?
     let monthlyPaymentCents: Int?
     let monthlyPaymentDueDay: Int?

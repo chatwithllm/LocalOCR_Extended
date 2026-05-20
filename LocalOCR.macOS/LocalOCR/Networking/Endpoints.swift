@@ -292,28 +292,194 @@ struct BillRenameBody: Encodable { let label: String }
 // MARK: - Plaid
 
 enum PlaidEndpoint {
+    case status
+    case linkToken
+    case exchangePublicToken
+    case items
+    case syncItem(id: Int)
+    case patchItem(id: Int)
+    case deleteItem(id: Int)
     case accounts
-    case stagedTransactions
     case refreshBalances
+    case identityUpdate(id: Int)
+    case loanMeta(id: Int)
+    case cardsOverview
+    case transactionBreakdown
+    case transactions
+    case spendingTrends
+    case stagedTransactions
     case confirmStaged(id: Int)
     case dismissStaged(id: Int)
+    case flagStagedDuplicate(id: Int)
+    case matchCandidates(id: Int)
+    case linkReceipt(id: Int)
+    case attachUpload(id: Int)
+    case bulkConfirm
 
     var path: String {
         switch self {
-        case .accounts:                   return "/plaid/accounts"
-        case .stagedTransactions:         return "/plaid/staged-transactions"
-        case .refreshBalances:            return "/plaid/accounts/refresh-balances"
-        case .confirmStaged(let id):      return "/plaid/staged-transactions/\(id)/confirm"
-        case .dismissStaged(let id):      return "/plaid/staged-transactions/\(id)/dismiss"
+        case .status:                      return "/plaid/status"
+        case .linkToken:                   return "/plaid/link-token"
+        case .exchangePublicToken:         return "/plaid/exchange-public-token"
+        case .items:                       return "/plaid/items"
+        case .syncItem(let id):            return "/plaid/items/\(id)/sync"
+        case .patchItem(let id):           return "/plaid/items/\(id)"
+        case .deleteItem(let id):          return "/plaid/items/\(id)"
+        case .accounts:                    return "/plaid/accounts"
+        case .refreshBalances:             return "/plaid/accounts/refresh-balances"
+        case .identityUpdate(let id):      return "/plaid/accounts/\(id)/identity"
+        case .loanMeta(let id):            return "/plaid/accounts/\(id)/loan-meta"
+        case .cardsOverview:               return "/plaid/cards-overview"
+        case .transactionBreakdown:        return "/plaid/transaction-breakdown"
+        case .transactions:                return "/plaid/transactions"
+        case .spendingTrends:              return "/plaid/spending-trends"
+        case .stagedTransactions:          return "/plaid/staged-transactions"
+        case .confirmStaged(let id):       return "/plaid/staged-transactions/\(id)/confirm"
+        case .dismissStaged(let id):       return "/plaid/staged-transactions/\(id)/dismiss"
+        case .flagStagedDuplicate(let id): return "/plaid/staged-transactions/\(id)/flag-duplicate"
+        case .matchCandidates(let id):     return "/plaid/staged-transactions/\(id)/match-candidates"
+        case .linkReceipt(let id):         return "/plaid/staged-transactions/\(id)/link-receipt"
+        case .attachUpload(let id):        return "/plaid/staged-transactions/\(id)/attach-upload"
+        case .bulkConfirm:                 return "/plaid/staged-transactions/bulk-confirm"
         }
     }
     var method: HTTPMethod {
         switch self {
-        case .accounts, .stagedTransactions:                  return .get
-        case .refreshBalances, .confirmStaged, .dismissStaged: return .post
+        case .status, .items, .accounts, .cardsOverview, .transactionBreakdown,
+             .transactions, .spendingTrends, .stagedTransactions, .matchCandidates:
+            return .get
+        case .linkToken, .exchangePublicToken, .syncItem, .refreshBalances,
+             .confirmStaged, .dismissStaged, .flagStagedDuplicate,
+             .linkReceipt, .attachUpload, .bulkConfirm:
+            return .post
+        case .patchItem, .identityUpdate, .loanMeta:
+            return .patch
+        case .deleteItem:
+            return .delete
         }
     }
     var isMutating: Bool { method != .get }
+}
+
+// MARK: - Plaid bodies + query helpers
+
+struct PlaidLinkTokenBody: Encodable {
+    let itemId: Int?
+    init(itemId: Int? = nil) { self.itemId = itemId }
+    enum CodingKeys: String, CodingKey { case itemId = "item_id" }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let itemId { try c.encode(itemId, forKey: .itemId) }
+    }
+}
+
+struct PlaidExchangeBody: Encodable {
+    let publicToken: String
+    let metadata: PlaidLinkMetadata?
+    enum CodingKeys: String, CodingKey {
+        case publicToken = "public_token"
+        case metadata
+    }
+}
+
+struct PlaidLinkMetadata: Encodable {
+    let institution: PlaidInstitutionMeta?
+    let accounts: [PlaidAccountMeta]?
+}
+
+struct PlaidInstitutionMeta: Encodable {
+    let name: String?
+    let institutionId: String?
+    enum CodingKeys: String, CodingKey {
+        case name
+        case institutionId = "institution_id"
+    }
+}
+
+struct PlaidAccountMeta: Encodable {
+    let id: String?
+    let name: String?
+    let mask: String?
+    let type: String?
+    let subtype: String?
+}
+
+struct PlaidItemPatchBody: Encodable {
+    let nickname: String?
+    let sharedWithUserIds: [Int]?
+    enum CodingKeys: String, CodingKey {
+        case nickname
+        case sharedWithUserIds = "shared_with_user_ids"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let nickname { try c.encode(nickname, forKey: .nickname) }
+        if let sharedWithUserIds {
+            try c.encode(sharedWithUserIds, forKey: .sharedWithUserIds)
+        }
+    }
+}
+
+struct PlaidIdentityBody: Encodable {
+    let displayName: String?
+    let ownerLabel: String?
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case ownerLabel = "owner_label"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let displayName { try c.encode(displayName, forKey: .displayName) }
+        if let ownerLabel { try c.encode(ownerLabel, forKey: .ownerLabel) }
+    }
+}
+
+struct PlaidLoanMetaBody: Encodable {
+    let originalLoanAmountCents: Int?
+    let aprBps: Int?
+    let monthlyPaymentCents: Int?
+    let monthlyPaymentDueDay: Int?
+    enum CodingKeys: String, CodingKey {
+        case originalLoanAmountCents = "original_loan_amount_cents"
+        case aprBps = "apr_bps"
+        case monthlyPaymentCents = "monthly_payment_cents"
+        case monthlyPaymentDueDay = "monthly_payment_due_day"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let originalLoanAmountCents { try c.encode(originalLoanAmountCents, forKey: .originalLoanAmountCents) }
+        if let aprBps { try c.encode(aprBps, forKey: .aprBps) }
+        if let monthlyPaymentCents { try c.encode(monthlyPaymentCents, forKey: .monthlyPaymentCents) }
+        if let monthlyPaymentDueDay { try c.encode(monthlyPaymentDueDay, forKey: .monthlyPaymentDueDay) }
+    }
+}
+
+struct PlaidLinkReceiptBody: Encodable {
+    let purchaseId: Int
+    enum CodingKeys: String, CodingKey { case purchaseId = "purchase_id" }
+}
+
+struct PlaidBulkConfirmBody: Encodable {
+    let ids: [Int]?
+    let allReady: Bool?
+    enum CodingKeys: String, CodingKey {
+        case ids
+        case allReady = "all_ready"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let ids { try c.encode(ids, forKey: .ids) }
+        if let allReady { try c.encode(allReady, forKey: .allReady) }
+    }
+}
+
+struct PlaidFlagDuplicateBody: Encodable {
+    let duplicatePurchaseId: Int?
+    enum CodingKeys: String, CodingKey { case duplicatePurchaseId = "duplicate_purchase_id" }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let duplicatePurchaseId { try c.encode(duplicatePurchaseId, forKey: .duplicatePurchaseId) }
+    }
 }
 
 // MARK: - Cash transactions
@@ -341,10 +507,18 @@ enum CashEndpoint {
 
 enum AnalyticsEndpoint {
     case spending(month: String?)
+    case spendByPerson(month: String?)
 
     var path: String {
         switch self {
-        case .spending:                    return "/analytics/spending"
+        case .spending:       return "/analytics/spending"
+        case .spendByPerson:  return "/analytics/spend-by-person"
+        }
+    }
+    var query: [URLQueryItem] {
+        switch self {
+        case .spending(let m), .spendByPerson(let m):
+            return m.map { [URLQueryItem(name: "month", value: $0)] } ?? []
         }
     }
     var method: HTTPMethod { .get }

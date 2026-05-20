@@ -10,7 +10,7 @@ struct FinanceTabView: View {
             switch self {
             case .bills:     return "Fixed Bills"
             case .cash:      return "Cash"
-            case .plaid:     return "Plaid"
+            case .plaid:     return "Accounts"
             case .analytics: return "Analytics"
             }
         }
