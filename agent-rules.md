@@ -21,6 +21,11 @@ It is **not** done. Done means all of the following are true:
 - [ ] "loaded N <thing>" line found for every new endpoint within 5s of launch
 - [ ] Screenshot of macOS screen taken and compared against web app (Rule 11)
 - [ ] Every element visible on web is present on macOS or explicitly justified as 🔄/🚫
+- [ ] Interactive behaviors grepped from index.html and verified (Rule 11)
+- [ ] NO smoke-test checklist generated — agent performed every check itself
+- [ ] Container/renderX() rows decomposed into per-element sub-rows before implementation (Rule 13)
+- [ ] Screenshot comparison taken and confirmed zero differences (Rule 14)
+- [ ] Cannot move to next screen until current screen screenshot matches web exactly
 
 If any of those is not true → NOT done. Debug, fix, repeat. Do not report done.
 
@@ -273,7 +278,7 @@ If any failure condition → debug, fix, re-run from Step 1. Never skip to "done
 | "Standard CRUD / all fields" | Misses sub-fields, modals, states | Atomic registry — one row per element |
 | Skip pre-flight to save time | Guarantees wrong path/shape | Rule 1 — no exceptions |
 | Read plan for endpoint path | Plan can be wrong | Read blueprint + grep index.html |
-| Mutate `URLSessionConfiguration` sub-fields after session creation | Session captured the old config; writes are no-ops; auth/cookies/cache never apply | Build fresh `URLSessionConfiguration`, assign whole `sessionConfiguration` property in one statement (Rule 12) |
+| SwiftUI view branches on data property and recursively renders a sub-view that re-evaluates the same branch | Infinite ViewBuilder recursion → EXC_BAD_ACCESS stack overflow deep in SwiftUICore | Rule 15: inline the leaf-shape body in the wrapping view, OR pass a `nested: true` flag that suppresses the branch on the recursive call |
 
 ---
 
@@ -331,11 +336,217 @@ interactively. If you cannot demo it, it is ❌.**
 
 ### Updated anti-pattern for section 3:
 | Mark ✅ because "it renders" | Rendering ≠ behavior — re-read verbs, verify interactivity |
+| Implement "renderX()" row without decomposing | Sub-elements have no rows — missed forever | Rule 13: decompose into per-element rows first |
+| Move to next screen before screenshot matches | User finds mismatch, must re-prompt | Rule 14: screenshot both, fix all diffs, confirm zero gaps |
+| Generate smoke-test checklist | Transfers validation to user — banned | Perform every check yourself; max 2 "could not auto-verify" lines |
+| Screenshot matches but JS has drag/hover | Static diff misses interactive behaviors | Grep index.html for mouseover/drag/slider on this screen |
 | Mark ✅ because log is clean | Log clean ≠ visual parity — images, buttons, counts can be missing silently | Rule 11 screenshot diff vs web before every screen ✅ |
 
 ---
 
 ---
+
+---
+
+## RULE 13 — Decompose Container Registry Rows Before Implementation
+
+**Source: I-11** — Inventory passed RULE 9 verb-check. All rows ✅. User opened side-by-side
+and found three visible features missing: product photos, defer button, expiry counts.
+None had a dedicated row — they were rolled into "Rendered by renderInventory()" and
+"Inventory tile — consume action". The registry said done. The screen was not done.
+
+### The problem with container rows
+
+A row labelled "Rendered by renderFoo()" or "Container for X items" is a lie.
+It promises "all of foo's outputs are covered" but cannot keep that promise
+because it has no sub-element list. RULE 9 verb-checks the row — finds no verbs —
+marks ✅. Every sub-element the renderer creates invisibly is missed.
+
+### Required: decompose before implement
+
+Before implementing ANY row that contains:
+- "Rendered by `renderX()`"
+- "Container for..."
+- "Tile / Card / Row component"
+- "Section with..."
+
+Do this FIRST:
+
+```bash
+# 1. Find the render function
+grep -n "function renderX\|function _buildX\|function.*Tile\|function.*Row\|function.*Card"   src/frontend/index.html
+
+# 2. Read the ENTIRE function body (Rule 11 slow-read)
+# view src/frontend/index.html START END
+
+# 3. List every visible element the function outputs:
+#    [element] → [visible?] → [interactive?] → [endpoint]
+#    Example:
+#    product thumbnail  → visible always      → hover zoom popup  → /product-snapshots/
+#    defer button       → visible always      → +3d expiry push   → PATCH /inventory/<id>/adjust-expiry
+#    expiry count tag   → visible when N>0    → display only      → derived from item.days_left
+#    status pill        → visible always      → tap cycles status → PATCH /inventory/<id>/status
+
+# 4. For each element NOT already in the registry as its own row:
+#    CREATE the row in FEATURE_PARITY_REGISTRY.md before writing any Swift
+#    Row ID: next available F-NNN
+#    Never implement an unregistered element
+
+# 5. Only THEN begin implementation — now every element has a row to ✅
+```
+
+### The rule in one sentence
+**Any registry row containing "renderX", "container", "tile", "card", or "row component"
+must be decomposed into per-element sub-rows before a single line of Swift is written.
+The decomposition IS the implementation plan.**
+
+---
+
+## RULE 14 — Screenshot Match Required Before Moving to Next Screen
+
+**Source: Bills layout mismatch + ongoing user frustration**
+
+The user should never discover a layout mismatch. The agent discovers it by comparing
+screenshots before reporting done. If it does not match — fix it before reporting.
+Do not move to the next screen. Do not ask the user if it looks right.
+
+### Required screenshot comparison — every screen, every time
+
+```bash
+# After build + install + log validation:
+
+# 1. Screenshot the macOS screen
+screencapture -x /tmp/macos_[screen].png
+
+# 2. Navigate to the same screen in the web app (prod URL)
+#    Use osascript to switch to Chrome, navigate to the screen URL
+osascript -e 'tell application "Google Chrome" to set URL of active tab to "[prod_url]/[screen]"'
+sleep 2
+
+# 3. Screenshot the web screen
+screencapture -l $(GetWindowID "Google Chrome" "*") /tmp/web_[screen].png
+
+# 4. Read BOTH screenshots with the Read tool
+# 5. List EVERY element visible in web screenshot but absent or different in macOS screenshot:
+#    - Missing columns
+#    - Missing buttons
+#    - Wrong layout (grid vs list)
+#    - Missing status indicators
+#    - Wrong data density
+#    - Missing tabs or sub-sections
+# 6. Fix ALL items in the list
+# 7. Re-screenshot, re-compare, confirm zero differences
+# 8. Only then report done and await confirmation for next screen
+```
+
+### What "match" means
+
+Web layout = macOS layout. Not "similar". Not "close enough". Not "desktop adaptation".
+Every column, every button, every status pill, every section header present on web
+must be present on macOS — or explicitly registered as 🔄 with a written justification.
+
+A 🔄 adaptation requires:
+- Written reason why the web behavior doesn't apply to desktop
+- Alternative implementation that provides equivalent function
+- NOT just "deferred" or "not applicable"
+
+### The rule in one sentence
+**Before reporting any screen done, take screenshots of both apps, read both,
+list every difference, fix every difference, re-screenshot and confirm zero gaps.
+The user sees the confirmation screenshot, not the live app.**
+
+
+---
+
+## RULE 15 — SwiftUI ViewBuilder Recursion: Inline Leaf Body or Pass a Nested Flag
+
+**Source: I-13** — `CardGroupView` set `anyOwner = group.accounts.contains { ownerLabel non-empty }`.
+When true it rendered each owner sub-group via `OwnerSubgroup`, which then called back into
+`CardGroupView` with the sub-group's accounts. Every account in that sub-group shared the
+same `owner_label`, so `anyOwner` re-evaluated to true and the call recursed forever.
+Build was green, log show was clean, then the app crashed with `EXC_BAD_ACCESS` /
+"Thread stack size exceeded due to excessive recursion" deep inside `SwiftUICore` and
+`AttributeGraph` frames.
+
+### The pattern that fails
+
+```swift
+struct CardGroupView: View {
+    let group: Group
+    var body: some View {
+        if group.accounts.contains(matchingCondition) {
+            ForEach(subgroups()) { sg in
+                OwnerSubgroup(accounts: sg.accounts)   // ← recursion
+            }
+        } else {
+            leafBody(group.accounts)
+        }
+    }
+}
+struct OwnerSubgroup: View {
+    let accounts: [Account]
+    var body: some View {
+        // ❌ sg.accounts still matches `matchingCondition` → infinite recursion
+        CardGroupView(group: Group(accounts: accounts))
+    }
+}
+```
+
+### Two safe rewrites
+
+**Option A — inline the leaf shape in the wrapping view:**
+```swift
+struct OwnerSubgroup: View {
+    let accounts: [Account]
+    var body: some View {
+        // Render the leaf body directly. Never re-enter the recursive view.
+        leafBody(accounts)
+    }
+}
+```
+
+**Option B — pass a flag that suppresses the branch on the recursive call:**
+```swift
+struct CardGroupView: View {
+    let group: Group
+    var nested: Bool = false
+    var body: some View {
+        if !nested && group.accounts.contains(matchingCondition) {
+            ForEach(subgroups()) { sg in
+                CardGroupView(group: sg.group, nested: true)   // ← bottoms out
+            }
+        } else {
+            leafBody(group.accounts)
+        }
+    }
+}
+```
+
+### How to spot this before it crashes
+
+A SwiftUI view that:
+1. branches on a property of its data (`contains`, `filter`, `any`), AND
+2. recurses into a sub-view that re-renders the same view type with the same property pattern
+
+…is presumed infinite-recursive until proven otherwise. Either inline the leaf body, or
+pass a `nested: Bool` / depth counter that breaks the cycle.
+
+### Diagnosis when the symptoms are misleading
+
+Clean compile, clean log (subsystem logger fires before SwiftUI lays out), then the app
+disappears with no terminal output. Check `~/Library/Logs/DiagnosticReports/<app>*.ips`:
+- `"exception":"EXC_BAD_ACCESS","subtype":"KERN_PROTECTION_FAILURE"`
+- `"message":"Thread stack size exceeded due to excessive recursion"`
+- Stack frames in `SwiftUICore` and `AttributeGraph` framework
+
+If you see those three together, you have a ViewBuilder recursion — find the view type
+that appears repeatedly in the crashed thread's call stack.
+
+### The rule in one sentence
+**A SwiftUI view that conditionally renders a sub-view of the same type with the same
+branch-condition data is recursive — inline the leaf body, or pass a `nested` flag that
+suppresses the branch on the recursive call.**
+
 
 ## LEARNING LOOP — Every Incident Updates Both Files Immediately
 
@@ -417,55 +628,67 @@ previous app. Mistakes that cost hours on project 1 never appear on project 2.
 
 ---
 
-## RULE 12 — `URLSessionConfiguration` Sub-Property Mutation Is Silently Ignored
-
-**Source: I-12** — Kingfisher image loads silently fell back to placeholders for every authenticated thumbnail because `ImageCache.configureSharedCookies()` mutated `KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage` in place. Kingfisher had already created its `URLSession` from the original config; in-place writes were no-ops; cookies never flowed → 401 → placeholder.
-
-### The mistake
-
-```swift
-// ❌ Wrong — session already captured the OLD config; these writes go nowhere
-KingfisherManager.shared.downloader.sessionConfiguration.httpCookieAcceptPolicy = .always
-KingfisherManager.shared.downloader.sessionConfiguration.httpCookieStorage = HTTPCookieStorage.shared
-```
-
-### Why it fails
-
-`URLSession` snapshots its `URLSessionConfiguration` at session-creation time. Any framework that exposes a `sessionConfiguration` property is presumed to back it with a *setter* that rebuilds the session. Mutating sub-fields of the captured object never reaches the live session — the session keeps using the config it was born with.
-
-### The correct pattern
-
-Always build a *fresh* `URLSessionConfiguration`, populate every knob you care about, and assign the whole property in one statement (going through the setter):
-
-```swift
-// ✅ Correct — full re-assignment forces Kingfisher's setter to rebuild the session
-let config = URLSessionConfiguration.default
-config.httpCookieAcceptPolicy = .always
-config.httpShouldSetCookies = true
-config.httpCookieStorage = HTTPCookieStorage.shared
-config.requestCachePolicy = .useProtocolCachePolicy
-config.timeoutIntervalForRequest = 30
-config.timeoutIntervalForResource = 60
-KingfisherManager.shared.downloader.sessionConfiguration = config
-```
-
-For your *own* `URLSession`: same rule — set every knob on a fresh config first, then pass it into `URLSession(configuration:)`. Mutating the config after the session is created does nothing.
-
-### How to verify compliance before marking ✅
-
-If a screen depends on authenticated remote images:
-1. `curl -sS -b <cookie-jar> <image-url> -o /tmp/t -w "%{http_code} %{size_download}\n"` — confirm the backend serves the image with the same cookie the app holds.
-2. Reinstall + open the screen + screencap.
-3. Read the screencap — items the backend reports as having `image_url`/`latest_snapshot` MUST render the real image. Initials/placeholder chips appearing for those rows = ❌, regardless of how the code "looks".
-4. Cross-check a second screen that uses the same image loader (e.g. Receipts thumbnails) — if both render placeholders, the cookie/session sharing is the bug, not the per-screen wiring.
-
-### One-sentence rule
-
-**Never mutate `URLSessionConfiguration` after the session has been created — build a fresh config, set every property, and assign the whole `sessionConfiguration` in one statement so the framework's setter rebuilds the session.**
-
 ---
 
-## RULE 11 — Visual Parity Check Before Every Screen ✅
+## RULE 11 — Read the Full Web Implementation Before Writing Any Swift
+
+**Source: Inventory row incident** — pencil/edit, +3d, cart, -1, and checkmark all have
+full JS implementations in index.html. Agent implemented some, skipped others, then
+asked the user to verify. User should never discover a missing button.
+
+### The mandatory slow-read protocol — for EVERY UI component
+
+Before writing any SwiftUI view or row component, read the FULL web implementation:
+
+```bash
+# Step 1 — Find the render function for this component
+grep -n "function.*[componentName]\|_build[ComponentName]\|render[ComponentName]" \
+  src/frontend/index.html
+
+# Step 2 — Read the ENTIRE function body (not just the grep match)
+# Use view with the exact line range returned above
+# Read every element: icons, buttons, labels, indicators, gestures, tooltips
+
+# Step 3 — List every interactive element found
+# Format: [element] → [action] → [endpoint or state change]
+# Example:
+#   pencil icon  → click → opens inline edit sheet → PATCH /inventory/products/<id>
+#   +3d button   → click → pushes expiry +3 days  → PATCH /inventory/<id>/adjust-expiry
+#   ⌥+3d         → option+click → pushes +7 days  → same endpoint, different body
+#   cart icon    → click → adds to shopping list  → POST /shopping-list/items
+#   -1 button    → click → decrements quantity    → PATCH /inventory/products/<id>
+#   checkmark    → click → cycles status          → PATCH /inventory/<id>/status
+#   green bar    → drag  → sets remaining %       → PATCH /inventory/<id>/remaining
+#   thumbnail    → hover → shows zoom popup       → local, no endpoint
+
+# Step 4 — Map EVERY item in that list to a registry row
+# If no registry row exists for an element → create one before implementing
+# If a row exists but you were about to skip it → implement it now
+
+# Step 5 — Implement ALL elements in one pass
+# Do not implement 3 of 6 and stop. Implement all 6 then validate.
+```
+
+### The rule in one sentence
+**Read the entire web render function. List every element. Map every element to a
+registry row. Implement every element. Then validate. Never implement a partial row.**
+
+### What "going slow" means
+- 1 component = 1 full read of its web render function
+- No skipping elements because they "seem minor"
+- No partial implementation — all buttons/gestures in a component ship together
+- If reading takes 10 minutes, that is correct — it prevents 30 minutes of user re-prompting
+
+### Anti-pattern this rule prevents
+Agent implements the visible buttons (the ones it notices from a quick scan) and misses:
+- Secondary gestures (⌥-click, long-press, right-click)
+- State-dependent buttons (only show when item is low stock)
+- Modifier key shortcuts
+- Tooltip/hover behaviors
+- Inline edit modes triggered by specific elements
+
+
+## RULE 12 — Visual Parity Check Before Every Screen ✅
 
 **Source: Post-Inventory observation** — agent reported Inventory complete with 0 ❌.
 Side-by-side with the web app revealed missing product images, missing defer button,
@@ -507,9 +730,48 @@ For every visual gap found:
 4. Re-screenshot, re-compare
 5. Only mark ✅ when macOS screenshot matches web screenshot feature-for-feature
 
+### Step 3 — Grep the web JS for interactive behaviors on this screen
+
+After the screenshot diff, grep `src/frontend/index.html` for every interactive
+behavior attached to this screen's elements:
+
+```bash
+# Find drag/slider behaviors
+grep -n "drag\|slider\|range\|mousedown\|mousemove" src/frontend/index.html | grep -i "<screen>"
+
+# Find hover behaviors  
+grep -n "mouseover\|mouseenter\|hover\|tooltip\|popup\|preview" src/frontend/index.html | grep -i "<screen>"
+
+# Find exact button sets
+grep -n "btn\|button\|action" src/frontend/index.html | grep -i "<screen>" | head -30
+
+# Find keyboard shortcuts
+grep -n "keydown\|keyup\|shortcut\|hotkey" src/frontend/index.html | grep -i "<screen>"
+```
+
+For every interactive behavior found — verify the macOS implementation matches.
+A static view where the web has a draggable slider is a gap. Fix it before ✅.
+
+### Step 4 — NEVER generate a smoke-test checklist
+
+Smoke-test checklists are banned. They transfer validation work to the user.
+Instead, perform every check yourself:
+
+| Instead of asking user to... | Do this yourself |
+|------------------------------|-----------------|
+| "Click +3d and verify expiry changes" | Write a UI test or tail log for the action |
+| "Hover over image and verify popup" | Verify the gesture recognizer and overlay view exist in code |
+| "Quit and relaunch to check persistence" | Run `pkill` + relaunch + tail log, grep for persisted value loading |
+| "Switch tabs to verify thumbnails" | Navigate programmatically, screenshot, check for non-placeholder images |
+| "Drag the slider" | Verify `.gesture(DragGesture())` or equivalent exists and mutates state |
+
+If you cannot verify something automatically — say so explicitly with the reason.
+Do not generate a checklist. One or two specific "I could not auto-verify X because Y,
+please check" lines is acceptable. A numbered list of manual steps is not.
+
 ### The rule in one sentence
-**A screenshot diff against the web app is required before any screen is marked complete.
-Log clean + 0 ❌ registry rows + screenshot matches web = done. All three, not two.**
+**Log clean + 0 ❌ rows + screenshot matches web + interactive behaviors verified = done.
+Never generate a smoke-test checklist. You do the checking.**
 
 
 ## SESSION START CHECKLIST
