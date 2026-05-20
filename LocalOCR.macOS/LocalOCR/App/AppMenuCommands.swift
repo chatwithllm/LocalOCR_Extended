@@ -54,6 +54,8 @@ struct AppMenuCommands: Commands {
                 .keyboardShortcut("-", modifiers: .command)
             Button("Contacts")      { router.activeTab = .contacts    }
                 .keyboardShortcut("=", modifiers: .command)
+            Button("Expenses")      { router.activeTab = .expenses    }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
 
             Divider()
 
@@ -104,6 +106,7 @@ struct AppMenuCommands: Commands {
         case .finance:      await FinanceState.shared.loadBills()
         case .balances:     await SharedDiningState.shared.loadBalances()
         case .contacts:     await SharedDiningState.shared.loadContacts()
+        case .expenses:     await ExpensesState.shared.refresh()
         case .restaurant, .chat, .medications: break
         }
     }

@@ -31,6 +31,7 @@ struct MainSplitView: View {
         case .restaurant:   RestaurantsView()
         case .balances:     BalancesView()
         case .contacts:     ContactsView()
+        case .expenses:     ExpensesView()
         case .chat:         AIChatView()
         case .medications:  MedicationsView()
         }
@@ -60,6 +61,7 @@ extension Router.TabDestination {
         case .restaurant:   return "Restaurants"
         case .balances:     return "Balances"
         case .contacts:     return "Contacts"
+        case .expenses:     return "Expenses"
         case .chat:         return "AI Chat"
         case .medications:  return "Medications"
         }
@@ -76,6 +78,7 @@ extension Router.TabDestination {
         case .restaurant:   return "fork.knife"
         case .balances:     return "dollarsign.arrow.circlepath"
         case .contacts:     return "person.crop.rectangle.stack"
+        case .expenses:     return "creditcard.and.123"
         case .chat:         return "bubble.left.and.bubble.right"
         case .medications:  return "pills"
         }

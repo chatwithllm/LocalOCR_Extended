@@ -367,6 +367,86 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Expenses analytics (backend route: /analytics/expense-summary)
+
+enum ExpenseEndpoint {
+    case summary(months: Int)
+    case spending(months: Int)
+
+    var path: String {
+        switch self {
+        case .summary:  return "/analytics/expense-summary"
+        case .spending: return "/analytics/spending"
+        }
+    }
+    var method: HTTPMethod { .get }
+    var query: [URLQueryItem] {
+        switch self {
+        case .summary(let m):
+            return [.init(name: "months", value: String(m))]
+        case .spending(let m):
+            return [
+                .init(name: "period", value: "monthly"),
+                .init(name: "domain", value: "general_expense"),
+                .init(name: "months", value: String(m)),
+            ]
+        }
+    }
+    var isMutating: Bool { false }
+}
+
+struct ExpenseSummaryResponse: Codable, Equatable {
+    let monthsBack: Int?
+    let receiptCount: Int?
+    let purchaseCount: Int?
+    let refundCount: Int?
+    let totalSpend: Double?
+    let purchaseTotal: Double?
+    let refundTotal: Double?
+    let averageTicket: Double?
+    let topMerchants: [ExpenseMerchant]?
+    let topItems: [ExpenseTopItem]?
+    let categoryBreakdown: [ExpenseCategoryBreakdown]?
+    let recentReceipts: [ExpenseReceiptRow]?
+}
+
+struct ExpenseMerchant: Codable, Equatable, Hashable, Identifiable {
+    let store: String
+    let visits: Int?
+    let refunds: Int?
+    let total: Double?
+    let purchaseTotal: Double?
+    let refundTotal: Double?
+    let averageTicket: Double?
+    let latestDate: String?
+    var id: String { store }
+}
+
+struct ExpenseTopItem: Codable, Equatable, Hashable, Identifiable {
+    let name: String
+    let quantity: Double?
+    let total: Double?
+    let averagePrice: Double?
+    var id: String { name }
+}
+
+struct ExpenseCategoryBreakdown: Codable, Equatable, Hashable, Identifiable {
+    let category: String
+    let total: Double?
+    let count: Int?
+    var id: String { category }
+}
+
+struct ExpenseReceiptRow: Codable, Equatable, Hashable, Identifiable {
+    let purchaseId: Int
+    let store: String?
+    let date: String?
+    let total: Double?
+    let transactionType: String?
+    let itemCount: Int?
+    var id: Int { purchaseId }
+}
+
 // MARK: - Shared dining (backend prefix: /shared-dining)
 //
 // Verified by Rule 1 grep against `shared_dining_endpoints.py`:
