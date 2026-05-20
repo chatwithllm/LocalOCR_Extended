@@ -367,6 +367,139 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Restaurant analytics + Budget (backend prefixes /analytics, /budget)
+//
+// Verified by Rule 1 grep:
+//   GET  /analytics/restaurant-summary
+//   GET  /analytics/spending
+//   GET  /budget/status
+//   POST /budget/set-monthly
+
+enum RestaurantEndpoint {
+    case summary(months: Int)
+    case spending(months: Int)
+
+    var path: String {
+        switch self {
+        case .summary:  return "/analytics/restaurant-summary"
+        case .spending: return "/analytics/spending"
+        }
+    }
+    var method: HTTPMethod { .get }
+    var query: [URLQueryItem] {
+        switch self {
+        case .summary(let m):
+            return [.init(name: "months", value: String(m))]
+        case .spending(let m):
+            return [
+                .init(name: "period", value: "monthly"),
+                .init(name: "domain", value: "restaurant"),
+                .init(name: "months", value: String(m)),
+            ]
+        }
+    }
+    var isMutating: Bool { false }
+}
+
+enum BudgetEndpoint {
+    case status(month: String, domain: String)
+    case setMonthly
+
+    var path: String {
+        switch self {
+        case .status:     return "/budget/status"
+        case .setMonthly: return "/budget/set-monthly"
+        }
+    }
+    var method: HTTPMethod {
+        switch self {
+        case .status:     return .get
+        case .setMonthly: return .post
+        }
+    }
+    var query: [URLQueryItem] {
+        switch self {
+        case .status(let month, let domain):
+            return [
+                .init(name: "month",  value: month),
+                .init(name: "domain", value: domain),
+            ]
+        case .setMonthly: return []
+        }
+    }
+    var isMutating: Bool { method != .get }
+}
+
+struct BudgetSetMonthlyBody: Encodable {
+    let month: String
+    let domain: String
+    let budgetAmount: Double
+}
+
+struct RestaurantSummaryResponse: Codable, Equatable {
+    let monthsBack: Int?
+    let visitCount: Int?
+    let receiptCount: Int?
+    let refundCount: Int?
+    let totalSpend: Double?
+    let purchaseTotal: Double?
+    let refundTotal: Double?
+    let averageTicket: Double?
+    let topRestaurants: [TopRestaurant]?
+    let topItems: [TopRestaurantItem]?
+    let recentReceipts: [RestaurantReceiptRow]?
+}
+
+struct TopRestaurant: Codable, Equatable, Hashable, Identifiable {
+    let store: String
+    let visits: Int?
+    let refunds: Int?
+    let total: Double?
+    let purchaseTotal: Double?
+    let refundTotal: Double?
+    let averageTicket: Double?
+    let latestDate: String?
+    var id: String { store }
+}
+
+struct TopRestaurantItem: Codable, Equatable, Hashable, Identifiable {
+    let name: String
+    let quantity: Double?
+    let total: Double?
+    let averagePrice: Double?
+    let category: String?
+    var id: String { name }
+}
+
+struct RestaurantReceiptRow: Codable, Equatable, Hashable, Identifiable {
+    let purchaseId: Int
+    let store: String?
+    let date: String?
+    let total: Double?
+    let transactionType: String?
+    var id: Int { purchaseId }
+}
+
+struct AnalyticsSpendingResponse: Codable, Equatable {
+    /// Backend `spending_by_period` is `{key: {total, count, purchase_count, ...}}`.
+    /// Mac only uses `grand_total` for now — leave the period map opaque.
+    let grandTotal: Double?
+}
+
+struct BudgetStatusResponse: Codable, Equatable {
+    let month: String?
+    let domain: String?
+    let budgetCategory: String?
+    let budgetAmount: Double?
+    let spent: Double?
+    let remaining: Double?
+    let percentage: Double?
+    let alertTriggered: Bool?
+    let purchaseCount: Int?
+    let refundCount: Int?
+    let receiptCount: Int?
+}
+
 // MARK: - Medications (backend prefix: /medications)
 //
 // Verified by Rule 1 grep against src/backend/manage_medications.py.
