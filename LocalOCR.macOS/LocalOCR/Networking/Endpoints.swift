@@ -367,6 +367,226 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Bills (floor obligations + recurring + utility summary)
+//
+// Verified by Rule 1 grep:
+//   GET   /floor-obligations/
+//   POST  /floor-obligations/
+//   PATCH /floor-obligations/<id>
+//   DELETE /floor-obligations/<id>
+//   GET   /floor-obligations/available
+//   GET   /analytics/recurring-obligations?month=YYYY-MM
+//   GET   /analytics/utility-summary?months=N
+//   POST  /receipts/bills/sync-autopay
+
+enum FloorObligationEndpoint {
+    case list
+    case create
+    case update(id: Int)
+    case delete(id: Int)
+    case available
+
+    var path: String {
+        switch self {
+        case .list, .create:           return "/floor-obligations/"
+        case .update(let id):          return "/floor-obligations/\(id)"
+        case .delete(let id):          return "/floor-obligations/\(id)"
+        case .available:               return "/floor-obligations/available"
+        }
+    }
+    var method: HTTPMethod {
+        switch self {
+        case .list, .available:        return .get
+        case .create:                  return .post
+        case .update:                  return .patch
+        case .delete:                  return .delete
+        }
+    }
+    var isMutating: Bool { method != .get }
+}
+
+struct FloorObligation: Codable, Equatable, Hashable, Identifiable {
+    let id: Int
+    let label: String
+    let expectedMonthlyAmount: Double?
+    let isActive: Bool?
+    let billProviderId: Int?
+    let source: String?            // "bill_provider" | "manual"
+    let avg6mo: Double?
+    let latestActual: Double?
+    let providerCategory: String?
+}
+
+struct FloorObligationsResponse: Codable, Equatable {
+    let obligations: [FloorObligation]
+}
+
+/// `/floor-obligations/available` returns `{available: [...]}` with a different
+/// shape than the active list — no `id`, no `is_active`, no `source`. Comes
+/// from `BillProvider` rows that are not yet on the floor.
+struct AvailableProvidersResponse: Codable, Equatable {
+    let available: [AvailableProvider]
+}
+
+struct AvailableProvider: Codable, Equatable, Hashable, Identifiable {
+    let billProviderId: Int
+    let label: String
+    let avg6mo: Double?
+    let latestActual: Double?
+    let providerCategory: String?
+    let existingObligationId: Int?
+    var id: Int { billProviderId }
+}
+
+struct FloorObligationWrapper: Codable, Equatable {
+    let obligation: FloorObligation
+}
+
+struct FloorObligationCreateBody: Encodable {
+    let label: String
+    let expectedMonthlyAmount: Double
+    let billProviderId: Int?
+}
+
+struct FloorObligationPatchBody: Encodable {
+    let label: String?
+    let expectedMonthlyAmount: Double?
+    let isActive: Bool?
+}
+
+// MARK: - Recurring obligations + utility summary
+
+enum BillsAnalyticsEndpoint {
+    case recurring(month: String)
+    case utility(months: Int)
+    case syncAutopay
+
+    var path: String {
+        switch self {
+        case .recurring:    return "/analytics/recurring-obligations"
+        case .utility:      return "/analytics/utility-summary"
+        case .syncAutopay:  return "/receipts/bills/sync-autopay"
+        }
+    }
+    var method: HTTPMethod {
+        switch self {
+        case .recurring, .utility: return .get
+        case .syncAutopay:         return .post
+        }
+    }
+    var query: [URLQueryItem] {
+        switch self {
+        case .recurring(let m):    return [.init(name: "month", value: m)]
+        case .utility(let m):      return [.init(name: "months", value: String(m))]
+        case .syncAutopay:         return []
+        }
+    }
+    var isMutating: Bool { method != .get }
+}
+
+struct RecurringObligationsResponse: Codable, Equatable {
+    let obligations: [RecurringObligation]
+    let summary: RecurringObligationSummary
+}
+
+struct RecurringObligation: Codable, Equatable, Hashable, Identifiable {
+    let providerName: String
+    let providerType: String?
+    let serviceTypes: [String]?
+    let accountLabel: String?
+    let budgetCategory: String?
+    let billingCycle: String?
+    let anchorMonth: String?
+    let expectedAmount: Double?
+    let actualAmount: Double?
+    let variance: Double?
+    let amountPattern: String?
+    let lastSeenDate: String?
+    let lastDueDate: String?
+    let isAutopaySettled: Bool?
+    let providerId: Int?
+    let serviceLineId: Int?
+    let currentEntry: RecurringObligationEntry?
+    var id: String { providerName + "|" + (serviceTypes?.joined(separator: ",") ?? "") + "|" + (accountLabel ?? "") }
+}
+
+struct RecurringObligationEntry: Codable, Equatable, Hashable {
+    let purchaseId: Int?
+    let amount: Double?
+    let date: String?
+    let dueDate: String?
+    let billingCycleMonth: String?
+    let transactionType: String?
+    let autoPay: Bool?
+    let paymentStatus: String?
+}
+
+struct RecurringObligationSummary: Codable, Equatable {
+    let count: Int?
+    let outstandingCount: Int?
+    let enteredCount: Int?
+    let fixedCount: Int?
+    let variableCount: Int?
+    let newCount: Int?
+    let expectedTotal: Double?
+    let actualTotal: Double?
+    let varianceTotal: Double?
+}
+
+struct UtilitySummaryResponse: Codable, Equatable {
+    let monthsBack: Int?
+    let receiptCount: Int?
+    let totalSpend: Double?
+    let recurringTotal: Double?
+    let oneOffTotal: Double?
+    let providers: [UtilityProvider]?
+    let monthlyTotals: [String: Double]?
+    let dueSoon: [DueSoonItem]?
+    let recentBills: [RecentBillRow]?
+}
+
+struct UtilityProvider: Codable, Equatable, Hashable, Identifiable {
+    let providerName: String
+    let providerType: String?
+    let providerCategory: String?
+    let total: Double?
+    let purchaseCount: Int?
+    let refundCount: Int?
+    let averageMonthly: Double?
+    let latestDate: String?
+    let monthlyBreakdown: [String: Double]?
+    var id: String { providerName }
+}
+
+struct DueSoonItem: Codable, Equatable, Hashable, Identifiable {
+    let providerName: String?
+    let providerType: String?
+    let purchaseId: Int?
+    let dueDate: String?
+    let daysUntilDue: Int?
+    let amount: Double?
+    let billingCycleMonth: String?
+    var id: String { (providerName ?? "?") + "|" + (dueDate ?? "?") }
+}
+
+struct RecentBillRow: Codable, Equatable, Hashable, Identifiable {
+    let purchaseId: Int?
+    let sourceType: String?  // "receipt" | "cash_transaction"
+    let providerName: String?
+    let providerType: String?
+    let date: String?
+    let amount: Double?
+    let billingCycleMonth: String?
+    let budgetCategory: String?
+    let isRecurring: Bool?
+    let transactionType: String?
+    var id: String { "\(sourceType ?? "?")-\(purchaseId ?? 0)-\(date ?? "")" }
+}
+
+struct SyncAutopayResponse: Codable, Equatable {
+    let sweptCount: Int?
+}
+
 // MARK: - Expenses analytics (backend route: /analytics/expense-summary)
 
 enum ExpenseEndpoint {
