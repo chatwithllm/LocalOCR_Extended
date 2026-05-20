@@ -508,17 +508,28 @@ enum CashEndpoint {
 enum AnalyticsEndpoint {
     case spending(month: String?)
     case spendByPerson(month: String?)
+    case spendingOverview(period: String?, domain: String?, months: Int?)
+    case dealsCaptured(months: Int)
 
     var path: String {
         switch self {
-        case .spending:       return "/analytics/spending"
-        case .spendByPerson:  return "/analytics/spend-by-person"
+        case .spending, .spendingOverview:  return "/analytics/spending"
+        case .spendByPerson:                return "/analytics/spend-by-person"
+        case .dealsCaptured:                return "/analytics/deals-captured"
         }
     }
     var query: [URLQueryItem] {
         switch self {
         case .spending(let m), .spendByPerson(let m):
             return m.map { [URLQueryItem(name: "month", value: $0)] } ?? []
+        case .spendingOverview(let p, let d, let months):
+            var q: [URLQueryItem] = []
+            if let p { q.append(URLQueryItem(name: "period", value: p)) }
+            if let d, !d.isEmpty { q.append(URLQueryItem(name: "domain", value: d)) }
+            if let months { q.append(URLQueryItem(name: "months", value: String(months))) }
+            return q
+        case .dealsCaptured(let months):
+            return [URLQueryItem(name: "months", value: String(months))]
         }
     }
     var method: HTTPMethod { .get }
