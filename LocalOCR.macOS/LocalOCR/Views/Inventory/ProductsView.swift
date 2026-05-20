@@ -1189,22 +1189,17 @@ private struct CatalogBody: View {
                 )
                 .frame(height: 200)
             } else {
-                // F-413 product groups list
+                // F-413 product groups list — single-column vertical stack (matches
+                // web's `inv-tiles` flex-column layout in `renderProductTiles`).
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.space4) {
                     ForEach(categoryGroups) { catGroup in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("🏷️ \(ProductCategoryOptions.label(catGroup.category))")
-                                    .font(.appCallout.weight(.semibold))
-                                Text("· \(catGroup.groups.count) product\(catGroup.groups.count == 1 ? "" : "s")")
-                                    .font(.appCaption1)
-                                    .foregroundStyle(DesignTokens.tertiaryLabel)
-                            }
-                            LazyVGrid(
-                                columns: [GridItem(.adaptive(minimum: 240), spacing: 12)],
-                                alignment: .leading,
-                                spacing: 12
-                            ) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            // 🏷️ Other · N products — matches web `inv-group-header`
+                            Text("🏷️ \(ProductCategoryOptions.label(catGroup.category)) · \(catGroup.groups.count) product\(catGroup.groups.count == 1 ? "" : "s")")
+                                .font(.appCallout.weight(.semibold))
+                                .foregroundStyle(DesignTokens.label)
+                                .padding(.bottom, 4)
+                            VStack(spacing: 8) {
                                 ForEach(catGroup.groups) { group in
                                     ProductTile(
                                         group: group,
@@ -1227,120 +1222,196 @@ private struct CatalogBody: View {
     }
 }
 
-// MARK: - F-413 / F-414..F-419 product tile
+// MARK: - F-413 / F-414..F-419 product tile (web `_buildProductTile` clone —
+// vertical stack of compact rows, no leading thumb; optional image strip on top
+// only when `latest_snapshot` is present).
 
 private struct ProductTile: View {
     let group: ProductGroup
     @ObservedObject var state: ProductsState
+    @EnvironmentObject private var appState: AppState
     let isExpanded: Bool
     let onToggleExpand: () -> Void
 
     var body: some View {
         let primary = group.primaryItem
-        Card {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 10) {
-                    if let primary {
-                        ProductThumb(snapshot: primary.latestSnapshot, fallback: primary.displayLabel)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            if primary?.isRegularUse == true {
-                                Text("⭐").font(.appCaption1)
-                            }
-                            Text(group.family).font(.appHeadline)
-                            Spacer()
-                            if (primary?.manualLow ?? false) || (primary?.isLow ?? false) {
-                                Text("Low")
-                                    .font(.appCaption2.weight(.semibold))
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(DesignTokens.warningDim)
-                                    .foregroundStyle(DesignTokens.warning)
-                                    .clipShape(Capsule())
-                            }
-                            Text("×\(group.count)")
-                                .font(.appCaption1.weight(.semibold))
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(DesignTokens.surface2)
-                                .foregroundStyle(DesignTokens.secondaryLabel)
-                                .clipShape(Capsule())
-                        }
-                        Text(ProductCategoryOptions.label(group.displayCategory))
-                            .font(.appCaption1)
-                            .foregroundStyle(DesignTokens.tertiaryLabel)
-                        if let last = primary?.lastPurchaseDate {
-                            Text("📅 \(last)")
-                                .font(.appCaption1)
-                                .foregroundStyle(DesignTokens.tertiaryLabel)
-                        }
-                        if group.count > 1 {
-                            Text(group.examples.prefix(2).joined(separator: ", ") + (group.count > 2 ? " …" : ""))
-                                .font(.appCaption1)
-                                .foregroundStyle(DesignTokens.tertiaryLabel)
-                                .lineLimit(1)
-                        }
-                    }
+        let isLow = (primary?.manualLow ?? false) || (primary?.isLow ?? false)
+
+        VStack(alignment: .leading, spacing: 6) {
+            // Optional image strip — only when snapshot exists (matches web's
+            // `if (imageUrl && isAdmin)` gate; mac shows for any user when image
+            // is loaded so non-admin users still see their own uploads).
+            if let snap = primary?.latestSnapshot, snap.imageUrl != nil {
+                ProductTileImageStrip(snapshot: snap, alt: group.family)
+            }
+
+            // Head row: category label LEFT + Low chip + ×count RIGHT
+            HStack(spacing: 6) {
+                Text(ProductCategoryOptions.label(group.displayCategory))
+                    .font(.appCaption2.weight(.semibold))
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
+                if isLow {
+                    Text("Low")
+                        .font(.appCaption2.weight(.semibold))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(DesignTokens.warningDim)
+                        .foregroundStyle(DesignTokens.warning)
+                        .clipShape(Capsule())
                 }
+                Spacer()
+                Text("×\(group.count)")
+                    .font(.appCaption2.weight(.semibold))
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
 
-                if let primary {
-                    HStack(spacing: 6) {
-                        Button {
-                            Task { await state.openEdit(primary) }
-                        } label: { Label("Edit", systemImage: "pencil") }
-                        .buttonStyle(GhostButtonStyle())
-                        .help("Edit name / category / photo")
+            // Name
+            HStack(spacing: 4) {
+                if primary?.isRegularUse == true {
+                    Text("⭐").font(.appCallout)
+                }
+                Text(group.family)
+                    .font(.appCallout.weight(.semibold))
+                    .foregroundStyle(DesignTokens.label)
+                    .lineLimit(2)
+            }
 
-                        Button {
-                            Task { await state.openPriceHistory(primary) }
-                        } label: { Label("Prices", systemImage: "chart.line.uptrend.xyaxis") }
-                        .buttonStyle(GhostButtonStyle())
-                        .help("View price history")
+            // Meta: 📅 date + variant examples
+            if let last = primary?.lastPurchaseDate {
+                Text("📅 \(last)")
+                    .font(.appCaption1)
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
+            }
+            if group.count > 1 {
+                Text(group.examples.prefix(2).joined(separator: ", ") + (group.count > 2 ? " …" : ""))
+                    .font(.appCaption1)
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
 
-                        Button {
+            // Actions row — small icon buttons (matches web `inv-tile-actions`).
+            // Order mirrors web: ✎  🛒  ✨(admin only when no image)  🗑  [▾count]
+            if let primary {
+                HStack(spacing: 4) {
+                    iconButton(systemName: "pencil", tint: DesignTokens.accent, help: "Edit") {
+                        Task { await state.openEdit(primary) }
+                    }
+                    iconButton(systemName: "cart.badge.plus", tint: DesignTokens.accent, help: "Add to shopping list") {
+                        Task {
+                            await ShoppingState.shared.add(
+                                productName: primary.name,
+                                quantity: 1,
+                                source: "product",
+                                productId: primary.id
+                            )
+                        }
+                    }
+                    if appState.currentUser?.isAdmin == true,
+                       primary.latestSnapshot?.imageUrl == nil {
+                        iconButton(systemName: "sparkles", tint: DesignTokens.warning, help: "AI enrich") {
                             Task { await state.enhanceProduct(id: primary.id) }
-                        } label: { Label("AI", systemImage: "sparkles") }
-                        .buttonStyle(GhostButtonStyle())
-                        .help("Run AI enrichment (admin only)")
-
-                        Spacer()
-                        Button {
-                            Task { await state.deleteProduct(primary) }
-                        } label: { Image(systemName: "trash") }
-                        .buttonStyle(DestructiveButtonStyle())
-                        .help("Delete product")
-
-                        if group.count > 1 {
-                            Button(action: onToggleExpand) {
-                                Label("\(group.count)", systemImage: isExpanded ? "chevron.up" : "chevron.down")
-                            }
-                            .buttonStyle(GhostButtonStyle())
-                            .help("Show variants")
                         }
                     }
-                    .contextMenu {
-                        Button("Edit") { Task { await state.openEdit(primary) } }
-                        Button("Rename…") {
-                            // Inline rename via edit sheet for simplicity (F-414 covered)
-                            Task { await state.openEdit(primary) }
+                    iconButton(systemName: "chart.line.uptrend.xyaxis", tint: DesignTokens.secondaryLabel, help: "Price history") {
+                        Task { await state.openPriceHistory(primary) }
+                    }
+                    Spacer()
+                    if group.count > 1 {
+                        Button(action: onToggleExpand) {
+                            Label("\(group.count)", systemImage: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.appCaption2.weight(.semibold))
+                                .padding(.horizontal, 6).padding(.vertical, 3)
                         }
-                        Button("Price history") { Task { await state.openPriceHistory(primary) } }
-                        Button("Run AI enhance") { Task { await state.enhanceProduct(id: primary.id) } }
-                        Divider()
-                        Button("Delete", role: .destructive) {
-                            Task { await state.deleteProduct(primary) }
-                        }
+                        .buttonStyle(.borderless)
+                        .help("Show variants")
+                    }
+                    iconButton(systemName: "trash", tint: DesignTokens.error, help: "Delete") {
+                        Task { await state.deleteProduct(primary) }
                     }
                 }
-
-                if isExpanded && group.count > 1 {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Divider()
-                        ForEach(group.items) { item in
-                            VariantRow(item: item, state: state)
+                .contextMenu {
+                    Button("Edit") { Task { await state.openEdit(primary) } }
+                    Button("Add to shopping list") {
+                        Task {
+                            await ShoppingState.shared.add(
+                                productName: primary.name,
+                                quantity: 1,
+                                source: "product",
+                                productId: primary.id
+                            )
                         }
+                    }
+                    Button("Price history") { Task { await state.openPriceHistory(primary) } }
+                    if appState.currentUser?.isAdmin == true {
+                        Button("Run AI enhance") { Task { await state.enhanceProduct(id: primary.id) } }
+                    }
+                    Divider()
+                    Button("Delete", role: .destructive) {
+                        Task { await state.deleteProduct(primary) }
                     }
                 }
             }
+
+            if isExpanded && group.count > 1 {
+                VStack(alignment: .leading, spacing: 4) {
+                    Divider().padding(.vertical, 2)
+                    ForEach(group.items) { item in
+                        VariantRow(item: item, state: state)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.card))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
+                .stroke(isLow ? DesignTokens.warning.opacity(0.4) : DesignTokens.border, lineWidth: 0.5)
+        )
+    }
+
+    private func iconButton(
+        systemName: String,
+        tint: Color,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 28, height: 24)
+                .foregroundStyle(tint)
+                .background(DesignTokens.surface2)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+/// Optional top image strip — matches web's `inv-tile-img` band.
+private struct ProductTileImageStrip: View {
+    let snapshot: ProductLatestSnapshot
+    let alt: String
+
+    private var resolvedURL: URL? {
+        guard let path = snapshot.imageUrl, !path.isEmpty else { return nil }
+        let base = UserDefaults.standard.string(forKey: AppConstants.Defaults.apiBaseURL)
+                ?? AppConstants.defaultAPIBaseURL
+        return URL(string: base.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                   + (path.hasPrefix("/") ? path : "/" + path))
+    }
+
+    var body: some View {
+        if let url = resolvedURL {
+            KFImage(url)
+                .requestModifier(ImageCache.tokenModifier)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -1350,28 +1421,59 @@ private struct VariantRow: View {
     @ObservedObject var state: ProductsState
 
     var body: some View {
-        HStack(spacing: 10) {
-            ProductThumb(snapshot: item.latestSnapshot, fallback: item.displayLabel, size: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.name).font(.appCallout.weight(.medium))
-                let meta = [item.defaultSizeLabel, item.lastPurchaseDate.map { "Bought \($0)" }]
-                    .compactMap { $0 }.filter { !$0.isEmpty }
-                if !meta.isEmpty {
-                    Text(meta.joined(separator: " · "))
-                        .font(.appCaption2)
-                        .foregroundStyle(DesignTokens.tertiaryLabel)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(item.name).font(.appCaption1.weight(.semibold))
+                if item.manualLow == true || item.isLow == true {
+                    Text("Low")
+                        .font(.appCaption2.weight(.semibold))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(DesignTokens.warningDim)
+                        .foregroundStyle(DesignTokens.warning)
+                        .clipShape(Capsule())
                 }
+                Spacer()
             }
-            Spacer()
-            Button { Task { await state.openEdit(item) } } label: { Image(systemName: "pencil") }
-                .buttonStyle(.borderless).help("Edit variant")
-            Button { Task { await state.openPriceHistory(item) } } label: { Image(systemName: "chart.line.uptrend.xyaxis") }
-                .buttonStyle(.borderless).help("Price history")
-            Button { Task { await state.deleteProduct(item) } } label: { Image(systemName: "trash") }
-                .buttonStyle(.borderless).foregroundStyle(DesignTokens.error).help("Delete variant")
+            let meta = [item.defaultSizeLabel, item.lastPurchaseDate.map { "Bought \($0)" }]
+                .compactMap { $0 }.filter { !$0.isEmpty }
+            if !meta.isEmpty {
+                Text(meta.joined(separator: " · "))
+                    .font(.appCaption2)
+                    .foregroundStyle(DesignTokens.tertiaryLabel)
+            }
+            HStack(spacing: 6) {
+                Button { Task { await state.openEdit(item) } } label: {
+                    Label("Edit", systemImage: "pencil").font(.appCaption2)
+                }
+                .buttonStyle(.borderless)
+                Button {
+                    Task {
+                        await ShoppingState.shared.add(
+                            productName: item.name,
+                            quantity: 1,
+                            source: "product",
+                            productId: item.id
+                        )
+                    }
+                } label: {
+                    Label("Add", systemImage: "cart.badge.plus").font(.appCaption2)
+                }
+                .buttonStyle(.borderless)
+                Button { Task { await state.openPriceHistory(item) } } label: {
+                    Label("Prices", systemImage: "chart.line.uptrend.xyaxis").font(.appCaption2)
+                }
+                .buttonStyle(.borderless)
+                Spacer()
+                Button { Task { await state.deleteProduct(item) } } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(DesignTokens.error)
+                }
+                .buttonStyle(.borderless)
+                .help("Delete variant")
+            }
         }
         .padding(8)
-        .background(DesignTokens.surface)
+        .background(DesignTokens.surface2)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
