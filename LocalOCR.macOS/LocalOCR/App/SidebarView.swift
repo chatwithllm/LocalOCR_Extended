@@ -28,7 +28,7 @@ struct SidebarView: View {
     }
 
     private var workspaceTabs: [Router.TabDestination] {
-        [.dashboard, .inventory, .products, .receipts, .shopping, .kitchen, .finance, .restaurant, .balances]
+        [.dashboard, .inventory, .products, .receipts, .shopping, .kitchen, .finance, .restaurant, .balances, .contacts]
     }
 
     private var toolTabs: [Router.TabDestination] {

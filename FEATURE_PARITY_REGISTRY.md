@@ -524,28 +524,28 @@ Backend: `manage_shared_dining.py`
 
 | ID | Feature | UI Element | Sub-tab / Modal | API Call | Business Rule | macOS Impl | Status |
 |----|---------|-----------|-----------------|----------|---------------|------------|--------|
-| F-900 | Page header: "Dining Contacts" title | `<h1>Dining Contacts</h1>` in `#page-contacts` | — | — | Static heading | TBD | ❌ |
-| F-901 | Page subtitle | `<p>Saved contacts for splitting restaurant receipts</p>` | — | — | Static subtitle | TBD | ❌ |
-| F-902 | Refresh button | Ghost btn 🔄 `onclick="loadContacts()"` in page header | — | — | Reloads contacts list | TBD | ❌ |
-| F-903 | Add Contact card | `.card` "Add Contact" with form fields | — | — | Always visible above the list | TBD | ❌ |
-| F-904 | Add Contact: Name field (required) | `#contact-name-input` text input, label "Name *" | Add Contact card | — | Required; `saveContact()` toasts error if blank | TBD | ❌ |
-| F-905 | Add Contact: Phone field (optional) | `#contact-phone-input` tel input, placeholder "+1 555 000 0000" | Add Contact card | — | Optional; sent as `null` if blank | TBD | ❌ |
-| F-906 | Add Contact: Email field (optional) | `#contact-email-input` email input, placeholder "name@example.com" | Add Contact card | — | Optional; sent as `null` if blank | TBD | ❌ |
-| F-907 | "Add Contact" submit button | `<button class="btn btn-primary">Add Contact</button>` `onclick="saveContact()"` | Add Contact card | POST `/shared-dining/contacts` | Full-width; submits name/phone/email JSON | TBD | ❌ |
-| F-908 | Add contact validation — missing name toast | `toast('Name is required', 'error')` | — | — | Guards `saveContact()` before API call | TBD | ❌ |
-| F-909 | Add contact error toast | `toast(err.error \|\| 'Could not save contact', 'error')` | — | — | Shown when POST not OK | TBD | ❌ |
-| F-910 | Add contact success toast | `toast(name + ' added', 'success')` | — | — | Fields cleared; `loadContacts()` called | TBD | ❌ |
-| F-911 | Field clear after successful add | All three input fields cleared via `.value = ''` | — | — | Follows successful POST | TBD | ❌ |
-| F-912 | Saved Contacts card | `.card` "Saved Contacts" wrapping `#contacts-body` | — | — | Always visible below the form card | TBD | ❌ |
-| F-913 | Contacts loading state | `#contacts-body` shows `<p>Loading…</p>` | — | GET `/shared-dining/contacts` | Shown while fetch in-flight | TBD | ❌ |
-| F-914 | Contacts empty state | "No saved contacts yet. Add one above." | — | GET `/shared-dining/contacts` | Shown when API returns `[]` | TBD | ❌ |
-| F-915 | Contacts error state | "Could not load contacts." | — | GET `/shared-dining/contacts` | Shown when `res.ok` is false | TBD | ❌ |
-| F-916 | Contacts list container | `.contacts-list` div rendered per contact | Saved Contacts card | GET `/shared-dining/contacts` | Populated from `_diningContacts` | TBD | ❌ |
-| F-917 | Contact card | `.contacts-card` article per contact | Contacts list | — | One card per entry in `_diningContacts` | TBD | ❌ |
-| F-918 | Contact avatar initial | `.contacts-card__avatar` showing first letter of name (uppercase) | Contact card | — | Derived from `c.name.charAt(0).toUpperCase()` | TBD | ❌ |
-| F-919 | Contact name label | `.contacts-card__name` showing full name | Contact card | — | Escaped HTML of `c.name` | TBD | ❌ |
-| F-920 | Contact meta (phone + email) | `.contacts-card__meta` concatenating phone + email with ` · ` | Contact card | — | Only shown when at least one exists | TBD | ❌ |
-| F-921 | `_diningContacts` in-memory cache | `var _diningContacts = []` module-level array | — | — | Reused by `_spRender` for split-panel contact dropdown | TBD | ❌ |
+| F-900 | Page header: "Dining Contacts" title | `<h1>Dining Contacts</h1>` in `#page-contacts` | — | — | Static heading | `ContactsView.header` Text "Dining Contacts" appTitle2. Added 2026-05-20. | ✅ |
+| F-901 | Page subtitle | `<p>Saved contacts for splitting restaurant receipts</p>` | — | — | Static subtitle | Verbatim subheadline under title. Added 2026-05-20. | ✅ |
+| F-902 | Refresh button | Ghost btn 🔄 `onclick="loadContacts()"` in page header | — | — | Reloads contacts list | Toolbar `arrow.clockwise` Button → `state.loadContacts()`. Added 2026-05-20. | ✅ |
+| F-903 | Add Contact card | `.card` "Add Contact" with form fields | — | — | Always visible above the list | `AddContactCard` Card always rendered above SavedContactsCard. Added 2026-05-20. | ✅ |
+| F-904 | Add Contact: Name field (required) | `#contact-name-input` text input, label "Name *" | Add Contact card | — | Required; `saveContact()` toasts error if blank | TextField "$draftName" with "Name *" caption label; Submit disabled until non-empty; `createContact` re-checks + toast. Added 2026-05-20. | ✅ |
+| F-905 | Add Contact: Phone field (optional) | `#contact-phone-input` tel input, placeholder "+1 555 000 0000" | Add Contact card | — | Optional; sent as `null` if blank | TextField placeholder "+1 555 000 0000" → sent as `nil` when blank via `nilIfEmptyContact`. Added 2026-05-20. | ✅ |
+| F-906 | Add Contact: Email field (optional) | `#contact-email-input` email input, placeholder "name@example.com" | Add Contact card | — | Optional; sent as `null` if blank | TextField placeholder "name@example.com" → `nil` when blank. Added 2026-05-20. | ✅ |
+| F-907 | "Add Contact" submit button | `<button class="btn btn-primary">Add Contact</button>` `onclick="saveContact()"` | Add Contact card | POST `/shared-dining/contacts` | Full-width; submits name/phone/email JSON | PrimaryButton + ⌘↩ shortcut → `state.createContact(name:phone:email:)` → POST `/shared-dining/contacts` with `CreateContactBody`. Added 2026-05-20. | ✅ |
+| F-908 | Add contact validation — missing name toast | `toast('Name is required', 'error')` | — | — | Guards `saveContact()` before API call | `state.createContact` guards trimmed name; toasts "Name is required" verbatim before any network call. Added 2026-05-20. | ✅ |
+| F-909 | Add contact error toast | `toast(err.error \|\| 'Could not save contact', 'error')` | — | — | Shown when POST not OK | catch toasts `errorDescription ?? "Could not save contact"`. Demo mode → "Demo mode — changes not saved." Added 2026-05-20. | ✅ |
+| F-910 | Add contact success toast | `toast(name + ' added', 'success')` | — | — | Fields cleared; `loadContacts()` called | "\(name) added" success toast + automatic `loadContacts()` reload. Added 2026-05-20. | ✅ |
+| F-911 | Field clear after successful add | All three input fields cleared via `.value = ''` | — | — | Follows successful POST | View binds three `@State` strings; on `createContact` returning true → all three set to "". Added 2026-05-20. | ✅ |
+| F-912 | Saved Contacts card | `.card` "Saved Contacts" wrapping `#contacts-body` | — | — | Always visible below the form card | `SavedContactsCard` Card always rendered. Title + count chip in header. Added 2026-05-20. | ✅ |
+| F-913 | Contacts loading state | `#contacts-body` shows `<p>Loading…</p>` | — | GET `/shared-dining/contacts` | Shown while fetch in-flight | First-paint shows empty state until response (no separate loading branch — refresh swap is instant). Added 2026-05-20. | 🔄 |
+| F-914 | Contacts empty state | "No saved contacts yet. Add one above." | — | GET `/shared-dining/contacts` | Shown when API returns `[]` | EmptyStateView person.crop.circle.badge.plus + verbatim "No saved contacts yet." + "Add one above." subtitle. Added 2026-05-20. | ✅ |
+| F-915 | Contacts error state | "Could not load contacts." | — | GET `/shared-dining/contacts` | Shown when `res.ok` is false | `loadContacts` swallows errors as `logger.warning`; contacts array stays empty so the F-914 empty state shows instead. Web's "Could not load" copy not surfaced separately. Added 2026-05-20. | 🔄 |
+| F-916 | Contacts list container | `.contacts-list` div rendered per contact | Saved Contacts card | GET `/shared-dining/contacts` | Populated from `_diningContacts` | LazyVGrid(adaptive minimum 220) of `ContactCard`. Added 2026-05-20. | ✅ |
+| F-917 | Contact card | `.contacts-card` article per contact | Contacts list | — | One card per entry in `_diningContacts` | `ContactCard` HStack with avatar + name + meta. Added 2026-05-20. | ✅ |
+| F-918 | Contact avatar initial | `.contacts-card__avatar` showing first letter of name (uppercase) | Contact card | — | Derived from `c.name.charAt(0).toUpperCase()` | Text `String(contact.name.prefix(1)).uppercased()` in 36×36 Circle filled with `DesignTokens.accent`. Added 2026-05-20. | ✅ |
+| F-919 | Contact name label | `.contacts-card__name` showing full name | Contact card | — | Escaped HTML of `c.name` | Text(contact.name) at .appCallout.semibold lineLimit 1. Added 2026-05-20. | ✅ |
+| F-920 | Contact meta (phone + email) | `.contacts-card__meta` concatenating phone + email with ` · ` | Contact card | — | Only shown when at least one exists | `[contact.phone, contact.email].compactMap.filter(non-empty).joined(" · ")` rendered only when non-empty. Added 2026-05-20. | ✅ |
+| F-921 | `_diningContacts` in-memory cache | `var _diningContacts = []` module-level array | — | — | Reused by `_spRender` for split-panel contact dropdown | `SharedDiningState.contacts` published array — survives tab switches; receipt-split-panel dropdown will reuse the same source when v1.1 receipt-split feature lands. Added 2026-05-20. | ✅ |
 
 ---
 

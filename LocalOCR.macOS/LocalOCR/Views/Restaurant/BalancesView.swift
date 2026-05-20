@@ -26,6 +26,58 @@ final class SharedDiningState: ObservableObject {
         self.api = api
     }
 
+    func loadContacts() async {
+        do {
+            let rows = try await api.request(
+                .get,
+                path: SharedDiningEndpoint.listContacts.path,
+                as: [DiningContactRow].self
+            )
+            contacts = rows
+            logger.info("loaded \(rows.count, privacy: .public) dining contacts")
+        } catch is CancellationError {
+            return
+        } catch {
+            logger.warning("loadContacts failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    @discardableResult
+    func createContact(name: String, phone: String?, email: String?) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            ToastQueue.shared.push(Toast(message: "Name is required", severity: .error))
+            return false
+        }
+        do {
+            try DemoModeGate.guardMutation()
+            let body = CreateContactBody(
+                name: trimmed,
+                phone: phone?.trimmingCharacters(in: .whitespaces).nilIfEmptyContact,
+                email: email?.trimmingCharacters(in: .whitespaces).nilIfEmptyContact
+            )
+            try await api.request(
+                .post,
+                path: SharedDiningEndpoint.createContact.path,
+                jsonBody: body
+            )
+            ToastQueue.shared.push(Toast(message: "\(trimmed) added", severity: .success))
+            await loadContacts()
+            return true
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+            return false
+        } catch is CancellationError {
+            return false
+        } catch {
+            ToastQueue.shared.push(Toast(
+                message: (error as? APIError)?.errorDescription ?? "Could not save contact",
+                severity: .error
+            ))
+            return false
+        }
+    }
+
     func loadBalances() async {
         isLoading = true
         defer { isLoading = false }
@@ -77,6 +129,10 @@ final class SharedDiningState: ObservableObject {
 }
 
 private struct EmptyBody: Encodable {}
+
+private extension String {
+    var nilIfEmptyContact: String? { isEmpty ? nil : self }
+}
 
 // MARK: - View
 

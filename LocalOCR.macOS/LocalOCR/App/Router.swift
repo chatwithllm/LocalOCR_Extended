@@ -8,7 +8,7 @@ final class Router: ObservableObject {
     static let shared = Router()
 
     enum TabDestination: String, CaseIterable, Identifiable {
-        case dashboard, inventory, products, receipts, shopping, kitchen, finance, restaurant, balances, chat, medications
+        case dashboard, inventory, products, receipts, shopping, kitchen, finance, restaurant, balances, contacts, chat, medications
         var id: String { rawValue }
     }
 
