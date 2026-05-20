@@ -40,6 +40,33 @@ final class AccountsState: ObservableObject {
         didSet { UserDefaults.standard.set(connectionsCollapsed, forKey: Defaults.connectionsCollapsed) }
     }
 
+    // Activity by Account (/plaid/transaction-breakdown)
+    @Published private(set) var breakdown: [PlaidBreakdownAccount] = []
+    @Published var activityCollapsed: Bool {
+        didSet { UserDefaults.standard.set(activityCollapsed, forKey: Defaults.activityCollapsed) }
+    }
+
+    // Transactions (/plaid/transactions)
+    enum TxTab: String { case spending, transfers }
+    @Published var txCollapsed: Bool {
+        didSet { UserDefaults.standard.set(txCollapsed, forKey: Defaults.txCollapsed) }
+    }
+    @Published var txTab: TxTab = .spending
+    @Published var txAccountFilter: String = ""            // empty == all
+    @Published var txMonth: String = ""                    // "YYYY-MM" or empty
+    @Published private(set) var txOffset: Int = 0
+    @Published private(set) var txLimit: Int = 50
+    @Published private(set) var txRows: [PlaidConfirmedTransactionRow] = []
+    @Published private(set) var txTotal: Int = 0
+    @Published var isLoadingTransactions = false
+    @Published var txError: String?
+
+    // Pending Review queue (/plaid/staged-transactions)
+    @Published private(set) var stagedRows: [PlaidTransaction] = []
+    @Published private(set) var stagedCounts: PlaidStagedCounts?
+    @Published var isLoadingStaged = false
+    @Published var matchCandidates: [Int: [StagedMatchCandidate]] = [:]
+
     // UX state
     @Published var isLoadingCards = false
     @Published var isLoadingConnections = false
@@ -55,6 +82,8 @@ final class AccountsState: ObservableObject {
         static let connectionsCollapsed = "LocalOCR.accounts.connections.collapsed"
         static let cardCollapseOverrides = "LocalOCR.accounts.cardCollapseOverrides"
         static let pieFilter          = "LocalOCR.accounts.pieFilter"
+        static let activityCollapsed  = "LocalOCR.accounts.activity.collapsed"
+        static let txCollapsed        = "LocalOCR.accounts.tx.collapsed"
     }
 
     private let api: APIClient
@@ -67,6 +96,8 @@ final class AccountsState: ObservableObject {
         self.cardUsagePieCollapsed = d.bool(forKey: Defaults.pieCollapsed)
         self.cardUsageLoansCollapsed = d.bool(forKey: Defaults.loansCollapsed)
         self.connectionsCollapsed = d.bool(forKey: Defaults.connectionsCollapsed)
+        self.activityCollapsed    = d.bool(forKey: Defaults.activityCollapsed)
+        self.txCollapsed          = d.bool(forKey: Defaults.txCollapsed)
         self.cardUsagePieFilter   = d.string(forKey: Defaults.pieFilter) ?? "all"
         if let raw = d.data(forKey: Defaults.cardCollapseOverrides),
            let map = try? JSONDecoder().decode([String: Bool].self, from: raw) {
@@ -88,6 +119,9 @@ final class AccountsState: ObservableObject {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in await self.loadCardsOverview() }
             group.addTask { @MainActor in await self.loadConnections() }
+            group.addTask { @MainActor in await self.loadBreakdown() }
+            group.addTask { @MainActor in await self.loadTransactions() }
+            group.addTask { @MainActor in await self.loadStaged() }
         }
     }
 
@@ -334,6 +368,320 @@ final class AccountsState: ObservableObject {
     func cancelPlaidLink() {
         pendingLinkToken = nil
         pendingLinkItemId = nil
+    }
+
+    // MARK: - Activity by Account (F-1230..F-1232)
+
+    func loadBreakdown() async {
+        do {
+            let query = monthQuery(txMonth)
+            let resp = try await api.request(
+                .get, path: PlaidEndpoint.transactionBreakdown.path,
+                query: query,
+                as: PlaidBreakdownResponse.self
+            )
+            breakdown = resp.accounts
+            logger.info("loaded \(resp.accounts.count, privacy: .public) breakdown rows")
+        } catch is CancellationError {
+            return
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return }
+            logger.warning("loadBreakdown failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func pickBreakdownRow(_ plaidAccountId: String) {
+        // Toggle: clicking the active filter clears it.
+        if txAccountFilter == plaidAccountId {
+            txAccountFilter = ""
+        } else {
+            txAccountFilter = plaidAccountId
+        }
+        resetTransactionsOffsetAndReload()
+    }
+
+    // MARK: - Transactions (F-1243..F-1268)
+
+    func setTxTab(_ tab: TxTab) {
+        guard txTab != tab else { return }
+        txTab = tab
+        resetTransactionsOffsetAndReload()
+    }
+
+    func setTxAccountFilter(_ value: String) {
+        guard txAccountFilter != value else { return }
+        txAccountFilter = value
+        resetTransactionsOffsetAndReload()
+    }
+
+    func setTxMonth(_ value: String) {
+        guard txMonth != value else { return }
+        txMonth = value
+        resetTransactionsOffsetAndReload()
+    }
+
+    func resetTransactionsOffsetAndReload() {
+        txOffset = 0
+        Task { @MainActor in
+            await self.loadTransactions()
+            await self.loadStaged()
+            await self.loadBreakdown()
+        }
+    }
+
+    func nextTxPage() {
+        let next = txOffset + txLimit
+        guard next < max(0, txTotal) else { return }
+        txOffset = next
+        Task { @MainActor in await self.loadTransactions() }
+    }
+
+    func prevTxPage() {
+        guard txOffset > 0 else { return }
+        txOffset = max(0, txOffset - txLimit)
+        Task { @MainActor in await self.loadTransactions() }
+    }
+
+    func loadTransactions() async {
+        isLoadingTransactions = true
+        defer { isLoadingTransactions = false }
+        do {
+            var query: [URLQueryItem] = [
+                URLQueryItem(name: "limit", value: String(txLimit)),
+                URLQueryItem(name: "offset", value: String(txOffset)),
+                URLQueryItem(name: "kind", value: txTab.rawValue),
+            ]
+            if !txAccountFilter.isEmpty {
+                query.append(URLQueryItem(name: "account_id", value: txAccountFilter))
+            }
+            query.append(contentsOf: monthQuery(txMonth))
+            let resp = try await api.request(
+                .get, path: PlaidEndpoint.transactions.path,
+                query: query,
+                as: PlaidTransactionsResponse.self
+            )
+            txRows = resp.transactions
+            txTotal = resp.total
+            txError = nil
+            logger.info("loaded \(resp.transactions.count, privacy: .public) transactions (total=\(resp.total, privacy: .public), tab=\(self.txTab.rawValue, privacy: .public))")
+        } catch is CancellationError {
+            return
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return }
+            txError = (error as? APIError)?.errorDescription ?? "Could not load transactions"
+            logger.error("loadTransactions failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    // MARK: - Pending Review queue (F-1249..F-1258)
+
+    func loadStaged() async {
+        isLoadingStaged = true
+        defer { isLoadingStaged = false }
+        do {
+            var query: [URLQueryItem] = [URLQueryItem(name: "status", value: "ready_to_import")]
+            if !txAccountFilter.isEmpty {
+                query.append(URLQueryItem(name: "account_id", value: txAccountFilter))
+            }
+            let resp = try await api.request(
+                .get, path: PlaidEndpoint.stagedTransactions.path,
+                query: query,
+                as: PlaidStagedListResponse.self
+            )
+            stagedRows = resp.stagedTransactions
+            stagedCounts = resp.counts
+            logger.info("loaded \(resp.stagedTransactions.count, privacy: .public) staged transactions awaiting review")
+        } catch is CancellationError {
+            return
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return }
+            logger.warning("loadStaged failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    func confirmStaged(_ row: PlaidTransaction) async {
+        do {
+            try DemoModeGate.guardMutation()
+            let resp = try await api.request(
+                .post, path: PlaidEndpoint.confirmStaged(id: row.id).path,
+                as: PlaidStagedActionResponse.self
+            )
+            if resp.matchedExisting == true {
+                ToastQueue.shared.push(Toast(message: "Linked to existing receipt", severity: .success))
+            } else {
+                ToastQueue.shared.push(Toast(message: "Confirmed → receipt created", severity: .success))
+            }
+            await refreshTxAndStaged()
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Could not confirm"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    func dismissStaged(_ row: PlaidTransaction) async {
+        do {
+            try DemoModeGate.guardMutation()
+            try await api.request(.post, path: PlaidEndpoint.dismissStaged(id: row.id).path)
+            stagedRows.removeAll { $0.id == row.id }
+            ToastQueue.shared.push(Toast(message: "Dismissed", severity: .success))
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Could not dismiss"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    func flagDuplicateStaged(_ row: PlaidTransaction, duplicatePurchaseId: Int? = nil) async {
+        do {
+            try DemoModeGate.guardMutation()
+            let body = PlaidFlagDuplicateBody(duplicatePurchaseId: duplicatePurchaseId)
+            try await api.request(.post, path: PlaidEndpoint.flagStagedDuplicate(id: row.id).path, jsonBody: body)
+            stagedRows.removeAll { $0.id == row.id }
+            ToastQueue.shared.push(Toast(message: "Flagged as duplicate", severity: .success))
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Could not flag"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    func loadMatchCandidates(for stagedId: Int) async -> [StagedMatchCandidate] {
+        do {
+            let resp = try await api.request(
+                .get, path: PlaidEndpoint.matchCandidates(id: stagedId).path,
+                as: StagedMatchCandidatesResponse.self
+            )
+            matchCandidates[stagedId] = resp.candidates
+            return resp.candidates
+        } catch is CancellationError {
+            return []
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return [] }
+            logger.warning("loadMatchCandidates failed: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    func linkStagedToReceipt(_ row: PlaidTransaction, purchaseId: Int) async {
+        do {
+            try DemoModeGate.guardMutation()
+            let body = PlaidLinkReceiptBody(purchaseId: purchaseId)
+            try await api.request(.post, path: PlaidEndpoint.linkReceipt(id: row.id).path, jsonBody: body)
+            ToastQueue.shared.push(Toast(message: "Linked to existing receipt", severity: .success))
+            await refreshTxAndStaged()
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Link failed"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    func attachUploadToStaged(_ row: PlaidTransaction, fileURL: URL) async {
+        do {
+            try DemoModeGate.guardMutation()
+            let data = try Data(contentsOf: fileURL)
+            let mime = mimeType(for: fileURL.pathExtension)
+            let resp = try await api.multipartRequest(
+                path: PlaidEndpoint.attachUpload(id: row.id).path,
+                fields: [:],
+                fileFieldName: "image",
+                fileName: fileURL.lastPathComponent,
+                mimeType: mime,
+                fileData: data,
+                as: PlaidAttachUploadResponse.self
+            )
+            if resp.purchaseId != nil {
+                ToastQueue.shared.push(Toast(message: "Receipt attached & linked", severity: .success))
+            } else {
+                ToastQueue.shared.push(Toast(
+                    message: resp.message ?? "Receipt saved — review and link manually",
+                    severity: .info
+                ))
+            }
+            await refreshTxAndStaged()
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Upload failed"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    func bulkConfirmStaged() async {
+        do {
+            try DemoModeGate.guardMutation()
+            let body = PlaidBulkConfirmBody(ids: nil, allReady: true)
+            let resp = try await api.request(
+                .post, path: PlaidEndpoint.bulkConfirm.path,
+                jsonBody: body,
+                as: PlaidBulkConfirmResponse.self
+            )
+            let n = resp.summary?.confirmed ?? resp.confirmedIds?.count ?? 0
+            let skipped = resp.summary?.skipped ?? resp.skipped?.count ?? 0
+            ToastQueue.shared.push(Toast(
+                message: "Confirmed \(n) · skipped \(skipped)",
+                severity: skipped > 0 ? .warning : .success
+            ))
+            await refreshTxAndStaged()
+        } catch APIError.demoModeReadOnly {
+            ToastQueue.shared.push(Toast(message: "Demo mode — changes not saved.", severity: .warning))
+        } catch {
+            let msg = (error as? APIError)?.errorDescription ?? "Bulk confirm failed"
+            ToastQueue.shared.push(Toast(message: msg, severity: .error))
+        }
+    }
+
+    private func refreshTxAndStaged() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in await self.loadStaged() }
+            group.addTask { @MainActor in await self.loadTransactions() }
+            group.addTask { @MainActor in await self.loadBreakdown() }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func monthQuery(_ ym: String) -> [URLQueryItem] {
+        guard !ym.isEmpty,
+              ym.count == 7,
+              let dash = ym.firstIndex(of: "-"),
+              let year = Int(ym[..<dash]),
+              let month = Int(ym[ym.index(after: dash)...]),
+              (1...12).contains(month), year >= 1970 else {
+            return []
+        }
+        var comps = DateComponents()
+        comps.year = year; comps.month = month; comps.day = 1
+        let cal = Calendar(identifier: .gregorian)
+        guard let first = cal.date(from: comps),
+              let range = cal.range(of: .day, in: .month, for: first) else { return [] }
+        let last = range.count
+        let mm = String(format: "%02d", month)
+        let dd = String(format: "%02d", last)
+        return [
+            URLQueryItem(name: "start", value: "\(year)-\(mm)-01"),
+            URLQueryItem(name: "end", value: "\(year)-\(mm)-\(dd)"),
+        ]
+    }
+
+    private func mimeType(for ext: String) -> String {
+        switch ext.lowercased() {
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png":         return "image/png"
+        case "webp":        return "image/webp"
+        case "heic":        return "image/heic"
+        case "pdf":         return "application/pdf"
+        default:            return "application/octet-stream"
+        }
     }
 
     // MARK: - Derived

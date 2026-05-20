@@ -43,7 +43,9 @@ struct AccountsView: View {
                         disconnectTarget = item
                     }
                 )
-                placeholderRemainingSections        // Commit B/C placeholders
+                ActivityBreakdownSection(state: state) // F-1230..F-1232
+                TransactionsSection(state: state)      // F-1243..F-1268 + Pending Review F-1249..F-1258
+                placeholderRemainingSections           // Commit C placeholder (Spend by Person + Trends)
             }
             .padding(DesignTokens.Spacing.space5)
         }
@@ -104,9 +106,9 @@ struct AccountsView: View {
     private var placeholderRemainingSections: some View {
         Card {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
-                Text("Activity by Account · Spend by Person · Transactions · Spending Trends")
+                Text("Spend by Person · Spending Trends")
                     .font(.appHeadline)
-                Text("Arriving in the next two builds. Existing data is already loaded into the macOS state — UI surfaces are in Commit B (Transactions + Review queue) and Commit C (Spend by Person + Spending Trends).")
+                Text("Arriving in Commit C — month-nav per-person spend rollup + 12-month bar chart with category breakdown.")
                     .font(.appSubheadline)
                     .foregroundStyle(DesignTokens.secondaryLabel)
             }
@@ -1432,6 +1434,656 @@ private func relativeTimeAgo(_ date: Date) -> String {
     let formatter = RelativeDateTimeFormatter()
     formatter.unitsStyle = .short
     return formatter.localizedString(for: date, relativeTo: Date())
+}
+
+// MARK: - Activity by Account (F-1230..F-1232)
+
+private struct ActivityBreakdownSection: View {
+    @ObservedObject var state: AccountsState
+
+    var body: some View {
+        if !state.breakdown.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                    Button {
+                        state.activityCollapsed.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: state.activityCollapsed ? "chevron.right" : "chevron.down")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(DesignTokens.secondaryLabel)
+                            Text("📊 Activity by Account").font(.appHeadline)
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("💳 purchases · ⚡ autopay · 💰 interest · ↩ refunds — click row to filter transactions")
+                    if !state.activityCollapsed {
+                        ForEach(state.breakdown, id: \.id) { row in
+                            BreakdownRow(row: row,
+                                         isActive: state.txAccountFilter == row.plaidAccountId,
+                                         onTap: { state.pickBreakdownRow(row.plaidAccountId) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct BreakdownRow: View {
+    let row: PlaidBreakdownAccount
+    let isActive: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                let label = (row.nickname?.trimmingCharacters(in: .whitespaces).isEmpty == false
+                             ? row.nickname : nil) ?? row.name ?? "Account"
+                Text(label).font(.appBody.weight(.semibold)).lineLimit(1)
+                if let mask = row.mask, !mask.isEmpty {
+                    Text("····\(mask)").font(.appMonoCaption).foregroundStyle(DesignTokens.tertiaryLabel)
+                }
+                Spacer()
+                cell("💳", row.counts.purchase, "Purchases")
+                cell("⚡", row.counts.autopay, "Autopay / transfers")
+                cell("💰", row.counts.interest, "Interest / fees")
+                cell("↩", row.counts.refund, "Refunds")
+                Text("= \(row.total)")
+                    .font(.appMonoCaption.weight(.semibold))
+                    .padding(.leading, 4)
+            }
+            .padding(.horizontal, DesignTokens.Spacing.space2)
+            .padding(.vertical, 6)
+            .background(isActive ? DesignTokens.accentDim : DesignTokens.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isActive ? DesignTokens.accent : DesignTokens.border, lineWidth: isActive ? 1 : 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(isActive ? "Click again to clear the account filter" : "Click to filter transactions to this account")
+    }
+
+    private func cell(_ emoji: String, _ n: Int, _ tip: String) -> some View {
+        let dim = n == 0
+        return Text("\(emoji) \(n)")
+            .font(.appCaption1.monospacedDigit())
+            .foregroundStyle(dim ? DesignTokens.tertiaryLabel : DesignTokens.label)
+            .help(tip)
+    }
+}
+
+// MARK: - Transactions section (F-1243..F-1268 + Pending Review F-1249..F-1258)
+
+private struct TransactionsSection: View {
+    @ObservedObject var state: AccountsState
+    @State private var linkPickerTarget: PlaidTransaction?
+    @State private var fileImporterTarget: PlaidTransaction?
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                header
+                if !state.txCollapsed {
+                    PendingReviewQueue(
+                        state: state,
+                        onLink: { row in linkPickerTarget = row },
+                        onAttach: { row in fileImporterTarget = row }
+                    )
+                    summaryLine
+                    txBody
+                    paginationBar
+                }
+            }
+        }
+        .sheet(item: $linkPickerTarget) { row in
+            LinkPickerSheet(state: state, row: row, onDismiss: {
+                linkPickerTarget = nil
+            })
+        }
+        .fileImporter(
+            isPresented: fileImporterBinding,
+            allowedContentTypes: [.image, .pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            guard let row = fileImporterTarget else { return }
+            fileImporterTarget = nil
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                Task { await state.attachUploadToStaged(row, fileURL: url) }
+            case .failure(let err):
+                ToastQueue.shared.push(Toast(message: err.localizedDescription, severity: .error))
+            }
+        }
+    }
+
+    private var fileImporterBinding: Binding<Bool> {
+        Binding(
+            get: { fileImporterTarget != nil },
+            set: { if !$0 { fileImporterTarget = nil } }
+        )
+    }
+
+    private var header: some View {
+        HStack(spacing: DesignTokens.Spacing.space2) {
+            Button {
+                state.txCollapsed.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: state.txCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                    Text("🧾 Transactions").font(.appHeadline)
+                }
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Picker("", selection: Binding(
+                get: { state.txTab },
+                set: { state.setTxTab($0) }
+            )) {
+                Text("All spending").tag(AccountsState.TxTab.spending)
+                Text("Transfers & bills").tag(AccountsState.TxTab.transfers)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 260)
+            Picker("", selection: Binding(
+                get: { state.txAccountFilter },
+                set: { state.setTxAccountFilter($0) }
+            )) {
+                Text("All accounts").tag("")
+                ForEach(state.breakdown, id: \.id) { row in
+                    let label = (row.nickname?.trimmingCharacters(in: .whitespaces).isEmpty == false
+                                 ? row.nickname : row.name) ?? "Account"
+                    let mask = row.mask.map { " ····\($0)" } ?? ""
+                    Text("\(label)\(mask)").tag(row.plaidAccountId)
+                }
+            }
+            .labelsHidden()
+            .frame(maxWidth: 220)
+            MonthFilterField(value: Binding(
+                get: { state.txMonth },
+                set: { state.setTxMonth($0) }
+            ))
+            .frame(width: 130)
+            Button {
+                Task { await state.loadTransactions() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.plain)
+            .help("Refresh transactions")
+        }
+    }
+
+    private var summaryLine: some View {
+        let total = state.txTotal
+        let label = total == 1 ? "1 transaction" : "\(total) transactions"
+        let shown = state.txRows.count
+        let text = shown > 0
+            ? "Showing \(shown) of \(label) for this tab."
+            : "\(label) in this tab — nothing matches the current filter."
+        return Text(text)
+            .font(.appCaption1)
+            .foregroundStyle(DesignTokens.secondaryLabel)
+    }
+
+    @ViewBuilder
+    private var txBody: some View {
+        if state.isLoadingTransactions && state.txRows.isEmpty {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Loading transactions…")
+                    .font(.appSubheadline)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+            .padding(.vertical, DesignTokens.Spacing.space2)
+        } else if let err = state.txError {
+            Text(err)
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.error)
+        } else if state.txRows.isEmpty {
+            let msg = state.txTab == .transfers
+                ? "No transfers or bill payments found for this filter."
+                : "No spending transactions found for this filter."
+            Text(msg)
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.secondaryLabel)
+                .padding(.vertical, DesignTokens.Spacing.space2)
+        } else {
+            VStack(spacing: 4) {
+                ForEach(state.txRows, id: \.id) { row in
+                    TransactionRowView(row: row, state: state)
+                }
+            }
+        }
+    }
+
+    private var paginationBar: some View {
+        let hasPrev = state.txOffset > 0
+        let hasNext = state.txOffset + state.txLimit < state.txTotal
+        let total = max(0, state.txTotal)
+        let start = total > 0 ? state.txOffset + 1 : 0
+        let end = min(state.txOffset + state.txLimit, total)
+        let page = total > 0 ? (state.txOffset / state.txLimit) + 1 : 0
+        return HStack {
+            if total > 0 {
+                Text("Page \(page) · rows \(start)–\(end) of \(total)")
+                    .font(.appCaption2)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+            Spacer()
+            Button {
+                state.prevTxPage()
+            } label: {
+                Label("Prev", systemImage: "chevron.left")
+            }
+            .buttonStyle(GhostButtonStyle())
+            .controlSize(.small)
+            .disabled(!hasPrev)
+            Button {
+                state.nextTxPage()
+            } label: {
+                Label("Next", systemImage: "chevron.right")
+            }
+            .buttonStyle(GhostButtonStyle())
+            .controlSize(.small)
+            .disabled(!hasNext)
+        }
+    }
+}
+
+private struct TransactionRowView: View {
+    let row: PlaidConfirmedTransactionRow
+    @ObservedObject var state: AccountsState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(row.merchant ?? "Unknown merchant")
+                    .font(.appBody.weight(.semibold))
+                    .lineLimit(1)
+                Spacer()
+                Text(amountString)
+                    .font(.appMonoBody.weight(.semibold))
+                    .foregroundStyle(row.isRefund ? DesignTokens.warning : DesignTokens.label)
+            }
+            HStack(spacing: 6) {
+                if let d = row.dateValue {
+                    Text(d.formatted(date: .abbreviated, time: .omitted))
+                        .font(.appCaption1)
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                }
+                if let cat = row.plaidCategoryPrimary {
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(cat.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.appCaption1)
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                }
+                if let acctLabel = accountLabel {
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(acctLabel)
+                        .font(.appCaption2)
+                        .foregroundStyle(DesignTokens.tertiaryLabel)
+                }
+                Spacer()
+                Button {
+                    NotificationCenter.default.post(
+                        name: .jumpToReceipt,
+                        object: nil,
+                        userInfo: ["purchaseId": row.purchaseId]
+                    )
+                } label: {
+                    Label("Open in Receipts", systemImage: "arrow.up.right")
+                }
+                .buttonStyle(GhostButtonStyle())
+                .controlSize(.small)
+                .help("Open this purchase in the Receipts editor")
+            }
+        }
+        .padding(.horizontal, DesignTokens.Spacing.space2)
+        .padding(.vertical, 6)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var amountString: String {
+        let prefix = row.isRefund ? "-" : ""
+        return prefix + String(format: "$%.2f", abs(row.amount))
+    }
+
+    private var accountLabel: String? {
+        guard let pid = row.plaidAccountId,
+              let acct = state.accounts.first(where: { $0.plaidAccountId == pid }) else { return nil }
+        var bits: [String] = [acct.accountName]
+        if let mask = acct.mask, !mask.isEmpty { bits.append("····\(mask)") }
+        return bits.joined(separator: " ")
+    }
+}
+
+// MARK: - Pending Review queue (F-1249..F-1258)
+
+private struct PendingReviewQueue: View {
+    @ObservedObject var state: AccountsState
+    let onLink: (PlaidTransaction) -> Void
+    let onAttach: (PlaidTransaction) -> Void
+    @State private var showConfirmAll = false
+
+    var body: some View {
+        let rows = state.stagedRows
+        let dupCount = state.stagedCounts?.duplicateFlagged ?? 0
+        if !rows.isEmpty || dupCount > 0 {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
+                HStack(spacing: DesignTokens.Spacing.space2) {
+                    Text("Pending review").font(.appBody.weight(.semibold))
+                    if !rows.isEmpty {
+                        Text("\(rows.count) awaiting confirm")
+                            .font(.appCaption1)
+                            .foregroundStyle(DesignTokens.secondaryLabel)
+                    } else if dupCount > 0 {
+                        Text("\(dupCount) possible duplicate\(dupCount == 1 ? "" : "s") flagged")
+                            .font(.appCaption1)
+                            .foregroundStyle(DesignTokens.secondaryLabel)
+                    }
+                    Spacer()
+                    if !rows.isEmpty {
+                        Button("Confirm all") {
+                            showConfirmAll = true
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .controlSize(.small)
+                    }
+                }
+                if rows.isEmpty {
+                    Text("Nothing ready to import — flagged duplicates need manual resolution in the web app.")
+                        .font(.appCaption1)
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                } else {
+                    VStack(spacing: 6) {
+                        ForEach(rows, id: \.id) { row in
+                            StagedRowView(row: row, state: state,
+                                          onLink: { onLink(row) },
+                                          onAttach: { onAttach(row) })
+                        }
+                    }
+                }
+            }
+            .padding(DesignTokens.Spacing.space3)
+            .background(DesignTokens.warningDim)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .confirmationDialog(
+                "Confirm every pending transaction? This turns them all into receipts at once.",
+                isPresented: $showConfirmAll,
+                titleVisibility: .visible
+            ) {
+                Button("Confirm all", role: .destructive) {
+                    Task { await state.bulkConfirmStaged() }
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
+    }
+}
+
+private struct StagedRowView: View {
+    let row: PlaidTransaction
+    @ObservedObject var state: AccountsState
+    let onLink: () -> Void
+    let onAttach: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(merchantTitle)
+                    .font(.appBody.weight(.semibold))
+                    .lineLimit(1)
+                Spacer()
+                Text(amountString)
+                    .font(.appMonoBody.weight(.semibold))
+                    .foregroundStyle(isRefund ? DesignTokens.warning : DesignTokens.label)
+            }
+            HStack(spacing: 4) {
+                Text(dateLabel).font(.appCaption1).foregroundStyle(DesignTokens.secondaryLabel)
+                if let type = row.suggestedReceiptType {
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(type.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.appCaption1)
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                }
+                if let cat = row.plaidCategoryPrimary {
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(cat.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.appCaption1)
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                }
+                if let inst = row.institutionName, !inst.isEmpty {
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(inst)
+                        .font(.appCaption2)
+                        .foregroundStyle(DesignTokens.tertiaryLabel)
+                }
+                if row.pending == true {
+                    Badge(text: "pending", style: .warning)
+                }
+            }
+            HStack(spacing: 6) {
+                Button("Confirm") {
+                    Task { await state.confirmStaged(row) }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .controlSize(.small)
+                Button("Link…") { onLink() }
+                    .buttonStyle(GhostButtonStyle()).controlSize(.small)
+                Button("Attach…") { onAttach() }
+                    .buttonStyle(GhostButtonStyle()).controlSize(.small)
+                Button("Duplicate") {
+                    Task { await state.flagDuplicateStaged(row) }
+                }
+                .buttonStyle(GhostButtonStyle()).controlSize(.small)
+                Button("Dismiss") {
+                    Task { await state.dismissStaged(row) }
+                }
+                .buttonStyle(GhostButtonStyle()).controlSize(.small)
+                Spacer()
+            }
+        }
+        .padding(DesignTokens.Spacing.space2)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var merchantTitle: String {
+        row.merchantName ?? row.name ?? "Unknown merchant"
+    }
+    private var isRefund: Bool { row.amount < 0 }
+    private var amountString: String {
+        let prefix = isRefund ? "-" : ""
+        return prefix + String(format: "$%.2f", abs(row.amount))
+    }
+    private var dateLabel: String {
+        guard let s = row.transactionDate else { return "—" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone(identifier: "UTC")
+        guard let d = fmt.date(from: s) else { return s }
+        return d.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+// MARK: - Link picker sheet (F-1256, F-1257)
+
+private struct LinkPickerSheet: View {
+    @ObservedObject var state: AccountsState
+    let row: PlaidTransaction
+    let onDismiss: () -> Void
+    @State private var candidates: [StagedMatchCandidate] = []
+    @State private var isLoading = true
+    @State private var manualId: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.space3) {
+            HStack {
+                Text("Link to existing receipt").font(.appHeadline)
+                Spacer()
+                Button("Cancel") { onDismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            Text(stagedSummary)
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.secondaryLabel)
+            Divider()
+            if isLoading {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Loading candidates…").font(.appSubheadline)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, DesignTokens.Spacing.space3)
+            } else if candidates.isEmpty {
+                Text("No nearby receipts found. You can still link by Purchase ID below.")
+                    .font(.appCaption1)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            } else {
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(candidates) { cand in
+                            candidateRow(cand)
+                        }
+                    }
+                }
+                .frame(maxHeight: 320)
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Or paste a Purchase ID:")
+                    .font(.appCaption1)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+                HStack {
+                    TextField("e.g. 1234", text: $manualId)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 160)
+                    Button("Link by ID") {
+                        let trimmed = manualId.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard let pid = Int(trimmed), pid > 0 else {
+                            ToastQueue.shared.push(Toast(message: "Invalid Purchase ID", severity: .error))
+                            return
+                        }
+                        Task {
+                            await state.linkStagedToReceipt(row, purchaseId: pid)
+                            onDismiss()
+                        }
+                    }
+                    .buttonStyle(GhostButtonStyle())
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(DesignTokens.Spacing.space4)
+        .frame(minWidth: 480, minHeight: 360)
+        .task {
+            candidates = await state.loadMatchCandidates(for: row.id)
+            isLoading = false
+        }
+    }
+
+    private var stagedSummary: String {
+        let merchant = row.merchantName ?? row.name ?? "—"
+        let amt = String(format: "$%.2f", abs(row.amount))
+        let date = row.transactionDate ?? "—"
+        return "Staged: \(merchant) · \(amt) · \(date)"
+    }
+
+    private func candidateRow(_ cand: StagedMatchCandidate) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(cand.store ?? "Unknown store").font(.appBody.weight(.semibold))
+                HStack(spacing: 4) {
+                    if let d = cand.dateValue {
+                        Text(d.formatted(date: .abbreviated, time: .omitted))
+                            .font(.appCaption1)
+                            .foregroundStyle(DesignTokens.secondaryLabel)
+                    }
+                    Text("·").foregroundStyle(DesignTokens.tertiaryLabel)
+                    Text(cand.merchantMatch == true ? "merchant match" : "no merchant match")
+                        .font(.appCaption2)
+                        .foregroundStyle(cand.merchantMatch == true ? DesignTokens.success : DesignTokens.secondaryLabel)
+                    if let delta = cand.amountDelta, delta > 0 {
+                        Text("· Δ$\(String(format: "%.2f", delta))")
+                            .font(.appCaption2)
+                            .foregroundStyle(DesignTokens.tertiaryLabel)
+                    }
+                    if let days = cand.dateDeltaDays, days > 0 {
+                        Text("· \(days)d off")
+                            .font(.appCaption2)
+                            .foregroundStyle(DesignTokens.tertiaryLabel)
+                    }
+                }
+            }
+            Spacer()
+            Text(String(format: "$%.2f", cand.totalAmount))
+                .font(.appMonoCaption.weight(.semibold))
+            Button("Link") {
+                Task {
+                    await state.linkStagedToReceipt(row, purchaseId: cand.purchaseId)
+                    onDismiss()
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .controlSize(.small)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.space2)
+        .padding(.vertical, 6)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - Month filter input
+
+private struct MonthFilterField: View {
+    @Binding var value: String                       // "YYYY-MM" or ""
+    @State private var draft: String = ""
+
+    var body: some View {
+        TextField("YYYY-MM", text: $draft)
+            .textFieldStyle(.roundedBorder)
+            .help("Filter transactions to a single month (YYYY-MM). Leave blank for all months.")
+            .onAppear { draft = value }
+            .onChange(of: value) { new in if draft != new { draft = new } }
+            .onSubmit { commit() }
+            .onChange(of: draft) { new in
+                // Auto-commit when input fully matches the YYYY-MM shape or is empty.
+                if new.isEmpty || isValidMonth(new) { commit() }
+            }
+    }
+
+    private func isValidMonth(_ s: String) -> Bool {
+        guard s.count == 7 else { return false }
+        let chars = Array(s)
+        guard chars[4] == "-" else { return false }
+        let yearPart = String(chars[0..<4])
+        let monthPart = String(chars[5..<7])
+        guard let y = Int(yearPart), let m = Int(monthPart),
+              y >= 1970, (1...12).contains(m) else { return false }
+        return true
+    }
+
+    private func commit() {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let next = trimmed.isEmpty ? "" : (isValidMonth(trimmed) ? trimmed : value)
+        if next != value { value = next }
+    }
+}
+
+// MARK: - Notifications
+
+extension Notification.Name {
+    static let jumpToReceipt = Notification.Name("LocalOCR.jumpToReceipt")
 }
 
 #Preview("Accounts") {
