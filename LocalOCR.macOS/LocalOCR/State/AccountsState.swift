@@ -67,6 +67,27 @@ final class AccountsState: ObservableObject {
     @Published var isLoadingStaged = false
     @Published var matchCandidates: [Int: [StagedMatchCandidate]] = [:]
 
+    // Spend by Person (/analytics/spend-by-person)
+    @Published var spendByPersonCollapsed: Bool {
+        didSet { UserDefaults.standard.set(spendByPersonCollapsed, forKey: Defaults.spendByPersonCollapsed) }
+    }
+    @Published var spendByPersonMonth: String      // "YYYY-MM"
+    @Published private(set) var spendByPerson: SpendByPersonResponse?
+    @Published var isLoadingSpendByPerson = false
+    @Published var spendByPersonError: String?
+    @Published var spendByPersonForbidden = false
+
+    // Spending Trends (/plaid/spending-trends)
+    @Published var trendsCollapsed: Bool {
+        didSet { UserDefaults.standard.set(trendsCollapsed, forKey: Defaults.trendsCollapsed) }
+    }
+    @Published var trendsMonths: Int {
+        didSet { UserDefaults.standard.set(trendsMonths, forKey: Defaults.trendsMonths) }
+    }
+    @Published private(set) var trends: PlaidSpendingTrendsResponse?
+    @Published var isLoadingTrends = false
+    @Published var trendsError: String?
+
     // UX state
     @Published var isLoadingCards = false
     @Published var isLoadingConnections = false
@@ -84,6 +105,9 @@ final class AccountsState: ObservableObject {
         static let pieFilter          = "LocalOCR.accounts.pieFilter"
         static let activityCollapsed  = "LocalOCR.accounts.activity.collapsed"
         static let txCollapsed        = "LocalOCR.accounts.tx.collapsed"
+        static let spendByPersonCollapsed = "LocalOCR.accounts.spendByPerson.collapsed"
+        static let trendsCollapsed    = "LocalOCR.accounts.trends.collapsed"
+        static let trendsMonths       = "LocalOCR.accounts.trends.months"
     }
 
     private let api: APIClient
@@ -98,7 +122,12 @@ final class AccountsState: ObservableObject {
         self.connectionsCollapsed = d.bool(forKey: Defaults.connectionsCollapsed)
         self.activityCollapsed    = d.bool(forKey: Defaults.activityCollapsed)
         self.txCollapsed          = d.bool(forKey: Defaults.txCollapsed)
+        self.spendByPersonCollapsed = d.bool(forKey: Defaults.spendByPersonCollapsed)
+        self.trendsCollapsed      = d.bool(forKey: Defaults.trendsCollapsed)
+        let m = d.integer(forKey: Defaults.trendsMonths)
+        self.trendsMonths         = (m == 0) ? 12 : m
         self.cardUsagePieFilter   = d.string(forKey: Defaults.pieFilter) ?? "all"
+        self.spendByPersonMonth   = Self.currentYearMonth()
         if let raw = d.data(forKey: Defaults.cardCollapseOverrides),
            let map = try? JSONDecoder().decode([String: Bool].self, from: raw) {
             self.cardCollapsedOverrides = map
@@ -122,6 +151,8 @@ final class AccountsState: ObservableObject {
             group.addTask { @MainActor in await self.loadBreakdown() }
             group.addTask { @MainActor in await self.loadTransactions() }
             group.addTask { @MainActor in await self.loadStaged() }
+            group.addTask { @MainActor in await self.loadSpendByPerson() }
+            group.addTask { @MainActor in await self.loadSpendingTrends() }
         }
     }
 
@@ -703,5 +734,87 @@ final class AccountsState: ObservableObject {
 
     var loanGroup: CardsOverviewGroup? {
         cardsOverview?.groups.first(where: { $0.isLoan })
+    }
+
+    // MARK: - Spend by Person (F-1233..F-1242)
+
+    func stepSpendByPersonMonth(_ delta: Int) {
+        let parts = spendByPersonMonth.split(separator: "-").map { String($0) }
+        guard parts.count == 2,
+              var y = Int(parts[0]),
+              var mo = Int(parts[1]) else { return }
+        mo += delta
+        while mo < 1  { mo += 12; y -= 1 }
+        while mo > 12 { mo -= 12; y += 1 }
+        spendByPersonMonth = String(format: "%04d-%02d", y, mo)
+        Task { @MainActor in await self.loadSpendByPerson() }
+    }
+
+    func loadSpendByPerson() async {
+        isLoadingSpendByPerson = true
+        defer { isLoadingSpendByPerson = false }
+        do {
+            let endpoint = AnalyticsEndpoint.spendByPerson(month: spendByPersonMonth)
+            let resp = try await api.request(
+                .get, path: endpoint.path,
+                query: endpoint.query,
+                as: SpendByPersonResponse.self
+            )
+            spendByPerson = resp
+            spendByPersonError = nil
+            spendByPersonForbidden = false
+            let n = resp.perPerson?.count ?? 0
+            logger.info("loaded spend-by-person \(n, privacy: .public) rows for \(self.spendByPersonMonth, privacy: .public)")
+        } catch APIError.forbidden {
+            spendByPersonForbidden = true
+            spendByPerson = nil
+            spendByPersonError = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return }
+            spendByPersonError = (error as? APIError)?.errorDescription ?? "Could not load per-person spend."
+            logger.warning("loadSpendByPerson failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    // MARK: - Spending Trends (F-1269..F-1277)
+
+    func setTrendsMonths(_ months: Int) {
+        let clamped = max(1, min(24, months))
+        guard trendsMonths != clamped else { return }
+        trendsMonths = clamped
+        Task { @MainActor in await self.loadSpendingTrends() }
+    }
+
+    func loadSpendingTrends() async {
+        isLoadingTrends = true
+        defer { isLoadingTrends = false }
+        do {
+            let resp = try await api.request(
+                .get, path: PlaidEndpoint.spendingTrends.path,
+                query: [URLQueryItem(name: "months", value: String(trendsMonths))],
+                as: PlaidSpendingTrendsResponse.self
+            )
+            trends = resp
+            trendsError = nil
+            logger.info("loaded spending-trends \(resp.series.count, privacy: .public) series rows (months=\(self.trendsMonths, privacy: .public))")
+        } catch is CancellationError {
+            return
+        } catch {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorCancelled { return }
+            trendsError = (error as? APIError)?.errorDescription ?? "Could not load spending trends."
+            logger.warning("loadSpendingTrends failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    // MARK: - Shared helpers
+
+    static func currentYearMonth(_ now: Date = Date()) -> String {
+        let cal = Calendar(identifier: .gregorian)
+        let comps = cal.dateComponents([.year, .month], from: now)
+        return String(format: "%04d-%02d", comps.year ?? 1970, comps.month ?? 1)
     }
 }

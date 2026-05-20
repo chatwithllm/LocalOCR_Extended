@@ -44,8 +44,9 @@ struct AccountsView: View {
                     }
                 )
                 ActivityBreakdownSection(state: state) // F-1230..F-1232
+                SpendByPersonSection(state: state)     // F-1233..F-1242
                 TransactionsSection(state: state)      // F-1243..F-1268 + Pending Review F-1249..F-1258
-                placeholderRemainingSections           // Commit C placeholder (Spend by Person + Trends)
+                SpendingTrendsSection(state: state)    // F-1269..F-1277
             }
             .padding(DesignTokens.Spacing.space5)
         }
@@ -100,18 +101,6 @@ struct AccountsView: View {
             Text("Connected banks, recent transactions, and spending trends.")
                 .font(.appSubheadline)
                 .foregroundStyle(DesignTokens.secondaryLabel)
-        }
-    }
-
-    private var placeholderRemainingSections: some View {
-        Card {
-            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space2) {
-                Text("Spend by Person · Spending Trends")
-                    .font(.appHeadline)
-                Text("Arriving in Commit C — month-nav per-person spend rollup + 12-month bar chart with category breakdown.")
-                    .font(.appSubheadline)
-                    .foregroundStyle(DesignTokens.secondaryLabel)
-            }
         }
     }
 
@@ -2077,6 +2066,346 @@ private struct MonthFilterField: View {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         let next = trimmed.isEmpty ? "" : (isValidMonth(trimmed) ? trimmed : value)
         if next != value { value = next }
+    }
+}
+
+// MARK: - Spend by Person (F-1233..F-1242)
+
+private struct SpendByPersonSection: View {
+    @ObservedObject var state: AccountsState
+
+    var body: some View {
+        if !state.spendByPersonForbidden {
+            Card {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.space3) {
+                    header
+                    if !state.spendByPersonCollapsed {
+                        contents
+                    }
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: DesignTokens.Spacing.space2) {
+            Button {
+                state.spendByPersonCollapsed.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: state.spendByPersonCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                    Text("💰 Spend by Person").font(.appHeadline)
+                }
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            monthNav
+        }
+    }
+
+    private var monthNav: some View {
+        HStack(spacing: 4) {
+            Button {
+                state.stepSpendByPersonMonth(-1)
+            } label: {
+                Image(systemName: "chevron.left")
+            }
+            .buttonStyle(.plain)
+            .help("Previous month")
+            Text(monthLabel(state.spendByPersonMonth))
+                .font(.appCaption1.monospacedDigit())
+                .frame(minWidth: 80)
+                .multilineTextAlignment(.center)
+            Button {
+                state.stepSpendByPersonMonth(1)
+            } label: {
+                Image(systemName: "chevron.right")
+            }
+            .buttonStyle(.plain)
+            .help("Next month")
+        }
+        .padding(.horizontal, DesignTokens.Spacing.space2)
+        .padding(.vertical, 4)
+        .background(DesignTokens.surface2)
+        .clipShape(Capsule())
+    }
+
+    @ViewBuilder
+    private var contents: some View {
+        if state.isLoadingSpendByPerson && state.spendByPerson == nil {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Loading per-person spend…")
+                    .font(.appSubheadline)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+        } else if let err = state.spendByPersonError {
+            Text(err).font(.appCaption1).foregroundStyle(DesignTokens.error)
+        } else if let data = state.spendByPerson {
+            let people = data.perPerson ?? []
+            let household = data.householdTotal ?? 0
+            let unset = data.unsetTotal ?? 0
+            if people.isEmpty && household == 0 && unset == 0 {
+                Text("Tag receipts to see per-person spend.")
+                    .font(.appCaption1)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(people, id: \.self) { row in
+                        moneyRow(label: "👤 \(row.name)\(row.isSelf == true ? " (me)" : "")",
+                                 amount: row.total)
+                    }
+                    if household != 0 {
+                        moneyRow(label: "🏠 Household (shared)", amount: household)
+                    }
+                    if unset != 0 {
+                        moneyRow(label: "— Untagged", amount: unset, dim: true)
+                    }
+                }
+            }
+        } else {
+            Text("Tag receipts to see per-person spend.")
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.secondaryLabel)
+        }
+    }
+
+    private func moneyRow(label: String, amount: Double, dim: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(.appBody)
+                .foregroundStyle(dim ? DesignTokens.secondaryLabel : DesignTokens.label)
+            Spacer()
+            Text(String(format: "$%.2f", amount))
+                .font(.appMonoBody.weight(.semibold))
+                .foregroundStyle(dim ? DesignTokens.secondaryLabel : DesignTokens.label)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.space2)
+        .padding(.vertical, 6)
+        .background(DesignTokens.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func monthLabel(_ ym: String) -> String {
+        let parts = ym.split(separator: "-").map { String($0) }
+        guard parts.count == 2,
+              let y = Int(parts[0]),
+              let m = Int(parts[1]) else { return ym }
+        var comps = DateComponents()
+        comps.year = y; comps.month = m; comps.day = 1
+        let cal = Calendar(identifier: .gregorian)
+        guard let date = cal.date(from: comps) else { return ym }
+        let nowComps = cal.dateComponents([.year, .month], from: Date())
+        let fmt = DateFormatter()
+        if nowComps.year == y && nowComps.month == m {
+            fmt.dateFormat = "MMM"
+        } else {
+            fmt.dateFormat = "MMM yyyy"
+        }
+        return fmt.string(from: date)
+    }
+}
+
+// MARK: - Spending Trends (F-1269..F-1277)
+
+private struct SpendingTrendsSection: View {
+    @ObservedObject var state: AccountsState
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.space3) {
+                header
+                if !state.trendsCollapsed {
+                    summaryLine
+                    trendsBody
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: DesignTokens.Spacing.space2) {
+            Button {
+                state.trendsCollapsed.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: state.trendsCollapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.secondaryLabel)
+                    Text("📊 Spending Trends").font(.appHeadline)
+                }
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Picker("", selection: Binding(
+                get: { state.trendsMonths },
+                set: { state.setTrendsMonths($0) }
+            )) {
+                Text("Last 3 months").tag(3)
+                Text("Last 6 months").tag(6)
+                Text("Last 12 months").tag(12)
+            }
+            .labelsHidden()
+            .frame(maxWidth: 160)
+            Button {
+                Task { await state.loadSpendingTrends() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.plain)
+            .help("Refresh trends")
+        }
+    }
+
+    @ViewBuilder
+    private var summaryLine: some View {
+        if let trends = state.trends, !trends.series.isEmpty {
+            let months = Set(trends.series.map { $0.month }).count
+            let categories = Set(trends.series.map { $0.category }).count
+            let total = trends.series.reduce(0) { $0 + $1.total }
+            Text("\(months) month\(months == 1 ? "" : "s") · \(String(format: "$%.2f", total)) total across \(categories) categories")
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.secondaryLabel)
+        }
+    }
+
+    @ViewBuilder
+    private var trendsBody: some View {
+        if state.isLoadingTrends && state.trends == nil {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Loading spending trends…")
+                    .font(.appSubheadline)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+            }
+        } else if let err = state.trendsError {
+            Text(err).font(.appCaption1).foregroundStyle(DesignTokens.error)
+        } else if let trends = state.trends, !trends.series.isEmpty {
+            let monthly = aggregateByMonth(trends.series)
+            let categories = aggregateByCategory(trends.series)
+            let grandTotal = trends.series.reduce(0) { $0 + $1.total }
+            SpendingTrendsChart(monthly: monthly).frame(height: 220)
+            categoryTable(categories, grandTotal: grandTotal)
+        } else {
+            Text("No Plaid-imported purchases in this window yet. Confirm some transactions and check back.")
+                .font(.appCaption1)
+                .foregroundStyle(DesignTokens.secondaryLabel)
+        }
+    }
+
+    private func aggregateByMonth(_ rows: [PlaidSpendingTrendRow]) -> [(String, Double)] {
+        var map: [String: Double] = [:]
+        for r in rows { map[r.month, default: 0] += r.total }
+        return map
+            .map { ($0.key, $0.value) }
+            .sorted { $0.0 < $1.0 }
+    }
+
+    private func aggregateByCategory(_ rows: [PlaidSpendingTrendRow]) -> [(String, Double)] {
+        var map: [String: Double] = [:]
+        for r in rows { map[r.category, default: 0] += r.total }
+        return map
+            .map { ($0.key, $0.value) }
+            .sorted { $0.1 > $1.1 }
+    }
+
+    private func categoryTable(_ cats: [(String, Double)], grandTotal: Double) -> some View {
+        let top = Array(cats.prefix(12))
+        let more = cats.count - top.count
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("By category").font(.appBody.weight(.semibold))
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 2) {
+                GridRow {
+                    Text("Category").font(.appCaption2).foregroundStyle(DesignTokens.secondaryLabel)
+                    Text("Total").font(.appCaption2).foregroundStyle(DesignTokens.secondaryLabel)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    Text("Share").font(.appCaption2).foregroundStyle(DesignTokens.secondaryLabel)
+                        .frame(width: 48, alignment: .trailing)
+                }
+                ForEach(top, id: \.0) { cat in
+                    GridRow {
+                        Text(cat.0.replacingOccurrences(of: "_", with: " ").capitalized)
+                            .font(.appCaption1)
+                        Text(String(format: "$%.2f", cat.1))
+                            .font(.appMonoCaption)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                        Text(grandTotal > 0
+                             ? "\(Int((cat.1 / grandTotal) * 100))%"
+                             : "—")
+                            .font(.appCaption2)
+                            .foregroundStyle(DesignTokens.secondaryLabel)
+                            .frame(width: 48, alignment: .trailing)
+                    }
+                }
+            }
+            if more > 0 {
+                Text("…and \(more) more categories.")
+                    .font(.appCaption2)
+                    .foregroundStyle(DesignTokens.secondaryLabel)
+                    .padding(.top, 2)
+            }
+        }
+    }
+}
+
+private struct SpendingTrendsChart: View {
+    let monthly: [(String, Double)]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            let barW: CGFloat = 36
+            let gap: CGFloat = 14
+            let width = max(320, CGFloat(monthly.count) * (barW + gap) + gap)
+            Canvas { ctx, size in
+                let chartH = size.height - 36
+                let baseline = chartH
+                let maxVal = max(1.0, monthly.map { $0.1 }.max() ?? 1.0)
+                ctx.stroke(
+                    Path { p in
+                        p.move(to: CGPoint(x: 0, y: baseline + 4))
+                        p.addLine(to: CGPoint(x: size.width, y: baseline + 4))
+                    },
+                    with: .color(DesignTokens.border),
+                    lineWidth: 1
+                )
+                for (i, entry) in monthly.enumerated() {
+                    let val = entry.1
+                    let h = max(2.0, CGFloat(val / maxVal) * chartH)
+                    let x = gap + CGFloat(i) * (barW + gap)
+                    let y = baseline - h
+                    let rect = CGRect(x: x, y: y, width: barW, height: h)
+                    ctx.fill(
+                        Path(roundedRect: rect, cornerRadius: 4),
+                        with: .color(DesignTokens.accent)
+                    )
+                    // Value label above bar
+                    let valueLabel = String(format: "$%.0f", val)
+                    let valText = ctx.resolve(
+                        Text(valueLabel)
+                            .font(.appCaption2)
+                            .foregroundColor(DesignTokens.secondaryLabel)
+                    )
+                    let valSize = valText.measure(in: CGSize(width: barW + gap, height: 20))
+                    ctx.draw(valText,
+                             at: CGPoint(x: x + barW / 2 - valSize.width / 2,
+                                         y: y - valSize.height - 2))
+                    // MM x-axis
+                    let mm = String(entry.0.suffix(2))
+                    let xText = ctx.resolve(
+                        Text(mm)
+                            .font(.appCaption2)
+                            .foregroundColor(DesignTokens.tertiaryLabel)
+                    )
+                    let xSize = xText.measure(in: CGSize(width: barW, height: 20))
+                    ctx.draw(xText,
+                             at: CGPoint(x: x + barW / 2 - xSize.width / 2,
+                                         y: baseline + 8))
+                }
+            }
+            .frame(width: width)
+        }
     }
 }
 
