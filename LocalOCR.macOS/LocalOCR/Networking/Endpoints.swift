@@ -13,6 +13,7 @@ enum AuthEndpoint {
     case devicePairingStatus(token: String)
     case householdMembers
     case householdUsers
+    case patchUser(id: Int)
 
     var path: String {
         switch self {
@@ -23,6 +24,7 @@ enum AuthEndpoint {
         case .devicePairingStatus(let token):  return "/auth/device-pairing/status/\(token)"
         case .householdMembers:                return "/auth/household-members"
         case .householdUsers:                  return "/auth/users"
+        case .patchUser(let id):               return "/auth/users/\(id)"
         }
     }
 
@@ -30,10 +32,20 @@ enum AuthEndpoint {
         switch self {
         case .me, .devicePairingStatus, .householdMembers, .householdUsers: return .get
         case .login, .logout, .devicePairingStart:                          return .post
+        case .patchUser:                                                    return .patch
         }
     }
 
     var isMutating: Bool { method != .get }
+}
+
+struct UserPatchBody: Encodable {
+    let avatarEmoji: String?
+    enum CodingKeys: String, CodingKey { case avatarEmoji = "avatar_emoji" }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let avatarEmoji { try c.encode(avatarEmoji, forKey: .avatarEmoji) }
+    }
 }
 
 struct LoginRequestBody: Encodable { let email: String; let password: String }

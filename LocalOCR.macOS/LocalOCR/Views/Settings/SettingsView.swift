@@ -19,9 +19,11 @@ struct SettingsView: View {
                 .tabItem { Label("Notifications", systemImage: "bell") }
             BackupPane()
                 .tabItem { Label("Backup", systemImage: "arrow.clockwise.icloud") }
+            AdminToolsPane()
+                .tabItem { Label("Admin Tools", systemImage: "wrench.adjustable") }
             AdvancedPane()
                 .tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
         }
-        .frame(width: 640, height: 480)
+        .frame(width: 680, height: 540)
     }
 }
