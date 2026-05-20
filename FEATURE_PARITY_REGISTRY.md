@@ -499,24 +499,24 @@ Backend: `shared_dining_endpoints.py`
 
 | ID | Feature | UI Element | Sub-tab / Modal | API Call | Business Rule | macOS Impl | Status |
 |----|---------|-----------|-----------------|----------|---------------|------------|--------|
-| F-800 | Page header: "Balances" title | `<h1>Balances</h1>` in `#page-balances` | — | — | Static heading | TBD | ❌ |
-| F-801 | Page subtitle | `<p>Outstanding debts across all shared receipts</p>` | — | — | Static subtitle | TBD | ❌ |
-| F-802 | Refresh button | Ghost btn with 🔄, `onclick="loadBalances()"` in page header | — | — | Reloads balances table | TBD | ❌ |
-| F-803 | "Who Owes What" card container | `.card` with `.card-title` "Who Owes What" | — | — | Wraps the balances table | TBD | ❌ |
-| F-804 | Balances loading state | `#balances-body` initialises with `<p>Loading…</p>` | — | GET `/shared-dining/balances` | Shown while fetch in-flight | TBD | ❌ |
-| F-805 | Balances empty state | `#balances-body` renders "No outstanding balances — all settled! 🎉" | — | GET `/shared-dining/balances` | Shown when API returns `[]` | TBD | ❌ |
-| F-806 | Balances error state | `#balances-body` renders "Could not load balances." | — | GET `/shared-dining/balances` | Shown when `res.ok` is false | TBD | ❌ |
-| F-807 | Balances table | `<table class="balances-table">` inside `#balances-body` | — | GET `/shared-dining/balances` | Rendered when rows exist | TBD | ❌ |
-| F-808 | Table column: Contact | `<th>Contact</th>` + `<td>` with `r.name` | Balances table | — | Contact display name | TBD | ❌ |
-| F-809 | Table column: Direction | `<th>Direction</th>` + `<td>` "Owes you" / "You owe" | Balances table | — | Derived from `r.net_amount > 0` | TBD | ❌ |
-| F-810 | Table column: Amount | `<th>Amount</th>` + coloured `<td>` with `formatMoney(Math.abs(r.net_amount))` | Balances table | — | Green = owed to you, red = you owe | TBD | ❌ |
-| F-811 | Amount colour badge (owed) | `.balances-amount--owed` class (green) | Balances table | — | Applied when `net_amount > 0` | TBD | ❌ |
-| F-812 | Amount colour badge (owe) | `.balances-amount--owe` class (red) | Balances table | — | Applied when `net_amount < 0` | TBD | ❌ |
-| F-813 | "Settle all" per-contact action button | `<button class="balances-settle-btn">Settle all</button>` per row | Balances table | — | Calls `settleAllWithContact(contactId, name)` | TBD | ❌ |
-| F-814 | Settle-all confirmation dialog | `confirm('Mark all debts with … as settled?')` native dialog | — | — | Destructive action guard | TBD | ❌ |
-| F-815 | Settle-all API call | POST `/shared-dining/contacts/:id/settle-all` | — | POST `/shared-dining/contacts/{contactId}/settle-all` | Marks all debts for contact as settled | TBD | ❌ |
-| F-816 | Settle-all success toast | `toast('Settled N debt(s) with …', 'success')` | — | — | Count pluralised; table auto-reloads | TBD | ❌ |
-| F-817 | Settle-all error toast | `toast('Could not settle debts', 'error')` | — | — | Shown when POST is not OK | TBD | ❌ |
+| F-800 | Page header: "Balances" title | `<h1>Balances</h1>` in `#page-balances` | — | — | Static heading | `BalancesView.header` Text "Balances" at appTitle2. Added 2026-05-20. | ✅ |
+| F-801 | Page subtitle | `<p>Outstanding debts across all shared receipts</p>` | — | — | Static subtitle | Verbatim subheadline text under title. Added 2026-05-20. | ✅ |
+| F-802 | Refresh button | Ghost btn with 🔄, `onclick="loadBalances()"` in page header | — | — | Reloads balances table | Toolbar `arrow.clockwise` Button → `state.loadBalances()`. Added 2026-05-20. | ✅ |
+| F-803 | "Who Owes What" card container | `.card` with `.card-title` "Who Owes What" | — | — | Wraps the balances table | `BalancesCard` Card wrapper with "Who Owes What" header + count of contacts on the right. Added 2026-05-20. | ✅ |
+| F-804 | Balances loading state | `#balances-body` initialises with `<p>Loading…</p>` | — | GET `/shared-dining/balances` | Shown while fetch in-flight | `isLoading && balances.isEmpty` branch → EmptyStateView hourglass "Loading…". Added 2026-05-20. | ✅ |
+| F-805 | Balances empty state | `#balances-body` renders "No outstanding balances — all settled! 🎉" | — | GET `/shared-dining/balances` | Shown when API returns `[]` | EmptyStateView checkmark.seal + verbatim copy. Added 2026-05-20. | ✅ |
+| F-806 | Balances error state | `#balances-body` renders "Could not load balances." | — | GET `/shared-dining/balances` | Shown when `res.ok` is false | EmptyStateView exclamationmark.triangle + subtitle from `lastError`. Added 2026-05-20. | ✅ |
+| F-807 | Balances table | `<table class="balances-table">` inside `#balances-body` | — | GET `/shared-dining/balances` | Rendered when rows exist | VStack of `BalanceHeaderRow` + `BalanceRowView` separated by Divider. Decode `[BalanceRow]` direct array. Added 2026-05-20. | ✅ |
+| F-808 | Table column: Contact | `<th>Contact</th>` + `<td>` with `r.name` | Balances table | — | Contact display name | Text(row.name) frame-flex left-align with line-limit 1. Added 2026-05-20. | ✅ |
+| F-809 | Table column: Direction | `<th>Direction</th>` + `<td>` "Owes you" / "You owe" | Balances table | — | Derived from `r.net_amount > 0` | `row.owesYou ? "Owes you" : "You owe"` tinted success/error. Added 2026-05-20. | ✅ |
+| F-810 | Table column: Amount | `<th>Amount</th>` + coloured `<td>` with `formatMoney(Math.abs(r.net_amount))` | Balances table | — | Green = owed to you, red = you owe | `String(format: "$%.2f", abs(row.netAmount))` monospacedDigit, tinted success/error. Added 2026-05-20. | ✅ |
+| F-811 | Amount colour badge (owed) | `.balances-amount--owed` class (green) | Balances table | — | Applied when `net_amount > 0` | `DesignTokens.success` foreground when `netAmount > 0` (mirrors `.balances-amount--owed`). Added 2026-05-20. | ✅ |
+| F-812 | Amount colour badge (owe) | `.balances-amount--owe` class (red) | Balances table | — | Applied when `net_amount < 0` | `DesignTokens.error` foreground when `netAmount < 0`. Added 2026-05-20. | ✅ |
+| F-813 | "Settle all" per-contact action button | `<button class="balances-settle-btn">Settle all</button>` per row | Balances table | — | Calls `settleAllWithContact(contactId, name)` | Per-row DestructiveButton "Settle all" → `state.pendingSettle = row` to open confirmation. Added 2026-05-20. | ✅ |
+| F-814 | Settle-all confirmation dialog | `confirm('Mark all debts with … as settled?')` native dialog | — | — | Destructive action guard | `.confirmationDialog("Mark all debts with <name> as settled?")` bound to `state.pendingSettle` with destructive Settle all + Cancel. Added 2026-05-20. | ✅ |
+| F-815 | Settle-all API call | POST `/shared-dining/contacts/:id/settle-all` | — | POST `/shared-dining/contacts/{contactId}/settle-all` | Marks all debts for contact as settled | `state.settleAll(_:)` → POST `/shared-dining/contacts/<id>/settle-all` + DemoModeGate guard + decode `SettleAllResponse`. Added 2026-05-20. | ✅ |
+| F-816 | Settle-all success toast | `toast('Settled N debt(s) with …', 'success')` | — | — | Count pluralised; table auto-reloads | ToastQueue.push "Settled N debt(s) with <name>" pluralised; auto-reload via `loadBalances()`. Added 2026-05-20. | ✅ |
+| F-817 | Settle-all error toast | `toast('Could not settle debts', 'error')` | — | — | Shown when POST is not OK | catch block toasts `errorDescription ?? "Could not settle debts"`. Demo mode → "Demo mode — changes not saved." Added 2026-05-20. | ✅ |
 
 #### Screen: Contacts
 Source: `src/frontend/index.html` lines 3005–3044

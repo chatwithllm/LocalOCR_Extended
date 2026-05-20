@@ -367,6 +367,64 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Shared dining (backend prefix: /shared-dining)
+//
+// Verified by Rule 1 grep against `shared_dining_endpoints.py`:
+//   GET  /shared-dining/balances
+//   POST /shared-dining/contacts/<id>/settle-all
+//   GET  /shared-dining/contacts
+//   POST /shared-dining/contacts
+//   POST /shared-dining/contacts/merge
+
+enum SharedDiningEndpoint {
+    case balances
+    case settleAll(contactId: Int)
+    case listContacts
+    case createContact
+
+    var path: String {
+        switch self {
+        case .balances:                    return "/shared-dining/balances"
+        case .settleAll(let id):           return "/shared-dining/contacts/\(id)/settle-all"
+        case .listContacts, .createContact: return "/shared-dining/contacts"
+        }
+    }
+    var method: HTTPMethod {
+        switch self {
+        case .balances, .listContacts:    return .get
+        case .settleAll, .createContact:  return .post
+        }
+    }
+    var isMutating: Bool { method != .get }
+}
+
+/// `[BalanceRow]` direct array — no envelope (`get_all_balances` returns a list).
+struct BalanceRow: Codable, Equatable, Hashable, Identifiable {
+    let contactId: Int
+    let name: String
+    let netAmount: Double
+
+    var id: Int { contactId }
+    var owesYou: Bool { netAmount > 0 }
+}
+
+struct SettleAllResponse: Codable, Equatable {
+    let settled: Int?
+}
+
+struct DiningContactRow: Codable, Equatable, Hashable, Identifiable {
+    let id: Int
+    let name: String
+    let phone: String?
+    let email: String?
+}
+
+struct CreateContactBody: Encodable {
+    let name: String
+    let phone: String?
+    let email: String?
+}
+
 // MARK: - Restaurant analytics + Budget (backend prefixes /analytics, /budget)
 //
 // Verified by Rule 1 grep:
