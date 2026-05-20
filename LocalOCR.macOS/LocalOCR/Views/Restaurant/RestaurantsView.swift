@@ -127,7 +127,7 @@ final class RestaurantsState: ObservableObject {
 
     func loadBudget() async {
         do {
-            let endpoint = BudgetEndpoint.status(month: budgetMonth, domain: "restaurant")
+            let endpoint = BudgetEndpoint.status(month: budgetMonth, domain: "restaurant", category: nil)
             let response = try await api.request(
                 .get,
                 path: endpoint.path,
@@ -160,7 +160,7 @@ final class RestaurantsState: ObservableObject {
         }
         do {
             try DemoModeGate.guardMutation()
-            let body = BudgetSetMonthlyBody(month: budgetMonth, domain: "restaurant", budgetAmount: amount)
+            let body = BudgetSetMonthlyBody(month: budgetMonth, budgetCategory: nil, domain: "restaurant", budgetAmount: amount)
             try await api.request(
                 .post,
                 path: BudgetEndpoint.setMonthly.path,

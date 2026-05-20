@@ -104,6 +104,7 @@ struct AppMenuCommands: Commands {
         case .kitchen:      await KitchenState.shared.refresh()
         case .products:     await ProductsState.shared.refresh()
         case .finance:      await FinanceState.shared.loadBills()
+        case .budget:       await BudgetState.shared.refreshAll()
         case .balances:     await SharedDiningState.shared.loadBalances()
         case .contacts:     await SharedDiningState.shared.loadContacts()
         case .expenses:     await ExpensesState.shared.refresh()

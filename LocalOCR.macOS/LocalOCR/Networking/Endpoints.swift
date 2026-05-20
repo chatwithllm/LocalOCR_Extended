@@ -944,40 +944,9 @@ enum RestaurantEndpoint {
     var isMutating: Bool { false }
 }
 
-enum BudgetEndpoint {
-    case status(month: String, domain: String)
-    case setMonthly
-
-    var path: String {
-        switch self {
-        case .status:     return "/budget/status"
-        case .setMonthly: return "/budget/set-monthly"
-        }
-    }
-    var method: HTTPMethod {
-        switch self {
-        case .status:     return .get
-        case .setMonthly: return .post
-        }
-    }
-    var query: [URLQueryItem] {
-        switch self {
-        case .status(let month, let domain):
-            return [
-                .init(name: "month",  value: month),
-                .init(name: "domain", value: domain),
-            ]
-        case .setMonthly: return []
-        }
-    }
-    var isMutating: Bool { method != .get }
-}
-
-struct BudgetSetMonthlyBody: Encodable {
-    let month: String
-    let domain: String
-    let budgetAmount: Double
-}
+// (BudgetEndpoint + BudgetSetMonthlyBody live in the consolidated
+// "Household Budget" block below — superset enum/struct used by
+// BudgetView, RestaurantsView, and ExpensesView.)
 
 struct RestaurantSummaryResponse: Codable, Equatable {
     let monthsBack: Int?
@@ -1027,6 +996,77 @@ struct AnalyticsSpendingResponse: Codable, Equatable {
     /// Backend `spending_by_period` is `{key: {total, count, purchase_count, ...}}`.
     /// Mac only uses `grand_total` for now — leave the period map opaque.
     let grandTotal: Double?
+}
+
+// MARK: - Household Budget (/budget)
+
+enum BudgetEndpoint {
+    case setMonthly
+    case status(month: String?, domain: String?, category: String?)
+    case categorySummary(month: String?)
+    case targetHistory(month: String?)
+    case allocationSummary(month: String?)
+
+    var path: String {
+        switch self {
+        case .setMonthly:        return "/budget/set-monthly"
+        case .status:            return "/budget/status"
+        case .categorySummary:   return "/budget/category-summary"
+        case .targetHistory:     return "/budget/target-history"
+        case .allocationSummary: return "/budget/allocation-summary"
+        }
+    }
+    var query: [URLQueryItem] {
+        switch self {
+        case .setMonthly:
+            return []
+        case .status(let m, let d, let c):
+            var q: [URLQueryItem] = []
+            if let m, !m.isEmpty { q.append(URLQueryItem(name: "month", value: m)) }
+            if let d, !d.isEmpty { q.append(URLQueryItem(name: "domain", value: d)) }
+            if let c, !c.isEmpty { q.append(URLQueryItem(name: "budget_category", value: c)) }
+            return q
+        case .categorySummary(let m), .targetHistory(let m), .allocationSummary(let m):
+            return (m?.isEmpty == false) ? [URLQueryItem(name: "month", value: m!)] : []
+        }
+    }
+    var method: HTTPMethod {
+        switch self {
+        case .setMonthly: return .post
+        default:          return .get
+        }
+    }
+    var isMutating: Bool { method != .get }
+}
+
+struct BudgetSetMonthlyBody: Encodable {
+    let month: String?
+    let budgetCategory: String?
+    let domain: String?
+    let budgetAmount: Double
+    enum CodingKeys: String, CodingKey {
+        case month
+        case budgetCategory = "budget_category"
+        case domain
+        case budgetAmount = "budget_amount"
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        if let month, !month.isEmpty { try c.encode(month, forKey: .month) }
+        if let budgetCategory, !budgetCategory.isEmpty {
+            try c.encode(budgetCategory, forKey: .budgetCategory)
+        }
+        if let domain, !domain.isEmpty { try c.encode(domain, forKey: .domain) }
+        try c.encode(budgetAmount, forKey: .budgetAmount)
+    }
+}
+
+struct BudgetSetMonthlyResponse: Codable, Equatable {
+    let month: String?
+    let domain: String?
+    let budgetCategory: String?
+    let budgetAmount: Double?
+    let message: String?
 }
 
 struct BudgetStatusResponse: Codable, Equatable {
