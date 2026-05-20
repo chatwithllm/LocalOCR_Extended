@@ -648,14 +648,23 @@ private struct LoanRow: View {
                 if let mask = account.mask, !mask.isEmpty {
                     Text("····\(mask)").font(.appMonoCaption).foregroundStyle(DesignTokens.tertiaryLabel)
                 }
+                if let pctText = paidPctText {
+                    Text(pctText)
+                        .font(.appCaption1.weight(.semibold))
+                        .foregroundStyle(DesignTokens.success)
+                }
                 Spacer()
-                Text(formatMoneyCents(account.balanceCents ?? 0))
+                Text("\(formatMoneyCents(account.balanceCents ?? 0)) left")
                     .font(.appMonoBody.weight(.semibold))
             }
             ProgressBar(value: paidProgress)
                 .frame(height: 6)
+            if let paid = account.paidOffCents {
+                Text("\(formatMoneyCents(paid)) paid")
+                    .font(.appCaption1.weight(.semibold))
+                    .foregroundStyle(DesignTokens.success)
+            }
             HStack(spacing: 12) {
-                metaItem("Paid", formatMoneyCents(account.paidOffCents ?? 0))
                 if let orig = account.originalLoanAmountCents, orig > 0 {
                     metaItem("Original", formatMoneyCents(orig))
                 }
@@ -664,6 +673,9 @@ private struct LoanRow: View {
                 }
                 if let pmt = account.monthlyPaymentCents {
                     metaItem("Monthly", formatMoneyCents(pmt))
+                }
+                if let next = nextPaymentLabel {
+                    metaItem("Next", next)
                 }
                 Spacer()
             }
@@ -677,6 +689,29 @@ private struct LoanRow: View {
         guard let orig = account.originalLoanAmountCents, orig > 0,
               let paid = account.paidOffCents else { return 0 }
         return min(1.0, Double(paid) / Double(orig))
+    }
+
+    private var paidPctText: String? {
+        guard let orig = account.originalLoanAmountCents, orig > 0,
+              let paid = account.paidOffCents else { return nil }
+        let pct = Int((Double(paid) / Double(orig)) * 100)
+        return "\(pct)%"
+    }
+
+    private var nextPaymentLabel: String? {
+        guard let day = account.monthlyPaymentDueDay,
+              (1...31).contains(day),
+              let pmt = account.monthlyPaymentCents else { return nil }
+        let cal = Calendar(identifier: .gregorian)
+        let now = Date()
+        let today = cal.component(.day, from: now)
+        var comps = cal.dateComponents([.year, .month], from: now)
+        if today >= day { comps.month = (comps.month ?? 1) + 1 }
+        comps.day = day
+        guard let next = cal.date(from: comps) else { return nil }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        return "\(fmt.string(from: next)) · \(formatMoneyCents(pmt))"
     }
 
     private func metaItem(_ label: String, _ value: String) -> some View {
