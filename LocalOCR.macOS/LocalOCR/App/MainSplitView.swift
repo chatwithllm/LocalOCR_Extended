@@ -25,6 +25,7 @@ struct MainSplitView: View {
         case .inventory:    InventoryView()
         case .receipts:     ReceiptListView()
         case .shopping:     ShoppingListView()
+        case .kitchen:      KitchenView()
         case .finance:      FinanceTabView()
         case .restaurant:   RestaurantsView()
         case .chat:         AIChatView()
@@ -50,6 +51,7 @@ extension Router.TabDestination {
         case .inventory:    return "Inventory"
         case .receipts:     return "Receipts"
         case .shopping:     return "Shopping"
+        case .kitchen:      return "Kitchen"
         case .finance:      return "Finance"
         case .restaurant:   return "Restaurants"
         case .chat:         return "AI Chat"
@@ -62,6 +64,7 @@ extension Router.TabDestination {
         case .inventory:    return "tray.2"
         case .receipts:     return "doc.text"
         case .shopping:     return "cart"
+        case .kitchen:      return "refrigerator"
         case .finance:      return "chart.line.uptrend.xyaxis"
         case .restaurant:   return "fork.knife"
         case .chat:         return "bubble.left.and.bubble.right"

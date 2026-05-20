@@ -17,6 +17,7 @@ enum AppConstants {
         static let upload = "upload"
         static let shopping = "shopping"
         static let inventory = "inventory"
+        static let kitchen = "kitchen"
         static let oauthCallback = "oauth"
         static let plaidCallback = "plaid-callback"
     }

@@ -367,6 +367,53 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Kitchen (backend prefix: /api/kitchen)
+//
+// Single route: GET /api/kitchen/catalog. All mutations reuse /shopping-list and
+// /inventory endpoints — kitchen blueprint is read-only by design (verified by
+// Rule 1 grep in src/backend/manage_kitchen_endpoint.py).
+
+enum KitchenEndpoint {
+    case catalog
+
+    var path: String {
+        switch self {
+        case .catalog: return "/api/kitchen/catalog"
+        }
+    }
+    var method: HTTPMethod { .get }
+    var isMutating: Bool { false }
+}
+
+/// Response shape for GET /api/kitchen/catalog — see
+/// `get_kitchen_catalog()` in src/backend/manage_kitchen.py.
+///
+/// Backend JSON:
+///   { frequent: [ProductTile, ...],
+///     categories: { Produce: [...], Meat: [...], Dairy: [...],
+///                   Bakery: [...], Pantry: [...], Other: [...] },
+///     on_list_product_ids: [Int, ...] }
+struct KitchenCatalogResponse: Codable, Equatable {
+    let frequent: [KitchenTile]
+    let categories: [String: [KitchenTile]]
+    let onListProductIds: [Int]
+}
+
+/// `ProductTile` from `get_kitchen_catalog()` — fields named exactly as the
+/// backend serializes them (snake → camel via APIClient's decoder).
+struct KitchenTile: Codable, Equatable, Hashable, Identifiable {
+    let productId: Int
+    let name: String
+    let category: String?
+    let imageUrl: String?
+    let fallbackEmoji: String?
+    let purchaseCount: Int?
+    let latestUnitPrice: Double?
+    let stores: [String]?
+
+    var id: Int { productId }
+}
+
 // MARK: - Receipt upload (multipart)
 
 struct ReceiptUploadFields {

@@ -38,14 +38,16 @@ struct AppMenuCommands: Commands {
                 .keyboardShortcut("3", modifiers: .command)
             Button("Shopping")      { router.activeTab = .shopping    }
                 .keyboardShortcut("4", modifiers: .command)
-            Button("Finance")       { router.activeTab = .finance     }
+            Button("Kitchen")       { router.activeTab = .kitchen     }
                 .keyboardShortcut("5", modifiers: .command)
-            Button("Restaurants")   { router.activeTab = .restaurant  }
+            Button("Finance")       { router.activeTab = .finance     }
                 .keyboardShortcut("6", modifiers: .command)
-            Button("AI Chat")       { router.activeTab = .chat        }
+            Button("Restaurants")   { router.activeTab = .restaurant  }
                 .keyboardShortcut("7", modifiers: .command)
-            Button("Medications")   { router.activeTab = .medications }
+            Button("AI Chat")       { router.activeTab = .chat        }
                 .keyboardShortcut("8", modifiers: .command)
+            Button("Medications")   { router.activeTab = .medications }
+                .keyboardShortcut("9", modifiers: .command)
 
             Divider()
 
@@ -91,6 +93,7 @@ struct AppMenuCommands: Commands {
         case .inventory:    await InventoryState.shared.loadInventory()
         case .receipts:     await ReceiptsState.shared.loadList()
         case .shopping:     await ShoppingState.shared.loadList()
+        case .kitchen:      await KitchenState.shared.refresh()
         case .finance:      await FinanceState.shared.loadBills()
         case .restaurant, .chat, .medications: break
         }

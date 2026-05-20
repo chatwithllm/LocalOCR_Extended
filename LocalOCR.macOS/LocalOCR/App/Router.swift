@@ -8,7 +8,7 @@ final class Router: ObservableObject {
     static let shared = Router()
 
     enum TabDestination: String, CaseIterable, Identifiable {
-        case dashboard, inventory, receipts, shopping, finance, restaurant, chat, medications
+        case dashboard, inventory, receipts, shopping, kitchen, finance, restaurant, chat, medications
         var id: String { rawValue }
     }
 
@@ -62,6 +62,8 @@ final class Router: ObservableObject {
             activeTab = .shopping
         case AppConstants.URLHost.inventory:
             activeTab = .inventory
+        case AppConstants.URLHost.kitchen:
+            activeTab = .kitchen
         case AppConstants.URLHost.oauthCallback:
             // localocr://oauth/google?state=...&code=...
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
