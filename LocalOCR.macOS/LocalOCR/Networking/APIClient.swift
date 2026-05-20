@@ -84,6 +84,66 @@ final class APIClient {
         return try dispatch(data: data, response: response, path: path)
     }
 
+    /// Multipart form-data upload — used by `/product-snapshots/upload` and any
+    /// future endpoint that takes a file plus form fields.
+    ///
+    /// `fields` are sent as plain text form parts. `file` is sent as one
+    /// part named by `fileFieldName` with the supplied mime type.
+    func multipartRequest<Response: Decodable>(
+        path: String,
+        fields: [String: String] = [:],
+        fileFieldName: String,
+        fileName: String,
+        mimeType: String,
+        fileData: Data,
+        as: Response.Type = Response.self
+    ) async throws -> Response {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent(path),
+            resolvingAgainstBaseURL: false
+        ) ?? URLComponents()
+        guard let url = components.url else { throw APIError.invalidURL(path: path) }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.post.rawValue
+        request.setValue(userAgent(), forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token = keychain.loadDeviceToken() {
+            request.setValue(token, forHTTPHeaderField: "X-Trusted-Device-Token")
+        }
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        let crlf = "\r\n"
+        for (key, value) in fields {
+            body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(key)\"\(crlf)\(crlf)".data(using: .utf8)!)
+            body.append("\(value)\(crlf)".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)\(crlf)".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fileFieldName)\"; filename=\"\(fileName)\"\(crlf)".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\(crlf)\(crlf)".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\(crlf)--\(boundary)--\(crlf)".data(using: .utf8)!)
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+        let payload = try dispatch(data: data, response: response, path: path)
+        if Response.self == EmptyResponse.self {
+            return EmptyResponse() as! Response
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        do {
+            return try decoder.decode(Response.self, from: payload)
+        } catch {
+            logger.error("Decode failure for \(path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw APIError.decoding(underlying: error)
+        }
+    }
+
     // MARK: - Internals
 
     private func buildRequest(method: HTTPMethod, path: String, query: [URLQueryItem], jsonBody: Encodable?) throws -> URLRequest {

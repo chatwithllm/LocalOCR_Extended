@@ -367,6 +367,150 @@ enum DashboardEndpoint {
     var isMutating: Bool { false }
 }
 
+// MARK: - Products (backend prefix: /products)
+//
+// Verified by Rule 1 grep against src/backend/manage_product_catalog.py.
+
+enum ProductsEndpoint {
+    case list(page: Int?, perPage: Int?, category: String?)
+    case search(query: String)
+    case create
+    case update(id: Int)
+    case delete(id: Int)
+    case detail(id: Int)
+    case priceHistory(id: Int)
+    case reviewQueue(status: String)
+    case bulkEnhance
+    case enhance(id: Int)
+    case reviewStatus(id: Int)
+    case autoDedupTokens
+
+    var path: String {
+        switch self {
+        case .list:                     return "/products"
+        case .search:                   return "/products/search"
+        case .create:                   return "/products/create"
+        case .update(let id):           return "/products/\(id)/update"
+        case .delete(let id):           return "/products/\(id)"
+        case .detail(let id):           return "/products/\(id)"
+        case .priceHistory(let id):     return "/products/\(id)/price-history"
+        case .reviewQueue:              return "/products/review-queue"
+        case .bulkEnhance:              return "/products/review-queue/enhance"
+        case .enhance(let id):          return "/products/\(id)/enhance"
+        case .reviewStatus(let id):     return "/products/\(id)/review-status"
+        case .autoDedupTokens:          return "/products/auto-dedup-tokens"
+        }
+    }
+
+    var method: HTTPMethod {
+        switch self {
+        case .list, .search, .detail, .priceHistory, .reviewQueue: return .get
+        case .create, .bulkEnhance, .enhance, .autoDedupTokens:    return .post
+        case .update, .reviewStatus:                               return .put
+        case .delete:                                              return .delete
+        }
+    }
+
+    var query: [URLQueryItem] {
+        switch self {
+        case .list(let page, let perPage, let category):
+            var items: [URLQueryItem] = []
+            if let page { items.append(.init(name: "page", value: String(page))) }
+            if let perPage { items.append(.init(name: "per_page", value: String(perPage))) }
+            if let category, !category.isEmpty { items.append(.init(name: "category", value: category)) }
+            return items
+        case .search(let q):
+            return [.init(name: "q", value: q)]
+        case .reviewQueue(let status):
+            return [.init(name: "status", value: status)]
+        default:
+            return []
+        }
+    }
+
+    var isMutating: Bool { method != .get }
+}
+
+struct ProductCreateBody: Encodable {
+    let name: String
+    let category: String?
+    let barcode: String?
+}
+
+struct ProductUpdateBody: Encodable {
+    let name: String?
+    let category: String?
+    let barcode: String?
+    let defaultUnit: String?
+    let defaultSizeLabel: String?
+}
+
+struct ProductReviewStatusBody: Encodable {
+    let reviewState: String
+}
+
+struct ProductBulkEnhanceBody: Encodable {
+    let limit: Int?
+    let provider: String?
+}
+
+// MARK: - Product snapshots (backend prefix: /product-snapshots)
+
+enum ProductSnapshotEndpoint {
+    case upload
+    case list(productId: Int?)
+    case detail(id: Int)
+    case image(id: Int)
+    case reviewQueue(status: String)
+    case review(id: Int)
+    case promote(id: Int)
+    case delete(id: Int)
+
+    var path: String {
+        switch self {
+        case .upload:                   return "/product-snapshots/upload"
+        case .list:                     return "/product-snapshots"
+        case .detail(let id):           return "/product-snapshots/\(id)"
+        case .image(let id):            return "/product-snapshots/\(id)/image"
+        case .reviewQueue:              return "/product-snapshots/review-queue"
+        case .review(let id):           return "/product-snapshots/\(id)/review"
+        case .promote(let id):          return "/product-snapshots/\(id)/promote"
+        case .delete(let id):           return "/product-snapshots/\(id)"
+        }
+    }
+
+    var method: HTTPMethod {
+        switch self {
+        case .upload, .promote:                    return .post
+        case .list, .detail, .image, .reviewQueue: return .get
+        case .review:                              return .put
+        case .delete:                              return .delete
+        }
+    }
+
+    var query: [URLQueryItem] {
+        switch self {
+        case .list(let pid):
+            guard let pid else { return [] }
+            return [.init(name: "product_id", value: String(pid))]
+        case .reviewQueue(let status):
+            return [.init(name: "status", value: status)]
+        default:
+            return []
+        }
+    }
+
+    var isMutating: Bool { method != .get }
+}
+
+struct SnapshotReviewBody: Encodable {
+    let productName: String?
+    let category: String?
+    let status: String
+    let productId: Int?
+    let notes: String?
+}
+
 // MARK: - Kitchen (backend prefix: /api/kitchen)
 //
 // Single route: GET /api/kitchen/catalog. All mutations reuse /shopping-list and

@@ -6,7 +6,7 @@ struct PageNavStrip: View {
     @EnvironmentObject private var router: Router
 
     private let order: [Router.TabDestination] = [
-        .dashboard, .inventory, .receipts, .shopping, .kitchen, .finance, .restaurant, .chat, .medications
+        .dashboard, .inventory, .products, .receipts, .shopping, .kitchen, .finance, .restaurant, .chat, .medications
     ]
 
     var body: some View {

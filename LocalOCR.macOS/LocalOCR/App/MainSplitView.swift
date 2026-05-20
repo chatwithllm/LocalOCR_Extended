@@ -23,6 +23,7 @@ struct MainSplitView: View {
         switch router.activeTab {
         case .dashboard:    DashboardView()
         case .inventory:    InventoryView()
+        case .products:     ProductsView()
         case .receipts:     ReceiptListView()
         case .shopping:     ShoppingListView()
         case .kitchen:      KitchenView()
@@ -49,6 +50,7 @@ extension Router.TabDestination {
         switch self {
         case .dashboard:    return "Dashboard"
         case .inventory:    return "Inventory"
+        case .products:     return "Products"
         case .receipts:     return "Receipts"
         case .shopping:     return "Shopping"
         case .kitchen:      return "Kitchen"
@@ -62,6 +64,7 @@ extension Router.TabDestination {
         switch self {
         case .dashboard:    return "rectangle.grid.2x2"
         case .inventory:    return "tray.2"
+        case .products:     return "barcode"
         case .receipts:     return "doc.text"
         case .shopping:     return "cart"
         case .kitchen:      return "refrigerator"
