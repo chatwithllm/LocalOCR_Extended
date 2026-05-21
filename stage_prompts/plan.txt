@@ -1,0 +1,83 @@
+STAGE: PLAN — produce ANDROID_APP_PLAN.md for the Android port
+
+You are the planning agent. Output: a complete ANDROID_APP_PLAN.md at the project root.
+
+Read first:
+  1. agent-rules.md — all 19 rules active.
+  2. FEATURE_PARITY_REGISTRY.md (just produced by the audit stage). This is your task ledger.
+  3. src/backend/*.py — endpoint inventory, exact JSON shapes (RULE 1 / RULE 2).
+  4. src/frontend/index.html — web reference.
+  5. AGENT_LEARNINGS.md — every I-N is a known trap.
+
+Target stack — decide and justify in §1:
+  - Default: Flutter (single codebase, mature Android support, good fit for the existing web UI density).
+  - Alternative: native Kotlin + Jetpack Compose if Flutter cannot meet a parity requirement.
+  - Tooling check (run actually): `flutter doctor -v` and `which adb`. Capture output into the plan.
+  - If flutter doctor reports broken — note it, propose the Kotlin fallback, mark VETO-001.
+
+Section 7 must include 7.4 — Veto / Open Gates table. A veto is anything that must be resolved
+before the build phase can start (missing tooling, ambiguous endpoint, undecided platform-equivalent
+for a desktop-only behavior).
+
+Sections:
+
+  # LocalOCR_Extended — Android App Plan
+  Target: android (Flutter)
+  Prod URL: https://extended.npalakurla.com
+
+  ## 1. Stack decision
+  - Framework, rationale, tooling pre-flight output (verbatim).
+  - Min SDK, target SDK, Gradle / AGP versions, Dart/Flutter version.
+
+  ## 2. Architecture
+  - State management (Riverpod / Bloc / Provider — pick one, justify).
+  - Networking layer (Dio / http; interceptor for auth header; snake_case → camelCase via
+    json_serializable build_runner; mirror RULE 2 verbatim — wrapper structs for envelopes).
+  - Storage (flutter_secure_storage for tokens; sqflite if needed).
+  - Navigation (go_router preferred — typed routes; one route per screen in the registry).
+
+  ## 3. Auth flow
+  - Mirror web's auth flow exactly. Endpoint paths from backend grep. Session cookie or
+    bearer token — confirm which (RULE 1 Check 4).
+
+  ## 4. Screen-by-screen plan
+  For every screen in the registry — one subsection with:
+    - Route, endpoints, state model, widget tree sketch, persistence requirements,
+      desktop→mobile adaptations called out (which 🔄 rows and why).
+
+  ## 5. Endpoint catalog
+  Verbatim from backend. method, full URL (prefix + path), request shape, response shape.
+  No invented paths. Every catalog row links back to one or more F-NNN rows.
+
+  ## 6. Build phases (9 total)
+  Phase 1: scaffold + auth
+  Phase 2: dashboard + nav shell
+  Phase 3: receipts list + detail
+  Phase 4: inventory list + detail + actions
+  Phase 5: shopping list + items
+  Phase 6: analytics screens
+  Phase 7: settings + profile
+  Phase 8: modals, sheets, tooltips, persisted prefs
+  Phase 9: polish — animations, empty states, errors, offline behavior
+
+  Each phase:
+    - F-NNN rows owned by this phase
+    - 4 gates per screen (build / log / screenshot / verb — RULE 6, RULE 9, RULE 14)
+    - Exit criteria
+
+  ## 7. Risk register
+  ### 7.1 Known traps from AGENT_LEARNINGS.md
+  ### 7.2 Network / cancellation pitfalls (Dart Future cancellation, isolate gotchas — Flutter analog of RULE 3)
+  ### 7.3 Decode-shape mirroring (analog of RULE 2 / RULE 18 — json_serializable fieldRename: snake)
+  ### 7.4 Vetoes / open gates (BLOCKS BUILD)
+  Table: VETO-NN | Description | What must be decided/installed/answered | Owner
+
+  ## 8. Confidence
+  Confidence: HIGH | MEDIUM | LOW
+  Justify in one paragraph.
+
+After writing, emit exactly:
+
+  PLAN_COMPLETE: vetoes=N confidence=<HIGH|MEDIUM|LOW>
+
+Do not begin the build. Do not resolve vetoes here. Vetoes are resolved in the next stage.

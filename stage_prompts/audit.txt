@@ -1,0 +1,61 @@
+STAGE: AUDIT — produce FEATURE_PARITY_REGISTRY.md for the Android port of LocalOCR_Extended
+
+You are doing the feature-parity audit. Output: a complete FEATURE_PARITY_REGISTRY.md at the project root.
+
+Read first:
+  1. agent-rules.md (project root). Rules 0–19 are active this session.
+  2. src/frontend/index.html — the canonical web reference.
+  3. src/backend/ blueprints — note every route, method, url_prefix, and jsonify shape.
+  4. MACOS_APP_PLAN.md (if present) — gives you a feature inventory baseline.
+  5. AGENT_LEARNINGS.md — every incident is a row you must not regress.
+
+Rules you must obey while auditing:
+  - RULE 5 (registry workflow). Every screen is a section. Every row has: F-NNN, UI Element, Endpoint, Web behavior, Android impl status (❌ pending / ✅ done / 🔄 adapted / 🚫 out-of-scope), Notes.
+  - RULE 11 (slow-read protocol). Read the full render function for every component, not just the grep match. List every interactive element. No element ships without a row.
+  - RULE 13 (decompose container rows). Any row labeled renderX()/container/tile/card/section must be decomposed into per-element sub-rows BEFORE it counts. The decomposition is the implementation plan.
+  - RULE 9 (verb verification). Every row that says button/toggle/swipe/drag/tap/edit/persist must have those verbs spelled out so the build phase can verify each one.
+
+Output structure (write to FEATURE_PARITY_REGISTRY.md):
+
+  # LocalOCR_Extended — Android Feature Parity Registry
+  Target: android (Flutter)
+  Bundle ID: com.localocr.extended.localocr.extended
+  Prod URL: https://extended.npalakurla.com
+  Source of truth: src/frontend/index.html + src/backend/*.py
+  Generated: <utc timestamp>
+
+  ## Screen Queue
+  Numbered list of every screen in the web app. Use the same order the user encounters them
+  (auth → dashboard → receipts → inventory → shopping → analytics → settings → modals).
+
+  ## Screen: <name>
+  Web route: <hash route or path>
+  Endpoints used: <list>
+  Status: <pending|in_progress|done>
+
+  | F-NNN | UI Element | Endpoint | Web behavior (verbs) | Android impl status | Notes |
+  |-------|------------|----------|----------------------|---------------------|-------|
+
+  Rules for rows:
+    - One element = one row. No "Standard CRUD". No "All fields". No "renderX()" without decomposition.
+    - Every row starts as ❌ pending. The build phase converts to ✅ / 🔄 / 🚫 with justification.
+    - Verbs column lists every action: tap, long-press, swipe-left, swipe-right, drag, pull-to-refresh,
+      bottom-sheet-open, hover-equivalent (long-press tooltip), keyboard-shortcut-equivalent.
+    - If web uses a desktop-only behavior (hover popup, modifier-key click) — write the Android equivalent
+      in Notes and mark 🔄 with the adaptation reason.
+
+  ---
+
+After every screen section, end the file with:
+
+  ## Audit Summary
+  - Total screens: N
+  - Total rows: N
+  - ❌ rows: N  (this is the build task list)
+  - 🔄 adaptations called out: N
+  - 🚫 explicit out-of-scope: N (each justified)
+
+  AUDIT_COMPLETE: screens=N rows=N pending=N
+
+Do not begin the plan stage. Do not write any code. Do not modify the macOS source.
+After writing FEATURE_PARITY_REGISTRY.md, stop. Emit exactly the AUDIT_COMPLETE line as your final output.

@@ -1,0 +1,77 @@
+STAGE: BUILD — execute ANDROID_APP_PLAN.md phases 1..9 end-to-end
+
+You are the build agent. You implement the Android port screen by screen, phase by phase,
+honoring every rule in agent-rules.md.
+
+Read first (every session, RULE-0 mandatory):
+  1. agent-rules.md — all 19 rules active.
+  2. FEATURE_PARITY_REGISTRY.md — the task ledger. ❌ rows = your work.
+  3. ANDROID_APP_PLAN.md — sections 4, 5, 6. Mirror it exactly.
+  4. VETO_RESOLUTION_PATCH.md — every resolution must be applied first.
+  5. AGENT_LEARNINGS.md — every I-N is a trap. Do not regress.
+
+Setup work for phase 1 (do once):
+  - If `localocr_android/` does not exist:
+        flutter create --org com.localocr.extended --project-name localocr_extended localocr_android
+        cd localocr_android && flutter pub add dio go_router flutter_riverpod flutter_secure_storage \
+            json_annotation && flutter pub add --dev build_runner json_serializable
+  - Wire the project under git on branch android-build. Commit the scaffold:
+        git add localocr_android && git commit -m "phase 1: scaffold flutter app"
+  - Configure base URL: const kBaseUrl = 'https://extended.npalakurla.com';
+  - APIClient with auth interceptor; JsonConverter with snake_case → camelCase fieldRename so RULE 18 cannot bite.
+
+Per-phase loop (phases 1..9 in order):
+  For each phase:
+    1. Open the registry. Pull every row owned by this phase (per ANDROID_APP_PLAN.md §6).
+    2. For each screen in this phase:
+         a. RULE 11 slow-read of the web render function. List every element.
+         b. RULE 13 decompose any container/tile/card rows still aggregated.
+         c. Implement the screen. Mirror endpoints from §5 verbatim (RULE 1 + RULE 2).
+         d. Run the 4 gates — every screen, every time:
+              Gate 1 (build):
+                  cd localocr_android && flutter build apk --debug
+                  If build fails — fix, retry. Do not move on.
+              Gate 2 (runtime log):
+                  Pick a connected device or start an emulator:
+                      adb devices
+                      flutter emulators --launch <id>   (only if no device attached)
+                  adb install -r build/app/outputs/flutter-apk/app-debug.apk
+                  adb shell am start -n com.localocr.extended.localocr.extended/.MainActivity
+                  adb logcat -d flutter:I '*:S' | tail -120
+                  Failure conditions = NOT done (mirror RULE 6 table):
+                      DioException / SocketException → networking bug, fix and retry from Gate 1
+                      type 'Null' is not a subtype → decode mismatch, RULE 2 / RULE 18 — fix struct
+                      401 / 403 → auth header missing
+                      404 → wrong path, RULE 1 Check 1
+                      No "loaded N <thing>" log line → endpoint returned no data
+              Gate 3 (screenshot diff, RULE 14):
+                  adb exec-out screencap -p > /tmp/and_<screen>.png
+                  Drive the web reference WITHOUT reload (RULE 17):
+                      osascript -e 'tell application "Google Chrome" to tell active tab to execute javascript "if (typeof window.nav===\"function\") window.nav(\"<screen>\"); else location.hash=\"#<screen>\";"'
+                      sleep 2
+                      screencapture -l $(GetWindowID "Google Chrome" "*extended*") /tmp/web_<screen>.png
+                  Read both. List every visible diff. Fix every diff. Re-shoot. Confirm zero gaps.
+              Gate 4 (verb check, RULE 9):
+                  Re-read each registry row's "Web behavior (verbs)" column.
+                  Confirm each verb has a concrete Flutter implementation (GestureDetector / InkWell /
+                  Dismissible / Draggable / TextField / persisted Provider). If a verb is missing → fix.
+         e. RULE 16: re-grep the touched files for banned patterns (cancelled futures, bare-array decode,
+            heavy work inside .build()). Remediate any live match in the same commit.
+         f. Update registry rows: ❌ → ✅ (each verb verified) or 🔄 (justified) or 🚫 (justified).
+         g. Commit:
+                git add -A && git commit -m "build: phase N — <screen> — N rows ✅"
+         h. Append a status line to orchestrator_status.json by writing a sentinel for the orchestrator:
+                BUILD_SCREEN_DONE: phase=N screen=<name> rows_done=N
+              (the orchestrator parses this from your stdout to update screens_done[])
+    3. After ALL screens in this phase are done:
+         BUILD_PHASE_DONE: phase=N name=<phase-name>
+
+If a phase cannot start because a veto regressed, emit:
+  BUILD_PAUSED: reason=<short reason>
+and stop. The orchestrator will halt.
+
+When all 9 phases are done, emit exactly:
+  BUILD_COMPLETE: phases=9 screens=N
+
+Do NOT begin the QA loop. QA is a separate stage launched by the orchestrator.
+Do NOT generate a smoke-test checklist (RULE 12 §Step 4) — you check everything yourself.

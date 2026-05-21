@@ -62,3 +62,9 @@ alembic/__pycache__/
 .kanban/
 .planning/
 graphify-out/
+
+# --- Android build branch: macOS Swift workspace lives on feat/macos-m-series-app ---
+LocalOCR.macOS/
+
+# --- Orchestrator runtime ---
+qa_pipeline.log

@@ -1,0 +1,52 @@
+STAGE: VETOES — resolve every VETO-NN in ANDROID_APP_PLAN.md §7.4
+
+Output: VETO_RESOLUTION_PATCH.md at the project root.
+
+Read first:
+  1. agent-rules.md — all 19 rules active.
+  2. ANDROID_APP_PLAN.md §7.4 — the veto list. Each VETO is a hard block on the build phase.
+  3. FEATURE_PARITY_REGISTRY.md — to confirm which rows depend on which veto.
+  4. AGENT_LEARNINGS.md — do not re-introduce a fixed incident while resolving a veto.
+
+For every VETO:
+  1. State it verbatim from §7.4.
+  2. Investigate: run any required `which`, `flutter doctor`, `adb devices`, `curl -s -o /dev/null -w "%{http_code}" $PROD_URL/auth/me`, grep on backend, etc.
+  3. Propose a concrete resolution — not "we will decide later", not "deferred".
+  4. If the resolution requires installing tooling or environment changes: list the exact commands.
+     The orchestrator must be able to apply the patch deterministically.
+  5. If a resolution requires user input that you cannot obtain: PAUSE — write a pause directive at the top of the file:
+
+         PAUSE_REQUIRED: <one-sentence reason>
+
+     Then emit `VETOES_PAUSED: reason=<short reason>` and stop. The orchestrator will halt and surface the pause.
+
+Output structure:
+
+  # Veto Resolution Patch — <utc timestamp>
+  Source plan: ANDROID_APP_PLAN.md
+  Vetoes addressed: N
+
+  ## VETO-NN — <title>
+  Original: <verbatim>
+  Investigation:
+    - <findings>
+  Resolution:
+    - <concrete decision or commands>
+  Plan update:
+    - Section/paragraph of ANDROID_APP_PLAN.md to amend
+    - Exact replacement text (so the build phase can apply it)
+  Registry update (if any):
+    - Rows that flip ❌ → 🔄 or 🚫 due to this resolution (each justified)
+
+  ---
+
+After ALL vetoes resolved, emit exactly:
+
+  VETOES_COMPLETE: resolved=N total=N
+
+If any veto cannot be resolved without user input, emit:
+
+  VETOES_PAUSED: reason=<short reason>
+
+Do not begin the build. Do not modify ANDROID_APP_PLAN.md directly — only describe the amendments;
+the orchestrator will surface them for the build stage to apply.

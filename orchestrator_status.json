@@ -1,0 +1,30 @@
+{
+  "project": "/Users/assistant/.gemini/antigravity/LocalOCR_Extended",
+  "project_name": "LocalOCR_Extended",
+  "target": "android",
+  "prod_url": "https://extended.npalakurla.com",
+  "bundle_id": "com.localocr.extended.localocr.extended",
+  "dashboard_port": 9001,
+  "started": "",
+  "stage": "ready",
+  "branch": "",
+  "elapsed_seconds": 0,
+  "stages": {
+    "audit":   {"status": "pending", "output": "FEATURE_PARITY_REGISTRY.md", "started": "", "completed": "", "rows": 0, "screens": 0, "note": ""},
+    "plan":    {"status": "pending", "output": "ANDROID_APP_PLAN.md",        "started": "", "completed": "", "vetoes": 0, "confidence": "", "note": ""},
+    "vetoes":  {"status": "pending", "output": "VETO_RESOLUTION_PATCH.md",   "started": "", "completed": "", "resolved": 0, "total": 0, "note": ""},
+    "build":   {"status": "pending", "phases_done": 0, "phases_total": 9,
+                "current_phase": 0, "current_phase_name": "",
+                "screens_done": [], "current_screen": "",
+                "gates": {"gate1": "pending", "gate2": "pending", "gate3": "pending", "gate4": "pending"},
+                "started": "", "completed": ""},
+    "qa":      {"status": "pending", "round": 0, "total_rounds": 0, "max_rounds": 6,
+                "current_agent": "", "rounds_detail": [], "verdict": "",
+                "started": "", "completed": ""}
+  },
+  "paused": false,
+  "pause_reason": "",
+  "completed": "",
+  "verdict": "",
+  "log_tail": []
+}

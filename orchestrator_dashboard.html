@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LocalOCR Android Orchestrator</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #131a22;
+    --panel-2: #1a232d;
+    --border: #243140;
+    --text: #d8e1ec;
+    --muted: #7c8a9a;
+    --accent: #4ea1ff;
+    --green: #2ecc71;
+    --amber: #f5b041;
+    --red: #e74c3c;
+    --blue: #3498db;
+    --purple: #9b59b6;
+    --teal: #1abc9c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  h1, h2, h3 { margin: 0 0 8px 0; font-weight: 600; }
+  h1 { font-size: 20px; }
+  h2 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 12px;
+  }
+  .header-meta { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
+  .header-meta span b { color: var(--text); font-weight: 600; }
+  .pipeline {
+    display: flex; gap: 6px; align-items: center;
+    padding: 12px 16px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 12px; overflow-x: auto;
+  }
+  .pstage {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px; background: var(--panel-2);
+    border: 1px solid var(--border); white-space: nowrap; font-size: 12px;
+  }
+  .pdot {
+    width: 10px; height: 10px; border-radius: 50%; background: #444;
+    box-shadow: 0 0 0 2px var(--panel-2);
+  }
+  .pstage.pending .pdot { background: #555; }
+  .pstage.running .pdot { background: var(--amber); animation: pulse 1.4s infinite; }
+  .pstage.done    .pdot { background: var(--green); }
+  .pstage.error   .pdot { background: var(--red); }
+  .pstage.running { border-color: var(--amber); }
+  .pstage.done    { border-color: var(--green); }
+  .pstage.error   { border-color: var(--red); }
+  .parrow { color: var(--muted); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .banner {
+    padding: 16px; border-radius: 8px; margin-bottom: 12px;
+    font-size: 16px; font-weight: 600; text-align: center;
+  }
+  .banner.green { background: rgba(46,204,113,0.15); border: 1px solid var(--green); color: var(--green); }
+  .banner.amber { background: rgba(245,176,65,0.12); border: 1px solid var(--amber); color: var(--amber); }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px; margin-bottom: 12px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .card .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; margin-left: 6px;
+  }
+  .badge.pending { background: #2a3441; color: var(--muted); }
+  .badge.running { background: rgba(245,176,65,0.2); color: var(--amber); }
+  .badge.done    { background: rgba(46,204,113,0.2); color: var(--green); }
+  .badge.error   { background: rgba(231,76,60,0.2); color: var(--red); }
+  .kv { display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: var(--muted); }
+  .kv b { color: var(--text); font-weight: 500; }
+  .qa-big {
+    text-align: center; padding: 14px 0;
+  }
+  .qa-big .num { font-size: 36px; font-weight: 700; color: var(--accent); }
+  .qa-big .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .agent-chip {
+    display: inline-block; padding: 4px 10px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; margin-top: 6px;
+  }
+  .agent-chip.fix { background: rgba(155,89,182,0.2); color: var(--purple); border: 1px solid var(--purple); }
+  .agent-chip.a   { background: rgba(52,152,219,0.2);  color: var(--blue);   border: 1px solid var(--blue);   }
+  .agent-chip.b   { background: rgba(26,188,156,0.2);  color: var(--teal);   border: 1px solid var(--teal);   }
+  .agent-chip.ab  { background: rgba(78,161,255,0.2);  color: var(--accent); border: 1px solid var(--accent); }
+  .agent-chip.c   { background: rgba(245,176,65,0.2);  color: var(--amber);  border: 1px solid var(--amber);  }
+  .agent-chip.idle{ background: #2a3441; color: var(--muted); border: 1px solid var(--border); }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  th, td {
+    padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+  td.center, th.center { text-align: center; }
+  .v-ship  { color: var(--green); font-weight: 600; }
+  .v-needs { color: var(--amber); font-weight: 600; }
+  .log {
+    background: #06090d; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; color: #a8b5c4; height: 220px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .log .line { padding: 1px 0; }
+  .gate-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .gate { padding: 3px 8px; border-radius: 4px; font-size: 11px; border: 1px solid var(--border); background: var(--panel-2); }
+  .gate.pending { color: var(--muted); }
+  .gate.running { color: var(--amber); border-color: var(--amber); }
+  .gate.done    { color: var(--green); border-color: var(--green); }
+  .gate.error   { color: var(--red);   border-color: var(--red);   }
+  .icon { font-size: 14px; }
+  .icon.green { color: var(--green); }
+  .icon.amber { color: var(--amber); }
+  .icon.red   { color: var(--red);   }
+  .icon.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 id="proj-name">LocalOCR_Extended</h1>
+    <div class="header-meta">
+      <span>Target: <b id="target">android</b></span>
+      <span>Branch: <b id="branch">—</b></span>
+      <span>Elapsed: <b id="elapsed">0s</b></span>
+      <span>Stage: <b id="stage">ready</b></span>
+      <span>Prod: <b id="prod">—</b></span>
+    </div>
+  </div>
+  <div>
+    <span class="badge running">● LIVE</span>
+  </div>
+</div>
+
+<div id="banner-area"></div>
+
+<div class="pipeline" id="pipeline">
+  <div class="pstage pending" data-stage="branch"><div class="pdot"></div>Branch</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="audit"><div class="pdot"></div>Audit</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="plan"><div class="pdot"></div>Plan</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="vetoes"><div class="pdot"></div>Vetoes</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="build"><div class="pdot"></div>Build</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="qa"><div class="pdot"></div>QA</div>
+  <span class="parrow">→</span>
+  <div class="pstage pending" data-stage="ship"><div class="pdot"></div>Ship Ready</div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Audit <span class="badge pending" id="audit-badge">pending</span></h2>
+    <div class="kv"><span>Registry rows</span><b id="audit-rows">0</b></div>
+    <div class="kv"><span>Screens</span><b id="audit-screens">0</b></div>
+    <div class="kv"><span>Output</span><b>FEATURE_PARITY_REGISTRY.md</b></div>
+    <div class="kv"><span>Note</span><b id="audit-note">—</b></div>
+  </div>
+
+  <div class="card">
+    <h2>Plan <span class="badge pending" id="plan-badge">pending</span></h2>
+    <div class="kv"><span>Vetoes raised</span><b id="plan-vetoes">0</b></div>
+    <div class="kv"><span>Confidence</span><b id="plan-conf">—</b></div>
+    <div class="kv"><span>Output</span><b>ANDROID_APP_PLAN.md</b></div>
+    <div class="kv"><span>Note</span><b id="plan-note">—</b></div>
+  </div>
+
+  <div class="card">
+    <h2>Vetoes <span class="badge pending" id="vetoes-badge">pending</span></h2>
+    <div class="kv"><span>Resolved</span><b id="vetoes-resolved">0 / 0</b></div>
+    <div class="kv"><span>Output</span><b>VETO_RESOLUTION_PATCH.md</b></div>
+    <div class="kv"><span>Note</span><b id="vetoes-note">—</b></div>
+  </div>
+
+  <div class="card">
+    <h2>Build <span class="badge pending" id="build-badge">pending</span></h2>
+    <div class="kv"><span>Phases</span><b id="build-phases">0 / 9</b></div>
+    <div class="kv"><span>Current phase</span><b id="build-cur-phase">—</b></div>
+    <div class="kv"><span>Current screen</span><b id="build-cur-screen">—</b></div>
+    <div class="kv"><span>Screens done</span><b id="build-screens-count">0</b></div>
+    <div class="gate-row">
+      <span class="gate pending" data-gate="gate1">G1 build</span>
+      <span class="gate pending" data-gate="gate2">G2 log</span>
+      <span class="gate pending" data-gate="gate3">G3 screenshot</span>
+      <span class="gate pending" data-gate="gate4">G4 verb</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>QA Loop <span class="badge pending" id="qa-badge">pending</span></h2>
+    <div class="qa-big">
+      <div class="num"><span id="qa-round">0</span> / <span id="qa-max">6</span></div>
+      <div class="lbl">Round</div>
+      <div class="agent-chip idle" id="qa-agent">idle</div>
+    </div>
+    <div class="kv"><span>Verdict</span><b id="qa-verdict">—</b></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:12px;">
+  <h2>QA Rounds Timeline</h2>
+  <table id="qa-rounds-table">
+    <thead>
+      <tr>
+        <th>Round</th>
+        <th class="center">Fix</th>
+        <th class="center">Agent A</th>
+        <th class="center">Agent B</th>
+        <th class="center">Agent C</th>
+        <th>Verdict</th>
+      </tr>
+    </thead>
+    <tbody id="qa-rounds-tbody"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Live Log (last 20 lines)</h2>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+const STATUS_URL = 'orchestrator_status.json';
+
+function statusIcon(s) {
+  const sp = document.createElement('span');
+  sp.className = 'icon';
+  if (s === 'done')         { sp.classList.add('green'); sp.textContent = '✅'; }
+  else if (s === 'running') { sp.classList.add('amber'); sp.textContent = '\u{1F504}'; }
+  else if (s === 'error')   { sp.classList.add('red');   sp.textContent = '❌'; }
+  else                      { sp.classList.add('muted'); sp.textContent = '⏳'; }
+  return sp;
+}
+
+function setBadge(id, status) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cls = status || 'pending';
+  el.className = 'badge ' + cls;
+  el.textContent = cls;
+}
+
+function setPipelineStage(stage, status) {
+  document.querySelectorAll('.pstage[data-stage="' + stage + '"]').forEach(el => {
+    el.classList.remove('pending', 'running', 'done', 'error');
+    el.classList.add(status || 'pending');
+  });
+}
+
+function agentChipClass(agent) {
+  if (!agent) return 'idle';
+  const a = String(agent).toLowerCase();
+  if (a.startsWith('fix')) return 'fix';
+  if (a.startsWith('a+b')) return 'ab';
+  if (a.startsWith('a ') || a === 'a') return 'a';
+  if (a.startsWith('b ') || a === 'b') return 'b';
+  if (a.startsWith('c'))   return 'c';
+  return 'idle';
+}
+
+function fmtElapsed(s) {
+  s = Math.floor(s || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h) return h + 'h ' + m + 'm ' + sec + 's';
+  if (m) return m + 'm ' + sec + 's';
+  return sec + 's';
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = (val === undefined || val === null || val === '') ? '—' : String(val);
+}
+
+function makeBanner(cls, text) {
+  const div = document.createElement('div');
+  div.className = 'banner ' + cls;
+  div.textContent = text;
+  return div;
+}
+
+function renderRoundsTable(rd) {
+  const tbody = document.getElementById('qa-rounds-tbody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  if (!rd || rd.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 6;
+    td.style.color = 'var(--muted)';
+    td.style.textAlign = 'center';
+    td.textContent = 'No rounds yet';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const r of rd) {
+    const tr = document.createElement('tr');
+
+    const tdRound = document.createElement('td');
+    tdRound.textContent = 'Round ' + r.round;
+    tr.appendChild(tdRound);
+
+    for (const key of ['fix','a','b','c']) {
+      const td = document.createElement('td');
+      td.className = 'center';
+      td.appendChild(statusIcon(r[key]));
+      tr.appendChild(td);
+    }
+
+    const tdV = document.createElement('td');
+    if (r.verdict === 'SHIP_READY') {
+      const sp = document.createElement('span');
+      sp.className = 'v-ship';
+      sp.textContent = 'SHIP READY';
+      tdV.appendChild(sp);
+    } else if (r.verdict === 'needs_fixes') {
+      const sp = document.createElement('span');
+      sp.className = 'v-needs';
+      sp.textContent = 'needs fixes';
+      tdV.appendChild(sp);
+    } else {
+      tdV.textContent = r.verdict || '—';
+    }
+    tr.appendChild(tdV);
+
+    tbody.appendChild(tr);
+  }
+}
+
+function renderLog(lines) {
+  const logEl = document.getElementById('log');
+  while (logEl.firstChild) logEl.removeChild(logEl.firstChild);
+  const last = (lines || []).slice(-20);
+  for (const l of last) {
+    const div = document.createElement('div');
+    div.className = 'line';
+    div.textContent = String(l);
+    logEl.appendChild(div);
+  }
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function refresh() {
+  try {
+    const r = await fetch(STATUS_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const s = await r.json();
+
+    setText('proj-name', s.project_name || 'orchestrator');
+    setText('target',  s.target || '—');
+    setText('branch',  s.branch || '—');
+    setText('stage',   s.stage || 'ready');
+    setText('prod',    s.prod_url || '—');
+    setText('elapsed', fmtElapsed(s.elapsed_seconds));
+
+    setPipelineStage('branch', s.branch ? 'done' : 'pending');
+    for (const k of ['audit','plan','vetoes','build','qa']) {
+      const st = (s.stages && s.stages[k] && s.stages[k].status) || 'pending';
+      setPipelineStage(k, st);
+    }
+    const shipState = s.verdict === 'SHIP_READY' ? 'done'
+                    : ((s.stages.qa && s.stages.qa.status === 'running') ? 'running' : 'pending');
+    setPipelineStage('ship', shipState);
+
+    const ba = document.getElementById('banner-area');
+    while (ba.firstChild) ba.removeChild(ba.firstChild);
+    if (s.verdict === 'SHIP_READY') {
+      ba.appendChild(makeBanner('green', '\u{1F389} SHIP READY — pipeline complete'));
+    }
+    if (s.paused) {
+      ba.appendChild(makeBanner('amber', '⚠ PAUSED — ' + (s.pause_reason || 'no reason given')));
+    }
+
+    const a = s.stages.audit || {};
+    setBadge('audit-badge', a.status);
+    setText('audit-rows', a.rows || 0);
+    setText('audit-screens', a.screens || 0);
+    setText('audit-note', a.note);
+
+    const p = s.stages.plan || {};
+    setBadge('plan-badge', p.status);
+    setText('plan-vetoes', p.vetoes || 0);
+    setText('plan-conf', p.confidence);
+    setText('plan-note', p.note);
+
+    const v = s.stages.vetoes || {};
+    setBadge('vetoes-badge', v.status);
+    setText('vetoes-resolved', (v.resolved || 0) + ' / ' + (v.total || 0));
+    setText('vetoes-note', v.note);
+
+    const b = s.stages.build || {};
+    setBadge('build-badge', b.status);
+    setText('build-phases', (b.phases_done || 0) + ' / ' + (b.phases_total || 9));
+    setText('build-cur-phase', b.current_phase ? ('#' + b.current_phase + ' ' + (b.current_phase_name || '')) : '—');
+    setText('build-cur-screen', b.current_screen);
+    setText('build-screens-count', (b.screens_done || []).length);
+    const gates = b.gates || {};
+    document.querySelectorAll('.gate').forEach(g => {
+      const name = g.getAttribute('data-gate');
+      g.className = 'gate ' + (gates[name] || 'pending');
+    });
+
+    const q = s.stages.qa || {};
+    setBadge('qa-badge', q.status);
+    setText('qa-round', q.total_rounds || q.round || 0);
+    setText('qa-max',   q.max_rounds || 6);
+    const chip = document.getElementById('qa-agent');
+    chip.textContent = q.current_agent || 'idle';
+    chip.className = 'agent-chip ' + agentChipClass(q.current_agent);
+    setText('qa-verdict', q.verdict);
+
+    renderRoundsTable(q.rounds_detail || []);
+    renderLog(s.log_tail || []);
+
+  } catch (e) {
+    console.warn('status fetch failed', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

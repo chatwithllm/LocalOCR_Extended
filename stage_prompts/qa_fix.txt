@@ -1,0 +1,69 @@
+STAGE: QA — FIX AGENT — round {ROUND_NUM}
+
+You are the fix agent for round {ROUND_NUM}. Input: FIXES_FOR_ROUND_{ROUND_NUM}.md
+(written by agent C of the previous round, or empty on round 1).
+
+Read first:
+  1. agent-rules.md — all 19 rules active.
+  2. FIXES_FOR_ROUND_{ROUND_NUM}.md — your task list. P0 first, then P1, then P2.
+  3. AGENT_LEARNINGS.md — do not regress a fixed incident.
+  4. FEATURE_PARITY_REGISTRY.md — keep statuses honest.
+
+If FIXES_FOR_ROUND_{ROUND_NUM}.md does not exist on round 1, this means there is nothing
+to fix yet (the initial audit hasn't found gaps). Emit `FIX_ROUND_{ROUND_NUM}_SKIPPED: no_fixes` and stop.
+
+Otherwise, for each FIX-NNN in priority order, run the 4-gate test loop (max 3 attempts):
+
+  Before first attempt:
+    - Read the exact file and function named in the fix.
+    - If the fix touches an endpoint → RULE 1 pre-flight.
+    - If the fix touches a widget tree → RULE 11 slow-read of the web render function.
+    - If the fix touches a container/tile row → RULE 13 decompose.
+
+  Attempt loop (repeat until all 4 gates pass or 3 attempts exhausted):
+
+    Gate 1 — Build:
+        cd localocr_android && flutter build apk --debug 2>&1 | tail -40
+        If BUILD FAILED → fix compile error → retry Gate 1.
+
+    Gate 2 — Runtime log validation:
+        adb install -r build/app/outputs/flutter-apk/app-debug.apk
+        adb shell am force-stop com.localocr.extended.localocr.extended
+        adb shell am start -n com.localocr.extended.localocr.extended/.MainActivity
+        sleep 6
+        adb logcat -d flutter:I flutter:E flutter:W '*:S' | tail -120
+        Failure conditions (any = gate fail → fix → retry from Gate 1):
+            DioException / SocketException
+            "type 'Null' is not a subtype" / FormatException
+            401 / 403 → auth header missing
+            404 → wrong path (RULE 1 Check 1)
+            "loaded N <thing>" line missing → endpoint returned no data
+
+    Gate 3 — Visual screenshot comparison (RULE 14):
+        adb exec-out screencap -p > /tmp/fix_and.png
+        osascript -e 'tell application "Google Chrome" to tell active tab to execute javascript "if (typeof window.nav===\"function\") window.nav(\"[screen]\"); else location.hash=\"#[screen]\";"'
+        sleep 2
+        screencapture -l $(GetWindowID "Google Chrome" "*extended*") /tmp/fix_web.png
+        Read both. List every visible diff. If diffs exist → fix → retry from Gate 1.
+
+    Gate 4 — Verb check (RULE 9):
+        Re-read FIXES_FOR_ROUND_{ROUND_NUM}.md for this fix.
+        Extract every action verb: tap, long-press, swipe, drag, edit, persist, pull-to-refresh.
+        Verify the Flutter implementation supports each verb interactively.
+        If any verb missing → fix → retry from Gate 1.
+
+  All 4 gates pass → COMMIT:
+        git add -A && git commit -m "fix: <FIXID> — <desc> (round {ROUND_NUM}, attempt N)"
+        Mark fix as DONE in FIXES_FOR_ROUND_{ROUND_NUM}.md.
+
+  If attempt 3 fails any gate:
+        Mark fix as PARTIAL with note: "3 attempts — <remaining issue>".
+        Move to next fix — do not block the round.
+
+RULE 16 reminder: re-grep every file you touched for active banned patterns before commit.
+RULE 19 reminder: if you discover broader regressions, finish them in the same commit or open a tracked todo with a named owner. NO "broader audit pending" lines.
+RULE 17 reminder: never `reload` the web reference window. Use `nav()` or `location.hash=` only.
+
+When all fixes are processed, emit exactly:
+
+  FIX_ROUND_{ROUND_NUM}_COMPLETE: done=N partial=N

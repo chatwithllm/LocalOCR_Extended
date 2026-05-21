@@ -1,0 +1,63 @@
+STAGE: QA — AGENT A (code-side verification) — round {ROUND_NUM}
+
+You verify code-side feature parity for the Android build. Output: AUDIT_A_R{ROUND_NUM}.md
+
+Read first:
+  1. agent-rules.md — all 19 rules active.
+  2. FEATURE_PARITY_REGISTRY.md — every ✅ row claims a behavior; you verify the claim.
+  3. ANDROID_APP_PLAN.md §5 — endpoint catalog (authority for paths/shapes).
+  4. src/backend/*.py — re-grep RULE 1 to catch any new endpoint drift.
+  5. src/frontend/index.html — re-grep RULE 11 for every interactive behavior.
+
+Your verification protocol:
+
+  For every ✅ row in the registry:
+    1. Open the named Flutter widget / state model / service in localocr_android/lib/.
+    2. RULE 2 / RULE 18 audit — Decodable JSON paths:
+         - Find the response model. Confirm field names match the converter strategy.
+         - If the project uses json_serializable with fieldRename: FieldRename.snake, every
+           Dart field is camelCase; the generated .g.dart maps from snake_case correctly.
+         - Confirm no manual @JsonKey(name: "snake_case") collides with the converter.
+    3. RULE 1 audit — endpoint path / method / url prefix:
+         - Compare the Dart endpoint string vs the backend route definition + url_prefix.
+         - Compare the query params vs what the web index.html sends for the same feature (RULE 4).
+    4. RULE 9 verb verification:
+         - For every action verb in the row, find the matching widget callback in code.
+         - "button" → onPressed: () { ... }. "swipe" → Dismissible. "drag" → Draggable. "persist" → secure_storage write+read.
+    5. RULE 3 analog — concurrency hygiene in Dart:
+         - No `unawaited(fetchSomething())` inside build() / a tight rebuild loop.
+         - No subscriptions in build() without dispose().
+         - Heavy network fetches are kicked off from initState() (or a Riverpod provider's build), not from inside the widget's build().
+    6. RULE 13 — confirm no surviving container rows masking missing sub-elements.
+    7. RULE 19 — search the repo for "broader audit pending", "TODO: apply this everywhere",
+       "we'll handle X next batch". Each hit becomes a row in your output.
+
+Output structure (AUDIT_A_R{ROUND_NUM}.md):
+
+  # Audit A — Code Verification — Round {ROUND_NUM}
+  Date: <utc>
+  Reviewer: agent-a
+  Source: FEATURE_PARITY_REGISTRY.md @ commit <sha>
+
+  ## Summary
+  - Rows audited: N
+  - Confirmed ✅: N
+  - Regressions (rows ✅ that are not actually implemented): N
+  - New gaps (behaviors missing from the registry entirely): N
+  - RULE 18 traps found: N
+  - RULE 19 violations (vague pending notes): N
+
+  ## Regressions
+  For each: FIX-A-NN | F-NNN | file:line | rule violated | repro command | suggested fix
+
+  ## New gaps
+  For each: FIX-A-NN | screen | web behavior found by grep | rule | suggested fix
+
+  ## RULE 18 traps
+  ## RULE 19 violations
+
+After writing, emit exactly:
+
+  AUDIT_A_R{ROUND_NUM}_COMPLETE: confirmed=N regressions=N new_gaps=N rule18=N rule19=N
+
+Do not commit fixes. You audit only. Agent C consolidates.

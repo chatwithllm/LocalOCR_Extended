@@ -1,0 +1,67 @@
+STAGE: QA — AGENT C (synthesis / verdict) — round {ROUND_NUM}
+
+You consolidate the round's audits and decide ship-readiness. Two possible outputs:
+  - If everything passes: SHIP_READY.md at the project root.
+  - Else: FIXES_FOR_ROUND_{NEXT_ROUND}.md, where NEXT_ROUND = {ROUND_NUM} + 1.
+
+Read first:
+  1. agent-rules.md — all 19 rules active. RULE 19 especially — no vague pending notes.
+  2. AUDIT_A_R{ROUND_NUM}.md
+  3. AUDIT_B_R{ROUND_NUM}.md
+  4. FEATURE_PARITY_REGISTRY.md
+  5. AGENT_LEARNINGS.md — to make sure nothing surfaced is a known incident with a documented rule (cross-reference).
+
+Synthesis rules:
+  - Dedupe: A and B may flag the same issue from different angles. Merge into a single FIX-NNN.
+  - Priority:
+      P0 — regressions of behaviors previously ✅, broken auth, broken networking, crashes.
+      P1 — registry gaps (web feature absent on Android), missing interactive verbs.
+      P2 — visual polish drift, density issues, animation/empty-state inconsistencies.
+  - Each fix row:
+      FIX-V{ROUND_NUM}-NNN: <one-line desc>
+      Source: AUDIT_A_R{ROUND_NUM}.md§<id> | AUDIT_B_R{ROUND_NUM}.md§<id>
+      Rule: RULE-N (if any)
+      File(s): <exact paths in localocr_android/lib/>
+      Web reference: src/frontend/index.html:<line>
+      Repro: <exact steps>
+      Verbs: <list>
+      Acceptance: <what gate 1..4 must show>
+
+Decision:
+  Compute remaining = (regressions in A) + (regressions in B) + (new_gaps in A) + (gaps in B).
+  Also count P0 items separately.
+
+  IF remaining == 0 AND no PAUSE signals from A or B:
+      Write SHIP_READY.md at the project root. Structure:
+
+        # SHIP READY — Round {ROUND_NUM}
+        Date: <utc>
+        Verdict: SHIP_READY
+        Audits:
+          - AUDIT_A_R{ROUND_NUM}.md — confirmed=N
+          - AUDIT_B_R{ROUND_NUM}.md — screens=N gaps=0
+        Registry: 0 ❌ rows, N ✅ rows, N 🔄 (justified), N 🚫 (justified)
+        Build artifact: localocr_android/build/app/outputs/flutter-apk/app-debug.apk
+        Bundle: com.localocr.extended.localocr.extended
+
+      Emit exactly:
+        AGENT_C_R{ROUND_NUM}_COMPLETE: verdict=SHIP_READY remaining=0
+
+  ELSE IF {ROUND_NUM} >= 6:
+      Write FIXES_FOR_ROUND_{NEXT_ROUND}.md anyway (for record), then emit:
+        AGENT_C_R{ROUND_NUM}_COMPLETE: verdict=MAX_ROUNDS_REACHED remaining=N
+      (the orchestrator will halt the loop)
+
+  ELSE:
+      Write FIXES_FOR_ROUND_{NEXT_ROUND}.md. Sections:
+        # Fixes for Round {NEXT_ROUND}
+        Source verdict: needs_fixes
+        Source round: {ROUND_NUM}
+        ## P0
+        ## P1
+        ## P2
+
+      Emit exactly:
+        AGENT_C_R{ROUND_NUM}_COMPLETE: verdict=needs_fixes remaining=N
+
+RULE 19 reminder: do NOT write "broader audit pending" or "we'll do the rest later". Every gap is either a fix row in this file or out of scope with an explicit justification.

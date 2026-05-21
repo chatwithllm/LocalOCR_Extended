@@ -1,0 +1,76 @@
+STAGE: QA — AGENT B (visual / runtime verification) — round {ROUND_NUM}
+
+You verify the live Android app against the live web app. Output: AUDIT_B_R{ROUND_NUM}.md
+
+Read first:
+  1. agent-rules.md — all 19 rules active. RULE 14, RULE 17 especially.
+  2. FEATURE_PARITY_REGISTRY.md — for the screen queue.
+  3. ANDROID_APP_PLAN.md §4 — per-screen plan.
+
+Pre-flight (RULE 16 — locked screen):
+    python3 -c "
+    from Quartz import CGSessionCopyCurrentDictionary
+    d = CGSessionCopyCurrentDictionary() or {}
+    import sys
+    if d.get('CGSSessionScreenIsLocked', False):
+        print('ABORT: screen locked')
+        sys.exit(1)
+    "
+  If the script aborts — emit `AUDIT_B_R{ROUND_NUM}_PAUSED: screen_locked` and stop.
+
+Pre-flight (web reference window — RULE 17):
+  Confirm the authenticated session is live BEFORE any nav:
+      osascript -e 'tell application "Google Chrome" to tell active tab to execute javascript "JSON.stringify({title: document.title, hasSidebar: !!document.querySelector(\".sidebar\"), active: (document.querySelector(\".nav-item.active\")||{}).textContent})"'
+  If hasSidebar=false or active is null → emit `AUDIT_B_R{ROUND_NUM}_PAUSED: web_session_lost` and stop.
+  NEVER `tell active tab to reload`. NEVER `set URL of active tab`. Use window.nav() / location.hash= only.
+
+Android pre-flight:
+  adb devices                 # must show one online device
+  adb shell pm list packages | grep com.localocr.extended.localocr.extended
+  If not installed → install from build/app/outputs/flutter-apk/app-debug.apk
+
+Per-screen capture loop (every screen in the registry):
+  1. Navigate Android:
+       adb shell am start -n com.localocr.extended.localocr.extended/.MainActivity -e route <screen>
+     (or use deep-link if the app exposes one)
+     sleep 2
+  2. adb exec-out screencap -p > /tmp/and_<screen>.png
+  3. Navigate web via window.nav() (no reload, RULE 17).
+     sleep 2
+  4. screencapture -l $(GetWindowID "Google Chrome" "*extended*") /tmp/web_<screen>.png
+  5. Read both screenshots. For every element visible on web but absent / different on Android:
+       - Missing column, button, status pill, count badge, image, divider
+       - Wrong layout (grid vs list)
+       - Wrong density / typography drift
+     Write one FIX-B-NN row per gap.
+  6. Grep web JS for interactive behaviors on this screen (RULE 12 §Step 3):
+       grep -n "mousedown|mousemove|mouseover|hover|drag|slider" src/frontend/index.html | grep -i <screen>
+     For each interactive behavior — verify the Android equivalent exists. If not — FIX-B-NN row.
+  7. Re-check session liveness after every nav (RULE 17). Abort early if lost.
+
+Output structure (AUDIT_B_R{ROUND_NUM}.md):
+
+  # Audit B — Visual / Runtime — Round {ROUND_NUM}
+  Date: <utc>
+  Reviewer: agent-b
+
+  ## Pre-flight
+  - Lock: <pass|abort>
+  - Web session: <pass|abort>
+  - Device: <serial / model>
+
+  ## Summary
+  - Screens captured: N
+  - Visual gaps found: N
+  - Interactive behaviors missing: N
+  - Regressions (✅ rows whose screen does not match web): N
+
+  ## Per-screen findings
+  For each: screen | row(s) affected | macOS-style screenshots @ paths | gap description | suggested fix | priority
+
+After writing, emit exactly:
+
+  AUDIT_B_R{ROUND_NUM}_COMPLETE: gaps=N regressions=N
+
+Do NOT generate a smoke-test checklist (RULE 12 §Step 4). You perform every check yourself.
+Do not commit fixes. Agent C consolidates.
