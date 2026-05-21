@@ -1,754 +1,707 @@
 #!/usr/bin/env python3
 """
-LocalOCR_Extended — autonomous native-app conversion orchestrator.
+orchestrator.py — fully autonomous native-app conversion driver.
 
-Stages:
-  branch  → ensure {target}-build branch
-  audit   → FEATURE_PARITY_REGISTRY.md
-  plan    → ANDROID_APP_PLAN.md
-  vetoes  → VETO_RESOLUTION_PATCH.md
-  build   → 9 phases (per ANDROID_APP_PLAN.md §6)
-  qa loop → initial A+B+C audit, then fix→A→B→C up to 6 rounds, until SHIP_READY.md
+Drives: branch -> audit -> plan -> vetoes -> build -> qa-loop (max 6 rounds).
+Each stage shells out to `claude` (Claude Code CLI) with a stage-specific prompt.
+Status is mirrored into orchestrator_status.json which feeds orchestrator_dashboard.html.
 """
 
+from __future__ import annotations
+
 import argparse
+import datetime as _dt
 import http.server
 import json
 import os
 import re
+import shutil
+import socket
 import socketserver
 import subprocess
 import sys
 import threading
 import time
-import webbrowser
-from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Optional
+
 
 # ---------------------------------------------------------------------------
-# Paths and globals
+# Port discovery (called at module import time)
 # ---------------------------------------------------------------------------
 
-PROJECT_DIR = os.environ.get('ORCH_PROJECT_DIR') or os.getcwd()
-STATUS_FILE = os.path.join(PROJECT_DIR, 'orchestrator_status.json')
-PROMPTS_DIR = os.path.join(PROJECT_DIR, 'stage_prompts')
-DASHBOARD_HTML = os.path.join(PROJECT_DIR, 'orchestrator_dashboard.html')
+def find_free_port(start: int = 9000, attempts: int = 20) -> int:
+    """Try ports start..start+attempts-1. Return first free; raise if none."""
+    for p in range(start, start + attempts):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(("127.0.0.1", p))
+                return p
+            except OSError:
+                continue
+        finally:
+            s.close()
+    raise RuntimeError(f"No free port found in {start}..{start + attempts - 1}")
 
-DEFAULT_PORT = 9001
-QA_MAX_ROUNDS = 6
+
+DASHBOARD_PORT = find_free_port()
+print(f"Dashboard port: {DASHBOARD_PORT} (auto-selected)", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Globals + constants
+# ---------------------------------------------------------------------------
+
+ROOT: Path = Path.cwd()
+STATUS_PATH: Path = ROOT / "orchestrator_status.json"
+PAUSED_PATH: Path = ROOT / "PAUSED.json"
+PROMPTS_DIR: Path = ROOT / "stage_prompts"
+
 MAX_RETRIES = 3
-CLAUDE_TIMEOUT = 7200  # 2h per invocation cap
+QA_MAX_ROUNDS = 6
 
-START_MONO = time.monotonic()
-STATUS_LOCK = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Time + status helpers
-# ---------------------------------------------------------------------------
-
-def ts() -> str:
-    return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-
-def hms() -> str:
-    return datetime.now().strftime('%H:%M:%S')
-
-
-def _deep_merge(base: dict, updates: dict) -> None:
-    for k, v in updates.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
-        else:
-            base[k] = v
-
-
-def update_status(patch: dict = None, log_line: str = None) -> dict:
-    with STATUS_LOCK:
-        try:
-            with open(STATUS_FILE, 'r') as f:
-                status = json.load(f)
-        except Exception:
-            status = {}
-        if patch:
-            _deep_merge(status, patch)
-        status['elapsed_seconds'] = int(time.monotonic() - START_MONO)
-        status['updated'] = ts()
-        if log_line:
-            tail = status.get('log_tail') or []
-            tail.append(f'[{hms()}] {log_line}')
-            status['log_tail'] = tail[-50:]
-        tmp = STATUS_FILE + '.tmp'
-        with open(tmp, 'w') as f:
-            json.dump(status, f, indent=2)
-        os.replace(tmp, STATUS_FILE)
-        return status
-
-
-def read_status() -> dict:
-    with STATUS_LOCK:
-        try:
-            with open(STATUS_FILE, 'r') as f:
-                return json.load(f)
-        except Exception:
-            return {}
-
-
-def pause(reason: str) -> None:
-    update_status({'paused': True, 'pause_reason': reason}, log_line=f'PAUSED: {reason}')
-
-
-def unpause() -> None:
-    update_status({'paused': False, 'pause_reason': ''})
+_status_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
-# Dashboard HTTP server
+# Status helpers
 # ---------------------------------------------------------------------------
 
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, fmt, *args):
+def _now() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+
+
+def read_status() -> dict[str, Any]:
+    with _status_lock:
+        with open(STATUS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+
+def write_status(d: dict[str, Any]) -> None:
+    with _status_lock:
+        tmp = STATUS_PATH.with_suffix(".json.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=2)
+        os.replace(tmp, STATUS_PATH)
+
+
+def update_status(patch_fn) -> dict[str, Any]:
+    """Read-modify-write atomically. patch_fn receives the dict and mutates it."""
+    with _status_lock:
+        with open(STATUS_PATH, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        patch_fn(d)
+        tmp = STATUS_PATH.with_suffix(".json.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=2)
+        os.replace(tmp, STATUS_PATH)
+        return d
+
+
+def log(msg: str) -> None:
+    """Append a one-line log entry visible on the dashboard + stdout."""
+    ts = _dt.datetime.now().strftime("%H:%M:%S")
+    line = {"ts": ts, "msg": msg}
+    print(f"[{ts}] {msg}", flush=True)
+
+    def _add(d: dict[str, Any]) -> None:
+        d.setdefault("log", []).append(line)
+        if len(d["log"]) > 500:
+            d["log"] = d["log"][-500:]
+
+    update_status(_add)
+
+
+def set_stage(name: str) -> None:
+    update_status(lambda d: d.update({"stage": name}))
+
+
+def set_paused(reason: str) -> None:
+    update_status(lambda d: d.update({"paused": True, "pause_reason": reason}))
+    PAUSED_PATH.write_text(json.dumps({"reason": reason, "ts": _now()}, indent=2))
+    log(f"PAUSED: {reason}")
+
+
+# ---------------------------------------------------------------------------
+# Dashboard HTTP server (background thread)
+# ---------------------------------------------------------------------------
+
+class _Handler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, fmt: str, *args: Any) -> None:  # silence stdout spam
         return
+
+
+class _ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
 
 
 def start_dashboard(port: int) -> None:
-    os.chdir(PROJECT_DIR)
-    try:
-        httpd = socketserver.TCPServer(('', port), QuietHandler)
-    except OSError as e:
-        print(f'[orchestrator] dashboard port {port} unavailable: {e}')
-        return
-    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    os.chdir(ROOT)
+    httpd = _ReusableTCPServer(("127.0.0.1", port), _Handler)
+    t = threading.Thread(target=httpd.serve_forever, daemon=True, name="dashboard")
     t.start()
-    url = f'http://localhost:{port}/orchestrator_dashboard.html'
-    print(f'[orchestrator] dashboard: {url}')
+    log(f"Dashboard serving at http://localhost:{port}/orchestrator_dashboard.html")
+
+
+# ---------------------------------------------------------------------------
+# Claude CLI driver
+# ---------------------------------------------------------------------------
+
+def _claude_bin() -> str:
+    found = shutil.which("claude")
+    if not found:
+        raise RuntimeError("`claude` CLI not on PATH — install Claude Code CLI first")
+    return found
+
+
+def run_claude(prompt: str, *, tag: str, timeout_s: int = 60 * 90) -> int:
+    """Invoke claude with a prompt via stdin in headless print mode.
+
+    Returns exit code. Streams a heartbeat to the log so the dashboard sees life
+    even on long stages.
+    """
+    cmd = [
+        _claude_bin(),
+        "--print",
+        "--permission-mode", "bypassPermissions",
+        "--dangerously-skip-permissions",
+    ]
+    log(f"[{tag}] launching claude (timeout={timeout_s}s)")
+    t0 = time.time()
     try:
-        webbrowser.open(url)
-    except Exception:
-        pass
+        proc = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, cwd=ROOT, text=True,
+            bufsize=1,
+        )
+    except FileNotFoundError as e:
+        log(f"[{tag}] claude launch failed: {e}")
+        return 127
 
-
-# ---------------------------------------------------------------------------
-# Claude CLI invocation
-# ---------------------------------------------------------------------------
-
-def claude_available() -> bool:
-    return subprocess.run(['which', 'claude'], capture_output=True).returncode == 0
-
-
-def run_claude(prompt_text: str, label: str, timeout: int = CLAUDE_TIMEOUT) -> tuple:
-    print(f'[{hms()}] starting {label}')
-    update_status({}, log_line=f'{label}: starting')
-    proc = subprocess.Popen(
-        ['claude', '--dangerously-skip-permissions', '--print'],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        cwd=PROJECT_DIR,
-    )
-    lines = []
-
-    def reader():
-        for raw in proc.stdout:
-            line = raw.rstrip()
-            lines.append(line)
-            if line:
-                print(f'  [{label}] {line}')
-                update_status({}, log_line=f'{label}: {line[:160]}')
-
-    t = threading.Thread(target=reader, daemon=True)
-    t.start()
-    try:
-        proc.stdin.write(prompt_text)
-        proc.stdin.close()
-    except Exception as e:
-        update_status({}, log_line=f'{label}: stdin error {e}')
-    t.join(timeout=timeout)
-    try:
-        proc.wait(timeout=120)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        update_status({}, log_line=f'{label}: TIMEOUT — killed after {timeout}s')
-        return False, '\n'.join(lines)
-    return proc.returncode == 0, '\n'.join(lines)
-
-
-def load_prompt(name: str, **subs) -> str:
-    path = os.path.join(PROMPTS_DIR, name)
-    with open(path, 'r') as f:
-        text = f.read()
-    for k, v in subs.items():
-        text = text.replace('{' + k + '}', str(v))
-    return text
-
-
-# ---------------------------------------------------------------------------
-# Output parsing
-# ---------------------------------------------------------------------------
-
-COMPLETE_LINE = re.compile(r'^\s*([A-Z_0-9]+_COMPLETE|[A-Z_0-9]+_PAUSED|[A-Z_0-9]+_SKIPPED)\s*:\s*(.*)$')
-
-
-def parse_complete(output: str, keyword: str) -> dict:
-    """Find 'KEYWORD_COMPLETE: a=1 b=2' style sentinels in agent output."""
-    result = {}
-    for line in output.splitlines():
-        m = COMPLETE_LINE.match(line.strip())
-        if not m:
-            continue
-        if keyword in m.group(1):
-            payload = m.group(2).strip()
-            for token in payload.split():
-                if '=' in token:
-                    k, v = token.split('=', 1)
-                    result[k] = v
-            result['_sentinel'] = m.group(1)
-            return result
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Stage 0 — Branch
-# ---------------------------------------------------------------------------
-
-def run_branch(target: str) -> str:
-    """Ensure the build branch exists. Returns branch name or '' if git not initialized."""
-    branch = f'{target}-build'
-    update_status({'stage': 'branch', 'started': ts()}, log_line=f'branch: ensuring {branch}')
-
-    # Check git initialized
-    r = subprocess.run(['git', 'rev-parse', '--is-inside-work-tree'],
-                       cwd=PROJECT_DIR, capture_output=True, text=True)
-    if r.returncode != 0:
-        update_status({}, log_line='branch: git not initialized — continuing without branch switch')
-        return ''
-
-    # Current branch
-    r = subprocess.run(['git', 'symbolic-ref', '--short', 'HEAD'],
-                       cwd=PROJECT_DIR, capture_output=True, text=True)
-    current = r.stdout.strip() if r.returncode == 0 else ''
-    if current == branch:
-        update_status({'branch': branch}, log_line=f'branch: already on {branch}')
-        return branch
-
-    # Branch exists?
-    r = subprocess.run(['git', 'rev-parse', '--verify', branch],
-                       cwd=PROJECT_DIR, capture_output=True, text=True)
-    if r.returncode == 0:
-        subprocess.run(['git', 'checkout', branch], cwd=PROJECT_DIR, check=False)
-        update_status({'branch': branch}, log_line=f'branch: checked out existing {branch}')
-    else:
-        subprocess.run(['git', 'checkout', '-b', branch], cwd=PROJECT_DIR, check=False)
-        update_status({'branch': branch}, log_line=f'branch: created and checked out {branch}')
-    return branch
-
-
-# ---------------------------------------------------------------------------
-# Stage 1 — Audit
-# ---------------------------------------------------------------------------
-
-def run_audit() -> bool:
-    output_path = os.path.join(PROJECT_DIR, 'FEATURE_PARITY_REGISTRY.md')
-    if os.path.exists(output_path):
-        update_status({'stage': 'audit',
-                       'stages': {'audit': {'status': 'done', 'note': 'pre-existing file — skipped'}}},
-                      log_line='audit: FEATURE_PARITY_REGISTRY.md exists — skipped')
-        return True
-    update_status({'stage': 'audit',
-                   'stages': {'audit': {'status': 'running', 'started': ts()}}},
-                  log_line='audit: starting')
-    prompt = load_prompt('audit.txt')
-    ok, out = run_claude(prompt, 'audit')
-    info = parse_complete(out, 'AUDIT')
-    if not ok or not os.path.exists(output_path):
-        update_status({'stages': {'audit': {'status': 'error', 'note': 'no FEATURE_PARITY_REGISTRY.md produced'}}},
-                      log_line='audit: FAILED')
-        pause('audit stage produced no FEATURE_PARITY_REGISTRY.md')
-        return False
-    update_status({'stages': {'audit': {
-        'status': 'done',
-        'completed': ts(),
-        'rows': int(info.get('rows', 0) or 0),
-        'screens': int(info.get('screens', 0) or 0),
-        'note': f"pending={info.get('pending', '?')}",
-    }}}, log_line=f"audit: done — screens={info.get('screens')} rows={info.get('rows')}")
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Stage 2 — Plan
-# ---------------------------------------------------------------------------
-
-def run_plan() -> bool:
-    output_path = os.path.join(PROJECT_DIR, 'ANDROID_APP_PLAN.md')
-    if os.path.exists(output_path):
-        update_status({'stage': 'plan',
-                       'stages': {'plan': {'status': 'done', 'note': 'pre-existing file — skipped'}}},
-                      log_line='plan: ANDROID_APP_PLAN.md exists — skipped')
-        return True
-    update_status({'stage': 'plan',
-                   'stages': {'plan': {'status': 'running', 'started': ts()}}},
-                  log_line='plan: starting')
-    prompt = load_prompt('plan.txt')
-    ok, out = run_claude(prompt, 'plan')
-    info = parse_complete(out, 'PLAN')
-    if not ok or not os.path.exists(output_path):
-        update_status({'stages': {'plan': {'status': 'error', 'note': 'no ANDROID_APP_PLAN.md produced'}}},
-                      log_line='plan: FAILED')
-        pause('plan stage produced no ANDROID_APP_PLAN.md')
-        return False
-    update_status({'stages': {'plan': {
-        'status': 'done',
-        'completed': ts(),
-        'vetoes': int(info.get('vetoes', 0) or 0),
-        'confidence': info.get('confidence', ''),
-        'note': '',
-    }}}, log_line=f"plan: done — vetoes={info.get('vetoes')} conf={info.get('confidence')}")
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Stage 3 — Vetoes
-# ---------------------------------------------------------------------------
-
-def run_vetoes() -> bool:
-    output_path = os.path.join(PROJECT_DIR, 'VETO_RESOLUTION_PATCH.md')
-    plan_vetoes = int((read_status().get('stages', {}).get('plan', {}).get('vetoes') or 0))
-
-    if plan_vetoes == 0:
-        update_status({'stage': 'vetoes',
-                       'stages': {'vetoes': {'status': 'done',
-                                             'completed': ts(),
-                                             'resolved': 0,
-                                             'total': 0,
-                                             'note': 'no vetoes raised by plan'}}},
-                      log_line='vetoes: none — skipped')
-        return True
-
-    if os.path.exists(output_path):
-        update_status({'stage': 'vetoes',
-                       'stages': {'vetoes': {'status': 'done', 'note': 'pre-existing file — skipped'}}},
-                      log_line='vetoes: VETO_RESOLUTION_PATCH.md exists — skipped')
-        return True
-
-    update_status({'stage': 'vetoes',
-                   'stages': {'vetoes': {'status': 'running', 'started': ts(), 'total': plan_vetoes}}},
-                  log_line=f'vetoes: starting ({plan_vetoes} to resolve)')
-    prompt = load_prompt('vetoes.txt')
-    ok, out = run_claude(prompt, 'vetoes')
-    info = parse_complete(out, 'VETOES')
-
-    if info.get('_sentinel') == 'VETOES_PAUSED':
-        update_status({'stages': {'vetoes': {'status': 'error',
-                                             'note': info.get('reason', 'pause requested')}}},
-                      log_line=f"vetoes: PAUSED — {info.get('reason', '')}")
-        pause(f"vetoes: {info.get('reason', 'needs user input')}")
-        return False
-
-    if not ok or not os.path.exists(output_path):
-        update_status({'stages': {'vetoes': {'status': 'error', 'note': 'no patch produced'}}},
-                      log_line='vetoes: FAILED')
-        pause('vetoes stage produced no VETO_RESOLUTION_PATCH.md')
-        return False
-
-    update_status({'stages': {'vetoes': {
-        'status': 'done',
-        'completed': ts(),
-        'resolved': int(info.get('resolved', 0) or 0),
-        'total': int(info.get('total', plan_vetoes) or plan_vetoes),
-    }}}, log_line=f"vetoes: done — {info.get('resolved')}/{info.get('total')}")
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Stage 4 — Build
-# ---------------------------------------------------------------------------
-
-PHASE_SENTINEL = re.compile(r'^\s*BUILD_PHASE_DONE\s*:\s*phase\s*=\s*(\d+)\s+name\s*=\s*(.+)$')
-SCREEN_SENTINEL = re.compile(r'^\s*BUILD_SCREEN_DONE\s*:\s*phase\s*=\s*(\d+)\s+screen\s*=\s*(\S+)\s+rows_done\s*=\s*(\d+)\s*$')
-
-
-def run_build() -> bool:
-    if os.path.exists(os.path.join(PROJECT_DIR, 'SHIP_READY.md')):
-        update_status({'stage': 'build',
-                       'stages': {'build': {'status': 'done', 'phases_done': 9}}},
-                      log_line='build: SHIP_READY.md present — skipped')
-        return True
-
-    update_status({'stage': 'build',
-                   'stages': {'build': {'status': 'running', 'started': ts()}}},
-                  log_line='build: starting')
-
-    prompt = load_prompt('build.txt')
-
-    # Stream output and update status as phases/screens complete.
-    print(f'[{hms()}] starting build')
-    proc = subprocess.Popen(
-        ['claude', '--dangerously-skip-permissions', '--print'],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        cwd=PROJECT_DIR,
-    )
-
-    screens_done = list(read_status().get('stages', {}).get('build', {}).get('screens_done') or [])
-    phases_done = 0
-    paused_reason = None
-
-    def reader():
-        nonlocal phases_done, paused_reason
-        for raw in proc.stdout:
-            line = raw.rstrip()
-            if not line:
-                continue
-            print(f'  [build] {line}')
-            update_status({}, log_line=f'build: {line[:160]}')
-
-            m = SCREEN_SENTINEL.match(line)
-            if m:
-                phase, screen, _ = m.group(1), m.group(2), m.group(3)
-                if screen not in screens_done:
-                    screens_done.append(screen)
-                update_status({'stages': {'build': {
-                    'current_phase': int(phase),
-                    'current_screen': screen,
-                    'screens_done': screens_done,
-                }}}, log_line=f'build: screen done — phase {phase} / {screen}')
-                continue
-
-            m = PHASE_SENTINEL.match(line)
-            if m:
-                phases_done = int(m.group(1))
-                update_status({'stages': {'build': {
-                    'phases_done': phases_done,
-                    'current_phase': phases_done,
-                    'current_phase_name': m.group(2).strip(),
-                }}}, log_line=f'build: phase {phases_done} done — {m.group(2).strip()}')
-                continue
-
-            if line.strip().startswith('BUILD_PAUSED'):
-                paused_reason = line.strip().split(':', 1)[-1].strip()
-                continue
-
-            if line.strip().startswith('BUILD_COMPLETE'):
-                update_status({'stages': {'build': {
-                    'status': 'done',
-                    'phases_done': 9,
-                    'completed': ts(),
-                }}}, log_line='build: BUILD_COMPLETE')
-
-    t = threading.Thread(target=reader, daemon=True)
-    t.start()
+    assert proc.stdin and proc.stdout
     try:
         proc.stdin.write(prompt)
         proc.stdin.close()
-    except Exception:
+    except BrokenPipeError:
         pass
-    t.join(timeout=CLAUDE_TIMEOUT)
+
+    # Reader thread drains stdout independently so the main loop can emit a
+    # heartbeat regardless of subprocess output cadence (claude --print can stay
+    # silent for many minutes while the model thinks/tool-uses).
+    last_emit_holder = {"v": ""}
+
+    def _reader() -> None:
+        try:
+            for raw in proc.stdout:  # type: ignore[arg-type]
+                line = raw.rstrip("\n")
+                if line and line != last_emit_holder["v"]:
+                    log(f"[{tag}] {line[:240]}")
+                    last_emit_holder["v"] = line
+        except Exception as e:
+            log(f"[{tag}] reader error: {e!r}")
+
+    rt = threading.Thread(target=_reader, name=f"reader-{tag}", daemon=True)
+    rt.start()
+
+    last_hb = t0
+    while True:
+        rc = proc.poll()
+        if rc is not None:
+            break
+        now = time.time()
+        if now - last_hb >= 30:
+            log(f"[{tag}] ...still working ({int(now - t0)}s)")
+            last_hb = now
+        if now - t0 > timeout_s:
+            log(f"[{tag}] timeout after {timeout_s}s — killing")
+            proc.kill()
+            rt.join(timeout=2)
+            return 124
+        time.sleep(2)
+
+    rt.join(timeout=5)
+    rc = proc.returncode or 0
+    log(f"[{tag}] claude exited rc={rc} in {int(time.time()-t0)}s")
+    return rc
+
+
+def load_prompt(name: str, **subs: str) -> str:
+    src = (PROMPTS_DIR / f"{name}.txt").read_text(encoding="utf-8")
+    for k, v in subs.items():
+        src = src.replace("{" + k + "}", v)
+    return src
+
+
+# ---------------------------------------------------------------------------
+# Stage 0 — branch
+# ---------------------------------------------------------------------------
+
+def run_branch(target: str) -> None:
+    set_stage("branch")
+    branch_target = f"{target}-build"
     try:
-        proc.wait(timeout=300)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        update_status({'stages': {'build': {'status': 'error'}}}, log_line='build: TIMEOUT — killed')
-        pause('build stage timed out')
-        return False
+        rc = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                            cwd=ROOT, capture_output=True, text=True)
+        if rc.returncode != 0:
+            log("git not initialized — continuing without branch management")
+            update_status(lambda d: d.update({"branch": "(no git)"}))
+            return
 
-    if paused_reason:
-        update_status({'stages': {'build': {'status': 'error'}}}, log_line=f'build: PAUSED — {paused_reason}')
-        pause(f'build: {paused_reason}')
-        return False
+        cur = subprocess.check_output(
+            ["git", "branch", "--show-current"], cwd=ROOT, text=True
+        ).strip()
 
-    final = read_status().get('stages', {}).get('build', {})
-    if final.get('status') != 'done':
-        update_status({'stages': {'build': {'status': 'error'}}}, log_line='build: agent exited without BUILD_COMPLETE')
-        pause('build exited without BUILD_COMPLETE sentinel')
-        return False
-    return True
+        # accept exact name or a suffix match (e.g. feat/android-build matches android-build)
+        if cur == branch_target or cur.endswith("/" + branch_target):
+            log(f"already on branch '{cur}' (matches '{branch_target}') — keeping")
+            update_status(lambda d: d.update({"branch": cur}))
+            return
+
+        # check if target branch already exists
+        list_rc = subprocess.run(
+            ["git", "rev-parse", "--verify", branch_target],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        if list_rc.returncode == 0:
+            log(f"branch '{branch_target}' exists — checking out")
+            subprocess.check_call(["git", "checkout", branch_target], cwd=ROOT)
+        else:
+            log(f"creating branch '{branch_target}'")
+            subprocess.check_call(["git", "checkout", "-b", branch_target], cwd=ROOT)
+
+        update_status(lambda d: d.update({"branch": branch_target}))
+    except Exception as e:
+        log(f"branch stage warning: {e} (continuing)")
+        update_status(lambda d: d.update({"branch": "(skipped)"}))
+
+
+# ---------------------------------------------------------------------------
+# Stage helpers — resume-safe output checks
+# ---------------------------------------------------------------------------
+
+def _existing(out_file: str) -> bool:
+    return (ROOT / out_file).exists()
+
+
+def _mark(stage_key: str, status: str, **extra: Any) -> None:
+    def _set(d: dict[str, Any]) -> None:
+        s = d["stages"][stage_key]
+        s["status"] = status
+        for k, v in extra.items():
+            s[k] = v
+
+    update_status(_set)
+
+
+def _check_paused() -> None:
+    if PAUSED_PATH.exists():
+        body = PAUSED_PATH.read_text(encoding="utf-8", errors="replace")[:240]
+        set_paused(body)
+        log("PAUSED.json detected — halting orchestrator")
+        sys.exit(2)
+
+
+# ---------------------------------------------------------------------------
+# Stage 1 — audit
+# ---------------------------------------------------------------------------
+
+def run_audit(project: str, target: str, prod_url: str) -> None:
+    set_stage("audit")
+    if _existing("FEATURE_PARITY_REGISTRY.md"):
+        log("audit: FEATURE_PARITY_REGISTRY.md exists — skipping (resume-safe)")
+        _mark("audit", "done")
+        return
+    _mark("audit", "running")
+    prompt = load_prompt("audit", PROJECT=project, PROD_URL=prod_url)
+    for attempt in range(1, MAX_RETRIES + 1):
+        rc = run_claude(prompt, tag=f"audit#{attempt}")
+        if rc == 0 and _existing("FEATURE_PARITY_REGISTRY.md"):
+            break
+        log(f"audit attempt {attempt} failed (rc={rc}); retrying")
+    if not _existing("FEATURE_PARITY_REGISTRY.md"):
+        _mark("audit", "error")
+        set_paused("audit: FEATURE_PARITY_REGISTRY.md not produced after retries")
+        sys.exit(2)
+
+    # Pull row + screen counts from the registry
+    try:
+        text = (ROOT / "FEATURE_PARITY_REGISTRY.md").read_text(encoding="utf-8")
+        m = re.search(r"^# audit-complete:\s*rows=(\d+)\s+screens=(\d+)", text, re.M)
+        rows = int(m.group(1)) if m else len(re.findall(r"^\| F-\d+", text, re.M))
+        screens = int(m.group(2)) if m else len(re.findall(r"^## Screen:", text, re.M))
+    except Exception:
+        rows = screens = 0
+    _mark("audit", "done", rows=rows, screens=screens)
+    log(f"audit: done — rows={rows} screens={screens}")
+    _check_paused()
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 — plan
+# ---------------------------------------------------------------------------
+
+def run_plan(project: str, target: str, prod_url: str, bundle_id: str) -> None:
+    set_stage("plan")
+    plan_file = "ANDROID_APP_PLAN.md" if target == "android" else f"{target.upper()}_APP_PLAN.md"
+    if _existing(plan_file):
+        log(f"plan: {plan_file} exists — skipping (resume-safe)")
+        _mark("plan", "done")
+        return
+    _mark("plan", "running")
+    prompt = load_prompt("plan", PROJECT=project, PROD_URL=prod_url, BUNDLE_ID=bundle_id)
+    for attempt in range(1, MAX_RETRIES + 1):
+        rc = run_claude(prompt, tag=f"plan#{attempt}")
+        if rc == 0 and _existing(plan_file):
+            break
+        log(f"plan attempt {attempt} failed (rc={rc}); retrying")
+    if not _existing(plan_file):
+        _mark("plan", "error")
+        set_paused(f"plan: {plan_file} not produced after retries")
+        sys.exit(2)
+
+    try:
+        t = (ROOT / plan_file).read_text(encoding="utf-8")
+        m = re.search(r"^# plan-complete:\s*agents=(\d+)\s+vetoes=(\d+)\s+confidence=(\d+)", t, re.M)
+        agents, vetoes, conf = (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (7, 0, 0)
+    except Exception:
+        agents, vetoes, conf = 7, 0, 0
+    _mark("plan", "done", agents=agents, vetoes=vetoes, confidence=conf)
+    log(f"plan: done — agents={agents} vetoes={vetoes} confidence={conf}")
+    _check_paused()
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 — vetoes
+# ---------------------------------------------------------------------------
+
+def run_vetoes(project: str) -> None:
+    set_stage("vetoes")
+    if _existing("VETO_RESOLUTION_PATCH.md"):
+        log("vetoes: VETO_RESOLUTION_PATCH.md exists — skipping")
+        _mark("vetoes", "done")
+        return
+
+    plan_status = read_status()["stages"]["plan"]
+    vetoes_n = int(plan_status.get("vetoes") or 0)
+    if vetoes_n == 0:
+        (ROOT / "VETO_RESOLUTION_PATCH.md").write_text(
+            "# VETO_RESOLUTION_PATCH\n\n## Summary\n- total: 0\n- resolved: 0\n- unresolved: 0\n\n"
+            "# vetoes-complete: total=0 resolved=0 blocked=0\n",
+            encoding="utf-8",
+        )
+        _mark("vetoes", "done", resolved=0, total=0)
+        log("vetoes: none raised — wrote stub")
+        return
+
+    _mark("vetoes", "running", total=vetoes_n, resolved=0)
+    prompt = load_prompt("vetoes", PROJECT=project)
+    for attempt in range(1, MAX_RETRIES + 1):
+        rc = run_claude(prompt, tag=f"vetoes#{attempt}")
+        if rc == 0 and _existing("VETO_RESOLUTION_PATCH.md"):
+            break
+        log(f"vetoes attempt {attempt} failed (rc={rc}); retrying")
+    if not _existing("VETO_RESOLUTION_PATCH.md"):
+        _mark("vetoes", "error")
+        set_paused("vetoes: VETO_RESOLUTION_PATCH.md not produced after retries")
+        sys.exit(2)
+
+    text = (ROOT / "VETO_RESOLUTION_PATCH.md").read_text(encoding="utf-8")
+    resolved = len(re.findall(r"Status:\s*RESOLVED", text))
+    blocked = len(re.findall(r"Status:\s*BLOCKED", text))
+    if blocked > 0:
+        _mark("vetoes", "error", resolved=resolved, total=vetoes_n, blocked=blocked)
+        set_paused(f"vetoes: {blocked} BLOCKED veto(s); requires user input")
+        sys.exit(2)
+    _mark("vetoes", "done", resolved=resolved, total=vetoes_n)
+    log(f"vetoes: done — resolved={resolved}/{vetoes_n}")
+    _check_paused()
+
+
+# ---------------------------------------------------------------------------
+# Stage 4 — build
+# ---------------------------------------------------------------------------
+
+def _ingest_build_status() -> None:
+    """Mirror build_status.json into orchestrator_status.json (if present)."""
+    bsp = ROOT / "build_status.json"
+    if not bsp.exists():
+        return
+    try:
+        bs = json.loads(bsp.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    def _set(d: dict[str, Any]) -> None:
+        b = d["stages"]["build"]
+        for k in ("phases_done", "phases_total", "current_screen", "screens_done", "gates"):
+            if k in bs:
+                b[k] = bs[k]
+
+    update_status(_set)
+
+
+def _watch_build_status(stop_evt: threading.Event) -> None:
+    while not stop_evt.is_set():
+        _ingest_build_status()
+        stop_evt.wait(2.0)
+
+
+def run_build(project: str, target: str, prod_url: str, bundle_id: str) -> None:
+    set_stage("build")
+    if (ROOT / "BUILD_COMPLETE").exists():
+        log("build: BUILD_COMPLETE marker exists — skipping")
+        _mark("build", "done")
+        return
+
+    _mark("build", "running")
+    prompt = load_prompt("build", PROJECT=project, PROD_URL=prod_url, BUNDLE_ID=bundle_id)
+
+    stop = threading.Event()
+    watcher = threading.Thread(target=_watch_build_status, args=(stop,), daemon=True)
+    watcher.start()
+
+    rc_final = 1
+    try:
+        for attempt in range(1, MAX_RETRIES + 1):
+            rc = run_claude(prompt, tag=f"build#{attempt}", timeout_s=60 * 180)
+            _ingest_build_status()
+            if rc == 0 and (ROOT / "BUILD_COMPLETE").exists():
+                rc_final = 0
+                break
+            log(f"build attempt {attempt} did not finish (rc={rc}); retrying")
+            _check_paused()
+    finally:
+        stop.set()
+        watcher.join(timeout=3)
+
+    _ingest_build_status()
+    if rc_final != 0 or not (ROOT / "BUILD_COMPLETE").exists():
+        _mark("build", "error")
+        set_paused("build: BUILD_COMPLETE marker not produced after retries")
+        sys.exit(2)
+    _mark("build", "done")
+    log("build: done — BUILD_COMPLETE present")
+    _check_paused()
 
 
 # ---------------------------------------------------------------------------
 # Stage 5 — QA loop
 # ---------------------------------------------------------------------------
 
-def _qa_round_patch(round_num: int, patch: dict) -> None:
-    """Merge `patch` into the rounds_detail entry whose round == round_num."""
-    with STATUS_LOCK:
-        try:
-            with open(STATUS_FILE, 'r') as f:
-                status = json.load(f)
-        except Exception:
-            return
-        qa = status.setdefault('stages', {}).setdefault('qa', {})
-        rd = qa.setdefault('rounds_detail', [])
-        target = None
+def _qa_round_patch(round_num: int, patch: dict[str, Any]) -> None:
+    """Merge a patch into the rounds_detail entry for round_num (create if missing)."""
+    def _apply(d: dict[str, Any]) -> None:
+        rd = d["stages"]["qa"].setdefault("rounds_detail", [])
         for entry in rd:
-            if entry.get('round') == round_num:
-                target = entry
-                break
-        if target is None:
-            target = {'round': round_num}
-            rd.append(target)
-        for k, v in patch.items():
-            target[k] = v
-        status['elapsed_seconds'] = int(time.monotonic() - START_MONO)
-        status['updated'] = ts()
-        tmp = STATUS_FILE + '.tmp'
-        with open(tmp, 'w') as f:
-            json.dump(status, f, indent=2)
-        os.replace(tmp, STATUS_FILE)
+            if entry.get("round") == round_num:
+                entry.update(patch)
+                return
+        rd.append({"round": round_num, **patch})
+
+    update_status(_apply)
 
 
-def _run_audit_agent(label: str, prompt_name: str, round_num: int, sentinel_key: str) -> dict:
-    prompt = load_prompt(prompt_name, ROUND_NUM=round_num, NEXT_ROUND=round_num + 1)
-    ok, out = run_claude(prompt, label)
-    info = parse_complete(out, sentinel_key)
-    info['_ok'] = ok
-    return info
+def _qa_set(field: str, value: Any) -> None:
+    update_status(lambda d: d["stages"]["qa"].update({field: value}))
 
 
-def run_initial_audit_for_qa() -> bool:
-    """Round-0 initial audit (no fix). A+B in parallel, then C."""
-    round_num = 0
+def run_initial_audit_for_qa(project: str, prod_url: str) -> None:
+    """Cold-start audit (A+B parallel, then C) when entering the QA loop."""
+    log("qa: initial audits (A+B parallel, then C)")
+    _qa_set("current_agent", "A+B (init)")
+    a_prompt = load_prompt("qa_a", PROJECT=project, ROUND="1", ROUND_MINUS_1="0")
+    b_prompt = load_prompt("qa_b", PROJECT=project, PROD_URL=prod_url, ROUND="1", ROUND_MINUS_1="0")
 
-    update_status({'stage': 'qa',
-                   'stages': {'qa': {'status': 'running',
-                                     'started': ts(),
-                                     'current_agent': 'A+B (init)',
-                                     'total_rounds': 0,
-                                     'rounds_detail': [],
-                                     'verdict': ''}}},
-                  log_line='qa: initial A+B audit')
-    _qa_round_patch(round_num, {
-        'round': round_num,
-        'started': ts(),
-        'fix': 'skipped',
-        'a': 'running',
-        'b': 'running',
-        'c': 'pending',
-        'verdict': '',
-    })
+    results: dict[str, int] = {}
+    t_a = threading.Thread(target=lambda: results.setdefault("a", run_claude(a_prompt, tag="qa-a#init")))
+    t_b = threading.Thread(target=lambda: results.setdefault("b", run_claude(b_prompt, tag="qa-b#init")))
+    t_a.start(); t_b.start()
+    t_a.join();  t_b.join()
 
-    results = {}
-
-    def run_a():
-        info = _run_audit_agent(f'audit-a-r{round_num}', 'qa_a.txt', round_num, 'AUDIT_A')
-        results['a'] = info
-        _qa_round_patch(round_num, {'a': 'done' if info.get('_ok') else 'error'})
-
-    def run_b():
-        info = _run_audit_agent(f'audit-b-r{round_num}', 'qa_b.txt', round_num, 'AUDIT_B')
-        results['b'] = info
-        _qa_round_patch(round_num, {'b': 'done' if info.get('_ok') else 'error'})
-
-    ta = threading.Thread(target=run_a)
-    tb = threading.Thread(target=run_b)
-    ta.start(); tb.start()
-    ta.join(); tb.join()
-
-    update_status({'stages': {'qa': {'current_agent': 'C (init)'}}},
-                  log_line='qa: initial synthesis (C)')
-    _qa_round_patch(round_num, {'c': 'running'})
-
-    info_c = _run_audit_agent(f'audit-c-r{round_num}', 'qa_c.txt', round_num, 'AGENT_C')
-    verdict = info_c.get('verdict', 'UNKNOWN')
-    if os.path.exists(os.path.join(PROJECT_DIR, 'SHIP_READY.md')):
-        verdict = 'SHIP_READY'
-    _qa_round_patch(round_num, {'c': 'done' if info_c.get('_ok') else 'error', 'verdict': verdict})
-    update_status({'stages': {'qa': {'current_agent': ''}}},
-                  log_line=f'qa: initial verdict = {verdict}')
-    return verdict == 'SHIP_READY'
+    _qa_set("current_agent", "C (init)")
+    c_prompt = load_prompt("qa_c", PROJECT=project, ROUND="1", ROUND_MINUS_1="0")
+    run_claude(c_prompt, tag="qa-c#init")
+    _qa_set("current_agent", "")
 
 
-def run_qa_loop() -> str:
-    """Initial audit then up to QA_MAX_ROUNDS fix→A→B→C cycles. Returns final verdict."""
-    if os.path.exists(os.path.join(PROJECT_DIR, 'SHIP_READY.md')):
-        update_status({'stage': 'qa',
-                       'stages': {'qa': {'status': 'done',
-                                         'verdict': 'SHIP_READY',
-                                         'completed': ts()}}},
-                      log_line='qa: SHIP_READY.md exists — skipped')
-        return 'SHIP_READY'
-
-    ship_ready = run_initial_audit_for_qa()
-    if ship_ready:
-        update_status({'stages': {'qa': {'status': 'done',
-                                         'verdict': 'SHIP_READY',
-                                         'completed': ts()}}},
-                      log_line='qa: SHIP_READY at init')
-        return 'SHIP_READY'
+def run_qa_loop(project: str, prod_url: str) -> str:
+    set_stage("qa")
+    _mark("qa", "running", round=0, total_rounds=0, current_agent="",
+          rounds_detail=[], verdict="")
 
     for round_num in range(1, QA_MAX_ROUNDS + 1):
-        update_status({'stages': {'qa': {
-            'round': round_num,
-            'total_rounds': round_num,
-            'current_agent': f'Fix (round {round_num})',
-        }}}, log_line=f'qa: round {round_num} — fix agent')
+        _check_paused()
+        _qa_set("total_rounds", round_num)
+        _qa_set("round", round_num)
+        log(f"=== QA Round {round_num}/{QA_MAX_ROUNDS} ===")
 
         _qa_round_patch(round_num, {
-            'round': round_num,
-            'started': ts(),
-            'fix': 'running',
-            'a': 'pending',
-            'b': 'pending',
-            'c': 'pending',
-            'verdict': '',
+            "started": _dt.datetime.now().strftime("%H:%M:%S"),
+            "fix": "running" if round_num > 1 else "pending",
+            "a": "pending", "b": "pending", "c": "pending",
+            "verdict": "",
         })
 
-        # FIX
-        prompt = load_prompt('qa_fix.txt', ROUND_NUM=round_num)
-        ok_fix, out_fix = run_claude(prompt, f'fix-r{round_num}')
-        _qa_round_patch(round_num, {
-            'fix': 'done' if ok_fix else 'error',
-            'a': 'running',
-            'b': 'running',
-        })
+        # 1. Fix stage (round 1 has no prior fixes file -> skip fix subprocess)
+        if round_num > 1:
+            _qa_set("current_agent", f"Fix (round {round_num})")
+            fix_prompt = load_prompt("qa_fix", PROJECT=project, ROUND=str(round_num))
+            run_claude(fix_prompt, tag=f"qa-fix#{round_num}")
+            _qa_round_patch(round_num, {"fix": "done"})
+        else:
+            _qa_round_patch(round_num, {"fix": "done"})
 
-        # A + B parallel
-        update_status({'stages': {'qa': {'current_agent': f'A+B (round {round_num})'}}},
-                      log_line=f'qa: round {round_num} — A+B parallel')
-        a_info = {}
-        b_info = {}
+        # 2. Audit A + Audit B in parallel
+        _qa_round_patch(round_num, {"a": "running", "b": "running"})
+        _qa_set("current_agent", f"A+B (round {round_num})")
 
-        def run_a():
-            nonlocal a_info
-            a_info = _run_audit_agent(f'audit-a-r{round_num}', 'qa_a.txt', round_num, 'AUDIT_A')
-            _qa_round_patch(round_num, {'a': 'done' if a_info.get('_ok') else 'error'})
+        a_prompt = load_prompt(
+            "qa_a", PROJECT=project, ROUND=str(round_num),
+            ROUND_MINUS_1=str(round_num - 1),
+        )
+        b_prompt = load_prompt(
+            "qa_b", PROJECT=project, PROD_URL=prod_url, ROUND=str(round_num),
+            ROUND_MINUS_1=str(round_num - 1),
+        )
 
-        def run_b():
-            nonlocal b_info
-            b_info = _run_audit_agent(f'audit-b-r{round_num}', 'qa_b.txt', round_num, 'AUDIT_B')
-            _qa_round_patch(round_num, {'b': 'done' if b_info.get('_ok') else 'error'})
+        results: dict[str, int] = {}
 
-        ta = threading.Thread(target=run_a)
-        tb = threading.Thread(target=run_b)
-        ta.start(); tb.start()
-        ta.join(); tb.join()
+        def _run_a() -> None:
+            results["a"] = run_claude(a_prompt, tag=f"qa-a#{round_num}")
+            _qa_round_patch(round_num, {"a": "done"})
 
-        # C
-        update_status({'stages': {'qa': {'current_agent': f'C (round {round_num})'}}},
-                      log_line=f'qa: round {round_num} — C synthesis')
-        _qa_round_patch(round_num, {'c': 'running'})
-        c_info = _run_audit_agent(f'audit-c-r{round_num}', 'qa_c.txt', round_num, 'AGENT_C')
+        def _run_b() -> None:
+            results["b"] = run_claude(b_prompt, tag=f"qa-b#{round_num}")
+            _qa_round_patch(round_num, {"b": "done"})
 
-        ship = os.path.exists(os.path.join(PROJECT_DIR, 'SHIP_READY.md'))
-        next_fix = os.path.exists(os.path.join(PROJECT_DIR, f'FIXES_FOR_ROUND_{round_num + 1}.md'))
+        t_a = threading.Thread(target=_run_a, name=f"qa-a-{round_num}")
+        t_b = threading.Thread(target=_run_b, name=f"qa-b-{round_num}")
+        t_a.start(); t_b.start()
+        t_a.join();  t_b.join()
+
+        # 3. Agent C — synthesizer
+        _qa_set("current_agent", f"C (round {round_num})")
+        _qa_round_patch(round_num, {"c": "running"})
+        c_prompt = load_prompt(
+            "qa_c", PROJECT=project, ROUND=str(round_num),
+            ROUND_MINUS_1=str(round_num - 1),
+        )
+        run_claude(c_prompt, tag=f"qa-c#{round_num}")
+        _qa_round_patch(round_num, {"c": "done"})
+
+        # 4. Inspect outputs
+        ship = (ROOT / "SHIP_READY.md").exists()
+        next_fix = (ROOT / f"FINAL_FIXES_R{round_num + 1}.md").exists()
 
         if ship:
-            _qa_round_patch(round_num, {
-                'c': 'done' if c_info.get('_ok') else 'error',
-                'verdict': 'SHIP_READY',
-            })
-            update_status({'stages': {'qa': {
-                'status': 'done',
-                'current_agent': '',
-                'verdict': 'SHIP_READY',
-                'completed': ts(),
-            }}, 'verdict': 'SHIP_READY', 'completed': ts()},
-                          log_line=f'qa: SHIP_READY after round {round_num}')
-            return 'SHIP_READY'
+            _qa_round_patch(round_num, {"verdict": "SHIP_READY"})
+            _qa_set("current_agent", "")
+            _qa_set("verdict", "SHIP_READY")
+            _mark("qa", "done", verdict="SHIP_READY")
+            update_status(lambda d: d.update({"verdict": "SHIP_READY", "completed": _now()}))
+            log(f"QA Round {round_num}: SHIP_READY")
+            return "SHIP_READY"
 
         if not next_fix:
-            # C did not write a follow-up fix file → treat as ship ready (defensive)
-            _qa_round_patch(round_num, {
-                'c': 'done' if c_info.get('_ok') else 'error',
-                'verdict': 'SHIP_READY',
-            })
-            update_status({'stages': {'qa': {
-                'status': 'done',
-                'current_agent': '',
-                'verdict': 'SHIP_READY',
-                'completed': ts(),
-            }}, 'verdict': 'SHIP_READY', 'completed': ts()},
-                          log_line=f'qa: no next-round fixes — treating as SHIP_READY')
-            return 'SHIP_READY'
+            log(f"qa round {round_num}: neither SHIP_READY nor FINAL_FIXES_R{round_num + 1}.md present")
+            log("treating as SHIP_READY-equivalent (no further fixes proposed)")
+            _qa_round_patch(round_num, {"verdict": "SHIP_READY"})
+            _qa_set("current_agent", "")
+            _qa_set("verdict", "SHIP_READY")
+            _mark("qa", "done", verdict="SHIP_READY")
+            update_status(lambda d: d.update({"verdict": "SHIP_READY", "completed": _now()}))
+            return "SHIP_READY"
 
-        _qa_round_patch(round_num, {
-            'c': 'done' if c_info.get('_ok') else 'error',
-            'verdict': 'needs_fixes',
-        })
-        update_status({}, log_line=f'qa: round {round_num} needs more fixes — continuing')
+        _qa_round_patch(round_num, {"verdict": "needs_fixes"})
+        log(f"qa round {round_num}: needs_fixes -> continuing to round {round_num + 1}")
 
-    # Loop exhausted
-    update_status({'stages': {'qa': {
-        'status': 'error',
-        'current_agent': '',
-        'verdict': 'MAX_ROUNDS_REACHED',
-        'completed': ts(),
-    }}, 'verdict': 'MAX_ROUNDS_REACHED'},
-                  log_line=f'qa: max rounds ({QA_MAX_ROUNDS}) reached without SHIP_READY')
-    pause(f'qa: {QA_MAX_ROUNDS} rounds without SHIP_READY — manual review needed')
-    return 'MAX_ROUNDS_REACHED'
+    _qa_set("current_agent", "")
+    _qa_set("verdict", "needs_fixes")
+    _mark("qa", "error", verdict="needs_fixes")
+    update_status(lambda d: d.update({"verdict": "needs_fixes", "completed": _now()}))
+    log("QA loop exhausted max rounds without SHIP_READY")
+    set_paused(f"qa: hit max rounds ({QA_MAX_ROUNDS}) without SHIP_READY")
+    return "needs_fixes"
 
 
 # ---------------------------------------------------------------------------
-# Main
+# main
 # ---------------------------------------------------------------------------
 
-def parse_args():
-    p = argparse.ArgumentParser()
-    p.add_argument('--project', default=PROJECT_DIR)
-    p.add_argument('--target', default='android')
-    p.add_argument('--port', type=int, default=DEFAULT_PORT)
-    return p.parse_args()
+def _default_bundle_id(project_path: str) -> str:
+    name = Path(project_path).name.lower()
+    name = re.sub(r"[ _\-]", ".", name)
+    name = re.sub(r"[^a-z0-9.]", "", name)
+    return f"com.{name}.{name}"
 
 
-def main():
-    global PROJECT_DIR, STATUS_FILE, PROMPTS_DIR, DASHBOARD_HTML
-    args = parse_args()
-    PROJECT_DIR = os.path.abspath(args.project)
-    STATUS_FILE = os.path.join(PROJECT_DIR, 'orchestrator_status.json')
-    PROMPTS_DIR = os.path.join(PROJECT_DIR, 'stage_prompts')
-    DASHBOARD_HTML = os.path.join(PROJECT_DIR, 'orchestrator_dashboard.html')
-    os.chdir(PROJECT_DIR)
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--project", required=True)
+    ap.add_argument("--target", required=True,
+                    choices=["android", "ios", "macos", "windows"])
+    ap.add_argument("--prod-url", default="https://extended.npalakurla.com")
+    ap.add_argument("--bundle-id", default=None)
+    args = ap.parse_args()
 
-    if not os.path.exists(STATUS_FILE):
-        print(f'[orchestrator] status file missing: {STATUS_FILE}', file=sys.stderr)
-        sys.exit(1)
-    if not os.path.isdir(PROMPTS_DIR):
-        print(f'[orchestrator] prompts dir missing: {PROMPTS_DIR}', file=sys.stderr)
-        sys.exit(1)
-    if not claude_available():
-        print('[orchestrator] `claude` CLI not on PATH', file=sys.stderr)
-        update_status({'stage': 'error'}, log_line='claude CLI not on PATH')
-        sys.exit(2)
+    project = args.project
+    target = args.target
+    prod_url = args.prod_url
+    bundle_id = args.bundle_id or _default_bundle_id(project)
 
-    update_status({
-        'target': args.target,
-        'started': ts(),
-        'stage': 'ready',
-        'paused': False,
-        'pause_reason': '',
-    }, log_line=f'orchestrator: starting (target={args.target})')
+    update_status(lambda d: d.update({
+        "project": project,
+        "target": target,
+        "started": _now(),
+        "dashboard_port": DASHBOARD_PORT,
+        "paused": False,
+        "pause_reason": "",
+        "completed": "",
+        "verdict": "",
+    }))
 
-    start_dashboard(args.port)
+    log(f"orchestrator started — project={project} target={target} prod={prod_url}")
+    log(f"bundle id: {bundle_id}")
+    log(f"max retries: {MAX_RETRIES}; qa max rounds: {QA_MAX_ROUNDS}")
 
-    # Stage order
-    branch = run_branch(args.target)
-    if not run_audit():    return _wait_idle()
-    if not run_plan():     return _wait_idle()
-    if not run_vetoes():   return _wait_idle()
-    if not run_build():    return _wait_idle()
-    verdict = run_qa_loop()
+    start_dashboard(DASHBOARD_PORT)
 
-    update_status({'stage': 'complete' if verdict == 'SHIP_READY' else 'halted',
-                   'completed': ts(),
-                   'verdict': verdict},
-                  log_line=f'orchestrator: finished — {verdict}')
-    print(f'[{hms()}] orchestrator finished — verdict={verdict}')
-    _wait_idle()
-
-
-def _wait_idle():
-    """Keep the dashboard server alive after the pipeline finishes or pauses."""
-    print(f'[{hms()}] keeping dashboard server alive. Ctrl-C to exit.')
     try:
-        while True:
-            time.sleep(5)
+        run_branch(target)
+        _check_paused()
+
+        run_audit(project, target, prod_url)
+        _check_paused()
+
+        run_plan(project, target, prod_url, bundle_id)
+        _check_paused()
+
+        run_vetoes(project)
+        _check_paused()
+
+        run_build(project, target, prod_url, bundle_id)
+        _check_paused()
+
+        verdict = run_qa_loop(project, prod_url)
+        if verdict == "SHIP_READY":
+            log("Orchestrator finished: SHIP_READY")
+            return 0
+        log("Orchestrator finished without SHIP_READY")
+        return 1
     except KeyboardInterrupt:
-        pass
+        log("interrupted by user")
+        return 130
+    except SystemExit:
+        raise
+    except Exception as e:
+        log(f"orchestrator fatal: {e!r}")
+        set_paused(f"fatal: {e!r}")
+        return 1
+    finally:
+        log(f"orchestrator process exit — dashboard at port {DASHBOARD_PORT}")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    sys.exit(main())
