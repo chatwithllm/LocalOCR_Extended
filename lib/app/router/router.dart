@@ -7,6 +7,9 @@ import '../../features/appshell/app_shell.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/medicine/presentation/medicine_screen.dart';
+import '../../features/products/presentation/products_screen.dart';
+import '../../features/restaurant/presentation/restaurant_screen.dart';
 import '../../features/shared/placeholder_screen.dart';
 
 /// Plan §3 — single go_router with NavigationDrawer shell, auth redirect,
@@ -76,10 +79,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               const DashboardScreen()),
           GoRoute(path: '/inventory', builder: (_, __) =>
               const InventoryScreen()),
-          GoRoute(path: '/products', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Products')),
+          GoRoute(path: '/products', builder: (_, __) => const ProductsScreen()),
           GoRoute(path: '/medicine', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Medicine')),
+              const MedicineScreen()),
           GoRoute(path: '/upload', builder: (_, __) =>
               const PlaceholderScreen(title: 'Upload')),
           GoRoute(
@@ -100,7 +102,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/kitchen', builder: (_, __) =>
               const PlaceholderScreen(title: 'Kitchen')),
           GoRoute(path: '/restaurant', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Restaurant')),
+              const RestaurantScreen()),
           GoRoute(path: '/balances', builder: (_, __) =>
               const PlaceholderScreen(title: 'Balances')),
           GoRoute(path: '/contacts', builder: (_, __) =>

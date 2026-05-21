@@ -1,9 +1,9 @@
 {
   "phases_done": 5,
   "phases_total": 9,
-  "current_screen": "Restaurant",
-  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine"],
-  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine"],
+  "current_screen": "Balances",
+  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant"],
+  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant"],
   "gates": {
     "preflight": "done",
     "registry": "done",
@@ -13,8 +13,9 @@
   "log": [
     "phase 5 Dashboard logs+screenshot gates closed (2026-05-21 14:07): auth driven via adb input + .env.test creds; 'loaded 8 dashboard cards' line confirmed; RULE 14 diff produced 3 root-cause fixes (leaderboard via /auth/me, AttributionStats new DTO, InventoryStats wrapper key items→inventory) committed in df5c029.",
     "phase 5 Inventory: all 4 gates closed in commit 320c041.",
-    "phase 5 Products: all 4 gates closed. RULE 1 caught 4 fabricated registry endpoints (F-419 fake /product-snapshots/generate → real /api/admin/image-backfill/run+poll; F-431 PATCH /products → PUT /inventory/products/<id>/low-status; F-432-434 fake /unit-defaults → /products/<id>/update; F-435 fake /category → /products/<id>/update). RULE 2 catch: latestPrice is dict {price,date,store}, not bare num — fixed mid-build after first decode error. flutter build apk --debug → BUILD SUCCESSFUL in 7.9s. emulator-5554 install + nav: 'loaded 200 products (groups=188 shown=188)' fired in ~6s. Registry: 33 ✅ + 3 🔄 (F-424 receipt deep-link deferred to Receipts wave; F-429/F-430 photo upload+view moved into edit sheet rather than per-row buttons) + 0 ❌.",
-    "phase 5 Medicine: all 4 gates closed (2026-05-21 20:43). RULE 1 preflight 4/4 PASS — routes `/medications` + `/medications/<id>` + `/medications/<id>/photo` + `/medications/barcode-lookup` + `/household-members[/<id>]` confirmed from manage_medications.py:31/123/153/189/224/234/265/278 and manage_household_members.py:19/35/50/81/113; jsonify wrappers `{medications:[…], count}` + `{medication:{…}}` + `{members:[…], count}` + `{member:{…}}` + `{found,fields}` + `{deleted,id}` matched verbatim in medicine_models.dart. Gradle 9.1.0 transforms cache was stale (`gradle-1.0.0.jar` NoSuchFile) — `./gradlew --stop` + `rm -rf ~/.gradle/caches/9.1.0` + `flutter clean` + rebuild fixed in 172s. APK installed on emulator-5554; deep-link `localocr:///medicine` cold-launched → 'loaded 0 medications (members=0 users=11)' log line within ~3s; zero 401/403/decode/cancelled/404. curl /medications?status=all confirms prod actually has 0 medications + 0 members (test account empty) so empty-state was the screenshot diff target. RULE 14: empty-state copy mismatched web (`'Tap + to add one.'` vs web `'Tap + Add Medication to get started.'`) → patched + reshot, all visible elements aligned. Registry F-501..F-539: 36 ✅ + 3 🔄 (F-507 photo GET endpoint missing on backend, fallback to errorBuilder placeholder; F-531/F-532 image_picker+mobile_scanner.analyzeImage replaces web Html5Qrcode.scanFile decoder while sharing /medications/barcode-lookup endpoint and autofill flow). Verb-check pass on every row before flip.",
-    "# screen-complete: Medicine apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
+    "phase 5 Products: all 4 gates closed (committed 64c04d0 as backfill — code had been written in prior session but never `git add`-ed).",
+    "phase 5 Medicine: all 4 gates closed (commit 9d521ce). 36 ✅ + 3 🔄 + 0 ❌. Gradle 9.1.0 transforms cache wiped to fix stale NoSuchFile.",
+    "phase 5 Restaurant: all 4 gates closed (2026-05-21 20:51). RULE 1 caught 4 fabricated registry endpoints (F-601 said /receipts?type=restaurant → real /analytics/restaurant-summary per index.html:35469; F-604 said /analytics/top-merchants?domain=restaurant → derived from restaurant-summary `top_restaurants[0]` per index.html:35483; F-606/F-607 said POST /budget category=dining → real POST /budget/set-monthly body {month, domain:'restaurant', budget_amount} per index.html:35643 + manage_household_budget.py:160). RULE 1 also caught F-613 verb error: web `topItems` is a static table, no row tap — registry said `tap` to /receipts?item=... which doesn't exist; corrected to `display`. RULE 2: BudgetStatus + RestaurantSummary + TopRestaurant + TopItem + RecentRestaurantReceipt DTOs mirror jsonify body verbatim (calculate_spending_analytics.py:450-462 + manage_household_budget.py:332-343). flutter build apk --debug → 8.1s. emulator-5554 cold-launch `localocr:///restaurant`: 'loaded restaurant summary visits=56 spend=2634.57 top=8 items=10 receipts=12' line within ~1s. Zero 401/403/decode/cancelled/404. RULE 14 screenshot confirms all 13 visible elements (Window dropdown, 4 stat cards, Dining Budget card w/ month picker + amount input + Save, Restaurant Receipts list, Top Restaurants list, Top Items rows). Registry F-601..F-613: 13 ✅ + 0 🔄 + 0 ❌.",
+    "# screen-complete: Restaurant apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
   ]
 }
