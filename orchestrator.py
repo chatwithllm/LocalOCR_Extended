@@ -644,6 +644,8 @@ def main() -> int:
                     choices=["android", "ios", "macos", "windows"])
     ap.add_argument("--prod-url", default="https://extended.npalakurla.com")
     ap.add_argument("--bundle-id", default=None)
+    ap.add_argument("--mode", default="full", choices=["full", "delta"])
+    ap.add_argument("--changed-files", default=None)
     args = ap.parse_args()
 
     project = args.project
