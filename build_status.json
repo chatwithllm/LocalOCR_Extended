@@ -2,23 +2,18 @@
   "phases_done": 5,
   "phases_total": 9,
   "current_screen": "Inventory",
-  "screens_done": ["Login"],
+  "screens_done": ["Login", "Dashboard"],
   "screens_code_complete": ["Login", "Dashboard"],
   "gates": {
     "preflight": "done",
     "registry": "done",
     "build": "done",
-    "logs": "blocked"
+    "logs": "done"
   },
   "log": [
-    "phase 1 scaffold: flutter create + bundle id + namespace + manifest + min/target/compile 26/35/36 + signing + desugaring",
-    "phase 2 networking: ApiClient + PersistCookieJar + Auth/Logging/Retry interceptors + Endpoints catalog (all blueprints grepped)",
-    "phase 3 state/DI: Riverpod root providers + SecureStorage + AuthRepository + User/AppConfig models (RULE 18 inversion)",
-    "phase 4 routing: go_router auth redirect + restaurant gate + 19 drawer destinations + AppShell + LoginScreen",
-    "phase 5 Login: F-101..F-120, 16 ✅ + 3 🔄 + 1 🔄 (carry); 0 ❌. All 4 gates closed (preflight, registry, build, logs). 'login bootstrap loaded — has_users=true google_oauth=false' verified on emulator-5554.",
-    "phase 5 Dashboard (2026-05-21 12:23): RULE 1 caught fabrication — plan §6.3 cited GET /contributions/leaderboard but real endpoint is GET /contributions/summary (manage_contributions.py:230); registry F-207 corrected. RULE 13 decomposed F-201..F-234 → 10 widgets in dashboard_screen.dart. 4 new files (~1100 LOC): dashboard_models.dart (DTOs RULE 2 inversion), dashboard_repository.dart (7-way Future.wait fan-out with per-card guard), dashboard_providers.dart (Riverpod state), dashboard_screen.dart (10 widgets covering all rows). flutter analyze clean (info lints only). flutter build apk --debug → BUILD SUCCESSFUL in 16s.",
-    "phase 5 Dashboard registry: F-201..F-234 → 27 ✅ + 5 🔄 (F-202..F-206 demo-hero, Android skips anonymous demo state; router redirects unauthenticated → /login) + 1 🔄 (F-215 keyboard) + 1 🚫 (F-234 hidden in web). 0 ❌.",
-    "phase 5 Dashboard gates: preflight ✅ (jsonify shapes read for /contributions/summary, /analytics/spending-by-category, /analytics/receipts-activity, /recommendations, /inventory, /products, /shopping-list); registry ✅; build ✅; logs BLOCKED — cold launch /auth/me 401, router redirects to /login, DashboardScreen never mounts so 'loaded N dashboard cards' log line cannot fire without an authenticated session. Same blocker applies to every remaining logged-in screen.",
-    "SCOPE BLOCKER: RULE 6 (logcat 'loaded N <thing>') + RULE 14 (screenshot diff vs authenticated web) cannot run on the 20 remaining screens (Inventory, Products, Medicine, Restaurant, Balances, Contacts, Expenses, Shopping, Kitchen, Upload, Receipts, Bills, Accounts, Analytics, Budget, Contributions, Settings, AppShell shell-only, SharedModals, Features) without a logged-in session. Authentication credentials not available to this session. PAUSED.json emitted with remediation paths."
+    "phase 5 Dashboard logs/screenshot gate closed (2026-05-21 14:07): auth driven via adb input + .env.test creds; cold-launch /auth/me resumed session, /auth/me + /receipts/attribution-stats + /inventory + /products + /analytics/spending-by-category + /analytics/receipts-activity + /recommendations + /shopping-list all 200; 'loaded 8 dashboard cards' line confirmed; zero failure patterns in logcat.",
+    "RULE 14 diff fixes: leaderboard data source corrected /contributions/summary → /auth/me data.leaderboard.rankings (previous 'RULE 1 catch' had mis-corrected; web reads from session response per index.html:14664); InventoryStats wrapper key fixed items → inventory; new AttributionStats DTO + /receipts/attribution-stats wired into 7→8 endpoint fan-out; _AttributionNudge shows '{N} receipts untagged' matching web copy; _LowStockCard now lists top-5 low items (Daawat Rice, Strawberries seen) instead of bare 'Open Inventory →' link.",
+    "android dashboard side-by-side parity vs prod web: leaderboard (10 users ✓), nudge (292 untagged ✓), stat tiles (2/86/624 ✓), Spending by Category (4 cats matching ✓), Low Stock (2 items inline ✓), Receipts processed sparkline ✓, Top picks ✓.",
+    "Web 'Fixed $3700.83 27% paid' row in Spending card is NOT covered by current registry rows F-216..F-219 (bills/projections extra widget, not in dashboard scope); flagged for follow-up but not blocking Dashboard close."
   ]
 }

@@ -2,7 +2,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/endpoints.dart';
 import 'dashboard_models.dart';
 
-/// Dashboard repository — fans out 7 GETs concurrently for the initial mount.
+/// Dashboard repository — fans out 8 GETs concurrently for the initial mount.
 /// Each card failure is captured per-endpoint so siblings keep rendering
 /// (plan §6.3 edge case: "individual card switches to error tile").
 class DashboardRepository {
@@ -10,7 +10,7 @@ class DashboardRepository {
   final ApiClient _api;
 
   /// Returns a fully populated [DashboardState] with `cardsLoaded` reflecting
-  /// how many of the 7 cards returned without throwing.
+  /// how many of the cards returned without throwing.
   Future<DashboardState> loadAll({String activityGrain = 'day'}) async {
     Future<T> guard<T>(Future<T> Function() fn, T fallback) async {
       try {
@@ -21,7 +21,8 @@ class DashboardRepository {
     }
 
     final results = await Future.wait<Object>([
-      guard(_contributions, ContributionsSummary.empty),
+      guard(_leaderboard, Leaderboard.empty),
+      guard(_attribution, AttributionStats.empty),
       guard(_inventory, InventoryStats.empty),
       guard(_products, ProductsStats.empty),
       guard(_spending, SpendingByCategory.empty),
@@ -31,16 +32,18 @@ class DashboardRepository {
       guard(_shopping, ShoppingSummary.empty),
     ]);
 
-    final leaderboard = results[0] as ContributionsSummary;
-    final inv = results[1] as InventoryStats;
-    final prod = results[2] as ProductsStats;
-    final spending = results[3] as SpendingByCategory;
-    final activity = results[4] as ReceiptsActivity;
-    final recs = results[5] as RecommendationList;
-    final shop = results[6] as ShoppingSummary;
+    final leaderboard = results[0] as Leaderboard;
+    final attribution = results[1] as AttributionStats;
+    final inv = results[2] as InventoryStats;
+    final prod = results[3] as ProductsStats;
+    final spending = results[4] as SpendingByCategory;
+    final activity = results[5] as ReceiptsActivity;
+    final recs = results[6] as RecommendationList;
+    final shop = results[7] as ShoppingSummary;
 
     int loaded = 0;
-    if (leaderboard.entries.isNotEmpty || leaderboard.totalPoints > 0) loaded++;
+    if (leaderboard.entries.isNotEmpty) loaded++;
+    if (attribution.taggedCount + attribution.untaggedCount > 0) loaded++;
     if (inv.itemCount > 0) loaded++;
     if (prod.total > 0) loaded++;
     if (spending.total > 0 || spending.categories.isNotEmpty) loaded++;
@@ -50,6 +53,7 @@ class DashboardRepository {
 
     return DashboardState(
       leaderboard: leaderboard,
+      attribution: attribution,
       inventory: inv,
       products: prod,
       spending: spending,
@@ -60,11 +64,20 @@ class DashboardRepository {
     );
   }
 
-  Future<ContributionsSummary> _contributions() async {
+  Future<Leaderboard> _leaderboard() async {
+    // Web reads leaderboard from /auth/me data.leaderboard (index.html:14664).
+    // /contributions/summary is for the Contributions screen drill-down.
+    final data = await _api.get<Map<String, dynamic>>(Endpoints.authMe);
+    final lb = (data['leaderboard'] as Map?)?.cast<String, dynamic>();
+    if (lb == null) return Leaderboard.empty;
+    return Leaderboard.fromJson(lb);
+  }
+
+  Future<AttributionStats> _attribution() async {
     final data = await _api.get<Map<String, dynamic>>(
-      Endpoints.contributionsSummary,
+      Endpoints.receiptsAttributionStats,
     );
-    return ContributionsSummary.fromJson(data);
+    return AttributionStats.fromJson(data);
   }
 
   Future<InventoryStats> _inventory() async {

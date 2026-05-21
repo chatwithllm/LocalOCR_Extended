@@ -98,7 +98,7 @@ class _DashboardBody extends ConsumerWidget {
         const SizedBox(height: 16),
         _LeaderboardCard(leaderboard: state.leaderboard),
         const SizedBox(height: 12),
-        _AttributionNudge(activity: state.activity),
+        _AttributionNudge(stats: state.attribution),
         const SizedBox(height: 12),
         _StatTilesRow(inv: state.inventory, prod: state.products),
         const SizedBox(height: 12),
@@ -146,7 +146,7 @@ class _DashboardHeader extends StatelessWidget {
 
 class _LeaderboardCard extends ConsumerWidget {
   const _LeaderboardCard({required this.leaderboard});
-  final ContributionsSummary leaderboard;
+  final Leaderboard leaderboard;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expanded = ref.watch(
@@ -249,13 +249,13 @@ class _LeaderboardRow extends StatelessWidget {
 // ---- F-211 Attribution nudge ---------------------------------------------
 
 class _AttributionNudge extends StatelessWidget {
-  const _AttributionNudge({required this.activity});
-  final ReceiptsActivity activity;
+  const _AttributionNudge({required this.stats});
+  final AttributionStats stats;
   @override
   Widget build(BuildContext context) {
-    // Show only when there are recent receipts.
-    if (activity.total == 0) return const SizedBox.shrink();
+    if (stats.untaggedCount == 0) return const SizedBox.shrink();
     final th = Theme.of(context);
+    final word = stats.untaggedCount == 1 ? 'receipt' : 'receipts';
     return _Card(
       key: const Key('dashboard-attribution-nudge'),
       child: Row(
@@ -265,7 +265,8 @@ class _AttributionNudge extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Untagged receipts add up fast. Tag now to keep spending honest.',
+              '${stats.untaggedCount} $word untagged',
+              key: const Key('dashboard-attr-nudge-text'),
               style: th.textTheme.bodyMedium,
             ),
           ),
@@ -506,17 +507,66 @@ class _LowStockCard extends ConsumerWidget {
             const SizedBox(height: 8),
             if (low.lowCount == 0)
               const _EmptyTile(label: 'No items running low')
-            else
-              InkWell(
-                onTap: () => GoRouter.of(context)
-                    .go('/inventory?group_by=low_first'),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('Open Inventory to triage →'),
+            else ...[
+              for (final item in low.lowItems.take(5))
+                _LowStockItemRow(item: item),
+              if (low.lowCount > 5)
+                InkWell(
+                  onTap: () => GoRouter.of(context)
+                      .go('/inventory?group_by=low_first'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Open Inventory to triage all ${low.lowCount} →',
+                      style: th.textTheme.bodyMedium,
+                    ),
+                  ),
                 ),
-              ),
+            ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _LowStockItemRow extends StatelessWidget {
+  const _LowStockItemRow({required this.item});
+  final InventoryLowItem item;
+  @override
+  Widget build(BuildContext context) {
+    final th = Theme.of(context);
+    return InkWell(
+      onTap: () => GoRouter.of(context)
+          .go('/inventory?group_by=low_first&item_id=${item.id}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_outlined,
+                size: 18, color: th.colorScheme.error),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.name, style: th.textTheme.bodyMedium),
+                  if (item.location.isNotEmpty)
+                    Text(item.location,
+                        style: th.textTheme.bodySmall?.copyWith(
+                          color: th.colorScheme.onSurfaceVariant,
+                        )),
+                ],
+              ),
+            ),
+            Text(
+              '${item.quantity == item.quantity.truncateToDouble() ? item.quantity.toInt() : item.quantity} ${item.unit}',
+              style: th.textTheme.labelSmall?.copyWith(
+                color: th.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

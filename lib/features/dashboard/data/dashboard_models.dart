@@ -4,45 +4,40 @@
 /// no `convertFromSnakeCase`; declare explicit snake→camel mapping).
 library;
 
-/// Mirrors `/contributions/summary` payload (`manage_contributions.py:230`).
-/// We only consume the `summary` sub-tree for leaderboard rendering on
-/// Dashboard — other fields (rules, recent_events, opportunities, notes)
-/// belong to the Contributions screen.
-class ContributionsSummary {
-  ContributionsSummary({
+/// Mirrors `/auth/me` `leaderboard` sub-object — `data.leaderboard.rankings`
+/// (web `renderLeaderboard()` reads `householdLeaderboard?.rankings`,
+/// `index.html:11253`). The web's source of truth is `/auth/me`, NOT
+/// `/contributions/summary` (registry F-207 endpoint label is for navigation
+/// target, but the data itself lives on the session response).
+class Leaderboard {
+  Leaderboard({
     required this.entries,
     required this.totalPoints,
+    required this.month,
+    required this.totalUsers,
   });
   final List<LeaderboardEntry> entries;
   final int totalPoints;
+  final String month;
+  final int totalUsers;
 
-  factory ContributionsSummary.fromJson(Map<String, dynamic> json) {
-    // summary key may be a list of leaderboard entries OR an object with
-    // {"contributors": [...]}. We tolerate both shapes (RULE 2 — exact mirror;
-    // see manage_contributions.py contribution_summary() body for the dict
-    // it serializes).
-    final raw = json['summary'];
-    List<dynamic> list = const [];
-    int total = 0;
-    if (raw is List) {
-      list = raw;
-    } else if (raw is Map) {
-      final cs = raw['contributors'];
-      if (cs is List) list = cs;
-      total = (raw['total_points'] as num?)?.toInt() ?? 0;
-    }
+  factory Leaderboard.fromJson(Map<String, dynamic> json) {
+    final list = (json['rankings'] as List?) ?? (json['leaders'] as List?) ?? const [];
     final entries = list
         .whereType<Map>()
         .map((m) => LeaderboardEntry.fromJson(m.cast<String, dynamic>()))
         .toList();
-    if (total == 0) {
-      total = entries.fold<int>(0, (a, e) => a + e.points);
-    }
-    return ContributionsSummary(entries: entries, totalPoints: total);
+    final total = entries.fold<int>(0, (a, e) => a + e.points);
+    return Leaderboard(
+      entries: entries,
+      totalPoints: total,
+      month: (json['month'] as String?) ?? '',
+      totalUsers: (json['total_users'] as num?)?.toInt() ?? entries.length,
+    );
   }
 
-  static ContributionsSummary empty =
-      ContributionsSummary(entries: const [], totalPoints: 0);
+  static Leaderboard empty =
+      Leaderboard(entries: const [], totalPoints: 0, month: '', totalUsers: 0);
 }
 
 class LeaderboardEntry {
@@ -52,12 +47,16 @@ class LeaderboardEntry {
     required this.avatarEmoji,
     required this.points,
     required this.rank,
+    required this.receiptsProcessed,
+    required this.ocrCorrections,
   });
   final int userId;
   final String name;
   final String? avatarEmoji;
   final int points;
   final int rank;
+  final int receiptsProcessed;
+  final int ocrCorrections;
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) =>
       LeaderboardEntry(
@@ -65,12 +64,39 @@ class LeaderboardEntry {
             (json['id'] as num?)?.toInt() ?? 0,
         name: (json['name'] as String?) ??
             (json['display_name'] as String?) ??
+            (json['email'] as String?) ??
             'Unknown',
         avatarEmoji: json['avatar_emoji'] as String?,
-        points: (json['points'] as num?)?.toInt() ??
-            (json['score'] as num?)?.toInt() ?? 0,
+        points: (json['score'] as num?)?.toInt() ??
+            (json['points'] as num?)?.toInt() ?? 0,
         rank: (json['rank'] as num?)?.toInt() ?? 0,
+        receiptsProcessed:
+            (json['receipts_processed'] as num?)?.toInt() ?? 0,
+        ocrCorrections:
+            (json['ocr_corrections'] as num?)?.toInt() ?? 0,
       );
+}
+
+/// Mirrors `/receipts/attribution-stats` payload — drives the dashboard
+/// "N receipts untagged" attribution nudge (web `refreshAttributionStats()`
+/// at `index.html:22591`). Backend at `handle_receipt_upload.py` returns
+/// `{tagged_count, untagged_count, untagged_sample_ids[]}`.
+class AttributionStats {
+  AttributionStats({
+    required this.taggedCount,
+    required this.untaggedCount,
+  });
+  final int taggedCount;
+  final int untaggedCount;
+
+  factory AttributionStats.fromJson(Map<String, dynamic> json) =>
+      AttributionStats(
+        taggedCount: (json['tagged_count'] as num?)?.toInt() ?? 0,
+        untaggedCount: (json['untagged_count'] as num?)?.toInt() ?? 0,
+      );
+
+  static AttributionStats empty =
+      AttributionStats(taggedCount: 0, untaggedCount: 0);
 }
 
 /// Mirrors `/analytics/spending-by-category` payload
@@ -238,26 +264,72 @@ class Recommendation {
       );
 }
 
-/// Mirrors `/inventory` payload (`manage_inventory.py:142`). We only consume
-/// the `count` field on Dashboard; full items belong to Inventory screen.
+/// Mirrors `/inventory` payload (`manage_inventory.py:142`). Wrapper key is
+/// `inventory` (NOT `items`) — confirmed via curl of prod (RULE 2 incident:
+/// previous parse looked at wrong key and lowCount silently degraded to 0
+/// even when prod had 2 low items).
 class InventoryStats {
-  InventoryStats({required this.itemCount, required this.lowCount});
+  InventoryStats({
+    required this.itemCount,
+    required this.lowCount,
+    required this.lowItems,
+  });
   final int itemCount;
   final int lowCount;
+  final List<InventoryLowItem> lowItems;
 
   factory InventoryStats.fromJson(Map<String, dynamic> json) {
-    final items = (json['items'] as List?) ?? const [];
+    final items = (json['inventory'] as List?) ??
+        (json['items'] as List?) ??
+        const [];
     final low = items
         .whereType<Map>()
-        .where((m) => (m['is_low'] as bool?) ?? false)
-        .length;
+        .where((m) =>
+            ((m['is_low'] as bool?) ?? false) ||
+            ((m['manual_low'] as bool?) ?? false))
+        .map((m) => InventoryLowItem.fromJson(m.cast<String, dynamic>()))
+        .toList();
     return InventoryStats(
       itemCount: (json['count'] as num?)?.toInt() ?? items.length,
-      lowCount: low,
+      lowCount: low.length,
+      lowItems: low,
     );
   }
 
-  static InventoryStats empty = InventoryStats(itemCount: 0, lowCount: 0);
+  static InventoryStats empty =
+      InventoryStats(itemCount: 0, lowCount: 0, lowItems: const []);
+}
+
+class InventoryLowItem {
+  InventoryLowItem({
+    required this.id,
+    required this.productId,
+    required this.name,
+    required this.category,
+    required this.location,
+    required this.quantity,
+    required this.unit,
+  });
+  final int id;
+  final int? productId;
+  final String name;
+  final String category;
+  final String location;
+  final double quantity;
+  final String unit;
+
+  factory InventoryLowItem.fromJson(Map<String, dynamic> json) =>
+      InventoryLowItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        productId: (json['product_id'] as num?)?.toInt(),
+        name: (json['product_name'] as String?) ??
+            (json['raw_name'] as String?) ??
+            'Unnamed',
+        category: (json['category'] as String?) ?? 'other',
+        location: (json['location'] as String?) ?? '',
+        quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
+        unit: (json['unit'] as String?) ?? 'each',
+      );
 }
 
 /// Mirrors `/products` payload (`manage_product_catalog.py:260`). We only
@@ -333,6 +405,7 @@ class ShoppingPreviewItem {
 class DashboardState {
   DashboardState({
     required this.leaderboard,
+    required this.attribution,
     required this.inventory,
     required this.products,
     required this.spending,
@@ -341,7 +414,8 @@ class DashboardState {
     required this.shopping,
     required this.cardsLoaded,
   });
-  final ContributionsSummary leaderboard;
+  final Leaderboard leaderboard;
+  final AttributionStats attribution;
   final InventoryStats inventory;
   final ProductsStats products;
   final SpendingByCategory spending;
@@ -353,7 +427,8 @@ class DashboardState {
   final int cardsLoaded;
 
   static DashboardState empty = DashboardState(
-    leaderboard: ContributionsSummary.empty,
+    leaderboard: Leaderboard.empty,
+    attribution: AttributionStats.empty,
     inventory: InventoryStats.empty,
     products: ProductsStats.empty,
     spending: SpendingByCategory.empty,
@@ -364,7 +439,8 @@ class DashboardState {
   );
 
   DashboardState copyWith({
-    ContributionsSummary? leaderboard,
+    Leaderboard? leaderboard,
+    AttributionStats? attribution,
     InventoryStats? inventory,
     ProductsStats? products,
     SpendingByCategory? spending,
@@ -375,6 +451,7 @@ class DashboardState {
   }) =>
       DashboardState(
         leaderboard: leaderboard ?? this.leaderboard,
+        attribution: attribution ?? this.attribution,
         inventory: inventory ?? this.inventory,
         products: products ?? this.products,
         spending: spending ?? this.spending,
