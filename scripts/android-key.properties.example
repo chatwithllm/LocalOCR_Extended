@@ -1,0 +1,24 @@
+# V-4 RESOLVED — release-keystore credentials template.
+#
+# Build phase 1 task: copy this file to `android/key.properties.example` once
+# `flutter create` has scaffolded the android/ directory. Real `android/key.properties`
+# is git-ignored and only populated when generating the first signed release build
+# (deferred per BL-A3 to v1.1 CI promotion or the first manual `flutter build apk
+# --flavor prod --release`, whichever comes first).
+#
+# Generate the actual keystore via:
+#   keytool -genkeypair -v \
+#     -storetype PKCS12 \
+#     -keystore android/keystore/localocr-release.jks \
+#     -alias localocr-release \
+#     -keyalg RSA -keysize 4096 -validity 10000
+#
+# Then back up the resulting `localocr-release.jks` + populated `android/key.properties`
+# to: (a) 1Password vault `LocalOCR Android Release Keystore`, (b) the encrypted
+# FERNET backup bundle (same rule as DB + FERNET_SECRET_KEY — losing the keystore =
+# permanent loss of Play Store update capability).
+
+storeFile=keystore/localocr-release.jks
+storePassword=<REPLACE_WITH_KEYSTORE_PASSWORD>
+keyAlias=localocr-release
+keyPassword=<REPLACE_WITH_KEY_PASSWORD>

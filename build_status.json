@@ -1,0 +1,26 @@
+{
+  "phases_done": 5,
+  "phases_total": 9,
+  "current_screen": "Dashboard",
+  "screens_done": ["Login"],
+  "screens_code_complete": ["Login"],
+  "gates": {
+    "preflight": "done",
+    "registry": "done",
+    "build": "done",
+    "logs": "done"
+  },
+  "log": [
+    "phase 1 scaffold: flutter create + bundle id + namespace + manifest + min/target/compile 26/35/36 + signing + desugaring",
+    "phase 2 networking: ApiClient + PersistCookieJar + Auth/Logging/Retry interceptors + Endpoints catalog (all blueprints grepped)",
+    "phase 3 state/DI: Riverpod root providers + SecureStorage + AuthRepository + User/AppConfig models (RULE 18 inversion)",
+    "phase 4 routing: go_router auth redirect + restaurant gate + 19 drawer destinations + AppShell + LoginScreen",
+    "phase 4 build retry (2026-05-21): disk recovered to 5.1Gi; debug APK build green",
+    "phase 5 Login (2026-05-21): RULE 1 pre-flight ok (24 fetch sites in index.html matched against grepped /auth blueprint); RULE 13 decomposition mapped F-101..F-120 to 4 sub-widgets (form / invite card / device-approval inline / pairing bottom sheet); implemented and re-built debug APK → BUILD SUCCESSFUL",
+    "phase 5 Login registry: 16 rows ✅ implemented, 3 rows 🔄 (F-105/F-110 Google OAuth deferred per pubspec NOTE — needs flutter_inappwebview AGP-9 unblock or flutter_web_auth_2 / BL-A7 fallback; F-114 dropdown→numeric TextField because /auth/users requires admin auth Login lacks), 1 row 🔄 carried from registry (F-106 hover → tap ripple). Net: 0 ❌ remaining on Login.",
+    "phase 5 Login gates 1-3 closed (preflight + registry + build). Gate 4 (logs) BLOCKED at prior session: no Android emulator or device attached.",
+    "phase 5 Login resumed 2026-05-21 08:13: emulator-5554 active. installed app-debug.apk → launched MainActivity → logcat shows 'login bootstrap loaded — has_users=true google_oauth=false' (RULE 6 'loaded N <thing>' line). /auth/me → 401 (expected first-launch, AuthInterceptor pattern). /auth/bootstrap-info → 200 in 97ms. zero DecodingError / 404 / 403 / FATAL EXCEPTION / network-cancellation. RULE 14 screenshot captured /tmp/android_login.png — all F-101..F-119 elements visible.",
+    "phase 5 Login: ALL 4 gates closed. screens_done += Login.",
+    "scope reality: 21 screens remain; following per-screen 4-gate protocol from here."
+  ]
+}
