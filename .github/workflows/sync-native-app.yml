@@ -76,6 +76,14 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: |
           cp $HOME/actions-runner/actions-runner/agent-rules.md . 2>/dev/null || true
+          SOURCE=$HOME/.gemini/antigravity/LocalOCR_Extended
+          for f in FEATURE_PARITY_REGISTRY.md MACOS_APP_PLAN.md VETO_RESOLUTION_PATCH.md BUILD_COMPLETE AGENT_LEARNINGS.md SHIP_READY.md orchestrator.py orchestrator_dashboard.html orchestrator_status.json fix_progress.json; do
+            cp "$SOURCE/$f" . 2>/dev/null && echo "✅ $f" || echo "⚠ $f"
+          done
+          cp -r "$SOURCE/stage_prompts" . 2>/dev/null || true
+          rsync -a --exclude=DerivedData/ "$SOURCE/LocalOCR.macOS/" ./LocalOCR.macOS/ 2>/dev/null || true
+          [ -d "$SOURCE/LocalOCR.macOS/DerivedData" ] && rsync -a "$SOURCE/LocalOCR.macOS/DerivedData/" ./LocalOCR.macOS/DerivedData/ || true
+          echo "✅ Restore complete"
 
       - name: Run delta orchestrator
         if: steps.diff.outputs.changed == 'true'
