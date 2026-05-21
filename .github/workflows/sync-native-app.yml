@@ -27,24 +27,55 @@ jobs:
           LAST_TAG=$(git tag -l "app-build-*" | sort -V | tail -1)
           if [ -z "$LAST_TAG" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "No previous build tag — full build needed"
+            touch CHANGED_FILES.txt
           else
             CHANGES=$(git diff --name-only $LAST_TAG HEAD -- src/)
             if [ -z "$CHANGES" ]; then
               echo "changed=false" >> $GITHUB_OUTPUT
-              echo "No web changes since $LAST_TAG — skipping"
             else
               echo "changed=true" >> $GITHUB_OUTPUT
               echo "$CHANGES" > CHANGED_FILES.txt
-              echo "Changes found:"
-              cat CHANGED_FILES.txt
             fi
           fi
+
+      - name: Restore build artifacts from local project
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          SOURCE=$HOME/.gemini/antigravity/LocalOCR_Extended
+          DEST=$GITHUB_WORKSPACE
+
+          echo "Syncing build artifacts from $SOURCE"
+
+          # Resume-safe markers
+          for f in FEATURE_PARITY_REGISTRY.md MACOS_APP_PLAN.md \
+                   VETO_RESOLUTION_PATCH.md BUILD_COMPLETE \
+                   AGENT_LEARNINGS.md SHIP_READY.md \
+                   orchestrator.py orchestrator_dashboard.html \
+                   orchestrator_status.json fix_progress.json; do
+            cp "$SOURCE/$f" "$DEST/" 2>/dev/null && echo "✅ $f" || echo "⚠ $f not found"
+          done
+
+          # Stage prompts
+          rsync -a "$SOURCE/stage_prompts/" "$DEST/stage_prompts/"
+
+          # Swift source + build artifacts (for incremental rebuild)
+          echo "Syncing LocalOCR.macOS..."
+          rsync -a --exclude='DerivedData/' \
+            "$SOURCE/LocalOCR.macOS/" "$DEST/LocalOCR.macOS/"
+
+          # DerivedData (large but needed for delta rebuild)
+          if [ -d "$SOURCE/LocalOCR.macOS/DerivedData" ]; then
+            echo "Syncing DerivedData..."
+            rsync -a "$SOURCE/LocalOCR.macOS/DerivedData/" \
+              "$DEST/LocalOCR.macOS/DerivedData/"
+          fi
+
+          echo "Restore complete"
 
       - name: Copy agent rules
         if: steps.diff.outputs.changed == 'true'
         run: |
-          cp ~/actions-runner/actions-runner/agent-rules.md . 2>/dev/null || true
+          cp $HOME/actions-runner/actions-runner/agent-rules.md . 2>/dev/null || true
 
       - name: Run delta orchestrator
         if: steps.diff.outputs.changed == 'true'
@@ -55,6 +86,27 @@ jobs:
             --bundle-id com.localocr.extended \
             --mode delta \
             --changed-files CHANGED_FILES.txt
+
+      - name: Sync results back to local project
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          SOURCE=$GITHUB_WORKSPACE
+          DEST=$HOME/.gemini/antigravity/LocalOCR_Extended
+
+          echo "Syncing results back to local project"
+
+          # Updated files
+          for f in FEATURE_PARITY_REGISTRY.md AGENT_LEARNINGS.md \
+                   SHIP_READY.md FINAL_FIXES.md \
+                   orchestrator_status.json fix_progress.json; do
+            cp "$SOURCE/$f" "$DEST/" 2>/dev/null || true
+          done
+
+          # Updated Swift source
+          rsync -a --exclude='DerivedData/' \
+            "$SOURCE/LocalOCR.macOS/" "$DEST/LocalOCR.macOS/"
+
+          echo "Sync back complete"
 
       - name: Tag successful build
         if: success() && steps.diff.outputs.changed == 'true'
@@ -69,7 +121,8 @@ jobs:
         if: success() && hashFiles('SHIP_READY.md') != ''
         run: |
           VERSION="v$(date +%Y.%m.%d)"
-          APP=$(find . -name "LocalOCR.app" -path "*/Release/*" | head -1)
+          APP=$(find LocalOCR.macOS/DerivedData -name "LocalOCR.app" \
+                -path "*/Release/*" 2>/dev/null | head -1)
           if [ -n "$APP" ]; then
             xattr -cr "$APP"
             zip -r LocalOCR-${VERSION}.zip "$APP"
