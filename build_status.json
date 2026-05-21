@@ -1,9 +1,9 @@
 {
   "phases_done": 5,
   "phases_total": 9,
-  "current_screen": "Expenses",
-  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts"],
-  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts"],
+  "current_screen": "Shopping",
+  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses"],
+  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses"],
   "gates": {
     "preflight": "done",
     "registry": "done",
@@ -20,6 +20,8 @@
     "phase 5 Balances: all 4 gates closed (2026-05-21 20:55). RULE 2: backend GET /shared-dining/balances returns BARE ARRAY of {contact_id,name,net_amount} (shared_dining_endpoints.py:82) — repo decodes via `get<List<dynamic>>`. F-701..F-704 ✅; F-705/F-706 🔄 (no per-debt list endpoint backend-side and web doesn't render expand either). flutter build apk --debug → 8s. emulator-5554 deep-link `localocr:///balances`: 'loaded 0 balances' line within ~2s. Zero failure patterns. RULE 14: empty-state copy matches web 'No outstanding balances — all settled! 🎉'.",
     "phase 5 Balances: all 4 gates closed. 4 ✅ + 2 🔄.",
     "phase 5 Contacts (Dining): all 4 gates closed (2026-05-21 20:57). RULE 2 bare-array decode for GET /shared-dining/contacts → `[{id,name,phone,email}]`. F-801..F-806 all ✅. 'loaded 0 contacts' (prod empty). RULE 14 empty-state matches web 'No saved contacts yet. Add one above.'",
-    "# screen-complete: Contacts apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
+    "phase 5 Contacts (Dining): all 4 gates closed. 6 ✅.",
+    "phase 5 Expenses: all 4 gates closed (2026-05-21 21:01). RULE 1 caught 6 endpoint/verb errors (F-901 receipts → expense-summary; F-904 top-merchants → derived; F-906/F-907 /budget → /budget/set-monthly; F-908 category= → domain=; F-914 tap → display; F-915 fabricated /analytics/categories → expense-summary.category_breakdown). RULE 2: ExpenseSummary mirrors calculate_spending_analytics.py:332-347 verbatim. Real data 'loaded expenses summary purchases=108 spend=16838.44 merchants=8 items=10 cats=4 receipts=12'. Refund row renders amount in red. F-912/F-916 🔄 (inline detail → navigate to /receipts/<id> + native layout doesn't need reposition).",
+    "# screen-complete: Expenses apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
   ]
 }

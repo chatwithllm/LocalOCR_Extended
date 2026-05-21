@@ -339,22 +339,22 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-901 | Expenses | Stat — Expense Receipts count | display | GET `/receipts?type=general_expense` | `expense-receipt-count` | — | ❌ |
-| F-902 | Expenses | Stat — Total Spend | display | GET `/analytics/spending?domain=general_expense` | `expense-total-spend` | — | ❌ |
-| F-903 | Expenses | Stat — Average Ticket | display | derived | `expense-average-ticket` | — | ❌ |
-| F-904 | Expenses | Stat — Top Merchant | display | GET `/analytics/top-merchants?domain=general_expense` | `expense-top-store` | — | ❌ |
-| F-905 | Expenses | Expense Budget — month picker | month-input | GET `/budget/status?month=&domain=general_expense` | `loadExpenseBudget()` (V-9 RESOLVED — endpoint corrected from fabricated `/budget?category=…`; real endpoint per `manage_household_budget.py:284`) | — | ❌ |
-| F-906 | Expenses | Expense Budget — amount input | number-input | POST `/budget` | `expense-budget-amount` | — | ❌ |
-| F-907 | Expenses | Expense Budget — Save | button | POST `/budget` | `saveExpenseBudget()` | — | ❌ |
-| F-908 | Expenses | Expense Budget status | display | GET `/budget/status?category=general_expense` | progress bar | — | ❌ |
-| F-909 | Expenses | Period select | select | GET `/receipts?type=general_expense&months=N` | 3/6/12 | — | ❌ |
-| F-910 | Expenses | Expenses refresh 🔄 | button | GET `/receipts?type=general_expense` | `loadExpenses()` | — | ❌ |
-| F-911 | Expenses | Expenses list row tap → select | tap | GET `/receipts/<id>` | sets `expense-detail-body` | — | ❌ |
-| F-912 | Expenses | Selected receipt detail panel | display | GET `/receipts/<id>` | `renderExpenseReceiptDetail()` | — | ❌ |
-| F-913 | Expenses | Top Merchants row tap | tap | filter | `expense-top-merchants` | — | ❌ |
-| F-914 | Expenses | Top Reference Items row tap | tap | filter | `expense-top-items` | — | ❌ |
-| F-915 | Expenses | Expense Categories breakdown bar | display | GET `/analytics/categories?domain=general_expense` | `expense-category-breakdown` | — | ❌ |
-| F-916 | Expenses | Selected receipt — mobile reposition | (layout) | — | `repositionExpenseDetailForMobile()` | — | 🔄 native layout handles this; no port needed |
+| F-901 | Expenses | Stat — Expense Receipts count | display | GET `/analytics/expense-summary?months=N` | RULE 1: web reads `summaryData.purchase_count` (index.html:36636); primary endpoint is `/analytics/expense-summary` (same pattern as Restaurant F-601). | `_StatCard(key:'expense-receipt-count')` value=`summary.purchaseCount` | ✅ |
+| F-902 | Expenses | Stat — Total Spend | display | GET `/analytics/expense-summary` | web prefers `summaryData.total_spend` (index.html:36645); falls back to `/analytics/spending?period=monthly&domain=general_expense` `grand_total` | `_StatCard(key:'expense-total-spend')` value=`_money.format(summary.totalSpend)` | ✅ |
+| F-903 | Expenses | Stat — Average Ticket | display | GET `/analytics/expense-summary` | `summaryData.average_ticket` computed backend-side as `purchase_total / purchase_count` (calculate_spending_analytics.py:340) | `_StatCard(key:'expense-average-ticket')` value=`_money.format(summary.averageTicket)` | ✅ |
+| F-904 | Expenses | Stat — Top Merchant | display | GET `/analytics/expense-summary` | RULE 1: web reads `(summaryData.top_merchants \|\| [])[0]` (index.html:36631/36648); no separate `/analytics/top-merchants` endpoint exists. | `_StatCard(key:'expense-top-store')` value=`topMerchant.store`; sub shows receipts / refunds / Net | ✅ |
+| F-905 | Expenses | Expense Budget — month picker | month-input | GET `/budget/status?month=YYYY-MM&domain=general_expense` | `loadExpenseBudget()` (V-9 RESOLVED) | `_BudgetCard` `TextButton.icon(key:'expense-budget-month')` → `showDatePicker` → writes `expensesBudgetMonthProvider` | ✅ |
+| F-906 | Expenses | Expense Budget — amount input | number-input | POST `/budget/set-monthly` | RULE 1: real endpoint is `/budget/set-monthly` with body `{month, domain:'general_expense', budget_amount}` (manage_household_budget.py:160). Registry previously cited bare `/budget`. | `_BudgetCard` `TextField(key:'expense-budget-amount', keyboardType: decimal)` (admin-only) | ✅ |
+| F-907 | Expenses | Expense Budget — Save | button | POST `/budget/set-monthly` | endpoint corrected per F-906 | `_BudgetCard` `FilledButton('Save')` → `ExpensesRepository.setBudget` → POST /budget/set-monthly + invalidate + SnackBar | ✅ |
+| F-908 | Expenses | Expense Budget status | display | GET `/budget/status?month=&domain=general_expense` | RULE 1: registry text said `?category=general_expense` — backend takes `domain`, not `category`, when domain is provided (manage_household_budget.py:309). | `_BudgetCard` `LinearProgressIndicator` w/ green/amber/error color cycling; meta line `{pct}% used · N receipts · M refunds` + remaining/over label | ✅ |
+| F-909 | Expenses | Period select | select | GET `/analytics/expense-summary?months=N` | 3/6/12 (web `expense-period` select wires to `loadExpenses()` which feeds `months` query into expense-summary + spending — index.html:36613) | `_StatsGrid` `DropdownButton<int>(key:'expense-period')` bound to `expensesPeriodProvider` | ✅ |
+| F-910 | Expenses | Expenses refresh 🔄 | button | GET `/analytics/expense-summary` | endpoint corrected per F-909 | AppBar `IconButton(Icons.refresh)` → `ref.invalidate(expensesBundleProvider)` | ✅ |
+| F-911 | Expenses | Expenses list row tap → select | tap | GET `/receipts/<id>` | sets `expense-detail-body` | `_ReceiptsCard` `ListTile.onTap` → `GoRouter.go('/receipts/${purchaseId}')`; Receipts wave hydrates the destination | ✅ |
+| F-912 | Expenses | Selected receipt detail panel | display | GET `/receipts/<id>` | `renderExpenseReceiptDetail()` | 🔄 web shows the receipt detail INLINE next to the expense list; Android navigates to the `/receipts/<id>` route (placeholder until Receipts wave hydrates it). Same data, different layout — registry tap verb (F-911) still routes the user there. | 🔄 |
+| F-913 | Expenses | Top Merchants row tap | tap | filter via /receipts?store=… | `expense-top-merchants` | `_TopMerchantsCard` `ListTile.onTap` → `GoRouter.go('/receipts?store=${encodeQueryComponent(store)}')` | ✅ |
+| F-914 | Expenses | Top Reference Items row | display | — | RULE 1: web `expense-top-items` is a static table — index.html:36688-36692 emits `<tr><td>` rows with no onclick. Registry verb `tap` to /receipts?item=… was incorrect; no such filter exists. | `_TopItemsCard` per-item `Row(name, ×qty, total, avg)` — display only, matches web exactly | ✅ |
+| F-915 | Expenses | Expense Categories breakdown bar | display | GET `/analytics/expense-summary` | RULE 1: registry said `/analytics/categories?domain=general_expense` — no such endpoint. Web `category_breakdown` ships inside the expense-summary body (calculate_spending_analytics.py:343). | `_CategoryBreakdownCard` per-category `LinearProgressIndicator` showing `total / sum(totals)` ratio + `{count} lines · {money}` meta | ✅ |
+| F-916 | Expenses | Selected receipt — mobile reposition | (layout) | — | `repositionExpenseDetailForMobile()` | 🔄 native layout handles this; no port needed | 🔄 |
 ---
 
 ## Screen: Shopping
