@@ -315,12 +315,12 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-701 | Balances | Page header refresh 🔄 | button | GET `/shared-dining/balances` | `loadBalances()` | — | ❌ |
-| F-702 | Balances | "Who Owes What" card title | display | — | static | — | ❌ |
-| F-703 | Balances | Per-contact balance row (name, owed/owes amount) | display | GET `/shared-dining/balances` | `balances-body` | — | ❌ |
-| F-704 | Balances | Per-contact "Settle all" button | button | POST `/shared-dining/contacts/<id>/settle-all` | `settleAllWithContact()` confirm | — | ❌ |
-| F-705 | Balances | Per-contact expand → underlying debts list | tap-toggle | — | individual debt rows | — | ❌ |
-| F-706 | Balances | Per-debt row settle button | button | POST `/shared-dining/debts/<id>/settle` | per-debt | — | ❌ |
+| F-701 | Balances | Page header refresh 🔄 | button | GET `/shared-dining/balances` | `loadBalances()` | AppBar `IconButton(Icons.refresh)` → `ref.invalidate(balancesListProvider)` | ✅ |
+| F-702 | Balances | "Who Owes What" card title | display | — | static | `Text('Who Owes What')` heading in `Card` body of `BalancesScreen` | ✅ |
+| F-703 | Balances | Per-contact balance row (name, owed/owes amount) | display | GET `/shared-dining/balances` | `balances-body` | `_BalanceTile` Row(name+direction column, money amount in green when `owesYou`/red when you owe, Settle button). RULE 2: backend `get_all_balances` returns BARE ARRAY of `{contact_id, name, net_amount}` (shared_dining_endpoints.py:82) — repo decodes via `get<List<dynamic>>` per RULE 2. | ✅ |
+| F-704 | Balances | Per-contact "Settle all" button | button | POST `/shared-dining/contacts/<id>/settle-all` | `settleAllWithContact()` confirm | `_BalanceTile` `OutlinedButton('Settle all', key:'balances-settle-<id>')` → AlertDialog confirm → `BalancesRepository.settleAll` → POST /shared-dining/contacts/<id>/settle-all + invalidate + SnackBar with `{settled}` count | ✅ |
+| F-705 | Balances | Per-contact expand → underlying debts list | tap-toggle | — | individual debt rows | 🔄 backend `/shared-dining/balances` returns FLAT per-contact rows only — there is no per-debt-list endpoint and web doesn't render expand either (verified: zero references to `debt-row` or `/shared-dining/debts` UI rendering in index.html). Will hydrate once backend exposes a `/shared-dining/balances/<contact_id>/debts` endpoint. | 🔄 |
+| F-706 | Balances | Per-debt row settle button | button | POST `/shared-dining/debts/<id>/settle` | per-debt | 🔄 endpoint exists at `shared_dining_endpoints.py:62` and Android can call it once F-705 surfaces a list of debt ids. Without that source there is nothing to render a per-debt Settle button against. | 🔄 |
 ---
 
 ## Screen: Contacts (Dining)
