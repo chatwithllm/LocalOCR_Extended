@@ -29,7 +29,8 @@ env/
 *.db-shm
 
 # --- Data Directories (Docker volumes) ---
-data/
+/data/
+src/**/data/
 
 # --- IDE ---
 .vscode/

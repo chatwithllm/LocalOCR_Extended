@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers.dart';
 import '../../features/appshell/app_shell.dart';
 import '../../features/auth/login_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/shared/placeholder_screen.dart';
 
 /// Plan §3 — single go_router with NavigationDrawer shell, auth redirect,
@@ -71,7 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
         routes: [
           GoRoute(path: '/dashboard', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Dashboard')),
+              const DashboardScreen()),
           GoRoute(path: '/inventory', builder: (_, __) =>
               const PlaceholderScreen(title: 'Inventory')),
           GoRoute(path: '/products', builder: (_, __) =>

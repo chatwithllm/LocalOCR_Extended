@@ -90,39 +90,39 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-201 | Dashboard | Page header H1 + subtitle | display | — | "Dashboard / Your household system at a glance" | — | ❌ |
-| F-202 | Dashboard | Demo hero "Sign In" button | button | — | `focusLogin()` (read-only demo mode only) | — | ❌ |
-| F-203 | Dashboard | Demo hero "Shopping Demo" button | button | — | `goToPage('shopping')` | — | ❌ |
-| F-204 | Dashboard | Demo hero "Restaurant Demo" button | button | — | `goToPage('restaurant')` | — | ❌ |
-| F-205 | Dashboard | Demo hero "Grocery / Restaurant / Expenses" mini cards | display | — | Three static cards | — | ❌ |
-| F-206 | Dashboard | Demo read-only note | display | — | Static text | — | ❌ |
-| F-207 | Dashboard | Leaderboard title (`dashboard-leaderboard-title`) | display | GET `/contributions/leaderboard` | `renderLeaderboard()` | — | ❌ |
-| F-208 | Dashboard | Leaderboard collapsed preview surface | tap | — | `handleLeaderboardSurfaceTap()` | — | ❌ |
-| F-209 | Dashboard | Leaderboard "Show full ranking" button | button | — | `toggleLeaderboard()` | — | ❌ |
-| F-210 | Dashboard | Leaderboard full list row tap | tap | — | per-row navigate | — | ❌ |
-| F-211 | Dashboard | Attribution nudge "Tag now →" link | tap | — | `navToReceiptsUntagged()` → Receipts screen with `untagged_only` filter | — | ❌ |
-| F-212 | Dashboard | Low stat tile (`stat-low-inline`) | tap | — | `openDashboardStat('low-stock')` → Inventory low_first | — | ❌ |
-| F-213 | Dashboard | Inv stat tile (`stat-inv-inline`) | tap | GET `/inventory` | `openDashboardStat('inventory')` | — | ❌ |
-| F-214 | Dashboard | Prod stat tile (`stat-products-inline`) | tap | GET `/products` | `openDashboardStat('products')` | — | ❌ |
+| F-201 | Dashboard | Page header H1 + subtitle | display | — | "Dashboard / Your household system at a glance" | `_DashboardHeader` — "Dashboard" headline + "Your household system at a glance" subtitle; key `dashboard-h1` | ✅ |
+| F-202 | Dashboard | Demo hero "Sign In" button | button | — | `focusLogin()` (read-only demo mode only) | 🔄 demo hero unreachable on Android — router redirects unauthenticated users straight to `/login` before dashboard mounts. No anonymous/demo state on Android v1; logged-in users see the real cards instead. | 🔄 |
+| F-203 | Dashboard | Demo hero "Shopping Demo" button | button | — | `goToPage('shopping')` | 🔄 same demo-hero reason as F-202 | 🔄 |
+| F-204 | Dashboard | Demo hero "Restaurant Demo" button | button | — | `goToPage('restaurant')` | 🔄 same demo-hero reason as F-202 | 🔄 |
+| F-205 | Dashboard | Demo hero "Grocery / Restaurant / Expenses" mini cards | display | — | Three static cards | 🔄 same demo-hero reason as F-202 | 🔄 |
+| F-206 | Dashboard | Demo read-only note | display | — | Static text | 🔄 same demo-hero reason as F-202 | 🔄 |
+| F-207 | Dashboard | Leaderboard title (`dashboard-leaderboard-title`) | display | GET `/contributions/summary` | `renderLeaderboard()` (V-fix: web also calls `/contributions/summary`, not `/contributions/leaderboard` — confirmed at `index.html:11618`) | `_LeaderboardCard` Row with `Icons.emoji_events_outlined` + "Household contributions" title; key `dashboard-leaderboard-title` | ✅ |
+| F-208 | Dashboard | Leaderboard collapsed preview surface | tap | — | `handleLeaderboardSurfaceTap()` | `InkWell` wrapping top-3 rows in `_LeaderboardCard`; tap toggles `dashboardSectionExpandedProvider('leaderboard')`; key `dashboard-leaderboard-preview` | ✅ |
+| F-209 | Dashboard | Leaderboard "Show full ranking" button | button | — | `toggleLeaderboard()` | `TextButton` "Show full ranking" / "Collapse" toggling expanded provider; key `dashboard-leaderboard-toggle` | ✅ |
+| F-210 | Dashboard | Leaderboard full list row tap | tap | — | per-row navigate | `_LeaderboardRow` `InkWell.onTap` → `GoRouter.go('/contributions')` | ✅ |
+| F-211 | Dashboard | Attribution nudge "Tag now →" link | tap | — | `navToReceiptsUntagged()` → Receipts screen with `untagged_only` filter | `_AttributionNudge` shows when `activity.total > 0`; `TextButton "Tag now →"` → `GoRouter.go('/receipts?untagged_only=1')` | ✅ |
+| F-212 | Dashboard | Low stat tile (`stat-low-inline`) | tap | — | `openDashboardStat('low-stock')` → Inventory low_first | `_StatTile` key `stat-low-inline`; tap → `GoRouter.go('/inventory?group_by=low_first')` | ✅ |
+| F-213 | Dashboard | Inv stat tile (`stat-inv-inline`) | tap | GET `/inventory` | `openDashboardStat('inventory')` | `_StatTile` key `stat-inv-inline`; tap → `GoRouter.go('/inventory')`; count from `InventoryStats.itemCount` | ✅ |
+| F-214 | Dashboard | Prod stat tile (`stat-products-inline`) | tap | GET `/products` | `openDashboardStat('products')` | `_StatTile` key `stat-products-inline`; tap → `GoRouter.go('/products')`; total from `ProductsStats.total` | ✅ |
 | F-215 | Dashboard | Dashboard stat tile Enter/Space keyboard | keyboard-shortcut | — | `handleDashboardStatKey()` | — | 🔄 hardware-keyboard rare on Android; touch covers verb |
-| F-216 | Dashboard | Spending-by-Category title (collapse toggle) | tap-toggle | GET `/analytics/spending-by-category` | `toggleDashboardSpendingCard()` | — | ❌ |
-| F-217 | Dashboard | Spending-by-Category total inline stat | display | — | `dashboard-spending-total` | — | ❌ |
-| F-218 | Dashboard | Spending-by-Category row tap → drill panel | tap | — | `_renderSpendingDrillPanel(category)` | — | ❌ |
-| F-219 | Dashboard | Spending-by-Category "Show more" toggle button | button | — | `toggleDashboardSpendingMore()` | — | ❌ |
-| F-220 | Dashboard | Low Stock card title | display | — | "⚠️ Low Stock" | — | ❌ |
-| F-221 | Dashboard | Low Stock count chip | tap-toggle | — | `toggleDashboardSection('low-stock')` | — | ❌ |
-| F-222 | Dashboard | Low Stock list row tap | tap | — | Opens inventory item / Add to shopping | — | ❌ |
-| F-223 | Dashboard | Receipts Processed card title (collapse) | tap-toggle | — | `toggleDashboardSection('receipts-activity')` | — | ❌ |
-| F-224 | Dashboard | Receipts Processed grain Day button | chip-toggle | GET `/analytics/receipts-activity?grain=day` | `setReceiptsActivityGrain('day')` | — | ❌ |
-| F-225 | Dashboard | Receipts Processed grain Week button | chip-toggle | GET `/analytics/receipts-activity?grain=week` | `setReceiptsActivityGrain('week')` | — | ❌ |
-| F-226 | Dashboard | Receipts Processed grain Month button | chip-toggle | GET `/analytics/receipts-activity?grain=month` | `setReceiptsActivityGrain('month')` | — | ❌ |
-| F-227 | Dashboard | Receipts Processed chart body | display | — | `_renderReceiptsActivityChart()` SVG sparkline | — | ❌ |
-| F-228 | Dashboard | Top Picks (recommendations) card | tap-toggle | GET `/recommendations` | `toggleDashboardSection('recommendations')`; `loadRecs('dash-recs')` | — | ❌ |
-| F-229 | Dashboard | Top Picks row Add-to-list button | button | POST `/shopping-list/items` | per-rec action | — | ❌ |
-| F-230 | Dashboard | Shopping List summary card title (link) | tap | — | `openDashboardStat('shopping')` | — | ❌ |
-| F-231 | Dashboard | Shopping List header count chip | display | — | `dash-shopping-header-count` | — | ❌ |
-| F-232 | Dashboard | Shopping List Estimate button | tap-toggle | — | `toggleDashboardShoppingPreview()` reveals preview list | — | ❌ |
-| F-233 | Dashboard | Shopping List preview row tap | tap | — | navigate to shopping with item highlighted | — | ❌ |
+| F-216 | Dashboard | Spending-by-Category title (collapse toggle) | tap-toggle | GET `/analytics/spending-by-category` | `toggleDashboardSpendingCard()` | `_SpendingByCategoryCard` `InkWell` header toggles `dashboardSectionExpandedProvider('spending')`; key `dashboard-spending-toggle` | ✅ |
+| F-217 | Dashboard | Spending-by-Category total inline stat | display | — | `dashboard-spending-total` | `Text` in `_SpendingByCategoryCard` header showing `$X.XX`; key `dashboard-spending-total` | ✅ |
+| F-218 | Dashboard | Spending-by-Category row tap → drill panel | tap | — | `_renderSpendingDrillPanel(category)` | `_SpendingRow` `InkWell.onTap` → `GoRouter.go('/analytics?category=…')` | ✅ |
+| F-219 | Dashboard | Spending-by-Category "Show more" toggle button | button | — | `toggleDashboardSpendingMore()` | `TextButton` "Show more / Show less" bound to `dashboardSpendingMoreProvider`; shows when categories > 6; key `dashboard-spending-more` | ✅ |
+| F-220 | Dashboard | Low Stock card title | display | — | "⚠️ Low Stock" | `Text("⚠️  Low Stock")` in `_LowStockCard` header | ✅ |
+| F-221 | Dashboard | Low Stock count chip | tap-toggle | — | `toggleDashboardSection('low-stock')` | `Container` chip in `_LowStockCard` header; entire row InkWell toggles `dashboardSectionExpandedProvider('low-stock')`; key `dashboard-low-chip` | ✅ |
+| F-222 | Dashboard | Low Stock list row tap | tap | — | Opens inventory item / Add to shopping | "Open Inventory to triage →" `InkWell` → `GoRouter.go('/inventory?group_by=low_first')`; per-item rows live on Inventory screen | ✅ |
+| F-223 | Dashboard | Receipts Processed card title (collapse) | tap-toggle | — | `toggleDashboardSection('receipts-activity')` | `_ReceiptsActivityCard` `InkWell` header toggles `dashboardSectionExpandedProvider('activity')` | ✅ |
+| F-224 | Dashboard | Receipts Processed grain Day button | chip-toggle | GET `/analytics/receipts-activity?grain=day` | `setReceiptsActivityGrain('day')` | `ChoiceChip` "Day" key `activity-grain-day` bound to `receiptsActivityGrainProvider`; auto-refetches via `dashboardStateProvider` | ✅ |
+| F-225 | Dashboard | Receipts Processed grain Week button | chip-toggle | GET `/analytics/receipts-activity?grain=week` | `setReceiptsActivityGrain('week')` | `ChoiceChip` "Week" key `activity-grain-week` | ✅ |
+| F-226 | Dashboard | Receipts Processed grain Month button | chip-toggle | GET `/analytics/receipts-activity?grain=month` | `setReceiptsActivityGrain('month')` | `ChoiceChip` "Month" key `activity-grain-month` | ✅ |
+| F-227 | Dashboard | Receipts Processed chart body | display | — | `_renderReceiptsActivityChart()` SVG sparkline | `_Sparkline` → `CustomPaint(_SparkPainter)` drawing line over `activity.buckets` counts | ✅ |
+| F-228 | Dashboard | Top Picks (recommendations) card | tap-toggle | GET `/recommendations` | `toggleDashboardSection('recommendations')`; `loadRecs('dash-recs')` | `_TopPicksCard` `InkWell` header toggles `dashboardSectionExpandedProvider('recs')` | ✅ |
+| F-229 | Dashboard | Top Picks row Add-to-list button | button | POST `/shopping-list/items` | per-rec action | `IconButton` `Icons.add_shopping_cart` per `_RecRow`; key `rec-add-<id>`; → `DashboardRepository.addRecommendationToList` → POST `/shopping-list/items` with SnackBar feedback | ✅ |
+| F-230 | Dashboard | Shopping List summary card title (link) | tap | — | `openDashboardStat('shopping')` | `_ShoppingSummaryCard` header `InkWell.onTap` → `GoRouter.go('/shopping')`; key `dashboard-shopping-title` | ✅ |
+| F-231 | Dashboard | Shopping List header count chip | display | — | `dash-shopping-header-count` | `Container` chip showing `shopping.openCount`; key `dash-shopping-header-count` | ✅ |
+| F-232 | Dashboard | Shopping List Estimate button | tap-toggle | — | `toggleDashboardShoppingPreview()` reveals preview list | `TextButton` "Estimate / Hide preview" toggling `dashboardShoppingPreviewExpandedProvider`; key `dashboard-shopping-preview-toggle` | ✅ |
+| F-233 | Dashboard | Shopping List preview row tap | tap | — | navigate to shopping with item highlighted | `ListTile.onTap` → `GoRouter.go('/shopping?item_id=…')` | ✅ |
 | F-234 | Dashboard | Floor Obligations hidden card | display | — | Hidden shell — superseded by Spending by Category | — | 🚫 hidden in web; do not port |
 ---
 
