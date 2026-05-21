@@ -210,86 +210,86 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-401 | Products | Add Product — Name input (`prod-name`) | text-input | — | `createProduct()` payload | — | ❌ |
-| F-402 | Products | Add Product — Category select (`prod-cat`) | select | — | 12 fixed options | — | ❌ |
-| F-403 | Products | Add Product — Barcode input (`prod-barcode`) | text-input | — | optional UPC | — | ❌ |
-| F-404 | Products | Add Product — "➕ Add Product" button | button | POST `/products/create` | `createProduct()` | — | ❌ |
-| F-405 | Products | Catalog count (`prod-count`) | display | — | total products | — | ❌ |
-| F-406 | Products | Catalog search (`prod-search`) | text-input | — | `searchProducts()` debounce 300ms | — | ❌ |
-| F-407 | Products | Catalog sort select | select | — | `setProductSort()` name_asc/category_asc/variants_desc/recent_desc | — | ❌ |
-| F-408 | Products | Catalog refresh button (🔄) | button | GET `/products` | `loadProducts()` | — | ❌ |
-| F-409 | Products | Category chip row (`prod-category-chips`) | chip-toggle | — | `renderProductCategoryChips()` | — | ❌ |
-| F-410 | Products | Group header (🏷️ Category · N products) | display | — | `renderProductTiles()` group | — | ❌ |
-| F-411 | Products | Product tile image (admin only) | display | GET `/product-snapshots/...` | snap-driven | — | ❌ |
-| F-412 | Products | Product tile category label + Low badge | display | — | head row | — | ❌ |
-| F-413 | Products | Product tile ×count pill | display | — | variants count | — | ❌ |
-| F-414 | Products | Product tile name (⭐ regular-use prefix) | display | — | `is_regular_use` adds star | — | ❌ |
-| F-415 | Products | Product tile latest purchase 📅 | display | — | `latestPurchase` | — | ❌ |
-| F-416 | Products | Product tile variant examples line | display | — | first 2 examples + `…` | — | ❌ |
-| F-417 | Products | Product tile ✎ edit button | button | PUT `/products/<id>/update` | `editProductDetails()` | — | ❌ |
-| F-418 | Products | Product tile 🛒 add-to-list | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | — | ❌ |
-| F-419 | Products | Product tile ✨ AI generate image (admin/no image) | button | POST `/product-snapshots/generate` | `invGenerateTileImage()` | — | ❌ |
-| F-420 | Products | Product tile 🗑 delete | button | DELETE `/products/<id>` | confirm dialog | — | ❌ |
-| F-421 | Products | Product tile ▾ N expand (variants > 1) | tap-toggle | — | `_toggleProductVariants()` | — | ❌ |
-| F-422 | Products | Variant detail row name + Low badge | display | — | inline detail | — | ❌ |
-| F-423 | Products | Variant detail row size / bought meta | display | — | `default_size_label`, `last_purchase_date` | — | ❌ |
-| F-424 | Products | Variant detail "mini-link" receipt buttons | tap | GET `/receipts/<id>` | `openReceiptDetail()` | — | ❌ |
-| F-425 | Products | Variant detail ✎ Edit button | button | PUT `/products/<id>/update` | `editProductDetails()` | — | ❌ |
-| F-426 | Products | Variant detail 🛒 Add | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | — | ❌ |
-| F-427 | Products | Variant detail 🗑 delete | button | DELETE `/products/<id>` | per-variant | — | ❌ |
-| F-428 | Products | Variant rename ✏️ button | button | PUT `/products/<id>/update` | `renameProduct()` text prompt | — | ❌ |
-| F-429 | Products | Variant 📷 photo button | file-pick | POST `/product-snapshots/upload` | `selectProductSnapshotFile()` | — | ❌ |
-| F-430 | Products | Variant 🖼 view photo | tap | — | `openProductSnapshot()` zoom overlay | — | ❌ |
-| F-431 | Products | Variant Set Low / Clear Low button | button | PATCH `/products/<id>/low-status` | `setProductLowStatus()` | — | ❌ |
-| F-432 | Products | Variant Unit select | select | PATCH `/products/<id>/unit-defaults` | inline select | — | ❌ |
-| F-433 | Products | Variant Size Label input | text-input | PATCH `/products/<id>/unit-defaults` | `updateProductUnitDefaults()` | — | ❌ |
-| F-434 | Products | Variant Save (unit/size) button | button | PATCH `/products/<id>/unit-defaults` | | — | ❌ |
-| F-435 | Products | Variant Category change select | select | PUT `/products/<id>/category` | `updateProductCategory()` | — | ❌ |
+| F-401 | Products | Add Product — Name input (`prod-name`) | text-input | — | `createProduct()` payload | `_AddProductCard` `prod-name` TextField | ✅ |
+| F-402 | Products | Add Product — Category select (`prod-cat`) | select | — | 12 fixed options | `_AddProductCard` `prod-cat` DropdownButtonFormField(12 opts) | ✅ |
+| F-403 | Products | Add Product — Barcode input (`prod-barcode`) | text-input | — | optional UPC | `_AddProductCard` `prod-barcode` TextField | ✅ |
+| F-404 | Products | Add Product — "➕ Add Product" button | button | POST `/products/create` | `createProduct()` | `_AddProductCard._submit()` → `ProductRepository.create` | ✅ |
+| F-405 | Products | Catalog count (`prod-count`) | display | — | total products | `_FiltersBar` `Catalog (N groups / M items)` title | ✅ |
+| F-406 | Products | Catalog search (`prod-search`) | text-input | — | `searchProducts()` debounce 300ms | `_ProductsScreenState._onSearchChanged` 300ms Timer; `productListProvider` routes ≥2 chars to `/products/search` | ✅ |
+| F-407 | Products | Catalog sort select | select | — | `setProductSort()` name_asc/category_asc/variants_desc/recent_desc | `_FiltersBar` DropdownButton on filters.sort (5 opts incl name_asc/desc/category_asc/variants_desc/recent_desc) | ✅ |
+| F-408 | Products | Catalog refresh button (🔄) | button | GET `/products` | `loadProducts()` | Refresh `IconButton(Icons.refresh)` invalidates `productListProvider` | ✅ |
+| F-409 | Products | Category chip row (`prod-category-chips`) | chip-toggle | — | `renderProductCategoryChips()` | `_CategoryChipRow` FilterChip row driven by `filters.categoryFilters` | ✅ |
+| F-410 | Products | Group header (🏷️ Category · N products) | display | — | `renderProductTiles()` group | `_GroupHeader` widget — `🏷️ Cat · N products` | ✅ |
+| F-411 | Products | Product tile image (admin only) | display | GET `/product-snapshots/...` | snap-driven | `_ProductTile` Image.network(latestSnapshot.imageUrl) when admin | ✅ |
+| F-412 | Products | Product tile category label + Low badge | display | — | head row | `_ProductTile` head row: category label + `_Pill('Low')` when isLow | ✅ |
+| F-413 | Products | Product tile ×count pill | display | — | variants count | `_ProductTile` `_Pill('×N')` | ✅ |
+| F-414 | Products | Product tile name (⭐ regular-use prefix) | display | — | `is_regular_use` adds star | `_ProductTile` name prefixed with `⭐ ` when `isRegularUse` | ✅ |
+| F-415 | Products | Product tile latest purchase 📅 | display | — | `latestPurchase` | `_ProductTile` `📅 group.latestPurchase` | ✅ |
+| F-416 | Products | Product tile variant examples line | display | — | first 2 examples + `…` | `_ProductTile` examples line: first 2 names + ` …` when count > 2 | ✅ |
+| F-417 | Products | Product tile ✎ edit button | button | PUT `/products/<id>/update` | `editProductDetails()` (index.html:25154) — opens inline edit (name/category/regular_use/default_unit/default_size_label) | `_ProductTile` `Icons.edit_outlined` → `_EditProductSheet` (name + category + photos) | ✅ |
+| F-418 | Products | Product tile 🛒 add-to-list | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | `_ProductTile` `Icons.shopping_cart_outlined` → `ProductRepository.addToShoppingList` | ✅ |
+| F-419 | Products | Product tile ✨ AI generate image (admin/no image) | button | POST `/api/admin/image-backfill/run` + poll GET `/api/admin/image-backfill/jobs/<job_id>` | `invGenerateTileImage()` (index.html:24865 — runs backfill job, polls 30×2s, refetches `/products/<id>`) | `_ProductTile` `Icons.auto_awesome` (admin && no image) → `generateAiImage` runs backfill + polls job | ✅ |
+| F-420 | Products | Product tile 🗑 delete | button | DELETE `/products/<id>` | confirm dialog | `_ProductTile` `Icons.delete_outline` → AlertDialog confirm → `delete` | ✅ |
+| F-421 | Products | Product tile ▾ N expand (variants > 1) | tap-toggle | — | `_toggleProductVariants()` | `_ProductTile` `TextButton.icon(expand)` toggles `_expandedKeys` set | ✅ |
+| F-422 | Products | Variant detail row name + Low badge | display | — | inline detail | `_VariantRow` row name + `_Pill('Low')` when isLow | ✅ |
+| F-423 | Products | Variant detail row size / bought meta | display | — | `default_size_label`, `last_purchase_date` | `_VariantRow` meta: `default_size_label · Bought <date>` | ✅ |
+| F-424 | Products | Variant detail "mini-link" receipt buttons | tap | GET `/receipts/<id>` | `openReceiptDetail()` | `_VariantRow` OutlinedButton chips per `recentReceipts` (mini-link). Tap → SnackBar 🔄: Receipts deep-link wired in Receipts wave | 🔄 |
+| F-425 | Products | Variant detail ✎ Edit button | button | PUT `/products/<id>/update` | `editProductDetails()` | `_VariantRow` `Icons.edit_outlined` → `_EditProductSheet` | ✅ |
+| F-426 | Products | Variant detail 🛒 Add | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | `_VariantRow` `Icons.shopping_cart_outlined` → `addToShoppingList` | ✅ |
+| F-427 | Products | Variant detail 🗑 delete | button | DELETE `/products/<id>` | per-variant | `_VariantRow` `Icons.delete_outline` → confirm → `delete` | ✅ |
+| F-428 | Products | Variant rename ✏️ button | button | PUT `/products/<id>/update` | `renameProduct()` text prompt | `_VariantRow` `Icons.drive_file_rename_outline` → AlertDialog text prompt → `update(name:)` | ✅ |
+| F-429 | Products | Variant 📷 photo button | file-pick | POST `/product-snapshots/upload` | `selectProductSnapshotFile()` | `_EditProductSheet` `_pickAndUpload` (image_picker) → `uploadSnapshot`. 🔄: surfaced inside edit sheet rather than as separate per-row 📷 button | 🔄 |
+| F-430 | Products | Variant 🖼 view photo | tap | — | `openProductSnapshot()` zoom overlay | `_EditProductSheet` photo gallery — tap promotes via `promoteSnapshot`; ✕ deletes. 🔄: full-screen zoom view deferred to Receipts wave (gallery shows thumbs) | 🔄 |
+| F-431 | Products | Variant Set Low / Clear Low button | button | PUT `/inventory/products/<id>/low-status` | RULE 1: real verb=PUT, inventory blueprint (manage_inventory.py:432) — body `{is_low: bool}`. Web at index.html:25382. | `_VariantRow` `FilledButton.tonal` Set/Clear Low → `setLowStatus` | ✅ |
+| F-432 | Products | Variant Unit select | select | PUT `/products/<id>/update` | RULE 1: no `/unit-defaults` endpoint — all variant edits go through single update with `default_unit` in body. Web at index.html:25154/25180/25858. | `_VariantRow` Unit DropdownButtonFormField with 9 options | ✅ |
+| F-433 | Products | Variant Size Label input | text-input | PUT `/products/<id>/update` | same update endpoint with `default_size_label` field. | `_VariantRow` Size Label TextField | ✅ |
+| F-434 | Products | Variant Save (unit/size) button | button | PUT `/products/<id>/update` | single PUT body `{default_unit, default_size_label}`. | `_VariantRow` Save FilledButton → `update(defaultUnit, defaultSizeLabel)` | ✅ |
+| F-435 | Products | Variant Category change select | select | PUT `/products/<id>/update` | RULE 1: no `/category` endpoint — update with `category` field. | `_VariantRow` Category DropdownButtonFormField → onChanged calls `update(category:)` | ✅ |
 ---
 
 ## Screen: Medicine
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-501 | Medicine | Page header (H1 + subtitle) | display | — | static | — | ❌ |
-| F-502 | Medicine | "+ Add Medication" button | button | — | `openAddMedicationSheet()` | — | ❌ |
-| F-503 | Medicine | "👥 Members" button | button | — | `openMembersSheet()` | — | ❌ |
-| F-504 | Medicine | Filter status select | select | GET `/medications?status=...` | active / all / expired / finished | — | ❌ |
-| F-505 | Medicine | Member chip "All" | chip-toggle | — | `__medicineMemberFilter=null` | — | ❌ |
-| F-506 | Medicine | Member chip per person/user/household | chip-toggle | GET `/medications?member_id=...|user_id=...` | `_renderMedicineMemberChips()` | — | ❌ |
-| F-507 | Medicine | Med tile image (admin only) | display | GET `/medications/<id>/photo` | `_buildMedTile()` | — | ❌ |
-| F-508 | Medicine | Med tile age-group label | display | — | 👶 / 🧑 / 👪 | — | ❌ |
-| F-509 | Medicine | Med tile Expired / Low badge | display | — | `is_expired` / `is_low` | — | ❌ |
-| F-510 | Medicine | Med tile ×qty pill | display | — | with unit suffix when ≠count | — | ❌ |
-| F-511 | Medicine | Med tile name + strength | display | — | "Name · strength" | — | ❌ |
-| F-512 | Medicine | Med tile 🍂 Exp date | display | — | `expiry_date` | — | ❌ |
-| F-513 | Medicine | Med tile member/household label | display | — | shows belongs-to person or 🏠 Household | — | ❌ |
-| F-514 | Medicine | Med tile ⚠️ AI warning line | display | — | `ai_warnings[0]` | — | ❌ |
-| F-515 | Medicine | Med tile ✎ edit button | button | — | `openEditMedicationSheet(med)` | — | ❌ |
-| F-516 | Medicine | Med tile ✓ Done button (active only) | button | PUT `/medications/<id>` status=finished | `_medMarkFinished()` | — | ❌ |
-| F-517 | Medicine | Med tile 🗑 delete button | button | DELETE `/medications/<id>` | `_medDelete()` confirm | — | ❌ |
-| F-518 | Medicine | Add/Edit sheet — name * | text-input | POST/PUT `/medications` | required | — | ❌ |
-| F-519 | Medicine | Add/Edit sheet — active ingredient | text-input | POST/PUT `/medications` | — | — | ❌ |
-| F-520 | Medicine | Add/Edit sheet — brand | text-input | POST/PUT `/medications` | — | — | ❌ |
-| F-521 | Medicine | Add/Edit sheet — strength | text-input | POST/PUT `/medications` | — | — | ❌ |
-| F-522 | Medicine | Add/Edit sheet — dosage form select | select | POST/PUT `/medications` | tablet/capsule/liquid/cream/spray/patch/other | — | ❌ |
-| F-523 | Medicine | Add/Edit sheet — age group select | select | POST/PUT `/medications` | both/adult/child | — | ❌ |
-| F-524 | Medicine | Add/Edit sheet — Belongs To select | select | POST/PUT `/medications` user_id/member_id | household + people | — | ❌ |
-| F-525 | Medicine | Add/Edit sheet — quantity number | number-input | POST/PUT `/medications` | — | — | ❌ |
-| F-526 | Medicine | Add/Edit sheet — unit select | select | POST/PUT `/medications` | tablets/capsules/ml/oz/count/doses | — | ❌ |
-| F-527 | Medicine | Add/Edit sheet — expiry date | date-input | POST/PUT `/medications` | — | — | ❌ |
-| F-528 | Medicine | Add/Edit sheet — manufacture date | date-input | POST/PUT `/medications` | — | — | ❌ |
-| F-529 | Medicine | Add/Edit sheet — barcode | text-input | POST/PUT `/medications` | — | — | ❌ |
-| F-530 | Medicine | Add/Edit sheet — notes | text-input | POST/PUT `/medications` | — | — | ❌ |
-| F-531 | Medicine | Add sheet — 📷 Camera scan | file-pick | POST `/medications/barcode-lookup` | `_handleScanFile()` Html5Qrcode | — | ❌ |
-| F-532 | Medicine | Add sheet — 🖼 Gallery scan | file-pick | POST `/medications/barcode-lookup` | gallery image | — | ❌ |
-| F-533 | Medicine | Add sheet — 🔍 Lookup button | button | POST `/medications/barcode-lookup` | by name | — | ❌ |
-| F-534 | Medicine | Add/Edit sheet — Cancel | button | — | close | — | ❌ |
-| F-535 | Medicine | Add/Edit sheet — Save | button | POST/PUT `/medications` | `loadMedicineCabinet()` | — | ❌ |
-| F-536 | Medicine | Members sheet — member row delete 🗑 | button | DELETE `/household-members/<id>` | confirm | — | ❌ |
-| F-537 | Medicine | Members sheet — Add name input | text-input | POST `/household-members` | — | — | ❌ |
-| F-538 | Medicine | Members sheet — Add age select | select | POST `/household-members` | Adult/Child | — | ❌ |
-| F-539 | Medicine | Members sheet — Add button | button | POST `/household-members` | `__medicineMembers.push` + rerender | — | ❌ |
+| F-501 | Medicine | Page header (H1 + subtitle) | display | — | static | `MedicineScreen` AppBar title 'Medicine' + body row '💊 Medicine Cabinet' + subtitle 'Track household medications, expiry dates, and members' | ✅ |
+| F-502 | Medicine | "+ Add Medication" button | button | — | `openAddMedicationSheet()` | AppBar `IconButton(Icons.add)` → `_openAddSheet` → `MedicineEditSheet(existing:null)` | ✅ |
+| F-503 | Medicine | "👥 Members" button | button | — | `openMembersSheet()` | AppBar `IconButton(Icons.people_outline)` → `_openMembersSheet` → `MembersSheet` | ✅ |
+| F-504 | Medicine | Filter status select | select | GET `/medications?status=...` | active / all / expired / finished | `DropdownButton<String>` bound to `medicineStatusFilterProvider`; cabinet provider re-fires on change | ✅ |
+| F-505 | Medicine | Member chip "All" | chip-toggle | — | `__medicineMemberFilter=null` | `_MemberChipRow` `FilterChip('All')` sets `medicineMemberFilterProvider=null` | ✅ |
+| F-506 | Medicine | Member chip per person/user/household | chip-toggle | GET `/medications?member_id=...\|user_id=...` | `_renderMedicineMemberChips()` | `_MemberChipRow` renders user/member chips from `cabinet.people` + trailing '🏠 Household' chip; selection sets `member_id=none` or `user_<id>` or `member_<id>` (matches web `__medicineMemberFilter` keys) | ✅ |
+| F-507 | Medicine | Med tile image (admin only) | display | GET `/medications/<id>/photo` | `_buildMedTile()` | 🔄 backend exposes only POST handler at `/medications/<id>/photo`; `_MedTile` calls `Image.network('${Env.baseUrl}/medications/${id}/photo')` and falls back to `SizedBox(height:1)` via `errorBuilder` when GET 404s. Visual matches web pattern (web also speculatively probes the same URL). | 🔄 |
+| F-508 | Medicine | Med tile age-group label | display | — | 👶 / 🧑 / 👪 | `_MedTile` `ageLabel` switch — `child`→'👶 Kids', `adult`→'🧑 Adult', else '👪 All' | ✅ |
+| F-509 | Medicine | Med tile Expired / Low badge | display | — | `is_expired` / `is_low` | `_MedTile` `_Pill('Expired', errorColor)` when `isExpired`; `_Pill('Low', 0xFFFFB74D)` when `isLow` | ✅ |
+| F-510 | Medicine | Med tile ×qty pill | display | — | with unit suffix when ≠count | `_MedTile` qtyText `×{_fmtQty(quantity)}` + ` {unit}` when unit≠'count' | ✅ |
+| F-511 | Medicine | Med tile name + strength | display | — | "Name · strength" | `_MedTile` title `Text('${name} · ${strength}')` collapses to bare name when strength null | ✅ |
+| F-512 | Medicine | Med tile 🍂 Exp date | display | — | `expiry_date` | `_MedTile` `Text('🍂 Exp: ${expiryDate}')` when present | ✅ |
+| F-513 | Medicine | Med tile member/household label | display | — | shows belongs-to person or 🏠 Household | `_MedTile` resolves `userId`/`memberId` against `cabinet.people` → `'{emoji} {name}'`; falls back to '🏠 Household' when `belongsTo='household'` | ✅ |
+| F-514 | Medicine | Med tile ⚠️ AI warning line | display | — | `ai_warnings[0]` | `_MedTile` `Text('⚠️ ${aiWarnings.first}')` ellipsized when warnings non-empty | ✅ |
+| F-515 | Medicine | Med tile ✎ edit button | button | — | `openEditMedicationSheet(med)` | `_MedTile` `IconButton(Icons.edit_outlined)` → `_openEditSheet(med)` → `MedicineEditSheet(existing:med)` | ✅ |
+| F-516 | Medicine | Med tile ✓ Done button (active only) | button | PUT `/medications/<id>` status=finished | `_medMarkFinished()` | `_MedTile` `TextButton.icon('Done', Icons.check)` shown when `status=='active'` → `MedicineRepository.markFinished` → PUT /medications/<id> body `{status:finished}` + cabinet invalidate | ✅ |
+| F-517 | Medicine | Med tile 🗑 delete button | button | DELETE `/medications/<id>` | `_medDelete()` confirm | `_MedTile` `IconButton(Icons.delete_outline)` → AlertDialog confirm → `MedicineRepository.delete` → DELETE /medications/<id> + cabinet invalidate | ✅ |
+| F-518 | Medicine | Add/Edit sheet — name * | text-input | POST/PUT `/medications` | required | `MedicineEditSheet` `_name` TextField labelled 'Name *'; `_save()` rejects empty | ✅ |
+| F-519 | Medicine | Add/Edit sheet — active ingredient | text-input | POST/PUT `/medications` | — | `_active` TextField → body `active_ingredient` | ✅ |
+| F-520 | Medicine | Add/Edit sheet — brand | text-input | POST/PUT `/medications` | — | `_brand` TextField → body `brand` | ✅ |
+| F-521 | Medicine | Add/Edit sheet — strength | text-input | POST/PUT `/medications` | — | `_strength` TextField → body `strength` | ✅ |
+| F-522 | Medicine | Add/Edit sheet — dosage form select | select | POST/PUT `/medications` | tablet/capsule/liquid/cream/spray/patch/other | `DropdownButtonFormField` w/ `medicineDosageFormOptions` (7 opts mirroring backend `_VALID_DOSAGE_FORMS`) → body `dosage_form` | ✅ |
+| F-523 | Medicine | Add/Edit sheet — age group select | select | POST/PUT `/medications` | both/adult/child | `DropdownButtonFormField` w/ `medicineAgeGroupOptions` (3 opts) → body `age_group` | ✅ |
+| F-524 | Medicine | Add/Edit sheet — Belongs To select | select | POST/PUT `/medications` user_id/member_id | household + people | `DropdownButtonFormField` w/ '🏠 Household' + per-person items (key `user_<id>` / `member_<id>`); `_save()` decomposes into `user_id`/`member_id` body fields | ✅ |
+| F-525 | Medicine | Add/Edit sheet — quantity number | number-input | POST/PUT `/medications` | — | `_qty` TextField (`keyboardType: number`) → body `quantity` (parsed via `double.tryParse`) | ✅ |
+| F-526 | Medicine | Add/Edit sheet — unit select | select | POST/PUT `/medications` | tablets/capsules/ml/oz/count/doses | `DropdownButtonFormField` w/ `medicineUnitOptions` (6 opts) → body `unit` | ✅ |
+| F-527 | Medicine | Add/Edit sheet — expiry date | date-input | POST/PUT `/medications` | — | `_DateField('Expiry Date')` → `showDatePicker` → body `expiry_date` (YYYY-MM-DD) | ✅ |
+| F-528 | Medicine | Add/Edit sheet — manufacture date | date-input | POST/PUT `/medications` | — | `_DateField('Manufacture Date')` → `showDatePicker` → body `manufacture_date` (YYYY-MM-DD) | ✅ |
+| F-529 | Medicine | Add/Edit sheet — barcode | text-input | POST/PUT `/medications` | — | `_barcode` TextField → body `barcode` | ✅ |
+| F-530 | Medicine | Add/Edit sheet — notes | text-input | POST/PUT `/medications` | — | `_notes` TextField → body `notes` | ✅ |
+| F-531 | Medicine | Add sheet — 📷 Camera scan | file-pick | POST `/medications/barcode-lookup` | `_handleScanFile()` Html5Qrcode | 🔄 add-mode `OutlinedButton.icon('Camera', Icons.photo_camera)` → `image_picker.pickImage(camera)` → `MobileScannerController.analyzeImage` → `_doBarcodeLookup` POST /medications/barcode-lookup. Different decoder (mobile_scanner zxing) but same backend endpoint + autofill behavior. | 🔄 |
+| F-532 | Medicine | Add sheet — 🖼 Gallery scan | file-pick | POST `/medications/barcode-lookup` | gallery image | 🔄 add-mode `OutlinedButton.icon('Gallery', Icons.image_outlined)` → `image_picker.pickImage(gallery)` → `MobileScannerController.analyzeImage` → `_doBarcodeLookup`. Same defer as F-531. | 🔄 |
+| F-533 | Medicine | Add sheet — 🔍 Lookup button | button | POST `/medications/barcode-lookup` | by name | add-mode `FilledButton.icon('Lookup', Icons.search)` → `_lookupByName` posts `{name:_name.text}` to /medications/barcode-lookup + autofills via `_applyLookupFields` | ✅ |
+| F-534 | Medicine | Add/Edit sheet — Cancel | button | — | close | `OutlinedButton('Cancel')` in footer → `Navigator.pop()` | ✅ |
+| F-535 | Medicine | Add/Edit sheet — Save | button | POST/PUT `/medications` | `loadMedicineCabinet()` | `FilledButton('Add'/'Save')` → `_save()` → POST /medications or PUT /medications/<id> + cabinet invalidate + SnackBar | ✅ |
+| F-536 | Medicine | Members sheet — member row delete 🗑 | button | DELETE `/household-members/<id>` | confirm | `MembersSheet` per-member `IconButton(Icons.delete_outline)` → AlertDialog confirm → `MedicineRepository.deleteMember` → DELETE /household-members/<id> + cabinet invalidate | ✅ |
+| F-537 | Medicine | Members sheet — Add name input | text-input | POST `/household-members` | — | `MembersSheet` `_name` TextField | ✅ |
+| F-538 | Medicine | Members sheet — Add age select | select | POST `/household-members` | Adult/Child | `DropdownButtonFormField` w/ `memberAgeGroupOptions` (2 opts) → body `age_group` | ✅ |
+| F-539 | Medicine | Members sheet — Add button | button | POST `/household-members` | `__medicineMembers.push` + rerender | `FilledButton('Add')` → `MedicineRepository.createMember(name, ageGroup)` → POST /household-members + cabinet invalidate | ✅ |
 ---
 
 ## Screen: Restaurant
