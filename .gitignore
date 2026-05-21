@@ -89,3 +89,5 @@ android/app/build/
 **/Generated.xcconfig
 **/flutter_export_environment.sh
 
+.env.test
+PAUSED.json
