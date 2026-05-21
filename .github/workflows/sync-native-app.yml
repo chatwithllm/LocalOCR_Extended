@@ -52,6 +52,7 @@ jobs:
           python3 orchestrator.py \
             --project . \
             --target macos \
+            --bundle-id com.localocr.extended \
             --mode delta \
             --changed-files CHANGED_FILES.txt
 
