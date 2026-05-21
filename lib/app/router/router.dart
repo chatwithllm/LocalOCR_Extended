@@ -14,6 +14,7 @@ import '../../features/medicine/presentation/medicine_screen.dart';
 import '../../features/products/presentation/products_screen.dart';
 import '../../features/restaurant/presentation/restaurant_screen.dart';
 import '../../features/shared/placeholder_screen.dart';
+import '../../features/shopping/presentation/shopping_screen.dart';
 
 /// Plan §3 — single go_router with NavigationDrawer shell, auth redirect,
 /// query-param sub-tabs, and deep-link support.
@@ -101,7 +102,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(path: '/shopping', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Shopping')),
+              const ShoppingScreen()),
           GoRoute(path: '/kitchen', builder: (_, __) =>
               const PlaceholderScreen(title: 'Kitchen')),
           GoRoute(path: '/restaurant', builder: (_, __) =>

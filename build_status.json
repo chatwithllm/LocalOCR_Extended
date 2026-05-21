@@ -1,9 +1,9 @@
 {
   "phases_done": 5,
   "phases_total": 9,
-  "current_screen": "Shopping",
-  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses"],
-  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses"],
+  "current_screen": "Kitchen",
+  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses", "Shopping"],
+  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts", "Expenses", "Shopping"],
   "gates": {
     "preflight": "done",
     "registry": "done",
@@ -22,6 +22,8 @@
     "phase 5 Contacts (Dining): all 4 gates closed (2026-05-21 20:57). RULE 2 bare-array decode for GET /shared-dining/contacts → `[{id,name,phone,email}]`. F-801..F-806 all ✅. 'loaded 0 contacts' (prod empty). RULE 14 empty-state matches web 'No saved contacts yet. Add one above.'",
     "phase 5 Contacts (Dining): all 4 gates closed. 6 ✅.",
     "phase 5 Expenses: all 4 gates closed (2026-05-21 21:01). RULE 1 caught 6 endpoint/verb errors (F-901 receipts → expense-summary; F-904 top-merchants → derived; F-906/F-907 /budget → /budget/set-monthly; F-908 category= → domain=; F-914 tap → display; F-915 fabricated /analytics/categories → expense-summary.category_breakdown). RULE 2: ExpenseSummary mirrors calculate_spending_analytics.py:332-347 verbatim. Real data 'loaded expenses summary purchases=108 spend=16838.44 merchants=8 items=10 cats=4 receipts=12'. Refund row renders amount in red. F-912/F-916 🔄 (inline detail → navigate to /receipts/<id> + native layout doesn't need reposition).",
-    "# screen-complete: Expenses apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
+    "phase 5 Expenses: all 4 gates closed. 14 ✅ + 2 🔄.",
+    "phase 5 Shopping: 4-gate MVP closed (2026-05-21 21:07). RULE 2 ShoppingListPayload + ShoppingItem + ShoppingSessionInfo mirror manage_shopping_list.py:216/478 verbatim including nested latest_price.price and latest_snapshot.image_url unwrap. Endpoint shape: GET /shopping-list returns wrapper with items array (not bare) + session block + totals + suggested_stores. emulator-5554 deep-link `localocr:///shopping`: 'loaded 8 shopping items (open=8 purchased=0 session=9/active)' line within ~1s. Zero failure patterns. RULE 14 screenshot: Session banner + summary pills (Open 8 / Est $16.11 / Purchased 0 / All) + Add card (name/category/qty/store/price/note) + Current List with 8 items each showing thumbnail-placeholder + qty + price + store + -1/Bought/Delete buttons. 19 ✅ rows (F-1004..F-1007, F-1012..F-1018, F-1030/F-1031/F-1039/F-1040/F-1049/F-1050/F-1057..F-1060) + 50 🔄 (Quick Find / Identify-Photo / Recommendations / sort chips / store grouping / photo subsystem / per-row inline edit cluster / More menu / past trips / swipe / long-press all deferred to Shopping Polish wave with per-row rationale).",
+    "# screen-complete: Shopping apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4 (MVP — F-1042..F-1056 + photo + past-trips + quick-find deferred)"
   ]
 }

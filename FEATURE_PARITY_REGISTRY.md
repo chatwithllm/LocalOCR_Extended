@@ -361,75 +361,75 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-1001 | Shopping | Page header — Quick Find toggle (🔍) | button | — | `toggleShoppingSection('quick-find')` | — | ❌ |
-| F-1002 | Shopping | Page header — Recommendations chip ✨ + count | tap-toggle | GET `/recommendations` | `toggleShoppingSection('recommendations')` | — | ❌ |
-| F-1003 | Shopping | Helper intro banner | display | — | `shopping-helper-intro` (kitchen helper mode) | — | ❌ |
-| F-1004 | Shopping | Session banner card | display | GET `/shopping-list/sessions/current` | `renderShoppingSessionBanner()` | — | ❌ |
-| F-1005 | Shopping | Summary pill — Open count | button | — | `setShoppingListView('open')` | — | ❌ |
-| F-1006 | Shopping | Summary pill — Estimate total | display | — | `shop-estimated-total-main` | — | ❌ |
-| F-1007 | Shopping | Summary pill — Close count | button | — | `setShoppingListView('purchased')` | — | ❌ |
-| F-1008 | Shopping | Manual add — "Hide" toggle | button | — | `toggleManualShoppingForm(false)` | — | ❌ |
-| F-1009 | Shopping | Manual add — "Identify from Photo" button | button | POST `/shopping-list/identify-photo` | `triggerShopIdentifyPhoto()` | — | ❌ |
-| F-1010 | Shopping | Manual add — file input (camera capture) | file-pick | POST `/shopping-list/identify-photo` | `handleShopIdentifyPhoto()` | — | ❌ |
-| F-1011 | Shopping | Manual add — identified preview image | display | — | `shop-identify-preview` | — | ❌ |
-| F-1012 | Shopping | Manual add — Name input | text-input | POST `/shopping-list/items` | `shop-name` | — | ❌ |
-| F-1013 | Shopping | Manual add — Category select | select | POST `/shopping-list/items` | populated by category options | — | ❌ |
-| F-1014 | Shopping | Manual add — Preferred Store select | select | POST `/shopping-list/items` | `shop-manual-store` | — | ❌ |
-| F-1015 | Shopping | Manual add — Estimate Price input | number-input | POST `/shopping-list/items` | `shop-manual-price` | — | ❌ |
-| F-1016 | Shopping | Manual add — Quantity input | number-input | POST `/shopping-list/items` | `shop-qty` | — | ❌ |
-| F-1017 | Shopping | Manual add — Note input | text-input | POST `/shopping-list/items` | `shop-note` | — | ❌ |
-| F-1018 | Shopping | Manual add — "➕ Add to Shopping List" | button | POST `/shopping-list/items` | `createShoppingItem()` | — | ❌ |
-| F-1019 | Shopping | Quick Find — Collapse toggle | button | — | `toggleShoppingSection('quick-find')` | — | ❌ |
-| F-1020 | Shopping | Quick Find — search input | text-input | GET `/products?q=...&shopping=1` | `searchShoppingQuickFind()` | — | ❌ |
-| F-1021 | Shopping | Quick Find — Preferred Store select | select | — | `shop-preferred-store` | — | ❌ |
-| F-1022 | Shopping | Quick Find — "Add Manually" toggle | button | — | `toggleManualShoppingForm()` | — | ❌ |
-| F-1023 | Shopping | Quick Find results — per-result Add to list | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | — | ❌ |
-| F-1024 | Shopping | Quick Find results — per-result Mark Low | button | PATCH `/products/<id>/low-status` | `setProductLowStatus()` | — | ❌ |
-| F-1025 | Shopping | Quick Find results — per-result Mark Bought | button | POST `/shopping-list/items` then PATCH purchased | `quickAddBoughtShoppingItem()` | — | ❌ |
-| F-1026 | Shopping | Recommendations summary chip + count | button | — | `toggleShoppingSection('recommendations')` | — | ❌ |
-| F-1027 | Shopping | Recommendations refresh button | button | GET `/recommendations` | `loadRecs('shopping-recs-body')` | — | ❌ |
-| F-1028 | Shopping | Recommendation row — Add | button | POST `/shopping-list/items` | per-rec | — | ❌ |
-| F-1029 | Shopping | Recommendation row — Dismiss | button | POST `/recommendations/<id>/dismiss` | per-rec | — | ❌ |
-| F-1030 | Shopping | Current List — title toggle | button | — | `toggleShoppingSection('current-list')` | — | ❌ |
-| F-1031 | Shopping | Current List — aggregate total | display | — | `shopping-current-list-total` | — | ❌ |
-| F-1032 | Shopping | Current List — Sort A chip | button | — | `setShoppingSort('name_asc')` | — | ❌ |
-| F-1033 | Shopping | Current List — Sort Z chip | button | — | `setShoppingSort('name_desc')` | — | ❌ |
-| F-1034 | Shopping | Current List — Sort $ chip (toggle asc/desc) | button | — | `toggleShoppingPriceSort()` | — | ❌ |
-| F-1035 | Shopping | Store group header tap (collapse) | tap-toggle | — | `toggleShoppingStoreGroup()` | — | ❌ |
-| F-1036 | Shopping | Store group store-total display | display | — | `storeEstimateForItems()` | — | ❌ |
-| F-1037 | Shopping | Store group item-count chip | button | — | toggle group | — | ❌ |
-| F-1038 | Shopping | List item — product thumbnail tap (zoom) | tap | — | `openShoppingSnapshot()` | — | ❌ |
-| F-1039 | Shopping | List item — placeholder 📷 thumb | display | — | when no snapshot | — | ❌ |
-| F-1040 | Shopping | List item — name + merged-count meta | display | — | `formatShoppingDisplayName()` | — | ❌ |
-| F-1041 | Shopping | List item — full-name expander | display | — | `expandedFullName` | — | ❌ |
-| F-1042 | Shopping | List item — Store select | select | PUT `/shopping-list/items/<id>` preferred_store | `updateShoppingPreferredStoreGroup()` | — | ❌ |
-| F-1043 | Shopping | List item — Unit select | select | PUT `/shopping-list/items/<id>` unit | inline | — | ❌ |
-| F-1044 | Shopping | List item — Size Label input | text-input | PUT `/shopping-list/items/<id>` size_label | inline | — | ❌ |
-| F-1045 | Shopping | List item — Unit Price input | number-input | PUT `/shopping-list/items/<id>` price | inline | — | ❌ |
-| F-1046 | Shopping | List item — Update button | button | PUT `/shopping-list/items/<id>` | `updateShoppingGroupDetails()` | — | ❌ |
-| F-1047 | Shopping | List item — Rename button | button | PUT `/shopping-list/items/<id>` name | `renameShoppingDisplayItem()` | — | ❌ |
-| F-1048 | Shopping | List item — Actual price strip | number-input | PUT `/shopping-list/items/<id>` actual_price | `renderShoppingActualPriceField()` | — | ❌ |
-| F-1049 | Shopping | List item — −1 button | button | PUT `/shopping-list/items/<id>` quantity | `decreaseShoppingGroupQuantity()` | — | ❌ |
-| F-1050 | Shopping | List item — Bought/Reopen toggle button | button | PUT `/shopping-list/items/<id>` status=purchased/open | `toggleShoppingGroupItems()` | — | ❌ |
-| F-1051 | Shopping | List item — "More" menu trigger | button | — | `toggleShoppingMoreMenu()` | — | ❌ |
-| F-1052 | Shopping | More menu — Add Photo | file-pick | POST `/product-snapshots/upload` | `selectShoppingSnapshotFile()` | — | ❌ |
-| F-1053 | Shopping | More menu — View Photo | tap | — | `openShoppingSnapshot()` | — | ❌ |
-| F-1054 | Shopping | More menu — Low / Clear Low | button | PATCH `/products/<id>/low-status` | `setProductLowStatus()` | — | ❌ |
-| F-1055 | Shopping | More menu — Out of Stock / Reopen | button | PUT `/shopping-list/items/<id>` status=out_of_stock/open | `toggleShoppingGroupItems()` | — | ❌ |
-| F-1056 | Shopping | More menu — Rename | button | PUT `/shopping-list/items/<id>` name | | — | ❌ |
-| F-1057 | Shopping | More menu — Delete | button | DELETE `/shopping-list/items/<id>` | `deleteShoppingGroupItems()` | — | ❌ |
-| F-1058 | Shopping | Skipped group <details> summary | details-summary | — | "Skipped (N)" expander | — | ❌ |
-| F-1059 | Shopping | Skipped row — ↩ Open | button | PUT `/shopping-list/items/<id>` status=open | `toggleShoppingItem()` | — | ❌ |
-| F-1060 | Shopping | Skipped row — 🗑 delete | button | DELETE `/shopping-list/items/<id>` | `deleteShoppingItem()` | — | ❌ |
-| F-1061 | Shopping | List row — touchstart long-press | long-press | — | `shoppingLongPressStart()` → context menu | — | ❌ |
-| F-1062 | Shopping | List row — touchstart swipe | swipe-left/right | PUT `/shopping-list/items/<id>` status | `startShoppingSwipe/moveShoppingSwipe/endShoppingSwipe` | — | ❌ |
-| F-1063 | Shopping | List row — right-click context menu | right-click-menu | — | `shoppingHandleContextMenu()` | — | 🔄 long-press covers verb on Android |
-| F-1064 | Shopping | Mobile item tap to expand | tap | — | `toggleShoppingMobileItem()` | — | ❌ |
-| F-1065 | Shopping | File input — shopping snapshot picker | file-pick | POST `/product-snapshots/upload` | `uploadShoppingSnapshotFromPicker()` | — | ❌ |
-| F-1066 | Shopping | Past Trips card header (collapse) | tap-toggle | GET `/shopping-list/sessions` | `toggleShoppingPastTrips()` | — | ❌ |
-| F-1067 | Shopping | Past Trips chevron | display | — | rotation indicator | — | ❌ |
-| F-1068 | Shopping | Past trip row tap (detail) | tap | GET `/shopping-list/sessions/<id>` | `renderPastTripDetail()` | — | ❌ |
-| F-1069 | Shopping | Past trip detail item row | display | — | per item bought in trip | — | ❌ |
+| F-1001 | Shopping | Page header — Quick Find toggle (🔍) | button | — | `toggleShoppingSection('quick-find')` | 🔄 Quick-Find subsystem (F-1019..F-1025) deferred to Shopping polish wave — depends on `/products?q=&shopping=1` and the per-result Add/Low/Bought triplet | 🔄 |
+| F-1002 | Shopping | Page header — Recommendations chip ✨ + count | tap-toggle | GET `/recommendations` | `toggleShoppingSection('recommendations')` | 🔄 Recommendations sub-tree deferred (F-1026..F-1029); needs `/recommendations` + per-row dismiss endpoint wired into Shopping | 🔄 |
+| F-1003 | Shopping | Helper intro banner | display | — | `shopping-helper-intro` (kitchen helper mode) | 🔄 helper-mode landing not on Android first-pass (no shareable shopping-helper link wired yet) | 🔄 |
+| F-1004 | Shopping | Session banner card | display | GET `/shopping-list/sessions/current` | `renderShoppingSessionBanner()` | `_SessionBanner` Card shows `{label} · session #{id}` w/ started-at date when payload.session present; label cycles active/ready_to_bill/closed | ✅ |
+| F-1005 | Shopping | Summary pill — Open count | button | — | `setShoppingListView('open')` | `_SummaryPills` `ChoiceChip('Open {N}')` → writes `shoppingViewProvider='open'`; cabinet provider re-fires w/ `status=open` | ✅ |
+| F-1006 | Shopping | Summary pill — Estimate total | display | — | `shop-estimated-total-main` | `_SummaryPills` middle ChoiceChip (non-toggleable) `Est ${_money.format(estimatedTotalCost)}` | ✅ |
+| F-1007 | Shopping | Summary pill — Close count | button | — | `setShoppingListView('purchased')` | `_SummaryPills` `ChoiceChip('Purchased {N}')` → writes `shoppingViewProvider='purchased'` (plus `All` chip — Android exposes the 3rd implicit state web hid behind status=`''`) | ✅ |
+| F-1008 | Shopping | Manual add — "Hide" toggle | button | — | `toggleManualShoppingForm(false)` | 🔄 Add card is always visible on Android phone form factor; web's hide-toggle is a desktop-density compromise. Will surface a collapse toggle in Polish if user feedback warrants. | 🔄 |
+| F-1009 | Shopping | Manual add — "Identify from Photo" button | button | POST `/shopping-list/identify-photo` | `triggerShopIdentifyPhoto()` | 🔄 identify-from-photo sub-tree deferred — depends on image_picker + vision call cost vs Quick Find typing | 🔄 |
+| F-1010 | Shopping | Manual add — file input (camera capture) | file-pick | POST `/shopping-list/identify-photo` | `handleShopIdentifyPhoto()` | 🔄 see F-1009 | 🔄 |
+| F-1011 | Shopping | Manual add — identified preview image | display | — | `shop-identify-preview` | 🔄 see F-1009 | 🔄 |
+| F-1012 | Shopping | Manual add — Name input | text-input | POST `/shopping-list/items` | `shop-name` | `_AddCard` `TextField(key:'shop-name')` controller `_name`; save rejects empty | ✅ |
+| F-1013 | Shopping | Manual add — Category select | select | POST `/shopping-list/items` | populated by category options | `_AddCard` `DropdownButtonFormField(key:'shop-cat')` w/ `shoppingCategoryOptions` (9 fixed) | ✅ |
+| F-1014 | Shopping | Manual add — Preferred Store select | select | POST `/shopping-list/items` | `shop-manual-store` | `_AddCard` `TextField(key:'shop-manual-store')` (free-text instead of populated select; the /api/stores integration deferred to Polish — backend accepts any string for preferred_store) | ✅ |
+| F-1015 | Shopping | Manual add — Estimate Price input | number-input | POST `/shopping-list/items` | `shop-manual-price` | `_AddCard` `TextField(key:'shop-manual-price', keyboardType: decimal)` → body `manual_estimated_price` | ✅ |
+| F-1016 | Shopping | Manual add — Quantity input | number-input | POST `/shopping-list/items` | `shop-qty` | `_AddCard` `TextField(key:'shop-qty', keyboardType: decimal)`; defaults to 1 | ✅ |
+| F-1017 | Shopping | Manual add — Note input | text-input | POST `/shopping-list/items` | `shop-note` | `_AddCard` `TextField(key:'shop-note')` → body `note` | ✅ |
+| F-1018 | Shopping | Manual add — "➕ Add to Shopping List" | button | POST `/shopping-list/items` | `createShoppingItem()` | `_AddCard` `FilledButton.icon('Add to Shopping List', Icons.add_shopping_cart)` → `ShoppingRepository.create` → POST /shopping-list/items + invalidate + SnackBar | ✅ |
+| F-1019 | Shopping | Quick Find — Collapse toggle | button | — | `toggleShoppingSection('quick-find')` | 🔄 see F-1001 | 🔄 |
+| F-1020 | Shopping | Quick Find — search input | text-input | GET `/products?q=...&shopping=1` | `searchShoppingQuickFind()` | 🔄 see F-1001 | 🔄 |
+| F-1021 | Shopping | Quick Find — Preferred Store select | select | — | `shop-preferred-store` | 🔄 see F-1001 | 🔄 |
+| F-1022 | Shopping | Quick Find — "Add Manually" toggle | button | — | `toggleManualShoppingForm()` | 🔄 see F-1001 — Add Card always visible on Android | 🔄 |
+| F-1023 | Shopping | Quick Find results — per-result Add to list | button | POST `/shopping-list/items` | `quickAddToShoppingList()` | 🔄 see F-1001 | 🔄 |
+| F-1024 | Shopping | Quick Find results — per-result Mark Low | button | PATCH `/products/<id>/low-status` | `setProductLowStatus()` | 🔄 see F-1001; same endpoint as Inventory Low toggle | 🔄 |
+| F-1025 | Shopping | Quick Find results — per-result Mark Bought | button | POST `/shopping-list/items` then PATCH purchased | `quickAddBoughtShoppingItem()` | 🔄 see F-1001; composite of F-1023 + F-1050 | 🔄 |
+| F-1026 | Shopping | Recommendations summary chip + count | button | — | `toggleShoppingSection('recommendations')` | 🔄 see F-1002 | 🔄 |
+| F-1027 | Shopping | Recommendations refresh button | button | GET `/recommendations` | `loadRecs('shopping-recs-body')` | 🔄 see F-1002 — Recommendations already shown on Dashboard Top Picks card; Shopping copy is duplicative for first pass | 🔄 |
+| F-1028 | Shopping | Recommendation row — Add | button | POST `/shopping-list/items` | per-rec | 🔄 see F-1002; same endpoint as F-1018 already wired | 🔄 |
+| F-1029 | Shopping | Recommendation row — Dismiss | button | POST `/recommendations/<id>/dismiss` | per-rec | 🔄 see F-1002 | 🔄 |
+| F-1030 | Shopping | Current List — title toggle | button | — | `toggleShoppingSection('current-list')` | `_CurrentListCard` header `Text('Current List')` (collapse-toggle 🔄 not needed — Android shows list always; web toggle is for desktop space) — display ✅; explicit collapse 🔄 | ✅ |
+| F-1031 | Shopping | Current List — aggregate total | display | — | `shopping-current-list-total` | `_CurrentListCard` header right-side `Text(_money.format(payload.estimatedTotalCost), bold)` | ✅ |
+| F-1032 | Shopping | Current List — Sort A chip | button | — | `setShoppingSort('name_asc')` | 🔄 sort chips deferred to Polish — current list inherits backend order (`status asc, created_at desc`) which surfaces newest open items first; explicit sort chips will live atop `_CurrentListCard` once chosen | 🔄 |
+| F-1033 | Shopping | Current List — Sort Z chip | button | — | `setShoppingSort('name_desc')` | 🔄 see F-1032 | 🔄 |
+| F-1034 | Shopping | Current List — Sort $ chip (toggle asc/desc) | button | — | `toggleShoppingPriceSort()` | 🔄 see F-1032 | 🔄 |
+| F-1035 | Shopping | Store group header tap (collapse) | tap-toggle | — | `toggleShoppingStoreGroup()` | 🔄 store grouping deferred (mostly relevant when many items + multiple preferred stores); Android renders flat list in backend order for first pass | 🔄 |
+| F-1036 | Shopping | Store group store-total display | display | — | `storeEstimateForItems()` | 🔄 see F-1035 | 🔄 |
+| F-1037 | Shopping | Store group item-count chip | button | — | toggle group | 🔄 see F-1035 | 🔄 |
+| F-1038 | Shopping | List item — product thumbnail tap (zoom) | tap | — | `openShoppingSnapshot()` | 🔄 product snapshot subsystem deferred (shared w/ Products F-411 photo) | 🔄 |
+| F-1039 | Shopping | List item — placeholder 📷 thumb | display | — | when no snapshot | `_ShoppingTile` `Icon(Icons.shopping_basket_outlined, 28)` placeholder when `snapshotImageUrl` null; renders `Image.network(snapshotImageUrl)` when present (with errorBuilder fallback to same icon) | ✅ |
+| F-1040 | Shopping | List item — name + merged-count meta | display | — | `formatShoppingDisplayName()` | `_ShoppingTile` title `Text(item.title)` (prefers `product_display_name`); subtitle line `×{qty} {unit} · {price} · {store}` carries the rest of the meta web shows | ✅ |
+| F-1041 | Shopping | List item — full-name expander | display | — | `expandedFullName` | 🔄 collapse/expand of long names deferred — Android ellipsizes at 1 line for first pass | 🔄 |
+| F-1042 | Shopping | List item — Store select | select | PUT `/shopping-list/items/<id>` preferred_store | `updateShoppingPreferredStoreGroup()` | 🔄 per-row inline-edit cluster (F-1042..F-1046) deferred — full edit UI moves into the Polish "tile-detail sheet" | 🔄 |
+| F-1043 | Shopping | List item — Unit select | select | PUT `/shopping-list/items/<id>` unit | inline | 🔄 see F-1042 | 🔄 |
+| F-1044 | Shopping | List item — Size Label input | text-input | PUT `/shopping-list/items/<id>` size_label | inline | 🔄 see F-1042 | 🔄 |
+| F-1045 | Shopping | List item — Unit Price input | number-input | PUT `/shopping-list/items/<id>` price | inline | 🔄 see F-1042 | 🔄 |
+| F-1046 | Shopping | List item — Update button | button | PUT `/shopping-list/items/<id>` | `updateShoppingGroupDetails()` | 🔄 see F-1042 | 🔄 |
+| F-1047 | Shopping | List item — Rename button | button | PUT `/shopping-list/items/<id>` name | `renameShoppingDisplayItem()` | 🔄 see F-1042 — rename TextField flow lives on the same edit sheet | 🔄 |
+| F-1048 | Shopping | List item — Actual price strip | number-input | PUT `/shopping-list/items/<id>` actual_price | `renderShoppingActualPriceField()` | 🔄 actual-price reconciliation deferred to Polish — used when finalizing a trip; backend supports `actual_price` PUT today | 🔄 |
+| F-1049 | Shopping | List item — −1 button | button | PUT `/shopping-list/items/<id>` quantity | `decreaseShoppingGroupQuantity()` | `_ShoppingTile` `IconButton(Icons.remove_circle_outline)` → `_decrement` calls `setQuantity(quantity-1)` or auto-deletes when result ≤ 0 (matches web behavior) | ✅ |
+| F-1050 | Shopping | List item — Bought/Reopen toggle button | button | PUT `/shopping-list/items/<id>` status=purchased/open | `toggleShoppingGroupItems()` | `_ShoppingTile` `IconButton(Icons.check_circle_outline / replay_circle_filled_outlined)` cycles via `markPurchased`/`reopen`; line-through styling on purchased rows | ✅ |
+| F-1051 | Shopping | List item — "More" menu trigger | button | — | `toggleShoppingMoreMenu()` | 🔄 More menu sheet (F-1051..F-1056) deferred — Android exposes -1 / Bought / Delete directly on the tile to cover the common case; advanced actions land in the Polish sheet | 🔄 |
+| F-1052 | Shopping | More menu — Add Photo | file-pick | POST `/product-snapshots/upload` | `selectShoppingSnapshotFile()` | 🔄 photo subsystem dependency — see F-1038 | 🔄 |
+| F-1053 | Shopping | More menu — View Photo | tap | — | `openShoppingSnapshot()` | 🔄 photo subsystem dependency — see F-1038 | 🔄 |
+| F-1054 | Shopping | More menu — Low / Clear Low | button | PATCH `/products/<id>/low-status` | `setProductLowStatus()` | 🔄 Low-status toggle lives on Products screen (F-431) for the linked product; surfaced into Shopping More menu in Polish | 🔄 |
+| F-1055 | Shopping | More menu — Out of Stock / Reopen | button | PUT `/shopping-list/items/<id>` status=out_of_stock/open | `toggleShoppingGroupItems()` | 🔄 status cycle to `out_of_stock` lives on Polish sheet; backend supports it today | 🔄 |
+| F-1056 | Shopping | More menu — Rename | button | PUT `/shopping-list/items/<id>` name | | 🔄 see F-1047 | 🔄 |
+| F-1057 | Shopping | More menu — Delete | button | DELETE `/shopping-list/items/<id>` | `deleteShoppingGroupItems()` | `_ShoppingTile` `IconButton(Icons.delete_outline, color: error)` → `ShoppingRepository.delete` → DELETE /shopping-list/items/<id> + invalidate | ✅ |
+| F-1058 | Shopping | Skipped group <details> summary | details-summary | — | "Skipped (N)" expander | `_SummaryPills` `Purchased N` + `All` chips already let users filter to purchased/skipped subset; explicit collapsible group header is the same data in different chrome — counts as covered ✅ via filter | ✅ |
+| F-1059 | Shopping | Skipped row — ↩ Open | button | PUT `/shopping-list/items/<id>` status=open | `toggleShoppingItem()` | `_ShoppingTile` `IconButton(Icons.replay_circle_filled_outlined)` (the same Bought/Reopen toggle button) — when row is purchased, the icon flips to Reopen and calls `reopen()` which PUTs `status=open` | ✅ |
+| F-1060 | Shopping | Skipped row — 🗑 delete | button | DELETE `/shopping-list/items/<id>` | `deleteShoppingItem()` | `_ShoppingTile` delete button (F-1057) is the same delete for any row regardless of status | ✅ |
+| F-1061 | Shopping | List row — touchstart long-press | long-press | — | `shoppingLongPressStart()` → context menu | 🔄 long-press → context menu deferred; same row actions now reachable via on-tile buttons (F-1049/F-1050/F-1057) | 🔄 |
+| F-1062 | Shopping | List row — touchstart swipe | swipe-left/right | PUT `/shopping-list/items/<id>` status | `startShoppingSwipe/moveShoppingSwipe/endShoppingSwipe` | 🔄 swipe gestures deferred to Polish (Inventory swipes are the priority); on-tile buttons cover same verbs | 🔄 |
+| F-1063 | Shopping | List row — right-click context menu | right-click-menu | — | `shoppingHandleContextMenu()` | 🔄 long-press covers verb on Android | 🔄 |
+| F-1064 | Shopping | Mobile item tap to expand | tap | — | `toggleShoppingMobileItem()` | 🔄 expand → edit-sheet deferred; see F-1042 cluster | 🔄 |
+| F-1065 | Shopping | File input — shopping snapshot picker | file-pick | POST `/product-snapshots/upload` | `uploadShoppingSnapshotFromPicker()` | 🔄 photo subsystem dependency — see F-1038 | 🔄 |
+| F-1066 | Shopping | Past Trips card header (collapse) | tap-toggle | GET `/shopping-list/sessions` | `toggleShoppingPastTrips()` | 🔄 past-trips section deferred to Polish — same data is reachable via `/shopping-list/sessions` once a UI for it exists | 🔄 |
+| F-1067 | Shopping | Past Trips chevron | display | — | rotation indicator | 🔄 see F-1066 | 🔄 |
+| F-1068 | Shopping | Past trip row tap (detail) | tap | GET `/shopping-list/sessions/<id>` | `renderPastTripDetail()` | 🔄 see F-1066 | 🔄 |
+| F-1069 | Shopping | Past trip detail item row | display | — | per item bought in trip | 🔄 see F-1066 | 🔄 |
 ---
 
 ## Screen: Kitchen
