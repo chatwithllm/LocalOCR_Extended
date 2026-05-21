@@ -130,80 +130,80 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-301 | Inventory | Add Item card "Hide" toggle | button | — | `toggleInventoryAddCard()` | — | ❌ |
-| F-302 | Inventory | Product Name input (`inv-name`) | text-input | — | `handleInventoryAddNameInput()` autocomplete | — | ❌ |
-| F-303 | Inventory | Quantity input (`inv-qty`) | number-input | — | min 0 step 0.1 | — | ❌ |
-| F-304 | Inventory | Location select (`inv-loc`) | select | — | Pantry/Fridge/Freezer/Cabinet/Laundry/Custom | — | ❌ |
-| F-305 | Inventory | Custom location input | text-input | — | shown when `Custom…` selected | — | ❌ |
-| F-306 | Inventory | Low-Stock Threshold input | number-input | — | `inv-thresh` | — | ❌ |
-| F-307 | Inventory | "More details" toggle | button | — | `toggleInventoryAddDetails()` | — | ❌ |
-| F-308 | Inventory | Category select | select | — | populated by `renderInventoryManualCategoryOptionTags` | — | ❌ |
-| F-309 | Inventory | Unit chip row | chip-toggle | — | `inv-unit-chip-row` (each/lb/oz/ml/...); persists hidden `inv-unit` | — | ❌ |
-| F-310 | Inventory | Preferred Store select | select | GET `/api/stores` | `inv-preferred-store` | — | ❌ |
-| F-311 | Inventory | "Add to shopping too" checkbox | checkbox | — | `inv-add-to-shopping` | — | ❌ |
-| F-312 | Inventory | "➕ Add to Inventory" button | button | POST `/inventory` | `addInventoryItem()` | — | ❌ |
-| F-313 | Inventory | Inline product creation form (shared) | text-input + select + button | POST `/products` | `add-prod-form-shared` (hidden when not needed) | — | ❌ |
-| F-314 | Inventory | Inventory search input (`inventory-search`) | text-input | — | filters local cache | — | ❌ |
-| F-315 | Inventory | Location filter select | select | — | All / Fridge / Freezer / Pantry / Cabinet / Bathroom | — | ❌ |
-| F-316 | Inventory | Group-by select (`inventory-group-by`) | select | — | low_first / domain / location | — | ❌ |
-| F-317 | Inventory | Sort select | select | — | expiry / name / qty | — | ❌ |
-| F-318 | Inventory | "Show empty" checkbox | checkbox | — | `inventory-show-empty` | — | ❌ |
-| F-319 | Inventory | "↻ Recently used up" button | button | GET `/inventory/recently-used-up?days=30` | `invOpenRestoreModal()` | — | ❌ |
-| F-320 | Inventory | "🔗 Merge duplicates" button | button | POST `/products/merge-duplicates` | `findDuplicateProducts()` | — | ❌ |
-| F-321 | Inventory | Category chip row (`inv-category-chips`) | chip-toggle | — | `renderInvCategoryChips()` toggles `invCategoryFilters` set | — | ❌ |
-| F-322 | Inventory | Low badge (`inv-low-badge`) | display | — | "N running low" pill in header | — | ❌ |
-| F-323 | Inventory | Inventory window note | display | — | `inv-window-note` | — | ❌ |
-| F-324 | Inventory | Bulk-bar "−1 all" button | button | PATCH `/inventory/products/<id>` (per-id) | `invBulkDecrement()` | — | ❌ |
-| F-325 | Inventory | Bulk-bar "+3d all" button | button | PATCH `/inventory/products/<id>` defer_days=3 | `invBulkDefer(3)` | — | ❌ |
-| F-326 | Inventory | Bulk-bar "+7d all" button | button | PATCH `/inventory/products/<id>` defer_days=7 | `invBulkDefer(7)` | — | ❌ |
-| F-327 | Inventory | Bulk-bar "✓ Used up all" button | button | PATCH `/inventory/products/<id>/consume` | `invBulkUsedUp()` (sheet with optional shopping-add) | — | ❌ |
-| F-328 | Inventory | Bulk-bar Clear button | button | — | `invBulkClear()` | — | ❌ |
-| F-329 | Inventory | Bulk-bar undo toast | button | PATCH (snapshot restore) | `invUndoBulk()` 5s grace | — | ❌ |
-| F-330 | Inventory | Group header label (emoji + name + count) | display | — | `_invBuildGroup()` head row | — | ❌ |
-| F-331 | Inventory | Group "expiring soon" inline count | display | — | shown when ≥1 item exp-soon | — | ❌ |
-| F-332 | Inventory | Tile checkmark badge (selection visual) | display | — | `inv-tile-checkmark` CSS-driven on `.selected` | — | ❌ |
-| F-333 | Inventory | Tile product image (admin only) | display | GET `/product-snapshots/...` | `inv-tile-img` cache-busted | — | ❌ |
-| F-334 | Inventory | Tile days-left label | display | — | "Nd left" / "EXPIRED Nd ago" / "no expiry" | — | ❌ |
-| F-335 | Inventory | Tile MM/DD → MM/DD range (mobile) | display | — | `inv-tile-range` with user/defer tags | — | ❌ |
-| F-336 | Inventory | Tile quantity pill (×N unit) | display | — | `inv-tile-qty` | — | ❌ |
-| F-337 | Inventory | Tile remaining-pct fill bar | display | — | CSS ::before behind name row, `--remaining-pct` | — | ❌ |
-| F-338 | Inventory | Tile drag bubble (% readout) | display | — | `inv-drag-bubble` shown while dragging | — | ❌ |
-| F-339 | Inventory | Tile drag handle (% slider) | drag-slider | PATCH `/inventory/products/<id>` consumed_pct_override | `inv-drag-handle` role=slider | — | ❌ |
-| F-340 | Inventory | Tile −10% stepper button | button | PATCH `/inventory/products/<id>` consumed_pct_override | `_applyStep(-10)` | — | ❌ |
-| F-341 | Inventory | Tile +10% stepper button | button | PATCH `/inventory/products/<id>` consumed_pct_override | `_applyStep(10)` | — | ❌ |
-| F-342 | Inventory | Tile title row tap (status cycle) | tap | PATCH `/inventory/<id>/status` | `_invCycleStatus(id, status)` | — | ❌ |
-| F-343 | Inventory | Tile name display | display | — | `inv-tile-name` | — | ❌ |
-| F-344 | Inventory | Tile `~est` suffix | display | — | When expiry estimated | — | ❌ |
-| F-345 | Inventory | Tile meta: 📅 Bought | display | — | `last_purchased_at` | — | ❌ |
-| F-346 | Inventory | Tile meta: 🍂 Expires + user/defer tag | display | — | `expires_at` with source badge | — | ❌ |
-| F-347 | Inventory | Tile meta: 💊 medication link | display | — | when product is linked to a medication | — | ❌ |
-| F-348 | Inventory | Tile ✎ edit button | button | — | opens `editProductDetails()` sheet | — | ❌ |
-| F-349 | Inventory | Tile +3d defer button | button | PATCH `/inventory/products/<id>` defer_days=3 | `invDefer(id,3)` | — | ❌ |
-| F-350 | Inventory | Tile +3d hold → +7d alt action | hold-alt-action | PATCH `/inventory/products/<id>` defer_days=7 | `_invAttachButtonHold` 500ms | — | ❌ |
-| F-351 | Inventory | Tile 🛒 cart button | button | POST `/shopping-list/items` | `invAddToShoppingList()` | — | ❌ |
-| F-352 | Inventory | Tile −1 decrement button | button | PATCH `/inventory/products/<id>` quantity | `invDecrement()` optimistic | — | ❌ |
-| F-353 | Inventory | Tile ✓ used-up / clear-low button | button | PATCH `/inventory/products/<id>/consume` (or clear-low) | smart based on `is_low/manual_low` | — | ❌ |
-| F-354 | Inventory | Tile ✓ hold → cart + used alt action | hold-alt-action | POST `/shopping-list/items` + PATCH consume | `_invAttachButtonHold` | — | ❌ |
-| F-355 | Inventory | Tile ✨ AI gen image (admin, no image) | button | POST `/product-snapshots/generate` | `invGenerateTileImage()` | — | ❌ |
-| F-356 | Inventory | Tile 🗑 delete (only in variants) | button | DELETE `/products/<id>` | per-row danger | — | ❌ |
-| F-357 | Inventory | Tile swipe-right → −1 | swipe-right | PATCH `/inventory/products/<id>` quantity | mobile gesture | — | ❌ |
-| F-358 | Inventory | Tile swipe-left → used-up | swipe-left | PATCH `/inventory/products/<id>/consume` | mobile gesture | — | ❌ |
-| F-359 | Inventory | Tile long-press → enter selection | long-press | — | 500ms; vibrates 40ms | — | ❌ |
-| F-360 | Inventory | Tile tap (mobile) → expand details | tap | — | `.expanded` toggle when not in selection mode | — | ❌ |
+| F-301 | Inventory | Add Item card "Hide" toggle | button | — | `toggleInventoryAddCard()` | `_AddCard.toggle` flips `inventoryFiltersProvider.addCardOpen`; key `inv-add-card-toggle` | ✅ |
+| F-302 | Inventory | Product Name input (`inv-name`) | text-input | — | `handleInventoryAddNameInput()` autocomplete | `TextField` key `inv-name` feeding `addItem(productName:…)`. Autocomplete from /products deferred to Phase 5.1 polish (BL-A8: needs debounced /products?q= search wired into a portal overlay) | 🔄 |
+| F-303 | Inventory | Quantity input (`inv-qty`) | number-input | — | min 0 step 0.1 | `TextField numberWithOptions(decimal:true)` key `inv-qty` | ✅ |
+| F-304 | Inventory | Location select (`inv-loc`) | select | — | Pantry/Fridge/Freezer/Cabinet/Laundry/Custom | `DropdownButtonFormField` key `inv-loc` w/ 6 fixed locations | ✅ |
+| F-305 | Inventory | Custom location input | text-input | — | shown when `Custom…` selected | 🔄 deferred to Phase 5.1 polish — current location set only allows 6 fixed locations; "Custom…" branch needs conditional TextField under the dropdown. Backend `apply_manual_patch` already accepts arbitrary strings via PATCH /inventory/products/<id> location field. | 🔄 |
+| F-306 | Inventory | Low-Stock Threshold input | number-input | — | `inv-thresh` | `TextField` key `inv-thresh` feeding `addItem(threshold:…)` | ✅ |
+| F-307 | Inventory | "More details" toggle | button | — | `toggleInventoryAddDetails()` | 🔄 not needed — Android `_AddCard` shows all fields when open (no nested "More details" sub-toggle). Web pattern was driven by narrow desktop columns; Android single-column form is already compact. | 🔄 |
+| F-308 | Inventory | Category select | select | — | populated by `renderInventoryManualCategoryOptionTags` | `DropdownButtonFormField` key `inv-cat` w/ 9 categories (produce/dairy/meat/frozen/grains/snacks/beverages/household/other) | ✅ |
+| F-309 | Inventory | Unit chip row | chip-toggle | — | `inv-unit-chip-row` (each/lb/oz/ml/...); persists hidden `inv-unit` | 🔄 unit defaults inherit from the matched Product's `default_unit` server-side; client-side override on add is a Phase 5.1 enhancement. Add path uses `unit='each'` implicit; PATCH /inventory/products/<id> already supports `unit:` for edits. | 🔄 |
+| F-310 | Inventory | Preferred Store select | select | GET `/api/stores` | `inv-preferred-store` | 🔄 needs /api/stores endpoint integration which logically belongs with the Shopping screen (Quick Find Preferred Store) — deferred to Shopping phase. Inventory adds without store; backend tolerates missing field. | 🔄 |
+| F-311 | Inventory | "Add to shopping too" checkbox | checkbox | — | `inv-add-to-shopping` | `CheckboxListTile` key `inv-add-to-shopping` posts to /shopping-list/items in same flow when `_alsoShopping` true | ✅ |
+| F-312 | Inventory | "➕ Add to Inventory" button | button | POST `/inventory/add-item` (V-fix: real endpoint per `manage_inventory.py:214`, NOT `POST /inventory`) | `addInventoryItem()` | `FilledButton.icon` key `inv-add-btn` → `InventoryRepository.addItem` → POST /inventory/add-item; SnackBar feedback; provider invalidated | ✅ |
+| F-313 | Inventory | Inline product creation form (shared) | text-input + select + button | POST `/products/create` | `add-prod-form-shared` (hidden when not needed) | 🔄 backend's POST /inventory/add-item auto-creates the Product row from `product_name` + `category` when no exact match found (`manage_inventory.py:248-267`). Android relies on that fuzzy upsert path; no separate inline product-creation widget needed for Inventory. Edge case: distinguishing Product variants requires Products screen edit flow (deferred). | 🔄 |
+| F-314 | Inventory | Inventory search input (`inventory-search`) | text-input | — | filters local cache | `TextField` key `inventory-search` w/ clear button; client-side substring filter against productName + category | ✅ |
+| F-315 | Inventory | Location filter select | select | — | All / Fridge / Freezer / Pantry / Cabinet / Bathroom | `DropdownButton<String?>` key `inventory-location-filter` w/ "All locations" + 5 locations; filters in-memory list | ✅ |
+| F-316 | Inventory | Group-by select (`inventory-group-by`) | select | — | low_first / domain / location | `DropdownButton<String>` key `inventory-group-by` w/ 3 modes; `_group()` partitions items per mode | ✅ |
+| F-317 | Inventory | Sort select | select | — | expiry / name / qty | `DropdownButton<String>` key `inventory-sort`; `_sortFn` swaps comparator (expiry uses `daysLeft`) | ✅ |
+| F-318 | Inventory | "Show empty" checkbox | checkbox | — | `inventory-show-empty` | `FilterChip` key `inventory-show-empty`; default hides quantity==0 unless manualLow | ✅ |
+| F-319 | Inventory | "↻ Recently used up" button | button | GET `/inventory/recently-used-up?days=30` | `invOpenRestoreModal()` | 🔄 Restore modal (F-369..F-374 sub-tree) deferred to Phase 5.1 polish — requires a separate ModalBottomSheet UI + RestoreItem DTO + per-row restore button + add-to-shopping. Repository code path can call /inventory/recently-used-up endpoint which exists. | 🔄 |
+| F-320 | Inventory | "🔗 Merge duplicates" button | button | POST `/products/merge-duplicates` | `findDuplicateProducts()` | 🔄 cross-cuts Products screen — defer to Products phase. Backend endpoint exists; UI needs duplicate-pair picker workflow. | 🔄 |
+| F-321 | Inventory | Category chip row (`inv-category-chips`) | chip-toggle | — | `renderInvCategoryChips()` toggles `invCategoryFilters` set | `_CategoryChipRow` w/ horizontally-scrolling `FilterChip` per distinct category present in the current inventory list; toggles `inventoryFiltersProvider.categoryFilters` Set | ✅ |
+| F-322 | Inventory | Low badge (`inv-low-badge`) | display | — | "N running low" pill in header | `Container` chip key `inv-low-badge` in `_FiltersBar` shows "{N} running low" when lowCount > 0 | ✅ |
+| F-323 | Inventory | Inventory window note | display | — | `inv-window-note` | 🔄 backend returns `window_label` + `window_start` on /inventory; Android InventoryList model captures them but UI doesn't render the note yet (low-priority — informational only). Polish phase will surface as a quiet caption above the filters bar. | 🔄 |
+| F-324 | Inventory | Bulk-bar "−1 all" button | button | PATCH `/inventory/products/<id>` (per-id) | `invBulkDecrement()` | 🔄 bulk-bar requires multi-select mode (F-359 long-press → selection); selection-mode state machine + bulk-bar UI deferred to Phase 5.1 polish round. Backend supports per-id loops via the existing endpoints. | 🔄 |
+| F-325 | Inventory | Bulk-bar "+3d all" button | button | PATCH `/inventory/products/<id>` defer_days=3 | `invBulkDefer(3)` | 🔄 bulk-bar dependency — see F-324 deferral note | 🔄 |
+| F-326 | Inventory | Bulk-bar "+7d all" button | button | PATCH `/inventory/products/<id>` defer_days=7 | `invBulkDefer(7)` | 🔄 bulk-bar dependency — see F-324 | 🔄 |
+| F-327 | Inventory | Bulk-bar "✓ Used up all" button | button | PATCH `/inventory/products/<id>` (quantity=0) | `invBulkUsedUp()` | 🔄 bulk-bar dependency — see F-324 (V-fix: real endpoint is the flexible `PATCH /inventory/products/<id>` with quantity=0, NOT a separate `/consume` route — `manage_inventory.py:639` → apply_manual_patch deletes the row when quantity hits 0) | 🔄 |
+| F-328 | Inventory | Bulk-bar Clear button | button | — | `invBulkClear()` | 🔄 bulk-bar dependency — see F-324 | 🔄 |
+| F-329 | Inventory | Bulk-bar undo toast | button | PATCH (snapshot restore) | `invUndoBulk()` 5s grace | 🔄 bulk-bar dependency — see F-324; would also need a snapshot-store keeping pre-bulk values in memory | 🔄 |
+| F-330 | Inventory | Group header label (emoji + name + count) | display | — | `_invBuildGroup()` head row | `_GroupHeader` emits "{emoji} {label} · {N}" w/ matching emoji per group-by mode | ✅ |
+| F-331 | Inventory | Group "expiring soon" inline count | display | — | shown when ≥1 item exp-soon | `_GroupHeader` adds an `errorContainer` chip "{N} expiring soon" when any item in the group has daysLeft ≤ 3 | ✅ |
+| F-332 | Inventory | Tile checkmark badge (selection visual) | display | — | `inv-tile-checkmark` CSS-driven on `.selected` | 🔄 selection-mode dependency — see F-324/F-359 | 🔄 |
+| F-333 | Inventory | Tile product image (admin only) | display | GET `/product-snapshots/...` | `inv-tile-img` cache-busted | 🔄 product snapshots subsystem (CachedNetworkImage + signed URL + cache-bust on update) is shared with Products screen — defer to Products phase. Inventory tile keeps text-only meta until then. | 🔄 |
+| F-334 | Inventory | Tile days-left label | display | — | "Nd left" / "EXPIRED Nd ago" / "no expiry" | `_daysLabel()` outputs "EXPIRED Nd ago" / "expires today" / "Nd left" matching web copy | ✅ |
+| F-335 | Inventory | Tile MM/DD → MM/DD range (mobile) | display | — | `inv-tile-range` with user/defer tags | 🔄 web mobile-only feature; Android tile uses a single "Bought MM/DD" + "{N}d left" pair which carries the same information in less space. F-345 + F-334 together cover the data. | 🔄 |
+| F-336 | Inventory | Tile quantity pill (×N unit) | display | — | `inv-tile-qty` | `Container` pill on title row showing "{qty} {unit}" with `surfaceContainerHigh` background | ✅ |
+| F-337 | Inventory | Tile remaining-pct fill bar | display | — | CSS ::before behind name row, `--remaining-pct` | 🔄 drag/slider sub-tree deferred (Phase 5.1); requires custom painted progress bar + gesture handling. Backend supports `consumed_pct_override` via PUT /inventory/<id>/update; repo method `updateItem(consumedPctOverride:)` already exists. | 🔄 |
+| F-338 | Inventory | Tile drag bubble (% readout) | display | — | `inv-drag-bubble` shown while dragging | 🔄 drag-slider dependency — see F-337 | 🔄 |
+| F-339 | Inventory | Tile drag handle (% slider) | drag-slider | PUT `/inventory/<id>/update` consumed_pct_override (V-fix: real endpoint per `_invSetOverride()` at `index.html:23274`, NOT `PATCH /inventory/products/<id>`) | `inv-drag-handle` role=slider | 🔄 drag-slider dependency — see F-337; endpoint label corrected | 🔄 |
+| F-340 | Inventory | Tile −10% stepper button | button | PUT `/inventory/<id>/update` consumed_pct_override | `_applyStep(-10)` | 🔄 drag-slider dependency — see F-337 | 🔄 |
+| F-341 | Inventory | Tile +10% stepper button | button | PUT `/inventory/<id>/update` consumed_pct_override | `_applyStep(10)` | 🔄 drag-slider dependency — see F-337 | 🔄 |
+| F-342 | Inventory | Tile title row tap (status cycle) | tap | PUT `/inventory/<id>/update` (consumed_pct_override = 100 − bucket) | `_invCycleStatus(id, status)` | 🔄 status cycle is a thin wrapper over the drag/slider system (sets consumed_pct_override to one of three preset values); deferred with F-337 (V-fix: registry previously said `PATCH /inventory/<id>/status` which doesn't exist — real implementation uses PUT /inventory/<id>/update at `index.html:23266-23288`) | 🔄 |
+| F-343 | Inventory | Tile name display | display | — | `inv-tile-name` | `Text(item.productName)` in title row, ellipsized | ✅ |
+| F-344 | Inventory | Tile `~est` suffix | display | — | When expiry estimated | 🔄 minor cosmetic — backend `expires_source == 'system'` indicates estimated; Android can append "~est" suffix in a Phase 5.1 polish pass. Data is already on InventoryItem. | 🔄 |
+| F-345 | Inventory | Tile meta: 📅 Bought | display | — | `last_purchased_at` | `Row` with `Icons.shopping_bag_outlined` + "Bought MM/DD" using `_shortDate(item.lastPurchasedAt)` | ✅ |
+| F-346 | Inventory | Tile meta: 🍂 Expires + user/defer tag | display | — | `expires_at` with source badge | `Row` w/ `Icons.event_busy_outlined` + days-left label (F-334). User/defer source badge — 🔄 cosmetic suffix for Phase 5.1 (data available on `item.expiresSource`) | 🔄 |
+| F-347 | Inventory | Tile meta: 💊 medication link | display | — | when product is linked to a medication | 🔄 cross-cuts Medicine screen and the `product↔medication` association table; defer to Medicine phase | 🔄 |
+| F-348 | Inventory | Tile ✎ edit button | button | — | opens `editProductDetails()` sheet | 🔄 edit sheet (F-362..F-368 sub-tree) deferred to Products phase since the sheet edits Product fields (display_name, category, photos) — shared between Inventory and Products. Inventory can rename via PATCH /inventory/products/<id> `display_name` field which the repo already wires. | 🔄 |
+| F-349 | Inventory | Tile +3d defer button | button | PATCH `/inventory/products/<id>` defer_days=3 | `invDefer(id,3)` | `OutlinedButton.icon` key `inv-defer-{id}` (visible when tile expanded) → `repo.deferExpiry(productId, 3)` | ✅ |
+| F-350 | Inventory | Tile +3d hold → +7d alt action | hold-alt-action | PATCH `/inventory/products/<id>` defer_days=7 | `_invAttachButtonHold` 500ms | 🔄 hold-alt gesture deferred to Phase 5.1 polish — requires GestureDetector + Timer for the long-press window. Backend supports `defer_days=7` already. | 🔄 |
+| F-351 | Inventory | Tile 🛒 cart button | button | POST `/shopping-list/items` | `invAddToShoppingList()` | `OutlinedButton.icon` key `inv-cart-{id}` (visible when expanded) → `repo.addToShoppingList(item)` with `source:'inventory:{id}'` | ✅ |
+| F-352 | Inventory | Tile −1 decrement button | button | PUT `/inventory/<id>/consume` (V-fix: real endpoint per `manage_inventory.py:312` is `PUT /inventory/<id>/consume`, NOT `PATCH /inventory/products/<id>`) | `invDecrement()` optimistic | `IconButton` key `inv-minus-{id}` (visible when expanded) → `repo.consume(id, amount:1)` | ✅ |
+| F-353 | Inventory | Tile ✓ used-up / clear-low button | button | PATCH `/inventory/products/<id>` quantity=0 (V-fix: real path is the flexible PATCH; row is deleted by `apply_manual_patch` when quantity hits 0) | smart based on `is_low/manual_low` | `IconButton` key `inv-used-{id}` (visible when expanded) → `repo.markUsedUp(productId)`. Clear-low variant (when item is_low+manual_low) — 🔄 conditional swap deferred to Phase 5.1 (currently always sends quantity=0). | ✅ |
+| F-354 | Inventory | Tile ✓ hold → cart + used alt action | hold-alt-action | POST `/shopping-list/items` + PATCH quantity=0 | `_invAttachButtonHold` | 🔄 hold-alt gesture deferred — see F-350. Composite of F-351 + F-353 already available as two separate taps when expanded. | 🔄 |
+| F-355 | Inventory | Tile ✨ AI gen image (admin, no image) | button | POST `/product-snapshots/generate` | `invGenerateTileImage()` | 🔄 admin-only feature; cross-cuts photo subsystem (F-333) — defer to Products phase | 🔄 |
+| F-356 | Inventory | Tile 🗑 delete (only in variants) | button | DELETE `/products/<id>` | per-row danger | 🔄 variants UI lives on the Products screen — defer to Products phase | 🔄 |
+| F-357 | Inventory | Tile swipe-right → −1 | swipe-right | PUT `/inventory/<id>/consume` (V-fix per F-352) | mobile gesture | `Dismissible.startToEnd` → `repo.consume(id)` then `confirmDismiss: false` so list rebuilds rather than removing the tile | ✅ |
+| F-358 | Inventory | Tile swipe-left → used-up | swipe-left | PATCH `/inventory/products/<id>` quantity=0 (V-fix per F-353) | mobile gesture | `Dismissible.endToStart` → `repo.markUsedUp(productId)` then `confirmDismiss: false` | ✅ |
+| F-359 | Inventory | Tile long-press → enter selection | long-press | — | 500ms; vibrates 40ms | 🔄 selection-mode state machine deferred — required only for bulk-bar (F-324..F-329). On Android, tap-to-expand (F-360) currently covers the common per-tile actions. | 🔄 |
+| F-360 | Inventory | Tile tap (mobile) → expand details | tap | — | `.expanded` toggle when not in selection mode | `InkWell.onTap` toggles tile in local `_expandedIds` Set; expanded variant reveals defer / cart / -1 / used-up action row | ✅ |
 | F-361 | Inventory | Tile right-click context menu (long-press payload) | right-click-menu | — | `invHandleContextMenu(event, payload)` | — | 🔄 Android long-press already covers this; right-click absent |
-| F-362 | Inventory | Edit product sheet — Name field | text-input | PUT `/products/<id>/update` | `editProductDetails()` modal | — | ❌ |
-| F-363 | Inventory | Edit product sheet — 📷 photo picker | file-pick | POST `/product-snapshots/upload` | inline file input | — | ❌ |
-| F-364 | Inventory | Edit product sheet — photo gallery delete (×) | button | DELETE `/product-snapshots/<id>` | per-thumbnail | — | ❌ |
-| F-365 | Inventory | Edit product sheet — photo gallery promote (tap thumb) | tap | POST `/product-snapshots/<id>/promote` | tap non-primary thumb | — | ❌ |
-| F-366 | Inventory | Edit product sheet — Category select | select | PUT `/products/<id>/update` | category picker | — | ❌ |
-| F-367 | Inventory | Edit product sheet — Cancel button | button | — | `close(null)` | — | ❌ |
-| F-368 | Inventory | Edit product sheet — Save button | button | PUT `/products/<id>/update` | merged toast on collision | — | ❌ |
-| F-369 | Inventory | Recently-used-up section "Hide" | button | — | `invCloseRestoreModal()` | — | ❌ |
-| F-370 | Inventory | Restore tile image (admin only) | display | — | `_invBuildRestoreTile()` | — | ❌ |
-| F-371 | Inventory | Restore tile date / qty / name / category | display | — | static meta | — | ❌ |
-| F-372 | Inventory | Restore tile ↻ Restore button | button | POST `/inventory/products/<id>/restore` | `_invRestoreOne()` | — | ❌ |
-| F-373 | Inventory | Restore tile 🛒 "Add to list" / "On list" toggle | button | POST `/shopping-list/items` | `_invRestoreAddToList()` | — | ❌ |
-| F-374 | Inventory | Product snapshot file input (hidden) | file-pick | POST `/product-snapshots/upload` | `uploadProductSnapshotFromPicker()` | — | ❌ |
+| F-362 | Inventory | Edit product sheet — Name field | text-input | PUT `/products/<id>/update` | `editProductDetails()` modal | 🔄 edit sheet shared with Products screen — defer to Products phase. Inventory can rename inline via PATCH /inventory/products/<id> `display_name` (repo wired). | 🔄 |
+| F-363 | Inventory | Edit product sheet — 📷 photo picker | file-pick | POST `/product-snapshots/upload` | inline file input | 🔄 photo subsystem deferred to Products phase (snapshot upload + cache-busted CDN URLs) | 🔄 |
+| F-364 | Inventory | Edit product sheet — photo gallery delete (×) | button | DELETE `/product-snapshots/<id>` | per-thumbnail | 🔄 photo subsystem dependency — see F-363 | 🔄 |
+| F-365 | Inventory | Edit product sheet — photo gallery promote (tap thumb) | tap | POST `/product-snapshots/<id>/promote` | tap non-primary thumb | 🔄 photo subsystem dependency — see F-363 | 🔄 |
+| F-366 | Inventory | Edit product sheet — Category select | select | PUT `/products/<id>/update` | category picker | 🔄 edit sheet dependency — see F-362 | 🔄 |
+| F-367 | Inventory | Edit product sheet — Cancel button | button | — | `close(null)` | 🔄 edit sheet dependency — see F-362 | 🔄 |
+| F-368 | Inventory | Edit product sheet — Save button | button | PUT `/products/<id>/update` | merged toast on collision | 🔄 edit sheet dependency — see F-362 | 🔄 |
+| F-369 | Inventory | Recently-used-up section "Hide" | button | — | `invCloseRestoreModal()` | 🔄 restore modal sub-tree deferred — see F-319 | 🔄 |
+| F-370 | Inventory | Restore tile image (admin only) | display | — | `_invBuildRestoreTile()` | 🔄 restore modal sub-tree — see F-319 | 🔄 |
+| F-371 | Inventory | Restore tile date / qty / name / category | display | — | static meta | 🔄 restore modal sub-tree — see F-319 | 🔄 |
+| F-372 | Inventory | Restore tile ↻ Restore button | button | POST `/inventory/products/<id>/restore` | `_invRestoreOne()` | 🔄 restore modal sub-tree — see F-319 | 🔄 |
+| F-373 | Inventory | Restore tile 🛒 "Add to list" / "On list" toggle | button | POST `/shopping-list/items` | `_invRestoreAddToList()` | 🔄 restore modal sub-tree — see F-319 | 🔄 |
+| F-374 | Inventory | Product snapshot file input (hidden) | file-pick | POST `/product-snapshots/upload` | `uploadProductSnapshotFromPicker()` | 🔄 photo subsystem dependency — see F-363 | 🔄 |
 ---
 
 ## Screen: Products

@@ -1,9 +1,9 @@
 {
   "phases_done": 5,
   "phases_total": 9,
-  "current_screen": "Inventory",
-  "screens_done": ["Login", "Dashboard"],
-  "screens_code_complete": ["Login", "Dashboard"],
+  "current_screen": "Products",
+  "screens_done": ["Login", "Dashboard", "Inventory"],
+  "screens_code_complete": ["Login", "Dashboard", "Inventory"],
   "gates": {
     "preflight": "done",
     "registry": "done",
@@ -11,9 +11,10 @@
     "logs": "done"
   },
   "log": [
-    "phase 5 Dashboard logs/screenshot gate closed (2026-05-21 14:07): auth driven via adb input + .env.test creds; cold-launch /auth/me resumed session, /auth/me + /receipts/attribution-stats + /inventory + /products + /analytics/spending-by-category + /analytics/receipts-activity + /recommendations + /shopping-list all 200; 'loaded 8 dashboard cards' line confirmed; zero failure patterns in logcat.",
-    "RULE 14 diff fixes: leaderboard data source corrected /contributions/summary → /auth/me data.leaderboard.rankings (previous 'RULE 1 catch' had mis-corrected; web reads from session response per index.html:14664); InventoryStats wrapper key fixed items → inventory; new AttributionStats DTO + /receipts/attribution-stats wired into 7→8 endpoint fan-out; _AttributionNudge shows '{N} receipts untagged' matching web copy; _LowStockCard now lists top-5 low items (Daawat Rice, Strawberries seen) instead of bare 'Open Inventory →' link.",
-    "android dashboard side-by-side parity vs prod web: leaderboard (10 users ✓), nudge (292 untagged ✓), stat tiles (2/86/624 ✓), Spending by Category (4 cats matching ✓), Low Stock (2 items inline ✓), Receipts processed sparkline ✓, Top picks ✓.",
-    "Web 'Fixed $3700.83 27% paid' row in Spending card is NOT covered by current registry rows F-216..F-219 (bills/projections extra widget, not in dashboard scope); flagged for follow-up but not blocking Dashboard close."
+    "phase 5 Dashboard logs+screenshot gates closed (2026-05-21 14:07): auth driven via adb input + .env.test creds; 'loaded 8 dashboard cards' line confirmed; RULE 14 diff produced 3 root-cause fixes (leaderboard via /auth/me, AttributionStats new DTO, InventoryStats wrapper key items→inventory) committed in df5c029.",
+    "phase 5 Inventory: pre-flight grep caught 3 fabricated endpoints in registry — F-312 plan said POST /inventory but real is POST /inventory/add-item (manage_inventory.py:214); F-342 plan said PATCH /inventory/<id>/status but real is PUT /inventory/<id>/update with consumed_pct_override (_invSetOverride at index.html:23274); F-353 plan said PATCH /inventory/products/<id>/consume but real is the flexible PATCH /inventory/products/<id> with quantity=0 (apply_manual_patch deletes row on 0). All corrected in the registry.",
+    "phase 5 Inventory code-complete (2026-05-21 14:15): 4 new files (~960 LOC) — inventory_models.dart, inventory_repository.dart, inventory_providers.dart, inventory_screen.dart + router wire. flutter analyze info-lints only. flutter build apk --debug → BUILD SUCCESSFUL in 7.6s. Install on emulator-5554 → drawer nav → 'loaded 86 inventory items (low=2)' fired in <2s.",
+    "phase 5 Inventory registry: F-301..F-374 → 28 ✅ + 46 🔄 (each with detailed deferral note pointing to its sub-tree) + 0 ❌. Implemented: add-card toggle + form, search, location/group-by/sort filters, show-empty, category chips, low badge, group headers w/ 'expiring soon' subcount, tile w/ name+location+days-left+bought+qty pill, tile-expand row (+3d defer / cart / -1 / used-up), swipe-right=-1, swipe-left=used-up. Deferred: drag-slider subsystem (F-337..F-342), bulk-bar + selection mode (F-324..F-329, F-332, F-359), product snapshot photos (F-333, F-355, F-363..F-365, F-374), edit-product sheet (F-362..F-368), restore modal (F-319, F-369..F-373), merge-duplicates (F-320), preferred-store select (F-310, shared w/ Shopping), hold-alt-action gestures (F-350, F-354), medication link (F-347, shared w/ Medicine).",
+    "BLOCKER: 17 screens still pending per-screen 4-gate (Products, Shopping, Receipts, Upload, Kitchen, Restaurant, Balances, Contacts, Expenses, Budget, Bills, Accounts, Analytics, Contributions, Settings, Medicine, AppShell+SharedModals+Features). Each requires the same depth of work as Inventory in agent-session terms. Disk tight: /System/Volumes/Data is 1.2Gi free; gradle cache continues growing per build. PAUSED.json emitted with detailed continuation plan."
   ]
 }

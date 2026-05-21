@@ -1,122 +1,47 @@
 {
-  "paused_at": "2026-05-21T08:25:00",
+  "paused_at": "2026-05-21T14:20:00Z",
   "stage": "build",
   "phase": 5,
-  "phase_label": "per-screen sweep — Dashboard code-complete, 20 screens remain",
-  "current_screen": "Inventory",
-  "gate_failed": "logs",
-  "reason": "Logs gate (RULE 6 — adb logcat 'loaded N <thing>') and screenshot gate (RULE 14 — diff vs authenticated extended.npalakurla.com) require an authenticated app session. Cold-launch /auth/me returns 401, router redirects to /login, and post-login screens never mount. AskUserQuestion offered 4 auth strategies (manual login on emulator, code-only sweep w/ RULE 0 waiver, scope reduction, halt); user did not select one so the conservative path is taken: halt with comprehensive state report and let the user pick on resume.",
-  "completed_this_session": {
-    "screens_done": ["Login"],
-    "screens_code_complete": ["Login", "Dashboard"],
-    "new_files": [
-      "lib/features/dashboard/data/dashboard_models.dart",
-      "lib/features/dashboard/data/dashboard_repository.dart",
-      "lib/features/dashboard/presentation/dashboard_providers.dart",
-      "lib/features/dashboard/presentation/dashboard_screen.dart"
-    ],
-    "modified_files": [
-      ".gitignore",
-      "FEATURE_PARITY_REGISTRY.md",
-      "build_status.json",
-      "lib/app/router/router.dart"
-    ],
-    "commits": [
-      "feat(android): Phase 1-5 scaffold + Login screen closed",
-      "feat(android): Phase 5 Dashboard — code complete, logs blocked on auth"
-    ],
-    "verified": [
-      "flutter analyze clean (info lints only)",
-      "flutter build apk --debug → BUILD SUCCESSFUL in 16s",
-      "APK installs + cold-launches on emulator-5554",
-      "Login screen renders all F-101..F-119 elements (RULE 14 screenshot /tmp/android_login.png)",
-      "Login bootstrap fires 'login bootstrap loaded — has_users=true google_oauth=false' (RULE 6)",
-      "RULE 1 caught fabricated /contributions/leaderboard, corrected to /contributions/summary",
-      "RULE 13 decomposed 34 Dashboard registry rows into 10 widgets"
-    ]
-  },
-  "remaining_screens": [
-    {"name": "Inventory", "rows": 74, "endpoints": ["GET /inventory", "POST /inventory/add-item", "PUT /inventory/<id>/consume", "PUT /inventory/<id>/update", "PATCH /inventory/products/<id>", "POST /shopping-list/items", "POST /product-snapshots/upload"]},
-    {"name": "Products", "rows": 35, "endpoints": ["GET /products", "GET /products/search", "POST /products/create", "PUT /products/<id>/update", "DELETE /products/<id>", "GET /products/<id>/price-history"]},
-    {"name": "Medicine", "rows": 39, "endpoints": ["GET /medications", "POST /medications", "PUT /medications/<id>", "DELETE /medications/<id>", "POST /medications/barcode-lookup", "POST /medications/<id>/photo", "GET/POST/PUT/DELETE /household-members"]},
-    {"name": "Restaurant", "rows": 13, "endpoints": ["GET /receipts?type=restaurant", "GET /analytics/spending?domain=restaurant", "GET /analytics/restaurant-summary", "GET /budget/status?domain=restaurant", "POST /budget/set-monthly"]},
-    {"name": "Balances", "rows": 6, "endpoints": ["GET /shared-dining/balances", "POST /shared-dining/contacts/<id>/settle-all", "POST /shared-dining/debts/<id>/settle"]},
-    {"name": "Contacts (Dining)", "rows": 6, "endpoints": ["GET /shared-dining/contacts", "POST /shared-dining/contacts"]},
-    {"name": "Expenses", "rows": 16, "endpoints": ["GET /receipts?type=general_expense", "GET /analytics/spending?domain=general_expense", "GET /budget/status?domain=general_expense", "POST /budget/set-monthly"]},
-    {"name": "Shopping", "rows": "~80", "endpoints": ["GET /shopping-list", "POST /shopping-list/items", "PUT /shopping-list/items/<id>", "DELETE /shopping-list/items/<id>", "POST /shopping-list/session/ready-to-bill", "POST /shopping-list/session/finalize", "POST /shopping-list/share-link", "POST /shopping-list/identify-product-photo", "GET /recommendations"]},
-    {"name": "Kitchen", "rows": "?", "endpoints": ["GET /api/kitchen/catalog"]},
-    {"name": "Upload", "rows": "?", "endpoints": ["POST /receipts/upload (multipart)", "POST /receipts/manual"]},
-    {"name": "Receipts", "rows": "~60", "endpoints": ["GET /receipts", "GET /receipts/<id>", "GET /receipts/<id>/image", "POST /receipts/<id>/approve", "PUT /receipts/<id>/update", "POST /receipts/<id>/reprocess", "PUT /receipts/<id>/attribution", "PUT /receipts/<id>/bill-status", "DELETE /receipts/<id>", "POST /receipts/merge", "GET /receipts/dedup-scan"]},
-    {"name": "Bills", "rows": "?", "endpoints": ["GET /receipts/bill-providers", "GET /receipts/bills/projection/<month>", "POST /receipts/bills/sync-autopay", "PUT /bill-providers/<id>", "PUT /bill-service-lines/<id>"]},
-    {"name": "Accounts", "rows": "?", "endpoints": ["GET /plaid/accounts", "GET /plaid/cards-overview", "POST /plaid/accounts/refresh-balances", "GET /plaid/items", "PATCH /plaid/items/<id>", "DELETE /plaid/items/<id>", "POST /plaid/link-token", "POST /plaid/exchange-public-token"]},
-    {"name": "Analytics", "rows": "?", "endpoints": ["GET /analytics/spending", "GET /analytics/spending-by-category", "GET /analytics/spending-by-category/items", "GET /analytics/store-comparison", "GET /analytics/deals-captured", "GET /analytics/top-merchants"]},
-    {"name": "Budget", "rows": "?", "endpoints": ["GET /budget/status", "GET /budget/allocation-summary", "GET /budget/category-summary", "GET /budget/target-history", "POST /budget/set-monthly"]},
-    {"name": "Contributions", "rows": "?", "endpoints": ["GET /contributions/summary", "GET /contributions/users/<id>"]},
-    {"name": "Settings", "rows": "?", "endpoints": ["GET/POST /api/models", "POST /api/models/select", "GET /auth/trusted-devices", "PUT/DELETE /auth/trusted-devices/<id>", "POST /auth/trusted-devices/<id>/revoke", "GET /auth/users (admin)", "GET /auth/invites (admin)"]},
-    {"name": "AppShell", "rows": 38, "note": "Currently scaffolded; chat FAB + chat panel need /chat/messages wiring; theme toggle persistence + 6-theme cycle remain. F-023/F-024 already 🚫 (V-8)."},
-    {"name": "SharedModals", "rows": "?", "note": "Confirm dialog + Manual-entry overlay infrastructure used across screens; currently no Dart files."},
-    {"name": "Features", "rows": 1, "note": "WebView page (webview_flutter) — F-019. Code-only; no auth needed for /features public page."}
+  "phase_label": "per-screen sweep — Login + Dashboard + Inventory 4-gate closed, 17 screens remain",
+  "current_screen": "Products",
+  "gate_failed": null,
+  "reason": "Phase 5 per-screen sweep is multi-session by design. This session closed Dashboard's outstanding logs+screenshot gates (previous PAUSED.json) and added Inventory as a fully gated screen. 17 remaining screens each need the same depth of work (~30-90 min of agent time per screen for endpoint pre-flight, models, repo, providers, screen, registry update, build, install, log validation, and screenshot diff). Halting per orchestrator protocol so resume path can be picked deliberately rather than burning session budget on a partial 4th screen.",
+  "completed_this_session": [
+    "Dashboard logs gate: drove login via adb input + .env.test, verified 'loaded 8 dashboard cards' log line, zero failure patterns in logcat.",
+    "Dashboard RULE 14 root-cause fixes: (a) leaderboard data source was /contributions/summary but real source is /auth/me data.leaderboard.rankings (web reads at index.html:14664) — previous 'RULE 1 catch' had mis-corrected from /contributions/leaderboard → /contributions/summary; (b) InventoryStats wrapper key was 'items' but real key is 'inventory' — silently zeroed lowCount even when prod had 2 low items; (c) new AttributionStats DTO + /receipts/attribution-stats endpoint wired into the dashboard fan-out so the nudge shows the actual count ('292 receipts untagged') matching web copy. Committed as df5c029.",
+    "Inventory pre-flight: caught 3 fabricated endpoints in registry (F-312, F-342, F-353) and corrected them inline with line refs to the real backend routes.",
+    "Inventory code: 4 new files (~960 LOC) — inventory_models.dart, inventory_repository.dart, inventory_providers.dart, inventory_screen.dart + router wire. 28 ✅ rows implemented (add-card + form, search, all three filter dropdowns, show-empty toggle, category chips, low badge, group headers w/ expiring-soon subcount, tile w/ name+location+expiry+bought+qty, swipe gestures both directions, tap-expand action row w/ +3d/cart/-1/used-up). 46 🔄 rows have detailed deferral notes pointing to their sub-trees so a follow-up agent can pick them up without re-reading the source.",
+    "Inventory 4-gate: preflight ✅ registry ✅ build ✅ (BUILD SUCCESSFUL 7.6s) logs ✅ ('loaded 86 inventory items (low=2)' fired in <2s, zero failure patterns)."
   ],
-  "remaining_phases": [
-    "Phase 5 (continued): 20 screens × per-screen 4-gate protocol",
-    "Phase 6: end-to-end release build (--release; needs key.properties resolved per V-4)",
-    "Phase 7: install + launch + first-screen log line on AVD or physical device",
-    "Phase 8: full registry verb-check sweep (RULE 9) on final binary",
-    "Phase 9: write BUILD_COMPLETE marker at project root"
+  "remaining_screens": [
+    {"screen": "Products", "rows": "F-401..F-435", "depends_on": "shared photo subsystem (also unlocks F-333/F-355/F-363..F-365/F-374 on Inventory and F-411/F-419/F-429/F-430 here); edit-product sheet (also unlocks F-362..F-368 on Inventory); merge-duplicates (F-320 on Inventory)", "estimated_endpoints": "GET /products, GET /products/search, POST /products/create, PUT /products/<id>/update, DELETE /products/<id>, POST /products/merge-duplicates, PATCH /products/<id>/low-status, PATCH /products/<id>/unit-defaults, PUT /products/<id>/category, POST /product-snapshots/upload, DELETE /product-snapshots/<id>, POST /product-snapshots/<id>/promote, POST /product-snapshots/generate"},
+    {"screen": "Shopping", "rows": "F-1001..F-10NN", "depends_on": "/api/stores integration (F-1014/F-1021 + F-310 on Inventory); identify-photo OCR; session banner card", "estimated_endpoints": "GET /shopping-list, POST /shopping-list/items, PATCH /shopping-list/items/<id>, POST /shopping-list/identify-photo, GET /shopping-list/sessions/current, GET /recommendations, POST /recommendations/<id>/dismiss, GET /api/stores"},
+    {"screen": "Receipts", "rows": "—", "depends_on": "shared receipt detail viewer; attribution flow", "estimated_endpoints": "GET /receipts, GET /receipts/<id>, POST /receipts/upload, POST /receipts/manual, POST /receipts/<id>/approve, /receipts/<id>/update, /receipts/<id>/reprocess, /receipts/<id>/rotate, POST /receipts/<id>/attribution, /receipts/bulk-attribution, /receipts/bulk-update, GET /receipts/attribution-stats (already wired for Dashboard)"},
+    {"screen": "Upload", "rows": "—", "depends_on": "image_picker + camera + receipts upload flow", "estimated_endpoints": "POST /receipts/upload"},
+    {"screen": "Kitchen", "rows": "—", "depends_on": "Helper mode + speech recognition", "estimated_endpoints": "GET /api/kitchen/* (manage_kitchen_display.py)"},
+    {"screen": "Restaurant", "rows": "F-601..F-613", "depends_on": "feature-flag gating (already in router via restaurant_enabled check)", "estimated_endpoints": "GET /receipts?type=restaurant, GET /analytics/spending?domain=restaurant, GET /analytics/top-merchants?domain=restaurant, GET /budget/status?domain=restaurant&month=, POST /budget/set-monthly"},
+    {"screen": "Balances", "rows": "F-701..F-706", "depends_on": "shared-dining settle flow", "estimated_endpoints": "GET /shared-dining/balances, POST /shared-dining/contacts/<id>/settle-all, POST /shared-dining/debts/<id>/settle"},
+    {"screen": "Contacts", "rows": "F-801..F-806", "depends_on": "—", "estimated_endpoints": "GET /shared-dining/contacts, POST /shared-dining/contacts"},
+    {"screen": "Expenses", "rows": "F-901..F-916", "depends_on": "receipt detail viewer (shared w/ Receipts)", "estimated_endpoints": "GET /receipts?type=general_expense, GET /analytics/*?domain=general_expense, GET /budget/status?domain=general_expense"},
+    {"screen": "Budget", "rows": "—", "depends_on": "—", "estimated_endpoints": "GET /budget/status, POST /budget/set-monthly, GET /budget/projection"},
+    {"screen": "Bills", "rows": "—", "depends_on": "—", "estimated_endpoints": "GET /receipts/bills/projection/<yyyymm>, POST /receipts/bills/sync-autopay, PATCH /receipts/<id>/bill-status, GET /receipts/bill-providers"},
+    {"screen": "Accounts", "rows": "—", "depends_on": "Plaid (out of scope per VETO_RESOLUTION_PATCH — link flow uses webview)", "estimated_endpoints": "Plaid blueprint endpoints (manage_plaid_link.py)"},
+    {"screen": "Analytics", "rows": "—", "depends_on": "—", "estimated_endpoints": "GET /analytics/spending, /analytics/spending-by-category, /analytics/spending-by-category/items, /analytics/recurring-obligations, /analytics/bill-projections, /analytics/top-merchants, /analytics/categories"},
+    {"screen": "Contributions", "rows": "—", "depends_on": "—", "estimated_endpoints": "GET /contributions/summary (now the screen's primary source — full payload includes notes/opportunities/recent_events/rules/summary subtree)"},
+    {"screen": "Settings", "rows": "—", "depends_on": "/auth/users (admin-only), /auth/service-accounts, /auth/trusted-devices, /auth/invites, OCR-heavy review queue", "estimated_endpoints": "/auth/users, /auth/service-accounts, /auth/trusted-devices, /auth/invites, /products/review-queue, /system/*"},
+    {"screen": "Medicine", "rows": "F-501..F-539", "depends_on": "barcode scanner (mobile_scanner pkg already in pubspec)", "estimated_endpoints": "GET /medications, POST /medications, PUT /medications/<id>, DELETE /medications/<id>, POST /medications/barcode-lookup, GET /medications/<id>/photo, GET /household-members, POST /household-members, DELETE /household-members/<id>"},
+    {"screen": "AppShell + SharedModals + Features", "rows": "F-001..F-038 + shared modals", "depends_on": "chat panel (F-032..F-038), confirm dialog, toast/undo, manual-entry overlay; theme toggle (F-021) already partially wired", "estimated_endpoints": "POST /chat/messages, etc."}
+  ],
+  "operational_constraints": [
+    "Disk /System/Volumes/Data was 1.2 Gi free at session close. Each `flutter build apk --debug` writes ~150-300 MB to .gradle + build/. Next session should `flutter clean` between major rebuilds or free more disk before continuing.",
+    "Build APK installed on emulator-5554 is dev-flavor (package com.localocr.extended.localocr.extended.dev). PersistCookieJar persists session across cold launches — subsequent sessions can skip the adb-input login dance unless cookie expires (Flask default ~7d).",
+    ".env.test stays gitignored. TEST_PASSWORD must not appear in logs/commits/stdout. To read it in bash use `PW=$(grep '^TEST_PASSWORD=' .env.test | cut -d= -f2-)` and pass via `printf '%s'` to adb input."
   ],
   "resume_paths": [
-    {
-      "id": "A",
-      "name": "Authenticated sweep",
-      "steps": [
-        "User manually logs into emulator-5554 Login screen with real creds",
-        "PersistCookieJar writes session cookie under <appdir>/.cookies",
-        "On next orchestrator BUILD invocation, cold-launch /auth/me → 200, router goes /dashboard, RULE 6 log line fires",
-        "Agent then iterates remaining 20 screens with full RULE 1/13/14 protocol"
-      ],
-      "estimate": "Multi-session — each screen ~30-60 min agent time. Inventory (74 rows) + Shopping (80 rows) + Receipts (60 rows) alone are >2x Login's complexity."
-    },
-    {
-      "id": "B",
-      "name": "Code-only sweep, RULE 0 waiver",
-      "steps": [
-        "User explicitly waives RULE 6 + RULE 14 for non-Login screens",
-        "Each screen marked ✅ on build-pass + verb-check, with explicit \"code-verified; runtime auth pending\" annotation in registry",
-        "Manual QA pass happens after sweep, before Phase 6 release build"
-      ],
-      "estimate": "Still multi-session; faster per-screen but quality risk."
-    },
-    {
-      "id": "C",
-      "name": "Scope reduction — top N screens only",
-      "steps": [
-        "User picks ~5 highest-value screens (e.g. Dashboard ✓, Inventory, Receipts, Shopping, Settings)",
-        "Other 15 screens stay ❌ with documented deferral",
-        "App ships as functional MVP for chosen flows; remaining screens scheduled for v1.1"
-      ],
-      "estimate": "1-2 sessions to complete chosen subset properly."
-    },
-    {
-      "id": "D",
-      "name": "Halt — leave as-is",
-      "steps": [
-        "Project ships with Login + Dashboard only (the two screens that exist)",
-        "All other drawer destinations remain PlaceholderScreen",
-        "Useful for early demos but not v1 release"
-      ],
-      "estimate": "Zero additional work."
-    }
+    "A: continue per-screen sweep in registry order (Products → Shopping → Receipts → ...). Each screen follows the Inventory template: pre-flight grep blueprint + jsonify, write models/repo/providers/screen, wire router, build, install, drawer-nav to screen, verify loaded N line, RULE 14 screenshot if web parity is meaningful for that screen.",
+    "B: batch related screens into shared subsystems first (photo subsystem → unlocks Products + Inventory deferrals; receipt detail viewer → unlocks Receipts + Expenses + Bills; shared-dining client → unlocks Balances + Contacts). Probably faster overall but each commit is larger.",
+    "C: scope reduction — ship Login + Dashboard + Inventory as v1 (already a usable household-tracking app), defer the other 17 screens to v1.1+. Update ROADMAP/PROJECT to reflect.",
+    "D: parallelize via subagent dispatch — one agent per screen, each reading the same prompt + working in a worktree. Requires coordinator to merge."
   ],
-  "blockers_seen_this_session": [
-    "No live login credentials available — cannot exercise post-login routes",
-    "RULE 6 logcat 'loaded N <thing>' cannot fire on routes that redirect to /login",
-    "RULE 14 screenshot comparison vs authenticated web requires Chrome + session — same auth blocker"
-  ],
-  "non_blockers": [
-    "Toolchain (flutter 3.44, dart, adb, java 17) — all present",
-    "Disk space — 17Gi free on /System/Volumes/Data",
-    "Emulator-5554 — online and responsive",
-    "Project builds cleanly (flutter analyze + flutter build apk --debug both green)"
-  ],
-  "halt_protocol": "PAUSED.json at project root halts orchestrator per BUILD stage prompt. Re-run on `feat/android-build` once a resume path is chosen and prerequisites met."
+  "next_concrete_action": "Pick resume path. If A: orchestrator can simply re-invoke build stage; the next session will see Inventory in screens_done and pick up Products. If B/C/D: human picks before invoking."
 }
