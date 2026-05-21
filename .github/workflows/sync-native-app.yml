@@ -73,7 +73,6 @@ jobs:
           echo "Restore complete"
 
       - name: Copy agent rules
-        if: steps.diff.outputs.changed == 'true'
         run: |
           cp $HOME/actions-runner/actions-runner/agent-rules.md . 2>/dev/null || true
           SOURCE=$HOME/.gemini/antigravity/LocalOCR_Extended
