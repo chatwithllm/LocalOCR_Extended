@@ -6,6 +6,7 @@ import '../../core/providers.dart';
 import '../../features/appshell/app_shell.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/balances/presentation/balances_screen.dart';
+import '../../features/contacts/presentation/contacts_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/medicine/presentation/medicine_screen.dart';
@@ -107,7 +108,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/balances', builder: (_, __) =>
               const BalancesScreen()),
           GoRoute(path: '/contacts', builder: (_, __) =>
-              const PlaceholderScreen(title: 'Contacts (Dining)')),
+              const ContactsScreen()),
           GoRoute(path: '/expenses', builder: (_, __) =>
               const PlaceholderScreen(title: 'Expenses')),
           GoRoute(path: '/budget', builder: (_, __) =>

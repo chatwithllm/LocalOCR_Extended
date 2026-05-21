@@ -327,12 +327,12 @@ across screens are under **Screen: SharedModals**.
 ---
 | Row ID | Screen | UI Element | Action / Verb | Endpoint | Web Impl Notes | Android Impl | Status |
 |--------|--------|-----------|---------------|----------|----------------|--------------|--------|
-| F-801 | Contacts | Page header refresh 🔄 | button | GET `/shared-dining/contacts` | `loadContacts()` | — | ❌ |
-| F-802 | Contacts | Add Contact — Name input * | text-input | POST `/shared-dining/contacts` | required | — | ❌ |
-| F-803 | Contacts | Add Contact — Phone input | text-input | POST `/shared-dining/contacts` | tel | — | ❌ |
-| F-804 | Contacts | Add Contact — Email input | text-input | POST `/shared-dining/contacts` | email | — | ❌ |
-| F-805 | Contacts | Add Contact "Add Contact" button | button | POST `/shared-dining/contacts` | `saveContact()` | — | ❌ |
-| F-806 | Contacts | Saved Contacts list row (avatar, name, phone/email) | display | GET `/shared-dining/contacts` | per-card | — | ❌ |
+| F-801 | Contacts | Page header refresh 🔄 | button | GET `/shared-dining/contacts` | `loadContacts()` | AppBar `IconButton(Icons.refresh)` → `ref.invalidate(contactsListProvider)` | ✅ |
+| F-802 | Contacts | Add Contact — Name input * | text-input | POST `/shared-dining/contacts` | required | `_AddCard` `TextField(key:'contact-name-input')` controller `_name`; save rejects empty | ✅ |
+| F-803 | Contacts | Add Contact — Phone input | text-input | POST `/shared-dining/contacts` | tel | `_AddCard` `TextField(key:'contact-phone-input', keyboardType: phone)` | ✅ |
+| F-804 | Contacts | Add Contact — Email input | text-input | POST `/shared-dining/contacts` | email | `_AddCard` `TextField(key:'contact-email-input', keyboardType: emailAddress)` | ✅ |
+| F-805 | Contacts | Add Contact "Add Contact" button | button | POST `/shared-dining/contacts` | `saveContact()` | `_AddCard` `FilledButton('Add Contact')` → `ContactsRepository.create(name, phone?, email?)` → POST /shared-dining/contacts + cabinet invalidate + SnackBar | ✅ |
+| F-806 | Contacts | Saved Contacts list row (avatar, name, phone/email) | display | GET `/shared-dining/contacts` | per-card | `ListTile(key:'contact-<id>', leading: CircleAvatar(initial))` w/ name title + `phone · email` subtitle; RULE 2: backend returns BARE ARRAY of `{id, name, phone, email}` (shared_dining_endpoints.py:99) decoded via `get<List<dynamic>>` | ✅ |
 ---
 
 ## Screen: Expenses

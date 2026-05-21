@@ -1,9 +1,9 @@
 {
   "phases_done": 5,
   "phases_total": 9,
-  "current_screen": "Contacts",
-  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances"],
-  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances"],
+  "current_screen": "Expenses",
+  "screens_done": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts"],
+  "screens_code_complete": ["Login", "Dashboard", "Inventory", "Products", "Medicine", "Restaurant", "Balances", "Contacts"],
   "gates": {
     "preflight": "done",
     "registry": "done",
@@ -18,6 +18,8 @@
     "phase 5 Restaurant: all 4 gates closed (2026-05-21 20:51). RULE 1 caught 4 fabricated registry endpoints (F-601 said /receipts?type=restaurant → real /analytics/restaurant-summary per index.html:35469; F-604 said /analytics/top-merchants?domain=restaurant → derived from restaurant-summary `top_restaurants[0]` per index.html:35483; F-606/F-607 said POST /budget category=dining → real POST /budget/set-monthly body {month, domain:'restaurant', budget_amount} per index.html:35643 + manage_household_budget.py:160). RULE 1 also caught F-613 verb error: web `topItems` is a static table, no row tap — registry said `tap` to /receipts?item=... which doesn't exist; corrected to `display`. RULE 2: BudgetStatus + RestaurantSummary + TopRestaurant + TopItem + RecentRestaurantReceipt DTOs mirror jsonify body verbatim (calculate_spending_analytics.py:450-462 + manage_household_budget.py:332-343). flutter build apk --debug → 8.1s. emulator-5554 cold-launch `localocr:///restaurant`: 'loaded restaurant summary visits=56 spend=2634.57 top=8 items=10 receipts=12' line within ~1s. Zero 401/403/decode/cancelled/404. RULE 14 screenshot confirms all 13 visible elements (Window dropdown, 4 stat cards, Dining Budget card w/ month picker + amount input + Save, Restaurant Receipts list, Top Restaurants list, Top Items rows). Registry F-601..F-613: 13 ✅ + 0 🔄 + 0 ❌.",
     "phase 5 Restaurant: all 4 gates closed (2026-05-21 20:51). RULE 1 caught 4 fabricated endpoints + 1 verb error. Real data 'loaded restaurant summary visits=56 spend=2634.57'.",
     "phase 5 Balances: all 4 gates closed (2026-05-21 20:55). RULE 2: backend GET /shared-dining/balances returns BARE ARRAY of {contact_id,name,net_amount} (shared_dining_endpoints.py:82) — repo decodes via `get<List<dynamic>>`. F-701..F-704 ✅; F-705/F-706 🔄 (no per-debt list endpoint backend-side and web doesn't render expand either). flutter build apk --debug → 8s. emulator-5554 deep-link `localocr:///balances`: 'loaded 0 balances' line within ~2s. Zero failure patterns. RULE 14: empty-state copy matches web 'No outstanding balances — all settled! 🎉'.",
-    "# screen-complete: Balances apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
+    "phase 5 Balances: all 4 gates closed. 4 ✅ + 2 🔄.",
+    "phase 5 Contacts (Dining): all 4 gates closed (2026-05-21 20:57). RULE 2 bare-array decode for GET /shared-dining/contacts → `[{id,name,phone,email}]`. F-801..F-806 all ✅. 'loaded 0 contacts' (prod empty). RULE 14 empty-state matches web 'No saved contacts yet. Add one above.'",
+    "# screen-complete: Contacts apk=build/app/outputs/flutter-apk/app-debug.apk gates=4/4"
   ]
 }
