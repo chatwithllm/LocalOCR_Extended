@@ -1,0 +1,78 @@
+name: Sync Native App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/frontend/**'
+      - 'src/backend/**'
+  schedule:
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  sync-app:
+    runs-on: self-hosted
+    timeout-minutes: 480
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check what changed
+        id: diff
+        run: |
+          LAST_TAG=$(git tag -l "app-build-*" | sort -V | tail -1)
+          if [ -z "$LAST_TAG" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "No previous build tag — full build needed"
+          else
+            CHANGES=$(git diff --name-only $LAST_TAG HEAD -- src/)
+            if [ -z "$CHANGES" ]; then
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "No web changes since $LAST_TAG — skipping"
+            else
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "$CHANGES" > CHANGED_FILES.txt
+              echo "Changes found:"
+              cat CHANGED_FILES.txt
+            fi
+          fi
+
+      - name: Copy agent rules
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          cp ~/actions-runner/actions-runner/agent-rules.md . 2>/dev/null || true
+
+      - name: Run delta orchestrator
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          python3 orchestrator.py \
+            --project . \
+            --target macos \
+            --mode delta \
+            --changed-files CHANGED_FILES.txt
+
+      - name: Tag successful build
+        if: success() && steps.diff.outputs.changed == 'true'
+        run: |
+          TAG="app-build-$(date +%Y%m%d-%H%M%S)"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git tag $TAG
+          git push origin $TAG
+
+      - name: Create release if ship ready
+        if: success() && hashFiles('SHIP_READY.md') != ''
+        run: |
+          VERSION="v$(date +%Y.%m.%d)"
+          APP=$(find . -name "LocalOCR.app" -path "*/Release/*" | head -1)
+          if [ -n "$APP" ]; then
+            xattr -cr "$APP"
+            zip -r LocalOCR-${VERSION}.zip "$APP"
+            gh release create $VERSION LocalOCR-${VERSION}.zip \
+              --title "LocalOCR macOS ${VERSION}" \
+              --notes "Auto-build from commit ${{ github.sha }}"
+          fi
