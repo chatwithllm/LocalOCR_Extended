@@ -49,6 +49,53 @@ def css_color_to_dart(value: str) -> str:
     raise ValueError(f"cannot convert CSS colour to Dart: {value!r}")
 
 
+_REM_RE = re.compile(r"^([0-9]*\.?[0-9]+)rem$")
+_PX_RE = re.compile(r"^([0-9]*\.?[0-9]+)px$")
+
+
+def css_scalar_to_dart(value: str) -> str:
+    """Convert CSS length (rem/px/bare-zero) to a Dart double literal."""
+    v = value.strip()
+    if v == "0":
+        return "0.0"
+    m = _REM_RE.match(v)
+    if m:
+        return f"{float(m.group(1)) * 16:.1f}"
+    m = _PX_RE.match(v)
+    if m:
+        f = float(m.group(1))
+        return f"{f:.1f}" if f != int(f) else f"{int(f)}.0"
+    raise ValueError(f"cannot convert CSS scalar to Dart: {value!r}")
+
+
+def dart_field_name(token_key: str) -> str:
+    """Convert a kebab-case token key to a valid Dart identifier.
+
+    Rules:
+      - kebab → camel  (brand-hover → brandHover)
+      - leading digit → prefix with 'v'  (0 → v0, 2xl → v2xl)
+      - embedded '-' inside numeric runs → '_'  (0-5 → v0_5)
+    """
+    parts = token_key.split("-")
+    # If the whole key is numeric-ish (e.g. "0", "0-5", "16"), use v-prefix.
+    if all(p.isdigit() for p in parts):
+        return "v" + "_".join(parts)
+    # If first segment starts with a digit (e.g. "2xl"), prefix v but keep camel for rest.
+    head = parts[0]
+    rest = parts[1:]
+    if head[0].isdigit():
+        out = "v" + head
+    else:
+        out = head
+    for r in rest:
+        if r and not r[0].isdigit():
+            out += r[0].upper() + r[1:]
+        else:
+            # Treat numeric tail as separator-preserved (surface-2 → surface2).
+            out += r
+    return out
+
+
 def build_dart(tokens: dict[str, Any]) -> str:
     parts = [HEADER]
     # Future tasks add: AppTokens class def, per-theme constructors,
