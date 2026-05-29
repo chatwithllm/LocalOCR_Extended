@@ -96,6 +96,36 @@ def dart_field_name(token_key: str) -> str:
     return out
 
 
+_MS_RE = re.compile(r"^(\d+)ms$")
+_CUBIC_RE = re.compile(
+    r"^cubic-bezier\(\s*([0-9.\-]+)\s*,\s*([0-9.\-]+)\s*,\s*([0-9.\-]+)\s*,\s*([0-9.\-]+)\s*\)$"
+)
+
+
+def css_duration_to_dart(value: str) -> str:
+    m = _MS_RE.match(value.strip())
+    if not m:
+        raise ValueError(f"cannot convert CSS duration to Dart: {value!r}")
+    return f"Duration(milliseconds: {m.group(1)})"
+
+
+def _dartify_float(x: str) -> str:
+    f = float(x)
+    if f == int(f):
+        return f"{int(f)}.0"
+    return f"{f}"
+
+
+def css_curve_to_dart(value: str) -> str:
+    m = _CUBIC_RE.match(value.strip())
+    if not m:
+        raise ValueError(f"cannot convert CSS curve to Dart: {value!r}")
+    return (
+        f"Cubic({_dartify_float(m.group(1))}, {_dartify_float(m.group(2))}, "
+        f"{_dartify_float(m.group(3))}, {_dartify_float(m.group(4))})"
+    )
+
+
 def build_dart(tokens: dict[str, Any]) -> str:
     parts = [HEADER]
     # Future tasks add: AppTokens class def, per-theme constructors,
