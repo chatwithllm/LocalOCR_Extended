@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
@@ -36,3 +39,14 @@ def test_shadow_multi_layer_color_first():
     assert out.count("BoxShadow(") == 2
     assert "Color.fromRGBO(0, 0, 0, 0.14)" in out
     assert "Color.fromRGBO(0, 0, 0, 0.06)" in out
+
+
+def test_shadow_inset_rejected():
+    with pytest.raises(ValueError, match="inset"):
+        css_shadow_to_dart("inset 0 1px 0 rgba(0, 0, 0, 0.1)")
+
+
+def test_shadow_rejects_bare_non_zero_integer():
+    # "10" (no unit, not zero) should produce a number-count mismatch.
+    with pytest.raises(ValueError):
+        css_shadow_to_dart("10 0 0 rgba(0, 0, 0, 0.1)")

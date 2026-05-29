@@ -50,7 +50,7 @@ def css_color_to_dart(value: str) -> str:
 
 
 _REM_RE = re.compile(r"^([0-9]*\.?[0-9]+)rem$")
-_PX_RE = re.compile(r"^([0-9]*\.?[0-9]+)px$")
+_PX_RE = re.compile(r"^(-?[0-9]*\.?[0-9]+)px$")
 
 
 def css_scalar_to_dart(value: str) -> str:
@@ -129,6 +129,8 @@ def css_curve_to_dart(value: str) -> str:
 def _parse_shadow_layer(layer: str) -> str:
     """Convert one shadow layer (either color-first or offset-first form) to Dart."""
     layer = layer.strip()
+    if layer.startswith("inset ") or " inset " in f" {layer} ":
+        raise ValueError(f"inset shadows not supported by Flutter BoxShadow: {layer!r}")
     # Split into color part and the four offsets. Color is either rgba(...) or #hex.
     color_match = re.search(r"(rgba?\([^)]*\)|#[0-9a-fA-F]{6})", layer)
     if not color_match:
@@ -136,7 +138,7 @@ def _parse_shadow_layer(layer: str) -> str:
     color_expr = css_color_to_dart(color_match.group(1))
     # Remove the colour, then split the remainder into numeric tokens.
     rest = (layer[: color_match.start()] + " " + layer[color_match.end():]).strip()
-    nums = re.findall(r"-?[0-9.]+px|0", rest)
+    nums = re.findall(r"-?[0-9.]+px|\b0\b", rest)
     if len(nums) < 3 or len(nums) > 4:
         raise ValueError(f"shadow layer needs 3–4 offsets, got {nums!r} from {layer!r}")
     px = [css_scalar_to_dart(n) for n in nums]

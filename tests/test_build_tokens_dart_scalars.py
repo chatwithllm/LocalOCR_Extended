@@ -18,6 +18,11 @@ def test_px():
     assert css_scalar_to_dart("0") == "0.0"
 
 
+def test_px_negative():
+    assert css_scalar_to_dart("-3px") == "-3.0"
+    assert css_scalar_to_dart("-1.5px") == "-1.5"
+
+
 def test_dart_field_name_basic():
     assert dart_field_name("brand") == "brand"
     assert dart_field_name("brand-hover") == "brandHover"
