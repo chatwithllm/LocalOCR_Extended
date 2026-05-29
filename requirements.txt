@@ -45,3 +45,6 @@ authlib>=1.3.0
 
 # Plaid - bank / credit-card transaction import
 plaid-python==22.0.0
+
+# YAML round-trip (preserves comments + ordering) — used by tooling scripts
+ruamel.yaml>=0.18.0
