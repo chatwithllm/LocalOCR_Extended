@@ -69,6 +69,59 @@ def css_scalar_to_dart(value: str) -> str:
     raise ValueError(f"cannot convert CSS scalar to Dart: {value!r}")
 
 
+def css_scalar_to_dart_precise(value: str) -> str:
+    """Like css_scalar_to_dart but preserves full float precision.
+
+    css_scalar_to_dart rounds to one decimal (`{:.1f}`), which is fine for
+    spacing/radius/stroke but loses signal for font sizes (1.06rem must
+    round-trip as 16.96, not 17.0). Used only for typography size emission.
+    """
+    v = value.strip()
+    if v == "0":
+        return "0.0"
+    m = _REM_RE.match(v)
+    if m:
+        f = float(m.group(1)) * 16
+        return f"{f}" if f != int(f) else f"{int(f)}.0"
+    m = _PX_RE.match(v)
+    if m:
+        f = float(m.group(1))
+        return f"{f}" if f != int(f) else f"{int(f)}.0"
+    raise ValueError(f"cannot convert CSS scalar to Dart: {value!r}")
+
+
+def _dartify_tracking(value: str) -> str:
+    """Convert e.g. '-0.374px' → '-0.374'. Bare '0' → '0.0'."""
+    v = value.strip()
+    if v == "0":
+        return "0.0"
+    m = re.match(r"^(-?[0-9.]+)px$", v)
+    if not m:
+        raise ValueError(f"cannot parse tracking: {value!r}")
+    f = float(m.group(1))
+    return f"{f}" if f != int(f) else f"{int(f)}.0"
+
+
+def _emit_text_style(
+    role: str,
+    scale_entry: dict,
+    font_family: str,
+    tracking_override: str | None,
+) -> str:
+    size_rem = scale_entry["size"]
+    size_dart = css_scalar_to_dart_precise(size_rem)
+    weight = scale_entry["weight"]
+    lh = scale_entry["lh"]
+    tracking = tracking_override if tracking_override is not None else scale_entry["tracking"]
+    return (
+        f"const TextStyle(fontSize: {size_dart}, "
+        f"fontWeight: FontWeight.w{weight}, "
+        f"letterSpacing: {_dartify_tracking(tracking)}, "
+        f"height: {lh}, "
+        f"fontFamily: {font_family!r})"
+    )
+
+
 def dart_field_name(token_key: str) -> str:
     """Convert a kebab-case token key to a valid Dart identifier.
 
@@ -235,15 +288,6 @@ def _theme_camel(name: str) -> str:
     return "".join(seg.capitalize() for seg in name.split("-"))
 
 
-def _resolve(base: dict, theme: dict, category: str, key: str, default=None):
-    """Look up a token, preferring theme override, falling back to base."""
-    if category in theme and key in theme[category]:
-        return theme[category][key]
-    if category in base and key in base[category]:
-        return base[category][key]
-    return default
-
-
 def _resolve_color(tokens: dict, theme_name: str, key: str) -> str:
     """Color resolution: base by brightness (light/dark), then theme override."""
     # Determine the brightness family: a theme name ending in '-dark' or named 'dark' uses dark base.
@@ -254,41 +298,79 @@ def _resolve_color(tokens: dict, theme_name: str, key: str) -> str:
 
 
 def _emit_app_tokens_class() -> str:
-    fields: list[str] = []
+    # Build field declarations alongside a flat (kind, name) list used by both
+    # the constructor parameter list and the per-field lerp body.
+    decls: list[str] = []
+    field_kinds: list[tuple[str, str]] = []  # (kind, name)
     for _, name in _COLOR_FIELDS:
-        fields.append(f"  final Color {name};")
+        decls.append(f"  final Color {name};")
+        field_kinds.append(("color", name))
     for k in _SPACE_KEYS:
-        fields.append(f"  final double space{dart_field_name(k).lstrip('v')};")
+        n = "space" + dart_field_name(k).lstrip("v")
+        decls.append(f"  final double {n};")
+        field_kinds.append(("double", n))
     for k in _RADIUS_KEYS:
-        fields.append(f"  final double radius{dart_field_name(k).capitalize()};")
+        n = "radius" + dart_field_name(k).capitalize()
+        decls.append(f"  final double {n};")
+        field_kinds.append(("double", n))
     for k in _STROKE_KEYS:
-        fields.append(f"  final double stroke{dart_field_name(k).lstrip('v')};")
+        n = "stroke" + dart_field_name(k).lstrip("v")
+        decls.append(f"  final double {n};")
+        field_kinds.append(("double", n))
     for k in _SHADOW_KEYS:
-        fields.append(f"  final List<BoxShadow> shadow{dart_field_name(k).lstrip('v')};")
+        n = "shadow" + dart_field_name(k).lstrip("v")
+        decls.append(f"  final List<BoxShadow> {n};")
+        field_kinds.append(("shadows", n))
     for k in _DURATION_KEYS:
-        fields.append(f"  final Duration duration{k.capitalize()};")
+        n = "duration" + k.capitalize()
+        decls.append(f"  final Duration {n};")
+        field_kinds.append(("duration", n))
     for k in _EASE_KEYS:
         nm = "".join(p.capitalize() for p in k.split("-"))
-        fields.append(f"  final Curve ease{nm};")
+        n = "ease" + nm
+        decls.append(f"  final Curve {n};")
+        field_kinds.append(("snap", n))
     for k in _TYPE_ROLES:
-        fields.append(f"  final TextStyle type{dart_field_name(k).capitalize()};")
-    fields.append("  final String fontDisplay;")
-    fields.append("  final String fontText;")
-    fields.append("  final String fontMono;")
+        n = "type" + dart_field_name(k).capitalize()
+        decls.append(f"  final TextStyle {n};")
+        field_kinds.append(("textstyle", n))
+    for n in ("fontDisplay", "fontText", "fontMono"):
+        decls.append(f"  final String {n};")
+        field_kinds.append(("snap", n))
 
-    params = ",\n".join(f"    required this.{ln.split()[2].rstrip(';')}" for ln in fields)
+    ctor_params = ",\n".join(f"    required this.{kn[1]}" for kn in field_kinds)
+
+    lerp_lines: list[str] = []
+    for kind, n in field_kinds:
+        if kind == "color":
+            lerp_lines.append(f"      {n}: Color.lerp({n}, other.{n}, t)!,")
+        elif kind == "double":
+            lerp_lines.append(f"      {n}: lerpDouble({n}, other.{n}, t)!,")
+        elif kind == "duration":
+            lerp_lines.append(
+                f"      {n}: Duration(milliseconds: lerpDouble("
+                f"{n}.inMilliseconds.toDouble(), "
+                f"other.{n}.inMilliseconds.toDouble(), t)!.round()),"
+            )
+        elif kind == "shadows":
+            lerp_lines.append(f"      {n}: BoxShadow.lerpList({n}, other.{n}, t)!,")
+        elif kind == "textstyle":
+            lerp_lines.append(f"      {n}: TextStyle.lerp({n}, other.{n}, t)!,")
+        elif kind == "snap":
+            lerp_lines.append(f"      {n}: t < 0.5 ? {n} : other.{n},")
+        else:
+            raise AssertionError(kind)
 
     return (
         "class AppTokens extends ThemeExtension<AppTokens> {\n"
-        + "\n".join(fields) + "\n\n"
-        + "  const AppTokens({\n" + params + ",\n  });\n\n"
-        + "  @override\n  AppTokens copyWith() => this; // see Task 7 — codegen does not produce field overrides; mutation happens via theme switch.\n\n"
+        + "\n".join(decls)
+        + "\n\n  const AppTokens({\n" + ctor_params + ",\n  });\n\n"
+        + "  @override\n  AppTokens copyWith() => this;\n\n"
         + "  @override\n  AppTokens lerp(ThemeExtension<AppTokens>? other, double t) {\n"
-        + "    if (other is! AppTokens || t == 0) return this;\n"
-        + "    if (t == 1) return other;\n"
-        + "    return t < 0.5 ? this : other; // snap; see Task 7 to upgrade to per-field lerp.\n"
-        + "  }\n"
-        + "}\n"
+        + "    if (other is! AppTokens) return this;\n"
+        + "    return AppTokens(\n"
+        + "\n".join(lerp_lines) + "\n"
+        + "    );\n  }\n}\n"
     )
 
 
@@ -365,10 +447,6 @@ def _emit_theme_constructor(theme_name: str, tokens: dict) -> str:
         nm = "".join(p.capitalize() for p in k.split("-"))
         v = ease_src.get(k, "cubic-bezier(0.2, 0, 0, 1)")
         lines.append(f"  ease{nm}: {css_curve_to_dart(v)},")
-    # Typography (Task 7 fills real TextStyle — Task 6 emits TextStyle() placeholders).
-    for k in _TYPE_ROLES:
-        name = "type" + dart_field_name(k).capitalize()
-        lines.append(f"  {name}: const TextStyle(),")
     # Font families — Task 8 wires real values per theme; Task 6 uses Inter as a safe placeholder.
     fam_display = "Inter"
     fam_text = "Inter"
@@ -378,6 +456,18 @@ def _emit_theme_constructor(theme_name: str, tokens: dict) -> str:
     elif theme_name.startswith("notion"):
         fam_display = fam_text = "iAWriterQuattroS"
         fam_mono = "iAWriterMonoS"
+    # Typography — per-role TextStyle with per-theme tracking override.
+    # Display family covers the larger headline roles; nano/body and smaller use text family.
+    scale = tokens["typography"]["scale"]
+    tracking_overrides = (
+        tokens.get("themes", {}).get(theme_name, {}).get("typography-tracking", {})
+    )
+    display_roles = {"hero", "4xl", "3xl", "2xl", "xl"}
+    for k in _TYPE_ROLES:
+        name = "type" + dart_field_name(k).capitalize()
+        family = fam_display if k in display_roles else fam_text
+        ts = _emit_text_style(k, scale[k], family, tracking_overrides.get(k))
+        lines.append(f"  {name}: {ts},")
     lines.append(f"  fontDisplay: {fam_display!r},")
     lines.append(f"  fontText: {fam_text!r},")
     lines.append(f"  fontMono: {fam_mono!r},")
@@ -391,7 +481,7 @@ def _emit_lookups() -> str:
         for n in _THEME_NAMES
     )
     theme_data_cases = "\n".join(
-        f"    case {n!r}: return _buildThemeData({n!r}, _build{_theme_camel(n)}Tokens(), brightness: Brightness.{'dark' if (n == 'dark' or n.endswith('-dark')) else 'light'});"
+        f"    case {n!r}: return _buildThemeData(_build{_theme_camel(n)}Tokens(), brightness: Brightness.{'dark' if (n == 'dark' or n.endswith('-dark')) else 'light'});"
         for n in _THEME_NAMES
     )
     return f"""
@@ -408,11 +498,11 @@ ThemeData appThemeDataFor(String name) {{
   switch (name) {{
 {theme_data_cases}
     default:
-      return _buildThemeData('light', _buildLightTokens(), brightness: Brightness.light);
+      return _buildThemeData(_buildLightTokens(), brightness: Brightness.light);
   }}
 }}
 
-ThemeData _buildThemeData(String name, AppTokens t, {{required Brightness brightness}}) {{
+ThemeData _buildThemeData(AppTokens t, {{required Brightness brightness}}) {{
   final colorScheme = ColorScheme(
     brightness: brightness,
     primary: t.brand,
