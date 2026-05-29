@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = REPO_ROOT / "design" / "design-tokens.json"
 DEFAULT_OUTPUT_CSS = REPO_ROOT / "src" / "frontend" / "styles" / "tokens.generated.css"
 DEFAULT_OUTPUT_DART = REPO_ROOT / "lib" / "app" / "theme" / "tokens.generated.dart"
+DEFAULT_OUTPUT_FONTS = REPO_ROOT / "tool" / "fonts.generated.yaml"
 
 
 def _var(name: str, value: str, indent: str = "  ") -> str:
@@ -196,6 +197,8 @@ def main() -> int:
     p.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     p.add_argument("--out", type=Path, default=None,
                    help="output file (default depends on --target)")
+    p.add_argument("--fonts-out", type=Path, default=None,
+                   help="output yaml sidecar (default: tool/fonts.generated.yaml)")
     p.add_argument("--stdout", action="store_true")
     p.add_argument(
         "--target",
@@ -243,6 +246,14 @@ def _emit_target(target: str, tokens: dict, args) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(content)
     print(f"wrote {out} ({len(content):,} bytes)")
+
+    if target == "dart":
+        from build_tokens_dart import build_fonts_yaml
+        fonts_yaml = build_fonts_yaml()
+        fonts_out = args.fonts_out or DEFAULT_OUTPUT_FONTS
+        fonts_out.parent.mkdir(parents=True, exist_ok=True)
+        fonts_out.write_text(fonts_yaml)
+        print(f"wrote {fonts_out} ({len(fonts_yaml):,} bytes)")
     return 0
 
 

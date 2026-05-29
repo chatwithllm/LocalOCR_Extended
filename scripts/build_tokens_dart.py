@@ -535,3 +535,52 @@ def build_dart(tokens: dict[str, Any]) -> str:
         parts.append("")
     parts.append(_emit_lookups())
     return "\n".join(parts)
+
+
+_FONT_FAMILIES = [
+    ("Inter", "Inter", [
+        ("Regular", 400, None),
+        ("Medium", 500, None),
+        ("SemiBold", 600, None),
+        ("Bold", 700, None),
+    ]),
+    ("Lora", "Lora", [
+        ("Regular", 400, None),
+        ("Medium", 500, None),
+        ("SemiBold", 600, None),
+        ("Bold", 700, None),
+    ]),
+    ("iAWriterQuattroS", "iAWriterQuattroS", [
+        ("Regular", 400, None),
+        ("Italic", 400, "italic"),
+        ("Bold", 700, None),
+        ("BoldItalic", 700, "italic"),
+    ]),
+    ("iAWriterMonoS", "iAWriterMonoS", [
+        ("Regular", 400, None),
+        ("Bold", 700, None),
+    ]),
+    ("JetBrainsMono", "JetBrainsMono", [
+        ("Regular", 400, None),
+        ("Bold", 700, None),
+    ]),
+]
+
+
+def build_fonts_yaml() -> str:
+    lines = [
+        "# AUTO-GENERATED — do not edit.",
+        "# Source: design/design-tokens.json + scripts/build_tokens_dart.py",
+        "flutter:",
+        "  fonts:",
+    ]
+    for family, prefix, variants in _FONT_FAMILIES:
+        lines.append(f"    - family: {family}")
+        lines.append("      fonts:")
+        for suffix, weight, style in variants:
+            lines.append(f"        - asset: assets/fonts/{prefix}-{suffix}.ttf")
+            if weight != 400:
+                lines.append(f"          weight: {weight}")
+            if style:
+                lines.append(f"          style: {style}")
+    return "\n".join(lines) + "\n"
