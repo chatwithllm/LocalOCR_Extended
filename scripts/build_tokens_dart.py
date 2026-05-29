@@ -126,6 +126,39 @@ def css_curve_to_dart(value: str) -> str:
     )
 
 
+def _parse_shadow_layer(layer: str) -> str:
+    """Convert one shadow layer (either color-first or offset-first form) to Dart."""
+    layer = layer.strip()
+    # Split into color part and the four offsets. Color is either rgba(...) or #hex.
+    color_match = re.search(r"(rgba?\([^)]*\)|#[0-9a-fA-F]{6})", layer)
+    if not color_match:
+        raise ValueError(f"shadow layer missing colour: {layer!r}")
+    color_expr = css_color_to_dart(color_match.group(1))
+    # Remove the colour, then split the remainder into numeric tokens.
+    rest = (layer[: color_match.start()] + " " + layer[color_match.end():]).strip()
+    nums = re.findall(r"-?[0-9.]+px|0", rest)
+    if len(nums) < 3 or len(nums) > 4:
+        raise ValueError(f"shadow layer needs 3–4 offsets, got {nums!r} from {layer!r}")
+    px = [css_scalar_to_dart(n) for n in nums]
+    ox, oy, blur = px[0], px[1], px[2]
+    spread = px[3] if len(px) == 4 else "0.0"
+    return (
+        f"BoxShadow(color: {color_expr}, "
+        f"offset: Offset({ox}, {oy}), "
+        f"blurRadius: {blur}, "
+        f"spreadRadius: {spread})"
+    )
+
+
+def css_shadow_to_dart(value: str) -> str:
+    v = value.strip()
+    if v == "none":
+        return "<BoxShadow>[]"
+    layers = [seg for seg in re.split(r",(?![^()]*\))", v) if seg.strip()]
+    parts = [_parse_shadow_layer(l) for l in layers]
+    return "<BoxShadow>[" + ", ".join(parts) + "]"
+
+
 def build_dart(tokens: dict[str, Any]) -> str:
     parts = [HEADER]
     # Future tasks add: AppTokens class def, per-theme constructors,
