@@ -18,7 +18,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = REPO_ROOT / "design" / "design-tokens.json"
-DEFAULT_OUTPUT = REPO_ROOT / "src" / "frontend" / "styles" / "tokens.generated.css"
+DEFAULT_OUTPUT_CSS = REPO_ROOT / "src" / "frontend" / "styles" / "tokens.generated.css"
+DEFAULT_OUTPUT_DART = REPO_ROOT / "lib" / "app" / "theme" / "tokens.generated.dart"
 
 
 def _var(name: str, value: str, indent: str = "  ") -> str:
@@ -190,8 +191,15 @@ def build(tokens: dict) -> str:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input", type=Path, default=DEFAULT_INPUT)
-    p.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
+    p.add_argument("--out", type=Path, default=None,
+                   help="output file (default depends on --target)")
     p.add_argument("--stdout", action="store_true")
+    p.add_argument(
+        "--target",
+        choices=("css", "dart", "all"),
+        default="css",
+        help="emit CSS (default), Dart, or both",
+    )
     args = p.parse_args()
 
     if not args.input.exists():
@@ -199,15 +207,33 @@ def main() -> int:
         return 1
 
     tokens = json.loads(args.input.read_text())
-    css = build(tokens)
+
+    targets = ("css", "dart") if args.target == "all" else (args.target,)
+    for target in targets:
+        rc = _emit_target(target, tokens, args)
+        if rc != 0:
+            return rc
+    return 0
+
+
+def _emit_target(target: str, tokens: dict, args) -> int:
+    if target == "css":
+        content = build(tokens)
+        out = args.out or DEFAULT_OUTPUT_CSS
+    elif target == "dart":
+        from build_tokens_dart import build_dart
+        content = build_dart(tokens)
+        out = args.out or DEFAULT_OUTPUT_DART
+    else:
+        print(f"error: unknown target {target}", file=sys.stderr)
+        return 1
 
     if args.stdout:
-        sys.stdout.write(css)
+        sys.stdout.write(content)
         return 0
-
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(css)
-    print(f"wrote {args.out} ({len(css):,} bytes)")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(content)
+    print(f"wrote {out} ({len(content):,} bytes)")
     return 0
 
 
