@@ -148,10 +148,27 @@ def register_error_handlers(app):
         return jsonify({"error": "Not found"}), 404
 
     @app.route("/")
+    def serve_landing():
+        """Public marketing landing page (no auth required).
+
+        Lives at /. Authenticated users coming here can click "Sign in" in the
+        landing top-bar to reach /app, which serves the SPA. The SPA's built-in
+        login banner handles both sign-in and account creation.
+        """
+        import os
+        design_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "design"
+        )
+        return send_from_directory(
+            os.path.join(design_dir, "marketing"), "index.html"
+        )
+
+    @app.route("/app")
     @app.route("/dashboard")
     @app.route("/shopping-helper/<token>")
     def serve_frontend(token=None):
-        """Serve the web dashboard."""
+        """Serve the web dashboard SPA. Login banner inside the SPA gates
+        access for unauthenticated users."""
         import os
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
         return send_from_directory(frontend_dir, "index.html")
