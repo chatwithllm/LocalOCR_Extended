@@ -32,14 +32,32 @@ def test_rgba_alpha_without_leading_zero():
 
 
 def test_build_dart_contains_header():
-    tokens = {
-      "color": {"light": {"brand": "#0071e3"}, "dark": {"brand": "#0a84ff"}},
-      "shadow": {}, "typography": {"font-family": {"display": "x", "text": "y", "mono": "z"}, "scale": {}},
-      "space": {}, "radius": {}, "stroke": {}, "icon": {},
-      "motion": {"duration": {}, "ease": {}},
-      "themes": {},
-    }
+    tokens = _real_tokens()
     out = build_dart(tokens)
     assert out.startswith("// AUTO-GENERATED")
     assert "Color(0xFF0071E3)" in out
     assert "Color(0xFF0A84FF)" in out
+
+
+def _real_tokens():
+    import json
+    return json.loads((REPO / "design" / "design-tokens.json").read_text())
+
+
+def test_emit_contains_app_tokens_class():
+    out = build_dart(_real_tokens())
+    assert "class AppTokens extends ThemeExtension<AppTokens>" in out
+    assert "AppTokens copyWith(" in out
+    assert "AppTokens lerp(" in out
+
+
+def test_emit_contains_per_theme_constructors():
+    out = build_dart(_real_tokens())
+    for name in ("Light", "Dark", "Clay", "ClayDark", "Notion", "NotionDark"):
+        assert f"AppTokens _build{name}Tokens()" in out, name
+
+
+def test_emit_contains_public_lookups():
+    out = build_dart(_real_tokens())
+    assert "AppTokens appTokensFor(String name)" in out
+    assert "ThemeData appThemeDataFor(String name)" in out
