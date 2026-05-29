@@ -27,6 +27,10 @@ def test_rgba_alpha_with_spaces():
     assert css_color_to_dart("rgba(245, 245, 247, 0.86)") == "Color.fromRGBO(245, 245, 247, 0.86)"
 
 
+def test_rgba_alpha_without_leading_zero():
+    assert css_color_to_dart("rgba(0, 0, 0, .5)") == "Color.fromRGBO(0, 0, 0, 0.5)"
+
+
 def test_build_dart_contains_header():
     tokens = {
       "color": {"light": {"brand": "#0071e3"}, "dark": {"brand": "#0a84ff"}},

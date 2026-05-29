@@ -7,7 +7,6 @@ Emits lib/app/theme/tokens.generated.dart. Called via:
 from __future__ import annotations
 
 import re
-import sys
 from typing import Any
 
 
@@ -44,6 +43,8 @@ def css_color_to_dart(value: str) -> str:
             a = "1.0"
         if "." not in a:
             a = f"{a}.0"
+        if a.startswith("."):
+            a = "0" + a
         return f"Color.fromRGBO({r}, {g}, {b}, {a})"
     raise ValueError(f"cannot convert CSS colour to Dart: {value!r}")
 
