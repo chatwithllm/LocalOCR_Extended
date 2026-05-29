@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Compile design/design-tokens.json → CSS custom properties (Apple-inspired).
+"""Compile design/design-tokens.json → CSS / Dart tokens.
 
-Emits a single CSS file (default: src/frontend/styles/tokens.generated.css)
-that is inlined into the SPA's <style> block on deploy.
+Emits one or both of:
+  - src/frontend/styles/tokens.generated.css   (web SPA)
+  - lib/app/theme/tokens.generated.dart        (Flutter Android port)
 
 Usage:
-    python3 scripts/build_tokens.py                  # write default output
-    python3 scripts/build_tokens.py --stdout         # print to stdout
-    python3 scripts/build_tokens.py --out path.css   # custom output path
+    python3 scripts/build_tokens.py                       # CSS (default), default path
+    python3 scripts/build_tokens.py --target dart         # Dart, default path
+    python3 scripts/build_tokens.py --target all          # both, default paths (no --out / --stdout)
+    python3 scripts/build_tokens.py --target css --stdout # CSS to stdout
+    python3 scripts/build_tokens.py --target dart --out lib/app/theme/tokens.generated.dart
 """
 from __future__ import annotations
 
@@ -201,6 +204,12 @@ def main() -> int:
         help="emit CSS (default), Dart, or both",
     )
     args = p.parse_args()
+
+    if args.target == "all" and (args.out is not None or args.stdout):
+        print("error: --target all is incompatible with --out and --stdout "
+              "(each target has its own default path; use single targets if you need stdout/custom-out)",
+              file=sys.stderr)
+        return 2
 
     if not args.input.exists():
         print(f"error: input {args.input} not found", file=sys.stderr)

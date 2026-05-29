@@ -33,3 +33,15 @@ def test_unknown_target_errors():
     r = _run("--target", "wat", "--stdout")
     assert r.returncode != 0
     assert "invalid choice" in r.stderr.lower() or "wat" in r.stderr
+
+
+def test_target_all_with_out_errors():
+    r = _run("--target", "all", "--out", "/tmp/x.css")
+    assert r.returncode != 0
+    assert "all" in r.stderr.lower() or "incompatible" in r.stderr.lower()
+
+
+def test_target_all_with_stdout_errors():
+    r = _run("--target", "all", "--stdout")
+    assert r.returncode != 0
+    assert "all" in r.stderr.lower() or "incompatible" in r.stderr.lower()
