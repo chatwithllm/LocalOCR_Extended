@@ -91,3 +91,9 @@ android/app/build/
 
 .env.test
 PAUSED.json
+
+# Local notes symlink (points outside repo)
+/notes
+
+# Local marketing backups
+design/marketing/*.bak.html
