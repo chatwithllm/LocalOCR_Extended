@@ -219,3 +219,114 @@ If Extended is abandoned:
 - the grocery repo remains clean
 - the grocery deployment keeps running
 - no rollback of grocery data or runtime is required
+
+## Enabling Google Sign-In
+
+The backend already implements every Google OAuth route
+(`/auth/oauth/google`, `/callback`, `/status`, `/link`, `/unlink`) in
+`src/backend/manage_authentication.py`. It stays disabled until both
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are present in the
+environment. This section walks through enabling it on
+`https://extended.npalakurla.com`.
+
+### Prerequisites
+
+- A Google Cloud project with the OAuth consent screen configured
+  (External or Internal — both work).
+- If the consent screen is in **Testing** mode, your sign-in email must
+  be added as a test user, otherwise you will hit
+  `Error 403: access_denied`.
+
+### Step 1 — Create the OAuth 2.0 Web Client in GCP
+
+1. Open Google Cloud Console → **APIs & Services** → **Credentials**.
+2. Click **Create Credentials** → **OAuth client ID**.
+3. Application type: **Web application**.
+4. Authorized redirect URIs — add exactly:
+
+   ```
+   https://extended.npalakurla.com/auth/oauth/google/callback
+   ```
+
+   No trailing slash. Scheme must be `https`. Host without `www`.
+5. Click **Create**. Copy the **Client ID** and **Client secret**.
+
+### Step 2 — Edit prod `.env`
+
+```bash
+ssh UDImmich
+cd /opt/extended/LocalOCR_Extended
+cp .env .env.backup-$(date +%Y%m%d-%H%M%S)   # safety copy
+nano .env
+```
+
+Add or update these four lines (paste the values from Step 1):
+
+```
+GOOGLE_CLIENT_ID=<paste from GCP>
+GOOGLE_CLIENT_SECRET=<paste from GCP>
+GOOGLE_OAUTH_ENABLED=true
+PUBLIC_BASE_URL=https://extended.npalakurla.com
+```
+
+Save and exit. `.env` is gitignored, so the secrets stay on the host.
+
+### Step 3 — Restart the backend
+
+```bash
+docker compose restart backend
+```
+
+> Use `restart`, **not** `up -d`. `up -d` is a no-op when the image is
+> unchanged and will not pick up the new env vars.
+
+### Step 4 — Verify
+
+From any machine:
+
+```bash
+curl -s https://extended.npalakurla.com/auth/oauth/google/status
+```
+
+Expected:
+```json
+{"enabled": true}
+```
+
+If you see `{"enabled": false}`:
+- check `docker compose exec backend env | grep GOOGLE`
+- check `docker compose logs backend --tail 50` for missing-config warnings.
+
+Then run the full browser round trip:
+
+1. Open `https://extended.npalakurla.com/app` in a browser.
+2. The Google sign-in button should be visible
+   (`#auth-google-btn` un-hidden by the SPA reading `app-config`).
+3. Click it → Google consent screen → consent → back to `/app`
+   authenticated.
+4. `docker compose logs backend --tail 100` shows the callback
+   succeeding (no `redirect_uri_mismatch`, no `state` errors).
+
+### Rollback
+
+```bash
+ssh UDImmich
+cd /opt/extended/LocalOCR_Extended
+# Comment out or blank the two credentials in .env:
+sed -i 's/^GOOGLE_CLIENT_ID=.*/GOOGLE_CLIENT_ID=/' .env
+sed -i 's/^GOOGLE_CLIENT_SECRET=.*/GOOGLE_CLIENT_SECRET=/' .env
+docker compose restart backend
+```
+
+`_is_google_oauth_configured()` returns `False`, the SPA hides the
+button, and existing users with linked `google_sub` fall back to
+password login. No database changes need reverting.
+
+### Common errors
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Error 400: redirect_uri_mismatch` | URI in GCP doesn't match what backend sent | Compare GCP URI with `_get_oauth_redirect_uri()` output — usually a trailing slash or `http` vs `https`. |
+| `Error 403: access_denied` | Consent screen in Testing mode, signing-in email not added as test user | Add the email under **OAuth consent screen → Test users**, or publish the consent screen. |
+| `/auth/oauth/google/status` still `{"enabled": false}` after restart | Env not actually reloaded | `docker compose down && docker compose up -d backend` to force a recreate. |
+| `Error: invalid_client` on callback | Wrong `GOOGLE_CLIENT_SECRET` | Re-copy the secret from GCP — they look similar but include subtle characters. |
