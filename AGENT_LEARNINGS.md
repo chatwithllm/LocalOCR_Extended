@@ -442,3 +442,10 @@ Completed: 22:45:30
 - **Catch**: size sanity check before commit (latin subsets are 9–15KB)
 - **Fix**: parse the css2 response for the `/* latin */` block and take ITS url, not the first url in the file
 - **Rule**: when self-hosting from fonts.googleapis.com/css2, always extract per-subset; verify with `file *.woff2` AND a size floor; smoke-render the page and confirm the font actually paints (screenshot, not assumption).
+
+### I-LANDING-2: old headless Chrome enforces 500px minimum window width
+- **Build**: landing v2 (2026-06-10), mobile responsive verification
+- **Symptom**: every `--window-size=390,...` screenshot showed content uniformly cut on the right; hours of false "overflow" chasing (grain/glow paint overflow got fixed, but the cut persisted)
+- **Root cause**: `window.innerWidth` was 500 in every "390px" run — old headless clamps window width to 500 minimum; page laid out at 500, captured at 390
+- **Fix**: verify narrow viewports inside a 390px-wide IFRAME on a 500px+ window; measure `contentWindow.innerWidth` + per-element `getBoundingClientRect().right` instead of trusting the screenshot
+- **Bonus**: real overflows found en route (fixed): `inset:-50%` grain layer, oversized glow, unbreakable git URL in terminal (needs `overflow-wrap:anywhere`)

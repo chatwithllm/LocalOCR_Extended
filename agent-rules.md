@@ -1026,3 +1026,13 @@ latin-ext, latin). `grep woff2 | head -1` returns a NON-LATIN subset — tiny fi
 missing glyphs, silent fallback rendering. Always awk for the `/* latin */` block,
 check file size ≥ ~9KB, run `file *.woff2`, then screenshot the served page and
 confirm the typeface visibly painted. (I-LANDING-1)
+
+---
+
+## RULE 23 — Never trust `--window-size` below 500px in old headless Chrome
+
+Old headless clamps window width to 500. A "390px" screenshot is a 500px layout
+cropped to 390 — it fabricates phantom right-edge overflow. For mobile gates:
+render the page in a 390px-wide iframe, assert `contentWindow.innerWidth === 390`,
+and list elements with `getBoundingClientRect().right > width+1`. Screenshot the
+iframe wrapper, not a sub-500 window. (I-LANDING-2)
