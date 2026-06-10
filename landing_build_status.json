@@ -1,0 +1,35 @@
+{
+  "project": "LocalOCR — Landing Page Rebrand",
+  "branch": "feat/landing-rebrand",
+  "started_at": "2026-06-09T23:59:00",
+  "updated_at": "2026-06-10T00:48:00",
+  "total_tasks": 7,
+  "tasks_done": 7,
+  "current_task": {
+    "id": "DONE",
+    "title": "Build complete — RECEIPT-PUNK landing live at design/marketing/index.html (served at /)",
+    "phase": "Verify (done-gate)",
+    "status": "done"
+  },
+  "phases": [
+    { "name": "Recon & Design Concept", "status": "done" },
+    { "name": "Plan", "status": "done" },
+    { "name": "Build Landing Page", "status": "done" },
+    { "name": "Verify (done-gate)", "status": "done" }
+  ],
+  "last_commit": "ca398f8",
+  "last_gate_passed": "T7 full done-gate: desktop+mobile screenshots, zero external assets, anchors resolve, reduced-motion honored, old design preserved",
+  "incidents": 1,
+  "log": [
+    { "task": "T0", "title": "Branch feat/landing-rebrand created off main; explorer agent dispatched", "commit": "", "gate": "", "timestamp": "2026-06-09T23:59:00" },
+    { "task": "T0", "title": "Recon done. Design direction: RECEIPT-PUNK NIGHT MARKET (dark espresso + tangerine/acid, Archivo Black + Space Mono, neo-brutalist) — opposite of current light editorial", "commit": "", "gate": "", "timestamp": "2026-06-10T00:05:00" },
+    { "task": "T0", "title": "Plan written: docs/superpowers/plans/2026-06-09-landing-rebrand.md (7 tasks)", "commit": "", "gate": "", "timestamp": "2026-06-10T00:08:00" },
+    { "task": "T1", "title": "Pre-flight: / serves design/marketing/index.html via send_from_directory; fonts must use absolute /design/marketing/fonts/ paths. Old landing preserved as landing-e-prior.html", "commit": "e69bfa7", "gate": "passed", "timestamp": "2026-06-10T00:12:00" },
+    { "task": "T2", "title": "Self-hosted 5 woff2. Incident I-LANDING-1: head -1 grabbed non-latin subset; re-fetched latin blocks → RULE 22 locked", "commit": "810f1e3", "gate": "passed", "timestamp": "2026-06-10T00:16:00" },
+    { "task": "T3", "title": "Hero: stacked rotated H1, thermal receipt print animation w/ torn edge + barcode, marquee ticker. Fonts all HTTP 200", "commit": "09ad7b0", "gate": "passed", "timestamp": "2026-06-10T00:24:00" },
+    { "task": "T4", "title": "Steps stamps, manifesto paper card, 8-card sticker grid, OCR pipeline lineup, acid ticker", "commit": "6bf0587", "gate": "passed", "timestamp": "2026-06-10T00:32:00" },
+    { "task": "T5", "title": "$0/MO price block, install receipt w/ torn edges + barcode, FAQ, footer, IntersectionObserver reveals (reduced-motion safe)", "commit": "f355e05", "gate": "passed", "timestamp": "2026-06-10T00:38:00" },
+    { "task": "T6", "title": "Responsive: grids collapse 960/600, mobile verified at 390w screenshot", "commit": "a17d76c", "gate": "passed", "timestamp": "2026-06-10T00:43:00" },
+    { "task": "T7", "title": "Swapped into index.html. Full done-gate passed. Flask serving verified by route-read (static send_from_directory mapping, no live boot needed). Old design recoverable at /design/marketing/landing-e-prior.html", "commit": "e3b5359", "gate": "passed", "timestamp": "2026-06-10T00:48:00" }
+  ]
+}
