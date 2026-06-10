@@ -1016,3 +1016,13 @@ At the start of every build session, before writing a single line:
 - [ ] Confirm you know the test credentials for post-build log validation
 - [ ] If audit involves synthetic clicks: confirm `CGSSessionScreenIsLocked == False` (Rule 16)
 - [ ] If audit re-captures web reference: snapshot session state before nav (Rule 17)
+
+---
+
+## RULE 22 — Self-hosted webfont downloads must target the `/* latin */` subset
+
+Google css2 responses contain MULTIPLE @font-face blocks (cyrillic, vietnamese,
+latin-ext, latin). `grep woff2 | head -1` returns a NON-LATIN subset — tiny file,
+missing glyphs, silent fallback rendering. Always awk for the `/* latin */` block,
+check file size ≥ ~9KB, run `file *.woff2`, then screenshot the served page and
+confirm the typeface visibly painted. (I-LANDING-1)

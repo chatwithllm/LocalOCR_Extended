@@ -435,3 +435,10 @@ Fixes executed: 7
 New incidents logged: []
 New rules added: []
 Completed: 22:45:30
+
+### I-LANDING-1: Google Fonts css2 `head -1` grabs a non-latin subset
+- **Build**: landing rebrand (2026-06-10), self-hosting woff2
+- **Symptom**: downloaded woff2 files were 4–6KB (cyrillic/vietnamese subset = missing latin glyphs → fallback font would render silently)
+- **Catch**: size sanity check before commit (latin subsets are 9–15KB)
+- **Fix**: parse the css2 response for the `/* latin */` block and take ITS url, not the first url in the file
+- **Rule**: when self-hosting from fonts.googleapis.com/css2, always extract per-subset; verify with `file *.woff2` AND a size floor; smoke-render the page and confirm the font actually paints (screenshot, not assumption).
