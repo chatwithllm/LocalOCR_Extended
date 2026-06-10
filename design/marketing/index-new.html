@@ -428,15 +428,29 @@ footer .legal { width: 100%; font-family: var(--mono); font-size: 11.5px; color:
   .stk, .stk:hover, .faq-list summary::after { transition: none !important; }
 }
 
-/* ============ RESPONSIVE (refined in later task) ============ */
+/* ============ RESPONSIVE ============ */
 @media (max-width: 960px) {
   .hero .wrap { grid-template-columns: 1fr; gap: 60px; }
   .printer { max-width: 420px; margin: 0 auto; transform: rotate(1deg); }
+  .stickers { grid-template-columns: repeat(2, 1fr); }
+  .lineup { grid-template-columns: repeat(2, 1fr); gap: 30px; }
+  .steps { grid-template-columns: 1fr; gap: 26px; }
+  section { padding: 70px 0; }
+  .manifesto { padding: 84px 0; }
 }
 @media (max-width: 600px) {
   .topnav a:not(.cta) { display: none; }
+  .topnav a.cta { padding: 8px 12px; font-size: 12px; }
   .hero { padding: 40px 0 70px; }
   .lede { font-size: 17px; }
+  h1 .line { font-size: clamp(26px, 8.6vw, 40px); padding: 3px 10px; }
+  .stickers, .lineup { grid-template-columns: 1fr; }
+  .fighter .local-badge { right: 6px; }
+  .btn { width: 100%; text-align: center; }
+  .install-receipt { font-size: 12.5px; padding: 24px 16px 18px; }
+  footer .wrap { flex-direction: column; }
+  .ticker { font-size: 13px; }
+  .wrap { padding: 0 20px; }
 }
 </style>
 </head>
