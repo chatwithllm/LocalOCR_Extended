@@ -3260,11 +3260,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
             </div>
           </div>
-          <div class="shopping-mode-switch" id="shopping-mode-switch" role="tablist">
+          <div class="shopping-mode-switch" id="shopping-mode-switch"
+               role="tablist" aria-label="Shopping mode">
             <button type="button" id="shopping-mode-shop" class="is-active"
-                    onclick="setShoppingMode('shop', true)" role="tab">🛒 Shop</button>
+                    role="tab" aria-selected="true" aria-controls="shopping-pane-shop"
+                    onclick="setShoppingMode('shop', true)">🛒 Shop</button>
             <button type="button" id="shopping-mode-plan"
-                    onclick="setShoppingMode('plan', true)" role="tab">✏ Plan</button>
+                    role="tab" aria-selected="false" aria-controls="shopping-pane-plan"
+                    onclick="setShoppingMode('plan', true)">✏ Plan</button>
           </div>
           <div class="shopping-mode-pane" id="shopping-pane-shop">
             <div class="shopping-stats-slim" id="shopping-stats-row">
@@ -3289,140 +3292,140 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                      oninput="searchShoppingQuickFind()"
                      onkeydown="handleShoppingQuickFindKey(event)" />
               <select id="shop-preferred-store" class="shopping-quick-store"></select>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleManualShoppingForm()">＋</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="triggerShopIdentifyPhoto()">📷</button>
+              <button type="button" class="btn btn-ghost btn-sm" aria-label="Add item manually" onclick="toggleManualShoppingForm()">＋</button>
+              <button type="button" class="btn btn-ghost btn-sm" aria-label="Identify item from photo" onclick="triggerShopIdentifyPhoto()">📷</button>
             </div>
             <div id="shopping-helper-intro"></div>
-          <div class="card" id="shop-manual-card" style="display: none">
-            <div class="card-header">
-              <span class="card-title">Add Item Manually</span>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                onclick="toggleManualShoppingForm(false)"
-              >
-                Hide
-              </button>
-            </div>
-            <div id="shop-identify-row" class="shop-identify-row">
-              <button
-                type="button"
-                class="btn btn-secondary btn-sm shop-identify-btn"
-                onclick="triggerShopIdentifyPhoto()"
-                id="shop-identify-btn"
-              >
-                <span class="shop-identify-btn__icon">📷</span>
-                <span class="shop-identify-btn__label"
-                  >Identify from Photo</span
-                >
-              </button>
-              <input
-                type="file"
-                id="shop-identify-input"
-                accept="image/*"
-                capture="environment"
-                style="display: none"
-                onchange="handleShopIdentifyPhoto(event)"
-              />
-              <span id="shop-identify-status" class="shop-identify-status"></span>
-              <img
-                id="shop-identify-preview"
-                class="shop-identify-preview"
-                alt=""
-                style="display: none"
-              />
-            </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Name</label
-                ><input id="shop-name" placeholder="e.g. Milk" />
-              </div>
-              <div class="form-group">
-                <label>Category</label
-                ><select id="shop-category"></select>
-              </div>
-              <div class="form-group">
-                <label>Preferred Store</label
-                ><select id="shop-manual-store"></select>
-              </div>
-              <div class="form-group">
-                <label>Estimate Price</label
-                ><input
-                  id="shop-manual-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="optional"
-                />
-              </div>
-              <div class="form-group">
-                <label>Quantity</label
-                ><input
-                  id="shop-qty"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value="1"
-                />
-              </div>
-              <div class="form-group">
-                <label>Note</label
-                ><input id="shop-note" placeholder="optional note" />
-              </div>
-            </div>
-            <div style="margin-top: 16px">
-              <button class="btn btn-primary" onclick="createShoppingItem()">
-                ➕ Add to Shopping List
-              </button>
-            </div>
-          </div>
-          <div class="card" id="shopping-quick-find-card">
-            <div class="card-header">
-              <span class="card-title">Quick Find</span>
-            </div>
-            <div id="shopping-quick-find-body">
-              <div id="shop-quick-results">
-                <div class="empty-state">
-                  <p>Search for a product to add, mark low, or mark bought.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="card" id="shopping-recommendations-card">
-            <button
-              type="button"
-              class="shopping-recommendations-summary"
-              id="shopping-recommendations-summary"
-              onclick="toggleShoppingSection('recommendations')"
-              aria-label="Toggle shopping recommendations"
-            >
-              <span class="shopping-recommendations-summary-title"
-                >Recommendations</span
-              >
-              <span
-                class="shopping-recommendations-summary-count"
-                id="shopping-recommendations-summary-count"
-                >0</span
-              >
-            </button>
-            <div id="shopping-recommendations-body">
-              <div class="shopping-recs-body-head">
+            <div class="card" id="shop-manual-card" style="display: none">
+              <div class="card-header">
+                <span class="card-title">Add Item Manually</span>
                 <button
                   type="button"
                   class="btn btn-ghost btn-sm"
-                  onclick="loadRecs('shopping-recs-body')"
+                  onclick="toggleManualShoppingForm(false)"
                 >
-                  🔄 Refresh
+                  Hide
                 </button>
               </div>
-              <div id="shopping-recs-body">
-                <div class="empty-state">
-                  <div class="icon">💡</div>
-                  <p>No recommendations yet. Add more purchase history!</p>
+              <div id="shop-identify-row" class="shop-identify-row">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm shop-identify-btn"
+                  onclick="triggerShopIdentifyPhoto()"
+                  id="shop-identify-btn"
+                >
+                  <span class="shop-identify-btn__icon">📷</span>
+                  <span class="shop-identify-btn__label"
+                    >Identify from Photo</span
+                  >
+                </button>
+                <input
+                  type="file"
+                  id="shop-identify-input"
+                  accept="image/*"
+                  capture="environment"
+                  style="display: none"
+                  onchange="handleShopIdentifyPhoto(event)"
+                />
+                <span id="shop-identify-status" class="shop-identify-status"></span>
+                <img
+                  id="shop-identify-preview"
+                  class="shop-identify-preview"
+                  alt=""
+                  style="display: none"
+                />
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Name</label
+                  ><input id="shop-name" placeholder="e.g. Milk" />
+                </div>
+                <div class="form-group">
+                  <label>Category</label
+                  ><select id="shop-category"></select>
+                </div>
+                <div class="form-group">
+                  <label>Preferred Store</label
+                  ><select id="shop-manual-store"></select>
+                </div>
+                <div class="form-group">
+                  <label>Estimate Price</label
+                  ><input
+                    id="shop-manual-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="optional"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Quantity</label
+                  ><input
+                    id="shop-qty"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value="1"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Note</label
+                  ><input id="shop-note" placeholder="optional note" />
+                </div>
+              </div>
+              <div style="margin-top: 16px">
+                <button class="btn btn-primary" onclick="createShoppingItem()">
+                  ➕ Add to Shopping List
+                </button>
+              </div>
+            </div>
+            <div class="card" id="shopping-quick-find-card">
+              <div class="card-header">
+                <span class="card-title">Quick Find</span>
+              </div>
+              <div id="shopping-quick-find-body">
+                <div id="shop-quick-results">
+                  <div class="empty-state">
+                    <p>Search for a product to add, mark low, or mark bought.</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+            <div class="card" id="shopping-recommendations-card">
+              <button
+                type="button"
+                class="shopping-recommendations-summary"
+                id="shopping-recommendations-summary"
+                onclick="toggleShoppingSection('recommendations')"
+                aria-label="Toggle shopping recommendations"
+              >
+                <span class="shopping-recommendations-summary-title"
+                  >Recommendations</span
+                >
+                <span
+                  class="shopping-recommendations-summary-count"
+                  id="shopping-recommendations-summary-count"
+                  >0</span
+                >
+              </button>
+              <div id="shopping-recommendations-body">
+                <div class="shopping-recs-body-head">
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    onclick="loadRecs('shopping-recs-body')"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+                <div id="shopping-recs-body">
+                  <div class="empty-state">
+                    <div class="icon">💡</div>
+                    <p>No recommendations yet. Add more purchase history!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="card" id="shopping-current-list-card">
             <div class="card-header">
