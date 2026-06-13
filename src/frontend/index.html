@@ -1561,7 +1561,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* --- Shopping tab: Plan/Shop segmented modes --- */
 .shopping-mode-switch {
   display: flex;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border, #3a3a3c);
   border-radius: 8px;
   overflow: hidden;
   margin: 10px 0 12px;
@@ -1573,12 +1573,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   padding: 8px 10px;
   font: inherit;
   font-size: 13px;
-  color: var(--text-muted, #8b949e);
+  color: var(--muted, #8b949e);
   cursor: pointer;
 }
 .shopping-mode-switch button.is-active {
-  background: var(--accent, #1f6feb);
-  color: #fff;
+  background: var(--accent, #0a84ff);
+  color: var(--color-brand-contrast, #fff);
   font-weight: 600;
 }
 /* slim stats chips (replace big pills) */
@@ -1589,18 +1589,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   margin-bottom: 10px;
 }
 .shopping-stats-slim .chip {
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border, #3a3a3c);
   border-radius: 12px;
   padding: 3px 10px;
   font-size: 12px;
-  color: var(--text-muted, #8b949e);
+  color: var(--muted, #8b949e);
   background: transparent;
   cursor: default;
 }
 .shopping-stats-slim button.chip { cursor: pointer; }
 .shopping-stats-slim button.chip.is-active {
-  border-color: var(--accent, #1f6feb);
-  color: var(--accent-fg, #79c0ff);
+  border-color: var(--accent, #0a84ff);
+  color: var(--accent, #0a84ff);
 }
 /* mode containers */
 .shopping-mode-pane[hidden] { display: none !important; }
@@ -1609,7 +1609,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   display: flex;
   gap: 6px;
   align-items: center;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border, #3a3a3c);
   border-radius: 8px;
   padding: 6px;
   margin-bottom: 12px;
