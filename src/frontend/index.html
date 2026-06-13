@@ -3258,64 +3258,41 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <h1>Shopping List</h1>
                 <p>Track what you plan to buy next</p>
               </div>
-              <div class="shopping-page-actions">
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  id="shopping-quick-header-toggle"
-                  onclick="toggleShoppingSection('quick-find')"
-                  aria-label="Toggle Quick Find"
-                >
-                  🔍
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm shopping-header-chip"
-                  id="shopping-recommendations-toggle"
-                  onclick="toggleShoppingSection('recommendations')"
-                  aria-label="Toggle shopping recommendations"
-                >
-                  <span>✨</span
-                  ><span class="shopping-header-chip-count">0</span>
-                </button>
-              </div>
             </div>
           </div>
-          <div id="shopping-helper-intro"></div>
-          <div
-            id="shopping-session-banner"
-            class="card"
-            style="display: none; margin-bottom: 12px"
-          ></div>
-          <div class="shopping-summary-strip" id="shopping-stats-row">
-            <button
-              type="button"
-              class="shopping-summary-pill shopping-summary-pill-open"
-              id="shopping-pill-open"
-              onclick="setShoppingListView('open')"
-              aria-label="Show open shopping items"
-            >
-              <div class="value accent">
-                Open <span id="shop-open-count-main">0</span>
-              </div>
-            </button>
-            <div class="shopping-summary-pill shopping-summary-pill-estimated">
-              <div class="value">
-                Estimate <span id="shop-estimated-total-main">$0.00</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="shopping-summary-pill shopping-summary-pill-purchased"
-              id="shopping-pill-purchased"
-              onclick="setShoppingListView('purchased')"
-              aria-label="Show closed shopping items"
-            >
-              <div class="value success">
-                Close <span id="shop-purchased-count-main">0</span>
-              </div>
-            </button>
+          <div class="shopping-mode-switch" id="shopping-mode-switch" role="tablist">
+            <button type="button" id="shopping-mode-shop" class="is-active"
+                    onclick="setShoppingMode('shop', true)" role="tab">🛒 Shop</button>
+            <button type="button" id="shopping-mode-plan"
+                    onclick="setShoppingMode('plan', true)" role="tab">✏ Plan</button>
           </div>
+          <div class="shopping-mode-pane" id="shopping-pane-shop">
+            <div class="shopping-stats-slim" id="shopping-stats-row">
+              <button type="button" class="chip" id="shopping-pill-open"
+                      onclick="setShoppingListView('open')">Open <span id="shop-open-count-main">0</span></button>
+              <span class="chip" id="shopping-pill-estimate">Est <span id="shop-estimated-total-main">$0.00</span></span>
+              <button type="button" class="chip" id="shopping-pill-purchased"
+                      onclick="setShoppingListView('purchased')">Done <span id="shop-purchased-count-main">0</span></button>
+            </div>
+            <div
+              id="shopping-session-banner"
+              class="card"
+              style="display: none; margin-bottom: 12px"
+            ></div>
+          </div>
+          <div class="shopping-mode-pane" id="shopping-pane-plan" hidden>
+            <div class="shopping-add-bar">
+              <input id="shop-quick-search" class="shopping-add-search"
+                     placeholder="🔍 Add item…"
+                     onfocus="handleShoppingQuickFindFocus()"
+                     onblur="handleShoppingQuickFindBlur()"
+                     oninput="searchShoppingQuickFind()"
+                     onkeydown="handleShoppingQuickFindKey(event)" />
+              <select id="shop-preferred-store" class="shopping-quick-store"></select>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleManualShoppingForm()">＋</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="triggerShopIdentifyPhoto()">📷</button>
+            </div>
+            <div id="shopping-helper-intro"></div>
           <div class="card" id="shop-manual-card" style="display: none">
             <div class="card-header">
               <span class="card-title">Add Item Manually</span>
@@ -3402,37 +3379,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           <div class="card" id="shopping-quick-find-card">
             <div class="card-header">
               <span class="card-title">Quick Find</span>
-              <div class="shopping-quick-toolbar">
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  id="shopping-quick-toggle"
-                  onclick="toggleShoppingSection('quick-find')"
-                >
-                  Collapse
-                </button>
-                <input
-                  id="shop-quick-search"
-                  class="shopping-quick-search"
-                  placeholder="Find products to add..."
-                  onfocus="handleShoppingQuickFindFocus()"
-                  onblur="handleShoppingQuickFindBlur()"
-                  oninput="searchShoppingQuickFind()"
-                  onkeydown="handleShoppingQuickFindKey(event)"
-                />
-                <select
-                  id="shop-preferred-store"
-                  class="shopping-quick-store"
-                ></select>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  id="shop-manual-toggle"
-                  onclick="toggleManualShoppingForm()"
-                >
-                  Add Manually
-                </button>
-              </div>
             </div>
             <div id="shopping-quick-find-body">
               <div id="shop-quick-results">
@@ -3476,6 +3422,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 </div>
               </div>
             </div>
+          </div>
           </div>
           <div class="card" id="shopping-current-list-card">
             <div class="card-header">
