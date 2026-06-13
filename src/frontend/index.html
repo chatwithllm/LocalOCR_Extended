@@ -10206,11 +10206,9 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function applyShoppingSmartDefault(openCount) {
-        // Only choose automatically until the user makes an explicit choice this session.
-        if (shoppingModeUserSet) {
-          setShoppingMode(shoppingMode);
-          return;
-        }
+        // Only choose automatically until the user makes an explicit choice this
+        // session; once they have, the DOM already reflects it — leave it alone.
+        if (shoppingModeUserSet) return;
         setShoppingMode(Number(openCount) > 0 ? "shop" : "plan");
       }
 
