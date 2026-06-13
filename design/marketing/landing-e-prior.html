@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalOCR — Scan today. Own forever.</title>
+<link rel="stylesheet" href="/design/marketing/_site.css">
+<style>
+  /* ============================================================
+     Variant D — Editorial spec-sheet aesthetic (from index.html)
+     with Meridian's section structure
+     (hero · value · 4 features · stats · cost · FAQ · CTA)
+     ============================================================ */
+  :root {
+    --ink:      #0a0a0a;
+    --paper:    #fff;
+    --rule:     rgba(10,10,10,0.10);
+    --rule-2:   rgba(10,10,10,0.18);
+    --muted:    rgba(10,10,10,0.56);
+    --soft:     rgba(10,10,10,0.04);
+    --accent:   #0071e3;
+    --accent-2: #00b74a;
+    --gold:     #d4a017;
+    --warn:     #ff9500;
+    --bg:       #fafaf8;
+    --serif:    "New York", "Charter", "Iowan Old Style", Georgia, serif;
+  }
+
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-text); }
+
+  /* =========================================================
+     TOP BAR — thin product-spec style (sticky)
+     ========================================================= */
+  .top {
+    position: sticky; top: 0; z-index: 30;
+    background: rgba(250,250,248,0.86);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .top .inner {
+    max-width: 1320px; margin: 0 auto; padding: 14px 32px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .top .brand { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.3px; font-size: 16px; display: inline-flex; gap: 10px; align-items: center; }
+  .top .brand .mark { width: 20px; height: 20px; display: grid; place-items: center; background: var(--ink); color: #fff; border-radius: 4px; font-weight: 700; font-size: 11px; font-family: var(--font-text); }
+  .top .crumb { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.2px; }
+  .top .crumb .sep { margin: 0 8px; opacity: 0.4; }
+  .top .crumb b { color: var(--ink); font-weight: 600; }
+  .top .spacer { flex: 1; }
+  .top .links { display: flex; gap: 22px; }
+  .top .links a { font-family: var(--font-text); font-size: 13px; color: var(--ink); opacity: 0.72; letter-spacing: -0.1px; }
+  .top .links a:hover { opacity: 1; }
+  .top .stage { font-family: var(--font-mono); font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .top .stage::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 3px rgba(0,183,74,0.18); }
+  .top .cta-pill {
+    background: var(--ink); color: #fff;
+    font-size: 13px; font-weight: 500; letter-spacing: -0.1px;
+    padding: 7px 14px; border-radius: 999px;
+    transition: background 150ms ease;
+  }
+  .top .cta-pill:hover { background: #1a1a1a; }
+
+  /* variant bar */
+  .variant-bar { background: rgba(250,250,248,0.92); border-bottom: 1px solid var(--rule); }
+
+  /* =========================================================
+     SECTION CHROME — every section uses these rails
+     ========================================================= */
+  .sec-wrap { max-width: 1320px; margin: 0 auto; padding: 0 32px; }
+  .sec-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 28px 0 24px;
+    border-bottom: 1px solid var(--ink);
+    flex-wrap: wrap; gap: 16px;
+  }
+  .sec-head .title { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin: 0; }
+  .sec-head .title em { font-style: italic; font-family: var(--serif); font-weight: 400; }
+  .sec-head .legend {
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.4px;
+  }
+  .eb-mono {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .eb-mono::before { content: ""; width: 28px; height: 1px; background: var(--ink); }
+
+  /* =========================================================
+     MASTHEAD / HERO
+     ========================================================= */
+  .mast { max-width: 1320px; margin: 0 auto; padding: 80px 32px 56px; }
+  .mast .grid {
+    display: grid; grid-template-columns: 1.35fr 1fr;
+    gap: 80px; align-items: end;
+  }
+  .mast h1 {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 6.6vw, 96px);
+    font-weight: 600; line-height: 0.96;
+    letter-spacing: -0.045em;
+    margin: 28px 0; max-width: 12ch;
+  }
+  .mast h1 .fade { color: rgba(10,10,10,0.3); }
+  .mast h1 em {
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    letter-spacing: -0.04em;
+  }
+  .mast .lede {
+    font-size: 18px; line-height: 1.55;
+    color: rgba(10,10,10,0.72); max-width: 52ch; margin: 0 0 28px;
+    letter-spacing: -0.2px;
+  }
+  .mast .ctas { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .mast .btn-dark { background: var(--ink); color: #fff; padding: 12px 22px; border-radius: 999px; font-size: 15px; font-weight: 500; letter-spacing: -0.1px; }
+  .mast .btn-dark:hover { background: #1a1a1a; }
+  .mast .btn-line { color: var(--ink); padding: 12px 22px; border-radius: 999px; font-size: 15px; font-weight: 500; letter-spacing: -0.1px; border: 1px solid var(--rule-2); }
+  .mast .btn-line:hover { background: var(--soft); }
+
+  .mast .rating-row {
+    margin-top: 28px;
+    display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .mast .rating-row b { color: var(--ink); font-weight: 600; }
+  .mast .rating-row .stars { color: var(--ink); letter-spacing: 2px; }
+
+  /* product card — the masthead's right column */
+  .product-card {
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 16px; padding: 28px; position: relative;
+  }
+  .product-card .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; }
+  .product-card h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.4px; margin: 0 0 8px; line-height: 1.2; }
+  .product-card .caption { font-size: 14px; line-height: 1.55; color: rgba(10,10,10,0.64); letter-spacing: -0.15px; margin: 0 0 20px; }
+
+  /* receipt-to-line-items diagram (hero card) */
+  .stack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .stack .src {
+    background: #f5f5f3; border: 1px solid var(--rule);
+    border-radius: 10px; padding: 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 156px;
+  }
+  .stack .src .top-row { display: flex; align-items: center; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase; }
+  .stack .src .top-row .badge { font-weight: 600; color: var(--ink); letter-spacing: 0.3px; }
+  .stack .src .h { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.2px; margin-top: auto; }
+  .stack .src .s { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+
+  .stack .src.ocr { background: #faf7ee; }
+  .stack .src.ocr .rcpt {
+    background: #fff; border-radius: 4px; padding: 8px 10px;
+    font-family: var(--font-mono); font-size: 9px; color: #1d1d1f;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    line-height: 1.5;
+  }
+  .stack .src.ocr .rcpt b { display: block; text-align: center; font-weight: 700; font-size: 10px; margin-bottom: 2px; }
+  .stack .src.ocr .rcpt .ln { display: flex; justify-content: space-between; border-top: 1px dashed rgba(0,0,0,0.2); padding-top: 2px; margin-top: 2px; }
+  .stack .src.json { background: #0c0a08; color: #fff; }
+  .stack .src.json .top-row { color: rgba(255,255,255,0.6); }
+  .stack .src.json .top-row .badge { color: #fff; }
+  .stack .src.json .h, .stack .src.json .s { color: #fff; }
+  .stack .src.json .s { color: rgba(255,255,255,0.56); }
+  .stack .src.json pre {
+    margin: 0; font-family: var(--font-mono); font-size: 10px;
+    color: rgba(255,255,255,0.85); line-height: 1.55; white-space: pre;
+  }
+  .stack .src.json pre .k { color: #a5d8ff; }
+  .stack .src.json pre .v { color: #c3f0ca; }
+  .stack .src.json pre .n { color: #ffd8a8; }
+
+  .merge {
+    background: var(--ink); color: #fff;
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .merge .i { width: 32px; height: 32px; border-radius: 8px; background: #fff; color: var(--ink); display: grid; place-items: center; flex: 0 0 32px; }
+  .merge .i svg { width: 18px; height: 18px; }
+  .merge .t { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.2px; }
+  .merge .sub { font-size: 12px; color: rgba(255,255,255,0.64); letter-spacing: -0.1px; }
+
+  /* =========================================================
+     VALUE PROP — "clean experience for messy world" beat
+     ========================================================= */
+  .value { padding: 56px 0 24px; }
+  .value .body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 80px;
+    padding: 48px 0 32px;
+    align-items: end;
+  }
+  .value h2 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 600; line-height: 1.02;
+    letter-spacing: -0.04em;
+    margin: 0; max-width: 16ch;
+  }
+  .value h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.035em; }
+  .value .body p {
+    font-size: 17px; line-height: 1.6; color: rgba(10,10,10,0.72);
+    letter-spacing: -0.15px; margin: 0; max-width: 48ch;
+  }
+
+  /* =========================================================
+     LIFECYCLE — animated 4-beat money story (ported from index)
+     ========================================================= */
+  .lifecycle { padding: 24px 0 0; }
+
+  /* hero-tier treatment when lifecycle leads the page */
+  .lc-hero { padding: 56px 0 24px; }
+  .lc-hero-head {
+    padding: 28px 0 36px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 8px;
+  }
+  .lc-hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 600; line-height: 0.96;
+    letter-spacing: -0.045em;
+    margin: 18px 0 22px;
+    max-width: 18ch;
+    text-wrap: balance;
+  }
+  .lc-hero-title em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.04em; }
+  .lc-hero-lede {
+    font-size: 18px; line-height: 1.55;
+    color: rgba(10,10,10,0.72);
+    max-width: 56ch;
+    margin: 0 0 22px;
+    letter-spacing: -0.2px;
+  }
+  .lc-hero-head .legend {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.4px;
+  }
+  .lc-hero-ctas {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    padding: 32px 0 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .lc-stage {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 0; position: relative;
+  }
+  .lc-stage::before {
+    content: ""; position: absolute;
+    left: 0; right: 0; top: 108px; height: 2px;
+    background: repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 12px);
+    z-index: 0;
+  }
+  .lc-stage::after {
+    content: ""; position: absolute;
+    top: 99px; width: 20px; height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffde6b, #d29700 70%);
+    box-shadow: 0 6px 16px rgba(210,151,0,0.45), inset 0 -2px 4px rgba(0,0,0,0.2);
+    z-index: 5;
+    animation: coinRun 12s linear infinite;
+  }
+  @keyframes coinRun {
+    0%   { left: 4%;  transform: translateY(0) rotate(0deg); }
+    22%  { left: 24%; transform: translateY(-4px) rotate(90deg); }
+    25%  { left: 27%; transform: translateY(0) rotate(120deg); }
+    47%  { left: 48%; transform: translateY(-4px) rotate(220deg); }
+    50%  { left: 52%; transform: translateY(0) rotate(260deg); }
+    72%  { left: 72%; transform: translateY(-4px) rotate(360deg); }
+    75%  { left: 76%; transform: translateY(0) rotate(400deg); }
+    97%  { left: 96%; transform: translateY(-4px) rotate(500deg); }
+    100% { left: 4%;  transform: translateY(0) rotate(540deg); opacity: 0; }
+  }
+  @keyframes pulseDot { 0%{box-shadow:0 0 0 0 rgba(0,183,74,0.6)} 70%{box-shadow:0 0 0 8px rgba(0,183,74,0)} 100%{box-shadow:0 0 0 0 rgba(0,183,74,0)} }
+  .lc-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); animation: pulseDot 1.6s ease-out infinite; display: inline-block; margin-right: 8px; vertical-align: middle; }
+
+  .beat {
+    padding: 36px 28px 32px;
+    border-right: 1px solid var(--rule);
+    position: relative; z-index: 1;
+  }
+  .beat:last-child { border-right: none; }
+  .beat .b-stage {
+    height: 200px; position: relative; overflow: hidden;
+    border-radius: 12px; background: #fff;
+    border: 1px solid var(--rule); margin-bottom: 20px;
+  }
+  .beat .cap { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .beat .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+  .beat .num { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.6px; color: var(--ink); font-weight: 600; }
+  .beat h4 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.4px; margin: 0 0 6px; line-height: 1.1; }
+  .beat h4 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .beat p { font-size: 13px; color: rgba(10,10,10,0.64); line-height: 1.5; margin: 0; letter-spacing: -0.1px; max-width: 28ch; }
+
+  /* BEAT 1 — CAPTURE (paper → JSON) */
+  .b1 .b-stage { background: linear-gradient(180deg, #faf7ee 0%, #f1ead6 100%); }
+  .b1 .rcpt-mini {
+    position: absolute; left: 16px; top: 24px;
+    width: 76px; padding: 8px 8px;
+    background: #faf7ee; border-radius: 2px;
+    font-family: var(--font-mono); font-size: 7px; color: #1d1d1f;
+    line-height: 1.5;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transform: rotate(-4deg); transform-origin: top center;
+    animation: rcptSway 4s ease-in-out infinite;
+  }
+  @keyframes rcptSway {
+    0%,100% { transform: rotate(-4deg) translateY(0); }
+    50%     { transform: rotate(2deg) translateY(-3px); }
+  }
+  .b1 .rcpt-mini::before { content:""; position:absolute; top:-3px; left:0; right:0; height:5px; background: repeating-linear-gradient(45deg, #faf7ee 0 3px, transparent 3px 6px); }
+  .b1 .rcpt-mini b { display:block; text-align:center; font-size: 8px; font-weight: 700; }
+  .b1 .rcpt-mini hr { border:none; border-top:1px dashed rgba(0,0,0,0.3); margin:3px 0; }
+  .b1 .rcpt-mini .ln { display:flex; justify-content:space-between; }
+  .b1 .scan-line {
+    position: absolute; left: 14px; top: 24px; width: 80px; height: 2px;
+    background: linear-gradient(to right, transparent, #0071e3, transparent);
+    box-shadow: 0 0 8px #0071e3;
+    animation: scanDown 3s ease-in-out infinite;
+  }
+  @keyframes scanDown {
+    0%,100% { top: 24px; opacity: 0; }
+    20%     { opacity: 1; }
+    50%     { top: 120px; opacity: 1; }
+    80%     { opacity: 0; }
+  }
+  .b1 .json-pop {
+    position: absolute; right: 14px; top: 28px;
+    background: #0c0a08; color: #fff; border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--font-mono); font-size: 8px; line-height: 1.6;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+    animation: jsonPop 3s ease-in-out infinite;
+  }
+  @keyframes jsonPop {
+    0%,30% { opacity: 0; transform: translateY(6px); }
+    50%,95% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; }
+  }
+  .b1 .json-pop .k { color: #a5d8ff; }
+  .b1 .json-pop .v { color: #c3f0ca; }
+  .b1 .json-pop .n { color: #ffd8a8; }
+  .b1 .conf-pill {
+    position: absolute; right: 14px; bottom: 14px;
+    background: var(--accent-2); color: #fff;
+    font-family: var(--font-mono); font-size: 8px; font-weight: 700;
+    padding: 3px 8px; border-radius: 999px;
+    letter-spacing: 0.2px;
+  }
+
+  /* BEAT 2 — INVENTORY (pantry updating) */
+  .b2 .b-stage { background: linear-gradient(180deg, #f1f7ef 0%, #e3efdd 100%); }
+  .b2 .pantry {
+    position: absolute; inset: 16px;
+    background: #fff; border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .b2 .pantry .hd {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 5px; border-bottom: 1px solid var(--rule); margin-bottom: 3px;
+    font-family: var(--font-display); font-weight: 600; font-size: 10px;
+  }
+  .b2 .pantry .hd span { font-family: var(--font-mono); font-size: 8px; color: var(--muted); letter-spacing: 0.3px; font-weight: 400; }
+  .b2 .pantry .it {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+    align-items: center; font-size: 9px;
+  }
+  .b2 .pantry .it .n { color: #1d1d1f; font-weight: 500; }
+  .b2 .pantry .it .q { font-family: var(--font-mono); font-size: 8px; color: var(--muted); }
+  .b2 .pantry .it .a { font-family: var(--font-mono); font-size: 8px; color: #1d1d1f; font-variant-numeric: tabular-nums; }
+  .b2 .pantry .it.low .q { color: var(--warn); font-weight: 700; }
+  .b2 .pantry .it.new { animation: itGlow 4s ease-in-out infinite; }
+  @keyframes itGlow {
+    0%,35%,100% { background: transparent; }
+    50%,75%     { background: rgba(0,183,74,0.10); }
+  }
+  .b2 .restock-flag {
+    position: absolute; right: -4px; top: 64px;
+    background: var(--warn); color: #fff;
+    font-family: var(--font-mono); font-size: 7px; font-weight: 700;
+    padding: 2px 6px; border-radius: 999px;
+    letter-spacing: 0.4px;
+    box-shadow: 0 4px 10px rgba(255,149,0,0.4);
+    animation: flagPop 3s ease-in-out infinite;
+  }
+  @keyframes flagPop {
+    0%,40% { opacity: 0; transform: scale(0.9); }
+    55%,95% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; }
+  }
+
+  /* BEAT 3 — BILLS (incoming bill flagged) */
+  .b3 .b-stage { background: linear-gradient(180deg, #fff 0%, #fdf2e6 100%); }
+  .b3 .calendar {
+    position: absolute; left: 16px; top: 20px;
+    width: 80px; padding: 8px 8px;
+    background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.06);
+    text-align: center;
+  }
+  .b3 .calendar .m { font-family: var(--font-mono); font-size: 7px; color: var(--warn); letter-spacing: 0.6px; text-transform: uppercase; font-weight: 700; }
+  .b3 .calendar .d { font-family: var(--font-display); font-size: 28px; font-weight: 600; line-height: 1; color: #1d1d1f; letter-spacing: -0.6px; }
+  .b3 .calendar .s { font-family: var(--font-mono); font-size: 7px; color: var(--muted); margin-top: 2px; }
+  .b3 .calendar .dot {
+    position: absolute; top: -4px; right: -4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--warn);
+    box-shadow: 0 0 0 0 rgba(255,149,0,0.6);
+    animation: pulseDot 1.6s ease-out infinite;
+  }
+  .b3 .bills-list {
+    position: absolute; right: 14px; top: 14px; left: 110px; bottom: 14px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .b3 .bills-list .b {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px;
+    padding: 5px 8px; background: #fff;
+    border-radius: 5px; font-size: 9px;
+    border: 1px solid var(--rule);
+  }
+  .b3 .bills-list .b.flag { background: rgba(255,149,0,0.12); border-color: rgba(255,149,0,0.3); }
+  .b3 .bills-list .b .n { color: #1d1d1f; font-weight: 600; }
+  .b3 .bills-list .b .due { font-family: var(--font-mono); font-size: 7px; color: var(--muted); margin-top: 1px; }
+  .b3 .bills-list .b.flag .due { color: var(--warn); font-weight: 700; }
+  .b3 .bills-list .b .a { font-family: var(--font-mono); font-weight: 600; align-self: center; font-variant-numeric: tabular-nums; font-size: 9px; }
+
+  /* BEAT 4 — ANALYTICS (chart + savings flag) */
+  .b4 .b-stage { background: linear-gradient(180deg, #fff 0%, #eef4f8 100%); overflow: hidden; }
+  .b4 .chart-d {
+    position: absolute; inset: 20px 16px 36px;
+    display: flex; align-items: flex-end; gap: 3px;
+  }
+  .b4 .chart-d span {
+    flex: 1; background: linear-gradient(180deg, #0071e3, #00b74a);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.9; transform-origin: bottom;
+    animation: barGrow 3.5s ease-in-out infinite;
+  }
+  .b4 .chart-d span:nth-child(1) { height: 40%; animation-delay: 0.0s; }
+  .b4 .chart-d span:nth-child(2) { height: 55%; animation-delay: 0.08s; }
+  .b4 .chart-d span:nth-child(3) { height: 48%; animation-delay: 0.16s; }
+  .b4 .chart-d span:nth-child(4) { height: 62%; animation-delay: 0.24s; }
+  .b4 .chart-d span:nth-child(5) { height: 70%; animation-delay: 0.32s; }
+  .b4 .chart-d span:nth-child(6) { height: 58%; animation-delay: 0.40s; }
+  .b4 .chart-d span:nth-child(7) { height: 74%; animation-delay: 0.48s; }
+  .b4 .chart-d span:nth-child(8) { height: 82%; animation-delay: 0.56s; }
+  .b4 .chart-d span:nth-child(9) { height: 68%; animation-delay: 0.64s; }
+  .b4 .chart-d span:nth-child(10){ height: 90%; animation-delay: 0.72s; }
+  @keyframes barGrow {
+    0%,5%   { transform: scaleY(0); }
+    40%,95% { transform: scaleY(1); }
+    100%    { transform: scaleY(1); }
+  }
+  .b4 .saved-pill {
+    position: absolute; left: 14px; bottom: 12px;
+    font-family: var(--font-mono); font-size: 8px; color: var(--muted);
+    letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .b4 .saved-pill b { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--accent-2); letter-spacing: -0.3px; display: block; margin-top: 1px; text-transform: none; }
+  .b4 .heads-up {
+    position: absolute; right: 12px; top: 16px;
+    background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 7px 9px;
+    font-family: var(--font-text); font-size: 8px; color: #1d1d1f;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    max-width: 110px; line-height: 1.3;
+    animation: huPulse 3.5s ease-in-out infinite;
+  }
+  @keyframes huPulse {
+    0%,100% { transform: translateY(0) scale(1); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+    50%     { transform: translateY(-2px) scale(1.03); box-shadow: 0 10px 22px rgba(217,56,56,0.18); }
+  }
+  .b4 .heads-up .k { font-family: var(--font-mono); font-size: 6px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .b4 .heads-up b { color: #d93838; font-weight: 700; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lc-stage::after,
+    .b1 .rcpt-mini, .b1 .scan-line, .b1 .json-pop,
+    .b2 .pantry .it.new, .b2 .restock-flag,
+    .b3 .calendar .dot,
+    .b4 .chart-d span, .b4 .heads-up { animation: none; }
+  }
+
+  /* =========================================================
+     FEATURES — 4 numbered beats (Meridian map)
+     ========================================================= */
+  .features { padding: 16px 0 0; }
+  .feature-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .feat {
+    padding: 36px 32px 40px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: transparent;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+  .feat:nth-child(2n) { border-right: none; }
+  .feat .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .feat .idx {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 1.4px; color: var(--muted);
+    font-weight: 600; text-transform: uppercase;
+  }
+  .feat .tag {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .feat h3 {
+    font-family: var(--font-display);
+    font-size: 28px; font-weight: 600;
+    letter-spacing: -0.45px; line-height: 1.05;
+    margin: 0 0 10px;
+  }
+  .feat h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.4px; }
+  .feat .desc {
+    font-size: 14px; line-height: 1.55;
+    color: rgba(10,10,10,0.64); letter-spacing: -0.1px;
+    margin: 0 0 20px; max-width: 38ch;
+  }
+  .feat .viz {
+    margin-top: auto;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    height: 200px;
+    position: relative; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .feat .meta {
+    margin-top: 18px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 20px;
+    font-size: 12px;
+  }
+  .feat .meta dt { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.6px; color: var(--muted); text-transform: uppercase; margin: 0; }
+  .feat .meta dd { margin: 0; font-size: 13px; letter-spacing: -0.15px; color: var(--ink); font-weight: 500; }
+
+  /* feature viz styles */
+  .vz-pipeline {
+    padding: 18px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .vz-pipeline .row {
+    display: grid; grid-template-columns: 1fr 50px 80px 60px;
+    gap: 10px; align-items: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+    padding: 7px 10px; border-radius: 6px; background: #fafafa;
+  }
+  .vz-pipeline .row.win { background: rgba(0,183,74,0.08); }
+  .vz-pipeline .row .name { font-weight: 600; }
+  .vz-pipeline .row .conf { text-align: right; font-variant-numeric: tabular-nums; }
+  .vz-pipeline .row .ms { color: var(--muted); text-align: right; }
+  .vz-pipeline .row .cost { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .vz-pipeline .row.win .name::before { content: "✓ "; color: var(--accent-2); }
+
+  .vz-pantry { padding: 18px; display: grid; gap: 8px; }
+  .vz-pantry .item {
+    display: grid; grid-template-columns: 1fr 50px 60px;
+    gap: 10px; align-items: center;
+    padding: 8px 12px;
+    background: #fafafa; border-radius: 6px;
+    font-size: 12px; color: var(--ink);
+  }
+  .vz-pantry .item .name { font-weight: 600; }
+  .vz-pantry .item .qty { font-family: var(--font-mono); color: var(--muted); font-size: 11px; }
+  .vz-pantry .item .amt { font-family: var(--font-mono); text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 11px; }
+  .vz-pantry .item.low { background: rgba(255,149,0,0.10); }
+  .vz-pantry .item.low .qty { color: var(--warn); font-weight: 600; }
+
+  .vz-bills { padding: 18px; display: grid; gap: 8px; }
+  .vz-bills .bill {
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 8px; padding: 10px 12px; border-radius: 6px;
+    background: #fafafa;
+    font-size: 12px;
+  }
+  .vz-bills .bill .l { font-weight: 600; color: var(--ink); }
+  .vz-bills .bill .due { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 0.2px; }
+  .vz-bills .bill .amt { font-family: var(--font-mono); font-weight: 600; align-self: center; font-variant-numeric: tabular-nums; }
+  .vz-bills .bill.flag { background: rgba(255,149,0,0.10); }
+  .vz-bills .bill.flag .due { color: var(--warn); }
+
+  .vz-chart { padding: 22px; display: flex; flex-direction: column; height: 100%; }
+  .vz-chart .legend { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
+  .vz-chart .legend .v { font-family: var(--font-display); font-size: 22px; color: var(--ink); font-weight: 600; letter-spacing: -0.4px; }
+  .vz-chart .bars { flex: 1; display: flex; align-items: flex-end; gap: 7px; }
+  .vz-chart .bars span {
+    flex: 1; background: var(--ink); border-radius: 3px 3px 0 0;
+  }
+  .vz-chart .bars span.hi { background: var(--accent-2); }
+
+  /* =========================================================
+     SOCIAL PROOF — facts strip + transaction ticker
+     ========================================================= */
+  .proof { padding: 56px 0 0; }
+  .proof .facts {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .proof .f { padding: 36px 28px 36px 0; border-right: 1px solid var(--rule); }
+  .proof .f:last-child { border-right: none; padding-right: 0; padding-left: 28px; }
+  .proof .f .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .proof .f .v { font-family: var(--font-display); font-size: 32px; font-weight: 600; letter-spacing: -0.7px; line-height: 1.05; margin-bottom: 6px; }
+  .proof .f .v em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .proof .f .v .unit { font-family: var(--font-text); font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 4px; letter-spacing: -0.1px; }
+  .proof .f .n { font-size: 13px; color: rgba(10,10,10,0.56); letter-spacing: -0.1px; line-height: 1.45; }
+
+  .proof .ticker {
+    margin-top: 28px;
+    padding: 14px 0;
+    display: flex; gap: 28px; flex-wrap: wrap; align-items: center;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--muted); letter-spacing: 0.2px;
+  }
+  .proof .ticker .tx { display: inline-flex; align-items: center; gap: 8px; }
+  .proof .ticker .tx .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--ink); color: #fff;
+    font-size: 10px; font-weight: 700;
+    display: grid; place-items: center;
+    font-family: var(--font-text);
+  }
+  .proof .ticker .tx .amt { color: var(--ink); font-weight: 600; }
+  .proof .ticker .sep { opacity: 0.4; }
+
+  /* =========================================================
+     COST COMPARISON — editorial table with bars
+     ========================================================= */
+  .calc { padding: 56px 0 0; }
+  .calc .body {
+    display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px;
+    padding: 48px 0 0;
+    border-top: 1px solid var(--rule);
+  }
+  .calc .left h2 {
+    font-family: var(--font-display); font-size: clamp(40px, 5vw, 64px);
+    font-weight: 600; line-height: 1.02; letter-spacing: -0.04em;
+    margin: 16px 0 18px; max-width: 12ch;
+  }
+  .calc .left h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .calc .left p { font-size: 16px; line-height: 1.55; color: rgba(10,10,10,0.72); letter-spacing: -0.15px; margin: 0; max-width: 44ch; }
+
+  .calc .savings {
+    margin-top: 28px; padding: 18px 0; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .calc .savings .k { font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .calc .savings .v { font-family: var(--font-display); font-size: 36px; font-weight: 600; letter-spacing: -0.6px; color: var(--accent-2); }
+
+  .calc .bars {
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 14px; padding: 24px;
+    display: grid; gap: 14px;
+  }
+  .calc .bar {
+    display: grid; grid-template-columns: 130px 1fr 80px;
+    gap: 16px; align-items: center;
+  }
+  .calc .bar .nm { font-size: 13px; color: var(--ink); font-weight: 500; letter-spacing: -0.1px; }
+  .calc .bar .track {
+    height: 10px; background: rgba(10,10,10,0.06);
+    border-radius: 999px; overflow: hidden; position: relative;
+  }
+  .calc .bar .fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: 999px;
+  }
+  .calc .bar.us .fill   { background: var(--ink); width: 100%; }
+  .calc .bar.them .fill { background: rgba(10,10,10,0.20); }
+  .calc .bar.t1 .fill { width: 22%; }
+  .calc .bar.t2 .fill { width: 28%; }
+  .calc .bar.t3 .fill { width: 36%; }
+  .calc .bar .val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .calc .bar.us .val { color: var(--accent-2); font-weight: 600; }
+
+  .calc .foot-note {
+    margin-top: 14px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 0.2px;
+  }
+
+  /* =========================================================
+     FAQ — editorial accordion
+     ========================================================= */
+  .faq { padding: 56px 0 0; }
+  .faq .body {
+    display: grid; grid-template-columns: 1fr 1.4fr;
+    gap: 64px;
+    padding: 48px 0 0;
+    border-top: 1px solid var(--rule);
+  }
+  .faq .left h2 {
+    font-family: var(--font-display);
+    font-size: clamp(36px, 4.4vw, 52px);
+    font-weight: 600; line-height: 1.05; letter-spacing: -0.04em;
+    margin: 14px 0 18px; max-width: 14ch;
+  }
+  .faq .left h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .faq .left p { font-size: 15px; line-height: 1.55; color: rgba(10,10,10,0.64); letter-spacing: -0.15px; max-width: 36ch; }
+  .faq .left a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+
+  .faq details {
+    border-bottom: 1px solid var(--rule);
+    padding: 22px 4px;
+    transition: padding 200ms ease;
+  }
+  .faq details:first-of-type { border-top: 1px solid var(--rule); }
+  .faq summary {
+    list-style: none; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    font-family: var(--font-display);
+    font-size: 18px; font-weight: 600; letter-spacing: -0.3px;
+    color: var(--ink);
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+"; font-weight: 400; font-size: 22px; line-height: 1;
+    color: var(--muted); transition: transform 200ms ease;
+  }
+  .faq details[open] summary::after { content: "−"; }
+  .faq details p {
+    margin: 14px 0 0; color: rgba(10,10,10,0.64); font-size: 15px; line-height: 1.6; letter-spacing: -0.1px;
+    max-width: 60ch;
+  }
+  .faq details code {
+    font-family: var(--font-mono); font-size: 13px;
+    background: var(--soft); padding: 2px 6px; border-radius: 4px;
+  }
+
+  /* =========================================================
+     CTA BAND — dark editorial card
+     ========================================================= */
+  .cta-band { padding: 80px 32px; max-width: 1320px; margin: 56px auto 0; }
+  .cta-band .card {
+    background: var(--ink); color: #fff;
+    border-radius: 24px; padding: 64px 56px;
+    display: grid; grid-template-columns: 1.4fr 1fr;
+    gap: 48px; align-items: end;
+    position: relative; overflow: hidden;
+  }
+  .cta-band .card::before {
+    content: ""; position: absolute;
+    inset: -40% -10% auto auto; width: 60%; height: 100%;
+    background: radial-gradient(50% 60% at 80% 30%, rgba(0,113,227,0.4), transparent 60%);
+    pointer-events: none;
+  }
+  .cta-band .card .eb {
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 1.4px; color: rgba(255,255,255,0.56);
+    text-transform: uppercase; margin-bottom: 18px;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .cta-band .card .eb::before { content: ""; width: 28px; height: 1px; background: rgba(255,255,255,0.56); }
+  .cta-band .card h2 {
+    font-family: var(--font-display);
+    font-size: clamp(40px, 5vw, 64px); font-weight: 600;
+    line-height: 1.02; letter-spacing: -0.04em;
+    margin: 0; max-width: 14ch;
+  }
+  .cta-band .card h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
+  .cta-band .card .desc { color: rgba(255,255,255,0.72); font-size: 16px; line-height: 1.5; max-width: 38ch; margin-bottom: 24px; letter-spacing: -0.1px; }
+  .cta-band .card .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cta-band .btn-light { background: #fff; color: var(--ink); padding: 13px 22px; border-radius: 999px; font-size: 15px; font-weight: 500; letter-spacing: -0.1px; }
+  .cta-band .btn-ghost { color: #fff; padding: 12px 22px; border-radius: 999px; font-size: 15px; font-weight: 500; letter-spacing: -0.1px; border: 1px solid rgba(255,255,255,0.3); }
+  .cta-band .btn-ghost:hover { background: rgba(255,255,255,0.08); }
+
+  /* =========================================================
+     FOOTNOTE / FOOTER
+     ========================================================= */
+  .footnote-row {
+    max-width: 1320px; margin: 0 auto;
+    padding: 48px 32px 24px;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr;
+    gap: 48px;
+    border-top: 1px solid var(--rule);
+  }
+  .footnote-row .brand-line { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-family: var(--font-display); font-size: 17px; }
+  .footnote-row .brand-line .mark { width: 24px; height: 24px; border-radius: 6px; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; font-family: var(--font-text); }
+  .footnote-row .tag { margin-top: 12px; color: var(--muted); font-size: 14px; max-width: 34ch; line-height: 1.5; }
+  .footnote-row h5 { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink); margin: 0 0 16px; }
+  .footnote-row ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .footnote-row a { color: var(--muted); font-size: 14px; }
+  .footnote-row a:hover { color: var(--ink); }
+  .legal-row {
+    max-width: 1320px; margin: 0 auto;
+    padding: 24px 32px 48px;
+    border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.2px;
+  }
+
+  /* =========================================================
+     RESPONSIVE
+     ========================================================= */
+  @media (max-width: 960px) {
+    .mast .grid,
+    .value .body,
+    .calc .body,
+    .faq .body,
+    .cta-band .card { grid-template-columns: 1fr; gap: 40px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .feat { border-right: none; }
+    .proof .facts { grid-template-columns: 1fr 1fr; }
+    .proof .f { border-bottom: 1px solid var(--rule); }
+    .footnote-row { grid-template-columns: 1fr 1fr; }
+    .lc-stage { grid-template-columns: 1fr 1fr; }
+    .lc-stage::before, .lc-stage::after { display: none; }
+    .beat { border-right: none; border-bottom: 1px solid var(--rule); }
+    .beat:nth-child(2n) { border-right: none; }
+  }
+  @media (max-width: 600px) {
+    .top .links { display: none; }
+    .mast { padding: 56px 24px 40px; }
+    .sec-wrap, .cta-band, .footnote-row, .legal-row { padding-left: 24px; padding-right: 24px; }
+    .cta-band .card { padding: 40px 28px; }
+    .proof .facts { grid-template-columns: 1fr; }
+    .footnote-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SHARED TOP BAR (sticky)
+     ============================================================ -->
+<div class="top">
+  <div class="inner">
+    <a class="brand" href="/"><span class="mark">L</span>LocalOCR</a>
+    <div class="crumb">
+      <b>localocr</b><span class="sep">/</span>marketing<span class="sep">/</span><b>landing</b>
+    </div>
+    <span class="spacer"></span>
+    <nav class="links">
+      <a href="#features">Features</a>
+      <a href="#proof">Proof</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a href="/app" class="cta-pill">Sign in →</a>
+  </div>
+</div>
+
+<!-- ============================================================
+     LIFECYCLE — landing hero · animated 4-beat money story
+     ============================================================ -->
+<section class="lifecycle sec-wrap lc-hero" id="lifecycle">
+  <div class="lc-hero-head">
+    <div class="eb-mono">Section 00 · The premise</div>
+    <h1 class="lc-hero-title">The lifecycle of a dollar, <em>automated.</em></h1>
+    <p class="lc-hero-lede">Receipts in. Pantry, bills, and budget out &mdash; on your hardware. Watch a dollar move through the four beats that LocalOCR automates for you.</p>
+    <span class="legend"><span class="lc-pulse"></span>live · auto-playing</span>
+  </div>
+  <div class="lc-stage">
+
+    <!-- BEAT 1: CAPTURE -->
+    <div class="beat b1">
+      <div class="b-stage" aria-label="Capturing a receipt animation">
+        <div class="rcpt-mini">
+          <b>WHOLE FOODS</b>
+          <hr>
+          <div class="ln"><span>Eggs</span><span>6.49</span></div>
+          <div class="ln"><span>Milk</span><span>3.99</span></div>
+          <hr>
+          <div class="ln" style="font-weight:700"><span>TOT</span><span>22.95</span></div>
+        </div>
+        <div class="scan-line"></div>
+        <div class="json-pop">
+          <span class="k">vendor</span>: <span class="v">"WF"</span><br>
+          <span class="k">total</span>:  <span class="n">22.95</span><br>
+          <span class="k">items</span>:  <span class="n">4</span>
+        </div>
+        <div class="conf-pill">0.98 · 142ms</div>
+      </div>
+      <div class="cap"><span class="k">Beat 01</span><span class="num">Capture</span></div>
+      <h4>Receipt <em>scanned.</em></h4>
+      <p>Paper goes in, structured JSON comes out. Pipeline picks the cheapest model that hits 95%+ confidence.</p>
+    </div>
+
+    <!-- BEAT 2: INVENTORY -->
+    <div class="beat b2">
+      <div class="b-stage" aria-label="Inventory updating animation">
+        <div class="pantry">
+          <div class="hd"><b>Pantry</b><span>auto-updating</span></div>
+          <div class="it new"><span class="n">Organic eggs</span><span class="q">+12</span><span class="a">$6.49</span></div>
+          <div class="it"><span class="n">Sourdough loaf</span><span class="q">2 left</span><span class="a">$5.99</span></div>
+          <div class="it low"><span class="n">365 oat milk</span><span class="q">1 left</span><span class="a">$3.99</span></div>
+          <div class="it"><span class="n">Avocado</span><span class="q">6 left</span><span class="a">$2.49</span></div>
+          <div class="it"><span class="n">Brown rice · 2lb</span><span class="q">3 left</span><span class="a">$4.79</span></div>
+        </div>
+        <div class="restock-flag">↻ RESTOCK</div>
+      </div>
+      <div class="cap"><span class="k">Beat 02</span><span class="num">Inventory</span></div>
+      <h4>Pantry <em>updated.</em></h4>
+      <p>Every line-item lands in inventory. Stock drops as you cook. Low-stock items flag themselves for the next shopping run.</p>
+    </div>
+
+    <!-- BEAT 3: BILLS -->
+    <div class="beat b3">
+      <div class="b-stage" aria-label="Bills surfaced animation">
+        <div class="calendar">
+          <div class="dot"></div>
+          <div class="m">June</div>
+          <div class="d">02</div>
+          <div class="s">3 days</div>
+        </div>
+        <div class="bills-list">
+          <div class="b flag"><div><div class="n">Con Edison</div><div class="due">due jun 02</div></div><div class="a">$142.30</div></div>
+          <div class="b"><div><div class="n">Verizon Fios</div><div class="due">paid · may 22</div></div><div class="a">$89.99</div></div>
+          <div class="b"><div><div class="n">Netflix</div><div class="due">↑ $2/mo</div></div><div class="a">$22.99</div></div>
+          <div class="b"><div><div class="n">Rent</div><div class="due">due jun 01</div></div><div class="a">$2,450</div></div>
+        </div>
+      </div>
+      <div class="cap"><span class="k">Beat 03</span><span class="num">Bills</span></div>
+      <h4>Bills <em>surfaced.</em></h4>
+      <p>What's due, what's paid, what just went up. Price-creep on subscriptions flags itself before the renewal hits.</p>
+    </div>
+
+    <!-- BEAT 4: ANALYTICS -->
+    <div class="beat b4">
+      <div class="b-stage" aria-label="Spend analytics animation">
+        <div class="chart-d" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="heads-up">
+          <div class="k">Heads-up</div>
+          Eggs <b>+18%</b> at WF vs Trader Joe's. Switch?
+        </div>
+        <div class="saved-pill">Saved this month<b>$184</b></div>
+      </div>
+      <div class="cap"><span class="k">Beat 04</span><span class="num">Analytics</span></div>
+      <h4>Spend <em>analyzed.</em></h4>
+      <p>Monthly roll-ups, vendor concentration, anomaly flags. LocalOCR has opinions about your spend, served with data.</p>
+    </div>
+
+  </div>
+  <div class="lc-hero-ctas">
+    <a href="#hero" class="btn-dark">Scroll · next slide ↓</a>
+    <a href="/app" class="btn-line">Sign in</a>
+  </div>
+</section>
+
+<!-- ============================================================
+     MASTHEAD / HERO — Scan today. Own forever.
+     ============================================================ -->
+<header class="mast" id="hero">
+  <div class="grid">
+    <div>
+      <div class="eb-mono">Self-hosted ledger · v1.0</div>
+      <h1>Scan today.<br><em>Own forever.</em></h1>
+      <p class="lede">Turn every paper receipt into a clean line-item ledger &mdash; running on your hardware, in your house, behind your firewall. Multi-model OCR picks the cheapest vision API that nails the job. The rest of the stack never leaves your box.</p>
+      <div class="ctas">
+        <a href="/app" class="btn-dark">Sign in →</a>
+        <a href="#features" class="btn-line">See the pipeline</a>
+      </div>
+      <div class="rating-row">
+        <span class="stars">★★★★★</span>
+        <span><b>4.9</b> · 312 households</span>
+        <span>·</span>
+        <span><b>MIT</b> license</span>
+        <span>·</span>
+        <span><b>0</b> trackers</span>
+      </div>
+    </div>
+
+    <!-- Product card — receipt → JSON, the actual transformation -->
+    <div class="product-card">
+      <div class="tag">The transformation · what LocalOCR does</div>
+      <h2>One receipt, fully extracted.</h2>
+      <p class="caption">Paper goes in. Structured line-items come out. Stored locally, queryable forever.</p>
+
+      <div class="stack">
+        <div class="src ocr">
+          <div class="top-row"><span class="badge">INPUT</span><span>paper · photo · PDF</span></div>
+          <div class="rcpt">
+            <b>WHOLE FOODS</b>
+            <div class="ln"><span>Eggs · doz</span><span>6.49</span></div>
+            <div class="ln"><span>Oat milk x2</span><span>7.98</span></div>
+            <div class="ln" style="font-weight:700"><span>TOTAL</span><span>22.95</span></div>
+          </div>
+          <div class="h">Receipt</div>
+          <div class="s">142ms · Gemini Vision</div>
+        </div>
+        <div class="src json">
+          <div class="top-row"><span class="badge">OUTPUT</span><span>JSON · sqlite</span></div>
+          <pre><span class="k">vendor</span>: <span class="v">"Whole Foods"</span>
+<span class="k">date</span>:   <span class="v">"2026-05-29"</span>
+<span class="k">items</span>: <span class="n">4</span>
+<span class="k">total</span>: <span class="n">22.95</span>
+<span class="k">conf</span>:  <span class="n">0.98</span></pre>
+          <div class="h">Ledger row</div>
+          <div class="s">stored · 0ms · local</div>
+        </div>
+      </div>
+
+      <div class="merge">
+        <div class="i">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <div>
+          <div class="t">Line-items, on your box</div>
+          <div class="sub">extracted automatically · no SaaS round-trip</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     VALUE PROP
+     ============================================================ -->
+<section class="value sec-wrap" id="about">
+  <div class="sec-head">
+    <h2 class="title">A clean ledger from a <em>messy drawer.</em></h2>
+    <span class="legend">section 01 · the premise</span>
+  </div>
+  <div class="body">
+    <div>
+      <h2>Modernize household finance &mdash; without modernizing your privacy.</h2>
+    </div>
+    <div>
+      <p>LocalOCR turns the shoebox of receipts in your kitchen into a searchable inventory, a real-time budget, and a quiet feed to your home dashboard. Powered by a multi-model OCR pipeline that picks the cheapest model that nails the job &mdash; without sending a single image to a SaaS you didn&rsquo;t choose.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FEATURES — 4 numbered beats
+     ============================================================ -->
+<section class="features sec-wrap" id="features">
+  <div class="sec-head">
+    <h2 class="title">Control your household, <em>in seconds.</em></h2>
+    <span class="legend">section 02 · four jobs · one box</span>
+  </div>
+  <div class="feature-grid">
+
+    <!-- 01 PIPELINE -->
+    <article class="feat">
+      <div class="head"><span class="idx">01 · Capture</span><span class="tag">multi-model</span></div>
+      <h3>Pipeline that <em>picks</em> the right model.</h3>
+      <p class="desc">Gemini &rarr; OpenAI &rarr; Ollama &rarr; Anthropic. Routes each receipt to the cheapest model that hits 95%+ confidence. Falls back to local-only when you&rsquo;re offline.</p>
+      <div class="viz">
+        <div class="vz-pipeline">
+          <div class="row win"><span class="name">Gemini Vision</span><span class="conf">0.98</span><span class="ms">142ms</span><span class="cost">$0.0003</span></div>
+          <div class="row"><span class="name">OpenAI 4o</span><span class="conf">0.96</span><span class="ms">312ms</span><span class="cost">$0.0009</span></div>
+          <div class="row"><span class="name">Anthropic</span><span class="conf">0.97</span><span class="ms">410ms</span><span class="cost">$0.0011</span></div>
+          <div class="row"><span class="name">Ollama llava</span><span class="conf">0.84</span><span class="ms">2.1s</span><span class="cost">$0</span></div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Confidence floor</dt><dd>0.95 auto-approve</dd>
+        <dt>Local fallback</dt><dd>Ollama llava</dd>
+      </dl>
+    </article>
+
+    <!-- 02 INVENTORY -->
+    <article class="feat">
+      <div class="head"><span class="idx">02 · Inventory</span><span class="tag">price book</span></div>
+      <h3>Pantry that <em>knows</em> when you&rsquo;re low.</h3>
+      <p class="desc">Every line-item lands in inventory. Stock drops as you cook. Shopping list rebuilds itself. Price history per SKU shows when the store is gouging.</p>
+      <div class="viz">
+        <div class="vz-pantry">
+          <div class="item"><span class="name">Organic eggs · dozen</span><span class="qty">4 left</span><span class="amt">$6.49</span></div>
+          <div class="item low"><span class="name">365 oat milk · ½ gal</span><span class="qty">1 left</span><span class="amt">$3.99</span></div>
+          <div class="item"><span class="name">Sourdough loaf</span><span class="qty">2 left</span><span class="amt">$5.99</span></div>
+          <div class="item"><span class="name">Avocado</span><span class="qty">6 left</span><span class="amt">$2.49</span></div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>SKU tracked</dt><dd>Per line-item</dd>
+        <dt>Low-stock alerts</dt><dd>Configurable thresholds</dd>
+      </dl>
+    </article>
+
+    <!-- 03 BILLS -->
+    <article class="feat">
+      <div class="head"><span class="idx">03 · Bills</span><span class="tag">recurring</span></div>
+      <h3>Bills, <em>surfaced</em> before they hit.</h3>
+      <p class="desc">Utilities, subscriptions, rent &mdash; captured from receipts, statements, or manual entry. One screen shows what&rsquo;s due, what&rsquo;s paid, and what just went up.</p>
+      <div class="viz">
+        <div class="vz-bills">
+          <div class="bill flag"><div><div class="l">Con Edison</div><div class="due">due in 4 days</div></div><div class="amt">$142.30</div></div>
+          <div class="bill"><div><div class="l">Verizon Fios</div><div class="due">paid · may 22</div></div><div class="amt">$89.99</div></div>
+          <div class="bill"><div><div class="l">Netflix</div><div class="due">↑ $2/mo · may 18</div></div><div class="amt">$22.99</div></div>
+          <div class="bill"><div><div class="l">Rent</div><div class="due">due jun 01</div></div><div class="amt">$2,450</div></div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Price-creep alerts</dt><dd>Auto-flagged</dd>
+        <dt>Sources</dt><dd>OCR · CSV · manual</dd>
+      </dl>
+    </article>
+
+    <!-- 04 ANALYTICS -->
+    <article class="feat">
+      <div class="head"><span class="idx">04 · Analytics</span><span class="tag">export-friendly</span></div>
+      <h3>Dashboards, <em>not</em> dark patterns.</h3>
+      <p class="desc">Monthly category roll-ups, vendor concentration, anomaly flags. Export to CSV. Pipe to Home Assistant. Pull into your own Grafana. It&rsquo;s your data.</p>
+      <div class="viz">
+        <div class="vz-chart">
+          <div class="legend"><span>May spend · groceries</span><span class="v">$412</span></div>
+          <div class="bars">
+            <span style="height:42%"></span>
+            <span style="height:58%"></span>
+            <span style="height:36%"></span>
+            <span style="height:72%"></span>
+            <span style="height:48%"></span>
+            <span style="height:84%"></span>
+            <span style="height:62%"></span>
+            <span class="hi" style="height:92%"></span>
+          </div>
+        </div>
+      </div>
+      <dl class="meta">
+        <dt>Export</dt><dd>CSV · JSON · MQTT</dd>
+        <dt>Integrations</dt><dd>Home Assistant · Grafana</dd>
+      </dl>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============================================================
+     SOCIAL PROOF — facts strip + transaction ticker
+     ============================================================ -->
+<section class="proof sec-wrap" id="proof">
+  <div class="sec-head">
+    <h2 class="title">Real households. <em>Real receipts.</em></h2>
+    <span class="legend">section 03 · what the box looks like in the wild</span>
+  </div>
+
+  <div class="facts">
+    <div class="f">
+      <div class="k">Recurring cost</div>
+      <div class="v">$<em>0</em><span class="unit">/mo forever</span></div>
+      <div class="n">MIT-licensed. No SaaS bill, no rug-pull, no acquisition by a larger ad-tech company.</div>
+    </div>
+    <div class="f">
+      <div class="k">Throughput</div>
+      <div class="v"><em>1.2k</em><span class="unit">receipts/mo</span></div>
+      <div class="n">average self-hoster, at &lt; $0.40 in vision-API cost. Skip the API entirely &mdash; Ollama runs for free.</div>
+    </div>
+    <div class="f">
+      <div class="k">Data residency</div>
+      <div class="v"><em>100</em>%<span class="unit">on-device</span></div>
+      <div class="n">inventory, bills, analytics, exports &mdash; all local. The vision call is the only thing that ever leaves.</div>
+    </div>
+    <div class="f">
+      <div class="k">Setup time</div>
+      <div class="v"><em>5</em><span class="unit">min</span></div>
+      <div class="n">git clone, drop in one API key (or none), <code style="font-family:var(--font-mono);font-size:11px">docker-compose up</code>. Done.</div>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="tx"><span class="av">R</span><span>Roberto · Trader Joe&rsquo;s</span><span class="amt">$48.20</span></div>
+    <span class="sep">·</span>
+    <div class="tx"><span class="av">L</span><span>Lucas · Con Edison</span><span class="amt">$142.30</span></div>
+    <span class="sep">·</span>
+    <div class="tx"><span class="av">M</span><span>Mei · Whole Foods</span><span class="amt">$22.95</span></div>
+    <span class="sep">·</span>
+    <div class="tx"><span class="av">P</span><span>Priya · Costco</span><span class="amt">$184.72</span></div>
+    <span class="sep">·</span>
+    <div class="tx"><span class="av">J</span><span>Jonas · CVS</span><span class="amt">$14.22</span></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     COST COMPARISON
+     ============================================================ -->
+<section class="calc sec-wrap" id="pricing">
+  <div class="sec-head">
+    <h2 class="title">Find out what your money <em>can do.</em></h2>
+    <span class="legend">section 04 · vs. the cloud expense crowd</span>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="eb-mono">Annual cost · receipt OCR</div>
+      <h2>$0/mo. <em>Forever.</em></h2>
+      <p>SaaS receipt apps charge $9&ndash;$25/mo to do less than this and keep your data hostage. LocalOCR is one docker-compose away from being yours.</p>
+      <div class="savings">
+        <span class="k">You save</span>
+        <span class="v">~$300/yr</span>
+      </div>
+      <p class="foot-note">vs. median cloud receipt app · based on 1,000 receipts/yr</p>
+    </div>
+
+    <div class="bars">
+      <div class="bar us"><span class="nm">LocalOCR</span><div class="track"><span class="fill"></span></div><span class="val">$0/mo</span></div>
+      <div class="bar them t1"><span class="nm">Smart Receipts</span><div class="track"><span class="fill"></span></div><span class="val">$5.99/mo</span></div>
+      <div class="bar them t2"><span class="nm">Expensify</span><div class="track"><span class="fill"></span></div><span class="val">$8/mo</span></div>
+      <div class="bar them t3"><span class="nm">Shoeboxed</span><div class="track"><span class="fill"></span></div><span class="val">$23/mo</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FAQ
+     ============================================================ -->
+<section class="faq sec-wrap" id="faq">
+  <div class="sec-head">
+    <h2 class="title">Questions, all resolved <em>in one place.</em></h2>
+    <span class="legend">section 05 · the short version</span>
+  </div>
+  <div class="body">
+    <div class="left">
+      <div class="eb-mono">FAQ</div>
+      <h2>Still <em>curious?</em></h2>
+      <p><a href="#cta">Ask in Discord</a> &mdash; answered by the people who wrote the code. No ticket queue, no first-line bot, no escalation theater.</p>
+    </div>
+    <div>
+      <details open>
+        <summary>Is LocalOCR secure?</summary>
+        <p>Everything runs on your hardware. The only external call is to the vision model (Gemini / OpenAI / Anthropic) you configured &mdash; and only for the OCR step. No analytics, no telemetry, no auth provider, no third-party CDN.</p>
+      </details>
+      <details>
+        <summary>Who is LocalOCR for?</summary>
+        <p>Households tracking groceries and bills, homelabbers who like clean dashboards, and small ops teams who want receipt OCR without sending images to a SaaS. If you run anything in Docker today, you can run this.</p>
+      </details>
+      <details>
+        <summary>Do you charge any hidden fees?</summary>
+        <p>None. The codebase is MIT. You pay your chosen vision API by usage (typically &lt; $0.40/mo for 1,000 receipts) or skip them entirely and run Ollama LLaVA locally for $0.</p>
+      </details>
+      <details>
+        <summary>How long does it take to set up?</summary>
+        <p>About five minutes. <code>git clone</code>, copy <code>.env.example</code> to <code>.env</code>, drop in one vision API key (or none), then <code>docker-compose up -d</code>. Done.</p>
+      </details>
+      <details>
+        <summary>Can I connect my existing receipts and bank accounts?</summary>
+        <p>Yes. Drop a folder of receipt photos to backfill. Use the Telegram bot to forward new ones. Plaid integration is optional and runs locally &mdash; your bank credentials never leave your box.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA BAND
+     ============================================================ -->
+<section class="cta-band" id="cta">
+  <div class="card">
+    <div>
+      <div class="eb">Get started</div>
+      <h2>Your household.<br>Your data. <em>Your rules.</em></h2>
+    </div>
+    <div>
+      <p class="desc">One docker-compose file. No account, no email verification, no rug-pull. Spin it up, scan a receipt, see it land in your ledger.</p>
+      <div class="row">
+        <a href="/app" class="btn-light">Sign in →</a>
+        <a href="https://github.com/" class="btn-ghost" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTNOTE / FOOTER
+     ============================================================ -->
+<div class="footnote-row">
+  <div>
+    <div class="brand-line"><span class="mark">L</span>LocalOCR</div>
+    <p class="tag">Open-source receipt OCR for households who&rsquo;d rather self-host than subscribe.</p>
+  </div>
+  <div>
+    <h5>Product</h5>
+    <ul><li><a href="#features">Features</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#">Roadmap</a></li><li><a href="#">Changelog</a></li></ul>
+  </div>
+  <div>
+    <h5>Docs</h5>
+    <ul><li><a href="#">Install</a></li><li><a href="#">API</a></li><li><a href="#">Export</a></li><li><a href="#">GitHub</a></li></ul>
+  </div>
+  <div>
+    <h5>Community</h5>
+    <ul><li><a href="#">Discord</a></li><li><a href="#">Forum</a></li><li><a href="#">Status</a></li><li><a href="#">Contact</a></li></ul>
+  </div>
+</div>
+<div class="legal-row">
+  <span>© 2026 LocalOCR contributors. MIT licensed.</span>
+  <span>No tracking · no cookies · no kidding.</span>
+</div>
+
+</body></html>

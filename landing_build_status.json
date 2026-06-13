@@ -1,0 +1,105 @@
+{
+  "project": "LocalOCR \u2014 Landing V3: CAMERA DOLLY",
+  "branch": "feat/landing-rebrand",
+  "started_at": "2026-06-09T23:59:00",
+  "updated_at": "2026-06-10T02:05:00",
+  "total_tasks": 14,
+  "tasks_done": 14,
+  "current_task": {
+    "id": "DONE",
+    "title": "V3 live at / \u2014 scroll-driven camera-dolly scene engine, 8 chapters zoom in/out of frame",
+    "phase": "V3 Verify",
+    "status": "done"
+  },
+  "phases": [
+    {
+      "name": "Recon & Design Concept",
+      "status": "done"
+    },
+    {
+      "name": "Plan",
+      "status": "done"
+    },
+    {
+      "name": "Build Landing Page (v1 receipt-punk)",
+      "status": "done"
+    },
+    {
+      "name": "Verify (done-gate)",
+      "status": "done"
+    },
+    {
+      "name": "V2 Motion Build (midnight vault)",
+      "status": "done"
+    },
+    {
+      "name": "V2 Verify",
+      "status": "done"
+    },
+    {
+      "name": "V3 Camera-Dolly Scene Engine",
+      "status": "done"
+    }
+  ],
+  "last_commit": "f238a44",
+  "last_gate_passed": "V3: scenes render, mobile 390 probe clean (bgnum bleed clipped by design), zero external assets",
+  "incidents": 2,
+  "log": [
+    {
+      "task": "T1-T7",
+      "title": "V1 RECEIPT-PUNK shipped (see git e69bfa7..e3b5359), preserved as landing-f-receiptpunk.html",
+      "commit": "e3b5359",
+      "gate": "passed",
+      "timestamp": "2026-06-10T00:48:00"
+    },
+    {
+      "task": "T8",
+      "title": "V2 vendored: Instrument Serif (+italic), Albert Sans, Spline Sans Mono latin woff2 + Motion 11 UMD \u2014 all self-hosted",
+      "commit": "95cd262",
+      "gate": "passed",
+      "timestamp": "2026-06-10T01:00:00"
+    },
+    {
+      "task": "T9",
+      "title": "V2 hero: vault-door rings + scan beam, word-stagger serif headline, scroll progress hairline, custom gold cursor",
+      "commit": "675fb88",
+      "gate": "passed",
+      "timestamp": "2026-06-10T01:05:00"
+    },
+    {
+      "task": "T10",
+      "title": "V2 scenes: scroll-drawn journey rail w/ 3 stations, count-up metrics, feature grid, pipeline pulse",
+      "commit": "675fb88",
+      "gate": "passed",
+      "timestamp": "2026-06-10T01:08:00"
+    },
+    {
+      "task": "T11",
+      "title": "V2: typing terminal install, Motion-animated FAQ accordion, finale, footer",
+      "commit": "675fb88",
+      "gate": "passed",
+      "timestamp": "2026-06-10T01:10:00"
+    },
+    {
+      "task": "T12",
+      "title": "Incident I-LANDING-2: headless Chrome clamps window width to 500 \u2014 phantom mobile overflow. Real fixes en route: grain inset, glow, terminal URL wrap. Mobile verified via iframe probe. RULE 23 locked",
+      "commit": "1e9a43f",
+      "gate": "passed",
+      "timestamp": "2026-06-10T01:22:00"
+    },
+    {
+      "task": "T13",
+      "title": "V3 scene engine: per-scene scroll progress drives camera dolly \u2014 enter from depth (scale .7\u21921 + defocus), full-frame lock, fly-through exit (scale\u21921.5 + blur). Chapter counter, progress dots, snap scrolling, parallax art + backdrop numerals",
+      "commit": "f238a44",
+      "gate": "passed",
+      "timestamp": "2026-06-10T02:03:00"
+    },
+    {
+      "task": "T14",
+      "title": "V3 verified: desktop full render, iframe 390 probe scrollW=390, swapped to index.html; v2 vault preserved as landing-g-vault.html",
+      "commit": "f238a44",
+      "gate": "passed",
+      "timestamp": "2026-06-10T02:05:00"
+    }
+  ]
+}
