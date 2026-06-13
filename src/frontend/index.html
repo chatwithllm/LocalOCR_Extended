@@ -8060,6 +8060,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         upload: "Upload Receipt",
         receipts: "Receipts",
       };
+      // Shopping tab mode: 'shop' (check-off) | 'plan' (entry). In-memory only —
+      // every fresh load re-applies the smart default (see applyShoppingSmartDefault).
+      let shoppingMode = "shop";
+      let shoppingModeUserSet = false; // true once the user taps the segmented control
+
       let shoppingListView = (() => {
         try {
           const stored = localStorage.getItem("shopping_list_view");
@@ -10183,6 +10188,30 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         } catch (_error) {}
         updateShoppingListViewPills();
         renderShoppingListTable();
+      }
+
+      function setShoppingMode(mode, fromUser = false) {
+        shoppingMode = mode === "plan" ? "plan" : "shop";
+        if (fromUser) shoppingModeUserSet = true;
+        const shopPane = document.getElementById("shopping-pane-shop");
+        const planPane = document.getElementById("shopping-pane-plan");
+        if (shopPane) shopPane.hidden = shoppingMode !== "shop";
+        if (planPane) planPane.hidden = shoppingMode !== "plan";
+        const shopBtn = document.getElementById("shopping-mode-shop");
+        const planBtn = document.getElementById("shopping-mode-plan");
+        shopBtn?.classList.toggle("is-active", shoppingMode === "shop");
+        planBtn?.classList.toggle("is-active", shoppingMode === "plan");
+        shopBtn?.setAttribute("aria-selected", shoppingMode === "shop" ? "true" : "false");
+        planBtn?.setAttribute("aria-selected", shoppingMode === "plan" ? "true" : "false");
+      }
+
+      function applyShoppingSmartDefault(openCount) {
+        // Only choose automatically until the user makes an explicit choice this session.
+        if (shoppingModeUserSet) {
+          setShoppingMode(shoppingMode);
+          return;
+        }
+        setShoppingMode(Number(openCount) > 0 ? "shop" : "plan");
       }
 
       function updateShoppingListViewPills() {
@@ -29716,6 +29745,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         renderShoppingSessionBanner(data);
         renderShoppingListTable();
         renderShoppingQuickResults();
+        applyShoppingSmartDefault(data.open_count ?? 0);
       }
 
       function renderShoppingSessionBanner(data) {
