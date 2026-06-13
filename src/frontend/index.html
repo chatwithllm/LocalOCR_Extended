@@ -10315,13 +10315,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           "current-list": "shopping-current-list-body",
         };
         const toggleMap = {
-          "quick-find": "shopping-quick-toggle",
-          recommendations: "shopping-recommendations-toggle",
           "current-list": "shopping-current-list-toggle",
-        };
-        const headerToggleMap = {
-          "quick-find": "shopping-quick-header-toggle",
-          recommendations: "shopping-recommendations-toggle",
         };
         const summaryToggleMap = {
           recommendations: "shopping-recommendations-summary",
@@ -10334,9 +10328,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const collapsed = isShoppingSectionCollapsed(sectionKey);
         const body = document.getElementById(bodyMap[sectionKey]);
         const toggle = document.getElementById(toggleMap[sectionKey]);
-        const headerToggle = document.getElementById(
-          headerToggleMap[sectionKey],
-        );
         const summaryToggle = document.getElementById(
           summaryToggleMap[sectionKey],
         );
@@ -10350,24 +10341,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           sectionKey !== "current-list"
         )
           toggle.textContent = collapsed ? "Expand" : "Collapse";
-        if (headerToggle && sectionKey === "quick-find") {
-          headerToggle.setAttribute(
-            "aria-label",
-            collapsed ? "Show Quick Find" : "Hide Quick Find",
-          );
-          headerToggle.classList.toggle("btn-primary", !collapsed);
-          headerToggle.classList.toggle("btn-ghost", collapsed);
-        }
-        if (headerToggle && sectionKey === "recommendations") {
-          headerToggle.setAttribute(
-            "aria-label",
-            collapsed
-              ? "Show shopping recommendations"
-              : "Hide shopping recommendations",
-          );
-          headerToggle.classList.toggle("btn-primary", !collapsed);
-          headerToggle.classList.toggle("btn-ghost", collapsed);
-        }
         if (summaryToggle && sectionKey === "recommendations") {
           summaryToggle.setAttribute(
             "aria-label",
@@ -37169,12 +37142,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       async function loadRecs(targetId = "shopping-recs-body") {
         const res = await api("/recommendations");
         const body = document.getElementById(targetId);
-        const countEl =
-          targetId === "shopping-recs-body"
-            ? document.querySelector(
-                "#shopping-recommendations-toggle .shopping-header-chip-count",
-              )
-            : null;
         const summaryCountEl =
           targetId === "shopping-recs-body"
             ? document.getElementById("shopping-recommendations-summary-count")
@@ -37187,7 +37154,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!res.ok) {
           body.innerHTML =
             '<div class="empty-state"><p>Could not load recommendations.</p></div>';
-          if (countEl) countEl.textContent = "0";
           if (summaryCountEl) summaryCountEl.textContent = "0";
           if (recsCard) recsCard.style.display = "none";
           return;
@@ -37200,7 +37166,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const list = (data.recommendations || []).filter(
           (r) => !r.in_shopping_list,
         );
-        if (countEl) countEl.textContent = String(list.length);
         if (summaryCountEl) summaryCountEl.textContent = String(list.length);
         if (recsCard) recsCard.style.display = list.length ? "" : "none";
         const compactShopping = targetId === "shopping-recs-body";
