@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline — LocalOCR</title>
+<meta name="theme-color" content="#070b14">
+<style>
+  /* Fully self-contained: no external assets, so it renders with zero network. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: #070b14; color: #e9eef7;
+    font: 400 17px/1.6 'Albert Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    display: grid; place-items: center; text-align: center; padding: 32px;
+    background-image:
+      radial-gradient(900px 600px at 70% -10%, rgba(217,179,106,.08), transparent 60%),
+      radial-gradient(700px 600px at 10% 110%, rgba(38,68,120,.18), transparent 60%);
+  }
+  .dial { width: 64px; height: 64px; margin: 0 auto 28px; }
+  h1 {
+    font-family: 'Instrument Serif', 'New York', Georgia, serif;
+    font-weight: 400; font-size: clamp(32px, 7vw, 48px); line-height: 1.1; margin-bottom: 14px;
+  }
+  h1 em { font-style: italic; color: #f0cd86; }
+  p { color: #94a0b8; max-width: 42ch; margin: 0 auto 30px; }
+  button {
+    font: 600 15px/1 'Albert Sans', sans-serif; cursor: pointer;
+    color: #070b14; background: #d9b36a; border: 0;
+    padding: 14px 26px; border-radius: 999px; transition: background .2s;
+  }
+  button:hover { background: #f0cd86; }
+  .hint { margin-top: 22px; font-size: 12px; letter-spacing: .12em; color: #5b6a8a; text-transform: uppercase; }
+</style>
+</head>
+<body>
+  <div>
+    <svg class="dial" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="50" cy="50" r="28" fill="none" stroke="#d9b36a" stroke-width="6"/>
+      <circle cx="50" cy="50" r="11" fill="#d9b36a"/>
+    </svg>
+    <h1>You're <em>offline.</em></h1>
+    <p>LocalOCR lives on your hardware — but this page needs the connection back to reach it. Reconnect and try again.</p>
+    <button onclick="location.reload()">Retry</button>
+    <div class="hint">Your data never left your box</div>
+  </div>
+</body>
+</html>

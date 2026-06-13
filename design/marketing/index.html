@@ -9,6 +9,27 @@
 <meta property="og:description" content="Self-hosted receipt intelligence. Everything stays on your hardware.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070b14'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23d9b36a' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23d9b36a'/%3E%3C/svg%3E">
+<!-- PWA: install + platform chrome -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#070b14">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LocalOCR">
+<script>
+  /* PWA push configuration — values only, no secrets.
+   * vapidPublicKey is SAFE to expose (it is the public half). Generate a pair
+   * with the example server: `npx web-push generate-vapid-keys`, then paste the
+   * PUBLIC key below. The PRIVATE key must live ONLY in the example server's
+   * environment variable — never here, never in the repo.
+   * saveSubscriptionEndpoint points at the example Node server, because a
+   * static site cannot deliver pushes itself. */
+  window.PWA_PUSH_CONFIG = {
+    vapidPublicKey: '',
+    saveSubscriptionEndpoint: 'http://localhost:4000/save-subscription'
+  };
+</script>
 <script>
   (function () {
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -635,6 +656,135 @@ h1 .w { display:inline-block; white-space:pre; }
       }, 13);
     })();
   }, { amount: 0.5 });
+})();
+</script>
+
+<!-- PWA: service worker registration + update prompt -->
+<script>
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js').then(function (reg) {
+      // A worker is already waiting (e.g. second visit after a deploy).
+      if (reg.waiting) showUpdatePrompt(reg);
+      // A new worker is installing — watch it reach "installed" while an
+      // old controller is still live, which means an update is ready.
+      reg.addEventListener('updatefound', function () {
+        var nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', function () {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdatePrompt(reg);
+          }
+        });
+      });
+    }).catch(function (err) {
+      console.warn('SW registration failed:', err);
+    });
+
+    // When the new worker takes over, reload once to show fresh content.
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  });
+
+  function showUpdatePrompt(reg) {
+    if (document.getElementById('pwa-update')) return;
+    var bar = document.createElement('div');
+    bar.id = 'pwa-update';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText =
+      'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:9999;' +
+      'display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:999px;' +
+      'background:#111a2e;color:#e9eef7;border:1px solid rgba(217,179,106,.32);' +
+      'box-shadow:0 12px 40px rgba(0,0,0,.5);font:600 14px/1 ' +
+      "'Albert Sans',-apple-system,Helvetica,Arial,sans-serif;max-width:calc(100vw - 32px);";
+    var msg = document.createElement('span');
+    msg.textContent = 'Update available';
+    var btn = document.createElement('button');
+    btn.textContent = 'Reload';
+    btn.style.cssText =
+      'cursor:pointer;border:0;border-radius:999px;padding:8px 16px;' +
+      'background:#d9b36a;color:#070b14;font:600 14px/1 inherit;';
+    btn.onclick = function () {
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      else window.location.reload();
+    };
+    bar.appendChild(msg);
+    bar.appendChild(btn);
+    document.body.appendChild(bar);
+  }
+})();
+</script>
+
+<!-- PWA: push opt-in (permission requested ONLY on the button click below) -->
+<script>
+(function () {
+  var cfg = window.PWA_PUSH_CONFIG || {};
+  // Bail silently if the platform can't do web push at all.
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  // Only offer the opt-in when permission hasn't been decided yet.
+  if (Notification.permission !== 'default') return;
+
+  window.addEventListener('load', function () {
+    var btn = document.createElement('button');
+    btn.id = 'pwa-enable-push';
+    btn.type = 'button';
+    btn.textContent = 'Enable notifications';
+    btn.style.cssText =
+      'position:fixed;left:20px;bottom:20px;z-index:9998;cursor:pointer;' +
+      'padding:11px 18px;border-radius:999px;background:transparent;color:#e9eef7;' +
+      'border:1px solid rgba(217,179,106,.5);' +
+      "font:600 13px/1 'Albert Sans',-apple-system,Helvetica,Arial,sans-serif;" +
+      'box-shadow:0 8px 28px rgba(0,0,0,.4);transition:border-color .2s,color .2s;';
+    btn.addEventListener('mouseenter', function () { btn.style.color = '#f0cd86'; btn.style.borderColor = '#d9b36a'; });
+    btn.addEventListener('mouseleave', function () { btn.style.color = '#e9eef7'; btn.style.borderColor = 'rgba(217,179,106,.5)'; });
+
+    btn.addEventListener('click', function () {
+      // Permission is requested here — on a real user gesture, never on load.
+      Notification.requestPermission().then(function (permission) {
+        if (permission !== 'granted') { btn.remove(); return; }
+        if (!cfg.vapidPublicKey) {
+          console.warn('[push] PWA_PUSH_CONFIG.vapidPublicKey is empty — set it to subscribe.');
+          btn.textContent = 'Notifications not configured';
+          btn.disabled = true;
+          return;
+        }
+        navigator.serviceWorker.ready.then(function (reg) {
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(cfg.vapidPublicKey)
+          });
+        }).then(function (subscription) {
+          return fetch(cfg.saveSubscriptionEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+          });
+        }).then(function () {
+          btn.remove();
+        }).catch(function (err) {
+          console.error('[push] subscription failed:', err);
+          btn.textContent = 'Could not enable';
+        });
+      });
+    });
+
+    document.body.appendChild(btn);
+  });
+
+  // VAPID public key (base64url) → Uint8Array, as PushManager requires.
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var output = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; ++i) output[i] = raw.charCodeAt(i);
+    return output;
+  }
 })();
 </script>
 </body>
