@@ -10206,10 +10206,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function applyShoppingSmartDefault(openCount) {
-        // Only choose automatically until the user makes an explicit choice this
-        // session; once they have, the DOM already reflects it — leave it alone.
+        // Smart default applies once per page load. After the first pick, lock it
+        // for the session so later loadShoppingList() calls (check-off, edits,
+        // refreshes) can't flip the mode mid-trip — e.g. checking off the last
+        // open item must NOT yank an in-store user from Shop into Plan. The flag
+        // is in-memory, so a fresh page load re-derives the default as intended.
         if (shoppingModeUserSet) return;
         setShoppingMode(Number(openCount) > 0 ? "shop" : "plan");
+        shoppingModeUserSet = true;
       }
 
       function updateShoppingListViewPills() {
