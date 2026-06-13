@@ -1,0 +1,16 @@
+{
+  "name": "localocr-push-server-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal example Web Push server for LocalOCR (NOT part of the static site).",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "generate-vapid": "web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "web-push": "^3.6.7"
+  }
+}

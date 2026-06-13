@@ -202,6 +202,45 @@ def register_error_handlers(app):
         )
         return send_from_directory(design_dir, filename)
 
+    # -- PWA root assets ----------------------------------------------------
+    # A service worker can only control URLs at or below its own path, so the
+    # manifest, worker, offline page and icons must be reachable from the site
+    # root for scope "/" to cover the landing page. These additive routes map
+    # those specific filenames to the repo root. Additive only — no existing
+    # route or behaviour changes.
+    _PWA_ROOT_FILES = {
+        "sw.js": "application/javascript",
+        "manifest.webmanifest": "application/manifest+json",
+        "offline.html": "text/html",
+        "icon-192.png": "image/png",
+        "icon-512.png": "image/png",
+        "icon-512-maskable.png": "image/png",
+        "apple-touch-icon.png": "image/png",
+    }
+
+    def _serve_pwa_root(pwa_filename):
+        """Serve a whitelisted PWA asset from the repository root."""
+        import os
+        repo_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(__file__))
+        )
+        response = send_from_directory(
+            repo_root, pwa_filename, mimetype=_PWA_ROOT_FILES[pwa_filename]
+        )
+        if pwa_filename == "sw.js":
+            # Allow the worker to claim the whole origin and never be
+            # itself served from a stale cache.
+            response.headers["Service-Worker-Allowed"] = "/"
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+    for _pwa_name in _PWA_ROOT_FILES:
+        app.add_url_rule(
+            f"/{_pwa_name}",
+            f"serve_pwa_{_pwa_name.replace('.', '_').replace('-', '_')}",
+            lambda pwa_filename=_pwa_name: _serve_pwa_root(pwa_filename),
+        )
+
     @app.errorhandler(500)
     def internal_error(e):
         logger.error(f"Internal server error: {e}")
