@@ -2089,35 +2089,65 @@ def _fetch_google_user_info(access_token: str) -> dict:
     return resp.json()
 
 
+def _google_email_is_verified(google_info: dict) -> bool:
+    """Whether Google asserts the account's email is verified.
+
+    Google's userinfo / id_token returns ``email_verified`` as a JSON boolean,
+    but defensively accept the stringified form too. A MISSING field is treated
+    as NOT verified — we fail closed, because linking an unverified Google email
+    to an existing local account is the account-takeover vector.
+    """
+    v = google_info.get("email_verified")
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in {"true", "1", "yes"}
+
+
 def _find_or_create_oauth_user(
     session,
     google_info: dict,
     invite_token: str | None,
-) -> User | None:
+) -> tuple[User | None, str | None]:
     """Resolve the User for a Google OAuth login.
+
+    Returns ``(user, error_code)``. On success ``(user, None)``; on rejection
+    ``(None, code)`` where ``code`` lets the caller surface a precise reason
+    instead of silently failing.
 
     Resolution order:
       A. Existing user with matching google_sub  → log in directly
       B. Existing user with matching email        → link google_sub
+                                                     (ONLY if email verified)
       C. New user with a valid pending invite     → create + claim invite
-      D. None                                     → reject (403)
+                                                     (ONLY if email verified)
+      D. None                                     → reject
+
+    SECURITY: Paths B and C key off the Google-provided email. Google only
+    proves you control that mailbox when ``email_verified`` is true (e.g. a
+    Workspace admin can set an arbitrary unverified primary email). Linking or
+    creating on an UNVERIFIED email would let an attacker take over an existing
+    account by registering a Google profile with the victim's address — so we
+    refuse and surface it rather than link. Path A is exempt: a matching
+    ``google_sub`` proves the link was already established on a prior verified
+    login.
     """
     google_sub = str(google_info.get("sub") or "").strip()
     google_email = str(google_info.get("email") or "").strip().lower()
     google_name = str(google_info.get("name") or "").strip()
+    email_verified = _google_email_is_verified(google_info)
 
     if not google_sub or not google_email:
         logger.warning("Google OAuth: missing sub or email in userinfo response")
-        return None
+        return None, "invalid_userinfo"
 
-    # Path A — already linked
+    # Path A — already linked (google_sub proven on a prior verified login)
     user = session.query(User).filter(
         User.google_sub == google_sub,
         User.is_active.is_(True),
     ).first()
     if user:
         user.google_email = google_email
-        return user
+        return user, None
 
     # Path B — same email, link google_sub (case-insensitive match
     # so Google-provided casing doesn't miss existing accounts).
@@ -2126,10 +2156,17 @@ def _find_or_create_oauth_user(
         User.is_active.is_(True),
     ).first()
     if user:
+        if not email_verified:
+            # Surface, never silently link — account-takeover guard.
+            logger.warning(
+                "Google OAuth: REFUSED link to existing account %s — Google email "
+                "is not verified (possible takeover attempt)", google_email,
+            )
+            return None, "email_unverified"
         user.google_sub = google_sub
         user.google_email = google_email
         logger.info("Google OAuth: linked google_sub to existing user %s", google_email)
-        return user
+        return user, None
 
     # Path C — new user via invite
     if invite_token:
@@ -2143,7 +2180,13 @@ def _find_or_create_oauth_user(
                     "Google OAuth: invite email (%s) does not match Google email (%s)",
                     invited_email, google_email,
                 )
-                return None
+                return None, "invite_email_mismatch"
+            if not email_verified:
+                logger.warning(
+                    "Google OAuth: REFUSED invite signup for %s — Google email "
+                    "is not verified", google_email,
+                )
+                return None, "email_unverified"
             role = (meta.get("role") or "user").strip().lower()
             if role not in {"admin", "user"}:
                 role = "user"
@@ -2161,10 +2204,10 @@ def _find_or_create_oauth_user(
             link.used_at = datetime.now(timezone.utc)
             session.flush()
             logger.info("Google OAuth: new user created via invite for %s", google_email)
-            return new_user
+            return new_user, None
 
     # Path D — no match
-    return None
+    return None, "no_match"
 
 
 # ---------------------------------------------------------------------------
@@ -2410,6 +2453,16 @@ def google_oauth_callback():
         google_sub = str(google_info.get("sub") or "").strip()
         google_email_val = str(google_info.get("email") or "").strip().lower()
 
+        # Require a verified Google email before binding it to an account —
+        # consistent with the email-match link path; never link an unverified
+        # address (surface, don't silently link).
+        if not _google_email_is_verified(google_info):
+            logger.warning(
+                "Google OAuth: REFUSED link for user %s — Google email not verified",
+                target_user.email,
+            )
+            return redirect("/?oauth_error=email_unverified")
+
         # Ensure this google_sub isn't already claimed by another user
         existing_owner = db_session.query(User).filter(
             User.google_sub == google_sub,
@@ -2426,11 +2479,22 @@ def google_oauth_callback():
 
     # Resolve or create user (normal login / invite flow)
     db_session = g.db_session
-    user = _find_or_create_oauth_user(db_session, google_info, invite_token)
+    user, reason = _find_or_create_oauth_user(db_session, google_info, invite_token)
     if not user:
         google_email = (google_info.get("email") or "").lower()
-        logger.warning("Google OAuth: no matching user or invite for %s", google_email)
-        return redirect("/?oauth_error=no_invite")
+        # Surface the precise reason so the UI can ask / explain instead of a
+        # generic failure — unverified or ambiguous matches are never linked.
+        error_map = {
+            "email_unverified": "email_unverified",
+            "invite_email_mismatch": "invite_mismatch",
+            "invalid_userinfo": "userinfo_failed",
+            "no_match": "no_invite",
+        }
+        code = error_map.get(reason or "no_match", "no_invite")
+        logger.warning(
+            "Google OAuth: login rejected for %s (reason=%s)", google_email, reason
+        )
+        return redirect(f"/?oauth_error={code}")
 
     db_session.commit()
     _set_browser_session(user)
