@@ -1615,6 +1615,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
   margin-bottom: 12px;
 }
 .shopping-add-bar input.shopping-add-search { flex: 1; min-width: 0; }
+/* Quick Find results sit directly under the add bar in Plan mode */
+.shopping-quick-results { margin-bottom: 12px; }
     </style>
   </head>
 
@@ -3284,7 +3286,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             ></div>
           </div>
           <div class="shopping-mode-pane" id="shopping-pane-plan" hidden>
-            <div class="shopping-add-bar">
+            <div class="shopping-add-bar" id="shopping-add-bar">
               <input id="shop-quick-search" class="shopping-add-search"
                      placeholder="🔍 Add item…"
                      onfocus="handleShoppingQuickFindFocus()"
@@ -3294,6 +3296,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               <select id="shop-preferred-store" class="shopping-quick-store"></select>
               <button type="button" class="btn btn-ghost btn-sm" aria-label="Add item manually" onclick="toggleManualShoppingForm()">＋</button>
               <button type="button" class="btn btn-ghost btn-sm" aria-label="Identify item from photo" onclick="triggerShopIdentifyPhoto()">📷</button>
+            </div>
+            <div id="shop-quick-results" class="shopping-quick-results">
+              <div class="empty-state">
+                <p>Search for a product to add, mark low, or mark bought.</p>
+              </div>
             </div>
             <div id="shopping-helper-intro"></div>
             <div class="card" id="shop-manual-card" style="display: none">
@@ -3377,18 +3384,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <button class="btn btn-primary" onclick="createShoppingItem()">
                   ➕ Add to Shopping List
                 </button>
-              </div>
-            </div>
-            <div class="card" id="shopping-quick-find-card">
-              <div class="card-header">
-                <span class="card-title">Quick Find</span>
-              </div>
-              <div id="shopping-quick-find-body">
-                <div id="shop-quick-results">
-                  <div class="empty-state">
-                    <p>Search for a product to add, mark low, or mark bought.</p>
-                  </div>
-                </div>
               </div>
             </div>
             <div class="card" id="shopping-recommendations-card">
@@ -9746,7 +9741,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const statsRow = document.getElementById("shopping-stats-row");
         if (statsRow) statsRow.remove();
         document
-          .getElementById("shopping-quick-find-card")
+          .getElementById("shopping-add-bar")
+          ?.style.setProperty("display", "none");
+        document
+          .getElementById("shop-quick-results")
           ?.style.setProperty("display", "none");
         document
           .getElementById("shopping-recommendations-card")
@@ -10314,7 +10312,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       function updateShoppingSectionVisibility(sectionKey) {
         const bodyMap = {
-          "quick-find": "shopping-quick-find-body",
           recommendations: "shopping-recommendations-body",
           "current-list": "shopping-current-list-body",
         };
@@ -10325,7 +10322,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           recommendations: "shopping-recommendations-summary",
         };
         const cardMap = {
-          "quick-find": "shopping-quick-find-card",
           recommendations: "shopping-recommendations-card",
           "current-list": "shopping-current-list-card",
         };
