@@ -3,7 +3,7 @@
 
 'use strict';
 
-const CACHE_VERSION = 'localocr-v1';
+const CACHE_VERSION = 'localocr-v2';
 const OFFLINE_URL = '/offline.html';
 
 /* Explicit app-shell precache list for the landing page at "/".
@@ -12,6 +12,7 @@ const OFFLINE_URL = '/offline.html';
  * CACHE_VERSION above. */
 const APP_SHELL = [
   '/',
+  '/app',
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/icon-192.png',

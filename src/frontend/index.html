@@ -4,6 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🛒 Grocery Manager</title>
+    <!-- PWA: install + platform chrome (makes the app itself installable/offline) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#070b14" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Grocery Manager" />
+    <script>
+      // PWA: register the app service worker for installability + offline shell.
+      (function () {
+        if (!("serviceWorker" in navigator)) return;
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .catch(function (err) {
+              console.warn("SW registration failed:", err);
+            });
+          var refreshing = false;
+          navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            function () {
+              if (refreshing) return;
+              refreshing = true;
+              window.location.reload();
+            },
+          );
+        });
+      })();
+    </script>
     <script>
       // Pre-paint theme setter. Reads localStorage / prefers-color-scheme
       // before stylesheets load so the first painted frame lands on the
@@ -1558,6 +1587,74 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .contacts-card__meta { font-size: 0.8rem; color: var(--muted, #aaa); margin-top: 2px; }
 .contacts-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 @media (max-width: 640px) { .contacts-add-form { grid-template-columns: 1fr; } }
+/* --- Shopping tab: Plan/Shop segmented modes --- */
+.shopping-mode-switch {
+  display: flex;
+  border: 1px solid var(--border, #3a3a3c);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0 12px;
+}
+.shopping-mode-switch button {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted, #8b949e);
+  cursor: pointer;
+}
+.shopping-mode-switch button.is-active {
+  background: var(--accent, #0a84ff);
+  color: var(--color-brand-contrast, #fff);
+  font-weight: 600;
+}
+/* slim stats chips (replace big pills) */
+.shopping-stats-slim {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.shopping-stats-slim .chip {
+  border: 1px solid var(--border, #3a3a3c);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--muted, #8b949e);
+  background: transparent;
+  cursor: default;
+}
+.shopping-stats-slim button.chip { cursor: pointer; }
+.shopping-stats-slim button.chip.is-active {
+  border-color: var(--accent, #0a84ff);
+  color: var(--accent, #0a84ff);
+}
+/* mode containers */
+.shopping-mode-pane[hidden] { display: none !important; }
+/* unified add bar (Plan mode) */
+.shopping-add-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--border, #3a3a3c);
+  border-radius: 8px;
+  padding: 6px;
+  margin-bottom: 12px;
+}
+.shopping-add-bar input.shopping-add-search { flex: 1; min-width: 0; }
+/* Quick Find results sit directly under the add bar in Plan mode */
+.shopping-quick-results { margin-bottom: 12px; }
+.shopping-quick-row-top { display: flex; align-items: center; gap: 10px; }
+.shopping-quick-thumb {
+  width: 44px; height: 44px; flex: 0 0 44px;
+  object-fit: cover; border-radius: 8px;
+  border: 1px solid var(--border, #3a3a3c);
+  background: var(--surface2, #1c1c1e);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+}
     </style>
   </head>
 
@@ -3201,221 +3298,164 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <h1>Shopping List</h1>
                 <p>Track what you plan to buy next</p>
               </div>
-              <div class="shopping-page-actions">
+            </div>
+          </div>
+          <div class="shopping-mode-switch" id="shopping-mode-switch"
+               role="tablist" aria-label="Shopping mode">
+            <button type="button" id="shopping-mode-shop" class="is-active"
+                    role="tab" aria-selected="true" aria-controls="shopping-pane-shop"
+                    onclick="setShoppingMode('shop', true)">🛒 Shop</button>
+            <button type="button" id="shopping-mode-plan"
+                    role="tab" aria-selected="false" aria-controls="shopping-pane-plan"
+                    onclick="setShoppingMode('plan', true)">✏ Plan</button>
+          </div>
+          <div class="shopping-mode-pane" id="shopping-pane-shop">
+            <div class="shopping-stats-slim" id="shopping-stats-row">
+              <button type="button" class="chip" id="shopping-pill-open"
+                      onclick="setShoppingListView('open')">Open <span id="shop-open-count-main">0</span></button>
+              <span class="chip" id="shopping-pill-estimate">Est <span id="shop-estimated-total-main">$0.00</span></span>
+              <button type="button" class="chip" id="shopping-pill-purchased"
+                      onclick="setShoppingListView('purchased')">Done <span id="shop-purchased-count-main">0</span></button>
+            </div>
+            <div
+              id="shopping-session-banner"
+              class="card"
+              style="display: none; margin-bottom: 12px"
+            ></div>
+          </div>
+          <div class="shopping-mode-pane" id="shopping-pane-plan" hidden>
+            <div class="shopping-add-bar" id="shopping-add-bar">
+              <input id="shop-quick-search" class="shopping-add-search"
+                     placeholder="🔍 Add item…"
+                     onfocus="handleShoppingQuickFindFocus()"
+                     onblur="handleShoppingQuickFindBlur()"
+                     oninput="searchShoppingQuickFind()"
+                     onkeydown="handleShoppingQuickFindKey(event)" />
+              <select id="shop-preferred-store" class="shopping-quick-store"></select>
+              <button type="button" class="btn btn-ghost btn-sm" aria-label="Add item manually" onclick="toggleManualShoppingForm()">＋</button>
+              <button type="button" class="btn btn-ghost btn-sm" aria-label="Identify item from photo" onclick="triggerShopIdentifyPhoto()">📷</button>
+            </div>
+            <div id="shop-quick-results" class="shopping-quick-results">
+              <div class="empty-state">
+                <p>Search for a product to add, mark low, or mark bought.</p>
+              </div>
+            </div>
+            <div id="shopping-helper-intro"></div>
+            <div class="card" id="shop-manual-card" style="display: none">
+              <div class="card-header">
+                <span class="card-title">Add Item Manually</span>
                 <button
                   type="button"
                   class="btn btn-ghost btn-sm"
-                  id="shopping-quick-header-toggle"
-                  onclick="toggleShoppingSection('quick-find')"
-                  aria-label="Toggle Quick Find"
+                  onclick="toggleManualShoppingForm(false)"
                 >
-                  🔍
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm shopping-header-chip"
-                  id="shopping-recommendations-toggle"
-                  onclick="toggleShoppingSection('recommendations')"
-                  aria-label="Toggle shopping recommendations"
-                >
-                  <span>✨</span
-                  ><span class="shopping-header-chip-count">0</span>
+                  Hide
                 </button>
               </div>
-            </div>
-          </div>
-          <div id="shopping-helper-intro"></div>
-          <div
-            id="shopping-session-banner"
-            class="card"
-            style="display: none; margin-bottom: 12px"
-          ></div>
-          <div class="shopping-summary-strip" id="shopping-stats-row">
-            <button
-              type="button"
-              class="shopping-summary-pill shopping-summary-pill-open"
-              id="shopping-pill-open"
-              onclick="setShoppingListView('open')"
-              aria-label="Show open shopping items"
-            >
-              <div class="value accent">
-                Open <span id="shop-open-count-main">0</span>
-              </div>
-            </button>
-            <div class="shopping-summary-pill shopping-summary-pill-estimated">
-              <div class="value">
-                Estimate <span id="shop-estimated-total-main">$0.00</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="shopping-summary-pill shopping-summary-pill-purchased"
-              id="shopping-pill-purchased"
-              onclick="setShoppingListView('purchased')"
-              aria-label="Show closed shopping items"
-            >
-              <div class="value success">
-                Close <span id="shop-purchased-count-main">0</span>
-              </div>
-            </button>
-          </div>
-          <div class="card" id="shop-manual-card" style="display: none">
-            <div class="card-header">
-              <span class="card-title">Add Item Manually</span>
-              <button
-                type="button"
-                class="btn btn-ghost btn-sm"
-                onclick="toggleManualShoppingForm(false)"
-              >
-                Hide
-              </button>
-            </div>
-            <div id="shop-identify-row" class="shop-identify-row">
-              <button
-                type="button"
-                class="btn btn-secondary btn-sm shop-identify-btn"
-                onclick="triggerShopIdentifyPhoto()"
-                id="shop-identify-btn"
-              >
-                <span class="shop-identify-btn__icon">📷</span>
-                <span class="shop-identify-btn__label"
-                  >Identify from Photo</span
-                >
-              </button>
-              <input
-                type="file"
-                id="shop-identify-input"
-                accept="image/*"
-                capture="environment"
-                style="display: none"
-                onchange="handleShopIdentifyPhoto(event)"
-              />
-              <span id="shop-identify-status" class="shop-identify-status"></span>
-              <img
-                id="shop-identify-preview"
-                class="shop-identify-preview"
-                alt=""
-                style="display: none"
-              />
-            </div>
-            <div class="form-grid">
-              <div class="form-group">
-                <label>Name</label
-                ><input id="shop-name" placeholder="e.g. Milk" />
-              </div>
-              <div class="form-group">
-                <label>Category</label
-                ><select id="shop-category"></select>
-              </div>
-              <div class="form-group">
-                <label>Preferred Store</label
-                ><select id="shop-manual-store"></select>
-              </div>
-              <div class="form-group">
-                <label>Estimate Price</label
-                ><input
-                  id="shop-manual-price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="optional"
-                />
-              </div>
-              <div class="form-group">
-                <label>Quantity</label
-                ><input
-                  id="shop-qty"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value="1"
-                />
-              </div>
-              <div class="form-group">
-                <label>Note</label
-                ><input id="shop-note" placeholder="optional note" />
-              </div>
-            </div>
-            <div style="margin-top: 16px">
-              <button class="btn btn-primary" onclick="createShoppingItem()">
-                ➕ Add to Shopping List
-              </button>
-            </div>
-          </div>
-          <div class="card" id="shopping-quick-find-card">
-            <div class="card-header">
-              <span class="card-title">Quick Find</span>
-              <div class="shopping-quick-toolbar">
+              <div id="shop-identify-row" class="shop-identify-row">
                 <button
                   type="button"
-                  class="btn btn-ghost btn-sm"
-                  id="shopping-quick-toggle"
-                  onclick="toggleShoppingSection('quick-find')"
+                  class="btn btn-secondary btn-sm shop-identify-btn"
+                  onclick="triggerShopIdentifyPhoto()"
+                  id="shop-identify-btn"
                 >
-                  Collapse
+                  <span class="shop-identify-btn__icon">📷</span>
+                  <span class="shop-identify-btn__label"
+                    >Identify from Photo</span
+                  >
                 </button>
                 <input
-                  id="shop-quick-search"
-                  class="shopping-quick-search"
-                  placeholder="Find products to add..."
-                  onfocus="handleShoppingQuickFindFocus()"
-                  onblur="handleShoppingQuickFindBlur()"
-                  oninput="searchShoppingQuickFind()"
-                  onkeydown="handleShoppingQuickFindKey(event)"
+                  type="file"
+                  id="shop-identify-input"
+                  accept="image/*"
+                  capture="environment"
+                  style="display: none"
+                  onchange="handleShopIdentifyPhoto(event)"
                 />
-                <select
-                  id="shop-preferred-store"
-                  class="shopping-quick-store"
-                ></select>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  id="shop-manual-toggle"
-                  onclick="toggleManualShoppingForm()"
-                >
-                  Add Manually
-                </button>
+                <span id="shop-identify-status" class="shop-identify-status"></span>
+                <img
+                  id="shop-identify-preview"
+                  class="shop-identify-preview"
+                  alt=""
+                  style="display: none"
+                />
               </div>
-            </div>
-            <div id="shopping-quick-find-body">
-              <div id="shop-quick-results">
-                <div class="empty-state">
-                  <p>Search for a product to add, mark low, or mark bought.</p>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Name</label
+                  ><input id="shop-name" placeholder="e.g. Milk" />
+                </div>
+                <div class="form-group">
+                  <label>Category</label
+                  ><select id="shop-category"></select>
+                </div>
+                <div class="form-group">
+                  <label>Preferred Store</label
+                  ><select id="shop-manual-store"></select>
+                </div>
+                <div class="form-group">
+                  <label>Estimate Price</label
+                  ><input
+                    id="shop-manual-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="optional"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Quantity</label
+                  ><input
+                    id="shop-qty"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value="1"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Note</label
+                  ><input id="shop-note" placeholder="optional note" />
                 </div>
               </div>
-            </div>
-          </div>
-          <div class="card" id="shopping-recommendations-card">
-            <button
-              type="button"
-              class="shopping-recommendations-summary"
-              id="shopping-recommendations-summary"
-              onclick="toggleShoppingSection('recommendations')"
-              aria-label="Toggle shopping recommendations"
-            >
-              <span class="shopping-recommendations-summary-title"
-                >Recommendations</span
-              >
-              <span
-                class="shopping-recommendations-summary-count"
-                id="shopping-recommendations-summary-count"
-                >0</span
-              >
-            </button>
-            <div id="shopping-recommendations-body">
-              <div class="shopping-recs-body-head">
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-sm"
-                  onclick="loadRecs('shopping-recs-body')"
-                >
-                  🔄 Refresh
+              <div style="margin-top: 16px">
+                <button class="btn btn-primary" onclick="createShoppingItem()">
+                  ➕ Add to Shopping List
                 </button>
               </div>
-              <div id="shopping-recs-body">
-                <div class="empty-state">
-                  <div class="icon">💡</div>
-                  <p>No recommendations yet. Add more purchase history!</p>
+            </div>
+            <div class="card" id="shopping-recommendations-card">
+              <button
+                type="button"
+                class="shopping-recommendations-summary"
+                id="shopping-recommendations-summary"
+                onclick="toggleShoppingSection('recommendations')"
+                aria-label="Toggle shopping recommendations"
+              >
+                <span class="shopping-recommendations-summary-title"
+                  >Recommendations</span
+                >
+                <span
+                  class="shopping-recommendations-summary-count"
+                  id="shopping-recommendations-summary-count"
+                  >0</span
+                >
+              </button>
+              <div id="shopping-recommendations-body">
+                <div class="shopping-recs-body-head">
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    onclick="loadRecs('shopping-recs-body')"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
+                <div id="shopping-recs-body">
+                  <div class="empty-state">
+                    <div class="icon">💡</div>
+                    <p>No recommendations yet. Add more purchase history!</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -8053,6 +8093,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         upload: "Upload Receipt",
         receipts: "Receipts",
       };
+      // Shopping tab mode: 'shop' (check-off) | 'plan' (entry). In-memory only —
+      // every fresh load re-applies the smart default (see applyShoppingSmartDefault).
+      let shoppingMode = "shop";
+      let shoppingModeUserSet = false; // true once the user taps the segmented control
+
       let shoppingListView = (() => {
         try {
           const stored = localStorage.getItem("shopping_list_view");
@@ -9734,7 +9779,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const statsRow = document.getElementById("shopping-stats-row");
         if (statsRow) statsRow.remove();
         document
-          .getElementById("shopping-quick-find-card")
+          .getElementById("shopping-add-bar")
+          ?.style.setProperty("display", "none");
+        document
+          .getElementById("shop-quick-results")
           ?.style.setProperty("display", "none");
         document
           .getElementById("shopping-recommendations-card")
@@ -10178,6 +10226,32 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         renderShoppingListTable();
       }
 
+      function setShoppingMode(mode, fromUser = false) {
+        shoppingMode = mode === "plan" ? "plan" : "shop";
+        if (fromUser) shoppingModeUserSet = true;
+        const shopPane = document.getElementById("shopping-pane-shop");
+        const planPane = document.getElementById("shopping-pane-plan");
+        if (shopPane) shopPane.hidden = shoppingMode !== "shop";
+        if (planPane) planPane.hidden = shoppingMode !== "plan";
+        const shopBtn = document.getElementById("shopping-mode-shop");
+        const planBtn = document.getElementById("shopping-mode-plan");
+        shopBtn?.classList.toggle("is-active", shoppingMode === "shop");
+        planBtn?.classList.toggle("is-active", shoppingMode === "plan");
+        shopBtn?.setAttribute("aria-selected", shoppingMode === "shop" ? "true" : "false");
+        planBtn?.setAttribute("aria-selected", shoppingMode === "plan" ? "true" : "false");
+      }
+
+      function applyShoppingSmartDefault(openCount) {
+        // Smart default applies once per page load. After the first pick, lock it
+        // for the session so later loadShoppingList() calls (check-off, edits,
+        // refreshes) can't flip the mode mid-trip — e.g. checking off the last
+        // open item must NOT yank an in-store user from Shop into Plan. The flag
+        // is in-memory, so a fresh page load re-derives the default as intended.
+        if (shoppingModeUserSet) return;
+        setShoppingMode(Number(openCount) > 0 ? "shop" : "plan");
+        shoppingModeUserSet = true;
+      }
+
       function updateShoppingListViewPills() {
         const openPill = document.getElementById("shopping-pill-open");
         const purchasedPill = document.getElementById(
@@ -10276,33 +10350,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       function updateShoppingSectionVisibility(sectionKey) {
         const bodyMap = {
-          "quick-find": "shopping-quick-find-body",
           recommendations: "shopping-recommendations-body",
           "current-list": "shopping-current-list-body",
         };
         const toggleMap = {
-          "quick-find": "shopping-quick-toggle",
-          recommendations: "shopping-recommendations-toggle",
           "current-list": "shopping-current-list-toggle",
-        };
-        const headerToggleMap = {
-          "quick-find": "shopping-quick-header-toggle",
-          recommendations: "shopping-recommendations-toggle",
         };
         const summaryToggleMap = {
           recommendations: "shopping-recommendations-summary",
         };
         const cardMap = {
-          "quick-find": "shopping-quick-find-card",
           recommendations: "shopping-recommendations-card",
           "current-list": "shopping-current-list-card",
         };
         const collapsed = isShoppingSectionCollapsed(sectionKey);
         const body = document.getElementById(bodyMap[sectionKey]);
         const toggle = document.getElementById(toggleMap[sectionKey]);
-        const headerToggle = document.getElementById(
-          headerToggleMap[sectionKey],
-        );
         const summaryToggle = document.getElementById(
           summaryToggleMap[sectionKey],
         );
@@ -10316,24 +10379,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           sectionKey !== "current-list"
         )
           toggle.textContent = collapsed ? "Expand" : "Collapse";
-        if (headerToggle && sectionKey === "quick-find") {
-          headerToggle.setAttribute(
-            "aria-label",
-            collapsed ? "Show Quick Find" : "Hide Quick Find",
-          );
-          headerToggle.classList.toggle("btn-primary", !collapsed);
-          headerToggle.classList.toggle("btn-ghost", collapsed);
-        }
-        if (headerToggle && sectionKey === "recommendations") {
-          headerToggle.setAttribute(
-            "aria-label",
-            collapsed
-              ? "Show shopping recommendations"
-              : "Hide shopping recommendations",
-          );
-          headerToggle.classList.toggle("btn-primary", !collapsed);
-          headerToggle.classList.toggle("btn-ghost", collapsed);
-        }
         if (summaryToggle && sectionKey === "recommendations") {
           summaryToggle.setAttribute(
             "aria-label",
@@ -27323,6 +27368,72 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         );
       }
 
+      // Pick an emoji that matches the ITEM by name first (so "Large Eggs" is
+      // 🥚, not the Dairy-category 🥛), then fall back to the category, then a
+      // neutral cart. Name patterns are checked most-specific-first.
+      const SHOPPING_ITEM_EMOJI = [
+        [/\begg/, "🥚"], [/milk|cream\b/, "🥛"], [/yog(h?)urt/, "🍶"],
+        [/cheese/, "🧀"], [/butter/, "🧈"],
+        [/banana/, "🍌"], [/apple/, "🍎"], [/orange|clementine|mandarin/, "🍊"],
+        [/lemon|lime/, "🍋"], [/grape/, "🍇"], [/strawberr|berr/, "🍓"],
+        [/watermelon|melon/, "🍉"], [/pineapple/, "🍍"], [/peach/, "🍑"],
+        [/avocado/, "🥑"], [/tomato/, "🍅"], [/potato/, "🥔"], [/carrot/, "🥕"],
+        [/onion/, "🧅"], [/garlic/, "🧄"], [/pepper|chili|chile/, "🌶️"],
+        [/corn/, "🌽"], [/mushroom/, "🍄"], [/lettuce|salad|spinach|kale|green/, "🥬"],
+        [/broccoli/, "🥦"], [/cucumber/, "🥒"],
+        [/bread|sourdough|bagel|bun|roll|loaf/, "🥖"], [/croissant/, "🥐"],
+        [/chicken|poultry|turkey/, "🍗"], [/beef|steak|ground meat/, "🥩"],
+        [/bacon/, "🥓"], [/sausage|hot ?dog/, "🌭"], [/ham\b|pork/, "🍖"],
+        [/fish|salmon|tuna|cod|tilapia/, "🐟"], [/shrimp|prawn/, "🦐"],
+        [/crab|lobster/, "🦞"],
+        [/coffee|espresso/, "☕"], [/\btea\b/, "🍵"], [/water\b/, "💧"],
+        [/juice/, "🧃"], [/soda|cola|soft drink/, "🥤"], [/beer/, "🍺"],
+        [/wine/, "🍷"],
+        [/rice/, "🍚"], [/pasta|noodle|spaghetti|macaroni/, "🍝"],
+        [/cereal|oats?|granola/, "🥣"], [/flour|sugar|baking/, "🧁"],
+        [/salt\b/, "🧂"], [/honey/, "🍯"], [/oil|olive/, "🫒"],
+        [/peanut|almond|cashew|\bnuts?\b/, "🥜"],
+        [/chocolate/, "🍫"], [/cookie|biscuit/, "🍪"], [/candy|sweets/, "🍬"],
+        [/chips|crisps|popcorn|snack/, "🍿"], [/ice ?cream|gelato/, "🍦"],
+        [/cake|pie|pastry|dessert/, "🍰"], [/donut|doughnut/, "🍩"],
+        [/pizza/, "🍕"], [/taco|burrito/, "🌮"], [/sandwich|burger/, "🍔"],
+        [/egg ?plant/, "🍆"],
+        [/paper towel|tissue|napkin|toilet/, "🧻"],
+        [/dish ?soap|dishwash|detergent|cleaner|cleaning|bleach/, "🧼"],
+        [/sponge/, "🧽"], [/shampoo|conditioner|lotion|body wash/, "🧴"],
+        [/laundry|fabric/, "🧺"], [/trash|garbage|bin bag/, "🗑️"],
+        [/battery|batteries/, "🔋"], [/light ?bulb/, "💡"],
+        [/diaper|baby|formula/, "🍼"], [/pet|dog|cat food/, "🐾"],
+        [/medic|pill|tablet|vitamin|drug|supplement/, "💊"],
+        [/toothpaste|tooth ?brush|dental/, "🪥"], [/soap\b/, "🧼"],
+      ];
+      const SHOPPING_CATEGORY_EMOJI = {
+        dairy: "🥛", produce: "🥬", fruit: "🍎", vegetable: "🥕", meat: "🥩",
+        seafood: "🐟", bakery: "🥖", pantry: "🥫", frozen: "🧊", beverage: "🥤",
+        drink: "🥤", snack: "🍪", household: "🧴", cleaning: "🧼", baby: "🍼",
+        pet: "🐾", health: "💊", medicine: "💊", personal: "🧴",
+      };
+
+      function shoppingItemEmoji(name, category) {
+        const n = String(name || "").toLowerCase();
+        for (const [re, emoji] of SHOPPING_ITEM_EMOJI) {
+          if (re.test(n)) return emoji;
+        }
+        const c = String(category || "").toLowerCase();
+        for (const key in SHOPPING_CATEGORY_EMOJI) {
+          if (c.includes(key)) return SHOPPING_CATEGORY_EMOJI[key];
+        }
+        return "🛒";
+      }
+
+      function shoppingQuickThumb(item) {
+        const url = item?.latest_snapshot?.image_url;
+        if (url) {
+          return `<img class="shopping-quick-thumb" src="${escAttr(url)}" alt="" loading="lazy" />`;
+        }
+        return `<div class="shopping-quick-thumb shopping-quick-thumb--placeholder">${shoppingItemEmoji(item?.name, item?.category)}</div>`;
+      }
+
       function renderShoppingQuickResults() {
         const body = document.getElementById("shop-quick-results");
         if (!body) return;
@@ -27350,6 +27461,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             return `
             <div class="shopping-quick-row">
               <div class="shopping-quick-row-top">
+                ${shoppingQuickThumb(item)}
                 <div style="min-width:0;flex:1">
                   <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
                   <div class="shopping-quick-row-meta">${meta || "Suggested item"}</div>
@@ -27402,6 +27514,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           return `
           <div class="shopping-quick-row">
             <div class="shopping-quick-row-top">
+              ${shoppingQuickThumb(item)}
               <div style="min-width:0;flex:1">
                 <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
                 <div class="shopping-quick-row-meta">${meta || "Known catalog item"}</div>
@@ -29709,6 +29822,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         renderShoppingSessionBanner(data);
         renderShoppingListTable();
         renderShoppingQuickResults();
+        applyShoppingSmartDefault(data.open_count ?? 0);
       }
 
       function renderShoppingSessionBanner(data) {
@@ -37134,12 +37248,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       async function loadRecs(targetId = "shopping-recs-body") {
         const res = await api("/recommendations");
         const body = document.getElementById(targetId);
-        const countEl =
-          targetId === "shopping-recs-body"
-            ? document.querySelector(
-                "#shopping-recommendations-toggle .shopping-header-chip-count",
-              )
-            : null;
         const summaryCountEl =
           targetId === "shopping-recs-body"
             ? document.getElementById("shopping-recommendations-summary-count")
@@ -37152,7 +37260,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!res.ok) {
           body.innerHTML =
             '<div class="empty-state"><p>Could not load recommendations.</p></div>';
-          if (countEl) countEl.textContent = "0";
           if (summaryCountEl) summaryCountEl.textContent = "0";
           if (recsCard) recsCard.style.display = "none";
           return;
@@ -37165,7 +37272,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const list = (data.recommendations || []).filter(
           (r) => !r.in_shopping_list,
         );
-        if (countEl) countEl.textContent = String(list.length);
         if (summaryCountEl) summaryCountEl.textContent = String(list.length);
         if (recsCard) recsCard.style.display = list.length ? "" : "none";
         const compactShopping = targetId === "shopping-recs-body";
