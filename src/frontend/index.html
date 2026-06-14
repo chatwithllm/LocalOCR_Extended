@@ -1636,14 +1636,38 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 /* unified add bar (Plan mode) */
 .shopping-add-bar {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
   border: 1px solid var(--border, #3a3a3c);
-  border-radius: 8px;
-  padding: 6px;
+  border-radius: 10px;
+  padding: 8px;
   margin-bottom: 12px;
 }
-.shopping-add-bar input.shopping-add-search { flex: 1; min-width: 0; }
+/* Search keeps a usable width; on narrow phones the store + buttons wrap to a
+   second row instead of crushing the input. 16px font stops iOS zoom-on-focus. */
+.shopping-add-bar input.shopping-add-search {
+  flex: 1 1 240px;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  font-size: 16px;
+}
+.shopping-add-bar select.shopping-quick-store {
+  flex: 1 1 150px;
+  min-width: 0;
+  height: 42px;
+  font-size: 15px;
+}
+.shopping-add-bar .btn {
+  flex: 0 0 auto;
+  height: 42px;
+  min-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
 /* Quick Find results sit directly under the add bar in Plan mode */
 .shopping-quick-results { margin-bottom: 12px; }
 .shopping-quick-row-top { display: flex; align-items: center; gap: 10px; }
