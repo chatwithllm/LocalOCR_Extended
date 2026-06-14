@@ -1670,7 +1670,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 }
 /* Quick Find results sit directly under the add bar in Plan mode */
 .shopping-quick-results { margin-bottom: 12px; }
-.shopping-quick-row-top { display: flex; align-items: center; gap: 10px; }
+.shopping-quick-row-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* On narrow screens the action buttons wrap to their own line (right-aligned)
+   instead of pushing the row off-screen. */
+.shopping-quick-row-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.shopping-quick-row { max-width: 100%; overflow: hidden; }
 .shopping-quick-thumb {
   width: 44px; height: 44px; flex: 0 0 44px;
   object-fit: cover; border-radius: 8px;
@@ -27495,7 +27499,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   ${
                     existing
                       ? `<button type="button" class="btn btn-sm btn-ghost" onclick="increaseShoppingQuantity(${existing.id}, ${existing.quantity || 1})">+1</button><button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
-                      : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || "")}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add to Shopping</button>`
+                      : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || "")}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add</button>`
                   }
                   <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, true)">Low</button>
                 </div>
@@ -27548,7 +27552,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 ${
                   existing
                     ? `<button type="button" class="btn btn-sm btn-ghost" onclick="increaseShoppingQuantity(${existing.id}, ${existing.quantity || 1})">+1</button><button type="button" class="btn btn-sm btn-ghost" onclick="toggleShoppingItem(${existing.id}, 'purchased')">Bought</button>`
-                    : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || "")}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add to Shopping</button>`
+                    : `<button type="button" class="btn btn-sm btn-primary" onclick="quickAddToShoppingList({ product_id: ${item.id}, name: decodeURIComponent('${encodeURIComponent(item.name || "")}'), category: decodeURIComponent('${encodeURIComponent(item.category || "other")}'), quantity: 1, preferred_store: document.getElementById('shop-preferred-store')?.value || '', source: 'shopping_quick_find' })">Add</button>`
                 }
                 <button type="button" class="btn btn-sm btn-ghost" onclick="setProductLowStatus(${item.id}, true)">Low</button>
               </div>
