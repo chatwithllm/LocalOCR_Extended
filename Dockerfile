@@ -29,6 +29,14 @@ COPY alembic.ini /app/alembic.ini
 COPY scripts/ /app/scripts/
 COPY design/ /app/design/
 
+# PWA root assets (service worker, manifest, offline shell, icons). Served
+# from the site root by the _PWA_ROOT_FILES routes; required for the app and
+# landing page to be installable/offline. Must live at /app/ (the repo root
+# inside the image) so the whitelisted "/sw.js", "/manifest.webmanifest",
+# "/icon-*.png", "/offline.html" routes resolve.
+COPY sw.js manifest.webmanifest offline.html /app/
+COPY icon-192.png icon-512.png icon-512-maskable.png apple-touch-icon.png /app/
+
 # Create data directories (volumes will override these)
 RUN mkdir -p /data/db /data/receipts /data/backups
 RUN chmod +x /app/scripts/*.sh

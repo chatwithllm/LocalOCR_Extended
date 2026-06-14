@@ -4,6 +4,35 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🛒 Grocery Manager</title>
+    <!-- PWA: install + platform chrome (makes the app itself installable/offline) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#070b14" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Grocery Manager" />
+    <script>
+      // PWA: register the app service worker for installability + offline shell.
+      (function () {
+        if (!("serviceWorker" in navigator)) return;
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .catch(function (err) {
+              console.warn("SW registration failed:", err);
+            });
+          var refreshing = false;
+          navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            function () {
+              if (refreshing) return;
+              refreshing = true;
+              window.location.reload();
+            },
+          );
+        });
+      })();
+    </script>
     <script>
       // Pre-paint theme setter. Reads localStorage / prefers-color-scheme
       // before stylesheets load so the first painted frame lands on the
@@ -1617,6 +1646,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 .shopping-add-bar input.shopping-add-search { flex: 1; min-width: 0; }
 /* Quick Find results sit directly under the add bar in Plan mode */
 .shopping-quick-results { margin-bottom: 12px; }
+.shopping-quick-row-top { display: flex; align-items: center; gap: 10px; }
+.shopping-quick-thumb {
+  width: 44px; height: 44px; flex: 0 0 44px;
+  object-fit: cover; border-radius: 8px;
+  border: 1px solid var(--border, #3a3a3c);
+  background: var(--surface2, #1c1c1e);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+}
     </style>
   </head>
 
@@ -27330,6 +27368,26 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         );
       }
 
+      function shoppingCategoryEmoji(category) {
+        const c = String(category || "").toLowerCase();
+        const map = {
+          dairy: "🥛", produce: "🥬", fruit: "🍎", meat: "🥩", seafood: "🐟",
+          bakery: "🥖", pantry: "🥫", frozen: "🧊", beverage: "🥤", drink: "🥤",
+          snack: "🍪", household: "🧴", cleaning: "🧽", baby: "🍼", pet: "🐾",
+          health: "💊", medicine: "💊",
+        };
+        for (const key in map) if (c.includes(key)) return map[key];
+        return "🛒";
+      }
+
+      function shoppingQuickThumb(item) {
+        const url = item?.latest_snapshot?.image_url;
+        if (url) {
+          return `<img class="shopping-quick-thumb" src="${escAttr(url)}" alt="" loading="lazy" />`;
+        }
+        return `<div class="shopping-quick-thumb shopping-quick-thumb--placeholder">${shoppingCategoryEmoji(item?.category)}</div>`;
+      }
+
       function renderShoppingQuickResults() {
         const body = document.getElementById("shop-quick-results");
         if (!body) return;
@@ -27357,6 +27415,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             return `
             <div class="shopping-quick-row">
               <div class="shopping-quick-row-top">
+                ${shoppingQuickThumb(item)}
                 <div style="min-width:0;flex:1">
                   <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
                   <div class="shopping-quick-row-meta">${meta || "Suggested item"}</div>
@@ -27409,6 +27468,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           return `
           <div class="shopping-quick-row">
             <div class="shopping-quick-row-top">
+              ${shoppingQuickThumb(item)}
               <div style="min-width:0;flex:1">
                 <div class="shopping-quick-row-name">${escHtml(item.name)}</div>
                 <div class="shopping-quick-row-meta">${meta || "Known catalog item"}</div>
