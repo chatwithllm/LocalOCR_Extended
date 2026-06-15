@@ -27377,6 +27377,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         await decreaseShoppingQuantity(target.id, target.quantity || 1);
       }
 
+      async function increaseShoppingGroupQuantity(ids) {
+        const validIds = (ids || []).map(Number).filter(Boolean);
+        if (!validIds.length) return;
+        const candidates = shoppingListCache
+          .filter(
+            (item) =>
+              validIds.includes(Number(item.id)) && item.status !== "purchased",
+          )
+          .sort(
+            (a, b) =>
+              compareNumber(a.quantity, b.quantity, "desc") ||
+              compareText(a.name, b.name, "asc"),
+          );
+        const target = candidates[0];
+        if (!target) return;
+        await increaseShoppingQuantity(target.id, target.quantity || 1);
+      }
+
       function getMatchingShoppingEntry(productId, name) {
         if (productId) {
           const byProduct = shoppingListCache.find(
@@ -28381,6 +28399,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   >Update</button>
                 </div>`}
                 <div class="shopping-mobile-item-actions shopping-item-actions-row">
+                  <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); increaseShoppingGroupQuantity([${item.ids.join(",")}])">+1</button>
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); decreaseShoppingGroupQuantity([${item.ids.join(",")}])">−1</button>
                   <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); toggleShoppingGroupItems([${item.ids.join(",")}], '${item.status === "purchased" ? "open" : "purchased"}')">${item.status === "purchased" ? "Reopen" : "Bought"}</button>
                   ${renderShoppingMoreMenu(item, true)}
@@ -28535,6 +28554,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 <td class="shopping-actions-cell">
                   <div class="shopping-actions-stack">
                     <div class="shopping-item-actions-row">
+                      <button class="btn btn-sm btn-ghost" onclick="increaseShoppingGroupQuantity([${item.ids.join(",")}])">+1</button>
                       <button class="btn btn-sm btn-ghost" onclick="decreaseShoppingGroupQuantity([${item.ids.join(",")}])">−1</button>
                       <button class="btn btn-sm btn-ghost" onclick="toggleShoppingGroupItems([${item.ids.join(",")}], '${item.status === "purchased" ? "open" : "purchased"}')">${item.status === "purchased" ? "Reopen" : "Bought"}</button>
                     </div>
