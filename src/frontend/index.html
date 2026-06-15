@@ -3577,6 +3577,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         </div>
 
         <div class="page" id="page-kitchen">
+          <div class="kitchen-low-header">
+            <div class="title">🍳 Running Low · <span class="count" id="kitchen-low-count">0</span></div>
+            <div class="meta">
+              <span id="kitchen-low-clock"></span>
+              <span class="kitchen-weather" id="kitchen-weather" title="Local weather"></span>
+              <span class="onlist-chip" id="kitchen-onlist-chip" onclick="showPage('shopping')">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
+            </div>
+          </div>
+          <div class="kitchen-low-grid" id="kitchen-low-grid"></div>
+          <div class="kitchen-low-empty" id="kitchen-low-empty" style="display:none">All stocked ✅</div>
+          <div class="kitchen-browse-bar">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleKitchenCatalog()">＋ Browse products</button>
+          </div>
           <div class="kitchen-catalog" id="kitchen-catalog">
             <div class="kitchen-toolbar">
               <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
@@ -3622,7 +3635,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                       aria-label="Toggle item names">🏷️</button>
               <span class="kitchen-list-total" id="kitchen-list-total"></span>
             </h2>
-            <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
           </div>
 
           <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
@@ -7856,6 +7868,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let shoppingStoreBuckets = { frequent: [], low_freq: [] };
       let kitchenCatalog = { frequent: [], categories: {}, on_list_product_ids: [] };
       let kitchenList = [];
+      let kitchenLowItems = [];
+      let kitchenOnListIds = new Set();
       let kitchenActiveCategory = "frequent";
       let kitchenSearchQuery = "";
       let kitchenStoreFilter = new Set();
@@ -7863,8 +7877,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         localStorage.getItem("kitchen-show-names") === "1";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
-      let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
-        localStorage.getItem("kitchen-catalog-collapsed") === "1";
+      let kitchenCatalogCollapsed = (typeof localStorage === "undefined") ||
+        localStorage.getItem("kitchen-catalog-collapsed") !== "0";
       const KITCHEN_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"];
       const KITCHEN_CATEGORY_EMOJI = {
         Produce: "🥬", Meat: "🥩", Dairy: "🥛",
@@ -28711,17 +28725,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       async function loadKitchen() {
         try {
-          const [catRes, listRes] = await Promise.all([
+          const [catRes, listRes, lowRes] = await Promise.all([
             api("/api/kitchen/catalog"),
             api("/shopping-list"),
+            api("/inventory?low_stock=true"),
           ]);
           const cat = await catRes.json();
           const list = await listRes.json();
+          const low = await lowRes.json();
           if (!catRes.ok) throw new Error(cat.error || "kitchen catalog failed");
           if (!listRes.ok) throw new Error(list.error || "shopping list failed");
           kitchenCatalog = cat;
           kitchenList = (list.items || []).filter(
             (i) => i.status === "open" || i.status === "skipped",
+          );
+          kitchenLowItems = (low && low.inventory) || [];
+          kitchenOnListIds = new Set(
+            (list.items || [])
+              .filter((i) => i.status === "open" && i.product_id)
+              .map((i) => Number(i.product_id)),
           );
           if (list.available_store_buckets) {
             shoppingStoreBuckets = list.available_store_buckets;
@@ -28729,6 +28751,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           renderKitchenStoreFilter();
           renderKitchenCatalog();
           renderKitchenList();
+          renderKitchenLowGrid();
+          startKitchenClock();
           applyKitchenCatalogCollapsed();
           applyKitchenShowNames();
           loadKitchenWeather();
@@ -28826,6 +28850,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
         } catch (_) { /* give up */ }
         return null;
+      }
+
+      let _kitchenClockTimer = null;
+      function startKitchenClock() {
+        const tick = () => {
+          const el = document.getElementById("kitchen-low-clock");
+          if (!el) return;
+          const d = new Date();
+          el.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        };
+        tick();
+        if (_kitchenClockTimer) clearInterval(_kitchenClockTimer);
+        _kitchenClockTimer = setInterval(tick, 30000);
       }
 
       async function loadKitchenWeather() {
@@ -29231,6 +29268,105 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
             </div>
           </div>`;
+      }
+
+      function renderKitchenLowGrid() {
+        const grid = document.getElementById("kitchen-low-grid");
+        const empty = document.getElementById("kitchen-low-empty");
+        const countEl = document.getElementById("kitchen-low-count");
+        const onListCountEl = document.getElementById("kitchen-onlist-count");
+        if (!grid) return;
+        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
+
+        const items = [...kitchenLowItems].sort((a, b) => {
+          const ao = Number(a.quantity) <= 0 ? 0 : 1;
+          const bo = Number(b.quantity) <= 0 ? 0 : 1;
+          return ao - bo || Number(a.quantity || 0) - Number(b.quantity || 0);
+        });
+        if (countEl) countEl.textContent = items.length;
+        if (!items.length) {
+          grid.innerHTML = "";
+          if (empty) empty.style.display = "block";
+          return;
+        }
+        if (empty) empty.style.display = "none";
+
+        grid.innerHTML = items
+          .map((it) => {
+            const onList = kitchenOnListIds.has(Number(it.product_id));
+            const out = Number(it.quantity) <= 0;
+            const url = it.latest_snapshot?.image_url;
+            const thumb = url
+              ? `<img class="thumb" src="${escAttr(url)}" alt="" loading="lazy" />`
+              : `<div class="thumb">${shoppingItemEmoji(it.product_name, it.category)}</div>`;
+            const lo = out ? "out" : (it.quantity != null ? `${it.quantity} left` : "low");
+            // Pass ONLY the numeric product_id in the handler — the function looks
+            // the item up in kitchenLowItems. Never interpolate user-controlled
+            // names into an inline onclick (encodeURIComponent doesn't escape ' —
+            // breaks "Reese's" and is an XSS vector via receipt-sourced names).
+            return `
+            <div class="kitchen-low-tile ${out ? "urgent" : ""} ${onList ? "on-list" : ""}"
+                 data-pid="${it.product_id}"
+                 onclick="kitchenAddLowToList(${it.product_id}, this)">
+              ${thumb}
+              <div class="nm">${escHtml(it.product_name || "Item")}</div>
+              ${onList
+                ? `<div class="onlist-badge">✓ On list</div>`
+                : `<div class="lo">${escHtml(lo)}</div>`}
+              <button type="button" class="gotit"
+                      onclick="event.stopPropagation(); kitchenMarkRestocked(${it.id}, ${it.product_id}, ${it.threshold ?? "null"}, ${it.manual_low ? "true" : "false"})">Got it</button>
+            </div>`;
+          })
+          .join("");
+      }
+
+      async function kitchenAddLowToList(productId, tileEl) {
+        if (tileEl && tileEl.classList.contains("on-list")) return; // already added
+        // Look the item up from state — never trust names interpolated into onclick.
+        const it = kitchenLowItems.find(
+          (x) => Number(x.product_id) === Number(productId),
+        );
+        if (!it) return;
+        // optimistic: flip the tile immediately
+        if (tileEl) {
+          tileEl.classList.add("on-list");
+          const lo = tileEl.querySelector(".lo");
+          if (lo) { lo.className = "onlist-badge"; lo.textContent = "✓ On list"; }
+        }
+        if (productId) kitchenOnListIds.add(Number(productId));
+        const onListCountEl = document.getElementById("kitchen-onlist-count");
+        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
+        await quickAddToShoppingList({
+          product_id: productId,
+          name: it.product_name,
+          category: it.category || "other",
+          quantity: 1,
+          source: "kitchen_low",
+        });
+      }
+
+      async function kitchenMarkRestocked(inventoryId, productId, threshold, manualLow) {
+        try {
+          // 1) Clear a manual-low flag if set.
+          if (manualLow && productId) {
+            await api(`/inventory/products/${productId}/low-status`, {
+              method: "PUT",
+              body: JSON.stringify({ manual_low: false }),
+            });
+          }
+          // 2) If low because quantity < threshold, lift quantity to the threshold.
+          const t = Number(threshold);
+          if (inventoryId && t > 0) {
+            await api(`/inventory/${inventoryId}/update`, {
+              method: "PUT",
+              body: JSON.stringify({ quantity: t }),
+            });
+          }
+          toast("Marked restocked ✅", "success");
+        } catch (err) {
+          toast("Could not mark restocked", "error");
+        }
+        await loadKitchen(); // refresh — the item should leave the low grid
       }
 
       function renderKitchenList() {
