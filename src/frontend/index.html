@@ -7868,6 +7868,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let shoppingStoreBuckets = { frequent: [], low_freq: [] };
       let kitchenCatalog = { frequent: [], categories: {}, on_list_product_ids: [] };
       let kitchenList = [];
+      let kitchenLowItems = [];
+      let kitchenOnListIds = new Set();
       let kitchenActiveCategory = "frequent";
       let kitchenSearchQuery = "";
       let kitchenStoreFilter = new Set();
@@ -28723,17 +28725,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       async function loadKitchen() {
         try {
-          const [catRes, listRes] = await Promise.all([
+          const [catRes, listRes, lowRes] = await Promise.all([
             api("/api/kitchen/catalog"),
             api("/shopping-list"),
+            api("/inventory?low_stock=true"),
           ]);
           const cat = await catRes.json();
           const list = await listRes.json();
+          const low = await lowRes.json();
           if (!catRes.ok) throw new Error(cat.error || "kitchen catalog failed");
           if (!listRes.ok) throw new Error(list.error || "shopping list failed");
           kitchenCatalog = cat;
           kitchenList = (list.items || []).filter(
             (i) => i.status === "open" || i.status === "skipped",
+          );
+          kitchenLowItems = (low && low.inventory) || [];
+          kitchenOnListIds = new Set(
+            (list.items || [])
+              .filter((i) => i.status === "open" && i.product_id)
+              .map((i) => Number(i.product_id)),
           );
           if (list.available_store_buckets) {
             shoppingStoreBuckets = list.available_store_buckets;
@@ -28741,6 +28751,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           renderKitchenStoreFilter();
           renderKitchenCatalog();
           renderKitchenList();
+          renderKitchenLowGrid();
           applyKitchenCatalogCollapsed();
           applyKitchenShowNames();
           loadKitchenWeather();
@@ -29243,6 +29254,54 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               </div>
             </div>
           </div>`;
+      }
+
+      function renderKitchenLowGrid() {
+        const grid = document.getElementById("kitchen-low-grid");
+        const empty = document.getElementById("kitchen-low-empty");
+        const countEl = document.getElementById("kitchen-low-count");
+        const onListCountEl = document.getElementById("kitchen-onlist-count");
+        if (!grid) return;
+        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
+
+        const items = [...kitchenLowItems].sort((a, b) => {
+          const ao = Number(a.quantity) <= 0 ? 0 : 1;
+          const bo = Number(b.quantity) <= 0 ? 0 : 1;
+          return ao - bo || Number(a.quantity || 0) - Number(b.quantity || 0);
+        });
+        if (countEl) countEl.textContent = items.length;
+        if (!items.length) {
+          grid.innerHTML = "";
+          if (empty) empty.style.display = "block";
+          return;
+        }
+        if (empty) empty.style.display = "none";
+
+        grid.innerHTML = items
+          .map((it) => {
+            const onList = kitchenOnListIds.has(Number(it.product_id));
+            const out = Number(it.quantity) <= 0;
+            const url = it.latest_snapshot?.image_url;
+            const thumb = url
+              ? `<img class="thumb" src="${escAttr(url)}" alt="" loading="lazy" />`
+              : `<div class="thumb">${shoppingItemEmoji(it.product_name, it.category)}</div>`;
+            const lo = out ? "out" : (it.quantity != null ? `${it.quantity} left` : "low");
+            const nameJs = `decodeURIComponent('${encodeURIComponent(it.product_name || "")}')`;
+            const catJs = `decodeURIComponent('${encodeURIComponent(it.category || "other")}')`;
+            return `
+            <div class="kitchen-low-tile ${out ? "urgent" : ""} ${onList ? "on-list" : ""}"
+                 data-pid="${it.product_id}"
+                 onclick="kitchenAddLowToList(${it.product_id}, ${nameJs}, ${catJs}, this)">
+              ${thumb}
+              <div class="nm">${escHtml(it.product_name || "Item")}</div>
+              ${onList
+                ? `<div class="onlist-badge">✓ On list</div>`
+                : `<div class="lo">${escHtml(lo)}</div>`}
+              <button type="button" class="gotit"
+                      onclick="event.stopPropagation(); kitchenMarkRestocked(${it.id}, ${it.product_id}, ${it.threshold ?? "null"}, ${it.manual_low ? "true" : "false"})">Got it</button>
+            </div>`;
+          })
+          .join("");
       }
 
       function renderKitchenList() {
