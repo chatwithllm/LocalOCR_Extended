@@ -3577,6 +3577,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         </div>
 
         <div class="page" id="page-kitchen">
+          <div class="kitchen-low-header">
+            <div class="title">🍳 Running Low · <span class="count" id="kitchen-low-count">0</span></div>
+            <div class="meta">
+              <span id="kitchen-low-clock"></span>
+              <span class="kitchen-weather" id="kitchen-weather" title="Local weather"></span>
+              <span class="onlist-chip" id="kitchen-onlist-chip" onclick="showPage('shopping')">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
+            </div>
+          </div>
+          <div class="kitchen-low-grid" id="kitchen-low-grid"></div>
+          <div class="kitchen-low-empty" id="kitchen-low-empty" style="display:none">All stocked ✅</div>
+          <div class="kitchen-browse-bar">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleKitchenCatalog()">＋ Browse products</button>
+          </div>
           <div class="kitchen-catalog" id="kitchen-catalog">
             <div class="kitchen-toolbar">
               <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
@@ -3622,7 +3635,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                       aria-label="Toggle item names">🏷️</button>
               <span class="kitchen-list-total" id="kitchen-list-total"></span>
             </h2>
-            <div class="kitchen-weather" id="kitchen-weather" title="Local weather"></div>
           </div>
 
           <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
