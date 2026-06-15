@@ -28752,6 +28752,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           renderKitchenCatalog();
           renderKitchenList();
           renderKitchenLowGrid();
+          startKitchenClock();
           applyKitchenCatalogCollapsed();
           applyKitchenShowNames();
           loadKitchenWeather();
@@ -28849,6 +28850,19 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           }
         } catch (_) { /* give up */ }
         return null;
+      }
+
+      let _kitchenClockTimer = null;
+      function startKitchenClock() {
+        const tick = () => {
+          const el = document.getElementById("kitchen-low-clock");
+          if (!el) return;
+          const d = new Date();
+          el.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        };
+        tick();
+        if (_kitchenClockTimer) clearInterval(_kitchenClockTimer);
+        _kitchenClockTimer = setInterval(tick, 30000);
       }
 
       async function loadKitchenWeather() {
