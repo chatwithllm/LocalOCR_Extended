@@ -21,6 +21,28 @@ def _purchase_dates(session, product_id: int) -> list[datetime]:
     return [r[0] for r in rows if r[0] is not None]
 
 
+def _cobought_names(session, product_id: int, limit: int = 3) -> list[str]:
+    purchase_ids = [
+        r[0] for r in session.query(ReceiptItem.purchase_id)
+        .filter(ReceiptItem.product_id == product_id).distinct().all()
+    ]
+    if not purchase_ids:
+        return []
+    from collections import Counter
+    counts: Counter = Counter()
+    rows = (
+        session.query(ReceiptItem.product_id, Product.name)
+        .join(Product, Product.id == ReceiptItem.product_id)
+        .filter(ReceiptItem.purchase_id.in_(purchase_ids))
+        .filter(ReceiptItem.product_id != product_id)
+        .all()
+    )
+    for pid, name in rows:
+        if name:
+            counts[name] += 1
+    return [name for name, _ in counts.most_common(limit)]
+
+
 def build_recommendation_candidates(session, *, now: datetime | None = None,
                                     cap: int = 30) -> list[dict]:
     now = now or datetime.now(timezone.utc)
@@ -54,7 +76,7 @@ def build_recommendation_candidates(session, *, now: datetime | None = None,
             "on_hand_low": bool(getattr(product, "is_low", False)),
             "price_drop": False,
             "one_off": one_off,
-            "cobought_with": [],
+            "cobought_with": _cobought_names(session, product.id),
         })
 
     def sort_key(c):
