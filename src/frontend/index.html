@@ -7877,8 +7877,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         localStorage.getItem("kitchen-show-names") === "1";
       let kitchenSheetItemId = null;
       let kitchenStagedAction = null;
-      let kitchenCatalogCollapsed = (typeof localStorage !== "undefined") &&
-        localStorage.getItem("kitchen-catalog-collapsed") === "1";
+      let kitchenCatalogCollapsed = (typeof localStorage === "undefined") ||
+        localStorage.getItem("kitchen-catalog-collapsed") !== "0";
       const KITCHEN_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"];
       const KITCHEN_CATEGORY_EMOJI = {
         Produce: "🥬", Meat: "🥩", Dairy: "🥛",
@@ -29302,6 +29302,26 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             </div>`;
           })
           .join("");
+      }
+
+      async function kitchenAddLowToList(productId, name, category, tileEl) {
+        if (tileEl && tileEl.classList.contains("on-list")) return; // already added
+        // optimistic: flip the tile immediately
+        if (tileEl) {
+          tileEl.classList.add("on-list");
+          const lo = tileEl.querySelector(".lo");
+          if (lo) { lo.className = "onlist-badge"; lo.textContent = "✓ On list"; }
+        }
+        if (productId) kitchenOnListIds.add(Number(productId));
+        const onListCountEl = document.getElementById("kitchen-onlist-count");
+        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
+        await quickAddToShoppingList({
+          product_id: productId,
+          name: name,
+          category: category,
+          quantity: 1,
+          source: "kitchen_low",
+        });
       }
 
       function renderKitchenList() {
