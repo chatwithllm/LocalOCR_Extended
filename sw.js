@@ -3,7 +3,12 @@
 
 'use strict';
 
-const CACHE_VERSION = 'localocr-v2';
+const CACHE_VERSION = 'localocr-v3';
+
+/* Only these are safe to cache-first. API/data responses (e.g. /shopping-list,
+ * /products/search) must NEVER be cached — doing so served stale lists and made
+ * deletes 404 on already-removed ids. Static assets only. */
+const STATIC_ASSET = /\.(?:js|css|mjs|woff2?|ttf|otf|eot|png|jpe?g|gif|svg|webp|avif|ico|webmanifest)$/i;
 const OFFLINE_URL = '/offline.html';
 
 /* Explicit app-shell precache list for the landing page at "/".
@@ -29,10 +34,12 @@ const APP_SHELL = [
 ];
 
 /* ---- install: precache the shell ---- */
-/* Note: no skipWaiting() here — an updated worker stays "waiting" so the page
- * can show its "Update available — reload" prompt. The page posts SKIP_WAITING
- * (see message handler below) when the user clicks reload. */
+/* skipWaiting() so a corrected worker takes over promptly (the previous worker
+ * cached API responses and corrupted the app's data view; we want the fix —
+ * and the old-cache purge in activate — to apply on the next load, not after
+ * every tab is closed). */
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_SHELL))
   );
@@ -80,6 +87,15 @@ self.addEventListener('fetch', (event) => {
         )
     );
     return;
+  }
+
+  // ONLY static assets are cache-first. Everything else (API/data endpoints
+  // like /shopping-list, /products/search, /product-snapshots/<id>/image) is
+  // left to the network — the service worker must never serve stale API data.
+  const path = new URL(request.url).pathname;
+  const isStatic = STATIC_ASSET.test(path) || APP_SHELL.includes(path);
+  if (!isStatic) {
+    return; // not handled by SW → normal network fetch, always fresh
   }
 
   // Static shell assets: cache-first, fall back to network (and cache the result).
