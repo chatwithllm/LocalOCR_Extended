@@ -23,6 +23,7 @@ from src.backend.initialize_database_schema import ContributionEvent, Inventory,
 from src.backend.normalize_product_names import canonicalize_product_name
 from src.backend.recommendation_features import build_recommendation_candidates
 from src.backend.recommend_via_llm import judge_candidates
+from src.backend.recommendation_cache import write_cache, read_latest_cache
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +49,27 @@ def _coerce_datetime_for_comparison(value: datetime, reference_now: datetime) ->
 @recommendations_bp.route("", methods=["GET"])
 @require_auth
 def get_recommendations():
-    """Get current recommendations (deals + seasonal)."""
-    recs = generate_all_recommendations()
+    """Serve cached recommendations (never blocks on the LLM)."""
+    session = g.db_session
+    cached = read_latest_cache(session, scope="household")
+    if cached is None:
+        recs = generate_all_recommendations()
+        write_cache(session, scope="household", payload=recs, source="heuristic")
+        session.commit()
+        cached = {"payload": recs, "source": "heuristic"}
     return jsonify({
-        "recommendations": recs,
-        "count": len(recs),
+        "recommendations": cached["payload"],
+        "count": len(cached["payload"]),
+        "source": cached.get("source"),
     }), 200
+
+
+def refresh_recommendation_cache() -> dict:
+    """Run the pipeline and persist the result to the cache. Uses g.db_session.
+    Returns a summary. Must run inside an app context with g.db_session set."""
+    recs, source = generate_ai_recommendations()
+    write_cache(g.db_session, scope="household", payload=recs, source=source)
+    return {"count": len(recs), "source": source}
 
 
 def generate_all_recommendations() -> list:

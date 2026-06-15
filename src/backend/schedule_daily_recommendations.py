@@ -164,6 +164,11 @@ def push_daily_recommendations():
                 recommendations = generate_all_recommendations()
                 publish_recommendations(recommendations)
 
+                from src.backend.generate_recommendations import refresh_recommendation_cache
+                summary = refresh_recommendation_cache()
+                g.db_session.commit()
+                logger.info("Recommendation cache refreshed: %s", summary)
+
                 logger.info(f"Published {len(recommendations)} daily recommendations")
             finally:
                 g.db_session.close()
