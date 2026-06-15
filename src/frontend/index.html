@@ -29324,6 +29324,30 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         });
       }
 
+      async function kitchenMarkRestocked(inventoryId, productId, threshold, manualLow) {
+        try {
+          // 1) Clear a manual-low flag if set.
+          if (manualLow && productId) {
+            await api(`/inventory/products/${productId}/low-status`, {
+              method: "PUT",
+              body: JSON.stringify({ manual_low: false }),
+            });
+          }
+          // 2) If low because quantity < threshold, lift quantity to the threshold.
+          const t = Number(threshold);
+          if (inventoryId && t > 0) {
+            await api(`/inventory/${inventoryId}/update`, {
+              method: "PUT",
+              body: JSON.stringify({ quantity: t }),
+            });
+          }
+          toast("Marked restocked ✅", "success");
+        } catch (err) {
+          toast("Could not mark restocked", "error");
+        }
+        await loadKitchen(); // refresh — the item should leave the low grid
+      }
+
       function renderKitchenList() {
         const empty = document.getElementById("kitchen-empty");
         const container = document.getElementById("kitchen-list-container");
