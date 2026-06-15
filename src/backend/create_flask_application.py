@@ -286,6 +286,8 @@ def register_blueprints(app):
     app.register_blueprint(analytics_bp)
     app.register_blueprint(budget_bp)
     app.register_blueprint(recommendations_bp)
+    from src.backend.manage_recommendations import recommendations_admin_bp
+    app.register_blueprint(recommendations_admin_bp)
     app.register_blueprint(shopping_list_bp)
     app.register_blueprint(contributions_bp)
     app.register_blueprint(environment_ops_bp)
