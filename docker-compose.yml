@@ -59,13 +59,14 @@ services:
     restart: unless-stopped
     profiles:
       - local-infra
-    # Resource limits — Ollama is memory-intensive
+    # Resource limits — Ollama is memory-intensive. 8G fits a 7B Q4 model
+    # (~4.7G weights + KV cache/overhead) with headroom; 6G OOM-thrashes on load.
     deploy:
       resources:
         limits:
-          memory: 6G
+          memory: 8G
         reservations:
-          memory: 2G
+          memory: 4G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 60s

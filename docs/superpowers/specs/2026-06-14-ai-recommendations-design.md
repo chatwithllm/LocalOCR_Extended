@@ -126,3 +126,8 @@ nightly job defaults to AI in prod. Also used to tune the prompt / candidate cap
   `OLLAMA_RECS_MODEL` to a 3b.
 - Ollama provisioning (container on `local-infra` profile, or native for GPU) and the
   model pull are an ops prerequisite, tracked separately from this feature code.
+- **Model + RAM (decided):** balanced default `qwen2.5:7b` (Q4 ~4.7G weights, ~5.5–6.5G
+  loaded). The Ollama container memory limit is raised **6G → 8G** in
+  `docker-compose.yml` (6G OOM-thrashed on load); host has 16G. Ollama evicts the model
+  after ~5 min idle (drops to ~16M), so 8G is only needed during a run — fine for a
+  nightly batch. `OLLAMA_RECS_MODEL` lets a tight box drop to `qwen2.5:3b`.
