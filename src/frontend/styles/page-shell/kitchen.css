@@ -1135,3 +1135,46 @@ body.kitchen-show-names .kitchen-grid--list .kitchen-tile-name { display: -webki
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* --- Kitchen revamp: Running Low wall display --- */
+.kitchen-low-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin: 4px 0 14px;
+}
+.kitchen-low-header .title { font-size: 20px; font-weight: 700; color: var(--text, #e6edf3); }
+.kitchen-low-header .title .count { color: var(--color-brand, #f0883e); }
+.kitchen-low-header .meta { display: flex; gap: 10px; align-items: center; color: var(--muted, #8b949e); font-size: 14px; }
+.kitchen-low-header .onlist-chip {
+  border: 1px solid var(--border, #3a3a3c); border-radius: 14px;
+  padding: 4px 12px; cursor: pointer; color: var(--text, #e6edf3); font-size: 14px;
+}
+.kitchen-low-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.kitchen-low-tile {
+  position: relative; background: var(--surface2, #161b22);
+  border: 1px solid var(--border, #30363d); border-radius: 14px;
+  padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  align-items: center; text-align: center; cursor: pointer;
+  min-height: 150px; user-select: none;
+}
+.kitchen-low-tile:active { transform: scale(0.97); }
+.kitchen-low-tile.urgent { border-color: var(--color-danger, #f85149); }
+.kitchen-low-tile.on-list { opacity: 0.55; }
+.kitchen-low-tile .thumb {
+  width: 64px; height: 64px; border-radius: 10px; object-fit: cover;
+  display: flex; align-items: center; justify-content: center; font-size: 34px;
+  background: var(--surface3, #222831); border: 1px solid var(--border, #30363d);
+}
+.kitchen-low-tile .nm { font-size: 14px; font-weight: 600; color: var(--text, #e6edf3); line-height: 1.15; }
+.kitchen-low-tile .lo { font-size: 12px; color: var(--color-brand, #f0883e); }
+.kitchen-low-tile.urgent .lo { color: var(--color-danger, #f85149); }
+.kitchen-low-tile .onlist-badge { font-size: 12px; color: var(--color-success, #3fb950); font-weight: 600; }
+.kitchen-low-tile .gotit {
+  position: absolute; top: 6px; right: 6px; font-size: 11px;
+  border: 1px solid var(--border, #3a3a3c); border-radius: 10px;
+  padding: 2px 8px; background: var(--surface, #0d1117); color: var(--muted, #8b949e);
+}
+.kitchen-low-empty { text-align: center; color: var(--muted, #8b949e); padding: 48px 12px; font-size: 18px; }
+.kitchen-browse-bar { margin-top: 16px; }
