@@ -29300,12 +29300,14 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               ? `<img class="thumb" src="${escAttr(url)}" alt="" loading="lazy" />`
               : `<div class="thumb">${shoppingItemEmoji(it.product_name, it.category)}</div>`;
             const lo = out ? "out" : (it.quantity != null ? `${it.quantity} left` : "low");
-            const nameJs = `decodeURIComponent('${encodeURIComponent(it.product_name || "")}')`;
-            const catJs = `decodeURIComponent('${encodeURIComponent(it.category || "other")}')`;
+            // Pass ONLY the numeric product_id in the handler — the function looks
+            // the item up in kitchenLowItems. Never interpolate user-controlled
+            // names into an inline onclick (encodeURIComponent doesn't escape ' —
+            // breaks "Reese's" and is an XSS vector via receipt-sourced names).
             return `
             <div class="kitchen-low-tile ${out ? "urgent" : ""} ${onList ? "on-list" : ""}"
                  data-pid="${it.product_id}"
-                 onclick="kitchenAddLowToList(${it.product_id}, ${nameJs}, ${catJs}, this)">
+                 onclick="kitchenAddLowToList(${it.product_id}, this)">
               ${thumb}
               <div class="nm">${escHtml(it.product_name || "Item")}</div>
               ${onList
@@ -29318,8 +29320,13 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           .join("");
       }
 
-      async function kitchenAddLowToList(productId, name, category, tileEl) {
+      async function kitchenAddLowToList(productId, tileEl) {
         if (tileEl && tileEl.classList.contains("on-list")) return; // already added
+        // Look the item up from state — never trust names interpolated into onclick.
+        const it = kitchenLowItems.find(
+          (x) => Number(x.product_id) === Number(productId),
+        );
+        if (!it) return;
         // optimistic: flip the tile immediately
         if (tileEl) {
           tileEl.classList.add("on-list");
@@ -29331,8 +29338,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
         await quickAddToShoppingList({
           product_id: productId,
-          name: name,
-          category: category,
+          name: it.product_name,
+          category: it.category || "other",
           quantity: 1,
           source: "kitchen_low",
         });
