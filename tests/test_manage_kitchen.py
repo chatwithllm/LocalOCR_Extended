@@ -56,9 +56,9 @@ from datetime import datetime, timedelta, timezone
 
 from src.backend.initialize_database_schema import (
     Base, Product, ProductSnapshot, ShoppingListItem, ShoppingSession,
-    Purchase, ReceiptItem, Store, create_db_engine, create_session_factory,
+    Purchase, ReceiptItem, Store, Inventory, create_db_engine, create_session_factory,
 )
-from src.backend.manage_kitchen import get_kitchen_catalog
+from src.backend.manage_kitchen import get_kitchen_essentials
 
 
 @pytest.fixture
@@ -99,169 +99,11 @@ def _record_purchase(session, product, days_ago, store=None):
     session.flush()
 
 
-def test_empty_db_returns_empty_buckets(db_session):
-    out = get_kitchen_catalog(db_session)
-    assert out["frequent"] == []
-    assert set(out["categories"].keys()) == {
-        "Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other",
-    }
-    for tiles in out["categories"].values():
-        assert tiles == []
-    assert out["on_list_product_ids"] == []
-
-
-def test_categorization_by_product_category(db_session):
-    _fresh_product(db_session, "Spinach", category="Produce")
-    _fresh_product(db_session, "Chicken", category="Poultry")
-    _fresh_product(db_session, "Milk", category="Dairy")
-    _fresh_product(db_session, "Mystery", category=None)
-    db_session.commit()
-
-    out = get_kitchen_catalog(db_session)
-    names_in = lambda b: {t["name"] for t in out["categories"][b]}
-    assert "Spinach" in names_in("Produce")
-    assert "Chicken" in names_in("Meat")
-    assert "Milk"    in names_in("Dairy")
-    assert "Mystery" in names_in("Other")
-
-
-def test_purchase_count_window(db_session):
-    p = _fresh_product(db_session, "Tomatoes", category="Produce")
-    _record_purchase(db_session, p, days_ago=10)
-    _record_purchase(db_session, p, days_ago=80)
-    _record_purchase(db_session, p, days_ago=120)  # outside 90 d window
-    db_session.commit()
-
-    out = get_kitchen_catalog(db_session)
-    tile = next(t for t in out["categories"]["Produce"] if t["name"] == "Tomatoes")
-    assert tile["purchase_count"] == 2
-
-
-def test_sort_within_bucket_by_count_desc(db_session):
-    a = _fresh_product(db_session, "Apple", category="Produce")
-    b = _fresh_product(db_session, "Banana", category="Produce")
-    c = _fresh_product(db_session, "Carrot", category="Produce")
-    for _ in range(5): _record_purchase(db_session, a, days_ago=10)
-    for _ in range(2): _record_purchase(db_session, b, days_ago=10)
-    _record_purchase(db_session, c, days_ago=10)
-    db_session.commit()
-
-    names = [t["name"] for t in get_kitchen_catalog(db_session)["categories"]["Produce"]]
-    assert names[:3] == ["Apple", "Banana", "Carrot"]
-
-
-def test_frequent_bucket_top_n_across_categories(db_session):
-    a = _fresh_product(db_session, "Apple", category="Produce")
-    m = _fresh_product(db_session, "Milk",  category="Dairy")
-    for _ in range(7): _record_purchase(db_session, a, days_ago=5)
-    for _ in range(3): _record_purchase(db_session, m, days_ago=5)
-    db_session.commit()
-
-    freq = get_kitchen_catalog(db_session)["frequent"]
-    assert [t["name"] for t in freq[:2]] == ["Apple", "Milk"]
-    assert all(t["purchase_count"] >= 1 for t in freq)
-
-
-def test_image_url_from_latest_snapshot(db_session):
-    p = _fresh_product(db_session, "Eggs", category="Dairy")
-    db_session.add_all([
-        ProductSnapshot(product_id=p.id, status="resolved",
-                        image_path="/tmp/old.jpg"),
-        ProductSnapshot(product_id=p.id, status="resolved",
-                        image_path="/tmp/new.jpg"),
-    ])
-    db_session.commit()
-
-    tile = next(
-        t for t in get_kitchen_catalog(db_session)["categories"]["Dairy"]
-        if t["name"] == "Eggs"
-    )
-    import re
-    assert re.match(r"^/product-snapshots/\d+/image$", tile["image_url"])
-    assert tile["fallback_emoji"] == "🥛"
-
-
-def test_no_snapshot_returns_none_image_url(db_session):
-    p = _fresh_product(db_session, "Lettuce", category="Produce")
-    db_session.commit()
-
-    tile = next(
-        t for t in get_kitchen_catalog(db_session)["categories"]["Produce"]
-        if t["name"] == "Lettuce"
-    )
-    assert tile["image_url"] is None
-    assert tile["fallback_emoji"] == "🥬"
-
-
-def test_on_list_product_ids_from_active_session(db_session):
-    p = _fresh_product(db_session, "Bread", category="Bakery")
-    sess = ShoppingSession(name="trip", status="active")
-    db_session.add(sess)
-    db_session.flush()
-    db_session.add(ShoppingListItem(
-        product_id=p.id, name="Bread", category="Bakery",
-        quantity=1, status="open", shopping_session_id=sess.id,
-    ))
-    db_session.commit()
-
-    out = get_kitchen_catalog(db_session)
-    assert p.id in out["on_list_product_ids"]
-
-
-def test_finalized_session_items_not_in_on_list(db_session):
-    p = _fresh_product(db_session, "Croissant", category="Bakery")
-    sess = ShoppingSession(name="old", status="closed")
-    db_session.add(sess)
-    db_session.flush()
-    db_session.add(ShoppingListItem(
-        product_id=p.id, name="Croissant", category="Bakery",
-        quantity=1, status="purchased", shopping_session_id=sess.id,
-    ))
-    db_session.commit()
-
-    out = get_kitchen_catalog(db_session)
-    assert p.id not in out["on_list_product_ids"]
-
-
-def test_ready_to_bill_session_items_still_on_list(db_session):
-    p = _fresh_product(db_session, "Naan", category="Bakery")
-    sess = ShoppingSession(name="rtb", status="ready_to_bill")
-    db_session.add(sess)
-    db_session.flush()
-    db_session.add(ShoppingListItem(
-        product_id=p.id, name="Naan", category="Bakery",
-        quantity=1, status="open", shopping_session_id=sess.id,
-    ))
-    db_session.commit()
-
-    out = get_kitchen_catalog(db_session)
-    assert p.id in out["on_list_product_ids"]
-
-
-def test_tile_includes_latest_unit_price(db_session):
-    from src.backend.initialize_database_schema import PriceHistory
-    p = _fresh_product(db_session, "Bread", category="Bakery")
-    now = datetime.now(timezone.utc)
-    db_session.add_all([
-        PriceHistory(product_id=p.id, price=2.50, date=now - timedelta(days=1)),
-        PriceHistory(product_id=p.id, price=2.75, date=now),
-    ])
-    db_session.commit()
-    tile = next(
-        t for t in get_kitchen_catalog(db_session)["categories"]["Bakery"]
-        if t["name"] == "Bread"
-    )
-    assert tile["latest_unit_price"] == 2.75
-
-
-def test_tile_no_price_history_returns_none(db_session):
-    _fresh_product(db_session, "Lettuce2", category="Produce")
-    db_session.commit()
-    tile = next(
-        t for t in get_kitchen_catalog(db_session)["categories"]["Produce"]
-        if t["name"] == "Lettuce2"
-    )
-    assert tile["latest_unit_price"] is None
+def _add_inventory(session, product, quantity, location="Pantry"):
+    inv = Inventory(product_id=product.id, quantity=quantity, location=location)
+    session.add(inv)
+    session.flush()
+    return inv
 
 
 def test_product_essential_backup_default_false(db_session):
@@ -280,3 +122,94 @@ def test_product_essential_backup_settable(db_session):
     db_session.refresh(p)
     assert p.is_essential is True
     assert p.has_backup is True
+
+
+def test_essentials_only_returns_tagged_products(db_session):
+    a = _fresh_product(db_session, "Olive Oil", category="Pantry", is_essential=True)
+    _fresh_product(db_session, "Sprinkles", category="Pantry", is_essential=False)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    names = [t["name"] for t in out["essentials"]]
+    assert names == ["Olive Oil"]
+    assert out["essentials"][0]["product_id"] == a.id
+
+
+def test_essentials_excludes_non_product(db_session):
+    _fresh_product(db_session, "Bag Fee", category="Other",
+                   is_essential=True, is_non_product=True)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"] == []
+
+
+def test_essentials_sorted_alphabetically(db_session):
+    _fresh_product(db_session, "Zucchini", category="Produce", is_essential=True)
+    _fresh_product(db_session, "Apples", category="Produce", is_essential=True)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert [t["name"] for t in out["essentials"]] == ["Apples", "Zucchini"]
+
+
+def test_essentials_quantity_summed_across_locations(db_session):
+    p = _fresh_product(db_session, "Milk", category="Dairy", is_essential=True)
+    _add_inventory(db_session, p, 1, location="Fridge")
+    _add_inventory(db_session, p, 2, location="Pantry")
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["quantity"] == 3.0
+
+
+def test_essentials_quantity_zero_when_no_inventory(db_session):
+    _fresh_product(db_session, "Salt", category="Pantry", is_essential=True)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["quantity"] == 0.0
+
+
+def test_essentials_has_backup_reported(db_session):
+    _fresh_product(db_session, "Paper Towels", category="Other",
+                   is_essential=True, has_backup=True)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["has_backup"] is True
+
+
+def test_essentials_on_list_reflects_active_session(db_session):
+    p = _fresh_product(db_session, "Eggs", category="Dairy", is_essential=True)
+    sess = ShoppingSession(status="active")
+    db_session.add(sess)
+    db_session.flush()
+    db_session.add(ShoppingListItem(
+        shopping_session_id=sess.id, product_id=p.id, status="open",
+        name=p.name,
+    ))
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["on_list"] is True
+
+
+def test_suggested_only_when_no_essentials(db_session):
+    p = _fresh_product(db_session, "Bananas", category="Produce")
+    _record_purchase(db_session, p, days_ago=3)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"] == []
+    assert [t["name"] for t in out["suggested"]] == ["Bananas"]
+
+
+def test_suggested_empty_once_an_essential_exists(db_session):
+    _fresh_product(db_session, "Coffee", category="Pantry", is_essential=True)
+    p = _fresh_product(db_session, "Bananas", category="Produce")
+    _record_purchase(db_session, p, days_ago=3)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert [t["name"] for t in out["essentials"]] == ["Coffee"]
+    assert out["suggested"] == []
+
+
+def test_suggested_excludes_already_essential(db_session):
+    e = _fresh_product(db_session, "Coffee", category="Pantry")
+    _record_purchase(db_session, e, days_ago=2)
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert [t["name"] for t in out["suggested"]] == ["Coffee"]

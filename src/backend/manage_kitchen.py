@@ -57,30 +57,13 @@ from sqlalchemy import func
 
 from src.backend.initialize_database_schema import (
     Product, ProductSnapshot, Purchase, ReceiptItem,
-    ShoppingListItem, ShoppingSession, PriceHistory,
+    ShoppingListItem, ShoppingSession, PriceHistory, Inventory,
 )
 
 
-def get_kitchen_catalog(session, *, now=None) -> dict:
-    """Return catalog grid + on-list product ids in one shape.
-
-    Shape:
-        {
-          "frequent": [<ProductTile>, ...],
-          "categories": {
-            "Produce": [<ProductTile>, ...],
-            "Meat":    [...], "Dairy": [...], "Bakery": [...],
-            "Pantry":  [...], "Other": [...],
-          },
-          "on_list_product_ids": [<int>, ...]
-        }
-
-    ProductTile shape:
-        {"product_id": int, "name": str, "category": str,
-         "image_url": str | None, "fallback_emoji": str,
-         "purchase_count": int, "latest_unit_price": float | None}
-    """
-    now = now or datetime.now(timezone.utc)
+def _frequent_tiles(session, *, now, exclude_ids):
+    """Top frequent purchases (last FREQUENCY_WINDOW_DAYS), as ProductTiles,
+    excluding any product ids in `exclude_ids`. Used to seed suggestions."""
     cutoff = now - timedelta(days=FREQUENCY_WINDOW_DAYS)
 
     snapshot_subq = (
@@ -92,7 +75,6 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
         .group_by(ProductSnapshot.product_id)
         .subquery()
     )
-
     count_subq = (
         session.query(
             ReceiptItem.product_id.label("product_id"),
@@ -103,7 +85,66 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
         .group_by(ReceiptItem.product_id)
         .subquery()
     )
+    rows = (
+        session.query(Product, snapshot_subq.c.snapshot_id, count_subq.c.purchase_count)
+        .join(count_subq, count_subq.c.product_id == Product.id)
+        .outerjoin(snapshot_subq, snapshot_subq.c.product_id == Product.id)
+        .filter(Product.is_non_product.isnot(True))
+        .all()
+    )
+    tiles = []
+    for product, snapshot_id, count in rows:
+        if product.id in exclude_ids:
+            continue
+        if not count:
+            continue
+        bucket = category_for_product(product)
+        tiles.append({
+            "product_id": product.id,
+            "name": product.display_name or product.name,
+            "category": bucket,
+            "image_url": f"/product-snapshots/{snapshot_id}/image" if snapshot_id else None,
+            "fallback_emoji": CATEGORY_EMOJI.get(bucket, CATEGORY_EMOJI["Other"]),
+            "purchase_count": int(count or 0),
+        })
+    tiles.sort(key=lambda t: (-t["purchase_count"], t["name"]))
+    return tiles[:8]
 
+
+def get_kitchen_essentials(session, *, now=None) -> dict:
+    """Return the user-curated essentials grid plus (only when empty) a
+    frequency-seeded suggestion list.
+
+    Shape:
+        {
+          "essentials": [
+            {"product_id", "name", "category", "image_url", "fallback_emoji",
+             "quantity": float, "has_backup": bool, "on_list": bool,
+             "latest_unit_price": float | None},
+            ...
+          ],
+          "suggested": [<ProductTile>, ...]   # [] once any essential exists
+        }
+    """
+    now = now or datetime.now(timezone.utc)
+
+    snapshot_subq = (
+        session.query(
+            ProductSnapshot.product_id.label("product_id"),
+            func.max(ProductSnapshot.id).label("snapshot_id"),
+        )
+        .filter(ProductSnapshot.product_id.isnot(None))
+        .group_by(ProductSnapshot.product_id)
+        .subquery()
+    )
+    qty_subq = (
+        session.query(
+            Inventory.product_id.label("product_id"),
+            func.coalesce(func.sum(Inventory.quantity), 0.0).label("qty"),
+        )
+        .group_by(Inventory.product_id)
+        .subquery()
+    )
     latest_price_subq = (
         session.query(
             PriceHistory.product_id.label("product_id"),
@@ -118,87 +159,27 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
         session.query(
             Product,
             snapshot_subq.c.snapshot_id,
-            count_subq.c.purchase_count,
+            qty_subq.c.qty,
             PriceHistory.price.label("latest_price"),
         )
         .outerjoin(snapshot_subq, snapshot_subq.c.product_id == Product.id)
-        .outerjoin(count_subq, count_subq.c.product_id == Product.id)
+        .outerjoin(qty_subq, qty_subq.c.product_id == Product.id)
         .outerjoin(latest_price_subq, latest_price_subq.c.product_id == Product.id)
         .outerjoin(PriceHistory, PriceHistory.id == latest_price_subq.c.price_history_id)
+        .filter(Product.is_essential.is_(True))
+        .filter(Product.is_non_product.isnot(True))
         .all()
     )
 
-    # Build product_id -> set of distinct store names within the
-    # frequency window. Excludes payment-artifact stores and any
-    # admin-hidden stores so the kitchen filter only shows merchants
-    # the user actually shops at.
-    from src.backend.initialize_database_schema import Store
-    store_rows = (
-        session.query(
-            ReceiptItem.product_id,
-            Store.name,
-        )
-        .join(Purchase, Purchase.id == ReceiptItem.purchase_id)
-        .join(Store, Store.id == Purchase.store_id)
-        .filter(Purchase.date >= cutoff)
-        .filter(ReceiptItem.product_id.isnot(None))
-        .filter(Store.name.isnot(None))
-        .filter(Store.is_payment_artifact.is_(False))
-        .filter(
-            (Store.visibility_override.is_(None))
-            | (Store.visibility_override != "hidden")
-        )
-        .distinct()
-        .all()
-    )
-    stores_by_product: dict[int, list[str]] = {}
-    for pid, store_name in store_rows:
-        if not store_name:
-            continue
-        stores_by_product.setdefault(pid, [])
-        if store_name not in stores_by_product[pid]:
-            stores_by_product[pid].append(store_name)
-
-    categories = {cat: [] for cat in DEFAULT_CATEGORIES}
-    all_tiles = []
-    for product, snapshot_id, count, latest_price in rows:
-        bucket = category_for_product(product)
-        emoji = CATEGORY_EMOJI.get(bucket, CATEGORY_EMOJI["Other"])
-        image_url = (
-            f"/product-snapshots/{snapshot_id}/image" if snapshot_id else None
-        )
-        tile = {
-            "product_id": product.id,
-            "name": product.display_name or product.name,
-            "category": bucket,
-            "image_url": image_url,
-            "fallback_emoji": emoji,
-            "purchase_count": int(count or 0),
-            "latest_unit_price": float(latest_price) if latest_price is not None else None,
-            "stores": sorted(stores_by_product.get(product.id, [])),
-        }
-        categories[bucket].append(tile)
-        all_tiles.append(tile)
-
-    for tiles in categories.values():
-        tiles.sort(key=lambda t: (-t["purchase_count"], t["name"]))
-        del tiles[CATEGORY_LIMIT:]
-
-    purchased = [t for t in all_tiles if t["purchase_count"] > 0]
-    purchased.sort(key=lambda t: (-t["purchase_count"], t["name"]))
-    frequent = purchased[:FREQUENT_LIMIT]
-
-    current = (
-        session.query(ShoppingSession.id)
+    current_ids = [
+        s.id for s in session.query(ShoppingSession.id)
         .filter(ShoppingSession.status.in_(("active", "ready_to_bill")))
         .all()
-    )
-    current_ids = [s.id for s in current]
-    on_list = []
+    ]
+    on_list_ids = set()
     if current_ids:
-        on_list = [
-            row[0]
-            for row in session.query(ShoppingListItem.product_id)
+        on_list_ids = {
+            row[0] for row in session.query(ShoppingListItem.product_id)
             .filter(
                 ShoppingListItem.shopping_session_id.in_(current_ids),
                 ShoppingListItem.product_id.isnot(None),
@@ -206,10 +187,26 @@ def get_kitchen_catalog(session, *, now=None) -> dict:
             )
             .distinct()
             .all()
-        ]
+        }
 
-    return {
-        "frequent": frequent,
-        "categories": categories,
-        "on_list_product_ids": on_list,
-    }
+    essentials = []
+    for product, snapshot_id, qty, latest_price in rows:
+        bucket = category_for_product(product)
+        essentials.append({
+            "product_id": product.id,
+            "name": product.display_name or product.name,
+            "category": bucket,
+            "image_url": f"/product-snapshots/{snapshot_id}/image" if snapshot_id else None,
+            "fallback_emoji": CATEGORY_EMOJI.get(bucket, CATEGORY_EMOJI["Other"]),
+            "quantity": float(qty or 0.0),
+            "has_backup": bool(product.has_backup),
+            "on_list": product.id in on_list_ids,
+            "latest_unit_price": float(latest_price) if latest_price is not None else None,
+        })
+    essentials.sort(key=lambda t: t["name"].lower())
+
+    suggested = []
+    if not essentials:
+        suggested = _frequent_tiles(session, now=now, exclude_ids=set())
+
+    return {"essentials": essentials, "suggested": suggested}
