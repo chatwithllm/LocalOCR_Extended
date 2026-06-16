@@ -262,3 +262,21 @@ def test_tile_no_price_history_returns_none(db_session):
         if t["name"] == "Lettuce2"
     )
     assert tile["latest_unit_price"] is None
+
+
+def test_product_essential_backup_default_false(db_session):
+    p = _fresh_product(db_session, "Olive Oil", category="Pantry")
+    db_session.commit()
+    db_session.refresh(p)
+    assert p.is_essential is False
+    assert p.has_backup is False
+
+
+def test_product_essential_backup_settable(db_session):
+    p = _fresh_product(db_session, "Olive Oil", category="Pantry")
+    p.is_essential = True
+    p.has_backup = True
+    db_session.commit()
+    db_session.refresh(p)
+    assert p.is_essential is True
+    assert p.has_backup is True

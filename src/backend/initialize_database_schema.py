@@ -123,6 +123,10 @@ class Product(Base):
     barcode = Column(String(50), nullable=True)
     expected_shelf_days = Column(Integer, nullable=True)
     is_regular_use = Column(Boolean, nullable=True, default=False)
+    # User-curated kitchen essentials. is_essential drives the Kitchen tab grid;
+    # has_backup is an explicit "I have a spare on hand" bit set from the tile.
+    is_essential = Column(Boolean, nullable=False, default=False, server_default="0")
+    has_backup = Column(Boolean, nullable=False, default=False, server_default="0")
     # True for products that represent fees, discounts, taxes, savings,
     # membership IDs, etc. — kept in the catalog for analytics but never
     # surfaced in inventory or kitchen views.
