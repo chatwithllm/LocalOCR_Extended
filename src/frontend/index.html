@@ -72,7 +72,7 @@
     <link rel="stylesheet" href="/styles/page-shell/tokens-themes.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/layout.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/cards.css?v=20260430b" />
-    <link rel="stylesheet" href="/styles/page-shell/kitchen.css?v=20260430b" />
+    <link rel="stylesheet" href="/styles/page-shell/kitchen.css?v=20260616a" />
     <link rel="stylesheet" href="/styles/page-shell/controls.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/page-states.css?v=20260430b" />
     <link rel="stylesheet" href="/styles/page-shell/apple-phases.css?v=20260430b" />
@@ -3577,82 +3577,24 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         </div>
 
         <div class="page" id="page-kitchen">
-          <div class="kitchen-low-header">
-            <div class="title">🍳 Running Low · <span class="count" id="kitchen-low-count">0</span></div>
-            <div class="meta">
-              <span id="kitchen-low-clock"></span>
-              <span class="kitchen-weather" id="kitchen-weather" title="Local weather"></span>
-              <span class="onlist-chip" id="kitchen-onlist-chip" onclick="showPage('shopping')">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
+          <div class="kitchen-essentials-header">
+            <div class="title">⭐ Essentials · <span class="count" id="kitchen-ess-count">0</span></div>
+            <span class="onlist-chip" id="kitchen-onlist-chip" onclick="showPage('shopping')">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
+          </div>
+
+          <div class="kitchen-ess-grid" id="kitchen-ess-grid"></div>
+
+          <div class="kitchen-ess-empty" id="kitchen-ess-empty" style="display:none">
+            <p>No essentials yet. Tag items as <strong>essential</strong> from Products or Inventory and they'll show up here.</p>
+            <div class="kitchen-suggest" id="kitchen-suggest" style="display:none">
+              <h3 class="kitchen-section-title">Suggested essentials</h3>
+              <div class="kitchen-ess-grid" id="kitchen-suggest-grid"></div>
             </div>
-          </div>
-          <div class="kitchen-low-grid" id="kitchen-low-grid"></div>
-          <div class="kitchen-low-empty" id="kitchen-low-empty" style="display:none">All stocked ✅</div>
-          <div class="kitchen-browse-bar">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleKitchenCatalog()">＋ Browse products</button>
-          </div>
-          <div class="kitchen-catalog" id="kitchen-catalog">
-            <div class="kitchen-toolbar">
-              <button type="button" class="kitchen-catalog-toggle" id="kitchen-catalog-toggle"
-                      onclick="toggleKitchenCatalog()" aria-expanded="true">
-                <span class="kitchen-catalog-toggle-label">🛒 Browse products</span>
-                <span class="kitchen-catalog-toggle-caret">▾</span>
-              </button>
-              <div class="kitchen-toolbar-when-open">
-                <div class="kitchen-chip-bar" id="kitchen-chip-bar"></div>
-                <div class="kitchen-search-wrap" id="kitchen-search-wrap" title="Search products + filter by store">
-                  <span class="kitchen-search-icon" aria-hidden="true"
-                        onclick="toggleKitchenSearchPopover(true)">🔍</span>
-                  <input type="search" id="kitchen-search" class="kitchen-search-input"
-                         placeholder="Search…"
-                         onfocus="toggleKitchenSearchPopover(true)"
-                         oninput="onKitchenSearchInput(this.value)"
-                         autocomplete="off">
-                  <div class="kitchen-search-popover" id="kitchen-search-popover">
-                    <div class="kitchen-search-popover-label">Filter by store</div>
-                    <div class="kitchen-search-popover-stores"
-                         id="kitchen-search-popover-stores"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="kitchen-catalog-body" id="kitchen-catalog-body">
-              <div class="kitchen-grid-wrap">
-                <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--prev"
-                        onclick="kitchenGridScrollBy(-1)" aria-label="Scroll left">‹</button>
-                <div class="kitchen-grid" id="kitchen-grid"></div>
-                <button type="button" class="kitchen-grid-arrow kitchen-grid-arrow--next"
-                        onclick="kitchenGridScrollBy(1)" aria-label="Scroll right">›</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="kitchen-list-header">
-            <h2 class="kitchen-section-title">
-              <span>Current List</span>
-              <button type="button" class="kitchen-names-toggle" id="kitchen-names-toggle"
-                      onclick="toggleKitchenNames()" title="Toggle item names"
-                      aria-label="Toggle item names">🏷️</button>
-              <span class="kitchen-list-total" id="kitchen-list-total"></span>
-            </h2>
-          </div>
-
-          <div class="kitchen-empty" id="kitchen-empty" style="display: none;">
-            <p>Your shopping list is empty. Tap a product above to add it.</p>
-          </div>
-
-          <div class="kitchen-list" id="kitchen-list-container">
-            <div class="kitchen-grid kitchen-grid--list" id="kitchen-list-grid"></div>
           </div>
 
           <div class="kitchen-sheet" id="kitchen-sheet" style="display: none;">
             <div class="kitchen-sheet-backdrop" onclick="closeKitchenSheet()"></div>
             <div class="kitchen-sheet-card" id="kitchen-sheet-card"></div>
-          </div>
-
-          <div class="kitchen-ctx" id="kitchen-ctx" style="display: none;">
-            <div class="kitchen-ctx-backdrop" onclick="closeKitchenContextMenu()"></div>
-            <div class="kitchen-ctx-card" id="kitchen-ctx-card"></div>
           </div>
         </div>
 
@@ -7866,231 +7808,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       let shoppingManualVisible = false;
       let shoppingStoreOptions = [];
       let shoppingStoreBuckets = { frequent: [], low_freq: [] };
-      let kitchenCatalog = { frequent: [], categories: {}, on_list_product_ids: [] };
-      let kitchenList = [];
-      let kitchenLowItems = [];
-      let kitchenOnListIds = new Set();
-      let kitchenActiveCategory = "frequent";
-      let kitchenSearchQuery = "";
-      let kitchenStoreFilter = new Set();
-      let kitchenShowNames = (typeof localStorage !== "undefined") &&
-        localStorage.getItem("kitchen-show-names") === "1";
-      let kitchenSheetItemId = null;
-      let kitchenStagedAction = null;
-      let kitchenCatalogCollapsed = (typeof localStorage === "undefined") ||
-        localStorage.getItem("kitchen-catalog-collapsed") !== "0";
-      const KITCHEN_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"];
-      const KITCHEN_CATEGORY_EMOJI = {
-        Produce: "🥬", Meat: "🥩", Dairy: "🥛",
-        Bakery: "🍞", Pantry: "🥫", Other: "🧴",
-      };
-      const KITCHEN_PRODUCT_EMOJI_RULES = [
-        // [substring (lowercase), emoji]
-        ["egg mcmuffin", "🥚"],
-        ["egg", "🥚"],
-        ["milk", "🥛"],
-        ["yogurt", "🥛"],
-        ["cheese", "🧀"],
-        ["butter", "🧈"],
-        ["bread", "🍞"],
-        ["bagel", "🥯"],
-        ["croissant", "🥐"],
-        ["banana", "🍌"],
-        ["apple", "🍎"],
-        ["strawberry", "🍓"],
-        ["strawberries", "🍓"],
-        ["grape", "🍇"],
-        ["lemon", "🍋"],
-        ["orange", "🍊"],
-        ["watermelon", "🍉"],
-        ["pineapple", "🍍"],
-        ["mango", "🥭"],
-        ["avocado", "🥑"],
-        ["tomato", "🍅"],
-        ["potato", "🥔"],
-        ["carrot", "🥕"],
-        ["broccoli", "🥦"],
-        ["lettuce", "🥬"],
-        ["spinach", "🥬"],
-        ["cucumber", "🥒"],
-        ["pepper", "🌶️"],
-        ["onion", "🧅"],
-        ["garlic", "🧄"],
-        ["mushroom", "🍄"],
-        ["corn", "🌽"],
-        ["drumstick", "🍗"],
-        ["thigh", "🍗"],
-        ["chk", "🍗"],
-        ["chkn", "🍗"],
-        ["chicken", "🍗"],
-        ["wing", "🍗"],
-        ["turkey", "🦃"],
-        ["duck", "🦆"],
-        ["lamb", "🥩"],
-        ["mutton", "🥩"],
-        ["goat", "🥩"],
-        ["liver", "🥩"],
-        ["kheema", "🥩"],
-        ["cube", "🥩"],
-        ["steak", "🥩"],
-        ["beef", "🥩"],
-        ["pork", "🥓"],
-        ["bacon", "🥓"],
-        ["sausage", "🌭"],
-        ["tilapia", "🐟"],
-        ["salmon", "🐟"],
-        ["tuna", "🐟"],
-        ["trout", "🐟"],
-        ["cod", "🐟"],
-        ["mackerel", "🐟"],
-        ["sardine", "🐟"],
-        ["pomfret", "🐟"],
-        ["korameen", "🐟"],
-        ["fish", "🐟"],
-        ["shrimp", "🍤"],
-        ["prawn", "🍤"],
-        ["crab", "🦀"],
-        ["lobster", "🦞"],
-        ["rice", "🍚"],
-        ["pasta", "🍝"],
-        ["pizza", "🍕"],
-        ["water", "💧"],
-        ["juice", "🧃"],
-        ["coffee", "☕"],
-        ["tea", "🍵"],
-        ["chocolate", "🍫"],
-        ["cookie", "🍪"],
-        ["cake", "🍰"],
-        ["honey", "🍯"],
-        ["salt", "🧂"],
-        ["cherry", "🍒"],
-        ["cherries", "🍒"],
-        ["coconut", "🥥"],
-        ["pineapple", "🍍"],
-        ["mango", "🥭"],
-        ["watermelon", "🍉"],
-        ["melon", "🍈"],
-        ["peach", "🍑"],
-        ["pear", "🍐"],
-        ["kiwi", "🥝"],
-        ["chili", "🌶️"],
-        ["mirch", "🌶️"],
-        ["jalapeno", "🌶️"],
-        ["bell pepper", "🫑"],
-        ["capsicum", "🫑"],
-        ["lettuce", "🥬"],
-        ["cabbage", "🥬"],
-        ["kale", "🥬"],
-        ["dhania", "🌿"],
-        ["cilantro", "🌿"],
-        ["mint", "🌿"],
-        ["pudina", "🌿"],
-        ["herb", "🌿"],
-        ["beans", "🫛"],
-        ["peas", "🫛"],
-        ["bagel", "🥯"],
-        ["donut", "🍩"],
-        ["pretzel", "🥨"],
-        ["taco", "🌮"],
-        ["burrito", "🌯"],
-        ["sushi", "🍣"],
-        ["soup", "🥣"],
-        ["sugar", "🍬"],
-        ["yogurt", "🥛"],
-        ["cream", "🥛"],
-        ["ice cream", "🍦"],
-        ["popcorn", "🍿"],
-        ["nut", "🥜"],
-        ["almond", "🥜"],
-        ["peanut", "🥜"],
-        ["wine", "🍷"],
-        ["beer", "🍺"],
-        ["soda", "🥤"],
-        ["paper", "🧻"],
-        ["towel", "🧻"],
-        ["soap", "🧼"],
-        ["detergent", "🧴"],
-        ["shampoo", "🧴"],
-        ["mcmuffin", "🥪"],
-        ["sandwich", "🥪"],
-        ["sausage", "🌭"],
-        ["mushroom", "🍄"],
-        ["coriander", "🌿"],
-        ["fenugreek", "🌿"],
-        ["methi", "🌿"],
-        ["okra", "🥒"],
-        ["bhindi", "🥒"],
-        ["pumpkin", "🎃"],
-        ["squash", "🎃"],
-        ["zucchini", "🥒"],
-        ["radish", "🥕"],
-        ["beet", "🥕"],
-        ["ginger", "🫚"],
-        ["turmeric", "🫚"],
-        ["dates", "🌴"],
-        ["fig", "🌳"],
-        ["raisin", "🍇"],
-      ];
-
-      function kitchenEmojiForProduct(item) {
-        const name = (item.name || "").toLowerCase();
-        for (const [needle, emoji] of KITCHEN_PRODUCT_EMOJI_RULES) {
-          if (name.includes(needle)) return emoji;
-        }
-        // Case-insensitive category lookup — ShoppingListItem.category is
-        // lowercased in storage but the emoji map keys are TitleCase.
-        const rawCat = String(item.category || "").trim();
-        const titleCat = rawCat
-          ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase()
-          : "";
-        return KITCHEN_CATEGORY_EMOJI[titleCat] || KITCHEN_CATEGORY_EMOJI[rawCat] || "🛒";
-      }
-
-      function _kitchenCanonicalKey(name) {
-        let s = String(name || "")
-          .toLowerCase()
-          .replace(/\b(organic|org|ks|kirkland|signature|natural|fresh|raw|frozen|pure|whole|baby|mini|jumbo|small|large)\b/g, "")
-          .replace(/\b\d+\s?(lb|oz|ct|count|pack|pk|gal|gallon|kg|g|ml|l)\b/g, "")
-          .replace(/\b\d+\b/g, "")
-          .replace(/[^a-z\s]+/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (!s) return "";
-        // Group by HEAD NOUN — e.g. "Roma Tomato" / "Vine Tomato" /
-        // "Cherry Tomato" / "Cocktail Tomatoes" all → "tomato".
-        // English compound nouns put the modifier first; the last word is
-        // the noun being modified.
-        const parts = s.split(" ");
-        let head = parts[parts.length - 1];
-        head = head.replace(/ies$/, "y").replace(/(es|s)$/, "");
-        return head;
-      }
-
-      function _kitchenGroupTiles(tiles) {
-        const groups = new Map();
-        for (const t of tiles || []) {
-          const key = _kitchenCanonicalKey(t.name) || `__${t.product_id}`;
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key).push(t);
-        }
-        const result = [];
-        for (const variants of groups.values()) {
-          variants.sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0));
-          const primary = variants[0];
-          result.push({
-            ...primary,
-            _variants: variants,
-            _variant_count: variants.length,
-          });
-        }
-        result.sort((a, b) => (b.purchase_count || 0) - (a.purchase_count || 0));
-        return result;
-      }
-      const KITCHEN_PRESETS = {
-        bought: ["Paid more", "Paid less", "Different brand", "Different size"],
-        low: ["Almost out", "Restock soon"],
-        skipped: ["Too expensive", "Out of stock", "Changed mind", "Got from elsewhere"],
-      };
       const STORE_DEFAULTS = ["Costco", "Kroger", "Target", "India Bazar"];
 
       function buildStoreOptionTags(selectedValue, bucketsOverride) {
@@ -28723,1253 +28440,159 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       let shoppingSessionState = null;
 
+      let kitchenEssentials = [];
+
       async function loadKitchen() {
         try {
-          const [catRes, listRes, lowRes] = await Promise.all([
-            api("/api/kitchen/catalog"),
-            api("/shopping-list"),
-            api("/inventory?low_stock=true"),
-          ]);
-          const cat = await catRes.json();
-          const list = await listRes.json();
-          const low = await lowRes.json();
-          if (!catRes.ok) throw new Error(cat.error || "kitchen catalog failed");
-          if (!listRes.ok) throw new Error(list.error || "shopping list failed");
-          kitchenCatalog = cat;
-          kitchenList = (list.items || []).filter(
-            (i) => i.status === "open" || i.status === "skipped",
-          );
-          kitchenLowItems = (low && low.inventory) || [];
-          kitchenOnListIds = new Set(
-            (list.items || [])
-              .filter((i) => i.status === "open" && i.product_id)
-              .map((i) => Number(i.product_id)),
-          );
-          if (list.available_store_buckets) {
-            shoppingStoreBuckets = list.available_store_buckets;
-          }
-          renderKitchenStoreFilter();
-          renderKitchenCatalog();
-          renderKitchenList();
-          renderKitchenLowGrid();
-          startKitchenClock();
-          applyKitchenCatalogCollapsed();
-          applyKitchenShowNames();
-          loadKitchenWeather();
+          const res = await api("/api/kitchen/essentials");
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "kitchen failed");
+          kitchenEssentials = data.essentials || [];
+          renderKitchenEssentials(data.suggested || []);
         } catch (err) {
           toast(err.message || "Failed to load kitchen view", "error");
         }
       }
 
-      const _KITCHEN_WEATHER_CACHE_KEY = "kitchen-weather-cache";
-      const _KITCHEN_WEATHER_TTL_MS = 30 * 60 * 1000;
-
-      function _kitchenWeatherEmoji(code) {
-        if (code === 0) return "☀️";
-        if (code <= 3) return "⛅";
-        if (code === 45 || code === 48) return "🌫️";
-        if (code >= 51 && code <= 67) return "🌧️";
-        if (code >= 71 && code <= 77) return "🌨️";
-        if (code >= 80 && code <= 82) return "🌧️";
-        if (code === 85 || code === 86) return "🌨️";
-        if (code >= 95) return "⛈️";
-        return "🌡️";
-      }
-
-      function _kitchenWeatherDesc(code) {
-        if (code === 0) return "Clear";
-        if (code <= 3) return "Cloudy";
-        if (code === 45 || code === 48) return "Fog";
-        if (code >= 51 && code <= 67) return "Rain";
-        if (code >= 71 && code <= 77) return "Snow";
-        if (code >= 80 && code <= 82) return "Showers";
-        if (code === 85 || code === 86) return "Snow";
-        if (code >= 95) return "Storm";
-        return "";
-      }
-
-      function _kitchenRenderWeather(temp, code) {
-        const target = document.getElementById("kitchen-weather");
-        if (!target) return;
-        const tempStr = `${Math.round(temp)}°F`;
-        const html = `
-          <span class="ico">${_kitchenWeatherEmoji(code)}</span>
-          <span class="temp">${escHtml(tempStr)}</span>
-          <span class="desc">${escHtml(_kitchenWeatherDesc(code))}</span>`;
-        setHtml(target, html);
-      }
-
-      async function _kitchenFetchWeather(lat, lon) {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("weather fetch failed");
-        const data = await res.json();
-        const cw = data.current_weather || {};
-        return { temp: cw.temperature, code: cw.weathercode };
-      }
-
-      function _kitchenReadWeatherCache() {
-        try {
-          const raw = localStorage.getItem(_KITCHEN_WEATHER_CACHE_KEY);
-          if (!raw) return null;
-          const obj = JSON.parse(raw);
-          if (!obj || !obj.fetched_at) return null;
-          if (Date.now() - obj.fetched_at > _KITCHEN_WEATHER_TTL_MS) return null;
-          return obj;
-        } catch (_) { return null; }
-      }
-
-      function _kitchenWriteWeatherCache(payload) {
-        try {
-          localStorage.setItem(
-            _KITCHEN_WEATHER_CACHE_KEY,
-            JSON.stringify({ ...payload, fetched_at: Date.now() }),
-          );
-        } catch (_) { /* ignore */ }
-      }
-
-      async function _kitchenGeoByIp() {
-        // Try ipapi.co first — works on HTTP, no permission prompt, no key.
-        try {
-          const res = await fetch("https://ipapi.co/json/");
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data.latitude && data.longitude) {
-              return { lat: data.latitude, lon: data.longitude };
-            }
-          }
-        } catch (_) { /* try next */ }
-        // Fallback: open-meteo's geocoding-by-IP doesn't exist, so try ip-api.com
-        try {
-          const res = await fetch("https://ipwho.is/");
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data.success && data.latitude && data.longitude) {
-              return { lat: data.latitude, lon: data.longitude };
-            }
-          }
-        } catch (_) { /* give up */ }
-        return null;
-      }
-
-      let _kitchenClockTimer = null;
-      function startKitchenClock() {
-        const tick = () => {
-          const el = document.getElementById("kitchen-low-clock");
-          if (!el) return;
-          const d = new Date();
-          el.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-        };
-        tick();
-        if (_kitchenClockTimer) clearInterval(_kitchenClockTimer);
-        _kitchenClockTimer = setInterval(tick, 30000);
-      }
-
-      async function loadKitchenWeather() {
-        const target = document.getElementById("kitchen-weather");
-        if (!target) return;
-        const cached = _kitchenReadWeatherCache();
-        if (cached && cached.temp != null) {
-          _kitchenRenderWeather(cached.temp, cached.code);
-          return;
+      function _kitchenTileHtml(t, { suggest = false } = {}) {
+        const thumb = t.image_url
+          ? `<img class="thumb" src="${escAttr(t.image_url)}" alt="" loading="lazy" />`
+          : `<div class="thumb">${t.fallback_emoji || shoppingItemEmoji(t.name, t.category)}</div>`;
+        if (suggest) {
+          return `
+            <div class="kitchen-ess-tile" data-pid="${t.product_id}"
+                 onclick="kitchenMarkEssential(${t.product_id})">
+              ${thumb}
+              <div class="nm">${escHtml(t.name || "Item")}</div>
+              <div class="add-ess">＋ Essential</div>
+            </div>`;
         }
-        // 1) IP geo (no permission, works over HTTP) — try first.
-        let coords = await _kitchenGeoByIp();
-        // 2) If IP geo failed AND we're on HTTPS or localhost, try browser geo.
-        if (!coords && navigator.geolocation && (
-              location.protocol === "https:" ||
-              location.hostname === "localhost" ||
-              location.hostname === "127.0.0.1")) {
-          coords = await new Promise((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-              () => resolve(null),
-              { timeout: 4000, maximumAge: 30 * 60 * 1000 },
-            );
-          });
-        }
-        if (!coords) return;
-        try {
-          const w = await _kitchenFetchWeather(coords.lat, coords.lon);
-          _kitchenWriteWeatherCache({
-            lat: coords.lat, lon: coords.lon,
-            temp: w.temp, code: w.code,
-          });
-          _kitchenRenderWeather(w.temp, w.code);
-        } catch (_) { /* silent */ }
-      }
-
-      function toggleKitchenCatalog() {
-        kitchenCatalogCollapsed = !kitchenCatalogCollapsed;
-        applyKitchenCatalogCollapsed();
-        try {
-          localStorage.setItem(
-            "kitchen-catalog-collapsed",
-            kitchenCatalogCollapsed ? "1" : "0",
-          );
-        } catch (_) { /* ignore */ }
-      }
-
-      function applyKitchenCatalogCollapsed() {
-        const cat = document.getElementById("kitchen-catalog");
-        const toggle = document.getElementById("kitchen-catalog-toggle");
-        const caret = toggle ? toggle.querySelector(".kitchen-catalog-toggle-caret") : null;
-        if (cat) cat.classList.toggle("collapsed", kitchenCatalogCollapsed);
-        if (toggle) toggle.setAttribute("aria-expanded", kitchenCatalogCollapsed ? "false" : "true");
-        if (caret) caret.textContent = kitchenCatalogCollapsed ? "▸" : "▾";
-      }
-
-      function applyKitchenShowNames() {
-        document.body.classList.toggle("kitchen-show-names", kitchenShowNames);
-        const btn = document.getElementById("kitchen-names-toggle");
-        if (btn) btn.classList.toggle("active", kitchenShowNames);
-      }
-
-      function toggleKitchenNames() {
-        kitchenShowNames = !kitchenShowNames;
-        applyKitchenShowNames();
-        try {
-          localStorage.setItem("kitchen-show-names", kitchenShowNames ? "1" : "0");
-        } catch (_) { /* ignore */ }
-      }
-
-      function kitchenSetActiveCategory(name) {
-        kitchenActiveCategory = name;
-        renderKitchenCatalog();
-      }
-
-      function _kitchenAllTiles() {
-        const cats = kitchenCatalog.categories || {};
-        const seen = new Set();
-        const out = [];
-        for (const list of Object.values(cats)) {
-          for (const t of list || []) {
-            if (seen.has(t.product_id)) continue;
-            seen.add(t.product_id);
-            out.push(t);
-          }
-        }
-        return out;
-      }
-
-      function _kitchenApplyStoreFilter(tiles) {
-        if (!kitchenStoreFilter || kitchenStoreFilter.size === 0) return tiles;
-        return tiles.filter((t) => {
-          const stores = Array.isArray(t.stores) ? t.stores : [];
-          return stores.some((s) => kitchenStoreFilter.has(s));
-        });
-      }
-
-      function _kitchenTilesForActiveChip() {
-        const q = (kitchenSearchQuery || "").trim().toLowerCase();
-        let raw;
-        if (q) {
-          raw = _kitchenAllTiles().filter((t) =>
-            String(t.name || "").toLowerCase().includes(q),
-          );
-        } else {
-          raw = kitchenActiveCategory === "frequent"
-            ? (kitchenCatalog.frequent || [])
-            : ((kitchenCatalog.categories || {})[kitchenActiveCategory] || []);
-        }
-        raw = _kitchenApplyStoreFilter(raw);
-        return _kitchenGroupTiles(raw);
-      }
-
-      function _kitchenAvailableStoresForFilter() {
-        const seen = new Map();
-        for (const t of _kitchenAllTiles()) {
-          for (const s of t.stores || []) {
-            seen.set(s, (seen.get(s) || 0) + (t.purchase_count || 0));
-          }
-        }
-        return [...seen.entries()]
-          .sort(([, a], [, b]) => b - a)
-          .map(([name]) => name);
-      }
-
-      function renderKitchenStoreFilter() {
-        // Stores live inside the search-magnifier popover.
-        const target = document.getElementById("kitchen-search-popover-stores");
-        if (!target) return;
-        const stores = _kitchenAvailableStoresForFilter();
-        if (!stores.length) {
-          setHtml(target, `<span class="kitchen-search-popover-empty">No store history yet.</span>`);
-          return;
-        }
-        const allChip = `
-          <button type="button"
-                  class="kitchen-store-filter-chip${kitchenStoreFilter.size === 0 ? " active" : ""}"
-                  onclick="kitchenClearStoreFilter()">All</button>`;
-        const chips = stores.map((name) => `
-          <button type="button"
-                  class="kitchen-store-filter-chip${kitchenStoreFilter.has(name) ? " active" : ""}"
-                  onclick="${escAttr(`kitchenToggleStoreFilter(${JSON.stringify(name)})`)}">
-            ${escHtml(name)}
-          </button>`).join("");
-        setHtml(target, allChip + chips);
-        _kitchenSyncSearchWrapState();
-      }
-
-      function _kitchenSyncSearchWrapState() {
-        const wrap = document.getElementById("kitchen-search-wrap");
-        if (!wrap) return;
-        wrap.classList.toggle("has-store-filter", kitchenStoreFilter.size > 0);
-      }
-
-      function kitchenToggleStoreFilter(name) {
-        if (kitchenStoreFilter.has(name)) {
-          kitchenStoreFilter.delete(name);
-        } else {
-          kitchenStoreFilter.add(name);
-        }
-        renderKitchenStoreFilter();
-        renderKitchenCatalog();
-      }
-
-      function kitchenClearStoreFilter() {
-        kitchenStoreFilter.clear();
-        renderKitchenStoreFilter();
-        renderKitchenCatalog();
-      }
-
-      function toggleKitchenSearchPopover(forceOpen) {
-        const wrap = document.getElementById("kitchen-search-wrap");
-        if (!wrap) return;
-        const wasOpen = wrap.classList.contains("popover-open");
-        const open = (forceOpen === undefined) ? !wasOpen : !!forceOpen;
-        wrap.classList.toggle("popover-open", open);
-        if (open) {
-          renderKitchenStoreFilter();
-          // Mobile (≤600px) is a bottom-sheet — CSS pins it. Desktop uses
-          // the absolute position relative to the magnifier wrap.
-          const pop = document.getElementById("kitchen-search-popover");
-          if (pop) pop.style.top = "";
-          if (!_kitchenPopoverOutsideHandler) {
-            _kitchenPopoverOutsideHandler = (e) => {
-              const w = document.getElementById("kitchen-search-wrap");
-              if (w && !w.contains(e.target)) toggleKitchenSearchPopover(false);
-            };
-            document.addEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
-            document.addEventListener("touchstart", _kitchenPopoverOutsideHandler, true);
-          }
-        } else if (_kitchenPopoverOutsideHandler) {
-          document.removeEventListener("mousedown", _kitchenPopoverOutsideHandler, true);
-          document.removeEventListener("touchstart", _kitchenPopoverOutsideHandler, true);
-          _kitchenPopoverOutsideHandler = null;
-        }
-      }
-      let _kitchenPopoverOutsideHandler = null;
-
-      function onKitchenSearchInput(value) {
-        kitchenSearchQuery = String(value || "");
-        const wrap = document.querySelector(".kitchen-search-wrap");
-        if (wrap) wrap.classList.toggle("has-query", !!kitchenSearchQuery);
-        if (kitchenSearchQuery && kitchenCatalogCollapsed) {
-          kitchenCatalogCollapsed = false;
-          applyKitchenCatalogCollapsed();
-          try { localStorage.setItem("kitchen-catalog-collapsed", "0"); } catch (_) {}
-        }
-        renderKitchenCatalog();
-      }
-
-      function _kitchenWireGridWheel(grid) {
-        if (!grid || grid.dataset.wheelWired === "1") return;
-        grid.dataset.wheelWired = "1";
-        grid.addEventListener("wheel", (e) => {
-          if (e.deltaY === 0) return;
-          if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-          e.preventDefault();
-          grid.scrollLeft += e.deltaY;
-        }, { passive: false });
-        grid.addEventListener("scroll", _kitchenUpdateArrowVisibility, { passive: true });
-        window.addEventListener("resize", _kitchenUpdateArrowVisibility);
-      }
-
-      function _kitchenUpdateArrowVisibility() {
-        const grid = document.getElementById("kitchen-grid");
-        const wrap = grid?.parentElement;
-        if (!grid || !wrap) return;
-        const epsilon = 2;
-        const canPrev = grid.scrollLeft > epsilon;
-        const canNext = grid.scrollLeft + grid.clientWidth < grid.scrollWidth - epsilon;
-        wrap.classList.toggle("can-scroll-prev", canPrev);
-        wrap.classList.toggle("can-scroll-next", canNext);
-      }
-
-      function _kitchenSmoothScrollBy(el, delta, duration) {
-        if (el._kitchenScrollAnim) cancelAnimationFrame(el._kitchenScrollAnim);
-        const start = el.scrollLeft;
-        const end = start + delta;
-        const t0 = performance.now();
-        // easeOutCubic — fast departure, gradual settle. Reads as a
-        // physical carousel sliding to its rest position.
-        const ease = (t) => 1 - Math.pow(1 - t, 3);
-        // Suspend scroll-snap during the animation so the snap engine
-        // doesn't fight our rAF target.
-        const prevSnap = el.style.scrollSnapType;
-        el.style.scrollSnapType = "none";
-        const step = (now) => {
-          const k = Math.min(1, (now - t0) / duration);
-          el.scrollLeft = start + (end - start) * ease(k);
-          if (k < 1) {
-            el._kitchenScrollAnim = requestAnimationFrame(step);
-          } else {
-            el._kitchenScrollAnim = null;
-            el.style.scrollSnapType = prevSnap || "";
-          }
-        };
-        el._kitchenScrollAnim = requestAnimationFrame(step);
-      }
-
-      function kitchenGridScrollBy(direction) {
-        const grid = document.getElementById("kitchen-grid");
-        if (!grid) return;
-        const tile = grid.querySelector(".kitchen-tile");
-        const tileW = tile ? tile.getBoundingClientRect().width : 110;
-        const gap = 10;
-        // Move three tiles per click — gives a clearer slide motion than
-        // two (which felt like an in-place swap on small grids).
-        const delta = direction * (tileW + gap) * 3;
-        _kitchenSmoothScrollBy(grid, delta, 750);
-      }
-
-      function renderKitchenCatalog() {
-        const chipBar = document.getElementById("kitchen-chip-bar");
-        const grid = document.getElementById("kitchen-grid");
-        if (!chipBar || !grid) return;
-        _kitchenWireGridWheel(grid);
-
-        const chips = [
-          { key: "frequent", label: "⭐ Frequent" },
-          ...KITCHEN_CATEGORIES.map((c) => ({
-            key: c, label: `${KITCHEN_CATEGORY_EMOJI[c] || ""} ${c}`,
-          })),
-        ];
-        const chipHtml = chips
-          .map(
-            (c) => `
-              <button
-                class="kitchen-chip${kitchenActiveCategory === c.key ? " active" : ""}"
-                onclick="${escAttr(`kitchenSetActiveCategory(${JSON.stringify(c.key)})`)}"
-                type="button"
-              >${escHtml(c.label)}</button>`,
-          )
-          .join("");
-        setHtml(chipBar, chipHtml);
-
-        const tiles = _kitchenTilesForActiveChip();
-        const onListSet = new Set(kitchenCatalog.on_list_product_ids || []);
-        const html = tiles
-          .map((t) => {
-            const isOnList = onListSet.has(t.product_id);
-            const inner = t.image_url
-              ? `<img src="${escHtml(t.image_url)}" alt="${escHtml(t.name)}">`
-              : `${kitchenEmojiForProduct(t)}`;
-            const priceHtml = t.latest_unit_price
-              ? `<span class="kitchen-tile-price">$${t.latest_unit_price.toFixed(2)}</span>`
-              : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
-            const variantBadge = (t._variant_count > 1)
-              ? `<span class="kitchen-tile-variants" title="${t._variant_count} variants">+${t._variant_count - 1}</span>`
-              : "";
-            const onclickPayload = isOnList
-              ? ""
-              : (t._variant_count && t._variant_count > 1)
-                ? `_kitchenOpenVariantPickerForKey(${JSON.stringify(_kitchenCanonicalKey(t.name))}, ${JSON.stringify(kitchenActiveCategory)})`
-                : `addProductToList(${t.product_id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.category)})`;
-            return `
-              <div
-                class="kitchen-tile${isOnList ? " on-list" : ""}"
-                data-kind="catalog"
-                data-product-id="${t.product_id}"
-                data-product-name="${escAttr(t.name)}"
-                data-product-category="${escAttr(t.category || "")}"
-                data-product-stores="${escAttr((t.stores || []).join('|'))}"
-                data-canonical-key="${escAttr(_kitchenCanonicalKey(t.name))}"
-                data-variant-count="${t._variant_count || 1}"
-                onclick="${escAttr(onclickPayload)}"
-                title="${escAttr(t.name)}"
-              >
-                <div class="kitchen-tile-img">${inner}</div>
-                <div class="kitchen-tile-foot">
-                  <div class="kitchen-tile-name">${escHtml(t.name)}</div>
-                  <div class="kitchen-tile-meta">
-                    ${priceHtml}
-                    ${variantBadge}
-                    ${
-                      t.purchase_count
-                        ? `<span class="kitchen-tile-badge" title="bought ${t.purchase_count}× in last 90 days">${t.purchase_count}×</span>`
-                        : ""
-                    }
-                  </div>
-                </div>
-              </div>`;
-          })
-          .join("");
-        setHtml(
-          grid,
-          html ||
-            `<div class="kitchen-empty" style="grid-column: 1/-1;">No products in this category yet.</div>`,
-        );
-        _kitchenWireLongPress(grid);
-        // Run after layout settles so scrollWidth is accurate.
-        requestAnimationFrame(_kitchenUpdateArrowVisibility);
-      }
-
-      function _kitchenCatalogTileForProduct(productId) {
-        if (!productId || !kitchenCatalog) return null;
-        if (Array.isArray(kitchenCatalog.frequent)) {
-          const hit = kitchenCatalog.frequent.find((t) => t.product_id === productId);
-          if (hit) return hit;
-        }
-        const cats = kitchenCatalog.categories || {};
-        for (const list of Object.values(cats)) {
-          if (!Array.isArray(list)) continue;
-          const hit = list.find((t) => t.product_id === productId);
-          if (hit) return hit;
-        }
-        return null;
-      }
-
-      function _kitchenItemTile(item) {
-        const snap = item.latest_snapshot;
-        const catalogTile = _kitchenCatalogTileForProduct(item.product_id);
-        const imageUrl =
-          (snap && snap.image_url) ||
-          (catalogTile && catalogTile.image_url) ||
-          null;
-        const inner = imageUrl
-          ? `<img src="${escAttr(imageUrl)}" alt="${escAttr(item.name)}">`
-          : `${kitchenEmojiForProduct(item)}`;
-        const skipped = item.status === "skipped";
-        const unitPrice =
-          item.manual_estimated_price != null
-            ? Number(item.manual_estimated_price)
-            : (item.latest_price && item.latest_price.price) ||
-              (catalogTile && catalogTile.latest_unit_price) ||
-              null;
-        const priceHtml = unitPrice
-          ? `<span class="kitchen-tile-price">$${Number(unitPrice).toFixed(2)}</span>`
-          : `<span class="kitchen-tile-price kitchen-tile-price--placeholder">—</span>`;
+        const badges = [];
+        if (t.on_list) badges.push(`<div class="onlist-badge">✓ On list</div>`);
+        if (t.has_backup) badges.push(`<div class="backup-dot" title="Spare on hand">🟢 spare</div>`);
         return `
-          <div
-            class="kitchen-tile${skipped ? " skipped" : ""}"
-            data-kind="list"
-            data-item-id="${item.id}"
-            onclick="openKitchenSheet(${item.id})"
-            title="${escAttr(item.name)}"
-          >
-            <div class="kitchen-tile-img">${inner}</div>
-            <div class="kitchen-tile-foot">
-              <div class="kitchen-tile-name">${escHtml(item.name)}</div>
-              <div class="kitchen-tile-meta">
-                ${priceHtml}
-                <span class="kitchen-tile-badge" title="quantity">×${item.quantity}</span>
-              </div>
-            </div>
+          <div class="kitchen-ess-tile ${t.on_list ? "on-list" : ""}" data-pid="${t.product_id}"
+               onclick="openKitchenDetail(${t.product_id})">
+            ${thumb}
+            <div class="nm">${escHtml(t.name || "Item")}</div>
+            ${badges.join("")}
           </div>`;
       }
 
-      function renderKitchenLowGrid() {
-        const grid = document.getElementById("kitchen-low-grid");
-        const empty = document.getElementById("kitchen-low-empty");
-        const countEl = document.getElementById("kitchen-low-count");
+      function renderKitchenEssentials(suggested) {
+        const grid = document.getElementById("kitchen-ess-grid");
+        const empty = document.getElementById("kitchen-ess-empty");
+        const countEl = document.getElementById("kitchen-ess-count");
         const onListCountEl = document.getElementById("kitchen-onlist-count");
         if (!grid) return;
-        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
 
-        const items = [...kitchenLowItems].sort((a, b) => {
-          const ao = Number(a.quantity) <= 0 ? 0 : 1;
-          const bo = Number(b.quantity) <= 0 ? 0 : 1;
-          return ao - bo || Number(a.quantity || 0) - Number(b.quantity || 0);
-        });
-        if (countEl) countEl.textContent = items.length;
-        if (!items.length) {
+        const onListCount = kitchenEssentials.filter((t) => t.on_list).length;
+        if (onListCountEl) onListCountEl.textContent = onListCount;
+        if (countEl) countEl.textContent = kitchenEssentials.length;
+
+        if (!kitchenEssentials.length) {
           grid.innerHTML = "";
           if (empty) empty.style.display = "block";
+          const sg = document.getElementById("kitchen-suggest");
+          const sgGrid = document.getElementById("kitchen-suggest-grid");
+          if (sg && sgGrid) {
+            if (suggested.length) {
+              sg.style.display = "block";
+              sgGrid.innerHTML = suggested.map((t) => _kitchenTileHtml(t, { suggest: true })).join("");
+            } else {
+              sg.style.display = "none";
+            }
+          }
           return;
         }
         if (empty) empty.style.display = "none";
-
-        grid.innerHTML = items
-          .map((it) => {
-            const onList = kitchenOnListIds.has(Number(it.product_id));
-            const out = Number(it.quantity) <= 0;
-            const url = it.latest_snapshot?.image_url;
-            const thumb = url
-              ? `<img class="thumb" src="${escAttr(url)}" alt="" loading="lazy" />`
-              : `<div class="thumb">${shoppingItemEmoji(it.product_name, it.category)}</div>`;
-            const lo = out ? "out" : (it.quantity != null ? `${it.quantity} left` : "low");
-            // Pass ONLY the numeric product_id in the handler — the function looks
-            // the item up in kitchenLowItems. Never interpolate user-controlled
-            // names into an inline onclick (encodeURIComponent doesn't escape ' —
-            // breaks "Reese's" and is an XSS vector via receipt-sourced names).
-            return `
-            <div class="kitchen-low-tile ${out ? "urgent" : ""} ${onList ? "on-list" : ""}"
-                 data-pid="${it.product_id}"
-                 onclick="kitchenAddLowToList(${it.product_id}, this)">
-              ${thumb}
-              <div class="nm">${escHtml(it.product_name || "Item")}</div>
-              ${onList
-                ? `<div class="onlist-badge">✓ On list</div>`
-                : `<div class="lo">${escHtml(lo)}</div>`}
-              <button type="button" class="gotit"
-                      onclick="event.stopPropagation(); kitchenMarkRestocked(${it.id}, ${it.product_id}, ${it.threshold ?? "null"}, ${it.manual_low ? "true" : "false"})">Got it</button>
-            </div>`;
-          })
-          .join("");
+        grid.innerHTML = kitchenEssentials.map((t) => _kitchenTileHtml(t)).join("");
       }
 
-      async function kitchenAddLowToList(productId, tileEl) {
-        if (tileEl && tileEl.classList.contains("on-list")) return; // already added
-        // Look the item up from state — never trust names interpolated into onclick.
-        const it = kitchenLowItems.find(
-          (x) => Number(x.product_id) === Number(productId),
-        );
-        if (!it) return;
-        // optimistic: flip the tile immediately
-        if (tileEl) {
-          tileEl.classList.add("on-list");
-          const lo = tileEl.querySelector(".lo");
-          if (lo) { lo.className = "onlist-badge"; lo.textContent = "✓ On list"; }
-        }
-        if (productId) kitchenOnListIds.add(Number(productId));
-        const onListCountEl = document.getElementById("kitchen-onlist-count");
-        if (onListCountEl) onListCountEl.textContent = kitchenOnListIds.size;
-        await quickAddToShoppingList({
-          product_id: productId,
-          name: it.product_name,
-          category: it.category || "other",
-          quantity: 1,
-          source: "kitchen_low",
-        });
-      }
-
-      async function kitchenMarkRestocked(inventoryId, productId, threshold, manualLow) {
+      async function kitchenMarkEssential(productId) {
         try {
-          // 1) Clear a manual-low flag if set.
-          if (manualLow && productId) {
-            await api(`/inventory/products/${productId}/low-status`, {
-              method: "PUT",
-              body: JSON.stringify({ manual_low: false }),
-            });
-          }
-          // 2) If low because quantity < threshold, lift quantity to the threshold.
-          const t = Number(threshold);
-          if (inventoryId && t > 0) {
-            await api(`/inventory/${inventoryId}/update`, {
-              method: "PUT",
-              body: JSON.stringify({ quantity: t }),
-            });
-          }
-          toast("Marked restocked ✅", "success");
+          await api(`/inventory/products/${productId}/essential`, {
+            method: "PUT",
+            body: JSON.stringify({ is_essential: true }),
+          });
+          toast("Added to essentials ⭐", "success");
+          await loadKitchen();
         } catch (err) {
-          toast("Could not mark restocked", "error");
-        }
-        await loadKitchen(); // refresh — the item should leave the low grid
-      }
-
-      function renderKitchenList() {
-        const empty = document.getElementById("kitchen-empty");
-        const container = document.getElementById("kitchen-list-container");
-        const grid = document.getElementById("kitchen-list-grid");
-        const total = document.getElementById("kitchen-list-total");
-        if (!grid) return;
-        const items = kitchenList || [];
-        if (!items.length) {
-          if (container) container.style.display = "none";
-          if (empty) empty.style.display = "block";
-          setHtml(grid, "");
-          if (total) total.textContent = "";
-          return;
-        }
-        if (container) container.style.display = "block";
-        if (empty) empty.style.display = "none";
-
-        // Group by preferred store.
-        const groups = new Map();
-        for (const item of items) {
-          const store =
-            item.preferred_store ||
-            (item.latest_price && item.latest_price.store) ||
-            "Unassigned";
-          if (!groups.has(store)) groups.set(store, []);
-          groups.get(store).push(item);
-        }
-        const storeNames = [...groups.keys()].sort((a, b) => {
-          if (a === "Unassigned") return 1;
-          if (b === "Unassigned") return -1;
-          return a.localeCompare(b);
-        });
-
-        const _storeUnitPrice = (i) => {
-          const catalogTile = _kitchenCatalogTileForProduct(i.product_id);
-          if (i.manual_estimated_price != null) return Number(i.manual_estimated_price);
-          if (i.latest_price && i.latest_price.price) return Number(i.latest_price.price);
-          if (catalogTile && catalogTile.latest_unit_price)
-            return Number(catalogTile.latest_unit_price);
-          return 0;
-        };
-        const html = storeNames.map((store) => {
-          const list = groups.get(store);
-          const tilesHtml = list.map(_kitchenItemTile).join("");
-          const storeTotal = list.reduce(
-            (acc, i) => acc + _storeUnitPrice(i) * Number(i.quantity || 0),
-            0,
-          );
-          const totalHtml = storeTotal > 0
-            ? `<span class="kitchen-store-group-total">$${storeTotal.toFixed(2)}</span>`
-            : "";
-          return `
-            <div class="kitchen-store-group">
-              <h3 class="kitchen-store-group-title">
-                <span>${escHtml(store)}</span>
-                <span class="kitchen-store-group-count">${list.length} item${list.length === 1 ? "" : "s"}</span>
-                ${totalHtml}
-              </h3>
-              <div class="kitchen-grid kitchen-grid--list">${tilesHtml}</div>
-            </div>`;
-        }).join("");
-
-        setHtml(grid, html);
-        // The grid is now a wrapper container — drop its grid styling on the
-        // outermost element by toggling a class.
-        grid.classList.add("kitchen-list-grid--grouped");
-        const listGrid = document.getElementById("kitchen-list-grid");
-        if (listGrid) _kitchenWireLongPress(listGrid);
-
-        if (total) {
-          const sum = items.reduce((acc, i) => {
-            const catalogTile = _kitchenCatalogTileForProduct(i.product_id);
-            const unit =
-              i.manual_estimated_price != null
-                ? Number(i.manual_estimated_price)
-                : (i.latest_price && i.latest_price.price) ||
-                  (catalogTile && catalogTile.latest_unit_price) ||
-                  0;
-            return acc + Number(unit || 0) * Number(i.quantity || 0);
-          }, 0);
-          total.textContent = sum > 0 ? `Total $${sum.toFixed(2)}` : "";
+          toast("Could not mark essential", "error");
         }
       }
 
-      function _kitchenItemById(id) {
-        return (kitchenList || []).find((i) => i.id === id) || null;
-      }
-
-      // ============================================================
-      // Long-press context menu (Apple-style) for Kitchen tiles
-      // ============================================================
-      let _kitchenLpTimer = null;
-      let _kitchenLpFired = false;
-      let _kitchenLpStart = null; // {x, y}
-
-      function _kitchenWireLongPress(grid) {
-        if (!grid || grid.dataset.lpWired === "1") return;
-        grid.dataset.lpWired = "1";
-
-        grid.addEventListener("pointerdown", (e) => {
-          const tile = e.target.closest(".kitchen-tile");
-          if (!tile) return;
-          _kitchenLpFired = false;
-          _kitchenLpStart = { x: e.clientX, y: e.clientY };
-          if (_kitchenLpTimer) clearTimeout(_kitchenLpTimer);
-          _kitchenLpTimer = setTimeout(() => {
-            _kitchenLpTimer = null;
-            _kitchenLpFired = true;
-            openKitchenContextMenuFromTile(tile);
-          }, 900);
-        });
-
-        const cancel = () => {
-          if (_kitchenLpTimer) {
-            clearTimeout(_kitchenLpTimer);
-            _kitchenLpTimer = null;
-          }
-        };
-        grid.addEventListener("pointerup", cancel);
-        grid.addEventListener("pointercancel", cancel);
-        grid.addEventListener("pointerleave", cancel);
-        grid.addEventListener("pointermove", (e) => {
-          if (!_kitchenLpStart) return;
-          const dx = Math.abs(e.clientX - _kitchenLpStart.x);
-          const dy = Math.abs(e.clientY - _kitchenLpStart.y);
-          if (dx > 10 || dy > 10) cancel();
-        });
-
-        // Suppress browser context menu (right-click on desktop, long-press on touch).
-        grid.addEventListener("contextmenu", (e) => e.preventDefault());
-
-        // Suppress the click that follows a fired long-press.
-        grid.addEventListener("click", (e) => {
-          if (_kitchenLpFired) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            _kitchenLpFired = false;
-          }
-        }, true);
-      }
-
-      function openKitchenContextMenuFromTile(tile) {
-        const kind = tile.dataset.kind;
-        const rect = tile.getBoundingClientRect();
-        const anchor = { x: rect.left + rect.width / 2, y: rect.top };
-        if (kind === "catalog") {
-          _kitchenOpenCtx_Catalog(tile, anchor);
-        } else if (kind === "list") {
-          _kitchenOpenCtx_List(tile, anchor);
-        }
-      }
-
-      function _kitchenOpenCtx_Catalog(tile, anchor) {
-        const productId = parseInt(tile.dataset.productId || "0", 10);
-        const name = tile.dataset.productName || "";
-        const category = tile.dataset.productCategory || "";
-        const stores = (tile.dataset.productStores || "").split("|").filter(Boolean);
-        const variantCount = parseInt(tile.dataset.variantCount || "1", 10);
-        const canonicalKey = tile.dataset.canonicalKey || "";
-
-        const rows = [];
-        rows.push({
-          icon: "➕", label: "Add to list",
-          payload: `addProductToList(${productId}, ${JSON.stringify(name)}, ${JSON.stringify(category)}); closeKitchenContextMenu();`,
-        });
-        if (variantCount > 1) {
-          rows.push({
-            icon: "⭐", label: `Pick variant (${variantCount})`,
-            payload: `_kitchenOpenVariantPickerForKey(${JSON.stringify(canonicalKey)}, ${JSON.stringify(kitchenActiveCategory)}); closeKitchenContextMenu();`,
-          });
-        }
-        if (stores.length) {
-          rows.push({
-            icon: "🏪", label: `Show only ${stores.length === 1 ? stores[0] : "this product's stores"}`,
-            payload: `kitchenSetStoreFilterTo(${JSON.stringify(stores)}); closeKitchenContextMenu();`,
-          });
-        }
-        _kitchenRenderCtxMenu(rows, anchor, name);
-      }
-
-      function _kitchenOpenCtx_List(tile, anchor) {
-        const itemId = parseInt(tile.dataset.itemId || "0", 10);
-        const item = _kitchenItemById(itemId);
-        if (!item) return;
-        const rows = [
-          { icon: "−", label: "Decrease qty",
-            payload: `kitchenSheetItemId = ${itemId}; kitchenSheetSetQty(-1);` },
-          { icon: "+", label: "Increase qty",
-            payload: `kitchenSheetItemId = ${itemId}; kitchenSheetSetQty(1);` },
-        ];
-        if (item.status !== "skipped") {
-          rows.push({ icon: "✓", label: "Bought",
-            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('bought');` });
-          rows.push({ icon: "📝", label: "Low",
-            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('low');` });
-          rows.push({ icon: "⏭", label: "Skip",
-            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('skipped');` });
-        } else {
-          rows.push({ icon: "↩", label: "Open",
-            payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('open');` });
-        }
-        rows.push({ icon: "🗑", label: "Delete",
-          payload: `kitchenSheetItemId = ${itemId}; closeKitchenContextMenu(); kitchenSheetAction('delete');` });
-        rows.push({ icon: "✎", label: "Edit details…",
-          payload: `closeKitchenContextMenu(); openKitchenSheet(${itemId});` });
-
-        _kitchenRenderCtxMenu(rows, anchor, item.name);
-      }
-
-      function _kitchenRenderCtxMenu(rows, anchor, title) {
-        const overlay = document.getElementById("kitchen-ctx");
-        const card = document.getElementById("kitchen-ctx-card");
-        if (!overlay || !card) return;
-        const rowsHtml = rows.map((r) => `
-          <button type="button" class="kitchen-ctx-row" onclick="${escAttr(r.payload)}">
-            <span class="kitchen-ctx-row-icon">${escHtml(r.icon)}</span>
-            <span class="kitchen-ctx-row-label">${escHtml(r.label)}</span>
-          </button>`).join("");
-        const html = `
-          <div class="kitchen-ctx-title">${escHtml(title || "")}</div>
-          <div class="kitchen-ctx-rows">${rowsHtml}</div>
-        `;
-        setHtml(card, html);
-        overlay.style.display = "flex";
-
-        // Position the card near the anchor (centered horizontally, above tile if there's room).
-        requestAnimationFrame(() => {
-          const cardRect = card.getBoundingClientRect();
-          let left = anchor.x - cardRect.width / 2;
-          let top = anchor.y - cardRect.height - 8;
-          if (top < 8) top = anchor.y + 8;  // not enough above; place below
-          left = Math.max(8, Math.min(left, window.innerWidth - cardRect.width - 8));
-          card.style.position = "fixed";
-          card.style.left = `${left}px`;
-          card.style.top = `${top}px`;
-        });
-      }
-
-      function closeKitchenContextMenu() {
-        const overlay = document.getElementById("kitchen-ctx");
-        if (overlay) overlay.style.display = "none";
-      }
-
-      function kitchenSetStoreFilterTo(storeNames) {
-        kitchenStoreFilter.clear();
-        for (const s of storeNames) kitchenStoreFilter.add(s);
-        renderKitchenStoreFilter();
-        renderKitchenCatalog();
-      }
-
-      function openKitchenSheet(itemId) {
-        const item = _kitchenItemById(itemId);
-        if (!item) return;
-        kitchenSheetItemId = itemId;
-        kitchenStagedAction = null;
-        const sheet = document.getElementById("kitchen-sheet");
+      function openKitchenDetail(productId) {
+        const t = kitchenEssentials.find((x) => Number(x.product_id) === Number(productId));
+        if (!t) return;
         const card = document.getElementById("kitchen-sheet-card");
-        if (!sheet || !card) return;
-
-        const skipped = item.status === "skipped";
-        const meta = [
-          item.manual_estimated_price ? `$${item.manual_estimated_price.toFixed(2)}` : "",
-          item.preferred_store || (item.latest_price && item.latest_price.store) || "",
-          item.category || "",
-        ].filter(Boolean).join(" · ");
-
-        const html = `
-          <div class="kitchen-sheet-header">
-            <span class="kitchen-sheet-name">${escHtml(item.name)}</span>
-            <button class="kitchen-sheet-close" onclick="closeKitchenSheet()" type="button" aria-label="Close">✕</button>
-          </div>
-          <div class="kitchen-sheet-meta">${escHtml(meta)}</div>
-          <div class="kitchen-sheet-store">
-            <button type="button" class="kitchen-sheet-store-btn" onclick="toggleKitchenStorePicker()">
-              <span class="kitchen-sheet-store-label">🏪 Store</span>
-              <span class="kitchen-sheet-store-value">${escHtml(item.preferred_store || "—")}</span>
-              <span class="kitchen-sheet-store-caret" id="kitchen-store-picker-caret">▸</span>
-            </button>
-            <div class="kitchen-sheet-store-picker" id="kitchen-store-picker" style="display: none;"></div>
-          </div>
-
-          <div class="kitchen-sheet-actions">
-            <div class="kitchen-sheet-qty">
-              <button type="button" onclick="kitchenSheetSetQty(-1)" aria-label="Decrease quantity">−</button>
-              <span id="kitchen-sheet-qty-value">${item.quantity}</span>
-              <button type="button" onclick="kitchenSheetSetQty(1)" aria-label="Increase quantity">+</button>
-            </div>
-            ${skipped
-              ? `<button class="kitchen-action unskip" type="button" onclick="kitchenSheetAction('open')">↩ Open</button>`
-              : `<button class="kitchen-action bought" type="button" onclick="kitchenSheetAction('bought')">✓ Bought</button>
-                 <button class="kitchen-action low" type="button" onclick="kitchenSheetAction('low')">📝 Low</button>
-                 <button class="kitchen-action skip" type="button" onclick="kitchenSheetAction('skipped')">⏭ Skip</button>`}
-            <button class="kitchen-action delete" type="button" onclick="kitchenSheetAction('delete')">🗑</button>
-          </div>
-
-          <div class="kitchen-presets" id="kitchen-presets" style="display: none;"></div>
+        const sheet = document.getElementById("kitchen-sheet");
+        if (!card || !sheet) return;
+        const qtyLabel = Number(t.quantity) > 0 ? `${t.quantity} on hand` : "Not tracked";
+        card.innerHTML = `
+          <div class="ksheet-title">${escHtml(t.name || "Item")}</div>
+          <div class="ksheet-row">📦 ${escHtml(qtyLabel)}</div>
+          <label class="ksheet-row ksheet-toggle">
+            <input type="checkbox" id="ksheet-backup" ${t.has_backup ? "checked" : ""}
+                   onchange="kitchenToggleBackup(${t.product_id}, this.checked)">
+            <span>I have a backup / spare</span>
+          </label>
+          <button type="button" class="btn btn-primary ksheet-add"
+                  ${t.on_list ? "disabled" : ""}
+                  onclick="kitchenAddEssentialToList(${t.product_id}, this)">
+            ${t.on_list ? "✓ On shopping list" : "🛒 Add to shopping list"}
+          </button>
+          <button type="button" class="btn btn-ghost ksheet-remove"
+                  onclick="kitchenRemoveEssential(${t.product_id})">Remove from essentials</button>
         `;
-        setHtml(card, html);
-        sheet.style.display = "flex";
+        sheet.style.display = "block";
       }
 
       function closeKitchenSheet() {
         const sheet = document.getElementById("kitchen-sheet");
         if (sheet) sheet.style.display = "none";
-        kitchenSheetItemId = null;
-        kitchenStagedAction = null;
       }
 
-      function _kitchenStoreChip(name, currentStore) {
-        const isCurrent = currentStore && currentStore.toLowerCase() === name.toLowerCase();
-        return `
-          <button type="button"
-                  class="kitchen-store-chip${isCurrent ? " kitchen-store-chip--active" : ""}"
-                  onclick="${escAttr(`pickKitchenStore(${JSON.stringify(name)})`)}">
-            ${escHtml(name)}
-          </button>`;
-      }
-
-      function _kitchenStoreSection(label, names, currentStore) {
-        if (!names.length) return "";
-        const sorted = [...names].sort((a, b) => a.localeCompare(b));
-        const chips = sorted.map((n) => _kitchenStoreChip(n, currentStore)).join("");
-        return `
-          <div class="kitchen-store-section">
-            <div class="kitchen-store-section-label">${escHtml(label)}</div>
-            <div class="kitchen-store-section-chips">${chips}</div>
-          </div>`;
-      }
-
-      function toggleKitchenStorePicker() {
-        const picker = document.getElementById("kitchen-store-picker");
-        const caret = document.getElementById("kitchen-store-picker-caret");
-        if (!picker) return;
-        const isOpen = picker.style.display !== "none";
-        if (isOpen) {
-          picker.style.display = "none";
-          if (caret) caret.textContent = "▸";
-          return;
-        }
-        const item = _kitchenItemById(kitchenSheetItemId);
-        const currentStore = item?.preferred_store || "";
-        const buckets = shoppingStoreBuckets || { frequent: [], low_freq: [] };
-        const frequent = [...new Set((buckets.frequent || []).filter(Boolean))];
-        const lowFreq = [...new Set((buckets.low_freq || []).filter(Boolean))]
-          .filter((n) => !frequent.includes(n));
-        const html =
-          _kitchenStoreSection("⭐ Frequent", frequent, currentStore) +
-          _kitchenStoreSection("Rarely Used", lowFreq, currentStore) +
-          `<div class="kitchen-store-section">
-             <button type="button" class="kitchen-store-chip kitchen-store-chip--clear"
-                     onclick="pickKitchenStore('')">— Clear store —</button>
-           </div>`;
-        setHtml(picker, html);
-        picker.style.display = "flex";
-        if (caret) caret.textContent = "▾";
-      }
-
-      async function pickKitchenStore(storeName) {
-        const item = _kitchenItemById(kitchenSheetItemId);
-        if (!item) return;
+      async function kitchenToggleBackup(productId, checked) {
+        const t = kitchenEssentials.find((x) => Number(x.product_id) === Number(productId));
+        if (t) t.has_backup = checked;
         try {
-          const res = await api(`/shopping-list/items/${item.id}`, {
+          await api(`/inventory/products/${productId}/backup`, {
             method: "PUT",
-            body: JSON.stringify({ preferred_store: storeName || null }),
+            body: JSON.stringify({ has_backup: checked }),
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Could not save store");
-          item.preferred_store = storeName || null;
-          toast(storeName ? `Store set: ${storeName}` : "Store cleared", "success");
-          // Update sheet's visible store value
-          const valueEl = document.querySelector(".kitchen-sheet-store-value");
-          if (valueEl) valueEl.textContent = storeName || "—";
-          const picker = document.getElementById("kitchen-store-picker");
-          if (picker) picker.style.display = "none";
-          const caret = document.getElementById("kitchen-store-picker-caret");
-          if (caret) caret.textContent = "▸";
-          // Re-render list so the item moves to the right store group.
-          renderKitchenList();
+          renderKitchenEssentials([]);
         } catch (err) {
-          toast(err.message || "Save store failed", "error");
+          toast("Could not update backup", "error");
         }
       }
-      async function addProductToList(productId, name, category) {
-        if (!productId) return;
+
+      async function kitchenAddEssentialToList(productId, btnEl) {
+        const t = kitchenEssentials.find((x) => Number(x.product_id) === Number(productId));
+        if (!t) return;
+        if (btnEl) { btnEl.disabled = true; btnEl.textContent = "✓ On shopping list"; }
+        t.on_list = true;
+        await quickAddToShoppingList({
+          product_id: productId,
+          name: t.name,
+          category: t.category || "other",
+          quantity: 1,
+          source: "kitchen_essential",
+        });
+        renderKitchenEssentials([]);
+      }
+
+      async function kitchenRemoveEssential(productId) {
         try {
-          const res = await api("/shopping-list/items", {
-            method: "POST",
-            body: JSON.stringify({
-              product_id: productId,
-              name: name || "",
-              category: category || "other",
-              quantity: 1,
-            }),
+          await api(`/inventory/products/${productId}/essential`, {
+            method: "PUT",
+            body: JSON.stringify({ is_essential: false }),
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Could not add to list");
-          toast("Added ✓", "success");
+          closeKitchenSheet();
+          toast("Removed from essentials", "success");
           await loadKitchen();
         } catch (err) {
-          toast(err.message || "Add failed", "error");
-        }
-      }
-
-      function _kitchenOpenVariantPicker(variants) {
-        const sheet = document.getElementById("kitchen-sheet");
-        const card = document.getElementById("kitchen-sheet-card");
-        if (!sheet || !card) return;
-        kitchenSheetItemId = null;
-        kitchenStagedAction = null;
-        const rows = variants.map((v) => {
-          const inner = v.image_url
-            ? `<img src="${escAttr(v.image_url)}" alt="${escAttr(v.name)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;">`
-            : `<span style="font-size:32px;">${kitchenEmojiForProduct(v)}</span>`;
-          const price = v.latest_unit_price
-            ? `$${Number(v.latest_unit_price).toFixed(2)}`
-            : "—";
-          const onclickPayload = `addProductToList(${v.product_id}, ${JSON.stringify(v.name)}, ${JSON.stringify(v.category)}); closeKitchenSheet();`;
-          return `
-            <button type="button" class="kitchen-variant-row" onclick="${escAttr(onclickPayload)}">
-              <span class="kitchen-variant-img">${inner}</span>
-              <span class="kitchen-variant-name">${escHtml(v.name)}</span>
-              <span class="kitchen-variant-meta">${escHtml(price)} · ${v.purchase_count || 0}×</span>
-            </button>`;
-        }).join("");
-        const html = `
-          <div class="kitchen-sheet-header">
-            <span class="kitchen-sheet-name">Pick a variant</span>
-            <button class="kitchen-sheet-close" onclick="closeKitchenSheet()" type="button" aria-label="Close">✕</button>
-          </div>
-          <div class="kitchen-variant-list">${rows}</div>
-        `;
-        setHtml(card, html);
-        sheet.style.display = "flex";
-      }
-
-      function _kitchenOpenVariantPickerForKey(key, activeChip) {
-        const raw = activeChip === "frequent"
-          ? (kitchenCatalog.frequent || [])
-          : ((kitchenCatalog.categories || {})[activeChip] || []);
-        const variants = raw.filter((t) => _kitchenCanonicalKey(t.name) === key);
-        if (!variants.length) return;
-        if (variants.length === 1) {
-          addProductToList(variants[0].product_id, variants[0].name, variants[0].category);
-          return;
-        }
-        _kitchenOpenVariantPicker(variants);
-      }
-      async function kitchenSheetSetQty(delta) {
-        const item = _kitchenItemById(kitchenSheetItemId);
-        if (!item) return;
-        const next = Math.max(1, Number(item.quantity || 1) + delta);
-        if (next === item.quantity) return;
-        try {
-          const res = await api(`/shopping-list/items/${item.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ quantity: next }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Could not update quantity");
-          item.quantity = next;
-          const valueEl = document.getElementById("kitchen-sheet-qty-value");
-          if (valueEl) valueEl.textContent = String(next);
-          renderKitchenList();
-        } catch (err) {
-          toast(err.message || "Update failed", "error");
-        }
-      }
-
-      async function kitchenSheetAction(action) {
-        const item = _kitchenItemById(kitchenSheetItemId);
-        if (!item) return;
-
-        if (action === "delete") {
-          if (!confirm(`Delete "${item.name}" from list?`)) return;
-          try {
-            const res = await api(`/shopping-list/items/${item.id}`, {
-              method: "DELETE",
-            });
-            if (!res.ok && res.status !== 204) {
-              const data = await res.json().catch(() => ({}));
-              throw new Error(data.error || "Could not delete");
-            }
-            toast("Deleted", "success");
-            closeKitchenSheet();
-            await loadKitchen();
-          } catch (err) {
-            toast(err.message || "Delete failed", "error");
-          }
-          return;
-        }
-
-        if (action === "low") {
-          if (!item.product_id) {
-            toast("This item has no linked product — cannot mark low", "error");
-            return;
-          }
-          try {
-            const res = await api(
-              `/inventory/products/${item.product_id}/low`,
-              {
-                method: "POST",
-                body: JSON.stringify({ manual_low: true }),
-              },
-            );
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Could not mark low");
-            toast("Marked Low ✓", "success");
-            kitchenStagedAction = "low";
-            _kitchenShowPresets("low");
-          } catch (err) {
-            toast(err.message || "Low failed", "error");
-          }
-          return;
-        }
-
-        // 'bought' | 'skipped' | 'open' — all are status PUTs.
-        const nextStatus = action === "bought" ? "purchased" : action;
-        try {
-          const res = await api(`/shopping-list/items/${item.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ status: nextStatus }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Could not update status");
-          toast(
-            action === "bought" ? "Marked Bought ✓"
-            : action === "skipped" ? "Skipped ⏭"
-            : "Re-opened",
-            "success",
-          );
-          if (action === "open") {
-            closeKitchenSheet();
-            await loadKitchen();
-            return;
-          }
-          if (action === "bought") {
-            item.status = "purchased";
-            kitchenStagedAction = "bought";
-            _kitchenShowPresets("bought");
-            renderKitchenList();
-            setTimeout(() => {
-              if (kitchenStagedAction === "bought") {
-                closeKitchenSheet();
-                loadKitchen();
-              }
-            }, 4000);
-            return;
-          }
-          // skipped
-          item.status = "skipped";
-          kitchenStagedAction = "skipped";
-          _kitchenShowPresets("skipped");
-          renderKitchenList();
-        } catch (err) {
-          toast(err.message || "Update failed", "error");
-        }
-      }
-
-      function _kitchenShowPresets(action) {
-        const chipKey = action === "bought" ? "bought"
-          : action === "low" ? "low"
-          : "skipped";
-        const presets = KITCHEN_PRESETS[chipKey] || [];
-        const target = document.getElementById("kitchen-presets");
-        if (!target) return;
-        const html = presets
-          .map(
-            (p) => `
-              <button
-                class="kitchen-preset"
-                type="button"
-                onclick="${escAttr(`kitchenStampNote(${JSON.stringify(p)})`)}"
-              >${escHtml(p)}</button>`,
-          )
-          .join("") +
-          `<button class="kitchen-preset" type="button" onclick="kitchenStampNote('')">✏️ custom</button>`;
-        setHtml(target, html);
-        target.style.display = "flex";
-      }
-
-      async function kitchenStampNote(presetText) {
-        const itemId = kitchenSheetItemId;
-        if (!itemId) return;
-        let note = presetText || "";
-        if (presetText === "") {
-          const typed = window.prompt("Note for this item:");
-          if (typed === null) return;
-          note = typed.trim();
-        }
-        try {
-          const res = await api(`/shopping-list/items/${itemId}`, {
-            method: "PUT",
-            body: JSON.stringify({ note: note || null }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Could not save note");
-          toast(note ? `Noted: ${note}` : "Note cleared", "success");
-          const item = _kitchenItemById(itemId);
-          if (item) item.note = note || null;
-        } catch (err) {
-          toast(err.message || "Note save failed", "error");
+          toast("Could not remove", "error");
         }
       }
 

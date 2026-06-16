@@ -1178,3 +1178,20 @@ body.kitchen-show-names .kitchen-grid--list .kitchen-tile-name { display: -webki
 }
 .kitchen-low-empty { text-align: center; color: var(--muted, #8b949e); padding: 48px 12px; font-size: 18px; }
 .kitchen-browse-bar { margin-top: 16px; }
+
+.kitchen-essentials-header { display:flex; align-items:center; justify-content:space-between; margin:0 0 12px; }
+.kitchen-essentials-header .title { font-weight:600; font-size:1.1rem; }
+.kitchen-ess-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:12px; }
+.kitchen-ess-tile { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px; border-radius:14px; background:var(--surface,#fff); box-shadow:0 1px 3px rgba(0,0,0,.08); cursor:pointer; }
+.kitchen-ess-tile.on-list { outline:2px solid var(--accent,#2e7d32); }
+.kitchen-ess-tile .thumb { width:56px; height:56px; display:flex; align-items:center; justify-content:center; font-size:2rem; border-radius:10px; object-fit:cover; }
+.kitchen-ess-tile .nm { font-size:.8rem; text-align:center; line-height:1.1; }
+.kitchen-ess-tile .onlist-badge { font-size:.7rem; color:var(--accent,#2e7d32); }
+.kitchen-ess-tile .backup-dot { font-size:.7rem; }
+.kitchen-ess-tile .add-ess { font-size:.72rem; color:var(--accent,#2e7d32); font-weight:600; }
+.kitchen-ess-empty { text-align:center; color:var(--muted,#777); padding:24px 8px; }
+.kitchen-suggest { margin-top:20px; text-align:left; }
+.ksheet-title { font-weight:600; font-size:1.1rem; margin-bottom:12px; }
+.ksheet-row { padding:8px 0; }
+.ksheet-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.ksheet-add, .ksheet-remove { width:100%; margin-top:10px; }
