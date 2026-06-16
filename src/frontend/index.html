@@ -3579,7 +3579,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         <div class="page" id="page-kitchen">
           <div class="kitchen-essentials-header">
             <div class="title">⭐ Essentials · <span class="count" id="kitchen-ess-count">0</span></div>
-            <span class="onlist-chip" id="kitchen-onlist-chip" onclick="nav('shopping', this)">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
+            <span class="onlist-chip" id="kitchen-onlist-chip" onclick="nav('shopping', document.getElementById('nav-shopping'))">🛒 <span id="kitchen-onlist-count">0</span> on list</span>
           </div>
 
           <div class="kitchen-ess-grid" id="kitchen-ess-grid"></div>
@@ -28555,6 +28555,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
 
       async function kitchenToggleBackup(productId, checked) {
         const t = kitchenEssentials.find((x) => Number(x.product_id) === Number(productId));
+        const prev = t ? t.has_backup : undefined;
         if (t) t.has_backup = checked;
         try {
           await api(`/inventory/products/${productId}/backup`, {
@@ -28563,6 +28564,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           });
           renderKitchenEssentials([]);
         } catch (err) {
+          // roll back optimistic state + the checkbox on failure
+          if (t) t.has_backup = prev;
+          const cb = document.getElementById("ksheet-backup");
+          if (cb) cb.checked = prev;
+          renderKitchenEssentials([]);
           toast("Could not update backup", "error");
         }
       }
@@ -28572,14 +28578,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!t) return;
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = "✓ On shopping list"; }
         t.on_list = true;
-        await quickAddToShoppingList({
-          product_id: productId,
-          name: t.name,
-          category: t.category || "other",
-          quantity: 1,
-          source: "kitchen_essential",
-        });
-        renderKitchenEssentials([]);
+        try {
+          await quickAddToShoppingList({
+            product_id: productId,
+            name: t.name,
+            category: t.category || "other",
+            quantity: 1,
+            source: "kitchen_essential",
+          });
+          renderKitchenEssentials([]);
+        } catch (err) {
+          // roll back optimistic state + the button on failure
+          t.on_list = false;
+          if (btnEl) { btnEl.disabled = false; btnEl.textContent = "🛒 Add to shopping list"; }
+          renderKitchenEssentials([]);
+          toast("Could not add to shopping list", "error");
+        }
       }
 
       async function kitchenRemoveEssential(productId) {
