@@ -1,9 +1,10 @@
-"""Flask blueprint for the Kitchen View read endpoint.
+"""Flask blueprint for the Kitchen essentials read endpoint.
 
 Exposes:
-  GET /api/kitchen/catalog — bucketed in-stock catalog plus skipped items.
+  GET /api/kitchen/essentials — user-curated essentials grid (+ suggestions
+  when the user has tagged nothing yet).
 
-All mutations reuse existing /shopping-list and /inventory routes; this
+All mutations reuse existing /inventory and /shopping-list routes; this
 blueprint is read-only by design.
 """
 from __future__ import annotations
@@ -11,13 +12,13 @@ from __future__ import annotations
 from flask import Blueprint, g, jsonify
 
 from src.backend.create_flask_application import require_auth
-from src.backend.manage_kitchen import get_kitchen_catalog
+from src.backend.manage_kitchen import get_kitchen_essentials
 
 
 kitchen_bp = Blueprint("kitchen", __name__, url_prefix="/api/kitchen")
 
 
-@kitchen_bp.route("/catalog", methods=["GET"])
+@kitchen_bp.route("/essentials", methods=["GET"])
 @require_auth
-def get_catalog():
-    return jsonify(get_kitchen_catalog(g.db_session)), 200
+def get_essentials():
+    return jsonify(get_kitchen_essentials(g.db_session)), 200
