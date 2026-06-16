@@ -193,6 +193,7 @@ def list_inventory():
                 "manual_low": bool(item.manual_low),
                 "is_low": _is_item_low(item),
                 "is_regular_use": bool(getattr(item.product, "is_regular_use", False) or False),
+                "is_essential": bool(getattr(item.product, "is_essential", False) or False),
                 "updated_by": item.updated_by,
                 "last_updated": item.last_updated.isoformat() if item.last_updated else None,
                 # Expiry true-state fields

@@ -126,6 +126,8 @@
 .inv-btn-cart  { background: #2a4a6b; color: #cde; }
 .inv-btn-decr  { background: #444;    color: #ffb; }
 .inv-btn-used  { background: #3a6b3a; color: #fff; }
+.inv-btn-ess   { background: #444;    color: #888; }
+.inv-btn-ess.on { background: #5a4a10; color: #ffd700; }
 .inv-btn-cart.on-list { background: #2a3a3a; color: #888; cursor: default; }
 /* Brief visual feedback while a button long-press is being held — lets
    the user see they're firing the alt action, not the tap action. */
@@ -23930,6 +23932,12 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           _invHintToast("✓ + 🛒");
         });
         actions.appendChild(usedBtn);
+        // Essential star — toggles is_essential for the product.
+        const essBtn = _invMakeBtn("inv-btn-ess" + (i.is_essential ? " on" : ""), "⭐", (function(pid, isEss) {
+          return function() { toggleInventoryEssential(pid, !isEss, essBtn); };
+        })(i.product_id, !!i.is_essential));
+        essBtn.title = i.is_essential ? "Remove from essentials" : "Mark as essential";
+        actions.appendChild(essBtn);
         if (!imageUrl && currentUser?.role === "admin") {
           const genBtn = _invMakeBtn("inv-btn-gen", "✨", function() {
             invGenerateTileImage(i.product_id, genBtn, function(snap) {
@@ -25425,7 +25433,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const actions = _invElText("div", "inv-tile-actions");
         if (primary) {
           actions.appendChild(_invMakeBtn("inv-btn-edit", "✎",
-            (function(p) { return function() { editProductDetails(p.id, p.name, p.category); }; })(primary)));
+            (function(p) { return function() { editProductDetails(p.id, p.name, p.category, !!p.is_essential); }; })(primary)));
           actions.appendChild(_invMakeBtn("inv-btn-cart", "🛒",
             (function(p) { return function() { quickAddToShoppingList({ product_id: p.id, name: p.name, category: p.category || "other", quantity: 1, source: "product" }); }; })(primary)));
           if (!imageUrl && isAdmin) {
@@ -25487,7 +25495,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           const itemActions = _invElText("div", "inv-tile-actions");
           itemActions.style.marginTop = "4px";
           itemActions.appendChild(_invMakeBtn("inv-btn-edit", "✎ Edit",
-            (function(it) { return function() { editProductDetails(it.id, it.name, it.category); }; })(item)));
+            (function(it) { return function() { editProductDetails(it.id, it.name, it.category, !!it.is_essential); }; })(item)));
           itemActions.appendChild(_invMakeBtn("inv-btn-cart", "🛒 Add",
             (function(it) { return function() { quickAddToShoppingList({ product_id: it.id, name: it.name, category: it.category || "other", quantity: 1, source: "product" }); }; })(item)));
           itemActions.appendChild(_invMakeBtn("inv-btn-danger", "🗑",
@@ -25687,7 +25695,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         ]);
       }
 
-      function editProductDetails(id, currentName, currentCategory) {
+      function editProductDetails(id, currentName, currentCategory, currentIsEssential) {
         return new Promise(function(resolve) {
           const back = document.createElement("div");
           back.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:3000;display:flex;align-items:flex-end;justify-content:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";
@@ -25802,6 +25810,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             catSel.appendChild(opt);
           });
           sheet.appendChild(catLabel); sheet.appendChild(catSel);
+
+          // Essential toggle
+          const essRow = document.createElement("label");
+          essRow.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:18px;cursor:pointer;font-size:0.95rem";
+          const essCb = document.createElement("input");
+          essCb.type = "checkbox"; essCb.checked = !!currentIsEssential;
+          essCb.style.cssText = "width:18px;height:18px;accent-color:#ffd700;cursor:pointer";
+          essCb.addEventListener("change", function() {
+            toggleProductEssential(id, essCb.checked);
+          });
+          const essLbl = document.createElement("span");
+          essLbl.textContent = "Essential item ⭐";
+          essRow.appendChild(essCb); essRow.appendChild(essLbl);
+          sheet.appendChild(essRow);
 
           // Cancel / Save
           const btnRow = document.createElement("div");
@@ -26578,6 +26600,43 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             document.getElementById("prod-search")?.value?.trim() || "",
           ),
         ]);
+      }
+
+      async function toggleInventoryEssential(productId, makeEssential, el) {
+        try {
+          await api(`/inventory/products/${productId}/essential`, {
+            method: "PUT",
+            body: JSON.stringify({ is_essential: makeEssential }),
+          });
+          if (el) {
+            el.classList.toggle("on", makeEssential);
+            el.title = makeEssential ? "Remove from essentials" : "Mark as essential";
+            // Update the closure so the next click passes the correct next value.
+            const pid = productId;
+            const nextVal = makeEssential;
+            el.onclick = function() { toggleInventoryEssential(pid, !nextVal, el); };
+          }
+          // Keep in-memory cache in sync so re-renders stay consistent.
+          if (window.__inventoryRaw) {
+            const row = window.__inventoryRaw.find(function(r) { return r.product_id === productId; });
+            if (row) row.is_essential = makeEssential;
+          }
+          toast(makeEssential ? "Marked essential ⭐" : "Removed from essentials", "success");
+        } catch (err) {
+          toast("Could not update essential", "error");
+        }
+      }
+
+      async function toggleProductEssential(productId, checked) {
+        try {
+          await api(`/inventory/products/${productId}/essential`, {
+            method: "PUT",
+            body: JSON.stringify({ is_essential: checked }),
+          });
+          toast(checked ? "Marked essential ⭐" : "Removed from essentials", "success");
+        } catch (err) {
+          toast("Could not update essential", "error");
+        }
       }
 
       function buildInventoryLongPressPayload(productId, name, category, isRegular) {
