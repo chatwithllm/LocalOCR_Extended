@@ -528,6 +528,49 @@ def set_regular_use(product_id):
     }), 200
 
 
+@inventory_bp.route("/products/<int:product_id>/essential", methods=["PUT"])
+@require_write_access
+def set_essential(product_id):
+    """Tag (or clear) a product as a Kitchen essential. Serves every tagging
+    surface: inventory row, product detail, kitchen tile, suggestion row."""
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    is_essential = bool(data.get("is_essential", True))
+
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    product.is_essential = is_essential
+    session.commit()
+    return jsonify({
+        "product_id": product.id,
+        "product_name": get_product_display_name(product),
+        "is_essential": bool(product.is_essential),
+    }), 200
+
+
+@inventory_bp.route("/products/<int:product_id>/backup", methods=["PUT"])
+@require_write_access
+def set_backup(product_id):
+    """Set (or clear) the 'I have a spare on hand' flag for an essential."""
+    session = g.db_session
+    data = request.get_json(silent=True) or {}
+    has_backup = bool(data.get("has_backup", True))
+
+    product = session.query(Product).filter_by(id=product_id).first()
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+
+    product.has_backup = has_backup
+    session.commit()
+    return jsonify({
+        "product_id": product.id,
+        "product_name": get_product_display_name(product),
+        "has_backup": bool(product.has_backup),
+    }), 200
+
+
 @inventory_bp.route("/products/<int:product_id>/confirm-low", methods=["POST"])
 @require_write_access
 def confirm_low_status(product_id):
