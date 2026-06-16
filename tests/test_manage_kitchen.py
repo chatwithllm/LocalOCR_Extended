@@ -56,7 +56,8 @@ from datetime import datetime, timedelta, timezone
 
 from src.backend.initialize_database_schema import (
     Base, Product, ProductSnapshot, ShoppingListItem, ShoppingSession,
-    Purchase, ReceiptItem, Store, Inventory, create_db_engine, create_session_factory,
+    Purchase, ReceiptItem, Store, Inventory, PriceHistory,
+    create_db_engine, create_session_factory,
 )
 from src.backend.manage_kitchen import get_kitchen_essentials
 
@@ -207,9 +208,34 @@ def test_suggested_empty_once_an_essential_exists(db_session):
     assert out["suggested"] == []
 
 
-def test_suggested_excludes_already_essential(db_session):
+def test_suggested_includes_frequent_non_essential(db_session):
     e = _fresh_product(db_session, "Coffee", category="Pantry")
     _record_purchase(db_session, e, days_ago=2)
     db_session.commit()
     out = get_kitchen_essentials(db_session)
     assert [t["name"] for t in out["suggested"]] == ["Coffee"]
+
+
+def test_essentials_on_list_with_ready_to_bill_session(db_session):
+    p = _fresh_product(db_session, "Butter", category="Dairy", is_essential=True)
+    sess = ShoppingSession(status="ready_to_bill")
+    db_session.add(sess)
+    db_session.flush()
+    db_session.add(ShoppingListItem(
+        shopping_session_id=sess.id, product_id=p.id, status="open", name=p.name,
+    ))
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["on_list"] is True
+
+
+def test_essentials_latest_unit_price(db_session):
+    p = _fresh_product(db_session, "Rice", category="Pantry", is_essential=True)
+    db_session.add(PriceHistory(product_id=p.id, price=2.50,
+                                date=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+    db_session.flush()
+    db_session.add(PriceHistory(product_id=p.id, price=3.75,
+                                date=datetime(2026, 1, 2, tzinfo=timezone.utc)))
+    db_session.commit()
+    out = get_kitchen_essentials(db_session)
+    assert out["essentials"][0]["latest_unit_price"] == 3.75

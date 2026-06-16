@@ -10,8 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 FREQUENCY_WINDOW_DAYS = 90
-FREQUENT_LIMIT = 12
-CATEGORY_LIMIT = 50
+SUGGESTED_LIMIT = 8
 
 DEFAULT_CATEGORIES = ["Produce", "Meat", "Dairy", "Bakery", "Pantry", "Other"]
 
@@ -61,9 +60,9 @@ from src.backend.initialize_database_schema import (
 )
 
 
-def _frequent_tiles(session, *, now, exclude_ids):
-    """Top frequent purchases (last FREQUENCY_WINDOW_DAYS), as ProductTiles,
-    excluding any product ids in `exclude_ids`. Used to seed suggestions."""
+def _frequent_tiles(session, *, now):
+    """Top frequent purchases (last FREQUENCY_WINDOW_DAYS) as ProductTiles, capped at SUGGESTED_LIMIT.
+    Used to seed the suggestions shown only when the user has no essentials yet."""
     cutoff = now - timedelta(days=FREQUENCY_WINDOW_DAYS)
 
     snapshot_subq = (
@@ -94,10 +93,6 @@ def _frequent_tiles(session, *, now, exclude_ids):
     )
     tiles = []
     for product, snapshot_id, count in rows:
-        if product.id in exclude_ids:
-            continue
-        if not count:
-            continue
         bucket = category_for_product(product)
         tiles.append({
             "product_id": product.id,
@@ -108,7 +103,7 @@ def _frequent_tiles(session, *, now, exclude_ids):
             "purchase_count": int(count or 0),
         })
     tiles.sort(key=lambda t: (-t["purchase_count"], t["name"]))
-    return tiles[:8]
+    return tiles[:SUGGESTED_LIMIT]
 
 
 def get_kitchen_essentials(session, *, now=None) -> dict:
@@ -207,6 +202,6 @@ def get_kitchen_essentials(session, *, now=None) -> dict:
 
     suggested = []
     if not essentials:
-        suggested = _frequent_tiles(session, now=now, exclude_ids=set())
+        suggested = _frequent_tiles(session, now=now)
 
     return {"essentials": essentials, "suggested": suggested}
