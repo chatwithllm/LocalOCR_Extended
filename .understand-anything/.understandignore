@@ -1,0 +1,79 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+# Lines below are suggestions — uncomment to activate.
+# Use ! prefix to force-include something excluded by defaults.
+#
+# Built-in defaults (always excluded unless negated):
+#   node_modules/, .git/, dist/, build/, obj/, *.lock, *.min.js, etc.
+#
+# --- From .gitignore (uncomment to exclude) ---
+
+# .env
+# *.pem
+# *.key
+# *.py[cod]
+# *$py.class
+# *.so
+# *.egg-info/
+# .eggs/
+# *.egg
+# env/
+# *.db
+# *.db-wal
+# *.db-shm
+# /data/
+# src/**/data/
+# *.swp
+# *.swo
+# *~
+# .DS_Store
+# docker-compose.override.yml
+# .pytest_cache/
+# .coverage
+# htmlcov/
+# alembic/__pycache__/
+# .kanban/local.json
+# .kanban/buffer.jsonl
+# .kanban/buffer.errors.log
+# .kanban/flush.log
+# .kanban/pending-milestones.jsonl
+# .superpowers/
+# .claude/
+# .kanban/
+# .planning/
+# graphify-out/
+# LocalOCR.macOS/
+# qa_pipeline.log
+# orchestrator.log
+# dashboard_lan.log
+# .dart_tool/
+# .flutter-plugins
+# .flutter-plugins-dependencies
+# .metadata
+# *.iml
+# ios/
+# android/.gradle/
+# android/captures/
+# android/local.properties
+# android/key.properties
+# android/**/GeneratedPluginRegistrant.*
+# android/app/build/
+# **/Generated.xcconfig
+# **/flutter_export_environment.sh
+# .env.test
+# PAUSED.json
+# /notes
+# design/marketing/*.bak.html
+
+# --- Detected directories (uncomment to exclude) ---
+
+# test/
+# tests/
+# docs/
+# scripts/
+
+# --- Test file patterns (uncomment to exclude) ---
+
+# *.test.*
+# *.spec.*
+# *.snap

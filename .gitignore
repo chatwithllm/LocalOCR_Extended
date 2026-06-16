@@ -97,3 +97,4 @@ PAUSED.json
 
 # Local marketing backups
 design/marketing/*.bak.html
+.kitchen-build/

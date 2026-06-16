@@ -18,6 +18,6 @@ def client():
             yield c
 
 
-def test_get_catalog_requires_auth(client):
-    resp = client.get("/api/kitchen/catalog")
+def test_get_essentials_requires_auth(client):
+    resp = client.get("/api/kitchen/essentials")
     assert resp.status_code in (401, 403)

@@ -1144,7 +1144,8 @@ body.kitchen-show-names .kitchen-grid--list .kitchen-tile-name { display: -webki
 .kitchen-low-header .title { font-size: 20px; font-weight: 700; color: var(--text, #e6edf3); }
 .kitchen-low-header .title .count { color: var(--color-brand, #f0883e); }
 .kitchen-low-header .meta { display: flex; gap: 10px; align-items: center; color: var(--muted, #8b949e); font-size: 14px; }
-.kitchen-low-header .onlist-chip {
+.kitchen-low-header .onlist-chip,
+.kitchen-essentials-header .onlist-chip {
   border: 1px solid var(--border, #3a3a3c); border-radius: 14px;
   padding: 4px 12px; cursor: pointer; color: var(--text, #e6edf3); font-size: 14px;
 }
