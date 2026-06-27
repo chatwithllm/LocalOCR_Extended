@@ -480,7 +480,7 @@ class _DeviceApprovalInlineCardState
                 labelText: 'Linked user id (optional — defaults to you)',
                 border: OutlineInputBorder(),
                 helperText:
-                    '/auth/users requires admin login; enter id directly here.',
+                    'Optional — leave blank to link the device to your own account.',
               ),
             ),
             const SizedBox(height: 8),
