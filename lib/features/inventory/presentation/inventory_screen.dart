@@ -22,6 +22,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/friendly_error.dart';
@@ -40,6 +41,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   final _searchCtl = TextEditingController();
   final _expandedIds = <int>{};
   late final List<Widget> _appBarActions;
+  bool _showSwipeHint = false;
 
   @override
   void initState() {
@@ -54,6 +56,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ref.read(appShellActionsProvider.notifier).state = _appBarActions;
     });
+    _checkSwipeHint();
   }
 
   @override
@@ -61,6 +64,18 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     ref.read(appShellActionsProvider.notifier).state = const [];
     _searchCtl.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkSwipeHint() async {
+    final prefs = await SharedPreferences.getInstance();
+    final shown = prefs.getBool('inventory_swipe_hint_shown') ?? false;
+    if (!shown && mounted) setState(() => _showSwipeHint = true);
+  }
+
+  Future<void> _dismissSwipeHint() async {
+    setState(() => _showSwipeHint = false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('inventory_swipe_hint_shown', true);
   }
 
   @override
@@ -140,6 +155,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       ];
     }
     final slivers = <Widget>[];
+    if (_showSwipeHint) {
+      slivers.add(SliverToBoxAdapter(
+        child: _SwipeHintBanner(onDismiss: _dismissSwipeHint),
+      ));
+    }
     for (final g in grouped) {
       slivers.add(SliverToBoxAdapter(child: _GroupHeader(group: g)));
       slivers.add(
@@ -916,4 +936,65 @@ class _InventoryTile extends ConsumerWidget {
 
   String _shortDate(DateTime d) =>
       '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}';
+}
+
+class _SwipeHintBanner extends StatefulWidget {
+  const _SwipeHintBanner({required this.onDismiss});
+  final VoidCallback onDismiss;
+
+  @override
+  State<_SwipeHintBanner> createState() => _SwipeHintBannerState();
+}
+
+class _SwipeHintBannerState extends State<_SwipeHintBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _slide = Tween<Offset>(begin: Offset.zero, end: const Offset(0.15, 0))
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final th = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          SlideTransition(
+            position: _slide,
+            child: const Icon(Icons.swipe),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Swipe right to decrement · left to mark used up',
+              style: th.textTheme.bodySmall
+                  ?.copyWith(color: th.colorScheme.onSurfaceVariant),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            icon: const Icon(Icons.close, size: 16),
+            onPressed: widget.onDismiss,
+          ),
+        ],
+      ),
+    );
+  }
 }
