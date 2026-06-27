@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/tokens.generated.dart';
+import '../../../core/util/friendly_error.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../core/providers.dart'
     show appShellActionsProvider, currencyFormatterProvider;
@@ -186,7 +187,7 @@ class _BalanceTile extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Settle failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Settle failed: ${friendlyError(e)}')));
       }
     }
   }

@@ -18,15 +18,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-
-import '../../../core/providers.dart';
+import '../../../core/providers.dart' show currencyFormatterProvider, sessionProvider;
 import '../../../core/util/logger.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../data/restaurant_models.dart';
 import 'restaurant_providers.dart';
-
-final _money = NumberFormat.simpleCurrency(name: 'USD');
 
 class RestaurantScreen extends ConsumerWidget {
   const RestaurantScreen({super.key});
@@ -110,6 +106,7 @@ class _StatsGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(restaurantPeriodProvider);
+    final money = ref.watch(currencyFormatterProvider);
     final topStore = summary.topRestaurants.isNotEmpty
         ? summary.topRestaurants.first
         : null;
@@ -161,13 +158,13 @@ class _StatsGrid extends ConsumerWidget {
             _StatCard(
               key: const Key('restaurant-total-spend'),
               label: 'Dining Spend',
-              value: _money.format(summary.totalSpend),
+              value: money.format(summary.totalSpend),
               sub: 'current window',
             ),
             _StatCard(
               key: const Key('restaurant-average-ticket'),
               label: 'Average Ticket',
-              value: _money.format(summary.averageTicket),
+              value: money.format(summary.averageTicket),
               sub: 'per visit',
             ),
             _StatCard(
@@ -178,7 +175,7 @@ class _StatsGrid extends ConsumerWidget {
                   ? 'No visits yet'
                   : '${topStore.visits} visit${topStore.visits == 1 ? '' : 's'}'
                       '${topStore.refunds > 0 ? ' · ${topStore.refunds} refund${topStore.refunds == 1 ? '' : 's'}' : ''}'
-                      ' · Net ${_money.format(topStore.total)}',
+                      ' · Net ${money.format(topStore.total)}',
             ),
           ],
         ),
@@ -273,6 +270,7 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
   @override
   Widget build(BuildContext context) {
     final month = ref.watch(restaurantBudgetMonthProvider);
+    final money = ref.watch(currencyFormatterProvider);
     final b = widget.budget;
     final pct = (b?.percentage ?? 0).clamp(0, 100).toDouble();
     final color = pct >= 90
@@ -343,13 +341,13 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
             if (b != null && b.budgetAmount > 0) ...[
               Row(
                 children: [
-                  Text(_money.format(b.spent),
+                  Text(money.format(b.spent),
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
                           ?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(width: 6),
-                  Text('of ${_money.format(b.budgetAmount)}',
+                  Text('of ${money.format(b.budgetAmount)}',
                       style: const TextStyle(color: Colors.grey)),
                 ],
               ),
@@ -376,8 +374,8 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
                   ),
                   Text(
                     b.remaining >= 0
-                        ? '${_money.format(b.remaining)} left'
-                        : '${_money.format(b.remaining.abs())} over',
+                        ? '${money.format(b.remaining)} left'
+                        : '${money.format(b.remaining.abs())} over',
                     style: TextStyle(
                         color: b.remaining >= 0
                             ? Colors.grey
@@ -444,12 +442,13 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
 
 // ===== Receipts card (F-611) =====
 
-class _ReceiptsCard extends StatelessWidget {
+class _ReceiptsCard extends ConsumerWidget {
   const _ReceiptsCard({required this.summary});
   final RestaurantSummary summary;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final receipts = summary.recentReceipts.take(8).toList();
     return Card(
       child: Padding(
@@ -488,7 +487,7 @@ class _ReceiptsCard extends StatelessWidget {
                   subtitle: Text(
                       '${r.date ?? '—'}${r.transactionType == 'refund' ? ' · refund' : ''}'),
                   trailing: Text(
-                    _money.format(r.total),
+                    money.format(r.total),
                     style: TextStyle(
                       color: r.transactionType == 'refund'
                           ? Theme.of(context).colorScheme.error
@@ -507,12 +506,13 @@ class _ReceiptsCard extends StatelessWidget {
 
 // ===== Top restaurants card (F-612) =====
 
-class _TopRestaurantsCard extends StatelessWidget {
+class _TopRestaurantsCard extends ConsumerWidget {
   const _TopRestaurantsCard({required this.summary});
   final RestaurantSummary summary;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final tops = summary.topRestaurants.take(8).toList();
     return Card(
       child: Padding(
@@ -542,9 +542,9 @@ class _TopRestaurantsCard extends StatelessWidget {
                   subtitle: Text(
                     '${t.visits} visit${t.visits == 1 ? '' : 's'}'
                     '${t.refunds > 0 ? ' · ${t.refunds} refund${t.refunds == 1 ? '' : 's'}' : ''}'
-                    '${t.visits > 0 ? ' · Avg ${_money.format(t.averageTicket)}' : ''}',
+                    '${t.visits > 0 ? ' · Avg ${money.format(t.averageTicket)}' : ''}',
                   ),
-                  trailing: Text(_money.format(t.total),
+                  trailing: Text(money.format(t.total),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   onTap: () => GoRouter.of(context)
                       .go('/receipts?store=${Uri.encodeQueryComponent(t.store)}'),
@@ -558,12 +558,13 @@ class _TopRestaurantsCard extends StatelessWidget {
 
 // ===== Top items card (F-613) =====
 
-class _TopItemsCard extends StatelessWidget {
+class _TopItemsCard extends ConsumerWidget {
   const _TopItemsCard({required this.summary});
   final RestaurantSummary summary;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final items = summary.topItems.take(10).toList();
     return Card(
       child: Padding(
@@ -598,13 +599,13 @@ class _TopItemsCard extends StatelessWidget {
                               textAlign: TextAlign.end)),
                       SizedBox(
                           width: 80,
-                          child: Text(_money.format(it.total),
+                          child: Text(money.format(it.total),
                               textAlign: TextAlign.end,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600))),
                       SizedBox(
                           width: 70,
-                          child: Text(_money.format(it.averagePrice),
+                          child: Text(money.format(it.averagePrice),
                               textAlign: TextAlign.end,
                               style: const TextStyle(color: Colors.grey))),
                     ],

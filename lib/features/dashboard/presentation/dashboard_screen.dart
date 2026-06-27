@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/util/friendly_error.dart';
 import '../../../core/util/logger.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../data/dashboard_models.dart';
 import 'dashboard_providers.dart';
 
@@ -34,7 +35,7 @@ class DashboardScreen extends ConsumerWidget {
         await ref.read(dashboardStateProvider.future);
       },
       child: async.when(
-        loading: () => const _LoadingView(),
+        loading: () => const LoadingView(),
         error: (e, _) => _ErrorView(error: e, ref: ref),
         data: (state) {
           appLogger.i('loaded ${state.cardsLoaded} dashboard cards');
@@ -43,17 +44,6 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
-  @override
-  Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: CircularProgressIndicator(),
-        ),
-      );
 }
 
 class _ErrorView extends StatelessWidget {

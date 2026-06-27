@@ -18,16 +18,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-
-import '../../../core/providers.dart';
+import '../../../core/providers.dart' show currencyFormatterProvider, sessionProvider;
 import '../../../core/util/logger.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../restaurant/data/restaurant_models.dart' show BudgetStatus;
 import '../data/expenses_models.dart';
 import 'expenses_providers.dart';
-
-final _money = NumberFormat.simpleCurrency(name: 'USD');
 
 class ExpensesScreen extends ConsumerWidget {
   const ExpensesScreen({super.key});
@@ -97,6 +93,7 @@ class _StatsGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(expensesPeriodProvider);
+    final money = ref.watch(currencyFormatterProvider);
     final top = summary.topMerchants.isNotEmpty ? summary.topMerchants.first : null;
     return Column(
       children: [
@@ -144,13 +141,13 @@ class _StatsGrid extends ConsumerWidget {
             _StatCard(
               key: const Key('expense-total-spend'),
               label: 'Total Spend',
-              value: _money.format(summary.totalSpend),
+              value: money.format(summary.totalSpend),
               sub: 'current window',
             ),
             _StatCard(
               key: const Key('expense-average-ticket'),
               label: 'Average Ticket',
-              value: _money.format(summary.averageTicket),
+              value: money.format(summary.averageTicket),
               sub: 'per receipt',
             ),
             _StatCard(
@@ -161,7 +158,7 @@ class _StatsGrid extends ConsumerWidget {
                   ? 'No expenses yet'
                   : '${top.visits} receipt${top.visits == 1 ? '' : 's'}'
                       '${top.refunds > 0 ? ' · ${top.refunds} refund${top.refunds == 1 ? '' : 's'}' : ''}'
-                      ' · Net ${_money.format(top.total)}',
+                      ' · Net ${money.format(top.total)}',
             ),
           ],
         ),
@@ -251,6 +248,7 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
   @override
   Widget build(BuildContext context) {
     final month = ref.watch(expensesBudgetMonthProvider);
+    final money = ref.watch(currencyFormatterProvider);
     final b = widget.budget;
     final pct = (b?.percentage ?? 0).clamp(0, 100).toDouble();
     final color = pct >= 90
@@ -321,13 +319,13 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
             if (b != null && b.budgetAmount > 0) ...[
               Row(
                 children: [
-                  Text(_money.format(b.spent),
+                  Text(money.format(b.spent),
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
                           ?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(width: 6),
-                  Text('of ${_money.format(b.budgetAmount)}',
+                  Text('of ${money.format(b.budgetAmount)}',
                       style: const TextStyle(color: Colors.grey)),
                 ],
               ),
@@ -354,8 +352,8 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
                   ),
                   Text(
                     b.remaining >= 0
-                        ? '${_money.format(b.remaining)} left'
-                        : '${_money.format(b.remaining.abs())} over',
+                        ? '${money.format(b.remaining)} left'
+                        : '${money.format(b.remaining.abs())} over',
                     style: TextStyle(
                         color: b.remaining >= 0
                             ? Colors.grey
@@ -420,11 +418,12 @@ class _BudgetCardState extends ConsumerState<_BudgetCard> {
   }
 }
 
-class _ReceiptsCard extends StatelessWidget {
+class _ReceiptsCard extends ConsumerWidget {
   const _ReceiptsCard({required this.summary});
   final ExpenseSummary summary;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final receipts = summary.recentReceipts.take(8).toList();
     return Card(
       child: Padding(
@@ -466,7 +465,7 @@ class _ReceiptsCard extends StatelessWidget {
                       '${r.itemCount > 0 ? ' · ${r.itemCount} item${r.itemCount == 1 ? '' : 's'}' : ''}'
                       '${r.transactionType == 'refund' ? ' · refund' : ''}'),
                   trailing: Text(
-                    _money.format(r.total),
+                    money.format(r.total),
                     style: TextStyle(
                       color: r.transactionType == 'refund'
                           ? Theme.of(context).colorScheme.error
@@ -485,11 +484,12 @@ class _ReceiptsCard extends StatelessWidget {
   }
 }
 
-class _TopMerchantsCard extends StatelessWidget {
+class _TopMerchantsCard extends ConsumerWidget {
   const _TopMerchantsCard({required this.summary});
   final ExpenseSummary summary;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final tops = summary.topMerchants.take(8).toList();
     return Card(
       child: Padding(
@@ -519,9 +519,9 @@ class _TopMerchantsCard extends StatelessWidget {
                   subtitle: Text(
                     '${m.visits} receipt${m.visits == 1 ? '' : 's'}'
                     '${m.refunds > 0 ? ' · ${m.refunds} refund${m.refunds == 1 ? '' : 's'}' : ''}'
-                    '${m.visits > 0 ? ' · Avg ${_money.format(m.averageTicket)}' : ''}',
+                    '${m.visits > 0 ? ' · Avg ${money.format(m.averageTicket)}' : ''}',
                   ),
-                  trailing: Text(_money.format(m.total),
+                  trailing: Text(money.format(m.total),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   // F-913 tap → /receipts?store=
                   onTap: () => GoRouter.of(context)
@@ -534,11 +534,12 @@ class _TopMerchantsCard extends StatelessWidget {
   }
 }
 
-class _CategoryBreakdownCard extends StatelessWidget {
+class _CategoryBreakdownCard extends ConsumerWidget {
   const _CategoryBreakdownCard({required this.summary});
   final ExpenseSummary summary;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final cats = summary.categoryBreakdown;
     if (cats.isEmpty) return const SizedBox.shrink();
     final total = cats.fold<double>(0, (s, c) => s + c.total.abs());
@@ -567,7 +568,7 @@ class _CategoryBreakdownCard extends StatelessWidget {
                         ),
                         Text(
                             '${c.count} line${c.count == 1 ? '' : 's'} · '
-                            '${_money.format(c.total)}',
+                            '${money.format(c.total)}',
                             style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
@@ -595,11 +596,12 @@ class _CategoryBreakdownCard extends StatelessWidget {
   }
 }
 
-class _TopItemsCard extends StatelessWidget {
+class _TopItemsCard extends ConsumerWidget {
   const _TopItemsCard({required this.summary});
   final ExpenseSummary summary;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     final items = summary.topItems.take(10).toList();
     return Card(
       child: Padding(
@@ -633,13 +635,13 @@ class _TopItemsCard extends StatelessWidget {
                               textAlign: TextAlign.end)),
                       SizedBox(
                           width: 80,
-                          child: Text(_money.format(it.total),
+                          child: Text(money.format(it.total),
                               textAlign: TextAlign.end,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600))),
                       SizedBox(
                           width: 70,
-                          child: Text(_money.format(it.averagePrice),
+                          child: Text(money.format(it.averagePrice),
                               textAlign: TextAlign.end,
                               style: const TextStyle(color: Colors.grey))),
                     ],

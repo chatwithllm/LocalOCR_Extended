@@ -11,6 +11,7 @@ import '../../core/errors/app_exception.dart';
 import '../../core/providers.dart';
 import '../../core/util/friendly_error.dart';
 import '../../core/util/logger.dart';
+import '../../core/widgets/loading_view.dart';
 
 /// Login screen. Covers registry rows F-101..F-120.
 ///
@@ -703,7 +704,7 @@ class _DevicePairingSheetState extends ConsumerState<_DevicePairingSheet> {
             if (_error != null)
               Text(_error!, style: TextStyle(color: cs.error))
             else if (s == null)
-              const Center(child: CircularProgressIndicator())
+              const LoadingView()
             else ...[
               AspectRatio(
                 aspectRatio: 1,
