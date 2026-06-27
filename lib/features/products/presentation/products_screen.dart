@@ -390,7 +390,7 @@ class _FiltersBar extends ConsumerWidget {
                   decoration: const InputDecoration(
                     isDense: true,
                     prefixIcon: Icon(Icons.search),
-                    hintText: 'Search products',
+                    labelText: 'Search products',
                   ),
                   onChanged: onSearch,
                 ),

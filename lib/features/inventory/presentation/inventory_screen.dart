@@ -573,7 +573,7 @@ class _FiltersBar extends ConsumerWidget {
             onChanged: (v) =>
                 notifier.state = filters.copyWith(search: v),
             decoration: InputDecoration(
-              hintText: 'Search inventory',
+              labelText: 'Search inventory',
               prefixIcon: const Icon(Icons.search),
               border: const OutlineInputBorder(),
               isDense: true,
