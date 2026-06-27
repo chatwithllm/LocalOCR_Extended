@@ -621,10 +621,23 @@ class _ReceiptsActivityCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 80,
-              child: _Sparkline(activity: activity),
-            ),
+            Builder(builder: (context) {
+              final buckets = activity.buckets;
+              final trend = buckets.length >= 2
+                  ? (buckets.last.count >= buckets.first.count
+                      ? 'increasing'
+                      : 'decreasing')
+                  : 'stable';
+              return Semantics(
+                label:
+                    '${activity.total} receipts processed. Trend is $trend.',
+                excludeSemantics: true,
+                child: SizedBox(
+                  height: 80,
+                  child: _Sparkline(activity: activity),
+                ),
+              );
+            }),
           ],
         ],
       ),
