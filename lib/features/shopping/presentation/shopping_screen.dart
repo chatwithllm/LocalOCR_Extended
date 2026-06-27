@@ -40,6 +40,7 @@ import 'package:intl/intl.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/providers.dart'
     show appShellActionsProvider, currencyFormatterProvider;
+import '../../../core/widgets/loading_view.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/shopping_models.dart';
@@ -80,7 +81,7 @@ class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
     final listAsync = ref.watch(shoppingListProvider);
     return Scaffold(
       body: listAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _Err(
           msg: 'Could not load shopping list:\n$e',
           retry: () => ref.invalidate(shoppingListProvider),

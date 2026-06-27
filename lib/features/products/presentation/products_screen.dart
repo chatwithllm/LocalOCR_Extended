@@ -33,6 +33,7 @@ import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
 import '../../../core/util/friendly_error.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/product_models.dart';
 import 'products_providers.dart';
@@ -90,7 +91,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ],
       ),
       body: asyncList.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _ErrorView(
           message: 'Could not load products:\n$e',
           onRetry: () => ref.invalidate(productListProvider),

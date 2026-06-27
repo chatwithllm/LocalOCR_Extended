@@ -22,6 +22,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/util/logger.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../data/restaurant_models.dart';
 import 'restaurant_providers.dart';
 
@@ -48,7 +49,7 @@ class RestaurantScreen extends ConsumerWidget {
         ],
       ),
       body: bundleAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _ErrorView(
           message: 'Could not load restaurant data:\n$e',
           onRetry: () => ref.invalidate(restaurantBundleProvider),

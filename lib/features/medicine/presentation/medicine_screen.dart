@@ -39,6 +39,7 @@ import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
 import '../../../core/util/friendly_error.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/medicine_models.dart';
 import 'medicine_providers.dart';
@@ -133,7 +134,7 @@ class _MedicineScreenState extends ConsumerState<MedicineScreen> {
           ),
           Expanded(
             child: cabinetAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const LoadingView(),
               error: (e, _) => _ErrorView(
                 message: 'Could not load medicine cabinet:\n$e',
                 onRetry: () => ref.invalidate(medicineCabinetProvider),

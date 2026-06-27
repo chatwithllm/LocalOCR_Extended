@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/util/logger.dart';
+import '../../../core/widgets/loading_view.dart';
 import 'contacts_providers.dart';
 
 class ContactsScreen extends ConsumerStatefulWidget {
@@ -42,7 +43,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _Err(
           msg: 'Could not load contacts:\n$e',
           retry: () => ref.invalidate(contactsListProvider),

@@ -29,6 +29,7 @@ import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/friendly_error.dart';
 import '../../../core/util/logger.dart';
 import '../../../core/widgets/empty_state_view.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../data/inventory_models.dart';
 import 'inventory_providers.dart';
 
@@ -85,7 +86,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final asyncList = ref.watch(inventoryListProvider);
     return Scaffold(
       body: asyncList.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

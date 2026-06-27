@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/tokens.generated.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../../../core/providers.dart'
     show appShellActionsProvider, currencyFormatterProvider;
 import '../../../core/util/logger.dart';
@@ -61,7 +62,7 @@ class _BalancesScreenState extends ConsumerState<BalancesScreen> {
     final async = ref.watch(balancesListProvider);
     return Scaffold(
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _Err(
           msg: 'Could not load balances:\n$e',
           retry: () => ref.invalidate(balancesListProvider),

@@ -22,6 +22,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers.dart';
 import '../../../core/util/logger.dart';
+import '../../../core/widgets/loading_view.dart';
 import '../../restaurant/data/restaurant_models.dart' show BudgetStatus;
 import '../data/expenses_models.dart';
 import 'expenses_providers.dart';
@@ -49,7 +50,7 @@ class ExpensesScreen extends ConsumerWidget {
         ],
       ),
       body: bundleAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingView(),
         error: (e, _) => _Err(
           msg: 'Could not load expenses:\n$e',
           retry: () => ref.invalidate(expensesBundleProvider),
