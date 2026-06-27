@@ -13971,7 +13971,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const res = document.getElementById("search-results");
         const prog = document.getElementById("search-progress");
         try {
-          const r = await apiFetch("/api/search?q=" + encodeURIComponent(q));
+          const r = await api("/api/search?q=" + encodeURIComponent(q));
           prog.style.display = "none";
           if (!r.ok) { res.innerHTML = _srError("Search failed"); return; }
           const data = await r.json();
