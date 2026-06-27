@@ -79,21 +79,6 @@ class AppShell extends ConsumerWidget {
               ],
             )
           : child,
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Chat',
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            builder: (_) => const SizedBox(
-              height: 480,
-              child: Center(child: Text('Chat coming soon')),
-            ),
-          );
-        },
-        child: const Icon(Icons.chat_bubble_outline),
-      ),
     );
   }
 }
