@@ -77,7 +77,19 @@ class AppShell extends ConsumerWidget {
       body: wide
           ? Row(
               children: [
-                SizedBox(width: 280, child: drawerBody),
+                NavigationRail(
+                  selectedIndex: activeIndex >= 0 ? activeIndex : 0,
+                  onDestinationSelected: (i) => context.go(destinations[i].path),
+                  labelType: NavigationRailLabelType.selected,
+                  destinations: [
+                    for (final d in destinations)
+                      NavigationRailDestination(
+                        icon: Icon(d.icon),
+                        label: Text(d.label),
+                      ),
+                  ],
+                ),
+                const VerticalDivider(width: 1, thickness: 1),
                 Expanded(child: child),
               ],
             )
