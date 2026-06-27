@@ -14040,7 +14040,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               const qty = Number.isInteger(h.quantity) ? h.quantity : (+h.quantity).toFixed(1);
               const sub = [qty + (h.unit ? " " + h.unit : ""), h.location].filter(Boolean).join(" · ");
               const expiry = h.expiry_date ? _srExpiryChip(h.expiry_date) : "";
-              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')");
+              const cart = {product_id: h.product_id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
+              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')", cart);
             }
           }
           if (products.length) {
@@ -14063,7 +14064,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                 receiptLinks = `<div style="margin-top:4px;">${receiptLinks}</div>`;
               }
               const sub = parts.join(" · ") + receiptLinks;
-              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')");
+              const cart = {product_id: h.id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
+              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')", cart);
             }
           }
           if (receipts.length) {
@@ -14090,13 +14092,21 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           ${_esc(label)}<span style="background:var(--surface2,#2c2c2e);border-radius:8px;padding:1px 7px;font-size:0.72rem;">${count}</span></div>`;
       }
 
-      function _srRow(icon, title, sub, onclick) {
+      function _srRow(icon, title, sub, onclick, cartPayload) {
+        const cartBtn = cartPayload
+          ? `<button type="button"
+               title="Add to shopping list"
+               onclick="event.stopPropagation();quickAddToShoppingList(${JSON.stringify(cartPayload).replace(/"/g,'&quot;')})"
+               style="flex-shrink:0;background:none;border:1px solid var(--border,#333);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:0.85rem;color:var(--text,#eee);white-space:nowrap;"
+               onmouseover="this.style.background='rgba(74,138,239,.18)'" onmouseout="this.style.background='none'">🛒</button>`
+          : "";
         return `<div onclick="${onclick};closeSearch()" style="display:flex;align-items:flex-start;gap:10px;padding:9px 16px;cursor:pointer;border-radius:6px;margin:0 6px;" onmouseover="this.style.background='var(--surface2,#2c2c2e)'" onmouseout="this.style.background=''">
           <span style="font-size:1.1rem;flex-shrink:0;padding-top:1px;">${icon}</span>
-          <div style="min-width:0;">
+          <div style="min-width:0;flex:1;">
             <div style="font-size:0.92rem;color:var(--text,#eee);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
             ${sub ? `<div style="font-size:0.8rem;color:var(--muted,#888);margin-top:2px;">${sub}</div>` : ""}
           </div>
+          ${cartBtn}
         </div>`;
       }
 
