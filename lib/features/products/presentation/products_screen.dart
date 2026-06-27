@@ -26,6 +26,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
@@ -736,7 +737,8 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
               child: Text(
                 [
                   if (it.defaultSizeLabel != null) it.defaultSizeLabel!,
-                  if (it.lastPurchaseDate != null) 'Bought ${it.lastPurchaseDate}',
+                  if (it.lastPurchaseDate != null)
+                    'Bought ${DateFormat.MMMd().format(DateTime.parse(it.lastPurchaseDate!))}',
                 ].join(' · '),
                 style: Theme.of(context).textTheme.bodySmall,
               ),

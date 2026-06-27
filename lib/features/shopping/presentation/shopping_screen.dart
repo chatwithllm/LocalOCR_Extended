@@ -140,8 +140,11 @@ class _SessionBanner extends StatelessWidget {
               ),
             ),
             if (session.startedAt != null)
-              Text(session.startedAt!.substring(0, 10),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              Text(
+                DateFormat.MMMd()
+                    .format(DateTime.parse(session.startedAt!)),
+                style: const TextStyle(fontSize: 11),
+              ),
           ],
         ),
       ),
