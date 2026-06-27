@@ -21,6 +21,7 @@
 //   F-361 right-click menu, F-362..F-368 edit sheet, F-369..F-374 restore tile.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -763,6 +764,7 @@ class _InventoryTile extends ConsumerWidget {
         child: const Icon(Icons.check_circle_outline),
       ),
       confirmDismiss: (dir) async {
+        HapticFeedback.mediumImpact();
         if (dir == DismissDirection.startToEnd) {
           // F-357 swipe-right → -1
           try {
