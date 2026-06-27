@@ -34,7 +34,7 @@ class AppShell extends ConsumerWidget {
     final drawerBody = NavigationDrawer(
       selectedIndex: activeIndex >= 0 ? activeIndex : 0,
       onDestinationSelected: (i) {
-        Navigator.of(context).pop();
+        if (!wide) Navigator.of(context).pop();
         context.go(destinations[i].path);
       },
       children: [
