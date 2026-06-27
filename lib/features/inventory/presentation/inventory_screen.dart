@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart' show appShellActionsProvider;
+import '../../../core/util/friendly_error.dart';
 import '../../../core/util/logger.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../data/inventory_models.dart';
@@ -77,7 +78,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               children: [
                 const Icon(Icons.error_outline, size: 48),
                 const SizedBox(height: 12),
-                Text('Could not load inventory:\n$e',
+                Text('Could not load inventory:\n${friendlyError(e)}',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 FilledButton(
@@ -536,7 +537,7 @@ class _AddCardState extends ConsumerState<_AddCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Add failed: $e')),
+          SnackBar(content: Text('Add failed: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -889,7 +890,7 @@ class _InventoryTile extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Action failed: $e')),
+          SnackBar(content: Text('Action failed: ${friendlyError(e)}')),
         );
       }
     }

@@ -37,6 +37,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
+import '../../../core/util/friendly_error.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/medicine_models.dart';
@@ -457,7 +458,7 @@ class _MedTile extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: ${friendlyError(e)}')));
       }
     }
   }
@@ -494,7 +495,7 @@ class _MedTile extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: ${friendlyError(e)}')));
       }
     }
   }
@@ -1251,7 +1252,7 @@ class _MembersSheetState extends ConsumerState<MembersSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1275,7 +1276,7 @@ class _MembersSheetState extends ConsumerState<MembersSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed: ${friendlyError(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/tokens.generated.dart';
+import '../../../core/util/friendly_error.dart';
 import '../../../core/util/logger.dart';
 import '../data/dashboard_models.dart';
 import 'dashboard_providers.dart';
@@ -74,7 +75,7 @@ class _ErrorView extends StatelessWidget {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),
-        Text('$error',
+        Text(friendlyError(error),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 16),
@@ -774,7 +775,7 @@ class _TopPicksCardState extends ConsumerState<_TopPicksCard> {
                     );
                   } catch (e) {
                     messenger.showSnackBar(
-                      SnackBar(content: Text('Add failed: $e')),
+                      SnackBar(content: Text('Add failed: ${friendlyError(e)}')),
                     );
                   } finally {
                     if (mounted) setState(() => _adding.remove(r.id));

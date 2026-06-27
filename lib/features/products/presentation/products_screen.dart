@@ -31,6 +31,7 @@ import 'package:intl/intl.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
+import '../../../core/util/friendly_error.dart';
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/product_models.dart';
@@ -291,7 +292,7 @@ class _AddProductCardState extends ConsumerState<_AddProductCard> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Create failed: $e')),
+        SnackBar(content: Text('Create failed: ${friendlyError(e)}')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -603,7 +604,7 @@ class _ProductTile extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Add failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Add failed: ${friendlyError(e)}')));
     }
   }
 
@@ -633,7 +634,7 @@ class _ProductTile extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Delete failed: ${friendlyError(e)}')));
     }
   }
 
@@ -653,7 +654,7 @@ class _ProductTile extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Generate failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Generate failed: ${friendlyError(e)}')));
     }
   }
 
@@ -795,7 +796,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
                   } catch (e) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Add failed: $e')));
+                        SnackBar(content: Text('Add failed: ${friendlyError(e)}')));
                   }
                 },
               ),
@@ -917,7 +918,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Rename failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Rename failed: ${friendlyError(e)}')));
     }
   }
 
@@ -943,7 +944,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Save failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Save failed: ${friendlyError(e)}')));
     }
   }
 
@@ -956,7 +957,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Category update failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Category update failed: ${friendlyError(e)}')));
     }
   }
 
@@ -973,7 +974,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Set-low failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Set-low failed: ${friendlyError(e)}')));
     }
   }
 
@@ -1003,7 +1004,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Delete failed: ${friendlyError(e)}')));
     }
   }
 
@@ -1072,7 +1073,7 @@ class _EditProductSheetState extends ConsumerState<_EditProductSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Upload failed: ${friendlyError(e)}')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1098,7 +1099,7 @@ class _EditProductSheetState extends ConsumerState<_EditProductSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Save failed: $e')));
+          .showSnackBar(SnackBar(content: Text('Save failed: ${friendlyError(e)}')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -9,6 +9,7 @@ import '../../core/api/env.dart';
 import '../../core/auth/auth_repository.dart';
 import '../../core/errors/app_exception.dart';
 import '../../core/providers.dart';
+import '../../core/util/friendly_error.dart';
 import '../../core/util/logger.dart';
 
 /// Login screen. Covers registry rows F-101..F-120.
@@ -98,7 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -427,7 +428,7 @@ class _DeviceApprovalInlineCardState
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -624,7 +625,7 @@ class _DevicePairingSheetState extends ConsumerState<_DevicePairingSheet> {
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     }
   }
 
