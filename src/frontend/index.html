@@ -6377,6 +6377,65 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         min-height: 60px;
         padding: 6px 0;
       }
+      /* Search cart controls */
+      .sr-cart-add {
+        flex-shrink: 0;
+        min-width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1.5px solid var(--border, #3a3a3c);
+        background: none;
+        color: var(--accent, #4a8aef);
+        font-size: 1.3rem;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.12s, border-color 0.12s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .sr-cart-add:active, .sr-cart-add:hover {
+        background: rgba(74,138,239,.14);
+        border-color: var(--accent, #4a8aef);
+      }
+      .sr-stepper {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+        background: var(--surface2, #2c2c2e);
+        border-radius: 10px;
+        padding: 2px;
+      }
+      .sr-step {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: none;
+        background: none;
+        color: var(--text, #eee);
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.1s;
+      }
+      .sr-step:active, .sr-step:hover { background: rgba(255,255,255,.1); }
+      .sr-del { font-size: 0.9rem; color: var(--muted, #888); }
+      .sr-del:active, .sr-del:hover { background: rgba(242,104,104,.15); color: #f26868; }
+      .sr-qty {
+        min-width: 22px;
+        text-align: center;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text, #eee);
+        user-select: none;
+      }
       @media (min-width: 641px) {
         #search-overlay {
           padding: 48px 20px 20px;
@@ -13986,12 +14045,25 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ---- Keyboard shortcut cheat sheet + global nav shortcuts ----
       // ── Global unified search ────────────────────────────────────────────
       let _searchTimer = null;
-      // Cart payloads stored by index — avoids JSON-in-HTML-attribute XSS.
+      // product_id → {id: shoppingListItemId, quantity} — built from shoppingListCache
+      let _srShopMap = new Map();
+      // Cart add payloads stored by index — avoids JSON-in-HTML-attribute XSS
       const _srPayloads = [];
+
+      function _srBuildShopMap() {
+        _srShopMap = new Map();
+        const items = (typeof shoppingListCache !== "undefined" ? shoppingListCache : []) || [];
+        for (const item of items) {
+          if (item.product_id && item.status !== "purchased") {
+            _srShopMap.set(item.product_id, { id: item.id, quantity: item.quantity || 1 });
+          }
+        }
+      }
 
       function openSearch() {
         const overlay = document.getElementById("search-overlay");
         if (!overlay) return;
+        _srBuildShopMap();
         overlay.classList.add("show");
         overlay.setAttribute("aria-hidden", "false");
         const inp = document.getElementById("search-input");
@@ -14023,7 +14095,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       async function runSearch(q) {
-        _srPayloads.length = 0; // clear stale payloads from previous search
+        _srPayloads.length = 0;
+        _srBuildShopMap();
         const res = document.getElementById("search-results");
         const prog = document.getElementById("search-progress");
         try {
@@ -14044,7 +14117,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               const sub = [qty + (h.unit ? " " + h.unit : ""), h.location].filter(Boolean).join(" · ");
               const expiry = h.expiry_date ? _srExpiryChip(h.expiry_date) : "";
               const cart = {product_id: h.product_id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
-              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')", cart);
+              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')", cart, h.product_id);
             }
           }
           if (products.length) {
@@ -14054,7 +14127,6 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               if (h.last_purchase_date) parts.push("Bought " + _srDate(h.last_purchase_date));
               if (h.last_purchase_price != null) parts.push("$" + (+h.last_purchase_price).toFixed(2));
               const brand = h.brand ? `<span style="color:var(--muted,#888);font-size:0.8rem;margin-left:6px;">${_esc(h.brand)}</span>` : "";
-              // Receipt links — shown below the subtitle if backend returned them
               let receiptLinks = "";
               if (h.recent_receipts && h.recent_receipts.length) {
                 receiptLinks = h.recent_receipts.slice(0, 3).map(r =>
@@ -14068,7 +14140,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               }
               const sub = parts.join(" · ") + receiptLinks;
               const cart = {product_id: h.id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
-              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')", cart);
+              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')", cart, h.id);
             }
           }
           if (receipts.length) {
@@ -14090,23 +14162,114 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         }
       }
 
+      // Inline stepper — optimistic DOM update, then API, then sync shoppingListCache
+      async function _srCartAdd(idx) {
+        const payload = _srPayloads[idx];
+        if (!payload) return;
+        const ctrl = document.querySelector(`[data-sr-pid="${payload.product_id}"]`);
+        try {
+          const res = await quickAddToShoppingListSilent(payload);
+          if (!res) return;
+          _srShopMap.set(payload.product_id, { id: res.id, quantity: res.quantity || 1 });
+          if (ctrl) ctrl.outerHTML = _srStepper(payload.product_id);
+        } catch(e) { toast("Could not add to list", "error"); }
+      }
+
+      async function _srCartInc(productId) {
+        const entry = _srShopMap.get(productId);
+        if (!entry) return;
+        const newQty = (entry.quantity || 1) + 1;
+        const ctrl = document.querySelector(`[data-sr-pid="${productId}"]`);
+        if (ctrl) { const qEl = ctrl.querySelector(".sr-qty"); if(qEl) qEl.textContent = newQty; }
+        try {
+          const res = await api(`/shopping-list/items/${entry.id}`, { method: "PUT", body: JSON.stringify({ quantity: newQty }) });
+          if (!res.ok) { toast("Could not update quantity", "error"); return; }
+          entry.quantity = newQty;
+        } catch(e) { toast("Could not update quantity", "error"); }
+      }
+
+      async function _srCartDec(productId) {
+        const entry = _srShopMap.get(productId);
+        if (!entry) return;
+        const newQty = (entry.quantity || 1) - 1;
+        const ctrl = document.querySelector(`[data-sr-pid="${productId}"]`);
+        if (newQty <= 0) {
+          try {
+            const res = await api(`/shopping-list/items/${entry.id}`, { method: "DELETE" });
+            if (!res.ok) { toast("Could not remove", "error"); return; }
+            _srShopMap.delete(productId);
+            if (ctrl) ctrl.outerHTML = _srAddBtn(_srPayloads.findIndex(p => p && p.product_id === productId));
+          } catch(e) { toast("Could not remove", "error"); }
+        } else {
+          if (ctrl) { const qEl = ctrl.querySelector(".sr-qty"); if(qEl) qEl.textContent = newQty; }
+          try {
+            const res = await api(`/shopping-list/items/${entry.id}`, { method: "PUT", body: JSON.stringify({ quantity: newQty }) });
+            if (!res.ok) { toast("Could not update quantity", "error"); return; }
+            entry.quantity = newQty;
+          } catch(e) { toast("Could not update quantity", "error"); }
+        }
+      }
+
+      async function _srCartDel(productId) {
+        const entry = _srShopMap.get(productId);
+        if (!entry) return;
+        const ctrl = document.querySelector(`[data-sr-pid="${productId}"]`);
+        try {
+          const res = await api(`/shopping-list/items/${entry.id}`, { method: "DELETE" });
+          if (!res.ok) { toast("Could not remove", "error"); return; }
+          _srShopMap.delete(productId);
+          if (ctrl) ctrl.outerHTML = _srAddBtn(_srPayloads.findIndex(p => p && p.product_id === productId));
+          toast("Removed from list", "success");
+        } catch(e) { toast("Could not remove", "error"); }
+      }
+
+      // Silent add — returns {id, quantity} or null
+      async function quickAddToShoppingListSilent(payload) {
+        const res = await api("/shopping-list/items", { method: "POST", body: JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { toast(data.error || "Could not add to list", "error"); return null; }
+        toast(data.merged ? "Updated quantity ✅" : "Added to list ✅", "success");
+        // Sync the main cache entry if it exists
+        if (typeof shoppingListCache !== "undefined") {
+          const existing = shoppingListCache.find(i => i.id === data.id);
+          if (existing) existing.quantity = data.quantity;
+          else shoppingListCache.push(data);
+        }
+        return data;
+      }
+
+      function _srAddBtn(idx) {
+        const payload = _srPayloads[idx];
+        if (!payload) return "";
+        return `<button type="button" data-sr-pid="${payload.product_id}"
+          onclick="event.stopPropagation();_srCartAdd(${idx})"
+          class="sr-cart-add" aria-label="Add to shopping list" title="Add to shopping list">+</button>`;
+      }
+
+      function _srStepper(productId) {
+        const entry = _srShopMap.get(productId);
+        const qty = entry ? entry.quantity : 1;
+        return `<div class="sr-stepper" data-sr-pid="${productId}" onclick="event.stopPropagation()">
+          <button type="button" class="sr-step" onclick="_srCartDec(${productId})" aria-label="Decrease">−</button>
+          <span class="sr-qty">${qty}</span>
+          <button type="button" class="sr-step" onclick="_srCartInc(${productId})" aria-label="Increase">+</button>
+          <button type="button" class="sr-step sr-del" onclick="_srCartDel(${productId})" aria-label="Remove">🗑</button>
+        </div>`;
+      }
+
       function _srSection(label, count) {
         return `<div style="padding:8px 16px 4px;font-size:0.75rem;font-weight:600;color:var(--muted,#888);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:6px;">
           ${_esc(label)}<span style="background:var(--surface2,#2c2c2e);border-radius:8px;padding:1px 7px;font-size:0.72rem;">${count}</span></div>`;
       }
 
-      function _srRow(icon, title, sub, onclick, cartPayload) {
+      function _srRow(icon, title, sub, onclick, cartPayload, productId) {
         let cartBtn = "";
-        if (cartPayload) {
+        if (cartPayload && productId) {
           const idx = _srPayloads.push(cartPayload) - 1;
-          cartBtn = `<button type="button"
-               title="Add to shopping list"
-               onclick="event.stopPropagation();quickAddToShoppingList(_srPayloads[${idx}])"
-               style="flex-shrink:0;background:none;border:1px solid var(--border,#333);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:0.85rem;color:var(--text,#eee);white-space:nowrap;"
-               onmouseover="this.style.background='rgba(74,138,239,.18)'" onmouseout="this.style.background='none'">🛒</button>`;
+          cartBtn = _srShopMap.has(productId) ? _srStepper(productId) : _srAddBtn(idx);
         }
-        return `<div onclick="${onclick};closeSearch()" style="display:flex;align-items:flex-start;gap:10px;padding:9px 16px;cursor:pointer;border-radius:6px;margin:0 6px;" onmouseover="this.style.background='var(--surface2,#2c2c2e)'" onmouseout="this.style.background=''">
-          <span style="font-size:1.1rem;flex-shrink:0;padding-top:1px;">${icon}</span>
+        return `<div onclick="${onclick};closeSearch()" style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;border-radius:6px;margin:0 6px;" onmouseover="this.style.background='var(--surface2,#2c2c2e)'" onmouseout="this.style.background=''">
+          <span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>
           <div style="min-width:0;flex:1;">
             <div style="font-size:0.92rem;color:var(--text,#eee);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
             ${sub ? `<div style="font-size:0.8rem;color:var(--muted,#888);margin-top:2px;">${sub}</div>` : ""}
