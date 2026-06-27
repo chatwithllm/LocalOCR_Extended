@@ -13986,6 +13986,8 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ---- Keyboard shortcut cheat sheet + global nav shortcuts ----
       // ── Global unified search ────────────────────────────────────────────
       let _searchTimer = null;
+      // Cart payloads stored by index — avoids JSON-in-HTML-attribute XSS.
+      const _srPayloads = [];
 
       function openSearch() {
         const overlay = document.getElementById("search-overlay");
@@ -14021,6 +14023,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       async function runSearch(q) {
+        _srPayloads.length = 0; // clear stale payloads from previous search
         const res = document.getElementById("search-results");
         const prog = document.getElementById("search-progress");
         try {
@@ -14093,13 +14096,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       }
 
       function _srRow(icon, title, sub, onclick, cartPayload) {
-        const cartBtn = cartPayload
-          ? `<button type="button"
+        let cartBtn = "";
+        if (cartPayload) {
+          const idx = _srPayloads.push(cartPayload) - 1;
+          cartBtn = `<button type="button"
                title="Add to shopping list"
-               onclick="event.stopPropagation();quickAddToShoppingList(${JSON.stringify(cartPayload).replace(/"/g,'&quot;')})"
+               onclick="event.stopPropagation();quickAddToShoppingList(_srPayloads[${idx}])"
                style="flex-shrink:0;background:none;border:1px solid var(--border,#333);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:0.85rem;color:var(--text,#eee);white-space:nowrap;"
-               onmouseover="this.style.background='rgba(74,138,239,.18)'" onmouseout="this.style.background='none'">🛒</button>`
-          : "";
+               onmouseover="this.style.background='rgba(74,138,239,.18)'" onmouseout="this.style.background='none'">🛒</button>`;
+        }
         return `<div onclick="${onclick};closeSearch()" style="display:flex;align-items:flex-start;gap:10px;padding:9px 16px;cursor:pointer;border-radius:6px;margin:0 6px;" onmouseover="this.style.background='var(--surface2,#2c2c2e)'" onmouseout="this.style.background=''">
           <span style="font-size:1.1rem;flex-shrink:0;padding-top:1px;">${icon}</span>
           <div style="min-width:0;flex:1;">
