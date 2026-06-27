@@ -21,6 +21,7 @@ class AppShell extends ConsumerWidget {
     final wide = width >= 840;
 
     final destinations = drawerDestinations.where((d) {
+      if (!d.isImplemented) return false;
       if (d.id == 'restaurant' && modules != null && !modules.restaurant) {
         return false;
       }
