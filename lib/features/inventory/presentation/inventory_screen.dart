@@ -765,17 +765,60 @@ class _InventoryTile extends ConsumerWidget {
       confirmDismiss: (dir) async {
         if (dir == DismissDirection.startToEnd) {
           // F-357 swipe-right → -1
-          await _wrap(context, () => repo.consume(item.id),
-              'Decremented ${item.productName}');
-          ref.invalidate(inventoryListProvider);
+          try {
+            await repo.consume(item.id);
+            ref.invalidate(inventoryListProvider);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Decremented ${item.productName}'),
+                action: SnackBarAction(
+                  label: 'Undo',
+                  onPressed: () async {
+                    try {
+                      await repo.consume(item.id, amount: -1);
+                      ref.invalidate(inventoryListProvider);
+                    } catch (_) {}
+                  },
+                ),
+                duration: const Duration(seconds: 5),
+              ));
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Action failed: ${friendlyError(e)}'),
+              ));
+            }
+          }
         } else if (dir == DismissDirection.endToStart) {
           // F-358 swipe-left → used up
-          await _wrap(context, () => repo.markUsedUp(item.productId),
-              'Marked ${item.productName} used up');
-          ref.invalidate(inventoryListProvider);
+          try {
+            await repo.markUsedUp(item.productId);
+            ref.invalidate(inventoryListProvider);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('${item.productName} marked used up'),
+                action: SnackBarAction(
+                  label: 'Undo',
+                  onPressed: () async {
+                    try {
+                      await repo.restoreProduct(item.productId);
+                      ref.invalidate(inventoryListProvider);
+                    } catch (_) {}
+                  },
+                ),
+                duration: const Duration(seconds: 5),
+              ));
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Action failed: ${friendlyError(e)}'),
+              ));
+            }
+          }
         }
-        // We re-fetch the list on every gesture, so always reject the dismiss
-        // and let the new list rebuild the tile rather than tearing it out.
+        // Always reject the dismiss — let list rebuild from server data.
         return false;
       },
       child: InkWell(

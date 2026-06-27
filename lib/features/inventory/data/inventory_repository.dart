@@ -120,6 +120,15 @@ class InventoryRepository {
     await patchByProduct(productId, quantity: 0);
   }
 
+  /// POST /inventory/products/<id>/restore — recreates inventory row
+  /// after mark-used-up. Used for undo.
+  Future<void> restoreProduct(int productId) async {
+    await _api.post<Map<String, dynamic>>(
+      Endpoints.inventoryProductRestore(productId),
+      body: {},
+    );
+  }
+
   /// Defer expiry by N days (+3d / +7d buttons).
   Future<void> deferExpiry(int productId, int days) async {
     await patchByProduct(productId, deferDays: days);
