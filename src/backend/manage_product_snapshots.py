@@ -417,6 +417,158 @@ def promote_product_snapshot(snapshot_id: int):
     return jsonify({"snapshot": _serialize_snapshot(snapshot)}), 200
 
 
+@product_snapshots_bp.route("/suggest", methods=["GET"])
+@require_auth
+def suggest_image_for_name():
+    """Find existing accepted/any snapshots whose product name matches the query.
+
+    GET /product-snapshots/suggest?name=avocado+oil&category=oils
+    Returns up to 3 candidates ranked by match score so the frontend can offer
+    "Use existing image?" without requiring a new upload.
+
+    Scores: exact product name = 100, display_name exact = 90,
+            name contains query = 70, display_name contains = 60, any match = 40.
+    Only results with score >= 40 are returned.
+    """
+    from src.backend.normalize_product_names import canonicalize_product_identity
+    from sqlalchemy import func, or_
+
+    session = g.db_session
+    name = (request.args.get("name") or "").strip()
+    category = (request.args.get("category") or "").strip()
+
+    if not name or len(name) < 2:
+        return jsonify({"error": "name must be at least 2 characters"}), 400
+
+    canonical_name, canonical_category = canonicalize_product_identity(name, category or "other")
+    name_lower = canonical_name.lower()
+
+    # Products that have at least one snapshot with a real image path
+    subq = (
+        session.query(ProductSnapshot.product_id)
+        .filter(
+            ProductSnapshot.product_id.isnot(None),
+            ProductSnapshot.image_path.isnot(None),
+            ProductSnapshot.image_path != "",
+        )
+        .distinct()
+        .subquery()
+    )
+
+    candidates = (
+        session.query(Product, ProductSnapshot)
+        .join(subq, Product.id == subq.c.product_id)
+        .join(
+            ProductSnapshot,
+            (ProductSnapshot.product_id == Product.id)
+            & ProductSnapshot.image_path.isnot(None)
+            & (ProductSnapshot.image_path != ""),
+        )
+        .filter(
+            or_(
+                func.lower(Product.name).contains(name_lower),
+                func.lower(func.coalesce(Product.display_name, "")).contains(name_lower),
+            )
+        )
+        .order_by(ProductSnapshot.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    def _score(product: Product) -> int:
+        pname = (product.display_name or product.name or "").lower()
+        raw = (product.name or "").lower()
+        if pname == name_lower or raw == name_lower:
+            return 100
+        if pname == canonical_name.lower() or raw == canonical_name.lower():
+            return 90
+        if name_lower in pname or name_lower in raw:
+            return 70
+        if canonical_name.lower() in pname or canonical_name.lower() in raw:
+            return 60
+        return 40
+
+    seen_products: set[int] = set()
+    results = []
+    for product, snapshot in candidates:
+        if product.id in seen_products:
+            continue
+        seen_products.add(product.id)
+        score = _score(product)
+        if score < 40:
+            continue
+        results.append({
+            "product_id": product.id,
+            "product_name": product.display_name or product.name,
+            "brand": product.brand,
+            "category": product.category,
+            "snapshot_id": snapshot.id,
+            "image_url": f"/product-snapshots/{snapshot.id}/image",
+            "score": score,
+        })
+
+    results.sort(key=lambda r: -r["score"])
+    return jsonify({"suggestions": results[:3]}), 200
+
+
+@product_snapshots_bp.route("/<int:snapshot_id>/link-to-product/<int:product_id>", methods=["POST"])
+@require_write_access
+def link_snapshot_to_product(snapshot_id: int, product_id: int):
+    """Copy an existing snapshot's image to a target product.
+
+    Creates a new ProductSnapshot record linked to target_product_id with the same
+    image_path as the source snapshot. Does NOT overwrite if the target product
+    already has a snapshot. Returns 409 in that case.
+
+    POST /product-snapshots/<source_id>/link-to-product/<target_product_id>
+    Response 201: {snapshot: {...}, copied_from: source_id}
+    Response 409: {error: "Product already has a snapshot"}
+    """
+    session = g.db_session
+
+    source = session.query(ProductSnapshot).filter_by(id=snapshot_id).first()
+    if not source:
+        return jsonify({"error": "Source snapshot not found"}), 404
+
+    target_product = session.query(Product).filter_by(id=product_id).first()
+    if not target_product:
+        return jsonify({"error": "Target product not found"}), 404
+
+    existing = (
+        session.query(ProductSnapshot)
+        .filter(
+            ProductSnapshot.product_id == product_id,
+            ProductSnapshot.image_path.isnot(None),
+            ProductSnapshot.image_path != "",
+        )
+        .first()
+    )
+    if existing:
+        return jsonify({
+            "error": "Product already has a snapshot",
+            "existing_snapshot_id": existing.id,
+            "image_url": f"/product-snapshots/{existing.id}/image",
+        }), 409
+
+    new_snapshot = ProductSnapshot(
+        product_id=product_id,
+        user_id=getattr(getattr(g, "current_user", None), "id", None),
+        source_context="manual",
+        status="unreviewed",
+        # Copy the image_path string — not a shared reference; each record owns its path pointer.
+        # If the source file is later deleted, this record becomes stale but does not corrupt the source.
+        image_path=source.image_path,
+        captured_at=source.captured_at,
+    )
+    session.add(new_snapshot)
+    session.commit()
+
+    return jsonify({
+        "snapshot": _serialize_snapshot(new_snapshot),
+        "copied_from": snapshot_id,
+    }), 201
+
+
 @product_snapshots_bp.route("/<int:snapshot_id>", methods=["DELETE"])
 @require_auth
 @require_write_access
