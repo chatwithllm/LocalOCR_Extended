@@ -39,6 +39,7 @@ import 'package:intl/intl.dart';
 
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/providers.dart' show appShellActionsProvider;
+import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/shopping_models.dart';
 import 'shopping_providers.dart';
@@ -394,12 +395,9 @@ class _CurrentListCard extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             if (payload.items.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 18),
-                child: Center(
-                  child: Text('Nothing to shop for. Add an item above.',
-                      style: TextStyle(color: Colors.grey)),
-                ),
+              const EmptyStateView(
+                message: 'Nothing to shop for. Add an item above.',
+                icon: Icons.shopping_cart_outlined,
               )
             else
               for (final it in payload.items) _ShoppingTile(item: it),

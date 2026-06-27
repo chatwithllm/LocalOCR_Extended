@@ -25,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/logger.dart';
+import '../../../core/widgets/empty_state_view.dart';
 import '../data/inventory_models.dart';
 import 'inventory_providers.dart';
 
@@ -130,11 +131,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       return [
         const SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text('No inventory rows match these filters.'),
-            ),
+          child: EmptyStateView(
+            message: 'No inventory rows match these filters.',
+            icon: Icons.search_off,
           ),
         ),
       ];

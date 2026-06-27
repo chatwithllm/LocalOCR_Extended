@@ -37,6 +37,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
+import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/medicine_models.dart';
 import 'medicine_providers.dart';
@@ -145,15 +146,10 @@ class _MedicineScreenState extends ConsumerState<MedicineScreen> {
                       if (cabinet.medications.isEmpty)
                         const SliverFillRemaining(
                           hasScrollBody: false,
-                          child: Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(40),
-                              child: Text(
+                          child: EmptyStateView(
+                            message:
                                 'No medications. Tap + Add Medication to get started.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ),
+                            icon: Icons.medication_outlined,
                           ),
                         )
                       else

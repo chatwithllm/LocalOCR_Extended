@@ -30,6 +30,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
+import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/product_models.dart';
 import 'products_providers.dart';
@@ -142,11 +143,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       return const [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text('No products yet.'),
-            ),
+          child: EmptyStateView(
+            message: 'No products yet.',
+            icon: Icons.inventory_2_outlined,
           ),
         ),
       ];
