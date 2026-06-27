@@ -10,6 +10,7 @@ class AppConfig {
   final String moduleViewMode;
   final int defaultBackendPort;
   final bool googleOauthEnabled;
+  final String currency;
 
   const AppConfig({
     required this.appName,
@@ -21,6 +22,7 @@ class AppConfig {
     required this.moduleViewMode,
     required this.defaultBackendPort,
     required this.googleOauthEnabled,
+    this.currency = 'USD',
   });
 
   factory AppConfig.fromJson(Map<String, dynamic> json) => AppConfig(
@@ -41,6 +43,7 @@ class AppConfig {
             8090,
         googleOauthEnabled:
             (json['google_oauth_enabled'] as bool?) ?? false,
+        currency: (json['currency'] as String?) ?? 'USD',
       );
 
   static const AppConfig empty = AppConfig(
@@ -53,6 +56,7 @@ class AppConfig {
     moduleViewMode: 'separate',
     defaultBackendPort: 8090,
     googleOauthEnabled: false,
+    currency: 'USD',
   );
 }
 

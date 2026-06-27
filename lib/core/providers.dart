@@ -1,5 +1,7 @@
 import 'package:cookie_jar/cookie_jar.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'api/api_client.dart';
 import 'api/cookie_jar_factory.dart';
@@ -57,4 +59,11 @@ class Session {
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(ref.watch(apiClientProvider));
+});
+
+/// Currency formatter derived from session app config.
+/// Falls back to USD when not logged in.
+final currencyFormatterProvider = Provider<NumberFormat>((ref) {
+  final currency = ref.watch(sessionProvider)?.appConfig.currency ?? 'USD';
+  return NumberFormat.simpleCurrency(name: currency);
 });

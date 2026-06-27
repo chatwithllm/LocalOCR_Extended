@@ -38,13 +38,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/theme/tokens.generated.dart';
-import '../../../core/providers.dart' show appShellActionsProvider;
+import '../../../core/providers.dart'
+    show appShellActionsProvider, currencyFormatterProvider;
 import '../../../core/widgets/empty_state_view.dart';
 import '../../../core/util/logger.dart';
 import '../data/shopping_models.dart';
 import 'shopping_providers.dart';
-
-final _money = NumberFormat.simpleCurrency(name: 'USD');
 
 class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key});
@@ -157,6 +156,7 @@ class _SummaryPills extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(shoppingViewProvider);
     final payload = ref.watch(shoppingListProvider).valueOrNull;
+    final money = ref.watch(currencyFormatterProvider);
     return SizedBox(
       height: 42,
       child: ListView(
@@ -171,7 +171,7 @@ class _SummaryPills extends ConsumerWidget {
           ),
           // F-1006 estimate total
           _Pill(
-            label: 'Est ${_money.format(payload?.estimatedTotalCost ?? 0)}',
+            label: 'Est ${money.format(payload?.estimatedTotalCost ?? 0)}',
             selected: false,
             onTap: null,
           ),
@@ -381,6 +381,7 @@ class _CurrentListCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final money = ref.watch(currencyFormatterProvider);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -392,7 +393,7 @@ class _CurrentListCard extends ConsumerWidget {
                 Text('Current List',
                     style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                Text(_money.format(payload.estimatedTotalCost),
+                Text(money.format(payload.estimatedTotalCost),
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
             ),
@@ -419,11 +420,12 @@ class _ShoppingTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
     final tokens = t.extension<AppTokens>()!;
+    final money = ref.watch(currencyFormatterProvider);
     final isPurchased = item.status == 'purchased';
     final priceStr = item.latestPrice != null
-        ? '${_money.format(item.latestPrice)} ea'
+        ? '${money.format(item.latestPrice)} ea'
         : item.manualEstimatedPrice != null
-            ? '~${_money.format(item.manualEstimatedPrice)} ea'
+            ? '~${money.format(item.manualEstimatedPrice)} ea'
             : '';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

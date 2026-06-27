@@ -17,15 +17,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../app/theme/tokens.generated.dart';
-import '../../../core/providers.dart' show appShellActionsProvider;
+import '../../../core/providers.dart'
+    show appShellActionsProvider, currencyFormatterProvider;
 import '../../../core/util/logger.dart';
 import '../data/balances_models.dart';
 import 'balances_providers.dart';
 
-final _money = NumberFormat.simpleCurrency(name: 'USD');
 
 class BalancesScreen extends ConsumerStatefulWidget {
   const BalancesScreen({super.key});
@@ -120,6 +119,7 @@ class _BalanceTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
     final tokens = t.extension<AppTokens>()!;
+    final money = ref.watch(currencyFormatterProvider);
     final dir = row.owesYou ? 'Owes you' : 'You owe';
     final color = row.owesYou ? tokens.success : tokens.error;
     return Padding(
@@ -139,7 +139,7 @@ class _BalanceTile extends ConsumerWidget {
             ),
           ),
           Text(
-            _money.format(row.netAmount.abs()),
+            money.format(row.netAmount.abs()),
             style: t.textTheme.titleMedium
                 ?.copyWith(color: color, fontWeight: FontWeight.w700),
           ),
