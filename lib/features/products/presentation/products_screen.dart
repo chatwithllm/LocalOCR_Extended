@@ -398,8 +398,12 @@ class _FiltersBar extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              DropdownButton<String>(
+              DropdownButtonFormField<String>(
                 value: filters.sort,
+                decoration: const InputDecoration(
+                  labelText: 'Sort',
+                  isDense: true,
+                ),
                 items: [
                   for (final e in productSortOptions.entries)
                     DropdownMenuItem(value: e.key, child: Text(e.value))

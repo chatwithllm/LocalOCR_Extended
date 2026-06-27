@@ -108,19 +108,25 @@ class _MedicineScreenState extends ConsumerState<MedicineScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Row(
               children: [
-                const Text('Filter:'),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: status,
-                  items: [
-                    for (final o in medicineStatusOptions)
-                      DropdownMenuItem(
-                          value: o['value'], child: Text(o['label']!))
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    ref.read(medicineStatusFilterProvider.notifier).state = v;
-                  },
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: status,
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final o in medicineStatusOptions)
+                        DropdownMenuItem(
+                            value: o['value'], child: Text(o['label']!))
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      ref
+                          .read(medicineStatusFilterProvider.notifier)
+                          .state = v;
+                    },
+                  ),
                 ),
               ],
             ),

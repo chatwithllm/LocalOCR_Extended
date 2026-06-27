@@ -101,21 +101,25 @@ class _StatsGrid extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Text('Window:'),
-            const SizedBox(width: 8),
             // F-909 period select
-            DropdownButton<int>(
-              key: const Key('expense-period'),
-              value: period,
-              items: const [
-                DropdownMenuItem(value: 3, child: Text('3 months')),
-                DropdownMenuItem(value: 6, child: Text('6 months')),
-                DropdownMenuItem(value: 12, child: Text('12 months')),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                ref.read(expensesPeriodProvider.notifier).state = v;
-              },
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: const Key('expense-period'),
+                value: period,
+                decoration: const InputDecoration(
+                  labelText: 'Window',
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 3, child: Text('3 months')),
+                  DropdownMenuItem(value: 6, child: Text('6 months')),
+                  DropdownMenuItem(value: 12, child: Text('12 months')),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref.read(expensesPeriodProvider.notifier).state = v;
+                },
+              ),
             ),
           ],
         ),

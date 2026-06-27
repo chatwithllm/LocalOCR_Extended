@@ -117,21 +117,25 @@ class _StatsGrid extends ConsumerWidget {
         // F-609 period select
         Row(
           children: [
-            const Text('Window:'),
-            const SizedBox(width: 8),
-            DropdownButton<int>(
-              key: const Key('restaurant-period'),
-              value: period,
-              items: [
-                for (final o in restaurantPeriodOptions)
-                  DropdownMenuItem(
-                      value: int.parse(o['value']!),
-                      child: Text(o['label']!))
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                ref.read(restaurantPeriodProvider.notifier).state = v;
-              },
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                key: const Key('restaurant-period'),
+                value: period,
+                decoration: const InputDecoration(
+                  labelText: 'Window',
+                  isDense: true,
+                ),
+                items: [
+                  for (final o in restaurantPeriodOptions)
+                    DropdownMenuItem(
+                        value: int.parse(o['value']!),
+                        child: Text(o['label']!))
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  ref.read(restaurantPeriodProvider.notifier).state = v;
+                },
+              ),
             ),
           ],
         ),

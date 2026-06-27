@@ -594,44 +594,53 @@ class _FiltersBar extends ConsumerWidget {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              DropdownButton<String?>(
+              DropdownButtonFormField<String?>(
                 key: const Key('inventory-location-filter'),
                 value: filters.location,
-                hint: const Text('All locations'),
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  isDense: true,
+                ),
                 items: const [
-                  DropdownMenuItem(value: null, child: Text('All locations')),
+                  DropdownMenuItem(value: null, child: Text('All')),
                   DropdownMenuItem(value: 'Pantry', child: Text('Pantry')),
                   DropdownMenuItem(value: 'Fridge', child: Text('Fridge')),
                   DropdownMenuItem(value: 'Freezer', child: Text('Freezer')),
                   DropdownMenuItem(value: 'Cabinet', child: Text('Cabinet')),
-                  DropdownMenuItem(
-                      value: 'Bathroom', child: Text('Bathroom')),
+                  DropdownMenuItem(value: 'Bathroom', child: Text('Bathroom')),
                 ],
-                onChanged: (v) => notifier.state =
-                    filters.copyWith(location: v),
+                onChanged: (v) =>
+                    notifier.state = filters.copyWith(location: v),
               ),
-              DropdownButton<String>(
+              DropdownButtonFormField<String>(
                 key: const Key('inventory-group-by'),
                 value: filters.groupBy,
+                decoration: const InputDecoration(
+                  labelText: 'Group by',
+                  isDense: true,
+                ),
                 items: const [
-                  DropdownMenuItem(
-                      value: 'low_first', child: Text('Low first')),
+                  DropdownMenuItem(value: 'low_first', child: Text('Low first')),
                   DropdownMenuItem(value: 'domain', child: Text('Category')),
                   DropdownMenuItem(value: 'location', child: Text('Location')),
                 ],
-                onChanged: (v) => notifier.state =
-                    filters.copyWith(groupBy: v ?? 'low_first'),
+                onChanged: (v) =>
+                    notifier.state = filters.copyWith(groupBy: v ?? 'low_first'),
               ),
-              DropdownButton<String>(
+              DropdownButtonFormField<String>(
                 key: const Key('inventory-sort'),
                 value: filters.sort,
+                decoration: const InputDecoration(
+                  labelText: 'Sort',
+                  isDense: true,
+                ),
                 items: const [
                   DropdownMenuItem(value: 'expiry', child: Text('Expiry')),
                   DropdownMenuItem(value: 'name', child: Text('Name')),
                   DropdownMenuItem(value: 'qty', child: Text('Qty')),
                 ],
-                onChanged: (v) => notifier.state =
-                    filters.copyWith(sort: v ?? 'expiry'),
+                onChanged: (v) =>
+                    notifier.state = filters.copyWith(sort: v ?? 'expiry'),
               ),
               FilterChip(
                 key: const Key('inventory-show-empty'),
