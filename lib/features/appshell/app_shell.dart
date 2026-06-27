@@ -53,11 +53,13 @@ class AppShell extends ConsumerWidget {
     );
 
     final title = (activeIndex >= 0 ? destinations[activeIndex].label : 'LocalOCR Extended');
+    final screenActions = ref.watch(appShellActionsProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
+          ...screenActions,
           IconButton(
             tooltip: 'Switch theme',
             icon: const Icon(Icons.brightness_6_outlined),

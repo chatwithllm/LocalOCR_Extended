@@ -37,29 +37,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/logger.dart';
 import '../data/shopping_models.dart';
 import 'shopping_providers.dart';
 
 final _money = NumberFormat.simpleCurrency(name: 'USD');
 
-class ShoppingScreen extends ConsumerWidget {
+class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key});
+  @override
+  ConsumerState<ShoppingScreen> createState() => _ShoppingScreenState();
+}
+
+class _ShoppingScreenState extends ConsumerState<ShoppingScreen> {
+  late final List<Widget> _appBarActions;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _appBarActions = [
+      IconButton(
+        tooltip: 'Refresh',
+        icon: const Icon(Icons.refresh),
+        onPressed: () => ref.invalidate(shoppingListProvider),
+      ),
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(appShellActionsProvider.notifier).state = _appBarActions;
+    });
+  }
+
+  @override
+  void dispose() {
+    ref.read(appShellActionsProvider.notifier).state = const [];
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final listAsync = ref.watch(shoppingListProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Shopping'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(shoppingListProvider),
-          ),
-        ],
-      ),
       body: listAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Err(

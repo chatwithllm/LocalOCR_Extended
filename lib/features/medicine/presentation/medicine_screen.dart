@@ -47,6 +47,39 @@ class MedicineScreen extends ConsumerStatefulWidget {
 }
 
 class _MedicineScreenState extends ConsumerState<MedicineScreen> {
+  late final List<Widget> _appBarActions;
+
+  @override
+  void initState() {
+    super.initState();
+    _appBarActions = [
+      IconButton(
+        tooltip: 'Add Medication',
+        icon: const Icon(Icons.add),
+        onPressed: () => _openAddSheet(context),
+      ),
+      IconButton(
+        tooltip: 'Household members',
+        icon: const Icon(Icons.people_outline),
+        onPressed: () => _openMembersSheet(context),
+      ),
+      IconButton(
+        tooltip: 'Refresh',
+        icon: const Icon(Icons.refresh),
+        onPressed: () => ref.invalidate(medicineCabinetProvider),
+      ),
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(appShellActionsProvider.notifier).state = _appBarActions;
+    });
+  }
+
+  @override
+  void dispose() {
+    ref.read(appShellActionsProvider.notifier).state = const [];
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cabinetAsync = ref.watch(medicineCabinetProvider);
@@ -54,29 +87,6 @@ class _MedicineScreenState extends ConsumerState<MedicineScreen> {
     final status = ref.watch(medicineStatusFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        // F-501 page header
-        title: const Text('💊 Medicine Cabinet'),
-        actions: [
-          // F-502 Add Medication
-          IconButton(
-            tooltip: 'Add Medication',
-            icon: const Icon(Icons.add),
-            onPressed: () => _openAddSheet(context),
-          ),
-          // F-503 Members
-          IconButton(
-            tooltip: 'Household members',
-            icon: const Icon(Icons.people_outline),
-            onPressed: () => _openMembersSheet(context),
-          ),
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(medicineCabinetProvider),
-          ),
-        ],
-      ),
       body: Column(
         children: [
           // Subtitle

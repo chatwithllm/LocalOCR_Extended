@@ -23,6 +23,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/logger.dart';
 import '../data/inventory_models.dart';
 import 'inventory_providers.dart';
@@ -36,9 +37,26 @@ class InventoryScreen extends ConsumerStatefulWidget {
 class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   final _searchCtl = TextEditingController();
   final _expandedIds = <int>{};
+  late final List<Widget> _appBarActions;
+
+  @override
+  void initState() {
+    super.initState();
+    _appBarActions = [
+      IconButton(
+        tooltip: 'Refresh',
+        onPressed: () => ref.invalidate(inventoryListProvider),
+        icon: const Icon(Icons.refresh),
+      ),
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(appShellActionsProvider.notifier).state = _appBarActions;
+    });
+  }
 
   @override
   void dispose() {
+    ref.read(appShellActionsProvider.notifier).state = const [];
     _searchCtl.dispose();
     super.dispose();
   }
@@ -48,16 +66,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final filters = ref.watch(inventoryFiltersProvider);
     final asyncList = ref.watch(inventoryListProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inventory'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: () => ref.invalidate(inventoryListProvider),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
       body: asyncList.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(

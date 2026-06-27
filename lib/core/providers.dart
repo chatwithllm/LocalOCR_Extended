@@ -42,6 +42,13 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 /// Session — current logged-in user + app config. `null` means not logged in.
 final sessionProvider = StateProvider<Session?>((ref) => null);
 
+/// AppBar actions registered by the current screen. Screens write to this
+/// provider in their build method to inject screen-specific icon buttons into
+/// the AppShell AppBar, eliminating the need for nested Scaffolds with their
+/// own AppBars.
+final appShellActionsProvider =
+    StateProvider<List<Widget>>((ref) => const []);
+
 class Session {
   final User user;
   final AppConfig appConfig;
