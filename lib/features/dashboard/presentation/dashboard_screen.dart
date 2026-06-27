@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/tokens.generated.dart';
 import '../../../core/util/logger.dart';
 import '../data/dashboard_models.dart';
 import 'dashboard_providers.dart';
@@ -435,6 +436,7 @@ class _SpendingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
+    final tokens = th.extension<AppTokens>()!;
     return InkWell(
       onTap: () {
         // F-218 row tap → drill panel (analytics screen for now).
@@ -457,8 +459,8 @@ class _SpendingRow extends StatelessWidget {
                 '${category.deltaPct! >= 0 ? '+' : ''}${category.deltaPct}%',
                 style: th.textTheme.bodySmall?.copyWith(
                   color: category.deltaPct! >= 0
-                      ? Colors.redAccent
-                      : Colors.green,
+                      ? tokens.error
+                      : tokens.success,
                 ),
               ),
             ],

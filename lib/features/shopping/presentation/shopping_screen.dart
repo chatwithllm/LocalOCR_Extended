@@ -37,6 +37,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/theme/tokens.generated.dart';
 import '../../../core/providers.dart' show appShellActionsProvider;
 import '../../../core/util/logger.dart';
 import '../data/shopping_models.dart';
@@ -416,6 +417,7 @@ class _ShoppingTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
+    final tokens = t.extension<AppTokens>()!;
     final isPurchased = item.status == 'purchased';
     final priceStr = item.latestPrice != null
         ? '${_money.format(item.latestPrice)} ea'
@@ -492,7 +494,7 @@ class _ShoppingTile extends ConsumerWidget {
             icon: Icon(isPurchased
                 ? Icons.replay_circle_filled_outlined
                 : Icons.check_circle_outline),
-            color: isPurchased ? null : const Color(0xFF66BB6A),
+            color: isPurchased ? null : tokens.success,
             onPressed: () => _toggle(context, ref),
           ),
           // F-1057 delete

@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
 import '../../../core/util/logger.dart';
@@ -490,6 +491,7 @@ class _ProductTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = group.primary;
     final snap = p.latestSnapshot;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
     final imageUrl = snap?.imageUrl;
     final isLow = p.manualLow || p.isLow;
     return Card(
@@ -522,7 +524,7 @@ class _ProductTile extends ConsumerWidget {
                       Text(_labelOf(group.displayCategory),
                           style: Theme.of(context).textTheme.labelMedium),
                       if (isLow)
-                        const _Pill(text: 'Low', color: Color(0xFFE57373)),
+                        _Pill(text: 'Low', color: tokens.error),
                     ],
                   ),
                 ),
@@ -713,6 +715,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
   @override
   Widget build(BuildContext context) {
     final it = widget.item;
+    final tokens = Theme.of(context).extension<AppTokens>()!;
     final isLow = it.manualLow || it.isLow;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -725,7 +728,7 @@ class _VariantRowState extends ConsumerState<_VariantRow> {
                 child: Text(it.name,
                     style: const TextStyle(fontWeight: FontWeight.w600))),
               if (isLow)
-                const _Pill(text: 'Low', color: Color(0xFFE57373)),
+                _Pill(text: 'Low', color: tokens.error),
             ],
           ),
           if (it.defaultSizeLabel != null || it.lastPurchaseDate != null)

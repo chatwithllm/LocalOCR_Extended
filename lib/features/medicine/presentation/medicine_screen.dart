@@ -34,6 +34,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../../app/theme/tokens.generated.dart';
 import '../../../core/api/env.dart';
 import '../../../core/providers.dart';
 import '../../../core/util/logger.dart';
@@ -274,6 +275,7 @@ class _MedTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final tokens = theme.extension<AppTokens>()!;
     final isExpired = med.isExpired || med.status == 'expired';
     final isLow = med.isLow;
 
@@ -311,9 +313,9 @@ class _MedTile extends ConsumerWidget {
     }
 
     final accent = isExpired
-        ? const Color(0xFFE57373)
+        ? tokens.error
         : isLow
-            ? const Color(0xFFFFB74D)
+            ? tokens.warning
             : null;
 
     return Card(
@@ -351,11 +353,9 @@ class _MedTile extends ConsumerWidget {
                       Text(ageLabel, style: theme.textTheme.labelSmall),
                       // F-509 Expired / Low badge
                       if (isExpired)
-                        _Pill(
-                            text: 'Expired',
-                            color: Theme.of(context).colorScheme.error),
+                        _Pill(text: 'Expired', color: tokens.error),
                       if (!isExpired && isLow)
-                        const _Pill(text: 'Low', color: Color(0xFFFFB74D)),
+                        _Pill(text: 'Low', color: tokens.warning),
                     ],
                   ),
                 ),
