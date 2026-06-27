@@ -14064,6 +14064,10 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         const overlay = document.getElementById("search-overlay");
         if (!overlay) return;
         _srBuildShopMap();
+        // Refresh cache in background so stepper is accurate if user hasn't visited Shopping page yet
+        if (typeof loadShoppingList === "function") {
+          loadShoppingList().then(_srBuildShopMap).catch(() => {});
+        }
         overlay.classList.add("show");
         overlay.setAttribute("aria-hidden", "false");
         const inp = document.getElementById("search-input");
@@ -14223,19 +14227,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         } catch(e) { toast("Could not remove", "error"); }
       }
 
-      // Silent add — returns {id, quantity} or null
+      // Silent add — returns the shopping list item {id, quantity, ...} or null
       async function quickAddToShoppingListSilent(payload) {
         const res = await api("/shopping-list/items", { method: "POST", body: JSON.stringify(payload) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { toast(data.error || "Could not add to list", "error"); return null; }
         toast(data.merged ? "Updated quantity ✅" : "Added to list ✅", "success");
-        // Sync the main cache entry if it exists
+        // Backend returns {item: {...}, merged: bool} — unwrap the nested item
+        const item = data.item || data;
         if (typeof shoppingListCache !== "undefined") {
-          const existing = shoppingListCache.find(i => i.id === data.id);
-          if (existing) existing.quantity = data.quantity;
-          else shoppingListCache.push(data);
+          const existing = shoppingListCache.find(i => i.id === item.id);
+          if (existing) existing.quantity = item.quantity;
+          else shoppingListCache.push(item);
         }
-        return data;
+        return item;
       }
 
       function _srAddBtn(idx) {
@@ -14243,7 +14248,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         if (!payload) return "";
         return `<button type="button" data-sr-pid="${payload.product_id}"
           onclick="event.stopPropagation();_srCartAdd(${idx})"
-          class="sr-cart-add" aria-label="Add to shopping list" title="Add to shopping list">+</button>`;
+          class="sr-cart-add" aria-label="Add to shopping list" title="Add to shopping list">🛒</button>`;
       }
 
       function _srStepper(productId) {
