@@ -256,6 +256,9 @@ abstract final class Endpoints {
   // --- kitchen ---
   static const apiKitchenCatalog = '/api/kitchen/catalog';
 
+  // --- global search ---
+  static const search = '/api/search';
+
   // --- ai models ---
   static const apiModels = '/api/models';
   static const apiModelsSelect = '/api/models/select';
