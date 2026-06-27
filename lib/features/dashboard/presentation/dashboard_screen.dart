@@ -210,12 +210,16 @@ class _LeaderboardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
-    return InkWell(
-      onTap: () {
-        // F-210 row tap → navigate to contributions screen for this user.
-        GoRouter.of(context).go('/contributions');
-      },
-      child: Padding(
+    return Semantics(
+      button: true,
+      label:
+          '${entry.name}, rank #${entry.rank}, ${entry.points} points. Tap to view contributions.',
+      child: InkWell(
+        onTap: () {
+          // F-210 row tap → navigate to contributions screen for this user.
+          GoRouter.of(context).go('/contributions');
+        },
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
@@ -242,7 +246,8 @@ class _LeaderboardRow extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -344,6 +349,7 @@ class _StatTile extends StatelessWidget {
     return _Card(
       padding: const EdgeInsets.all(12),
       onTap: onTap,
+      semanticLabel: '$value $label — tap to view',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -917,20 +923,26 @@ class _Card extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.onTap,
+    this.semanticLabel,
   });
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
+  final String? semanticLabel;
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context);
-    return Material(
-      color: th.colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: onTap != null,
+      label: semanticLabel,
+      child: Material(
+        color: th.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(padding: padding, child: child),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(padding: padding, child: child),
+        ),
       ),
     );
   }
