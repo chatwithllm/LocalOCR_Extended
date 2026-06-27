@@ -502,7 +502,7 @@ class _ShoppingTile extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.delete_outline),
             color: t.colorScheme.error,
-            onPressed: () => _delete(context, ref),
+            onPressed: () => _deleteWithUndo(context, ref),
           ),
         ],
       ),
@@ -512,7 +512,7 @@ class _ShoppingTile extends ConsumerWidget {
   Future<void> _decrement(BuildContext context, WidgetRef ref) async {
     final newQty = (item.quantity - 1);
     if (newQty <= 0) {
-      await _delete(context, ref);
+      await _deleteWithUndo(context, ref);
       return;
     }
     try {
@@ -536,10 +536,35 @@ class _ShoppingTile extends ConsumerWidget {
     }
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+  Future<void> _deleteWithUndo(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(shoppingRepositoryProvider);
+    final deleted = item; // capture before any async gap
     try {
-      await ref.read(shoppingRepositoryProvider).delete(item.id);
+      await repo.delete(deleted.id);
       ref.invalidate(shoppingListProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${deleted.title}" removed'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              try {
+                await repo.create(
+                  name: deleted.title,
+                  category: deleted.category,
+                  quantity: deleted.quantity,
+                  unit: deleted.unit,
+                  preferredStore: deleted.effectiveStore,
+                  manualEstimatedPrice: deleted.manualEstimatedPrice,
+                );
+                ref.invalidate(shoppingListProvider);
+              } catch (_) {}
+            },
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
     } catch (e) {
       _toast(context, 'Could not delete: $e', isError: true);
     }
