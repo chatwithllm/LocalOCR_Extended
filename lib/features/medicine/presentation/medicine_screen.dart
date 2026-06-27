@@ -403,10 +403,8 @@ class _MedTile extends ConsumerWidget {
                 // F-515 edit
                 IconButton(
                   tooltip: 'Edit',
-                  iconSize: 18,
+                  iconSize: 20,
                   visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                   icon: const Icon(Icons.edit_outlined),
                   onPressed: () => _openEditSheet(context, med),
                 ),
@@ -417,7 +415,7 @@ class _MedTile extends ConsumerWidget {
                     label: const Text('Done'),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
-                      minimumSize: const Size(0, 32),
+                      minimumSize: const Size(44, 44),
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                     ),
                     onPressed: () => _markFinished(context, ref, med),
@@ -426,10 +424,8 @@ class _MedTile extends ConsumerWidget {
                 // F-517 delete
                 IconButton(
                   tooltip: 'Delete',
-                  iconSize: 18,
+                  iconSize: 20,
                   visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
                   icon: const Icon(Icons.delete_outline),
                   color: theme.colorScheme.error,
                   onPressed: () => _delete(context, ref, med),
