@@ -370,6 +370,7 @@ class _DeviceApprovalInlineCardState
   final _adminPassCtrl = TextEditingController();
   String _scope = 'shared_household';
   bool _busy = false;
+  bool _showAdminPass = false;
   String? _error;
   String? _ok;
 
@@ -518,10 +519,18 @@ class _DeviceApprovalInlineCardState
             TextField(
               key: const Key('device-approval-inline-password'),
               controller: _adminPassCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: !_showAdminPass,
+              decoration: InputDecoration(
                 labelText: 'Admin password',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: _showAdminPass ? 'Hide password' : 'Show password',
+                  icon: Icon(_showAdminPass
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined),
+                  onPressed: () =>
+                      setState(() => _showAdminPass = !_showAdminPass),
+                ),
               ),
             ),
             if (_error != null) ...[
