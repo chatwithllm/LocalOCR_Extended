@@ -161,7 +161,7 @@ class _MedicineScreenState extends ConsumerState<MedicineScreen> {
                         )
                       else
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
                           sliver: SliverGrid(
                             gridDelegate:
                                 const SliverGridDelegateWithMaxCrossAxisExtent(

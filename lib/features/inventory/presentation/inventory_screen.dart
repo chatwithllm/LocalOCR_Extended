@@ -134,7 +134,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   child: _CategoryChipRow(items: list.items, filters: filters),
                 ),
                 ..._buildSliverGroups(grouped),
-                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                const SliverToBoxAdapter(child: SizedBox(height: 88)),
               ],
             ),
           );
