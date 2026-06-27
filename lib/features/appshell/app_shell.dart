@@ -62,6 +62,11 @@ class AppShell extends ConsumerWidget {
         actions: [
           ...screenActions,
           IconButton(
+            tooltip: 'Search',
+            icon: const Icon(Icons.search),
+            onPressed: () => context.push('/search'),
+          ),
+          IconButton(
             tooltip: 'Switch theme',
             icon: const Icon(Icons.brightness_6_outlined),
             onPressed: () => ref.read(themeProvider.notifier).cycle(),
