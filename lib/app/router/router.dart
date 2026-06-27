@@ -13,6 +13,7 @@ import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/medicine/presentation/medicine_screen.dart';
 import '../../features/products/presentation/products_screen.dart';
 import '../../features/restaurant/presentation/restaurant_screen.dart';
+import '../../features/search/presentation/search_screen.dart';
 import '../../features/shared/placeholder_screen.dart';
 import '../../features/shopping/presentation/shopping_screen.dart';
 
@@ -72,6 +73,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LoginScreen(
           inviteToken: state.pathParameters['token'],
         ),
+      ),
+      GoRoute(
+        path: '/search',
+        name: 'search',
+        builder: (_, __) => const SearchScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(
