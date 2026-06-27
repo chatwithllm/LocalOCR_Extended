@@ -95,20 +95,30 @@ def unified_search():
 
     product_hits = []
     for p in prod_rows:
-        # Last purchase: most recent PriceHistory row for this product
-        last_price_row = (
-            session.query(ReceiptItem, Purchase)
+        # Up to 3 most recent receipts for this product
+        recent_rows = (
+            session.query(ReceiptItem, Purchase, Store)
             .join(Purchase, ReceiptItem.purchase_id == Purchase.id)
+            .join(Store, Purchase.store_id == Store.id)
             .filter(ReceiptItem.product_id == p.id)
             .order_by(Purchase.date.desc())
-            .first()
+            .limit(3)
+            .all()
         )
+        recent_receipts = []
         last_date = None
         last_price = None
-        if last_price_row:
-            ri, pu = last_price_row
-            last_date = pu.date.strftime("%Y-%m-%d") if pu.date else None
-            last_price = ri.unit_price
+        for ri, pu, st in recent_rows:
+            date_str = pu.date.strftime("%Y-%m-%d") if pu.date else None
+            if last_date is None:
+                last_date = date_str
+                last_price = ri.unit_price
+            recent_receipts.append({
+                "receipt_id": pu.id,
+                "store": st.name,
+                "date": date_str,
+                "total": pu.total_amount,
+            })
         product_hits.append({
             "id": p.id,
             "product_name": p.display_name or p.name,
@@ -116,6 +126,7 @@ def unified_search():
             "category": p.category,
             "last_purchase_date": last_date,
             "last_purchase_price": last_price,
+            "recent_receipts": recent_receipts,
         })
 
     # ── Receipt hits ──────────────────────────────────────────────────────────

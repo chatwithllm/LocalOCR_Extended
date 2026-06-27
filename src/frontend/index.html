@@ -13997,7 +13997,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               if (h.last_purchase_date) parts.push("Bought " + _srDate(h.last_purchase_date));
               if (h.last_purchase_price != null) parts.push("$" + (+h.last_purchase_price).toFixed(2));
               const brand = h.brand ? `<span style="color:var(--muted,#888);font-size:0.8rem;margin-left:6px;">${_esc(h.brand)}</span>` : "";
-              html += _srRow("🏷️", _esc(h.product_name) + brand, parts.join(" · "), "nav('products')");
+              // Receipt links — shown below the subtitle if backend returned them
+              let receiptLinks = "";
+              if (h.recent_receipts && h.recent_receipts.length) {
+                receiptLinks = h.recent_receipts.slice(0, 3).map(r =>
+                  `<span onclick="event.stopPropagation();closeSearch();openReceiptDetail(${r.receipt_id},'${String(r.date||"").slice(0,10)}')"
+                    style="display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:var(--surface2,#2c2c2e);border-radius:8px;font-size:0.75rem;cursor:pointer;"
+                    onmouseover="this.style.background='rgba(74,138,239,.25)'" onmouseout="this.style.background='var(--surface2,#2c2c2e)'">
+                    🧾 ${_esc(r.store||"Receipt")} ${_srDate(r.date)}${r.total != null ? " · $"+((+r.total).toFixed(2)) : ""}
+                  </span>`
+                ).join("");
+                receiptLinks = `<div style="margin-top:4px;">${receiptLinks}</div>`;
+              }
+              const sub = parts.join(" · ") + receiptLinks;
+              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')");
             }
           }
           if (receipts.length) {
@@ -25634,6 +25647,23 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
             });
             genBtn.title = "Generate image with AI";
             actions.appendChild(genBtn);
+          }
+          // Receipt shortcut — most recent receipt for this product
+          const primaryReceipts = primary.recent_receipts || [];
+          if (primaryReceipts.length) {
+            const receiptBtn = _invMakeBtn("inv-btn-expand", "🧾",
+              (function(receipts) { return function() {
+                if (receipts.length === 1) {
+                  openReceiptDetail(receipts[0].receipt_id, String(receipts[0].date || "").slice(0, 10));
+                } else {
+                  // Multiple receipts — open the most recent one
+                  openReceiptDetail(receipts[0].receipt_id, String(receipts[0].date || "").slice(0, 10));
+                }
+              }; })(primaryReceipts));
+            receiptBtn.title = primaryReceipts.length === 1
+              ? "View receipt: " + (primaryReceipts[0].store || "") + " " + (primaryReceipts[0].date || "")
+              : "View latest of " + primaryReceipts.length + " receipts: " + (primaryReceipts[0].store || "") + " " + (primaryReceipts[0].date || "");
+            actions.appendChild(receiptBtn);
           }
           actions.appendChild(_invMakeBtn("inv-btn-danger", "🗑",
             (function(p) { return function() { deleteProduct(p.id); }; })(primary)));
