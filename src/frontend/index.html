@@ -14292,8 +14292,11 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           cartBtn = _srShopMap.has(productId) ? _srStepper(productId) : _srAddBtn(idx);
         }
         // Avatar: product photo if available, emoji fallback otherwise
-        const avatar = imageUrl
-          ? `<img class="sr-thumb" src="${API_BASE}${_esc(imageUrl)}" alt="${title.replace(/<[^>]*>/g, "")}"
+        // Only accept relative paths — blocks javascript:/data: injection if imageUrl were ever tainted.
+        const safeImgUrl = (imageUrl && /^\/[a-zA-Z0-9/_-]/.test(imageUrl)) ? imageUrl : null;
+        const altText = _esc(title.replace(/<[^>]*>/g, ""));
+        const avatar = safeImgUrl
+          ? `<img class="sr-thumb" src="${API_BASE}${_esc(safeImgUrl)}" alt="${altText}"
                onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
              /><span style="display:none;font-size:1.1rem;flex-shrink:0;">${icon}</span>`
           : `<span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>`;
