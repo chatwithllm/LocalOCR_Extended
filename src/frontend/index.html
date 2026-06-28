@@ -6445,6 +6445,15 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         color: var(--text, #eee);
         user-select: none;
       }
+      .sr-thumb {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: var(--surface2, #2c2c2e);
+        display: block;
+      }
       @media (min-width: 641px) {
         #search-overlay {
           padding: 48px 20px 20px;
@@ -14130,7 +14139,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               const sub = [qty + (h.unit ? " " + h.unit : ""), h.location].filter(Boolean).join(" · ");
               const expiry = h.expiry_date ? _srExpiryChip(h.expiry_date) : "";
               const cart = {product_id: h.product_id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
-              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')", cart, h.product_id);
+              html += _srRow("📦", _esc(h.product_name), sub + expiry, "nav('inventory')", cart, h.product_id, h.image_url);
             }
           }
           if (products.length) {
@@ -14153,7 +14162,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               }
               const sub = parts.join(" · ") + receiptLinks;
               const cart = {product_id: h.id, name: h.product_name, category: h.category || "other", quantity: 1, source: "search"};
-              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')", cart, h.id);
+              html += _srRow("🏷️", _esc(h.product_name) + brand, sub, "nav('products')", cart, h.id, h.image_url);
             }
           }
           if (receipts.length) {
@@ -14276,14 +14285,20 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
           ${_esc(label)}<span style="background:var(--surface2,#2c2c2e);border-radius:8px;padding:1px 7px;font-size:0.72rem;">${count}</span></div>`;
       }
 
-      function _srRow(icon, title, sub, onclick, cartPayload, productId) {
+      function _srRow(icon, title, sub, onclick, cartPayload, productId, imageUrl) {
         let cartBtn = "";
         if (cartPayload && productId) {
           const idx = _srPayloads.push(cartPayload) - 1;
           cartBtn = _srShopMap.has(productId) ? _srStepper(productId) : _srAddBtn(idx);
         }
+        // Avatar: product photo if available, emoji fallback otherwise
+        const avatar = imageUrl
+          ? `<img class="sr-thumb" src="${API_BASE}${_esc(imageUrl)}" alt="${title.replace(/<[^>]*>/g, "")}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+             /><span style="display:none;font-size:1.1rem;flex-shrink:0;">${icon}</span>`
+          : `<span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>`;
         return `<div onclick="${onclick};closeSearch()" style="display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;border-radius:6px;margin:0 6px;" onmouseover="this.style.background='var(--surface2,#2c2c2e)'" onmouseout="this.style.background=''">
-          <span style="font-size:1.1rem;flex-shrink:0;">${icon}</span>
+          ${avatar}
           <div style="min-width:0;flex:1;">
             <div style="font-size:0.92rem;color:var(--text,#eee);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
             ${sub ? `<div style="font-size:0.8rem;color:var(--muted,#888);margin-top:2px;">${sub}</div>` : ""}
