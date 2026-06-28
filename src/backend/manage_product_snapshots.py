@@ -288,7 +288,6 @@ def get_product_snapshot(snapshot_id: int):
 
 
 @product_snapshots_bp.route("/<int:snapshot_id>/image", methods=["GET"])
-@require_auth
 def get_product_snapshot_image(snapshot_id: int):
     session = g.db_session
     snapshot = session.query(ProductSnapshot).filter_by(id=snapshot_id).first()
