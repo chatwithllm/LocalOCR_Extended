@@ -13,6 +13,7 @@ from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import (
     Inventory,
     Product,
+    ProductSnapshot,
     Purchase,
     ReceiptItem,
     Store,
@@ -21,6 +22,20 @@ from src.backend.initialize_database_schema import (
 logger = logging.getLogger(__name__)
 
 search_bp = Blueprint("search", __name__, url_prefix="/api/search")
+
+
+def _snapshot_url(session, product_id: int) -> str | None:
+    snap = (
+        session.query(ProductSnapshot)
+        .filter(
+            ProductSnapshot.product_id == product_id,
+            ProductSnapshot.image_path.isnot(None),
+            ProductSnapshot.image_path != "",
+        )
+        .order_by(ProductSnapshot.created_at.desc())
+        .first()
+    )
+    return f"/product-snapshots/{snap.id}/image" if snap else None
 
 _LIMIT = 5
 
@@ -74,6 +89,7 @@ def unified_search():
             "unit": p.default_unit,
             "location": row.location,
             "expiry_date": expiry,
+            "image_url": _snapshot_url(session, p.id),
         })
 
     # ── Product catalog hits ──────────────────────────────────────────────────
@@ -127,6 +143,7 @@ def unified_search():
             "last_purchase_date": last_date,
             "last_purchase_price": last_price,
             "recent_receipts": recent_receipts,
+            "image_url": _snapshot_url(session, p.id),
         })
 
     # ── Receipt hits ──────────────────────────────────────────────────────────
