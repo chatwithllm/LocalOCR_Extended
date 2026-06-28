@@ -1166,6 +1166,44 @@ def bulk_confirm_staged_transactions():
     }), 200
 
 
+_ALLOWED_STAGED_PATCH_FIELDS = {"suggested_budget_category", "suggested_receipt_type"}
+_ALLOWED_BUDGET_CATEGORIES = {
+    "grocery", "restaurant", "general_expense", "household_bill", "other_recurring", "other",
+}
+
+
+@plaid_bp.route("/staged-transactions/<int:staged_id>", methods=["PATCH"])
+@require_write_access
+def patch_staged_transaction(staged_id: int):
+    """Update editable fields on a staged transaction (category, type) before confirm."""
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Authenticated user required"}), 401
+    session = g.db_session
+    staged = _fetch_visible_staged(session, staged_id, user_id)
+    if not staged:
+        return jsonify({"error": "Staged transaction not found"}), 404
+    if staged.status in {"confirmed", "dismissed"}:
+        return jsonify({"error": f"Transaction already {staged.status}"}), 409
+
+    body = request.get_json(silent=True) or {}
+    unknown = set(body) - _ALLOWED_STAGED_PATCH_FIELDS
+    if unknown:
+        return jsonify({"error": f"Unknown fields: {sorted(unknown)}"}), 400
+
+    if "suggested_budget_category" in body:
+        cat = str(body["suggested_budget_category"]).strip()
+        if cat not in _ALLOWED_BUDGET_CATEGORIES:
+            return jsonify({"error": f"Invalid category: {cat}"}), 400
+        staged.suggested_budget_category = cat
+
+    if "suggested_receipt_type" in body:
+        staged.suggested_receipt_type = str(body["suggested_receipt_type"]).strip() or None
+
+    session.commit()
+    return jsonify({"staged": _serialize_staged(staged)}), 200
+
+
 @plaid_bp.route("/staged-transactions/<int:staged_id>/dismiss", methods=["POST"])
 @require_write_access
 def dismiss_staged_transaction(staged_id: int):

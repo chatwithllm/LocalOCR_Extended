@@ -6454,6 +6454,31 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
         background: var(--surface2, #2c2c2e);
         display: block;
       }
+      .acct-cat-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 2px 0;
+      }
+      .acct-cat-chip {
+        font-size: 0.78rem;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1.5px solid var(--border, #3a3a3c);
+        background: none;
+        color: var(--muted, #888);
+        cursor: pointer;
+        white-space: nowrap;
+        -webkit-tap-highlight-color: transparent;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .acct-cat-chip--active {
+        border-color: var(--accent, #4a8aef);
+        color: var(--accent, #4a8aef);
+        background: rgba(74, 138, 239, 0.12);
+        font-weight: 600;
+      }
+      .acct-cat-chip:active { opacity: 0.7; }
       @media (min-width: 641px) {
         #search-overlay {
           padding: 48px 20px 20px;
@@ -16446,6 +16471,18 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
               const categoryLabel = row.plaid_category_primary || "Uncategorized";
               const instLabel = row.institution_name ? ` · ${escHtml(row.institution_name)}` : "";
               const pendingLabel = row.pending ? ' · <span style="color:var(--warning,#d97706)">pending</span>' : "";
+              const currentCat = row.suggested_budget_category || "";
+              const catChips = [
+                { key: "grocery",         label: "🛒 Grocery" },
+                { key: "restaurant",      label: "🍽 Restaurant" },
+                { key: "general_expense", label: "📦 General" },
+              ].map(c => {
+                const active = currentCat === c.key;
+                return `<button type="button"
+                  class="acct-cat-chip${active ? " acct-cat-chip--active" : ""}"
+                  onclick="setStagedCategory(${row.id}, '${c.key}', this)"
+                  >${escHtml(c.label)}</button>`;
+              }).join("");
               return `
                 <li class="summary-row-host">
                   <div class="summary-row accounts-item" style="gap:6px">
@@ -16456,6 +16493,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                     <div class="summary-row__meta">
                       ${escHtml(dateStr)} · ${escHtml(typeLabel)} · ${escHtml(String(categoryLabel).replace(/_/g, " "))}${instLabel}${pendingLabel}
                     </div>
+                    <div class="acct-cat-chips">${catChips}</div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                       <button type="button" class="btn btn-primary btn-sm" onclick="confirmPlaidStagedFromAccounts(${row.id})">Confirm</button>
                       <button type="button" class="btn btn-ghost btn-sm" onclick="openLinkReceiptPicker(${row.id})">Link…</button>
@@ -16476,6 +16514,28 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // Thin wrappers that refresh BOTH the review queue and the confirmed
       // transactions list after an action (so confirmed rows appear in Panel 2
       // without a manual reload).
+      async function setStagedCategory(stagedId, category, chipEl) {
+        // Optimistic: flip active chip immediately
+        const row = chipEl.closest(".accounts-item");
+        row?.querySelectorAll(".acct-cat-chip").forEach(c => c.classList.remove("acct-cat-chip--active"));
+        chipEl.classList.add("acct-cat-chip--active");
+        try {
+          const res = await api(`/plaid/staged-transactions/${stagedId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ suggested_budget_category: category }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            toast(d.error || "Could not update category", "error");
+            // Revert chips on failure — just reload
+            await loadAccountsReviewQueue();
+          }
+        } catch (_) {
+          toast("Could not update category", "error");
+          await loadAccountsReviewQueue();
+        }
+      }
+
       async function confirmPlaidStagedFromAccounts(stagedId) {
         await confirmPlaidStaged(stagedId);
         await Promise.all([loadAccountsReviewQueue(), loadPlaidTransactionsList(), loadAccountsBreakdown(), loadPlaidSpendingTrends()]);
