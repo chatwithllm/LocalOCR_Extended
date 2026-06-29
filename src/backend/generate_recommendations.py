@@ -21,6 +21,9 @@ from sqlalchemy import and_, func, or_
 from src.backend.create_flask_application import require_auth
 from src.backend.initialize_database_schema import ContributionEvent, Inventory, Product, PriceHistory, ReceiptItem, Purchase, ShoppingListItem, User
 from src.backend.normalize_product_names import canonicalize_product_name
+from src.backend.recommendation_features import build_recommendation_candidates
+from src.backend.recommend_via_llm import judge_candidates
+from src.backend.recommendation_cache import write_cache, read_latest_cache
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +49,27 @@ def _coerce_datetime_for_comparison(value: datetime, reference_now: datetime) ->
 @recommendations_bp.route("", methods=["GET"])
 @require_auth
 def get_recommendations():
-    """Get current recommendations (deals + seasonal)."""
-    recs = generate_all_recommendations()
+    """Serve cached recommendations (never blocks on the LLM)."""
+    session = g.db_session
+    cached = read_latest_cache(session, scope="household")
+    if cached is None:
+        recs = generate_all_recommendations()
+        write_cache(session, scope="household", payload=recs, source="heuristic")
+        session.commit()
+        cached = {"payload": recs, "source": "heuristic"}
     return jsonify({
-        "recommendations": recs,
-        "count": len(recs),
+        "recommendations": cached["payload"],
+        "count": len(cached["payload"]),
+        "source": cached.get("source"),
     }), 200
+
+
+def refresh_recommendation_cache() -> dict:
+    """Run the pipeline and persist the result to the cache. Uses g.db_session.
+    Returns a summary. Must run inside an app context with g.db_session set."""
+    recs, source = generate_ai_recommendations()
+    write_cache(g.db_session, scope="household", payload=recs, source=source)
+    return {"count": len(recs), "source": source}
 
 
 def generate_all_recommendations() -> list:
@@ -83,6 +101,27 @@ def generate_all_recommendations() -> list:
     recommendations.sort(key=lambda r: r["confidence"], reverse=True)
 
     return recommendations
+
+
+def generate_ai_recommendations() -> tuple[list, str]:
+    """Hybrid: features -> LLM judge -> reconcile. Falls back to heuristics if the
+    LLM step fails or is disabled. Returns (recommendations, source). Must run
+    inside an app context where g.db_session is set."""
+    import os
+    if os.getenv("RECS_AI_ENABLED", "true").strip().lower() in {"0", "false", "no"}:
+        return generate_all_recommendations(), "heuristic"
+    try:
+        cap = int(os.getenv("RECS_CANDIDATE_CAP", "30"))
+        candidates = build_recommendation_candidates(g.db_session, cap=cap)
+        recs = judge_candidates(candidates)
+        if not recs:
+            return generate_all_recommendations(), "heuristic"
+        recs = _group_recommendations_by_family(recs)
+        _annotate_shopping_status(recs)
+        return recs, "ai"
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AI recommendations failed, using heuristic fallback: %s", exc)
+        return generate_all_recommendations(), "heuristic"
 
 
 def _filter_confirmed_shopping_recommendations(recommendations: list[dict]) -> list[dict]:

@@ -525,6 +525,18 @@ class ShoppingListItem(Base):
     )
 
 
+class RecommendationCache(Base):
+    __tablename__ = "recommendation_cache"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scope = Column(String(40), nullable=False, default="household")
+    payload_json = Column(Text, nullable=False)
+    source = Column(String(20), nullable=False, default="heuristic")
+    generated_at = Column(DateTime, default=utcnow)
+
+    __table_args__ = (Index("ix_recommendation_cache_scope_generated", "scope", "generated_at"),)
+
+
 class ProductSnapshot(Base):
     __tablename__ = "product_snapshots"
 

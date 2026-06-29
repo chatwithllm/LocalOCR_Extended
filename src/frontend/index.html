@@ -3500,7 +3500,7 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
                   <button
                     type="button"
                     class="btn btn-ghost btn-sm"
-                    onclick="loadRecs('shopping-recs-body')"
+                    onclick="refreshRecsViaAI('shopping-recs-body')"
                   >
                     🔄 Refresh
                   </button>
@@ -36771,6 +36771,22 @@ body.inv-selection-mode #page-inventory { padding-top: 64px; }
       // ============================================================
       // Recommendations
       // ============================================================
+      async function refreshRecsViaAI(targetId = "shopping-recs-body") {
+        const body = document.getElementById(targetId);
+        if (body) body.innerHTML = `<div class="empty-state"><p>Updating recommendations…</p></div>`;
+        const start = await api("/recommendations/refresh", { method: "POST" });
+        if (!start.ok) { return loadRecs(targetId); }
+        const { job_id } = await start.json();
+        for (let i = 0; i < 600; i++) {            // up to ~10 min
+          await new Promise((r) => setTimeout(r, 1000));
+          const st = await api(`/recommendations/refresh/${job_id}`);
+          if (!st.ok) break;
+          const data = await st.json();
+          if (data.status === "done" || data.status === "error") break;
+        }
+        return loadRecs(targetId);                  // re-read from cache
+      }
+
       async function loadRecs(targetId = "shopping-recs-body") {
         const res = await api("/recommendations");
         const body = document.getElementById(targetId);
